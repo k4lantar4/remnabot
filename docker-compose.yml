@@ -83,7 +83,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
+  caddy:
+    image: caddy:2
+    container_name: remnawave_caddy
+    restart: unless-stopped
+    volumes:
+      - ./miniapp:/miniapp:ro          # монтируем локальную папку внутрь контейнера
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - bot_network
 volumes:
   postgres_data:
     driver: local
