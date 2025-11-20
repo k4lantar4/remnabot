@@ -13,7 +13,7 @@ from app.config import settings
 
 _logger = logging.getLogger(__name__)
 
-_FALLBACK_LANGUAGE = "ru"
+_FALLBACK_LANGUAGE = "en"
 
 _BASE_DIR = Path(__file__).resolve().parent
 _DEFAULT_LOCALES_DIR = _BASE_DIR / "locales"
@@ -72,7 +72,7 @@ def _select_fallback_language(available_map: Dict[str, str]) -> str:
     if _FALLBACK_LANGUAGE and _locale_file_exists(_FALLBACK_LANGUAGE):
         return _FALLBACK_LANGUAGE
 
-    return _FALLBACK_LANGUAGE or "ru"
+    return _FALLBACK_LANGUAGE or "en"
 
 
 def _determine_default_language() -> str:
@@ -233,7 +233,7 @@ def ensure_locale_templates() -> None:
             _copy_locale(template, destination / template.name)
         return
 
-    for locale_code in ("ru", "en"):
+    for locale_code in ("en", "ru"):
         source_path = _DEFAULT_LOCALES_DIR / f"{locale_code}.json"
         target_path = destination / f"{locale_code}.json"
 
