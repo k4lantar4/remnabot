@@ -2970,8 +2970,8 @@ async def handle_simple_subscription_purchase(
         message_text = "\n".join(simple_lines)
         
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="✅ Оплатить с баланса", callback_data="simple_subscription_pay_with_balance")],
-            [types.InlineKeyboardButton(text="💳 Другие способы оплаты", callback_data="simple_subscription_other_payment_methods")],
+            [types.InlineKeyboardButton(text=texts.t("PAY_WITH_BALANCE_BUTTON", "✅ Оплатить с баланса"), callback_data="simple_subscription_pay_with_balance")],
+            [types.InlineKeyboardButton(text=texts.t("OTHER_PAYMENT_METHODS_BUTTON", "💳 Другие способы оплаты"), callback_data="simple_subscription_other_payment_methods")],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data="subscription_purchase")]
         ])
     else:
@@ -3045,11 +3045,11 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
         yookassa_methods = []
         if settings.YOOKASSA_SBP_ENABLED:
             yookassa_methods.append(types.InlineKeyboardButton(
-                text="🏦 YooKassa (СБП)",
+                text=texts.t("PAYMENT_SBP_YOOKASSA", "🏦 YooKassa (СБП)"),
                 callback_data="simple_subscription_yookassa_sbp"
             ))
         yookassa_methods.append(types.InlineKeyboardButton(
-            text="💳 YooKassa (Карта)",
+            text=texts.t("PAYMENT_CARD_YOOKASSA", "💳 YooKassa (Карта)"),
             callback_data="simple_subscription_yookassa"
         ))
         if yookassa_methods:

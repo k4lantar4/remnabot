@@ -253,7 +253,7 @@ def _build_text_main_menu_keyboard(
         ])
     elif is_moderator:
         keyboard_rows.append([
-            InlineKeyboardButton(text="🧑‍⚖️ Модерация", callback_data="moderator_panel")
+            InlineKeyboardButton(text=texts.t("MODERATOR_PANEL_BUTTON", "🧑‍⚖️ Модерация"), callback_data="moderator_panel")
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
@@ -458,7 +458,7 @@ def get_main_menu_keyboard(
     # Moderator access (limited support panel)
     if (not is_admin) and is_moderator:
         keyboard.append([
-            InlineKeyboardButton(text="🧑‍⚖️ Модерация", callback_data="moderator_panel")
+            InlineKeyboardButton(text=texts.t("MODERATOR_PANEL_BUTTON", "🧑‍⚖️ Модерация"), callback_data="moderator_panel")
         ])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -822,7 +822,7 @@ def get_subscription_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_payment_methods_keyboard_with_cart(
-    language: str = "ru",
+    language: str = DEFAULT_LANGUAGE,
     amount_kopeks: int = 0,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
@@ -831,7 +831,7 @@ def get_payment_methods_keyboard_with_cart(
     # Добавляем кнопку "Очистить корзину"
     keyboard.inline_keyboard.append([
         InlineKeyboardButton(
-            text="🗑️ Очистить корзину и вернуться",
+            text=texts.t("CLEAR_CART_AND_RETURN_BUTTON", "🗑️ Очистить корзину и вернуться"),
             callback_data="clear_saved_cart"
         )
     ])
@@ -850,11 +850,11 @@ def get_subscription_confirm_keyboard_with_cart(language: str = "ru") -> InlineK
     texts = get_texts(language)
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="✅ Подтвердить покупку",
+            text=texts.t("CONFIRM_PURCHASE_BUTTON", "✅ Подтвердить покупку"),
             callback_data="subscription_confirm"
         )],
         [InlineKeyboardButton(
-            text="🗑️ Очистить корзину",
+            text=texts.t("CLEAR_CART_BUTTON", "🗑️ Очистить корзину"),
             callback_data="clear_saved_cart"
         )],
         [InlineKeyboardButton(
@@ -864,7 +864,7 @@ def get_subscription_confirm_keyboard_with_cart(language: str = "ru") -> InlineK
     ])
 
 def get_insufficient_balance_keyboard_with_cart(
-    language: str = "ru",
+    language: str = DEFAULT_LANGUAGE,
     amount_kopeks: int = 0,
 ) -> InlineKeyboardMarkup:
     # Используем обновленную версию с флагом has_saved_cart=True
@@ -875,11 +875,12 @@ def get_insufficient_balance_keyboard_with_cart(
     )
 
     # Добавляем кнопку очистки корзины в начало
+    texts = get_texts(language)
     keyboard.inline_keyboard.insert(
         0,
         [
             InlineKeyboardButton(
-                text="🗑️ Очистить корзину и вернуться",
+                text=texts.t("CLEAR_CART_AND_RETURN_BUTTON", "🗑️ Очистить корзину и вернуться"),
                 callback_data="clear_saved_cart",
             )
         ],
@@ -1520,16 +1521,13 @@ def get_add_traffic_keyboard(
         total_price = discounted_per_month * months_multiplier
         total_discount = discount_per_month * months_multiplier
 
+        texts = get_texts(language)
         if gb == 0:
-            if language == "ru":
-                text = f"♾️ Безлимитный трафик - {total_price//100} ₽{period_text}"
-            else:
-                text = f"♾️ Unlimited traffic - {total_price//100} ₽{period_text}"
+            unlimited_text = texts.t("TRAFFIC_UNLIMITED", "♾️ Unlimited traffic")
+            text = f"{unlimited_text} - {total_price//100} ₽{period_text}"
         else:
-            if language == "ru":
-                text = f"📊 +{gb} ГБ трафика - {total_price//100} ₽{period_text}"
-            else:
-                text = f"📊 +{gb} GB traffic - {total_price//100} ₽{period_text}"
+            traffic_text = texts.t("TRAFFIC_GB_ADD", f"📊 +{gb} GB traffic").format(gb=gb)
+            text = f"{traffic_text} - {total_price//100} ₽{period_text}"
 
         if discount_percent > 0 and total_discount > 0:
             text += f" (скидка {discount_percent}%: -{total_discount//100}₽)"

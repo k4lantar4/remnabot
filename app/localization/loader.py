@@ -13,10 +13,22 @@ from app.config import settings
 
 _logger = logging.getLogger(__name__)
 
-_FALLBACK_LANGUAGE = "en"
-
 _BASE_DIR = Path(__file__).resolve().parent
 _DEFAULT_LOCALES_DIR = _BASE_DIR / "locales"
+
+
+def _get_fallback_language() -> str:
+    """Get fallback language from settings, defaulting to 'en' if not configured."""
+    try:
+        default = settings.DEFAULT_LANGUAGE
+        if default and isinstance(default, str) and default.strip():
+            return default.strip().lower()
+    except (AttributeError, Exception):
+        pass
+    return "en"
+
+
+_FALLBACK_LANGUAGE = _get_fallback_language()
 
 
 def _normalize_language_code(value: Any) -> str:
@@ -69,10 +81,11 @@ def _select_fallback_language(available_map: Dict[str, str]) -> str:
         if _locale_file_exists(normalized):
             return normalized
 
-    if _FALLBACK_LANGUAGE and _locale_file_exists(_FALLBACK_LANGUAGE):
-        return _FALLBACK_LANGUAGE
+    fallback = _get_fallback_language()
+    if fallback and _locale_file_exists(fallback):
+        return fallback
 
-    return _FALLBACK_LANGUAGE or "en"
+    return fallback or "en"
 
 
 def _determine_default_language() -> str:
@@ -95,6 +108,8 @@ def _determine_default_language() -> str:
         if isinstance(lang, str) and lang.strip()
     }
 
+    fallback_lang = _get_fallback_language()
+
     if configured:
         normalized_configured = _normalize_language_code(configured)
 
@@ -108,27 +123,27 @@ def _determine_default_language() -> str:
             _logger.warning(
                 "Configured default language '%s' is not listed in AVAILABLE_LANGUAGES. Falling back to '%s'.",
                 configured,
-                _FALLBACK_LANGUAGE,
+                fallback_lang,
             )
         else:
             _logger.warning(
                 "Configured default language '%s' is not available. Falling back to '%s'.",
                 configured,
-                _FALLBACK_LANGUAGE,
+                fallback_lang,
             )
     else:
-        _logger.debug("DEFAULT_LANGUAGE is not set. Falling back to '%s'.", _FALLBACK_LANGUAGE)
+        _logger.debug("DEFAULT_LANGUAGE is not set. Falling back to '%s'.", fallback_lang)
 
     fallback_language = _select_fallback_language(available_map)
 
-    if _normalize_language_code(fallback_language) != _normalize_language_code(_FALLBACK_LANGUAGE):
+    if _normalize_language_code(fallback_language) != _normalize_language_code(fallback_lang):
         _logger.warning(
             "Fallback language '%s' is not available. Using '%s' instead.",
-            _FALLBACK_LANGUAGE,
+            fallback_lang,
             fallback_language,
         )
 
-    return fallback_language or _FALLBACK_LANGUAGE
+    return fallback_language or fallback_lang
 
 
 DEFAULT_LANGUAGE = _determine_default_language()

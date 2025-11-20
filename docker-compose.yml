@@ -12,6 +12,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - bot_network
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-remnawave_user} -d ${POSTGRES_DB:-remnawave_bot}"]
       interval: 30s
@@ -56,7 +58,7 @@ services:
       
       REDIS_URL: "redis://redis:6379/0"
       
-      TZ: "Europe/Moscow"
+      TZ: "Asia/Tehran"
       LOCALES_PATH: "${LOCALES_PATH:-/app/locales}"
     volumes:
       # Логи

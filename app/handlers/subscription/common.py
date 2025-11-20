@@ -457,9 +457,11 @@ def get_traffic_switch_keyboard(
             InlineKeyboardButton(text=button_text, callback_data=f"switch_traffic_{gb}")
         ])
 
+    from app.localization.texts import get_texts
+    texts = get_texts(language)
     buttons.append([
         InlineKeyboardButton(
-            text="⬅️ Назад" if language == "ru" else "⬅️ Back",
+            text=texts.t("BACK_BUTTON", "⬅️ Back"),
             callback_data="subscription_settings"
         )
     ])

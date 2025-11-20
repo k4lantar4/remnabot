@@ -465,7 +465,9 @@ def _perform_settings_search(query: str) -> List[Dict[str, object]]:
     return results[:20]
 
 
-def _build_search_results_keyboard(results: List[Dict[str, object]]) -> types.InlineKeyboardMarkup:
+def _build_search_results_keyboard(results: List[Dict[str, object]], language: str = "en") -> types.InlineKeyboardMarkup:
+    from app.localization.texts import get_texts
+    texts = get_texts(language)
     rows: List[List[types.InlineKeyboardButton]] = []
     for result in results:
         group_key = str(result["group_key"])
@@ -489,7 +491,7 @@ def _build_search_results_keyboard(results: List[Dict[str, object]]) -> types.In
     rows.append(
         [
             types.InlineKeyboardButton(
-                text="⬅️ В главное меню",
+                text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"),
                 callback_data="admin_bot_config",
             )
         ]
@@ -518,6 +520,7 @@ async def start_settings_search(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     await state.set_state(BotConfigStates.waiting_for_search_query)
     await state.update_data(botcfg_origin="bot_config")
 
@@ -525,7 +528,7 @@ async def start_settings_search(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="⬅️ В главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ]
         ]
@@ -556,11 +559,12 @@ async def handle_search_query(
     if data.get("botcfg_origin") != "bot_config":
         return
 
+    texts = get_texts(db_user.language)
     query = (message.text or "").strip()
     results = _perform_settings_search(query)
 
     if results:
-        keyboard = _build_search_results_keyboard(results)
+        keyboard = _build_search_results_keyboard(results, db_user.language)
         lines = [
             "🔍 <b>Результаты поиска</b>",
             f"Запрос: <code>{html.escape(query)}</code>",
@@ -582,7 +586,7 @@ async def handle_search_query(
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text="🏠 Главное меню", callback_data="admin_bot_config"
+                        text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                     )
                 ],
             ]
@@ -623,13 +627,14 @@ async def show_presets(
             )
         )
 
+    texts = get_texts(db_user.language)
     rows: List[List[types.InlineKeyboardButton]] = []
     for chunk in _chunk(buttons, 2):
         rows.append(list(chunk))
     rows.append(
         [
             types.InlineKeyboardButton(
-                text="⬅️ Главное меню", callback_data="admin_bot_config"
+                text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
             )
         ]
     )
@@ -740,6 +745,7 @@ async def apply_preset(
             )
     await db.commit()
 
+    texts = get_texts(db_user.language)
     title = PRESET_METADATA.get(preset_key, {}).get("title", preset_key)
     summary_lines = [
         f"✅ Пресет <b>{title}</b> применен",
@@ -758,7 +764,7 @@ async def apply_preset(
             ],
             [
                 types.InlineKeyboardButton(
-                    text="🏠 Главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ],
         ]
@@ -819,6 +825,7 @@ async def start_import_settings(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     await state.set_state(BotConfigStates.waiting_for_import_file)
     await state.update_data(botcfg_origin="bot_config")
 
@@ -826,7 +833,7 @@ async def start_import_settings(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="⬅️ Главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ]
         ]
@@ -924,11 +931,12 @@ async def handle_import_message(
         summary_lines.append("\nОшибки разбора:")
         summary_lines.append("\n".join(f"• {html.escape(err)}" for err in errors))
 
+    texts = get_texts(db_user.language)
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="🏠 Главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ]
         ]
@@ -969,11 +977,12 @@ async def show_settings_history(
     else:
         lines.append("История изменений пуста.")
 
+    texts = get_texts(db_user.language)
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="⬅️ Главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ]
         ]
@@ -993,6 +1002,7 @@ async def show_help(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     text = (
         "❓ <b>Как работать с панелью</b>\n\n"
         "• Навигируйте по категориям, чтобы увидеть связанные настройки.\n"
@@ -1007,7 +1017,7 @@ async def show_help(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="🏠 Главное меню", callback_data="admin_bot_config"
+                    text=texts.t("ADMIN_BACK_TO_MAIN", "🏠 Back to main menu"), callback_data="admin_bot_config"
                 )
             ]
         ]

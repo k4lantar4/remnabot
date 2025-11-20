@@ -310,10 +310,12 @@ class Settings(BaseSettings):
     MINIAPP_CUSTOM_URL: str = ""
     MINIAPP_STATIC_PATH: str = "miniapp"
     MINIAPP_PURCHASE_URL: str = ""
-    MINIAPP_SERVICE_NAME_EN: str = "Bedolaga VPN"
-    MINIAPP_SERVICE_NAME_RU: str = "Bedolaga VPN"
+    MINIAPP_SERVICE_NAME_EN: str = "Capitan VPN"
+    MINIAPP_SERVICE_NAME_RU: str = "Capitan VPN"
+    MINIAPP_SERVICE_NAME_FA: str = "کاپیتان وی پی ان"
     MINIAPP_SERVICE_DESCRIPTION_EN: str = "Secure & Fast Connection"
     MINIAPP_SERVICE_DESCRIPTION_RU: str = "Безопасное и быстрое подключение"
+    MINIAPP_SERVICE_DESCRIPTION_FA: str = "اتصال امن و سریع"
     CONNECT_BUTTON_HAPP_DOWNLOAD_ENABLED: bool = False
     HAPP_CRYPTOLINK_REDIRECT_TEMPLATE: Optional[str] = None
     HAPP_DOWNLOAD_LINK_IOS: Optional[str] = None
@@ -328,7 +330,7 @@ class Settings(BaseSettings):
     SKIP_REFERRAL_CODE: bool = False
 
     DEFAULT_LANGUAGE: str = "ru"
-    AVAILABLE_LANGUAGES: str = "ru,en"
+    AVAILABLE_LANGUAGES: str = "ru,en,fa"
     LANGUAGE_SELECTION_ENABLED: bool = True
     
     LOG_LEVEL: str = "INFO"
@@ -824,10 +826,12 @@ class Settings(BaseSettings):
 
         name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
         name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
+        name_fa = _clean(self.MINIAPP_SERVICE_NAME_FA)
         desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
         desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_RU)
+        desc_fa = _clean(self.MINIAPP_SERVICE_DESCRIPTION_FA)
 
-        default_name = name_en or name_ru or "RemnaWave VPN"
+        default_name = name_en or name_ru or "Capitan VPN"
         default_description = desc_en or desc_ru or "Secure & Fast Connection"
 
         return {
@@ -835,11 +839,13 @@ class Settings(BaseSettings):
                 "default": default_name,
                 "en": name_en,
                 "ru": name_ru,
+                "fa": name_fa,
             },
             "service_description": {
                 "default": default_description,
                 "en": desc_en,
                 "ru": desc_ru,
+                "fa": desc_fa,
             },
         }
     

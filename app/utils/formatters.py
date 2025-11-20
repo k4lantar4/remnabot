@@ -183,8 +183,14 @@ def format_subscription_status(
     is_active: bool,
     is_trial: bool,
     end_date: Union[datetime, str],
-    language: str = "ru"
+    language: str = None
 ) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
+    
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
     
     if isinstance(end_date, str):
         try:
@@ -193,45 +199,57 @@ def format_subscription_status(
             end_date = datetime.now()
     
     if not is_active:
-        return "❌ Неактивна" if language == "ru" else "❌ Inactive"
+        return texts.t("SUBSCRIPTION_STATUS_INACTIVE", "❌ Inactive")
     
     if is_trial:
-        status = "🎁 Тестовая" if language == "ru" else "🎁 Trial"
+        status = texts.t("SUBSCRIPTION_STATUS_TRIAL", "🎁 Trial")
     else:
-        status = "✅ Активна" if language == "ru" else "✅ Active"
+        status = texts.t("SUBSCRIPTION_STATUS_ACTIVE", "✅ Active")
     
     now = datetime.utcnow()
     if end_date > now:
         days_left = (end_date - now).days
         if days_left > 0:
-            status += f" ({days_left} дн.)" if language == "ru" else f" ({days_left} days)"
+            days_text = texts.t("DAYS_LEFT", "{days} days").format(days=days_left)
+            status += f" ({days_text})"
         else:
             hours_left = (end_date - now).seconds // 3600
-            status += f" ({hours_left} ч.)" if language == "ru" else f" ({hours_left} hrs)"
+            hours_text = texts.t("HOURS_LEFT", "{hours} hrs").format(hours=hours_left)
+            status += f" ({hours_text})"
     else:
-        status = "⏰ Истекла" if language == "ru" else "⏰ Expired"
+        status = texts.t("SUBSCRIPTION_STATUS_EXPIRED", "⏰ Expired")
     
     return status
 
 
-def format_traffic_usage(used_gb: float, limit_gb: int, language: str = "ru") -> str:
+def format_traffic_usage(used_gb: float, limit_gb: int, language: str = None) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
+    
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
     
     if limit_gb == 0: 
-        if language == "ru":
-            return f"{used_gb:.1f} ГБ / ∞"
-        else:
-            return f"{used_gb:.1f} GB / ∞"
+        return texts.t("TRAFFIC_USAGE_UNLIMITED", "{used} GB / ∞").format(used=f"{used_gb:.1f}")
     
     percentage = (used_gb / limit_gb) * 100 if limit_gb > 0 else 0
+    return texts.t("TRAFFIC_USAGE_FORMAT", "{used} GB / {limit} GB ({percent}%)").format(
+        used=f"{used_gb:.1f}",
+        limit=limit_gb,
+        percent=f"{percentage:.1f}"
+    )
+
+
+def format_boolean(value: bool, language: str = None) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
     
-    if language == "ru":
-        return f"{used_gb:.1f} ГБ / {limit_gb} ГБ ({percentage:.1f}%)"
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
+    
+    if value:
+        return texts.t("BOOLEAN_YES", "✅ Yes")
     else:
-        return f"{used_gb:.1f} GB / {limit_gb} GB ({percentage:.1f}%)"
-
-
-def format_boolean(value: bool, language: str = "ru") -> str:
-    if language == "ru":
-        return "✅ Да" if value else "❌ Нет"
-    else:
-        return "✅ Yes" if value else "❌ No"
+        return texts.t("BOOLEAN_NO", "❌ No")

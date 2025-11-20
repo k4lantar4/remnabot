@@ -156,7 +156,7 @@ async def start_simple_subscription_purchase(
         # Клавиатура с подтверждением
         keyboard_rows = [
             [types.InlineKeyboardButton(
-                text="✅ Подтвердить покупку",
+                text=texts.t("CONFIRM_PURCHASE_BUTTON", "✅ Подтвердить покупку"),
                 callback_data="simple_subscription_confirm_purchase"
             )],
             [types.InlineKeyboardButton(
@@ -188,7 +188,7 @@ async def start_simple_subscription_purchase(
         if can_pay_from_balance:
             keyboard_rows.append([
                 types.InlineKeyboardButton(
-                    text="✅ Оплатить с баланса",
+                    text=texts.t("PAY_WITH_BALANCE_BUTTON", "✅ Оплатить с баланса"),
                     callback_data="simple_subscription_pay_with_balance",
                 )
             ])
@@ -245,11 +245,11 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
         yookassa_methods = []
         if settings.YOOKASSA_SBP_ENABLED:
             yookassa_methods.append(types.InlineKeyboardButton(
-                text="🏦 YooKassa (СБП)",
+                text=texts.t("PAYMENT_SBP_YOOKASSA", "🏦 YooKassa (СБП)"),
                 callback_data="simple_subscription_yookassa_sbp"
             ))
         yookassa_methods.append(types.InlineKeyboardButton(
-            text="💳 YooKassa (Карта)",
+            text=texts.t("PAYMENT_CARD_YOOKASSA", "💳 YooKassa (Карта)"),
             callback_data="simple_subscription_yookassa"
         ))
         if yookassa_methods:
@@ -596,7 +596,7 @@ async def handle_simple_subscription_pay_with_balance(
             keyboard_rows.append(happ_row)
 
         keyboard_rows.append(
-            [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
+            [types.InlineKeyboardButton(text=texts.t("BACK_TO_MAIN_MENU_BUTTON", "🏠 Главное меню"), callback_data="back_to_menu")]
         )
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
@@ -742,7 +742,7 @@ async def handle_simple_subscription_other_payment_methods(
     if can_pay_from_balance:
         keyboard_rows.append([
             types.InlineKeyboardButton(
-                text="✅ Оплатить с баланса",
+                text=texts.t("PAY_WITH_BALANCE_BUTTON", "✅ Оплатить с баланса"),
                 callback_data="simple_subscription_pay_with_balance"
             )
         ])
@@ -954,13 +954,13 @@ async def handle_simple_subscription_payment_method(
             
             # Добавляем кнопку оплаты, если доступна ссылка
             if confirmation_url:
-                keyboard_buttons.append([types.InlineKeyboardButton(text="🔗 Перейти к оплате", url=confirmation_url)])
+                keyboard_buttons.append([types.InlineKeyboardButton(text=texts.t("GO_TO_PAYMENT_BUTTON", "🔗 Перейти к оплате"), url=confirmation_url)])
             else:
                 # Если ссылка недоступна, предлагаем оплатить через ID платежа в приложении банка
-                keyboard_buttons.append([types.InlineKeyboardButton(text="📱 Оплатить в приложении банка", callback_data="temp_disabled")])
+                keyboard_buttons.append([types.InlineKeyboardButton(text=texts.t("PAY_IN_BANK_APP_BUTTON", "📱 Оплатить в приложении банка"), callback_data="temp_disabled")])
             
             # Добавляем общие кнопки
-            keyboard_buttons.append([types.InlineKeyboardButton(text="📊 Проверить статус", callback_data=f"check_yookassa_{payment_result['local_payment_id']}")])
+            keyboard_buttons.append([types.InlineKeyboardButton(text=texts.t("CHECK_STATUS_BUTTON", "📊 Проверить статус"), callback_data=f"check_yookassa_{payment_result['local_payment_id']}")])
             keyboard_buttons.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="subscription_purchase")])
             
             keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -1099,7 +1099,7 @@ async def handle_simple_subscription_payment_method(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="🪙 Оплатить через CryptoBot",
+                            text=texts.t("PAY_CRYPTOBOT_BUTTON", "🪙 Оплатить через CryptoBot"),
                             url=payment_url,
                         )
                     ],
@@ -1193,7 +1193,7 @@ async def handle_simple_subscription_payment_method(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="🪙 Оплатить через Heleket",
+                            text=texts.t("PAY_HELEKET_BUTTON", "🪙 Оплатить через Heleket"),
                             url=payment_url,
                         )
                     ],
@@ -2293,7 +2293,7 @@ async def confirm_simple_subscription_purchase(
             keyboard_rows.append(happ_row)
 
         keyboard_rows.append(
-            [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
+            [types.InlineKeyboardButton(text=texts.t("BACK_TO_MAIN_MENU_BUTTON", "🏠 Главное меню"), callback_data="back_to_menu")]
         )
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
