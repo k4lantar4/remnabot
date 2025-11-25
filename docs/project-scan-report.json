@@ -1,0 +1,113 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2025-11-21T13:11:52Z",
+    "last_updated": "2025-11-21T13:27:22Z",
+    "completed": "2025-11-21T13:27:22Z"
+  },
+  "mode": "initial_scan",
+  "scan_level": "exhaustive",
+  "project_root": "/home/k4lantar4/Documents/Dev/remnabot",
+  "output_folder": "/home/k4lantar4/Documents/Dev/remnabot/docs",
+  "completed_steps": [
+    {
+      "step": "step_1",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:11:52Z",
+      "summary": "Classified as monolith backend project"
+    },
+    {
+      "step": "step_2",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:14:15Z",
+      "summary": "Found 7 existing documentation files"
+    },
+    {
+      "step": "step_3",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:14:15Z",
+      "summary": "Tech stack: Python 3.13, aiogram 3.22, FastAPI 0.115, PostgreSQL 15, Redis 7"
+    },
+    {
+      "step": "step_4",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Conditional analysis complete: API contracts and data models documented"
+    },
+    {
+      "step": "step_5",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Source tree analysis generated"
+    },
+    {
+      "step": "step_6",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Development and deployment guides written"
+    },
+    {
+      "step": "step_8",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Architecture documentation generated"
+    },
+    {
+      "step": "step_9",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Project overview created"
+    },
+    {
+      "step": "step_10",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Master index generated"
+    },
+    {
+      "step": "step_11",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Documentation validation complete"
+    },
+    {
+      "step": "step_12",
+      "status": "completed",
+      "timestamp": "2025-11-21T13:27:22Z",
+      "summary": "Workflow complete"
+    }
+  ],
+  "current_step": "completed",
+  "findings": {
+    "project_classification": {
+      "repository_type": "monolith",
+      "parts_count": 1,
+      "primary_tech": "Python 3.13, aiogram, FastAPI, PostgreSQL"
+    },
+    "documentation_summary": {
+      "generated_files": 7,
+      "existing_files": 7,
+      "total_files": 14
+    }
+  },
+  "project_types": [
+    {
+      "part_id": "main",
+      "project_type_id": "backend",
+      "display_name": "Backend API Server"
+    }
+  ],
+  "outputs_generated": [
+    "project-scan-report.json",
+    "api-contracts.md",
+    "data-models.md",
+    "source-tree-analysis.md",
+    "development-guide.md",
+    "deployment-guide.md",
+    "architecture.md",
+    "project-overview.md",
+    "index.md"
+  ],
+  "resume_instructions": "Workflow completed successfully"
+}
+
