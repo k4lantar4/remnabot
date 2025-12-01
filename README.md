@@ -31,7 +31,7 @@
 Он просто делает вашу работу вместо вас, принимает оплату, выдаёт подписки, интегрируется с Remnawave и тихо ненавидит всех, кто ещё не подключил его.
 
 Вы хотите продавать VPN — Бедолага позволит это делать.
-Вы хотите спать — он позволит и это.
+Вы хотите спать — он позволит и это...
 
 ### ⚡ **Полная автоматизация VPN бизнеса**
 - 🎯 **Готовое решение** - разверни за 5 минут, начни продавать сегодня
@@ -154,7 +154,7 @@ WEBHOOK_SECRET_TOKEN=super-secret-token
 # Настройки Web API
 WEB_API_ENABLED=true
 WEB_API_PORT=8080
-WEB_API_ALLOWED_ORIGINS=https://miniapp.example.com
+WEB_API_ALLOWED_ORIGINS=https://miniapp.domain.com
 WEB_API_DEFAULT_TOKEN=super-secret-token
 
 # Настройки Remnawave
@@ -172,7 +172,7 @@ REMNAWAVE_API_KEY=your_api_key
 
 ```env
 BOT_RUN_MODE=webhook
-WEBHOOK_URL=https://api.domain.com
+WEBHOOK_URL=https://hooks.domain.com
 WEBHOOK_PATH=/webhook
 WEBHOOK_SECRET_TOKEN=super-secret-token
 WEBHOOK_DROP_PENDING_UPDATES=true
@@ -184,8 +184,7 @@ WEBHOOK_WORKER_SHUTDOWN_TIMEOUT=30.0
 WEB_API_ENABLED=true
 WEB_API_HOST=0.0.0.0
 WEB_API_PORT=8080
-WEB_API_ALLOWED_ORIGINS=https://bot.example.com
-MINIAPP_CUSTOM_URL=https://bot.example.com/miniapp
+WEB_API_ALLOWED_ORIGINS=https://miniapp.domain.com
 ```
 
 * `WEBHOOK_URL` — публичный HTTPS-домен прокси. К нему автоматически добавится путь из `WEBHOOK_PATH`.
@@ -326,7 +325,7 @@ networks:
 
 Если бот и панель Remnawave запускаются на одном сервере, подключите бота к сети панели:
 
-**docker-compose.yml бота:**
+**docker-compose.local.yml бота(есть в репо):**
 ```yaml
 services:
   postgres:
@@ -433,8 +432,6 @@ networks:
 
 ### 5. Проверка здоровья
 
-Статические файлы миниапки автоматически монтируются из каталога `MINIAPP_STATIC_PATH` (по умолчанию `miniapp/`) и доступны по пути `/miniapp/static`.
-
 Проверьте, что единый сервер отвечает:
 
 ```bash
@@ -458,24 +455,117 @@ curl -s https://bot.example.com/health/unified | jq
 `Caddyfile`:
 
 ```caddy
-# API
-api.domain.com {
+# Hooks + API 
+hooks.domain.com {
     encode gzip zstd
     
-    @config path /app-config.json
-    header @config Access-Control-Allow-Origin "*"
+    # Webhook пути для платежных систем
+    handle /yookassa-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
     
-    reverse_proxy remnawave_bot:8080 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        transport http {
-            read_buffer 0
+    handle /platega-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /cryptobot-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /wata-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /heleket-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /tribute-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /pal24-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    handle /mulenpay-webhook {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    # app-config.json с CORS
+    handle /app-config.json {
+        header Access-Control-Allow-Origin "*"
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
+        }
+    }
+    
+    # Все остальные запросы
+    handle {
+        reverse_proxy remnawave_bot:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                read_buffer 0
+            }
         }
     }
 }
 
 # Статика для miniapp
-podpiska.domain.com {
+miniapp.domain.com {
     encode gzip zstd
     
     # API эндпоинты /miniapp/* в приложение
@@ -518,7 +608,6 @@ podpiska.domain.com {
 
 ```nginx
 events {}
-
 http {
     include /etc/nginx/mime.types;
     sendfile on;
@@ -527,16 +616,113 @@ http {
         server remnawave_bot:8080;
     }
     
-    # API домен
+    # Hooks + API домен
     server {
         listen 80;
         listen 443 ssl http2;
-        server_name api.domain.com;
+        server_name hooks.domain.com;
         
-        ssl_certificate /etc/ssl/private/api.fullchain.pem;
-        ssl_certificate_key /etc/ssl/private/api.privkey.pem;
+        ssl_certificate /etc/ssl/private/hooks.fullchain.pem;
+        ssl_certificate_key /etc/ssl/private/hooks.privkey.pem;
         
         client_max_body_size 32m;
+        
+        # Webhook пути для платежных систем
+        location = /yookassa-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /platega-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /cryptobot-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /wata-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /heleket-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /tribute-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /pal24-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+        
+        location = /mulenpay-webhook {
+            proxy_pass http://remnawave_bot_unified;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
         
         # app-config.json с CORS
         location = /app-config.json {
@@ -566,10 +752,10 @@ http {
     server {
         listen 80;
         listen 443 ssl http2;
-        server_name podpiska.domain.com;
+        server_name miniapp.domain.com;
         
-        ssl_certificate /etc/ssl/private/podpiska.fullchain.pem;
-        ssl_certificate_key /etc/ssl/private/podpiska.privkey.pem;
+        ssl_certificate /etc/ssl/private/miniapp.fullchain.pem;
+        ssl_certificate_key /etc/ssl/private/miniapp.privkey.pem;
         
         client_max_body_size 32m;
         
@@ -616,6 +802,102 @@ http {
 - Откройте входящие 80/443 в файерволе.
 - Если используете Cloudflare/анти-DDoS, разрешите методы `POST` и заголовок `X-Telegram-Bot-Api-Secret-Token`.
 - После развёртывания перезапустите бот (`make reload`), чтобы он заново зарегистрировал webhook.
+
+### Быстрая настройка SSL для Nginx в Docker
+
+#### 1. Установка Certbot
+```bash
+sudo apt update && sudo apt install certbot -y
+```
+
+#### 2. Генерация сертификатов
+```bash
+# Остановите Nginx Docker контейнер
+docker compose down
+
+# Сгенерируйте сертификаты (порт 80 должен быть свободен)
+sudo certbot certonly --standalone -d hooks.domain.com --agree-tos --email your-email@example.com --non-interactive
+sudo certbot certonly --standalone -d miniapp.domain.com --agree-tos --email your-email@example.com --non-interactive
+```
+
+#### 3. Копирование сертификатов
+```bash
+sudo mkdir -p /etc/ssl/private
+
+sudo cp /etc/letsencrypt/live/hooks.domain.com/fullchain.pem /etc/ssl/private/hooks.fullchain.pem
+sudo cp /etc/letsencrypt/live/hooks.domain.com/privkey.pem /etc/ssl/private/hooks.privkey.pem
+sudo cp /etc/letsencrypt/live/miniapp.domain.com/fullchain.pem /etc/ssl/private/miniapp.fullchain.pem
+sudo cp /etc/letsencrypt/live/miniapp.domain.com/privkey.pem /etc/ssl/private/miniapp.privkey.pem
+
+sudo chmod 600 /etc/ssl/private/*.pem
+```
+
+#### 4. Обновите docker-compose.yml
+```yaml
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/ssl/private:/etc/ssl/private:ro
+      - /var/www/remnawave-miniapp:/var/www/remnawave-miniapp:ro
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+
+networks:
+  remnawave-network:
+    external: true
+```
+
+#### 5. Запуск Nginx
+```bash
+docker compose up -d
+```
+
+#### 6. Автообновление сертификатов
+```bash
+# Создайте скрипт обновления
+sudo tee /opt/renew-certs.sh > /dev/null <<'EOF'
+#!/bin/bash
+# Останавливаем Nginx для освобождения порта 80
+docker compose -f /путь/к/docker-compose.yml down
+
+# Обновляем сертификаты
+certbot renew --quiet
+
+# Копируем обновленные сертификаты
+cp /etc/letsencrypt/live/hooks.domain.com/fullchain.pem /etc/ssl/private/hooks.fullchain.pem
+cp /etc/letsencrypt/live/hooks.domain.com/privkey.pem /etc/ssl/private/hooks.privkey.pem
+cp /etc/letsencrypt/live/miniapp.domain.com/fullchain.pem /etc/ssl/private/miniapp.fullchain.pem
+cp /etc/letsencrypt/live/miniapp.domain.com/privkey.pem /etc/ssl/private/miniapp.privkey.pem
+chmod 600 /etc/ssl/private/*.pem
+
+# Запускаем Nginx обратно
+docker compose -f /путь/к/docker-compose.yml up -d
+EOF
+
+# Сделайте скрипт исполняемым
+sudo chmod +x /opt/renew-certs.sh
+
+# Добавьте в cron (запуск каждый день в 3:00 AM)
+echo "0 3 * * * /opt/renew-certs.sh" | sudo crontab -
+```
+
+#### Проверка работы SSL
+```bash
+curl -I https://hooks.domain.com
+curl -I https://miniapp.domain.com
+```
+
+**Важно:** 
+- Замените `domain.com` и `your-email@example.com` на свои данные
+- Замените `/путь/к/docker-compose.yml` на реальный путь к вашему docker-compose файлу
+- Убедитесь, что DNS записи для доменов указывают на IP вашего сервера
 
 ---
 
@@ -904,6 +1186,7 @@ REDIS_URL=redis://redis:6379/0
 - ⏰ **Продление/сокращение срока** подписки (±365 дней)
 - 🚫 Блокировки с таймером и аудит действий
 - 🛡️ **Защита от запрещенных никнеймов** с настраиваемым список банвордов (автоблокировка подозрительных имен)
+- 💰 **Установка индивидуального реферального процента юзеру**
 
 🎯 **Продажи, маркетинг и удержание**
 - 🎫 Промокоды 
@@ -949,6 +1232,15 @@ REDIS_URL=redis://redis:6379/0
 - 📘 **Управление пакетами трафика** (включение/отключение)
 - 🧪 Тестовые платежи для каждого провайдера
 - 🪙 Управление вебхуками всех платёжных систем
+- ⚙️ **Управление настройками из бота** (с приоритетом в .env)
+
+⚙️ **Remnawave**
+- Синхронизация юзеров из панели в бота (Ручная/автоматическая по таймеру)
+- Синхронизация юзеров из бота в панель
+- Синхронизация сквадов(серверов) из панели в бота
+- Управление нодами/сквадами прямо в боте
+- Детальная статистика по нодам/панели
+- Создание/Редактивание сквадов в боте
 
 🗃️ **REST API для интеграций**
 - 🔌 **FastAPI Web API** с полной документацией
@@ -1454,17 +1746,6 @@ REMNAWAVE_SECRET_KEY=XXXXXXX:DDDDDDDD
 ### 🆘 Частые вопросы
 
 <details>
-<summary><b>Как начать работу?</b></summary>
-
-1. Скачайте репозиторий
-2. Запустите `install_bot.sh`
-3. Следуйте инструкциям установщика
-4. Синхронизируйте серверы в админке
-5. Готово! 🎉
-
-</details>
-
-<details>
 <summary><b>Какие требования к серверу?</b></summary>
 
 Минимальные:
@@ -1498,18 +1779,26 @@ REMNAWAVE_SECRET_KEY=XXXXXXX:DDDDDDDD
 <details>
 <summary><b>Как обновить бота?</b></summary>
 
-**Через install_bot.sh (рекомендуется):**
-```bash
-./install_bot.sh
-# Выбрать: 4. 🔄 Обновить проект из Git
-```
-
 **Вручную:**
 ```bash
-git pull
-docker compose down
-docker compose pull
-docker compose up -d
+cd /root/remnawave-bedolaga-telegram-bot
+
+# Обновление до последнего коммита (до последней мастер ветки, не всегда стабильно):
+
+git pull origin main
+
+# Обновление до конкретной версии (более стабильно, релиз версии):
+
+git fetch --tags
+git checkout v2.7.0
+
+# Перезагружаем конты:
+
+make reload
+
+# Перезагружаем конты с логами:
+
+make reload-follow
 ```
 
 Скрипт автоматически создаст бэкап перед обновлением!
@@ -1522,12 +1811,6 @@ docker compose up -d
 **Автоматически:**
 - Настройте в `.env`: `BACKUP_AUTO_ENABLED=true`
 - Бэкапы создаются по расписанию
-
-**Вручную через install_bot.sh:**
-```bash
-./install_bot.sh
-# Выбрать: 5. 💾 Создать резервную копию
-```
 
 **Через админ-панель:**
 - Админ панель → Настройки → Бэкапы → Создать

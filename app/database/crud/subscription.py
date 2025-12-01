@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 from typing import Iterable, Optional, List, Tuple
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -676,9 +676,112 @@ async def get_subscriptions_statistics(db: AsyncSession) -> dict:
         "purchased_today": purchased_today,
         "purchased_week": purchased_week,
         "purchased_month": purchased_month,
-        "trial_to_paid_conversion": trial_to_paid_conversion, 
-        "renewals_count": renewals_count 
+        "trial_to_paid_conversion": trial_to_paid_conversion,
+        "renewals_count": renewals_count
     }
+
+
+async def get_trial_statistics(db: AsyncSession) -> dict:
+    now = datetime.utcnow()
+
+    total_trials_result = await db.execute(
+        select(func.count(Subscription.id)).where(Subscription.is_trial.is_(True))
+    )
+    total_trials = total_trials_result.scalar() or 0
+
+    active_trials_result = await db.execute(
+        select(func.count(Subscription.id)).where(
+            Subscription.is_trial.is_(True),
+            Subscription.end_date > now,
+            Subscription.status.in_(
+                [SubscriptionStatus.TRIAL.value, SubscriptionStatus.ACTIVE.value]
+            ),
+        )
+    )
+    active_trials = active_trials_result.scalar() or 0
+
+    resettable_trials_result = await db.execute(
+        select(func.count(Subscription.id))
+        .join(User, Subscription.user_id == User.id)
+        .where(
+            Subscription.is_trial.is_(True),
+            Subscription.end_date <= now,
+            User.has_had_paid_subscription.is_(False),
+        )
+    )
+    resettable_trials = resettable_trials_result.scalar() or 0
+
+    return {
+        "used_trials": total_trials,
+        "active_trials": active_trials,
+        "resettable_trials": resettable_trials,
+    }
+
+
+async def reset_trials_for_users_without_paid_subscription(db: AsyncSession) -> int:
+    now = datetime.utcnow()
+
+    result = await db.execute(
+        select(Subscription)
+        .options(
+            selectinload(Subscription.user),
+            selectinload(Subscription.subscription_servers),
+        )
+        .join(User, Subscription.user_id == User.id)
+        .where(
+            Subscription.is_trial.is_(True),
+            Subscription.end_date <= now,
+            User.has_had_paid_subscription.is_(False),
+        )
+    )
+
+    subscriptions = result.scalars().unique().all()
+    if not subscriptions:
+        return 0
+
+    reset_count = len(subscriptions)
+    for subscription in subscriptions:
+        try:
+            await decrement_subscription_server_counts(
+                db,
+                subscription,
+                subscription_servers=subscription.subscription_servers,
+            )
+        except Exception as error:  # pragma: no cover - defensive logging
+            logger.error(
+                "Не удалось обновить счётчики серверов при сбросе триала %s: %s",
+                subscription.id,
+                error,
+            )
+
+    subscription_ids = [subscription.id for subscription in subscriptions]
+
+    if subscription_ids:
+        try:
+            await db.execute(
+                delete(SubscriptionServer).where(
+                    SubscriptionServer.subscription_id.in_(subscription_ids)
+                )
+            )
+        except Exception as error:  # pragma: no cover - defensive logging
+            logger.error(
+                "Ошибка удаления серверных связей триалов %s: %s",
+                subscription_ids,
+                error,
+            )
+            raise
+
+        await db.execute(delete(Subscription).where(Subscription.id.in_(subscription_ids)))
+
+    try:
+        await db.commit()
+    except Exception as error:  # pragma: no cover - defensive logging
+        await db.rollback()
+        logger.error("Ошибка сохранения сброса триалов: %s", error)
+        raise
+
+    logger.info("♻️ Сброшено триальных подписок: %s", reset_count)
+    return reset_count
 
 async def update_subscription_usage(
     db: AsyncSession,
@@ -885,8 +988,8 @@ async def calculate_subscription_total_cost(
         ]
     }
 
-    logger.info(f"📊 Расчет стоимости подписки на {period_days} дней ({months_in_period} мес):")
-    logger.info(f"   Базовый период: {base_price/100}₽")
+    logger.debug(f"📊 Расчет стоимости подписки на {period_days} дней ({months_in_period} мес):")
+    logger.debug(f"   Базовый период: {base_price/100}₽")
     if total_traffic_price > 0:
         message = (
             f"   Трафик: {traffic_price_per_month/100}₽/мес × {months_in_period} = {total_traffic_price/100}₽"
@@ -895,7 +998,7 @@ async def calculate_subscription_total_cost(
             message += (
                 f" (скидка {traffic_discount_percent}%: -{total_traffic_discount/100}₽)"
             )
-        logger.info(message)
+        logger.debug(message)
     if total_servers_price > 0:
         message = (
             f"   Серверы: {servers_price_per_month/100}₽/мес × {months_in_period} = {total_servers_price/100}₽"
@@ -904,7 +1007,7 @@ async def calculate_subscription_total_cost(
             message += (
                 f" (скидка {servers_discount_percent}%: -{total_servers_discount/100}₽)"
             )
-        logger.info(message)
+        logger.debug(message)
     if total_devices_price > 0:
         message = (
             f"   Устройства: {devices_price_per_month/100}₽/мес × {months_in_period} = {total_devices_price/100}₽"
@@ -913,8 +1016,8 @@ async def calculate_subscription_total_cost(
             message += (
                 f" (скидка {devices_discount_percent}%: -{total_devices_discount/100}₽)"
             )
-        logger.info(message)
-    logger.info(f"   ИТОГО: {total_cost/100}₽")
+        logger.debug(message)
+    logger.debug(f"   ИТОГО: {total_cost/100}₽")
     
     return total_cost, details
     
