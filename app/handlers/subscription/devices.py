@@ -490,7 +490,7 @@ async def execute_change_devices(
         )
 
         logger.info(
-            f"✅ User {db_user.telegram_id} changed device count from {current_devices} to {new_devices_count}, additional payment: {price / 100}₽")
+            f"✅ User {db_user.telegram_id} changed device count from {current_devices} to {new_devices_count}, additional payment: {price / 100} RUB")
 
     except Exception as e:
         logger.error(f"Error changing device count: {e}")
@@ -935,7 +935,7 @@ async def confirm_add_devices(
     total_discount = discount_per_month * charged_months
 
     logger.info(
-        "Adding %s devices: %.2f₽/month × %s months = %.2f₽ (discount %.2f₽)",
+        "Adding %s devices: %.2f RUB/month × %s months = %.2f RUB (discount %.2f RUB)",
         devices_count,
         discounted_per_month / 100,
         charged_months,
@@ -1031,7 +1031,7 @@ async def confirm_add_devices(
             reply_markup=get_back_keyboard(db_user.language)
         )
 
-        logger.info(f"✅ User {db_user.telegram_id} added {devices_count} devices for {price / 100}₽")
+        logger.info(f"✅ User {db_user.telegram_id} added {devices_count} devices for {price / 100} RUB")
 
     except Exception as e:
         logger.error(f"Error adding devices: {e}")
