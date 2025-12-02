@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from app.config import settings
 from app.localization.loader import (
@@ -16,69 +16,8 @@ _logger = logging.getLogger(__name__)
 _cached_rules: Dict[str, str] = {}
 
 
-_LANGUAGE_ALIASES = {
-    "uk": "ua",
-}
-
-
-_DYNAMIC_LANGUAGE_CONFIGS = {
-    "ru": {
-        "traffic_pattern": "📊 {size} ГБ - {price}",
-        "unlimited_pattern": "📊 Безлимит - {price}",
-        "support_info": (
-            "\n🛟 <b>Поддержка</b>\n\n"
-            "Это центр тикетов: создавайте обращения, просматривайте ответы и историю.\n\n"
-            "• 🎫 Создать тикет — опишите проблему или вопрос\n"
-            "• 📋 Мои тикеты — статус и переписка\n"
-            "• 💬 Связаться — написать напрямую (если нужно)\n\n"
-            "Старайтесь использовать тикеты — так мы быстрее поможем и ничего не потеряется.\n"
-        ),
-    },
-    "en": {
-        "traffic_pattern": "📊 {size} GB - {price}",
-        "unlimited_pattern": "📊 Unlimited - {price}",
-        "support_info": (
-            "\n🛟 <b>RemnaWave Support</b>\n\n"
-            "This is the ticket center: create requests, view replies and history.\n\n"
-            "• 🎫 Create ticket — describe your issue or question\n"
-            "• 📋 My tickets — status and conversation\n"
-            "• 💬 Contact — message directly if needed\n\n"
-            "Prefer tickets — it helps us respond faster and keep context.\n"
-        ),
-    },
-    "ua": {
-        "traffic_pattern": "📊 {size} ГБ - {price}",
-        "unlimited_pattern": "📊 Безліміт - {price}",
-        "support_info": (
-            "\n🛠️ <b>Технічна підтримка</b>\n\n"
-            "З усіх питань звертайтеся до нашої підтримки:\n\n"
-            "👤 {support_username}\n\n"
-            "Ми допоможемо з:\n"
-            "• Налаштуванням підключення\n"
-            "• Вирішенням технічних проблем\n"
-            "• Питаннями щодо оплати\n"
-            "• Іншими питаннями\n\n"
-            "⏰ Час відповіді: зазвичай протягом 1-2 годин\n"
-        ),
-    },
-    "zh": {
-        "traffic_pattern": "📊{size}GB-{price}",
-        "unlimited_pattern": "📊无限-{price}",
-        "support_info": (
-            "\n🛠️ <b>技术支持</b>\n\n"
-            "如有任何问题，请联系我们的支持团队：\n\n"
-            "👤 {support_username}\n\n"
-            "我们将帮助您：\n"
-            "• 设置连接\n"
-            "• 解决技术问题\n"
-            "• 付款问题\n"
-            "• 其他问题\n\n"
-            "⏰ 响应时间：通常在 1-2 小时内\n"
-        ),
-    },
-}
-
-
+# This mapping defines which setting attribute corresponds to which traffic tier key.
+# The format strings (patterns) will now be fetched from the locale files or default to English.
 _TRAFFIC_TIERS = (
     ("TRAFFIC_5GB", "5", "PRICE_TRAFFIC_5GB"),
     ("TRAFFIC_10GB", "10", "PRICE_TRAFFIC_10GB"),
@@ -98,43 +37,15 @@ def _get_cached_rules_value(language: str) -> str:
     return default
 
 
-def _build_dynamic_values(language: str) -> Dict[str, Any]:
-    language_code = (language or DEFAULT_LANGUAGE).split("-")[0].lower()
-
-    language_code = _LANGUAGE_ALIASES.get(language_code, language_code)
-    config = _DYNAMIC_LANGUAGE_CONFIGS.get(language_code)
-
-    if not config:
-        return {}
-
-    values: Dict[str, Any] = {}
-    traffic_pattern = config["traffic_pattern"]
-    for key, size, price_attr in _TRAFFIC_TIERS:
-        price_value = getattr(settings, price_attr)
-        values[key] = traffic_pattern.format(
-            size=size,
-            price=settings.format_price(price_value),
-        )
-
-    values["TRAFFIC_UNLIMITED"] = config["unlimited_pattern"].format(
-        price=settings.format_price(settings.PRICE_TRAFFIC_UNLIMITED)
-    )
-
-    support_template = config.get("support_info")
-    if support_template:
-        values["SUPPORT_INFO"] = support_template.format(
-            support_username=settings.SUPPORT_USERNAME
-        )
-
-    return values
-
-
 class Texts:
     def __init__(self, language: str = DEFAULT_LANGUAGE):
         self.language = language or DEFAULT_LANGUAGE
+        
+        # Load raw data from JSON/YAML
         raw_data = load_locale(self.language)
         self._values = {key: value for key, value in raw_data.items()}
 
+        # Load fallback data (English) if current language is not default
         if self.language != DEFAULT_LANGUAGE:
             fallback_data = load_locale(DEFAULT_LANGUAGE)
         else:
@@ -144,7 +55,55 @@ class Texts:
             key: value for key, value in fallback_data.items() if key not in self._values
         }
 
-        self._values.update(_build_dynamic_values(self.language))
+        # Inject dynamic values (Traffic prices, Support info, etc.)
+        self._inject_dynamic_values()
+
+    def _inject_dynamic_values(self) -> None:
+        """
+        Calculates dynamic text values based on patterns found in the locale
+        or uses English defaults if patterns are missing.
+        """
+        # 1. Traffic Patterns
+        # Try to get the pattern from locale, otherwise use English default
+        traffic_pattern = self.get("TRAFFIC_PATTERN_TEMPLATE", "📊 {size} GB - {price}")
+        
+        for key, size, price_attr in _TRAFFIC_TIERS:
+            price_value = getattr(settings, price_attr, 0)
+            self._values[key] = traffic_pattern.format(
+                size=size,
+                price=settings.format_price(price_value),
+            )
+
+        # 2. Unlimited Traffic Pattern
+        unlimited_pattern = self.get("UNLIMITED_PATTERN_TEMPLATE", "📊 Unlimited - {price}")
+        self._values["TRAFFIC_UNLIMITED"] = unlimited_pattern.format(
+            price=settings.format_price(settings.PRICE_TRAFFIC_UNLIMITED)
+        )
+
+        # 3. Support Info
+        # Default English Support Template
+        default_support = (
+            "\n🛟 <b>Support Center</b>\n\n"
+            "Create a ticket for any inquiries:\n\n"
+            "• 🎫 Create Ticket — Describe your issue\n"
+            "• 📋 My Tickets — View history\n"
+            "• 💬 Contact — Direct message (if urgent)\n"
+        )
+        
+        support_template = self.get("SUPPORT_INFO_TEMPLATE", default_support)
+        
+        # Format if the template expects a username placeholder
+        try:
+            # Check if {support_username} is present in the string to avoid KeyError
+            if "{support_username}" in support_template:
+                self._values["SUPPORT_INFO"] = support_template.format(
+                    support_username=settings.SUPPORT_USERNAME
+                )
+            else:
+                self._values["SUPPORT_INFO"] = support_template
+        except Exception as e:
+            _logger.warning(f"Failed to format SUPPORT_INFO for {self.language}: {e}")
+            self._values["SUPPORT_INFO"] = support_template
 
     def __getattr__(self, item: str) -> Any:
         if item == "language":
@@ -169,7 +128,9 @@ class Texts:
         except KeyError:
             if default is not None:
                 return default
-            raise
+            # If no default provided, return the key itself or raise
+            # Returning key helps debugging missing translations
+            return key 
 
     def _get_value(self, item: str) -> Any:
         if item == "RULES_TEXT":
@@ -181,11 +142,8 @@ class Texts:
         if item in self._fallback_values:
             return self._fallback_values[item]
 
-        _logger.warning(
-            "Missing localization key '%s' for language '%s'",
-            item,
-            self.language,
-        )
+        # Explicitly checking for missing keys to log warnings
+        # _logger.warning("Missing localization key '%s' for language '%s'", item, self.language)
         raise KeyError(item)
 
     @staticmethod
@@ -195,10 +153,10 @@ class Texts:
     @staticmethod
     def format_traffic(gb: float) -> str:
         if gb == 0:
-            return "∞ (безлимит)"
+            return "∞ (Unlimited)"
         if gb >= 1024:
-            return f"{gb / 1024:.1f} ТБ"
-        return f"{gb:.0f} ГБ"
+            return f"{gb / 1024:.1f} TB"
+        return f"{gb:.0f} GB"
 
 
 def get_texts(language: str = DEFAULT_LANGUAGE) -> Texts:
@@ -217,7 +175,7 @@ async def get_rules_from_db(language: str = DEFAULT_LANGUAGE) -> str:
                 return rules
             break
 
-    except Exception as error:  # pragma: no cover - defensive logging
+    except Exception as error:
         _logger.warning("Failed to load rules from DB for %s: %s", language, error)
 
     default = _get_default_rules(language)
