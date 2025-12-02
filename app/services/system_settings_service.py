@@ -128,58 +128,58 @@ class BotConfigurationService:
     }
 
     CATEGORY_DESCRIPTIONS: Dict[str, str] = {
-        "CORE": "Базовые параметры работы бота и обязательные ссылки.",
-        "SUPPORT": "Контакты поддержки, SLA и режимы обработки обращений.",
-        "LOCALIZATION": "Доступные языки, локализация интерфейса и выбор языка.",
-        "CHANNEL": "Настройки обязательной подписки на канал или группу.",
-        "TIMEZONE": "Часовой пояс панели и отображение времени.",
-        "PAYMENT": "Общие тексты платежей, описания чеков и шаблоны.",
-        "PAYMENT_VERIFICATION": "Автоматическая проверка пополнений и интервал выполнения.",
-        "YOOKASSA": "Интеграция с YooKassa: идентификаторы магазина и вебхуки.",
-        "CRYPTOBOT": "CryptoBot и криптоплатежи через Telegram.",
-        "HELEKET": "Heleket: криптоплатежи, ключи мерчанта и вебхуки.",
-        "PLATEGA": "Platega: merchant ID, секрет, ссылки возврата и методы оплаты.",
-        "MULENPAY": "Платежи {mulenpay_name} и параметры магазина.",
-        "PAL24": "PAL24 / PayPalych подключения и лимиты.",
-        "TRIBUTE": "Tribute и донат-сервисы.",
-        "TELEGRAM": "Telegram Stars и их стоимость.",
-        "WATA": "Wata: токен доступа, тип платежа и пределы сумм.",
-        "EXTERNAL_ADMIN": "Токен внешней админки для проверки запросов.",
-        "SUBSCRIPTIONS_CORE": "Лимиты устройств, трафика и базовые цены подписок.",
-        "SIMPLE_SUBSCRIPTION": "Параметры упрощённой покупки: период, трафик, устройства и сквады.",
-        "PERIODS": "Доступные периоды подписок и продлений.",
-        "SUBSCRIPTION_PRICES": "Стоимость подписок по периодам в копейках.",
-        "TRAFFIC": "Лимиты трафика и стратегии сброса.",
-        "TRAFFIC_PACKAGES": "Цены пакетов трафика и конфигурация предложений.",
-        "TRIAL": "Длительность и ограничения пробного периода.",
-        "REFERRAL": "Бонусы и пороги реферальной программы.",
-        "AUTOPAY": "Настройки автопродления и минимальный баланс.",
-        "NOTIFICATIONS": "Пользовательские уведомления и кэширование сообщений.",
-        "ADMIN_NOTIFICATIONS": "Оповещения админам о событиях и тикетах.",
-        "ADMIN_REPORTS": "Автоматические отчеты для команды.",
-        "INTERFACE": "Глобальные параметры интерфейса и брендирования.",
-        "INTERFACE_BRANDING": "Логотип и фирменный стиль.",
-        "INTERFACE_SUBSCRIPTION": "Отображение ссылок и кнопок подписок.",
-        "CONNECT_BUTTON": "Поведение кнопки «Подключиться» и miniapp.",
-        "MINIAPP": "Mini App и кастомные ссылки.",
-        "HAPP": "Интеграция Happ и связанные ссылки.",
-        "SKIP": "Настройки быстрого старта и гайд по подключению.",
-        "ADDITIONAL": "Конфигурация app-config.json, deep links и кеша.",
-        "DATABASE": "Режим работы базы данных и пути до файлов.",
-        "POSTGRES": "Параметры подключения к PostgreSQL.",
-        "SQLITE": "Файл SQLite и резервные параметры.",
-        "REDIS": "Подключение к Redis для кэша.",
-        "REMNAWAVE": "Параметры авторизации и интеграция с RemnaWave API.",
-        "SERVER_STATUS": "Отображение статуса серверов и external URL.",
-        "MONITORING": "Интервалы мониторинга и хранение логов.",
-        "MAINTENANCE": "Режим обслуживания, сообщения и интервалы.",
-        "BACKUP": "Резервное копирование и расписание.",
-        "VERSION": "Отслеживание обновлений репозитория.",
-        "WEB_API": "Web API, токены и права доступа.",
-        "WEBHOOK": "Пути и секреты вебхуков.",
-        "LOG": "Уровни логирования и ротация.",
-        "DEBUG": "Отладочные функции и безопасный режим.",
-        "MODERATION": "Настройки фильтров отображаемых имен и защиты от фишинга.",
+        "CORE": "Basic bot operation parameters and required links.",
+        "SUPPORT": "Support contacts, SLA and ticket processing modes.",
+        "LOCALIZATION": "Available languages, interface localization and language selection.",
+        "CHANNEL": "Required channel or group subscription settings.",
+        "TIMEZONE": "Panel timezone and time display.",
+        "PAYMENT": "General payment texts, receipt descriptions and templates.",
+        "PAYMENT_VERIFICATION": "Automatic payment verification and execution interval.",
+        "YOOKASSA": "YooKassa integration: shop identifiers and webhooks.",
+        "CRYPTOBOT": "CryptoBot and cryptocurrency payments via Telegram.",
+        "HELEKET": "Heleket: cryptocurrency payments, merchant keys and webhooks.",
+        "PLATEGA": "Platega: merchant ID, secret, return links and payment methods.",
+        "MULENPAY": "{mulenpay_name} payments and shop parameters.",
+        "PAL24": "PAL24 / PayPalych connections and limits.",
+        "TRIBUTE": "Tribute and donation services.",
+        "TELEGRAM": "Telegram Stars and their cost.",
+        "WATA": "Wata: access token, payment type and amount limits.",
+        "EXTERNAL_ADMIN": "External admin token for request verification.",
+        "SUBSCRIPTIONS_CORE": "Device limits, traffic limits and base subscription prices.",
+        "SIMPLE_SUBSCRIPTION": "Simple purchase parameters: period, traffic, devices and squads.",
+        "PERIODS": "Available subscription and renewal periods.",
+        "SUBSCRIPTION_PRICES": "Subscription prices by period in kopecks.",
+        "TRAFFIC": "Traffic limits and reset strategies.",
+        "TRAFFIC_PACKAGES": "Traffic package prices and offer configuration.",
+        "TRIAL": "Trial period duration and limitations.",
+        "REFERRAL": "Referral program bonuses and thresholds.",
+        "AUTOPAY": "Auto-renewal settings and minimum balance.",
+        "NOTIFICATIONS": "User notifications and message caching.",
+        "ADMIN_NOTIFICATIONS": "Admin alerts about events and tickets.",
+        "ADMIN_REPORTS": "Automatic reports for the team.",
+        "INTERFACE": "Global interface and branding parameters.",
+        "INTERFACE_BRANDING": "Logo and brand style.",
+        "INTERFACE_SUBSCRIPTION": "Subscription links and button display.",
+        "CONNECT_BUTTON": "Connect button behavior and miniapp.",
+        "MINIAPP": "Mini App and custom links.",
+        "HAPP": "Happ integration and related links.",
+        "SKIP": "Quick start settings and connection guide.",
+        "ADDITIONAL": "app-config.json configuration, deep links and cache.",
+        "DATABASE": "Database operation mode and file paths.",
+        "POSTGRES": "PostgreSQL connection parameters.",
+        "SQLITE": "SQLite file and backup parameters.",
+        "REDIS": "Redis connection for cache.",
+        "REMNAWAVE": "Authorization parameters and RemnaWave API integration.",
+        "SERVER_STATUS": "Server status display and external URL.",
+        "MONITORING": "Monitoring intervals and log storage.",
+        "MAINTENANCE": "Maintenance mode, messages and intervals.",
+        "BACKUP": "Backup and schedule.",
+        "VERSION": "Repository update tracking.",
+        "WEB_API": "Web API, tokens and access rights.",
+        "WEBHOOK": "Webhook paths and secrets.",
+        "LOG": "Logging levels and rotation.",
+        "DEBUG": "Debug functions and safe mode.",
+        "MODERATION": "Display name filter settings and phishing protection.",
     }
 
     @staticmethod
@@ -333,7 +333,7 @@ class BotConfigurationService:
 
     CHOICES: Dict[str, List[ChoiceOption]] = {
         "DATABASE_MODE": [
-            ChoiceOption("auto", "🤖 Авто"),
+            ChoiceOption("auto", "🤖 Auto"),
             ChoiceOption("postgresql", "🐘 PostgreSQL"),
             ChoiceOption("sqlite", "💾 SQLite"),
         ],
@@ -342,76 +342,76 @@ class BotConfigurationService:
             ChoiceOption("basic_auth", "🧾 Basic Auth"),
         ],
         "REMNAWAVE_USER_DELETE_MODE": [
-            ChoiceOption("delete", "🗑 Удалять"),
-            ChoiceOption("disable", "🚫 Деактивировать"),
+            ChoiceOption("delete", "🗑 Delete"),
+            ChoiceOption("disable", "🚫 Disable"),
         ],
         "TRAFFIC_SELECTION_MODE": [
-            ChoiceOption("selectable", "📦 Выбор пакетов"),
-            ChoiceOption("fixed", "📏 Фиксированный лимит"),
+            ChoiceOption("selectable", "📦 Package selection"),
+            ChoiceOption("fixed", "📏 Fixed limit"),
         ],
         "DEFAULT_TRAFFIC_RESET_STRATEGY": [
-            ChoiceOption("NO_RESET", "♾️ Без сброса"),
-            ChoiceOption("DAY", "📅 Ежедневно"),
-            ChoiceOption("WEEK", "🗓 Еженедельно"),
-            ChoiceOption("MONTH", "📆 Ежемесячно"),
+            ChoiceOption("NO_RESET", "♾️ No reset"),
+            ChoiceOption("DAY", "📅 Daily"),
+            ChoiceOption("WEEK", "🗓 Weekly"),
+            ChoiceOption("MONTH", "📆 Monthly"),
         ],
         "SUPPORT_SYSTEM_MODE": [
-            ChoiceOption("tickets", "🎫 Только тикеты"),
-            ChoiceOption("contact", "💬 Только контакт"),
-            ChoiceOption("both", "🔁 Оба варианта"),
+            ChoiceOption("tickets", "🎫 Tickets only"),
+            ChoiceOption("contact", "💬 Contact only"),
+            ChoiceOption("both", "🔁 Both options"),
         ],
         "CONNECT_BUTTON_MODE": [
-            ChoiceOption("guide", "📘 Гайд"),
-            ChoiceOption("miniapp_subscription", "🧾 Mini App подписка"),
-            ChoiceOption("miniapp_custom", "🧩 Mini App (ссылка)"),
-            ChoiceOption("link", "🔗 Прямая ссылка"),
+            ChoiceOption("guide", "📘 Guide"),
+            ChoiceOption("miniapp_subscription", "🧾 Mini App subscription"),
+            ChoiceOption("miniapp_custom", "🧩 Mini App (link)"),
+            ChoiceOption("link", "🔗 Direct link"),
             ChoiceOption("happ_cryptolink", "🪙 Happ CryptoLink"),
         ],
         "MAIN_MENU_MODE": [
-            ChoiceOption("default", "📋 Полное меню"),
-            ChoiceOption("text", "📝 Текстовое меню"),
+            ChoiceOption("default", "📋 Full menu"),
+            ChoiceOption("text", "📝 Text menu"),
         ],
         "SERVER_STATUS_MODE": [
-            ChoiceOption("disabled", "🚫 Отключено"),
-            ChoiceOption("external_link", "🌐 Внешняя ссылка"),
-            ChoiceOption("external_link_miniapp", "🧭 Mini App ссылка"),
+            ChoiceOption("disabled", "🚫 Disabled"),
+            ChoiceOption("external_link", "🌐 External link"),
+            ChoiceOption("external_link_miniapp", "🧭 Mini App link"),
             ChoiceOption("xray", "📊 XRay Checker"),
         ],
         "YOOKASSA_PAYMENT_MODE": [
-            ChoiceOption("full_payment", "💳 Полная оплата"),
-            ChoiceOption("partial_payment", "🪙 Частичная оплата"),
-            ChoiceOption("advance", "💼 Аванс"),
-            ChoiceOption("full_prepayment", "📦 Полная предоплата"),
-            ChoiceOption("partial_prepayment", "📦 Частичная предоплата"),
-            ChoiceOption("credit", "💰 Кредит"),
-            ChoiceOption("credit_payment", "💸 Погашение кредита"),
+            ChoiceOption("full_payment", "💳 Full payment"),
+            ChoiceOption("partial_payment", "🪙 Partial payment"),
+            ChoiceOption("advance", "💼 Advance"),
+            ChoiceOption("full_prepayment", "📦 Full prepayment"),
+            ChoiceOption("partial_prepayment", "📦 Partial prepayment"),
+            ChoiceOption("credit", "💰 Credit"),
+            ChoiceOption("credit_payment", "💸 Credit payment"),
         ],
         "YOOKASSA_PAYMENT_SUBJECT": [
-            ChoiceOption("commodity", "📦 Товар"),
-            ChoiceOption("excise", "🥃 Подакцизный товар"),
-            ChoiceOption("job", "🛠 Работа"),
-            ChoiceOption("service", "🧾 Услуга"),
-            ChoiceOption("gambling_bet", "🎲 Ставка"),
-            ChoiceOption("gambling_prize", "🏆 Выигрыш"),
-            ChoiceOption("lottery", "🎫 Лотерея"),
-            ChoiceOption("lottery_prize", "🎁 Приз лотереи"),
-            ChoiceOption("intellectual_activity", "🧠 Интеллектуальная деятельность"),
-            ChoiceOption("payment", "💱 Платеж"),
-            ChoiceOption("agent_commission", "🤝 Комиссия агента"),
-            ChoiceOption("composite", "🧩 Композитный"),
-            ChoiceOption("another", "📄 Другое"),
+            ChoiceOption("commodity", "📦 Commodity"),
+            ChoiceOption("excise", "🥃 Excise goods"),
+            ChoiceOption("job", "🛠 Job"),
+            ChoiceOption("service", "🧾 Service"),
+            ChoiceOption("gambling_bet", "🎲 Bet"),
+            ChoiceOption("gambling_prize", "🏆 Prize"),
+            ChoiceOption("lottery", "🎫 Lottery"),
+            ChoiceOption("lottery_prize", "🎁 Lottery prize"),
+            ChoiceOption("intellectual_activity", "🧠 Intellectual activity"),
+            ChoiceOption("payment", "💱 Payment"),
+            ChoiceOption("agent_commission", "🤝 Agent commission"),
+            ChoiceOption("composite", "🧩 Composite"),
+            ChoiceOption("another", "📄 Other"),
         ],
         "YOOKASSA_VAT_CODE": [
-            ChoiceOption(1, "1 — НДС не облагается"),
-            ChoiceOption(2, "2 — НДС 0%"),
-            ChoiceOption(3, "3 — НДС 10%"),
-            ChoiceOption(4, "4 — НДС 20%"),
-            ChoiceOption(5, "5 — НДС 10/110"),
-            ChoiceOption(6, "6 — НДС 20/120"),
+            ChoiceOption(1, "1 — VAT exempt"),
+            ChoiceOption(2, "2 — VAT 0%"),
+            ChoiceOption(3, "3 — VAT 10%"),
+            ChoiceOption(4, "4 — VAT 20%"),
+            ChoiceOption(5, "5 — VAT 10/110"),
+            ChoiceOption(6, "6 — VAT 20/120"),
         ],
         "MULENPAY_LANGUAGE": [
-            ChoiceOption("ru", "🇷🇺 Русский"),
-            ChoiceOption("en", "🇬🇧 Английский"),
+            ChoiceOption("ru", "🇷🇺 Russian"),
+            ChoiceOption("en", "🇬🇧 English"),
         ],
         "LOG_LEVEL": [
             ChoiceOption("DEBUG", "🐞 Debug"),
@@ -425,223 +425,223 @@ class BotConfigurationService:
     SETTING_HINTS: Dict[str, Dict[str, str]] = {
         "YOOKASSA_ENABLED": {
             "description": (
-                "Включает оплату через YooKassa. "
-                "Требует корректных идентификаторов магазина и секретного ключа."
+                "Enables payment via YooKassa. "
+                "Requires correct shop identifiers and secret key."
             ),
-            "format": "Булево значение: выберите \"Включить\" или \"Выключить\".",
-            "example": "Включено при полностью настроенной интеграции.",
-            "warning": "При включении без Shop ID и Secret Key пользователи увидят ошибки при оплате.",
+            "format": "Boolean value: select \"Enable\" or \"Disable\".",
+            "example": "Enabled when integration is fully configured.",
+            "warning": "If enabled without Shop ID and Secret Key, users will see errors during payment.",
             "dependencies": "YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY, YOOKASSA_RETURN_URL",
         },
         "SIMPLE_SUBSCRIPTION_ENABLED": {
-            "description": "Показывает в меню пункт с быстрой покупкой подписки.",
-            "format": "Булево значение.",
+            "description": "Shows a menu item for quick subscription purchase.",
+            "format": "Boolean value.",
             "example": "true",
-            "warning": "Если остались не настроенные параметры, предложение может вести себя некорректно.",
+            "warning": "If unconfigured parameters remain, the offer may behave incorrectly.",
         },
         "SIMPLE_SUBSCRIPTION_PERIOD_DAYS": {
-            "description": "Период подписки, который предлагается при быстрой покупке.",
-            "format": "Выберите один из доступных периодов.",
-            "example": "30 дн. — 990 ₽",
-            "warning": "Не забудьте настроить цену периода в блоке «Стоимость тарифов».",
+            "description": "Subscription period offered for quick purchase.",
+            "format": "Select one of the available periods.",
+            "example": "30 days — 990 ₽",
+            "warning": "Don't forget to configure the period price in the \"Plan pricing\" section.",
         },
         "SIMPLE_SUBSCRIPTION_DEVICE_LIMIT": {
-            "description": "Сколько устройств получит пользователь вместе с подпиской по быстрой покупке.",
-            "format": "Выберите число устройств.",
-            "example": "2 устройства",
-            "warning": "Значение не должно превышать допустимый лимит в настройках подписок.",
+            "description": "Number of devices the user will receive with the subscription via quick purchase.",
+            "format": "Select number of devices.",
+            "example": "2 devices",
+            "warning": "Value must not exceed the allowed limit in subscription settings.",
         },
         "SIMPLE_SUBSCRIPTION_TRAFFIC_GB": {
-            "description": "Объём трафика, включённый в простую подписку (0 = безлимит).",
-            "format": "Выберите пакет трафика.",
-            "example": "Безлимит",
+            "description": "Traffic volume included in simple subscription (0 = unlimited).",
+            "format": "Select traffic package.",
+            "example": "Unlimited",
         },
         "SIMPLE_SUBSCRIPTION_SQUAD_UUID": {
             "description": (
-                "Привязка быстрой подписки к конкретному скваду. "
-                "Оставьте пустым для любого доступного сервера."
+                "Binding quick subscription to a specific squad. "
+                "Leave empty for any available server."
             ),
-            "format": "Выберите сквад из списка или очистите значение.",
+            "format": "Select squad from list or clear value.",
             "example": "d4aa2b8c-9a36-4f31-93a2-6f07dad05fba",
-            "warning": "Убедитесь, что выбранный сквад активен и доступен для подписки.",
+            "warning": "Ensure the selected squad is active and available for subscription.",
         },
         "DEVICES_SELECTION_ENABLED": {
-            "description": "Разрешает пользователям выбирать количество устройств при покупке и продлении подписки.",
-            "format": "Булево значение.",
+            "description": "Allows users to select number of devices when purchasing and renewing subscription.",
+            "format": "Boolean value.",
             "example": "false",
-            "warning": "При отключении пользователи не смогут докупать устройства из интерфейса бота.",
+            "warning": "When disabled, users won't be able to purchase additional devices from bot interface.",
         },
         "DEVICES_SELECTION_DISABLED_AMOUNT": {
             "description": (
-                "Лимит устройств, который автоматически назначается, когда выбор количества устройств выключен. "
-                "Значение 0 отключает назначение устройств."
+                "Device limit automatically assigned when device selection is disabled. "
+                "Value 0 disables device assignment."
             ),
-            "format": "Целое число от 0 и выше.",
+            "format": "Integer from 0 and above.",
             "example": "3",
-            "warning": "При 0 RemnaWave не получит лимит устройств, пользователям не показываются цифры в интерфейсе.",
+            "warning": "At 0, RemnaWave won't receive device limit, numbers won't be shown to users in interface.",
         },
         "CRYPTOBOT_ENABLED": {
-            "description": "Разрешает принимать криптоплатежи через CryptoBot.",
-            "format": "Булево значение.",
-            "example": "Включите после указания токена API и секрета вебхука.",
-            "warning": "Пустой токен или неверный вебхук приведут к отказам платежей.",
+            "description": "Allows accepting cryptocurrency payments via CryptoBot.",
+            "format": "Boolean value.",
+            "example": "Enable after specifying API token and webhook secret.",
+            "warning": "Empty token or invalid webhook will cause payment failures.",
             "dependencies": "CRYPTOBOT_API_TOKEN, CRYPTOBOT_WEBHOOK_SECRET",
         },
         "PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED": {
             "description": (
-                "Запускает фоновую проверку ожидающих пополнений и повторно обращается "
-                "к платёжным провайдерам без участия администратора."
+                "Starts background verification of pending top-ups and re-checks "
+                "payment providers without administrator involvement."
             ),
-            "format": "Булево значение.",
-            "example": "Включено, чтобы автоматически перепроверять зависшие платежи.",
-            "warning": "Требует активных интеграций YooKassa, {mulenpay_name}, PayPalych, WATA или CryptoBot.",
+            "format": "Boolean value.",
+            "example": "Enabled to automatically re-check stuck payments.",
+            "warning": "Requires active integrations: YooKassa, {mulenpay_name}, PayPalych, WATA or CryptoBot.",
         },
         "PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES": {
             "description": (
-                "Интервал между автоматическими проверками ожидающих пополнений в минутах."
+                "Interval between automatic checks of pending top-ups in minutes."
             ),
-            "format": "Целое число не меньше 1.",
+            "format": "Integer not less than 1.",
             "example": "10",
-            "warning": "Слишком малый интервал может привести к частым обращениям к платёжным API.",
+            "warning": "Too small interval may lead to frequent calls to payment APIs.",
             "dependencies": "PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED",
         },
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS_ENABLED": {
             "description": (
-                "Включает применение базовых скидок на периоды подписок в групповых промо."
+                "Enables application of base discounts on subscription periods in group promos."
             ),
-            "format": "Булево значение.",
+            "format": "Boolean value.",
             "example": "true",
-            "warning": "Скидки применяются только если указаны корректные пары периодов и процентов.",
+            "warning": "Discounts are applied only if correct period and percentage pairs are specified.",
         },
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS": {
             "description": (
-                "Список скидок для групп: каждая пара задаёт дни периода и процент скидки."
+                "List of discounts for groups: each pair sets period days and discount percentage."
             ),
-            "format": "Через запятую пары вида &lt;дней&gt;:&lt;скидка&gt;.",
+            "format": "Comma-separated pairs in format &lt;days&gt;:&lt;discount&gt;.",
             "example": "30:10,60:20,90:30,180:50,360:65",
-            "warning": "Некорректные записи будут проигнорированы. Процент ограничен 0-100.",
+            "warning": "Invalid entries will be ignored. Percentage limited to 0-100.",
         },
         "AUTO_PURCHASE_AFTER_TOPUP_ENABLED": {
             "description": (
-                "При достаточном балансе автоматически оформляет сохранённую подписку сразу после пополнения."
+                "With sufficient balance, automatically processes saved subscription immediately after top-up."
             ),
-            "format": "Булево значение.",
+            "format": "Boolean value.",
             "example": "true",
             "warning": (
-                "Используйте с осторожностью: средства будут списаны мгновенно, если корзина найдена."
+                "Use with caution: funds will be debited instantly if cart is found."
             ),
         },
         "SUPPORT_TICKET_SLA_MINUTES": {
-            "description": "Лимит времени для ответа модераторов на тикет в минутах.",
-            "format": "Целое число от 1 до 1440.",
+            "description": "Time limit for moderators to respond to ticket in minutes.",
+            "format": "Integer from 1 to 1440.",
             "example": "5",
-            "warning": "Слишком низкое значение может вызвать частые напоминания, слишком высокое — ухудшить SLA.",
+            "warning": "Too low value may cause frequent reminders, too high — worsen SLA.",
             "dependencies": "SUPPORT_TICKET_SLA_ENABLED, SUPPORT_TICKET_SLA_REMINDER_COOLDOWN_MINUTES",
         },
         "MAINTENANCE_MODE": {
-            "description": "Переводит бота в режим технического обслуживания и скрывает действия для пользователей.",
-            "format": "Булево значение.",
-            "example": "Включено на время плановых работ.",
-            "warning": "Не забудьте отключить после завершения работ, иначе бот останется недоступен.",
+            "description": "Puts bot in maintenance mode and hides actions from users.",
+            "format": "Boolean value.",
+            "example": "Enabled during scheduled work.",
+            "warning": "Don't forget to disable after work completion, otherwise bot will remain unavailable.",
             "dependencies": "MAINTENANCE_MESSAGE, MAINTENANCE_CHECK_INTERVAL",
         },
         "MAINTENANCE_MONITORING_ENABLED": {
             "description": (
-                "Управляет автоматическим запуском мониторинга панели Remnawave при старте бота."
+                "Controls automatic startup of Remnawave panel monitoring when bot starts."
             ),
-            "format": "Булево значение.",
+            "format": "Boolean value.",
             "example": "false",
             "warning": (
-                "При отключении мониторинг можно запустить вручную из панели администратора."
+                "When disabled, monitoring can be started manually from admin panel."
             ),
             "dependencies": "MAINTENANCE_CHECK_INTERVAL",
         },
         "MAINTENANCE_RETRY_ATTEMPTS": {
             "description": (
-                "Сколько раз повторять проверку панели Remnawave перед фиксацией недоступности."
+                "How many times to retry Remnawave panel check before marking as unavailable."
             ),
-            "format": "Целое число не меньше 1.",
+            "format": "Integer not less than 1.",
             "example": "3",
             "warning": (
-                "Большие значения увеличивают время реакции на реальные сбои, но помогают избежать ложных срабатываний."
+                "Large values increase reaction time to real failures, but help avoid false positives."
             ),
             "dependencies": "MAINTENANCE_CHECK_INTERVAL",
         },
         "DISPLAY_NAME_BANNED_KEYWORDS": {
             "description": (
-                "Список слов и фрагментов, при наличии которых в отображаемом имени "
-                "пользователь будет заблокирован."
+                "List of words and fragments that, if present in display name, "
+                "will result in user being blocked."
             ),
-            "format": "Перечислите ключевые слова через запятую или с новой строки.",
-            "example": "support, security, служебн",
-            "warning": "Слишком агрессивные фильтры могут блокировать добросовестных пользователей.",
-            "dependencies": "Фильтр отображаемых имен",
+            "format": "List keywords separated by comma or newline.",
+            "example": "support, security, service",
+            "warning": "Too aggressive filters may block legitimate users.",
+            "dependencies": "Display name filter",
         },
         "REMNAWAVE_API_URL": {
-            "description": "Базовый адрес панели RemnaWave, с которой синхронизируется бот.",
-            "format": "Полный URL вида https://panel.example.com.",
+            "description": "Base address of RemnaWave panel that bot synchronizes with.",
+            "format": "Full URL like https://panel.example.com.",
             "example": "https://panel.remnawave.net",
-            "warning": "Недоступный адрес приведет к ошибкам при управлении VPN-учетками.",
-            "dependencies": "REMNAWAVE_API_KEY или REMNAWAVE_USERNAME/REMNAWAVE_PASSWORD",
+            "warning": "Unavailable address will cause errors when managing VPN accounts.",
+            "dependencies": "REMNAWAVE_API_KEY or REMNAWAVE_USERNAME/REMNAWAVE_PASSWORD",
         },
         "REMNAWAVE_AUTO_SYNC_ENABLED": {
-            "description": "Автоматически запускает синхронизацию пользователей и серверов с панелью RemnaWave.",
-            "format": "Булево значение.",
-            "example": "Включено при корректно настроенных API-ключах.",
-            "warning": "При включении без расписания синхронизация не будет выполнена.",
+            "description": "Automatically starts synchronization of users and servers with RemnaWave panel.",
+            "format": "Boolean value.",
+            "example": "Enabled when API keys are correctly configured.",
+            "warning": "If enabled without schedule, synchronization won't be executed.",
             "dependencies": "REMNAWAVE_AUTO_SYNC_TIMES",
         },
         "REMNAWAVE_AUTO_SYNC_TIMES": {
             "description": (
-                "Список времени в формате HH:MM, когда запускается автосинхронизация "
-                "в течение суток."
+                "List of times in HH:MM format when auto-sync runs "
+                "throughout the day."
             ),
-            "format": "Перечислите время через запятую или с новой строки (например, 03:00, 15:00).",
+            "format": "List times separated by comma or newline (e.g., 03:00, 15:00).",
             "example": "03:00, 15:00",
             "warning": (
-                "Минимальный интервал между запусками не ограничен, но слишком частые "
-                "синхронизации нагружают панель."
+                "Minimum interval between runs is not limited, but too frequent "
+                "synchronizations load the panel."
             ),
             "dependencies": "REMNAWAVE_AUTO_SYNC_ENABLED",
         },
         "REMNAWAVE_USER_DESCRIPTION_TEMPLATE": {
             "description": (
-                "Шаблон текста, который бот передает в поле Description при создании "
-                "или обновлении пользователя в панели RemnaWave."
+                "Text template that bot passes to Description field when creating "
+                "or updating user in RemnaWave panel."
             ),
             "format": (
-                "Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."
+                "Available placeholders: {full_name}, {username}, {username_clean}, {telegram_id}."
             ),
             "example": "Bot user: {full_name} {username}",
-            "warning": "Плейсхолдер {username} автоматически очищается, если у пользователя нет @username.",
+            "warning": "Placeholder {username} is automatically cleared if user has no @username.",
         },
         "REMNAWAVE_USER_USERNAME_TEMPLATE": {
             "description": (
-                "Шаблон имени пользователя, которое создаётся в панели RemnaWave для "
-                "телеграм-пользователя."
+                "Username template created in RemnaWave panel for "
+                "telegram user."
             ),
             "format": (
-                "Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."
+                "Available placeholders: {full_name}, {username}, {username_clean}, {telegram_id}."
             ),
             "example": "vpn_{username_clean}_{telegram_id}",
             "warning": (
-                "Недопустимые символы автоматически заменяются на подчёркивания. "
-                "Если результат пустой, используется user_{telegram_id}."
+                "Invalid characters are automatically replaced with underscores. "
+                "If result is empty, user_{telegram_id} is used."
             ),
         },
         "EXTERNAL_ADMIN_TOKEN": {
-            "description": "Приватный токен, который использует внешняя админка для проверки запросов.",
-            "format": "Значение генерируется автоматически из username бота и его токена и доступно только для чтения.",
-            "example": "Генерируется автоматически",
-            "warning": "Токен обновится при смене username или токена бота.",
-            "dependencies": "Username телеграм-бота, токен бота",
+            "description": "Private token used by external admin panel for request verification.",
+            "format": "Value is automatically generated from bot username and token and is read-only.",
+            "example": "Generated automatically",
+            "warning": "Token will update when bot username or token changes.",
+            "dependencies": "Telegram bot username, bot token",
         },
         "EXTERNAL_ADMIN_TOKEN_BOT_ID": {
-            "description": "Идентификатор телеграм-бота, с которым связан токен внешней админки.",
-            "format": "Проставляется автоматически после первого запуска и не редактируется вручную.",
+            "description": "Telegram bot identifier associated with external admin token.",
+            "format": "Set automatically after first startup and not edited manually.",
             "example": "123456789",
-            "warning": "Несовпадение ID блокирует обновление токена, предотвращая его подмену на другом боте.",
-            "dependencies": "Результат вызова getMe() в Telegram Bot API",
+            "warning": "ID mismatch blocks token update, preventing substitution on another bot.",
+            "dependencies": "Result of getMe() call in Telegram Bot API",
         },
     }
 
@@ -676,17 +676,17 @@ class BotConfigurationService:
         if upper_key.endswith("_PERCENT") or "PERCENT" in upper_key:
             return f"{value}%"
         if upper_key.endswith("_HOURS"):
-            return f"{value} ч"
+            return f"{value} h"
         if upper_key.endswith("_MINUTES"):
-            return f"{value} мин"
+            return f"{value} min"
         if upper_key.endswith("_SECONDS"):
-            return f"{value} сек"
+            return f"{value} sec"
         if upper_key.endswith("_DAYS"):
-            return f"{value} дн"
+            return f"{value} days"
         if upper_key.endswith("_GB"):
-            return f"{value} ГБ"
+            return f"{value} GB"
         if upper_key.endswith("_MB"):
-            return f"{value} МБ"
+            return f"{value} MB"
         return None
 
     @classmethod
@@ -701,17 +701,17 @@ class BotConfigurationService:
     def format_value_human(cls, key: str, value: Any) -> str:
         if key == "SIMPLE_SUBSCRIPTION_SQUAD_UUID":
             if value is None:
-                return "Любой доступный"
+                return "Any available"
             if isinstance(value, str):
                 cleaned_value = value.strip()
                 if not cleaned_value:
-                    return "Любой доступный"
+                    return "Any available"
 
         if value is None:
             return "—"
 
         if isinstance(value, bool):
-            return "✅ ВКЛЮЧЕНО" if value else "❌ ВЫКЛЮЧЕНО"
+            return "✅ ENABLED" if value else "❌ DISABLED"
 
         if isinstance(value, (int, float)):
             formatted = cls._format_numeric_with_unit(key, value)
@@ -750,17 +750,17 @@ class BotConfigurationService:
 
         base_description = (
             hints.get("description")
-            or f"Параметр <b>{definition.display_name}</b> управляет категорией «{definition.category_label}»."
+            or f"Parameter <b>{definition.display_name}</b> controls category «{definition.category_label}»."
         )
         base_format = hints.get("format") or (
-            "Булево значение (да/нет)." if definition.python_type is bool
-            else "Введите значение соответствующего типа (число или строку)."
+            "Boolean value (yes/no)." if definition.python_type is bool
+            else "Enter value of appropriate type (number or string)."
         )
         example = hints.get("example") or (
             cls.format_value_human(key, original) if original is not None else "—"
         )
         warning = hints.get("warning") or (
-            "Неверные значения могут привести к некорректной работе бота."
+            "Invalid values may lead to incorrect bot operation."
         )
         dependencies = hints.get("dependencies") or definition.category_label
 
@@ -798,7 +798,7 @@ class BotConfigurationService:
             category_key = cls._resolve_category_key(key)
             category_label = cls.CATEGORY_TITLES.get(
                 category_key,
-                category_key.capitalize() if category_key else "Прочее",
+                category_key.capitalize() if category_key else "Other",
             )
             category_label = cls._format_dynamic_copy(category_key, category_label)
 
@@ -853,7 +853,7 @@ class BotConfigurationService:
             nested = get_args(annotation)[0]
             return nested, True
 
-        # Paths, lists, dicts и прочее будем хранить как строки
+        # Paths, lists, dicts and other types will be stored as strings
         return str, False
 
     @classmethod
@@ -917,7 +917,7 @@ class BotConfigurationService:
         if value is None:
             return "—"
         if isinstance(value, bool):
-            return "✅ Да" if value else "❌ Нет"
+            return "✅ Yes" if value else "❌ No"
         if isinstance(value, (int, float)):
             return str(value)
         if isinstance(value, (list, dict, tuple, set)):
@@ -990,12 +990,12 @@ class BotConfigurationService:
             if not isinstance(price_value, int):
                 price_value = settings.BASE_SUBSCRIPTION_PRICE
 
-            label = f"{days} дн."
+            label = f"{days} days"
             try:
                 if isinstance(price_value, int):
                     label = f"{label} — {settings.format_price(price_value)}"
             except Exception:
-                logger.debug("Не удалось форматировать цену для периода %s", days, exc_info=True)
+                logger.debug("Failed to format price for period %s", days, exc_info=True)
 
             options.append(ChoiceOption(days, label))
 
@@ -1028,7 +1028,7 @@ class BotConfigurationService:
         for count in range(1, upper_bound + 1):
             label = f"{count} {cls._pluralize_devices(count)}"
             if count == default_limit:
-                label = f"{label} (по умолчанию)"
+                label = f"{label} (default)"
             options.append(ChoiceOption(count, label))
 
         return options
@@ -1038,7 +1038,7 @@ class BotConfigurationService:
         try:
             packages = settings.get_traffic_packages()
         except Exception as error:
-            logger.warning("Не удалось получить пакеты трафика: %s", error, exc_info=True)
+            logger.warning("Failed to get traffic packages: %s", error, exc_info=True)
             packages = []
 
         traffic_values: set[int] = {0}
@@ -1070,9 +1070,9 @@ class BotConfigurationService:
         options: List[ChoiceOption] = []
         for gb in sorted(traffic_values):
             if gb <= 0:
-                label = "Безлимит"
+                label = "Unlimited"
             else:
-                label = f"{gb} ГБ"
+                label = f"{gb} GB"
 
             price_label = None
             for package in packages:
@@ -1101,15 +1101,9 @@ class BotConfigurationService:
     @staticmethod
     def _pluralize_devices(count: int) -> str:
         count = abs(int(count))
-        last_two = count % 100
-        last_one = count % 10
-        if 11 <= last_two <= 14:
-            return "устройств"
-        if last_one == 1:
-            return "устройство"
-        if 2 <= last_one <= 4:
-            return "устройства"
-        return "устройств"
+        if count == 1:
+            return "device"
+        return "devices"
 
     @classmethod
     def has_choices(cls, key: str) -> bool:
@@ -1199,14 +1193,14 @@ class BotConfigurationService:
         for key, raw_value in overrides.items():
             if cls._is_env_override(key):
                 logger.debug(
-                    "Пропускаем настройку %s из БД: используется значение из окружения",
+                    "Skipping setting %s from DB: using value from environment",
                     key,
                 )
                 continue
             try:
                 parsed_value = cls.deserialize_value(key, raw_value)
             except Exception as error:
-                logger.error("Не удалось применить настройку %s: %s", key, error)
+                logger.error("Failed to apply setting %s: %s", key, error)
                 continue
 
             cls._overrides_raw[key] = raw_value
@@ -1229,9 +1223,9 @@ class BotConfigurationService:
 
         if python_type is bool:
             value_lower = raw_value.strip().lower()
-            if value_lower in {"1", "true", "on", "yes", "да"}:
+            if value_lower in {"1", "true", "on", "yes"}:
                 return True
-            if value_lower in {"0", "false", "off", "no", "нет"}:
+            if value_lower in {"0", "false", "off", "no"}:
                 return False
             raise ValueError(f"Invalid boolean value: {raw_value}")
 
@@ -1262,19 +1256,19 @@ class BotConfigurationService:
         definition = cls.get_definition(key)
         text = (user_input or "").strip()
 
-        if text.lower() in {"отмена", "cancel"}:
+        if text.lower() in {"cancel"}:
             raise ValueError("Input cancelled by user")
 
-        if definition.is_optional and text.lower() in {"none", "null", "пусто", ""}:
+        if definition.is_optional and text.lower() in {"none", "null", ""}:
             return None
 
         python_type = definition.python_type
 
         if python_type is bool:
             lowered = text.lower()
-            if lowered in {"1", "true", "on", "yes", "да", "вкл", "enable", "enabled"}:
+            if lowered in {"1", "true", "on", "yes", "enable", "enabled"}:
                 return True
-            if lowered in {"0", "false", "off", "no", "нет", "выкл", "disable", "disabled"}:
+            if lowered in {"0", "false", "off", "no", "disable", "disabled"}:
                 return False
             raise ValueError("Enter 'true' or 'false' (or 'yes'/'no')")
 
@@ -1304,7 +1298,7 @@ class BotConfigurationService:
                 readable = ", ".join(
                     f"{option.label} ({cls.format_value(option.value)})" for option in choices
                 )
-                raise ValueError(f"Доступные значения: {readable}")
+                raise ValueError(f"Available values: {readable}")
 
         return parsed_value
 
@@ -1324,7 +1318,7 @@ class BotConfigurationService:
         await upsert_system_setting(db, key, raw_value)
         if cls._is_env_override(key):
             logger.info(
-                "Настройка %s сохранена в БД, но не применена: значение задаётся через окружение",
+                "Setting %s saved to DB but not applied: value is set via environment",
                 key,
             )
             cls._overrides_raw.pop(key, None)
@@ -1350,7 +1344,7 @@ class BotConfigurationService:
         cls._overrides_raw.pop(key, None)
         if cls._is_env_override(key):
             logger.info(
-                "Настройка %s сброшена в БД, используется значение из окружения",
+                "Setting %s reset in DB, using value from environment",
                 key,
             )
         else:
@@ -1364,7 +1358,7 @@ class BotConfigurationService:
     def _apply_to_settings(cls, key: str, value: Any) -> None:
         if cls._is_env_override(key):
             logger.debug(
-                "Пропуск применения настройки %s: значение задано через окружение",
+                "Skipping application of setting %s: value is set via environment",
                 key,
             )
             return
@@ -1390,7 +1384,7 @@ class BotConfigurationService:
                     )
                 except Exception as error:
                     logger.error(
-                        "Не удалось обновить сервис автосинхронизации RemnaWave: %s",
+                        "Failed to update RemnaWave auto-sync service: %s",
                         error,
                     )
             elif key in {
@@ -1407,11 +1401,11 @@ class BotConfigurationService:
                     remnawave_sync_service.refresh_configuration()
                 except Exception as error:
                     logger.error(
-                        "Не удалось обновить конфигурацию сервиса автосинхронизации RemnaWave: %s",
+                        "Failed to update RemnaWave auto-sync service configuration: %s",
                         error,
                     )
         except Exception as error:
-            logger.error("Не удалось применить значение %s=%s: %s", key, value, error)
+            logger.error("Failed to apply value %s=%s: %s", key, value, error)
 
     @staticmethod
     async def _sync_default_web_api_token() -> None:
@@ -1422,7 +1416,7 @@ class BotConfigurationService:
         success = await ensure_default_web_api_token()
         if not success:
             logger.warning(
-                "Не удалось синхронизировать бутстрап токен веб-API после обновления настроек",
+                "Failed to synchronize web API bootstrap token after settings update",
             )
 
     @classmethod
