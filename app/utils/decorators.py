@@ -33,11 +33,11 @@ def admin_required(func: Callable) -> Callable:
                     await event.answer(texts.ACCESS_DENIED, show_alert=True)
             except TelegramBadRequest as e:
                 if "query is too old" in str(e).lower():
-                    logger.warning(f"Попытка ответить на устаревший callback query от {user.id if user else 'Unknown'}")
+                    logger.warning(f"Attempt to answer outdated callback query from {user.id if user else 'Unknown'}")
                 else:
                     raise
             
-            logger.warning(f"Попытка доступа к админской функции от {user.id if user else 'Unknown'}")
+            logger.warning(f"Attempt to access admin function from {user.id if user else 'Unknown'}")
             return
         
         return await func(event, *args, **kwargs)
@@ -58,28 +58,28 @@ def error_handler(func: Callable) -> Callable:
                 event = _extract_event(args)
                 if event and isinstance(event, types.CallbackQuery):
                     user_info = f"@{event.from_user.username}" if event.from_user.username else f"ID:{event.from_user.id}"
-                    logger.warning(f"🕐 Игнорируем устаревший callback '{event.data}' от {user_info} в {func.__name__}")
+                    logger.warning(f"🕐 Ignoring outdated callback '{event.data}' from {user_info} in {func.__name__}")
                 else:
-                    logger.warning(f"🕐 Игнорируем устаревший запрос в {func.__name__}: {e}")
+                    logger.warning(f"🕐 Ignoring outdated request in {func.__name__}: {e}")
                 return None
                 
             elif "message is not modified" in error_message:
-                logger.debug(f"📝 Сообщение не изменено в {func.__name__}")
+                logger.debug(f"📝 Message not modified in {func.__name__}")
                 event = _extract_event(args)
                 if event and isinstance(event, types.CallbackQuery):
                     try:
                         await event.answer()
                     except TelegramBadRequest as answer_error:
                         if "query is too old" not in str(answer_error).lower():
-                            logger.error(f"Ошибка при ответе на callback: {answer_error}")
+                            logger.error(f"Error answering callback: {answer_error}")
                 return None
                 
             else:
-                logger.error(f"Telegram API error в {func.__name__}: {e}")
+                logger.error(f"Telegram API error in {func.__name__}: {e}")
                 await _send_error_message(args, kwargs, e)
                 
         except Exception as e:
-            logger.error(f"Ошибка в {func.__name__}: {e}", exc_info=True)
+            logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
             await _send_error_message(args, kwargs, e)
     
     return wrapper
@@ -109,7 +109,7 @@ async def _send_error_message(args, kwargs, original_error):
                 
     except TelegramBadRequest as e:
         if "query is too old" in str(e).lower():
-            logger.warning("Не удалось отправить сообщение об ошибке - callback query устарел")
+            logger.warning("Failed to send error message - callback query is outdated")
         else:
             logger.error(f"Ошибка при отправке сообщения об ошибке: {e}")
     except Exception as e:

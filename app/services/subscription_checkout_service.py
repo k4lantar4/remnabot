@@ -60,7 +60,7 @@ def should_offer_checkout_resume(
             subscription = getattr(user, "subscription", None)
         except MissingGreenlet as error:
             logger.warning(
-                "Не удалось лениво загрузить подписку пользователя %s при проверке возврата к checkout: %s",
+                "Failed to lazily load user subscription %s when checking return to checkout: %s",
                 getattr(user, "id", None),
                 error,
             )

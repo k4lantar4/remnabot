@@ -29,7 +29,7 @@ def calculate_period_multiplier(period_days: int) -> Tuple[int, float]:
     exact_months = period_days / 30
     months_count = max(1, round(exact_months))
     
-    logger.debug(f"Период {period_days} дней = {exact_months:.2f} точных месяцев ≈ {months_count} месяцев для расчета")
+    logger.debug(f"Period {period_days} days = {exact_months:.2f} exact months ≈ {months_count} months for calculation")
     
     return months_count, exact_months
 
@@ -44,7 +44,7 @@ def calculate_prorated_price(
     
     total_price = monthly_price * months_to_charge
     
-    logger.debug(f"Расчет пропорциональной цены: {monthly_price/100}₽/мес × {months_to_charge} мес = {total_price/100}₽")
+    logger.debug(f"Prorated price calculation: {monthly_price/100}₽/mo × {months_to_charge} mo = {total_price/100}₽")
     
     return total_price, months_to_charge
 
@@ -65,7 +65,7 @@ def apply_percentage_discount(amount: int, percent: int) -> Tuple[int, int]:
         discount_value = amount - discounted_amount
 
     logger.debug(
-        "Применена скидка %s%%: %s → %s (скидка %s)",
+        "Applied discount %s%%: %s → %s (discount %s)",
         clamped_percent,
         amount,
         discounted_amount,
@@ -82,7 +82,7 @@ def resolve_discount_percent(
     *,
     period_days: Optional[int] = None,
 ) -> int:
-    """Определяет размер скидки для указанной категории."""
+    """Determines the discount percentage for the specified category."""
 
     if user is not None:
         try:
@@ -103,7 +103,7 @@ async def compute_simple_subscription_price(
     user: Optional["User"] = None,
     resolved_squad_uuids: Optional[Sequence[str]] = None,
 ) -> Tuple[int, Dict[str, Any]]:
-    """Вычисляет стоимость простой подписки с учетом всех доплат и скидок."""
+    """Calculates the price of a simple subscription including all add-ons and discounts."""
 
     period_days = int(params.get("period_days", 30) or 30)
     attr_name = f"PRICE_{period_days}_DAYS"
@@ -287,7 +287,7 @@ async def compute_simple_subscription_price(
     return total_price, breakdown
 
 
-def format_period_description(days: int, language: str = "ru") -> str:
+def format_period_description(days: int, language: str = "en") -> str:
     months = calculate_months_from_days(days)
     
     if language == "ru":
@@ -323,8 +323,8 @@ def validate_pricing_calculation(
     is_valid = expected_total == total_calculated
     
     if not is_valid:
-        logger.warning(f"Несоответствие в расчете цены: ожидалось {expected_total/100}₽, получено {total_calculated/100}₽")
-        logger.warning(f"Детали: базовая цена {base_price/100}₽ + месячные дополнения {monthly_additions/100}₽ × {months} мес")
+        logger.warning(f"Price calculation mismatch: expected {expected_total/100}₽, got {total_calculated/100}₽")
+        logger.warning(f"Details: base price {base_price/100}₽ + monthly additions {monthly_additions/100}₽ × {months} mo")
     
     return is_valid
 

@@ -20,17 +20,17 @@ def format_referrer_info(user: User) -> str:
     referred_by_id = getattr(user, "referred_by_id", None)
 
     if not referred_by_id:
-        return "Нет"
+        return "None"
 
     try:
-        # Проверяем, является ли referrer обычным объектом или InstrumentedList
+        # Check if referrer is a regular object or InstrumentedList
         referrer = getattr(user, "referrer", None)
         
-        # Если referrer это InstrumentedList или None, то возвращаем информацию по ID
+        # If referrer is InstrumentedList or None, return info by ID
         if referrer is None:
-            return f"ID {referred_by_id} (не найден)"
+            return f"ID {referred_by_id} (not found)"
         
-        # Пытаемся получить атрибуты referrer, если они доступны
+        # Try to get referrer attributes if available
         referrer_username = getattr(referrer, "username", None)
         referrer_telegram_id = getattr(referrer, "telegram_id", None)
         
@@ -40,8 +40,8 @@ def format_referrer_info(user: User) -> str:
         return f"ID {referrer_telegram_id or referred_by_id}"
     
     except (AttributeError, TypeError):
-        # Если возникла ошибка при обращении к атрибутам, просто возвращаем ID
-        return f"ID {referred_by_id} (ошибка загрузки)"
+        # If error accessing attributes, just return ID
+        return f"ID {referred_by_id} (load error)"
 
 
 async def generate_unique_referral_code(db: AsyncSession, telegram_id: int) -> str:
@@ -61,7 +61,7 @@ async def generate_unique_referral_code(db: AsyncSession, telegram_id: int) -> s
 
 
 def get_effective_referral_commission_percent(user: User) -> int:
-    """Возвращает индивидуальный процент комиссии пользователя или дефолтное значение."""
+    """Returns user's individual commission percentage or default value."""
 
     percent = getattr(user, "referral_commission_percent", None)
 
@@ -70,7 +70,7 @@ def get_effective_referral_commission_percent(user: User) -> int:
 
     if percent < 0 or percent > 100:
         logger.error(
-            "❌ Некорректный процент комиссии для пользователя %s: %s",
+            "❌ Invalid commission percentage for user %s: %s",
             getattr(user, "telegram_id", None),
             percent,
         )
@@ -82,7 +82,7 @@ def get_effective_referral_commission_percent(user: User) -> int:
 async def mark_user_as_had_paid_subscription(db: AsyncSession, user: User) -> bool:
     try:
         if user.has_had_paid_subscription:
-            logger.debug(f"Пользователь {user.id} уже отмечен как имевший платную подписку")
+            logger.debug(f"User {user.id} already marked as having had paid subscription")
             return True
         
         await db.execute(
@@ -95,15 +95,15 @@ async def mark_user_as_had_paid_subscription(db: AsyncSession, user: User) -> bo
         )
         
         await db.commit()
-        logger.info(f"✅ Пользователь {user.id} отмечен как имевший платную подписку")
+        logger.info(f"✅ User {user.id} marked as having had paid subscription")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка отметки пользователя {user.id} как имевшего платную подписку: {e}")
+        logger.error(f"Error marking user {user.id} as having had paid subscription: {e}")
         try:
             await db.rollback()
         except Exception as rollback_error:
-            logger.error(f"Ошибка отката транзакции: {rollback_error}")
+            logger.error(f"Error rolling back transaction: {rollback_error}")
         return False
 
 
@@ -192,7 +192,7 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int) -> Dict:
         }
         
     except Exception as e:
-        logger.error(f"Ошибка получения статистики рефералов для пользователя {user_id}: {e}")
+        logger.error(f"Error getting referral statistics for user {user_id}: {e}")
         return {
             'invited_count': 0,
             'paid_referrals_count': 0,
@@ -278,7 +278,7 @@ async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int 
         }
         
     except Exception as e:
-        logger.error(f"Ошибка получения списка рефералов для пользователя {user_id}: {e}")
+        logger.error(f"Error getting referral list for user {user_id}: {e}")
         return {
             'referrals': [],
             'total_count': 0,
@@ -343,7 +343,7 @@ async def get_referral_analytics(db: AsyncSession, user_id: int) -> Dict:
         }
         
     except Exception as e:
-        logger.error(f"Ошибка получения аналитики рефералов для пользователя {user_id}: {e}")
+        logger.error(f"Error getting referral analytics for user {user_id}: {e}")
         return {
             'earnings_by_period': {
                 'today': 0,

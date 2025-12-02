@@ -74,7 +74,7 @@ def get_traffic_reset_strategy():
     }
     
     mapped_strategy = strategy_mapping.get(strategy, 'NO_RESET')
-    logger.info(f"🔄 Стратегия сброса трафика из конфига: {strategy} -> {mapped_strategy}")
+    logger.info(f"🔄 Traffic reset strategy from config: {strategy} -> {mapped_strategy}")
     return getattr(TrafficLimitStrategy, mapped_strategy)
 
 
@@ -109,10 +109,10 @@ class SubscriptionService:
             return
 
         if not base_url:
-            self._config_error = "REMNAWAVE_API_URL не настроен"
+            self._config_error = "REMNAWAVE_API_URL not configured"
             self.api = None
         elif not api_key:
-            self._config_error = "REMNAWAVE_API_KEY не настроен"
+            self._config_error = "REMNAWAVE_API_KEY not configured"
             self.api = None
         else:
             self._config_error = None
@@ -126,7 +126,7 @@ class SubscriptionService:
 
         if self._config_error:
             logger.warning(
-                "RemnaWave API недоступен: %s. Подписочный сервис будет работать в оффлайн-режиме.",
+                "RemnaWave API unavailable: %s. Subscription service will work in offline mode.",
                 self._config_error
             )
 
@@ -144,7 +144,7 @@ class SubscriptionService:
         self._refresh_configuration()
         if not self.api or not self.is_configured:
             raise RemnaWaveAPIError(
-                self._config_error or "RemnaWave API не настроен"
+                self._config_error or "RemnaWave API not configured"
             )
 
     @asynccontextmanager
@@ -166,26 +166,26 @@ class SubscriptionService:
         try:
             user = await get_user_by_id(db, subscription.user_id)
             if not user:
-                logger.error(f"Пользователь {subscription.user_id} не найден")
+                logger.error(f"User {subscription.user_id} not found")
                 return None
             
             validation_success = await self.validate_and_clean_subscription(db, subscription, user)
             if not validation_success:
-                logger.error(f"Ошибка валидации подписки для пользователя {user.telegram_id}")
+                logger.error(f"Subscription validation error for user {user.telegram_id}")
                 return None
             
             async with self.get_api_client() as api:
                 hwid_limit = resolve_hwid_device_limit_for_payload(subscription)
                 existing_users = await api.get_user_by_telegram_id(user.telegram_id)
                 if existing_users:
-                    logger.info(f"🔄 Найден существующий пользователь в панели для {user.telegram_id}")
+                    logger.info(f"🔄 Found existing user in panel for {user.telegram_id}")
                     remnawave_user = existing_users[0]
                     
                     try:
                         await api.reset_user_devices(remnawave_user.uuid)
-                        logger.info(f"🔧 Сброшены HWID устройства для пользователя {user.telegram_id}")
+                        logger.info(f"🔧 Reset HWID devices for user {user.telegram_id}")
                     except Exception as hwid_error:
-                        logger.warning(f"⚠️ Не удалось сбросить HWID: {hwid_error}")
+                        logger.warning(f"⚠️ Failed to reset HWID: {hwid_error}")
                     
                     update_kwargs = dict(
                         uuid=remnawave_user.uuid,
@@ -215,7 +215,7 @@ class SubscriptionService:
                         )
 
                 else:
-                    logger.info(f"🆕 Создаем нового пользователя в панели для {user.telegram_id}")
+                    logger.info(f"🆕 Creating new user in panel for {user.telegram_id}")
                     username = settings.format_remnawave_username(
                         full_name=user.full_name,
                         username=user.username,
@@ -256,17 +256,17 @@ class SubscriptionService:
                 
                 await db.commit()
                 
-                logger.info(f"✅ Создан/обновлен RemnaWave пользователь для подписки {subscription.id}")
-                logger.info(f"🔗 Ссылка на подписку: {updated_user.subscription_url}")
+                logger.info(f"✅ Created/updated RemnaWave user for subscription {subscription.id}")
+                logger.info(f"🔗 Subscription link: {updated_user.subscription_url}")
                 strategy_name = settings.DEFAULT_TRAFFIC_RESET_STRATEGY
-                logger.info(f"📊 Стратегия сброса трафика: {strategy_name}")
+                logger.info(f"📊 Traffic reset strategy: {strategy_name}")
                 return updated_user
                 
         except RemnaWaveAPIError as e:
-            logger.error(f"Ошибка RemnaWave API: {e}")
+            logger.error(f"RemnaWave API error: {e}")
             return None
         except Exception as e:
-            logger.error(f"Ошибка создания RemnaWave пользователя: {e}")
+            logger.error(f"Error creating RemnaWave user: {e}")
             return None
     
     async def update_remnawave_user(
@@ -281,7 +281,7 @@ class SubscriptionService:
         try:
             user = await get_user_by_id(db, subscription.user_id)
             if not user or not user.remnawave_uuid:
-                logger.error(f"RemnaWave UUID не найден для пользователя {subscription.user_id}")
+                logger.error(f"RemnaWave UUID not found for user {subscription.user_id}")
                 return None
             
             current_time = datetime.utcnow()
@@ -295,7 +295,7 @@ class SubscriptionService:
                 subscription.updated_at = current_time
                 await db.commit()
                 is_actually_active = False
-                logger.info(f"🔔 Статус подписки {subscription.id} автоматически изменен на 'expired'")
+                logger.info(f"🔔 Subscription {subscription.id} status automatically changed to 'expired'")
             
             async with self.get_api_client() as api:
                 hwid_limit = resolve_hwid_device_limit_for_payload(subscription)
@@ -331,17 +331,17 @@ class SubscriptionService:
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 await db.commit()
                 
-                status_text = "активным" if is_actually_active else "истёкшим"
-                logger.info(f"✅ Обновлен RemnaWave пользователь {user.remnawave_uuid} со статусом {status_text}")
+                status_text = "active" if is_actually_active else "expired"
+                logger.info(f"✅ Updated RemnaWave user {user.remnawave_uuid} with status {status_text}")
                 strategy_name = settings.DEFAULT_TRAFFIC_RESET_STRATEGY
-                logger.info(f"📊 Стратегия сброса трафика: {strategy_name}")
+                logger.info(f"📊 Traffic reset strategy: {strategy_name}")
                 return updated_user
 
         except RemnaWaveAPIError as e:
-            logger.error(f"Ошибка RemnaWave API: {e}")
+            logger.error(f"RemnaWave API error: {e}")
             return None
         except Exception as e:
-            logger.error(f"Ошибка обновления RemnaWave пользователя: {e}")
+            logger.error(f"Error updating RemnaWave user: {e}")
             return None
 
     async def _reset_user_traffic(
@@ -358,11 +358,11 @@ class SubscriptionService:
             await api.reset_user_traffic(user_uuid)
             reason_text = f" ({reset_reason})" if reset_reason else ""
             logger.info(
-                f"🔄 Сброшен трафик RemnaWave для пользователя {telegram_id}{reason_text}"
+                f"🔄 Reset RemnaWave traffic for user {telegram_id}{reason_text}"
             )
         except Exception as exc:
             logger.warning(
-                f"⚠️ Не удалось сбросить трафик RemnaWave для пользователя {telegram_id}: {exc}"
+                f"⚠️ Failed to reset RemnaWave traffic for user {telegram_id}: {exc}"
             )
 
     async def disable_remnawave_user(self, user_uuid: str) -> bool:
@@ -370,11 +370,11 @@ class SubscriptionService:
         try:
             async with self.get_api_client() as api:
                 await api.disable_user(user_uuid)
-                logger.info(f"✅ Отключен RemnaWave пользователь {user_uuid}")
+                logger.info(f"✅ Disabled RemnaWave user {user_uuid}")
                 return True
                 
         except Exception as e:
-            logger.error(f"Ошибка отключения RemnaWave пользователя: {e}")
+            logger.error(f"Error disabling RemnaWave user: {e}")
             return False
     
     async def revoke_subscription(
@@ -396,11 +396,11 @@ class SubscriptionService:
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 await db.commit()
                 
-                logger.info(f"✅ Обновлена ссылка подписки для пользователя {user.telegram_id}")
+                logger.info(f"✅ Updated subscription link for user {user.telegram_id}")
                 return updated_user.subscription_url
                 
         except Exception as e:
-            logger.error(f"Ошибка обновления ссылки подписки: {e}")
+            logger.error(f"Error updating subscription link: {e}")
             return None
     
     async def get_subscription_info(self, short_uuid: str) -> Optional[dict]:
@@ -411,7 +411,7 @@ class SubscriptionService:
                 return info
                 
         except Exception as e:
-            logger.error(f"Ошибка получения информации о подписке: {e}")
+            logger.error(f"Error getting subscription info: {e}")
             return None
     
     async def sync_subscription_usage(
@@ -435,11 +435,11 @@ class SubscriptionService:
                 
                 await db.commit()
                 
-                logger.debug(f"Синхронизирован трафик для подписки {subscription.id}: {used_gb} ГБ")
+                logger.debug(f"Synchronized traffic for subscription {subscription.id}: {used_gb} GB")
                 return True
                 
         except Exception as e:
-            logger.error(f"Ошибка синхронизации трафика: {e}")
+            logger.error(f"Error synchronizing traffic: {e}")
             return False
     
     async def calculate_subscription_price(
@@ -458,7 +458,7 @@ class SubscriptionService:
         from app.database.crud.server_squad import get_server_squad_by_id
     
         if settings.MAX_DEVICES_LIMIT > 0 and devices > settings.MAX_DEVICES_LIMIT:
-            raise ValueError(f"Превышен максимальный лимит устройств: {settings.MAX_DEVICES_LIMIT}")
+            raise ValueError(f"Maximum device limit exceeded: {settings.MAX_DEVICES_LIMIT}")
     
         base_price_original = PERIOD_PRICES.get(period_days, 0)
         period_discount_percent = _resolve_discount_percent(
@@ -499,15 +499,15 @@ class SubscriptionService:
                 discounted_server_price = server_price - server_discount
                 server_prices.append(discounted_server_price)
                 total_servers_price += discounted_server_price
-                log_message = f"Сервер {server.display_name}: {server_price/100}₽"
+                log_message = f"Server {server.display_name}: {server_price/100}₽"
                 if server_discount > 0:
                     log_message += (
-                        f" (скидка {servers_discount_percent}%: -{server_discount/100}₽ → {discounted_server_price/100}₽)"
+                        f" (discount {servers_discount_percent}%: -{server_discount/100}₽ → {discounted_server_price/100}₽)"
                     )
                 logger.debug(log_message)
             else:
                 server_prices.append(0)
-                logger.warning(f"Сервер ID {server_id} недоступен")
+                logger.warning(f"Server ID {server_id} unavailable")
 
         devices_price = max(0, devices - settings.DEFAULT_DEVICE_LIMIT) * settings.PRICE_PER_DEVICE
         devices_discount_percent = _resolve_discount_percent(
@@ -521,36 +521,36 @@ class SubscriptionService:
 
         total_price = base_price + discounted_traffic_price + total_servers_price + discounted_devices_price
 
-        logger.debug("Расчет стоимости новой подписки:")
-        base_log = f"   Период {period_days} дней: {base_price_original/100}₽"
+        logger.debug("New subscription price calculation:")
+        base_log = f"   Period {period_days} days: {base_price_original/100}₽"
         if base_discount_total > 0:
             base_log += (
                 f" → {base_price/100}₽"
-                f" (скидка {period_discount_percent}%: -{base_discount_total/100}₽)"
+                f" (discount {period_discount_percent}%: -{base_discount_total/100}₽)"
             )
         logger.debug(base_log)
         if discounted_traffic_price > 0:
-            message = f"   Трафик {traffic_gb} ГБ: {traffic_price/100}₽"
+            message = f"   Traffic {traffic_gb} GB: {traffic_price/100}₽"
             if traffic_discount > 0:
                 message += (
-                    f" (скидка {traffic_discount_percent}%: -{traffic_discount/100}₽ → {discounted_traffic_price/100}₽)"
+                    f" (discount {traffic_discount_percent}%: -{traffic_discount/100}₽ → {discounted_traffic_price/100}₽)"
                 )
             logger.debug(message)
         if total_servers_price > 0:
-            message = f"   Серверы ({len(server_squad_ids)}): {total_servers_price/100}₽"
+            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price/100}₽"
             if servers_discount_percent > 0:
                 message += (
-                    f" (скидка {servers_discount_percent}% применяется ко всем серверам)"
+                    f" (discount {servers_discount_percent}% applied to all servers)"
                 )
             logger.debug(message)
         if discounted_devices_price > 0:
-            message = f"   Устройства ({devices}): {devices_price/100}₽"
+            message = f"   Devices ({devices}): {devices_price/100}₽"
             if devices_discount > 0:
                 message += (
-                    f" (скидка {devices_discount_percent}%: -{devices_discount/100}₽ → {discounted_devices_price/100}₽)"
+                    f" (discount {devices_discount_percent}%: -{devices_discount/100}₽ → {discounted_devices_price/100}₽)"
                 )
             logger.debug(message)
-        logger.debug(f"   ИТОГО: {total_price/100}₽")
+        logger.debug(f"   TOTAL: {total_price/100}₽")
 
         return total_price, server_prices
     
@@ -634,41 +634,41 @@ class SubscriptionService:
                 + discounted_traffic_price
             )
 
-            logger.debug(f"💰 Расчет стоимости продления для подписки {subscription.id} (по текущим ценам):")
-            base_log = f"   📅 Период {period_days} дней: {base_price_original/100}₽"
+            logger.debug(f"💰 Renewal price calculation for subscription {subscription.id} (at current prices):")
+            base_log = f"   📅 Period {period_days} days: {base_price_original/100}₽"
             if base_discount_total > 0:
                 base_log += (
                     f" → {base_price/100}₽"
-                    f" (скидка {period_discount_percent}%: -{base_discount_total/100}₽)"
+                    f" (discount {period_discount_percent}%: -{base_discount_total/100}₽)"
                 )
             logger.debug(base_log)
             if servers_price > 0:
-                message = f"   🌍 Серверы ({len(subscription.connected_squads)}) по текущим ценам: {discounted_servers_price/100}₽"
+                message = f"   🌍 Servers ({len(subscription.connected_squads)}) at current prices: {discounted_servers_price/100}₽"
                 if servers_discount > 0:
                     message += (
-                        f" (скидка {servers_discount_percent}%: -{servers_discount/100}₽ от {servers_price/100}₽)"
+                        f" (discount {servers_discount_percent}%: -{servers_discount/100}₽ from {servers_price/100}₽)"
                     )
                 logger.debug(message)
             if devices_price > 0:
-                message = f"   📱 Устройства ({device_limit}): {discounted_devices_price/100}₽"
+                message = f"   📱 Devices ({device_limit}): {discounted_devices_price/100}₽"
                 if devices_discount > 0:
                     message += (
-                        f" (скидка {devices_discount_percent}%: -{devices_discount/100}₽ от {devices_price/100}₽)"
+                        f" (discount {devices_discount_percent}%: -{devices_discount/100}₽ from {devices_price/100}₽)"
                     )
                 logger.debug(message)
             if traffic_price > 0:
-                message = f"   📊 Трафик ({subscription.traffic_limit_gb} ГБ): {discounted_traffic_price/100}₽"
+                message = f"   📊 Traffic ({subscription.traffic_limit_gb} GB): {discounted_traffic_price/100}₽"
                 if traffic_discount > 0:
                     message += (
-                        f" (скидка {traffic_discount_percent}%: -{traffic_discount/100}₽ от {traffic_price/100}₽)"
+                        f" (discount {traffic_discount_percent}%: -{traffic_discount/100}₽ from {traffic_price/100}₽)"
                     )
                 logger.debug(message)
-            logger.debug(f"   💎 ИТОГО: {total_price/100}₽")
+            logger.debug(f"   💎 TOTAL: {total_price/100}₽")
 
             return total_price
             
         except Exception as e:
-            logger.error(f"Ошибка расчета стоимости продления: {e}")
+            logger.error(f"Error calculating renewal price: {e}")
             from app.config import PERIOD_PRICES
             return PERIOD_PRICES.get(period_days, 0)
 
@@ -687,22 +687,22 @@ class SubscriptionService:
                         remnawave_user = await api.get_user_by_uuid(user.remnawave_uuid)
                         
                         if not remnawave_user:
-                            logger.warning(f"⚠️ Пользователь {user.telegram_id} имеет UUID {user.remnawave_uuid}, но не найден в панели")
+                            logger.warning(f"⚠️ User {user.telegram_id} has UUID {user.remnawave_uuid}, but not found in panel")
                             needs_cleanup = True
                         else:
                             if remnawave_user.telegram_id != user.telegram_id:
-                                logger.warning(f"⚠️ Несоответствие telegram_id для пользователя {user.telegram_id}")
+                                logger.warning(f"⚠️ Telegram ID mismatch for user {user.telegram_id}")
                                 needs_cleanup = True
                 except Exception as api_error:
-                    logger.error(f"❌ Ошибка проверки пользователя в панели: {api_error}")
+                    logger.error(f"❌ Error checking user in panel: {api_error}")
                     needs_cleanup = True
             
             if subscription.remnawave_short_uuid and not user.remnawave_uuid:
-                logger.warning(f"⚠️ У подписки есть short_uuid, но у пользователя нет remnawave_uuid")
+                logger.warning(f"⚠️ Subscription has short_uuid, but user has no remnawave_uuid")
                 needs_cleanup = True
                 
             if needs_cleanup:
-                logger.info(f"🧹 Очищаем мусорные данные подписки для пользователя {user.telegram_id}")
+                logger.info(f"🧹 Cleaning up stale subscription data for user {user.telegram_id}")
                 
                 subscription.remnawave_short_uuid = None
                 subscription.subscription_url = ""
@@ -712,12 +712,12 @@ class SubscriptionService:
                 user.remnawave_uuid = None
                 
                 await db.commit()
-                logger.info(f"✅ Мусорные данные очищены для пользователя {user.telegram_id}")
+                logger.info(f"✅ Stale data cleaned up for user {user.telegram_id}")
                 
             return True
             
         except Exception as e:
-            logger.error(f"❌ Ошибка валидации подписки для пользователя {user.telegram_id}: {e}")
+            logger.error(f"❌ Subscription validation error for user {user.telegram_id}: {e}")
             await db.rollback()
             return False
     
@@ -745,18 +745,18 @@ class SubscriptionService:
                     price = server.price_kopeks
                     total_price += price
                     prices_list.append(price)
-                    logger.debug(f"🏷️ Страна {server.display_name}: {price/100}₽")
+                    logger.debug(f"🏷️ Country {server.display_name}: {price/100}₽")
                 else:
                     default_price = 0  
                     total_price += default_price
                     prices_list.append(default_price)
-                    logger.warning(f"⚠️ Сервер {country_uuid} недоступен, используем базовую цену: {default_price/100}₽")
+                    logger.warning(f"⚠️ Server {country_uuid} unavailable, using base price: {default_price/100}₽")
             
-            logger.info(f"💰 Общая стоимость стран: {total_price/100}₽")
+            logger.info(f"💰 Total countries price: {total_price/100}₽")
             return total_price, prices_list
             
         except Exception as e:
-            logger.error(f"Ошибка получения цен стран: {e}")
+            logger.error(f"Error getting country prices: {e}")
             default_prices = [0] * len(country_uuids)
             return sum(default_prices), default_prices
     
@@ -765,7 +765,7 @@ class SubscriptionService:
             total_price, _ = await self.get_countries_price_by_uuids(country_uuids, db)
             return total_price
         except Exception as e:
-            logger.error(f"Ошибка получения цен стран: {e}")
+            logger.error(f"Error getting country prices: {e}")
             return len(country_uuids) * 1000
 
     async def calculate_subscription_price_with_months(
@@ -784,7 +784,7 @@ class SubscriptionService:
         from app.database.crud.server_squad import get_server_squad_by_id
         
         if settings.MAX_DEVICES_LIMIT > 0 and devices > settings.MAX_DEVICES_LIMIT:
-            raise ValueError(f"Превышен максимальный лимит устройств: {settings.MAX_DEVICES_LIMIT}")
+            raise ValueError(f"Maximum device limit exceeded: {settings.MAX_DEVICES_LIMIT}")
         
         months_in_period = calculate_months_from_days(period_days)
         
@@ -830,16 +830,16 @@ class SubscriptionService:
                 server_prices.append(server_price_total)
                 total_servers_price += server_price_total
                 log_message = (
-                    f"Сервер {server.display_name}: {server_price_per_month/100}₽/мес x {months_in_period} мес = {server_price_total/100}₽"
+                    f"Server {server.display_name}: {server_price_per_month/100}₽/mo x {months_in_period} mo = {server_price_total/100}₽"
                 )
                 if server_discount_per_month > 0:
                     log_message += (
-                        f" (скидка {servers_discount_percent}%: -{server_discount_per_month * months_in_period/100}₽)"
+                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_in_period/100}₽)"
                     )
                 logger.debug(log_message)
             else:
                 server_prices.append(0)
-                logger.warning(f"Сервер ID {server_id} недоступен")
+                logger.warning(f"Server ID {server_id} unavailable")
 
         additional_devices = max(0, devices - settings.DEFAULT_DEVICE_LIMIT)
         devices_price_per_month = additional_devices * settings.PRICE_PER_DEVICE
@@ -855,40 +855,40 @@ class SubscriptionService:
 
         total_price = base_price + total_traffic_price + total_servers_price + total_devices_price
 
-        logger.debug(f"Расчет стоимости новой подписки на {period_days} дней ({months_in_period} мес):")
-        base_log = f"   Период {period_days} дней: {base_price_original/100}₽"
+        logger.debug(f"New subscription price calculation for {period_days} days ({months_in_period} mo):")
+        base_log = f"   Period {period_days} days: {base_price_original/100}₽"
         if base_discount_total > 0:
             base_log += (
                 f" → {base_price/100}₽"
-                f" (скидка {period_discount_percent}%: -{base_discount_total/100}₽)"
+                f" (discount {period_discount_percent}%: -{base_discount_total/100}₽)"
             )
         logger.debug(base_log)
         if total_traffic_price > 0:
             message = (
-                f"   Трафик {traffic_gb} ГБ: {traffic_price_per_month/100}₽/мес x {months_in_period} = {total_traffic_price/100}₽"
+                f"   Traffic {traffic_gb} GB: {traffic_price_per_month/100}₽/mo x {months_in_period} = {total_traffic_price/100}₽"
             )
             if traffic_discount_per_month > 0:
                 message += (
-                    f" (скидка {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100}₽)"
+                    f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100}₽)"
                 )
             logger.debug(message)
         if total_servers_price > 0:
-            message = f"   Серверы ({len(server_squad_ids)}): {total_servers_price/100}₽"
+            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price/100}₽"
             if servers_discount_percent > 0:
                 message += (
-                    f" (скидка {servers_discount_percent}% применяется ко всем серверам)"
+                    f" (discount {servers_discount_percent}% applied to all servers)"
                 )
             logger.debug(message)
         if total_devices_price > 0:
             message = (
-                f"   Устройства ({additional_devices}): {devices_price_per_month/100}₽/мес x {months_in_period} = {total_devices_price/100}₽"
+                f"   Devices ({additional_devices}): {devices_price_per_month/100}₽/mo x {months_in_period} = {total_devices_price/100}₽"
             )
             if devices_discount_per_month > 0:
                 message += (
-                    f" (скидка {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100}₽)"
+                    f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100}₽)"
                 )
             logger.debug(message)
-        logger.debug(f"   ИТОГО: {total_price/100}₽")
+        logger.debug(f"   TOTAL: {total_price/100}₽")
 
         return total_price, server_prices
     
@@ -972,47 +972,47 @@ class SubscriptionService:
 
             total_price = base_price + total_servers_price + total_devices_price + total_traffic_price
 
-            logger.debug(f"💰 Расчет стоимости продления подписки {subscription.id} на {period_days} дней ({months_in_period} мес):")
-            base_log = f"   📅 Период {period_days} дней: {base_price_original/100}₽"
+            logger.debug(f"💰 Renewal price calculation for subscription {subscription.id} for {period_days} days ({months_in_period} mo):")
+            base_log = f"   📅 Period {period_days} days: {base_price_original/100}₽"
             if base_discount_total > 0:
                 base_log += (
                     f" → {base_price/100}₽"
-                    f" (скидка {period_discount_percent}%: -{base_discount_total/100}₽)"
+                    f" (discount {period_discount_percent}%: -{base_discount_total/100}₽)"
                 )
             logger.debug(base_log)
             if total_servers_price > 0:
                 message = (
-                    f"   🌍 Серверы: {servers_price_per_month/100}₽/мес x {months_in_period} = {total_servers_price/100}₽"
+                    f"   🌍 Servers: {servers_price_per_month/100}₽/mo x {months_in_period} = {total_servers_price/100}₽"
                 )
                 if servers_discount_per_month > 0:
                     message += (
-                        f" (скидка {servers_discount_percent}%: -{servers_discount_per_month * months_in_period/100}₽)"
+                        f" (discount {servers_discount_percent}%: -{servers_discount_per_month * months_in_period/100}₽)"
                     )
                 logger.debug(message)
             if total_devices_price > 0:
                 message = (
-                    f"   📱 Устройства: {devices_price_per_month/100}₽/мес x {months_in_period} = {total_devices_price/100}₽"
+                    f"   📱 Devices: {devices_price_per_month/100}₽/mo x {months_in_period} = {total_devices_price/100}₽"
                 )
                 if devices_discount_per_month > 0:
                     message += (
-                        f" (скидка {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100}₽)"
+                        f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100}₽)"
                     )
                 logger.debug(message)
             if total_traffic_price > 0:
                 message = (
-                    f"   📊 Трафик: {traffic_price_per_month/100}₽/мес x {months_in_period} = {total_traffic_price/100}₽"
+                    f"   📊 Traffic: {traffic_price_per_month/100}₽/mo x {months_in_period} = {total_traffic_price/100}₽"
                 )
                 if traffic_discount_per_month > 0:
                     message += (
-                        f" (скидка {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100}₽)"
+                        f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100}₽)"
                     )
                 logger.debug(message)
-            logger.debug(f"   💎 ИТОГО: {total_price/100}₽")
+            logger.debug(f"   💎 TOTAL: {total_price/100}₽")
 
             return total_price
             
         except Exception as e:
-            logger.error(f"Ошибка расчета стоимости продления: {e}")
+            logger.error(f"Error calculating renewal price: {e}")
             from app.config import PERIOD_PRICES
             return PERIOD_PRICES.get(period_days, 0)
     
@@ -1049,12 +1049,12 @@ class SubscriptionService:
             traffic_total_price = discounted_traffic_per_month * months_to_pay
             total_price += traffic_total_price
             message = (
-                f"Трафик +{additional_traffic_gb}ГБ: {traffic_price_per_month/100}₽/мес x {months_to_pay}"
+                f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month/100}₽/mo x {months_to_pay}"
                 f" = {traffic_total_price/100}₽"
             )
             if traffic_discount_per_month > 0:
                 message += (
-                    f" (скидка {traffic_discount_percent}%:"
+                    f" (discount {traffic_discount_percent}%:"
                     f" -{traffic_discount_per_month * months_to_pay/100}₽)"
                 )
             logger.info(message)
@@ -1072,12 +1072,12 @@ class SubscriptionService:
             devices_total_price = discounted_devices_per_month * months_to_pay
             total_price += devices_total_price
             message = (
-                f"Устройства +{additional_devices}: {devices_price_per_month/100}₽/мес x {months_to_pay}"
+                f"Devices +{additional_devices}: {devices_price_per_month/100}₽/mo x {months_to_pay}"
                 f" = {devices_total_price/100}₽"
             )
             if devices_discount_per_month > 0:
                 message += (
-                    f" (скидка {devices_discount_percent}%:"
+                    f" (discount {devices_discount_percent}%:"
                     f" -{devices_discount_per_month * months_to_pay/100}₽)"
                 )
             logger.info(message)
@@ -1103,17 +1103,17 @@ class SubscriptionService:
                     server_total_price = discounted_server_per_month * months_to_pay
                     total_price += server_total_price
                     message = (
-                        f"Сервер {server.display_name}: {server_price_per_month/100}₽/мес x {months_to_pay}"
+                        f"Server {server.display_name}: {server_price_per_month/100}₽/mo x {months_to_pay}"
                         f" = {server_total_price/100}₽"
                     )
                     if server_discount_per_month > 0:
                         message += (
-                            f" (скидка {servers_discount_percent}%:"
+                            f" (discount {servers_discount_percent}%:"
                             f" -{server_discount_per_month * months_to_pay/100}₽)"
                         )
                     logger.info(message)
 
-        logger.info(f"Итого доплата за {months_to_pay} мес: {total_price/100}₽")
+        logger.info(f"Total addon payment for {months_to_pay} mo: {total_price/100}₽")
         return total_price
     
     def _gb_to_bytes(self, gb: int) -> int:

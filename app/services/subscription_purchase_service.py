@@ -1045,7 +1045,7 @@ class MiniAppSubscriptionPurchaseService:
                 )
             )
 
-        description = f"Покупка подписки на {pricing.selection.period.days} дней"
+        description = f"Subscription purchase for {pricing.selection.period.days} days"
         success = await subtract_user_balance(
             db,
             user,
@@ -1166,7 +1166,7 @@ class MiniAppSubscriptionPurchaseService:
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=pricing.final_total,
-            description=f"Подписка на {pricing.selection.period.days} дней ({pricing.months} мес)",
+            description=f"Subscription for {pricing.selection.period.days} days ({pricing.months} mo)",
         )
 
         await db.refresh(user)

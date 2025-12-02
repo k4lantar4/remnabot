@@ -63,7 +63,7 @@ class ChoiceOption:
 
 
 class ReadOnlySettingError(RuntimeError):
-    """Исключение, выбрасываемое при попытке изменить настройку только для чтения."""
+    """Exception raised when attempting to modify a read-only setting."""
 
 
 class BotConfigurationService:
@@ -73,13 +73,13 @@ class BotConfigurationService:
     PLAIN_TEXT_KEYS: set[str] = {"EXTERNAL_ADMIN_TOKEN", "EXTERNAL_ADMIN_TOKEN_BOT_ID"}
 
     CATEGORY_TITLES: Dict[str, str] = {
-        "CORE": "🤖 Основные настройки",
-        "SUPPORT": "💬 Поддержка и тикеты",
-        "LOCALIZATION": "🌍 Языки интерфейса",
-        "CHANNEL": "📣 Обязательная подписка",
+        "CORE": "🤖 Core settings",
+        "SUPPORT": "💬 Support and tickets",
+        "LOCALIZATION": "🌍 Interface languages",
+        "CHANNEL": "📣 Required subscription",
         "TIMEZONE": "🗂 Timezone",
-        "PAYMENT": "💳 Общие платежные настройки",
-        "PAYMENT_VERIFICATION": "🕵️ Проверка платежей",
+        "PAYMENT": "💳 General payment settings",
+        "PAYMENT_VERIFICATION": "🕵️ Payment verification",
         "TELEGRAM": "⭐ Telegram Stars",
         "CRYPTOBOT": "🪙 CryptoBot",
         "HELEKET": "🪙 Heleket",
@@ -89,42 +89,42 @@ class BotConfigurationService:
         "MULENPAY": "💰 {mulenpay_name}",
         "PAL24": "🏦 PAL24 / PayPalych",
         "WATA": "💠 Wata",
-        "EXTERNAL_ADMIN": "🛡️ Внешняя админка",
-        "SUBSCRIPTIONS_CORE": "📅 Подписки и лимиты",
-        "SIMPLE_SUBSCRIPTION": "⚡ Простая покупка",
-        "PERIODS": "📆 Периоды подписок",
-        "SUBSCRIPTION_PRICES": "💵 Стоимость тарифов",
-        "TRAFFIC": "📊 Трафик",
-        "TRAFFIC_PACKAGES": "📦 Пакеты трафика",
-        "TRIAL": "🎁 Пробный период",
-        "REFERRAL": "👥 Реферальная программа",
-        "AUTOPAY": "🔄 Автопродление",
-        "NOTIFICATIONS": "🔔 Уведомления пользователям",
-        "ADMIN_NOTIFICATIONS": "📣 Оповещения администраторам",
-        "ADMIN_REPORTS": "🗂 Автоматические отчеты",
-        "INTERFACE": "🎨 Интерфейс и брендинг",
-        "INTERFACE_BRANDING": "🖼️ Брендинг",
-        "INTERFACE_SUBSCRIPTION": "🔗 Ссылка на подписку",
-        "CONNECT_BUTTON": "🚀 Кнопка подключения",
+        "EXTERNAL_ADMIN": "🛡️ External admin",
+        "SUBSCRIPTIONS_CORE": "📅 Subscriptions and limits",
+        "SIMPLE_SUBSCRIPTION": "⚡ Simple purchase",
+        "PERIODS": "📆 Subscription periods",
+        "SUBSCRIPTION_PRICES": "💵 Plan pricing",
+        "TRAFFIC": "📊 Traffic",
+        "TRAFFIC_PACKAGES": "📦 Traffic packages",
+        "TRIAL": "🎁 Trial period",
+        "REFERRAL": "👥 Referral program",
+        "AUTOPAY": "🔄 Auto-renewal",
+        "NOTIFICATIONS": "🔔 User notifications",
+        "ADMIN_NOTIFICATIONS": "📣 Admin notifications",
+        "ADMIN_REPORTS": "🗂 Automatic reports",
+        "INTERFACE": "🎨 Interface and branding",
+        "INTERFACE_BRANDING": "🖼️ Branding",
+        "INTERFACE_SUBSCRIPTION": "🔗 Subscription link",
+        "CONNECT_BUTTON": "🚀 Connect button",
         "MINIAPP": "📱 Mini App",
         "HAPP": "🅷 Happ",
-        "SKIP": "⚡ Быстрый старт",
-        "ADDITIONAL": "📱 Дополнительные приложения",
-        "DATABASE": "💾 База данных",
+        "SKIP": "⚡ Quick start",
+        "ADDITIONAL": "📱 Additional apps",
+        "DATABASE": "💾 Database",
         "POSTGRES": "🐘 PostgreSQL",
         "SQLITE": "🧱 SQLite",
         "REDIS": "🧠 Redis",
         "REMNAWAVE": "🌐 RemnaWave API",
-        "SERVER_STATUS": "📊 Статус серверов",
-        "MONITORING": "📈 Мониторинг",
-        "MAINTENANCE": "🔧 Обслуживание",
-        "BACKUP": "💾 Резервные копии",
-        "VERSION": "🔄 Проверка версий",
+        "SERVER_STATUS": "📊 Server status",
+        "MONITORING": "📈 Monitoring",
+        "MAINTENANCE": "🔧 Maintenance",
+        "BACKUP": "💾 Backups",
+        "VERSION": "🔄 Version check",
         "WEB_API": "⚡ Web API",
         "WEBHOOK": "🌐 Webhook",
-        "LOG": "📝 Логирование",
-        "DEBUG": "🧪 Режим разработки",
-        "MODERATION": "🛡️ Модерация и фильтры",
+        "LOG": "📝 Logging",
+        "DEBUG": "🧪 Development mode",
+        "MODERATION": "🛡️ Moderation and filters",
     }
 
     CATEGORY_DESCRIPTIONS: Dict[str, str] = {
@@ -1233,7 +1233,7 @@ class BotConfigurationService:
                 return True
             if value_lower in {"0", "false", "off", "no", "нет"}:
                 return False
-            raise ValueError(f"Неверное булево значение: {raw_value}")
+            raise ValueError(f"Invalid boolean value: {raw_value}")
 
         if python_type is int:
             return int(raw_value)
@@ -1263,7 +1263,7 @@ class BotConfigurationService:
         text = (user_input or "").strip()
 
         if text.lower() in {"отмена", "cancel"}:
-            raise ValueError("Ввод отменен пользователем")
+            raise ValueError("Input cancelled by user")
 
         if definition.is_optional and text.lower() in {"none", "null", "пусто", ""}:
             return None
@@ -1276,7 +1276,7 @@ class BotConfigurationService:
                 return True
             if lowered in {"0", "false", "off", "no", "нет", "выкл", "disable", "disabled"}:
                 return False
-            raise ValueError("Введите 'true' или 'false' (или 'да'/'нет')")
+            raise ValueError("Enter 'true' or 'false' (or 'yes'/'no')")
 
         if python_type is int:
             parsed_value: Any = int(text)
@@ -1299,7 +1299,7 @@ class BotConfigurationService:
                     readable = ", ".join(
                         f"{option.label} ({cls.format_value(option.value)})" for option in choices
                     )
-                    raise ValueError(f"Доступные значения: {readable}")
+                    raise ValueError(f"Available values: {readable}")
             elif parsed_value not in allowed_values:
                 readable = ", ".join(
                     f"{option.label} ({cls.format_value(option.value)})" for option in choices

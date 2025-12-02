@@ -1,4 +1,4 @@
-"""Агрегирующий сервис, собирающий все платёжные модули."""
+"""Aggregating service that collects all payment modules."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from app.services.wata_service import WataService
 logger = logging.getLogger(__name__)
 
 
-# --- Совместимость: экспортируем функции, которые активно мокаются в тестах ---
+# --- Compatibility: export functions that are actively mocked in tests ---
 
 
 async def create_yookassa_payment(*args, **kwargs):
@@ -274,12 +274,12 @@ class PaymentService(
     PlategaPaymentMixin,
     WataPaymentMixin,
 ):
-    """Основной интерфейс платежей, делегирующий работу специализированным mixin-ам."""
+    """Main payment interface that delegates work to specialized mixins."""
 
     def __init__(self, bot: Optional[Bot] = None) -> None:
-        # Бот нужен для отправки уведомлений и создания звёздных инвойсов.
+        # Bot is needed for sending notifications and creating star invoices.
         self.bot = bot
-        # Ниже инициализируем службы-обёртки только если соответствующий провайдер включён.
+        # Below we initialize wrapper services only if the corresponding provider is enabled.
         self.yookassa_service = (
             YooKassaService() if settings.is_yookassa_enabled() else None
         )
@@ -303,7 +303,7 @@ class PaymentService(
 
         mulenpay_name = settings.get_mulenpay_display_name()
         logger.debug(
-            "PaymentService инициализирован (YooKassa=%s, Stars=%s, CryptoBot=%s, Heleket=%s, %s=%s, Pal24=%s, Platega=%s, Wata=%s)",
+            "PaymentService initialized (YooKassa=%s, Stars=%s, CryptoBot=%s, Heleket=%s, %s=%s, Pal24=%s, Platega=%s, Wata=%s)",
             bool(self.yookassa_service),
             bool(self.stars_service),
             bool(self.cryptobot_service),

@@ -67,26 +67,26 @@ class ReportingService:
         await self.stop()
 
         if not settings.ADMIN_REPORTS_ENABLED:
-            logger.info("Сервис отчетов отключен настройками")
+            logger.info("Reporting service disabled by settings")
             return
 
         if not self.bot:
-            logger.warning("Невозможно запустить сервис отчетов без экземпляра бота")
+            logger.warning("Cannot start reporting service without bot instance")
             return
 
         chat_id = settings.get_reports_chat_id()
         if not chat_id:
-            logger.warning("Сервис отчетов не запущен: не указан чат для отправки отчетов")
+            logger.warning("Reporting service not started: chat for sending reports not specified")
             return
 
         send_time = settings.get_reports_send_time()
         if not send_time:
-            logger.warning("Сервис отчетов не запущен: не указано время ежедневной отправки")
+            logger.warning("Reporting service not started: daily send time not specified")
             return
 
         self._task = asyncio.create_task(self._auto_daily_loop(send_time))
         logger.info(
-            "📊 Сервис отчетов запущен: ежедневная отправка в %s по МСК",
+            "📊 Reporting service started: daily sending at %s MSK",
             send_time.strftime("%H:%M"),
         )
 
@@ -131,21 +131,21 @@ class ReportingService:
                         send_to_topic=True,
                     )
                     logger.info(
-                        "📊 Автоматический отчет за %s отправлен",
+                        "📊 Automatic report for %s sent",
                         report_date.strftime("%d.%m.%Y"),
                     )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    logger.error("Ошибка автоматической отправки отчета: %s", exc)
+                    logger.error("Error sending automatic report: %s", exc)
 
                 next_run_utc, report_date = self._calculate_next_run(send_time)
 
         except asyncio.CancelledError:
-            logger.info("Сервис отчетов остановлен")
+            logger.info("Reporting service stopped")
             raise
         except Exception as exc:  # noqa: BLE001
-            logger.error("Критическая ошибка в сервисе отчетов: %s", exc)
+            logger.error("Critical error in reporting service: %s", exc)
 
     def _calculate_next_run(
         self,
@@ -162,11 +162,11 @@ class ReportingService:
 
     async def _deliver_report(self, report_text: str) -> None:
         if not self.bot:
-            raise ReportingServiceError("Бот не инициализирован для отправки отчета")
+            raise ReportingServiceError("Bot not initialized for sending report")
 
         chat_id = settings.get_reports_chat_id()
         if not chat_id:
-            raise ReportingServiceError("Не задан чат для отправки отчета")
+            raise ReportingServiceError("Chat for sending reports not specified")
 
         topic_id = settings.get_reports_topic_id()
 
@@ -178,24 +178,24 @@ class ReportingService:
                 parse_mode="HTML",
             )
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
-            logger.error("Не удалось отправить отчет: %s", exc)
-            raise ReportingServiceError("Не удалось отправить отчет в чат") from exc
+            logger.error("Failed to send report: %s", exc)
+            raise ReportingServiceError("Failed to send report to chat") from exc
 
     # ---------- referral helpers ----------
 
     def _referral_markers(self) -> List:
         """
-        Набор условий, по которым операция помечается как реферальная (если вдруг записана типом DEPOSIT).
+        Set of conditions by which an operation is marked as referral (if recorded as DEPOSIT type).
         """
         clauses = []
 
-        # Явные флаги
+        # Explicit flags
         if hasattr(Transaction, "is_referral_bonus"):
             clauses.append(Transaction.is_referral_bonus == true())
         if hasattr(Transaction, "is_bonus"):
             clauses.append(Transaction.is_bonus == true())
 
-        # Источник/причина
+        # Source/reason
         if hasattr(Transaction, "source"):
             clauses.append(Transaction.source == "referral")
             clauses.append(Transaction.source == "referral_bonus")
@@ -204,7 +204,7 @@ class ReportingService:
             clauses.append(Transaction.reason == "referral_bonus")
             clauses.append(Transaction.reason == "referral_reward")
 
-        # Текстовые поля
+        # Text fields
         like_patterns = ["%реферал%", "%реферальн%", "%referral%"]
         if hasattr(Transaction, "description"):
             for pattern in like_patterns:
@@ -223,8 +223,8 @@ class ReportingService:
 
     def _exclude_referral_deposits_condition(self):
         """
-        Условие «это НЕ реферальный бонус».
-        Если нет ни одного маркера — ничего не исключаем.
+        Condition "this is NOT a referral bonus".
+        If there are no markers, exclude nothing.
         """
         markers = self._referral_markers()
         if not markers:
@@ -256,78 +256,78 @@ class ReportingService:
 
         lines: List[str] = []
         header = (
-            f"📊 <b>Отчет за {period_range.label}</b>"
+            f"📊 <b>Report for {period_range.label}</b>"
             if period == ReportPeriod.DAILY
-            else f"📊 <b>Отчет за период {period_range.label}</b>"
+            else f"📊 <b>Report for period {period_range.label}</b>"
         )
         lines += [header, ""]
 
         # TL;DR
         lines += [
-            "🧭 <b>Итог по периоду</b>",
-            f"• Новых пользователей: <b>{stats['new_users']}</b>",
-            f"• Новых триалов: <b>{stats['new_trials']}</b>",
+            "🧭 <b>Period summary</b>",
+            f"• New users: <b>{stats['new_users']}</b>",
+            f"• New trials: <b>{stats['new_trials']}</b>",
             (
                 f"• Конверсий триал → платная: <b>{stats['trial_to_paid_conversions']}</b> "
                 f"(<i>{conversion_rate:.1f}%</i>)"
             ),
-            f"• Новых платных (всего): <b>{stats['new_paid_subscriptions']}</b>",
-            f"• Поступления всего (только пополнения): <b>{self._format_amount(stats['deposits_amount'])}</b>",
+            f"• New paid (total): <b>{stats['new_paid_subscriptions']}</b>",
+            f"• Total revenue (top-ups only): <b>{self._format_amount(stats['deposits_amount'])}</b>",
             "",
         ]
 
-        # Подписки
+        # Subscriptions
         lines += [
-            "💎 <b>Подписки</b>",
-            f"• Активные триалы сейчас: {totals['active_trials']}",
-            f"• Активные платные сейчас: {totals['active_paid']}",
+            "💎 <b>Subscriptions</b>",
+            f"• Active trials now: {totals['active_trials']}",
+            f"• Active paid now: {totals['active_paid']}",
             "",
         ]
 
-        # Финансы
+        # Finance
         lines += [
-            "💰 <b>Финансы</b>",
+            "💰 <b>Finance</b>",
             (
-                "• Оплаты подписок: "
-                f"{stats['subscription_payments_count']} на сумму {self._format_amount(stats['subscription_payments_amount'])}"
+                "• Subscription payments: "
+                f"{stats['subscription_payments_count']} totaling {self._format_amount(stats['subscription_payments_amount'])}"
             ),
             (
-                "• Пополнения: "
-                f"{stats['deposits_count']} на сумму {self._format_amount(stats['deposits_amount'])}"
+                "• Top-ups: "
+                f"{stats['deposits_count']} totaling {self._format_amount(stats['deposits_amount'])}"
             ),
             (
-                "<i>Примечание: «Поступления всего» учитывают только пополнения; покупки подписок и реферальные бонусы "
-                "исключены.</i>"
+                "<i>Note: «Total revenue» includes only top-ups; subscription purchases and referral bonuses "
+                "are excluded.</i>"
             ),
             "",
         ]
 
-        # Поддержка
+        # Support
         lines += [
-            "🎟️ <b>Поддержка</b>",
-            f"• Новых тикетов: {stats['new_tickets']}",
-            f"• Активных тикетов сейчас: {totals['open_tickets']}",
+            "🎟️ <b>Support</b>",
+            f"• New tickets: {stats['new_tickets']}",
+            f"• Active tickets now: {totals['open_tickets']}",
             "",
         ]
 
-        # Активность пользователей
+        # User activity
         lines += [
-            "👤 <b>Активность пользователей</b>",
-            f"• Пользователей с активной платной подпиской: {usage['active_paid_users']}",
-            f"• Пользователей, ни разу не подключившихся: {usage['never_connected_users']}",
+            "👤 <b>User activity</b>",
+            f"• Users with active paid subscription: {usage['active_paid_users']}",
+            f"• Users who never connected: {usage['never_connected_users']}",
             "",
         ]
 
-        # Топ по рефералам
-        lines += ["🤝 <b>Топ по рефералам (за период)</b>"]
+        # Top referrers
+        lines += ["🤝 <b>Top referrers (for period)</b>"]
         if top_referrers:
             for index, row in enumerate(top_referrers, 1):
                 referrer_label = escape(row["referrer_label"], quote=False)
                 lines.append(
-                    f"{index}. {referrer_label}: {row['count']} приглашений"
+                    f"{index}. {referrer_label}: {row['count']} invitations"
                 )
         else:
-            lines.append("— данных нет")
+            lines.append("— no data")
 
         return "\n".join(lines)
 
@@ -353,7 +353,7 @@ class ReportingService:
             start = datetime.combine(start_date, datetime_time.min, tzinfo=self._moscow_tz)
             end = datetime.combine(end_date, datetime_time.min, tzinfo=self._moscow_tz)
         else:  # pragma: no cover - defensive branch
-            raise ReportingServiceError(f"Неизвестный период отчета: {period}")
+            raise ReportingServiceError(f"Unknown report period: {period}")
 
         label = self._format_period_label(start, end)
         return ReportPeriodRange(start, end, label)

@@ -1,4 +1,4 @@
-"""Утилиты безопасности и генерации ключей."""
+"""Security utilities and key generation."""
 from __future__ import annotations
 
 import hashlib
@@ -10,7 +10,7 @@ HashAlgorithm = Literal["sha256", "sha384", "sha512"]
 
 
 def hash_api_token(token: str, algorithm: HashAlgorithm = "sha256") -> str:
-    """Возвращает хеш токена в формате hex."""
+    """Returns token hash in hex format."""
     normalized = (algorithm or "sha256").lower()
     if normalized not in {"sha256", "sha384", "sha512"}:
         raise ValueError(f"Unsupported hash algorithm: {algorithm}")
@@ -20,7 +20,7 @@ def hash_api_token(token: str, algorithm: HashAlgorithm = "sha256") -> str:
 
 
 def generate_api_token(length: int = 48) -> str:
-    """Генерирует криптографически стойкий токен."""
+    """Generates a cryptographically secure token."""
     length = max(24, min(length, 128))
     return secrets.token_urlsafe(length)
 

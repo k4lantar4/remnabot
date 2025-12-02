@@ -91,9 +91,9 @@ def validate_traffic_amount(traffic_str: str) -> Optional[int]:
         'MB': 1,
         'GB': 1024,
         'TB': 1024 * 1024,
-        'МБ': 1,
-        'ГБ': 1024,
-        'ТБ': 1024 * 1024
+        'МБ': 1,  # Russian MB - kept for backward compatibility
+        'ГБ': 1024,  # Russian GB - kept for backward compatibility
+        'ТБ': 1024 * 1024  # Russian TB - kept for backward compatibility
     }
     
     for unit, multiplier in units.items():
@@ -122,45 +122,45 @@ def validate_subscription_period(days: Union[str, int]) -> Optional[int]:
 
 def sanitize_html(text: str) -> str:
     """
-    Безопасно санитизирует HTML-текст, заменяя HTML-сущности на соответствующие теги,
-    при этом предотвращая XSS-уязвимости за счет безопасной обработки атрибутов.
+    Safely sanitizes HTML text by replacing HTML entities with corresponding tags,
+    while preventing XSS vulnerabilities through safe attribute handling.
 
     Args:
-        text (str): Текст с HTML-сущностями (например, &lt;b&gt; жирный &lt;/b&gt;)
+        text (str): Text with HTML entities (e.g., &lt;b&gt; bold &lt;/b&gt;)
 
     Returns:
-        str: Санитизированный HTML-текст (например, <b> жирный </b>)
+        str: Sanitized HTML text (e.g., <b> bold </b>)
     """
     if not text:
         return text
 
-    # Для безопасности нужно обработать разрешенные теги, заменяя их сущности на теги
-    # Но при этом безопасно обрабатывая атрибуты, чтобы избежать XSS
+    # For security, we need to process allowed tags by replacing their entities with tags
+    # But safely handling attributes to avoid XSS
 
     allowed_tags = ALLOWED_HTML_TAGS.union(SELF_CLOSING_TAGS)
 
     # Обработка всех разрешенных тегов
     for tag in allowed_tags:
         # Паттерн: захватываем &lt;tag&gt;, &lt;/tag&gt;, или &lt;tag атрибуты&gt;
-        # Используем более сложный паттерн, чтобы захватить атрибуты до закрывающего &gt;
-        # (?s) - позволяет . захватывать новую строку
-        # [^>]*? - ленивый захват до >
+        # Use a more complex pattern to capture attributes up to closing &gt;
+        # (?s) - allows . to match newline
+        # [^>]*? - lazy capture until >
         pattern = rf'(&lt;)(/?{tag}\b)([^>]*?)(&gt;)'
 
         def replace_tag(match):
             opening = match.group(1)  # &lt;
             full_tag_content = match.group(2)  # /?tagname
-            attrs_part = match.group(3)  # атрибуты (без >)
+            attrs_part = match.group(3)  # attributes (without >)
             closing = match.group(4)  # &gt;
 
-            # Убираем начальный пробел, если есть
+            # Remove leading space if present
             if attrs_part.startswith(' '):
                 attrs_part = attrs_part[1:]
 
-            # Формируем результат
+            # Build result
             if attrs_part:
-                # Безопасно обрабатываем атрибуты, заменяя только безопасные сущности
-                # Не разворачиваем &lt; и &gt; внутри атрибутов, чтобы избежать XSS
+                # Safely process attributes, replacing only safe entities
+                # Don't expand &lt; and &gt; inside attributes to avoid XSS
                 processed_attrs = attrs_part.replace('&quot;', '"').replace('&#x27;', "'")
                 return f'<{full_tag_content} {processed_attrs}>'
             else:
@@ -172,8 +172,8 @@ def sanitize_html(text: str) -> str:
 
 
 def sanitize_telegram_name(name: Optional[str]) -> Optional[str]:
-    """Санитизация Telegram-имени для безопасной вставки в HTML и хранения.
-    Заменяет угловые скобки и амперсанд на безопасные визуальные аналоги.
+    """Sanitizes Telegram name for safe insertion into HTML and storage.
+    Replaces angle brackets and ampersand with safe visual equivalents.
     """
     if not name:
         return name
@@ -220,7 +220,7 @@ def validate_html_tags(text: str) -> Tuple[bool, str]:
         tag_name_lower = tag_name.lower()
         
         if tag_name_lower not in ALLOWED_HTML_TAGS and tag_name_lower not in SELF_CLOSING_TAGS:
-            return False, f"Неподдерживаемый тег: <{tag_name}>"
+            return False, f"Unsupported tag: <{tag_name}>"
     
     return validate_html_structure(text)
 
@@ -243,14 +243,14 @@ def validate_html_structure(text: str) -> Tuple[bool, str]:
             tag_stack.append(tag_name)
         else:
             if not tag_stack:
-                return False, f"Закрывающий тег без открывающего: </{tag_name}>"
+                return False, f"Closing tag without opening: </{tag_name}>"
             
             last_tag = tag_stack.pop()
             if last_tag != tag_name:
-                return False, f"Неправильная вложенность тегов: ожидался </{last_tag}>, найден </{tag_name}>"
+                return False, f"Improper tag nesting: expected </{last_tag}>, found </{tag_name}>"
     
     if tag_stack:
-        return False, f"Незакрытый тег: <{tag_stack[-1]}>"
+        return False, f"Unclosed tag: <{tag_stack[-1]}>"
     
     return True, ""
 
@@ -274,37 +274,37 @@ def fix_html_tags(text: str) -> str:
 
 
 def get_html_help_text() -> str:
-    return """<b>Поддерживаемые HTML теги:</b>
+    return """<b>Supported HTML tags:</b>
 
-• <code>&lt;b&gt;жирный&lt;/b&gt;</code> или <code>&lt;strong&gt;жирный&lt;/strong&gt;</code>
-• <code>&lt;i&gt;курсив&lt;/i&gt;</code> или <code>&lt;em&gt;курсив&lt;/em&gt;</code>  
-• <code>&lt;u&gt;подчеркнутый&lt;/u&gt;</code>
-• <code>&lt;s&gt;зачеркнутый&lt;/s&gt;</code>
-• <code>&lt;code&gt;моноширинный&lt;/code&gt;</code>
-• <code>&lt;pre&gt;блок кода&lt;/pre&gt;</code>
-• <code>&lt;a href="url"&gt;ссылка&lt;/a&gt;</code>
-• <code>&lt;blockquote&gt;цитата&lt;/blockquote&gt;</code>
+• <code>&lt;b&gt;bold&lt;/b&gt;</code> or <code>&lt;strong&gt;bold&lt;/strong&gt;</code>
+• <code>&lt;i&gt;italic&lt;/i&gt;</code> or <code>&lt;em&gt;italic&lt;/em&gt;</code>  
+• <code>&lt;u&gt;underlined&lt;/u&gt;</code>
+• <code>&lt;s&gt;strikethrough&lt;/s&gt;</code>
+• <code>&lt;code&gt;monospace&lt;/code&gt;</code>
+• <code>&lt;pre&gt;code block&lt;/pre&gt;</code>
+• <code>&lt;a href="url"&gt;link&lt;/a&gt;</code>
+• <code>&lt;blockquote&gt;quote&lt;/blockquote&gt;</code>
 
-<b>⚠️ Важные правила:</b>
-• Каждый открывающий тег должен быть закрыт
-• Теги должны быть правильно вложены
-• Атрибуты ссылок берите в кавычки
+<b>⚠️ Important rules:</b>
+• Every opening tag must be closed
+• Tags must be properly nested
+• Link attributes must be in quotes
 
-<b>❌ Неправильно:</b>
-<code>&lt;b&gt;жирный &lt;i&gt;курсив&lt;/b&gt;&lt;/i&gt;</code>
-<code>&lt;a href=google.com&gt;ссылка&lt;/a&gt;</code>
+<b>❌ Incorrect:</b>
+<code>&lt;b&gt;bold &lt;i&gt;italic&lt;/b&gt;&lt;/i&gt;</code>
+<code>&lt;a href=google.com&gt;link&lt;/a&gt;</code>
 
-<b>✅ Правильно:</b>
-<code>&lt;b&gt;жирный &lt;i&gt;курсив&lt;/i&gt;&lt;/b&gt;</code>
-<code>&lt;a href="https://google.com"&gt;ссылка&lt;/a&gt;</code>"""
+<b>✅ Correct:</b>
+<code>&lt;b&gt;bold &lt;i&gt;italic&lt;/i&gt;&lt;/b&gt;</code>
+<code>&lt;a href="https://google.com"&gt;link&lt;/a&gt;</code>"""
 
 
 def validate_rules_content(text: str) -> Tuple[bool, str, Optional[str]]:
     if not text or not text.strip():
-        return False, "Текст правил не может быть пустым", None
+        return False, "Rules text cannot be empty", None
     
     if len(text) > 4000:
-        return False, f"Текст слишком длинный: {len(text)} символов (максимум 4000)", None
+        return False, f"Text too long: {len(text)} characters (maximum 4000)", None
     
     is_valid_html, html_error = validate_html_tags(text)
     if not is_valid_html:
