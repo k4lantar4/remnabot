@@ -1,4 +1,4 @@
-"""CRUD операции для токенов административного веб-API."""
+"""CRUD operations for administrative web API tokens."""
 from __future__ import annotations
 
 from datetime import datetime

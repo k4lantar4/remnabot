@@ -48,7 +48,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
     user = result.scalar_one_or_none()
     
     if user and user.subscription:
-        # Загружаем дополнительные зависимости для subscription
+        # Load additional dependencies for subscription
         _ = user.subscription.is_active
     
     return user
@@ -68,7 +68,7 @@ async def get_user_by_telegram_id(db: AsyncSession, telegram_id: int) -> Optiona
     user = result.scalar_one_or_none()
 
     if user and user.subscription:
-        # Загружаем дополнительные зависимости для subscription
+        # Load additional dependencies for subscription
         _ = user.subscription.is_active
 
     return user
@@ -94,7 +94,7 @@ async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User
     user = result.scalar_one_or_none()
 
     if user and user.subscription:
-        # Загружаем дополнительные зависимости для subscription
+        # Load additional dependencies for subscription
         _ = user.subscription.is_active
 
     return user
@@ -113,7 +113,7 @@ async def get_user_by_referral_code(db: AsyncSession, referral_code: str) -> Opt
     user = result.scalar_one_or_none()
     
     if user and user.subscription:
-        # Загружаем дополнительные зависимости для subscription
+        # Load additional dependencies for subscription
         _ = user.subscription.is_active
     
     return user
@@ -142,7 +142,7 @@ async def _sync_users_sequence(db: AsyncSession) -> None:
     )
     await db.commit()
     logger.warning(
-        "🔄 Последовательность users_id_seq была синхронизирована с текущим максимумом id"
+        "🔄 Sequence users_id_seq synchronized with current max id"
     )
 
 
@@ -152,7 +152,7 @@ async def _get_or_create_default_promo_group(db: AsyncSession) -> PromoGroup:
         return default_group
 
     default_group = PromoGroup(
-        name="Базовый юзер",
+        name="Basic User",
         server_discount_percent=0,
         traffic_discount_percent=0,
         device_discount_percent=0,
@@ -174,7 +174,7 @@ async def create_user_no_commit(
     referral_code: str = None
 ) -> User:
     """
-    Создает пользователя без немедленного коммита для пакетной обработки
+    Creates user without immediate commit for batch processing
     """
     
     if not referral_code:
@@ -201,15 +201,15 @@ async def create_user_no_commit(
 
     db.add(user)
 
-    # Обязательно выполняем flush, чтобы получить присвоенный первичный ключ
+    # Must flush to get assigned primary key
     await db.flush()
 
-    # Сохраняем ссылку на группу, чтобы дальнейшие операции могли её использовать
+    # Save reference to group so further operations can use it
     user.promo_group = default_group
 
-    # Не коммитим сразу, оставляем для пакетной обработки
+    # Don't commit immediately, leave for batch processing
     logger.info(
-        f"✅ Подготовлен пользователь {telegram_id} с реферальным кодом {referral_code} (ожидает коммита)"
+        f"✅ User {telegram_id} prepared with referral code {referral_code} (awaiting commit)"
     )
     return user
 
@@ -258,7 +258,7 @@ async def create_user(
 
             user.promo_group = default_group
             logger.info(
-                f"✅ Создан пользователь {telegram_id} с реферальным кодом {referral_code}"
+                f"✅ User {telegram_id} created with referral code {referral_code}"
             )
             return user
 
@@ -271,8 +271,8 @@ async def create_user(
                 and attempt < attempts
             ):
                 logger.warning(
-                    "⚠️ Обнаружено несоответствие последовательности users_id_seq при создании пользователя %s. "
-                    "Выполняем повторную синхронизацию (попытка %s/%s)",
+                    "⚠️ Sequence mismatch users_id_seq detected when creating user %s. "
+                    "Performing re-synchronization (attempt %s/%s)",
                     telegram_id,
                     attempt,
                     attempts,
@@ -282,7 +282,7 @@ async def create_user(
 
             raise
 
-    raise RuntimeError("Не удалось создать пользователя после синхронизации последовательности")
+    raise RuntimeError("Failed to create user after sequence synchronization")
 
 
 async def update_user(
@@ -309,7 +309,7 @@ async def add_user_balance(
     db: AsyncSession,
     user: User,
     amount_kopeks: int,
-    description: str = "Пополнение баланса",
+    description: str = "Balance top-up",
     create_transaction: bool = True,
     transaction_type: TransactionType = TransactionType.DEPOSIT,
     bot = None
@@ -334,11 +334,11 @@ async def add_user_balance(
         await db.refresh(user)
         
         
-        logger.info(f"💰 Баланс пользователя {user.telegram_id} изменен: {old_balance} → {user.balance_kopeks} (изменение: +{amount_kopeks})")
+        logger.info(f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_kopeks} (change: +{amount_kopeks})")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка изменения баланса пользователя {user.id}: {e}")
+        logger.error(f"Error changing user balance {user.id}: {e}")
         await db.rollback()
         return False
 
@@ -347,13 +347,13 @@ async def add_user_balance_by_id(
     db: AsyncSession,
     telegram_id: int,
     amount_kopeks: int,
-    description: str = "Пополнение баланса",
+    description: str = "Balance top-up",
     transaction_type: TransactionType = TransactionType.DEPOSIT,
 ) -> bool:
     try:
         user = await get_user_by_telegram_id(db, telegram_id)
         if not user:
-            logger.error(f"Пользователь с telegram_id {telegram_id} не найден")
+            logger.error(f"User with telegram_id {telegram_id} not found")
             return False
         
         return await add_user_balance(
@@ -365,7 +365,7 @@ async def add_user_balance_by_id(
         )
         
     except Exception as e:
-        logger.error(f"Ошибка пополнения баланса пользователя {telegram_id}: {e}")
+        logger.error(f"Error topping up user balance {telegram_id}: {e}")
         return False
 
 
@@ -379,11 +379,11 @@ async def subtract_user_balance(
     *,
     consume_promo_offer: bool = False,
 ) -> bool:
-    logger.info(f"💸 ОТЛАДКА subtract_user_balance:")
+    logger.info(f"💸 DEBUG subtract_user_balance:")
     logger.info(f"   👤 User ID: {user.id} (TG: {user.telegram_id})")
-    logger.info(f"   💰 Баланс до списания: {user.balance_kopeks} копеек")
-    logger.info(f"   💸 Сумма к списанию: {amount_kopeks} копеек")
-    logger.info(f"   📝 Описание: {description}")
+    logger.info(f"   💰 Balance before deduction: {user.balance_kopeks} kopeks")
+    logger.info(f"   💸 Amount to deduct: {amount_kopeks} kopeks")
+    logger.info(f"   📝 Description: {description}")
     
     log_context: Optional[Dict[str, object]] = None
     if consume_promo_offer:
@@ -422,7 +422,7 @@ async def subtract_user_balance(
                     log_context["percent"] = offer.discount_percent
 
     if user.balance_kopeks < amount_kopeks:
-        logger.error(f"   ❌ НЕДОСТАТОЧНО СРЕДСТВ!")
+        logger.error(f"   ❌ INSUFFICIENT FUNDS!")
         return False
 
     try:
@@ -479,11 +479,11 @@ async def subtract_user_balance(
                         rollback_error,
                     )
 
-        logger.error(f"   ✅ Средства списаны: {old_balance} → {user.balance_kopeks}")
+        logger.error(f"   ✅ Funds deducted: {old_balance} → {user.balance_kopeks}")
         return True
         
     except Exception as e:
-        logger.error(f"   ❌ ОШИБКА СПИСАНИЯ: {e}")
+        logger.error(f"   ❌ DEDUCTION ERROR: {e}")
         await db.rollback()
         return False
 
@@ -612,11 +612,11 @@ async def get_users_list(
         if search.isdigit():
             try:
                 search_int = int(search)
-                # Добавляем условие поиска по telegram_id, который является BigInteger
-                # и может содержать большие значения, в отличие от User.id (INTEGER)
+                # Add search condition for telegram_id, which is BigInteger
+                # and can contain large values, unlike User.id (INTEGER)
                 conditions.append(User.telegram_id == search_int)
             except ValueError:
-                # Если не удалось преобразовать в int, просто ищем по текстовым полям
+                # If failed to convert to int, just search by text fields
                 pass
         
         query = query.where(or_(*conditions))
@@ -630,7 +630,7 @@ async def get_users_list(
     ]
     if sum(int(flag) for flag in sort_flags) > 1:
         logger.debug(
-            "Выбрано несколько сортировок пользователей — применяется приоритет: трафик > траты > покупки > баланс > активность"
+            "Multiple user sortings selected — applying priority: traffic > spending > purchases > balance > activity"
         )
 
     transactions_stats = None
@@ -693,10 +693,10 @@ async def get_users_list(
     result = await db.execute(query)
     users = result.scalars().all()
     
-    # Загружаем дополнительные зависимости для всех пользователей
+    # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
-            # Загружаем дополнительные зависимости для subscription
+            # Load additional dependencies for subscription
             _ = user.subscription.is_active
     
     return users
@@ -724,11 +724,11 @@ async def get_users_count(
         if search.isdigit():
             try:
                 search_int = int(search)
-                # Добавляем условие поиска по telegram_id, который является BigInteger
-                # и может содержать большие значения, в отличие от User.id (INTEGER)
+                # Add search condition for telegram_id, which is BigInteger
+                # and can contain large values, unlike User.id (INTEGER)
                 conditions.append(User.telegram_id == search_int)
             except ValueError:
-                # Если не удалось преобразовать в int, просто ищем по текстовым полям
+                # If failed to convert to int, just search by text fields
                 pass
         
         query = query.where(or_(*conditions))
@@ -807,10 +807,10 @@ async def get_referrals(db: AsyncSession, user_id: int) -> List[User]:
     )
     users = result.scalars().all()
     
-    # Загружаем дополнительные зависимости для всех пользователей
+    # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
-            # Загружаем дополнительные зависимости для subscription
+            # Load additional dependencies for subscription
             _ = user.subscription.is_active
     
     return users
@@ -866,16 +866,16 @@ async def get_users_for_promo_segment(db: AsyncSession, segment: str) -> List[Us
                 ),
             )
         else:
-            logger.warning("Неизвестный сегмент для промо: %s", segment)
+            logger.warning("Unknown promo segment: %s", segment)
             return []
 
     result = await db.execute(query.order_by(User.id))
     users = result.scalars().unique().all()
     
-    # Загружаем дополнительные зависимости для всех пользователей
+    # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
-            # Загружаем дополнительные зависимости для subscription
+            # Load additional dependencies for subscription
             _ = user.subscription.is_active
     
     return users
@@ -901,10 +901,10 @@ async def get_inactive_users(db: AsyncSession, months: int = 3) -> List[User]:
     )
     users = result.scalars().all()
     
-    # Загружаем дополнительные зависимости для всех пользователей
+    # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
-            # Загружаем дополнительные зависимости для subscription
+            # Load additional dependencies for subscription
             _ = user.subscription.is_active
     
     return users
@@ -915,7 +915,7 @@ async def delete_user(db: AsyncSession, user: User) -> bool:
     user.updated_at = datetime.utcnow()
     
     await db.commit()
-    logger.info(f"🗑️ Пользователь {user.telegram_id} помечен как удаленный")
+    logger.info(f"🗑️ User {user.telegram_id} marked as deleted")
     return True
 
 

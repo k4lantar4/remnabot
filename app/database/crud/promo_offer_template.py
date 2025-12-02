@@ -12,34 +12,34 @@ from app.database.models import PromoOfferTemplate
 
 UPDATED_TEMPLATE_MESSAGES = {
     "extend_discount": (
-        "💎 Экономия {discount_percent}% при продлении\n\n"
-        "Скидка суммируется с промогруппой и действует один раз.\n"
-        "Срок действия предложения — {valid_hours} ч.\n"
-        "После активации скидка действует {active_discount_hours} ч."
+        "💎 Save {discount_percent}% on renewal\n\n"
+        "Discount is added to promo group and applies once.\n"
+        "Offer valid for {valid_hours} hours.\n"
+        "After activation, discount is valid for {active_discount_hours} hours."
     ),
     "purchase_discount": (
-        "🎯 Вернитесь со скидкой {discount_percent}%\n\n"
-        "Скидка суммируется с промогруппой и действует один раз.\n"
-        "Предложение действует {valid_hours} ч.\n"
-        "После активации скидка действует {active_discount_hours} ч."
+        "🎯 Come back with {discount_percent}% discount\n\n"
+        "Discount is added to promo group and applies once.\n"
+        "Offer valid for {valid_hours} hours.\n"
+        "After activation, discount is valid for {active_discount_hours} hours."
     ),
 }
 
 
 LEGACY_TEMPLATE_MESSAGES = {
     "extend_discount": (
-        "💎 <b>Экономия {discount_percent}% при продлении</b>\n\n"
-        "Активируйте предложение и получите дополнительную скидку на оплату продления. "
-        "Она суммируется с вашими промогрупповыми скидками и действует один раз.\n"
-        "Срок действия предложения — {valid_hours} ч.\n"
-        "После активации скидка действует {active_discount_hours} ч."
+        "💎 <b>Save {discount_percent}% on renewal</b>\n\n"
+        "Activate the offer and get an additional discount on renewal payment. "
+        "It is added to your promo group discounts and applies once.\n"
+        "Offer valid for {valid_hours} hours.\n"
+        "After activation, discount is valid for {active_discount_hours} hours."
     ),
     "purchase_discount": (
-        "🎯 <b>Вернитесь со скидкой {discount_percent}%</b>\n\n"
-        "После активации мы применим дополнительную скидку к вашей следующей оплате подписки. "
-        "Скидка суммируется с промогруппой и действует один раз.\n"
-        "Предложение действует {valid_hours} ч.\n"
-        "После активации скидка действует {active_discount_hours} ч."
+        "🎯 <b>Come back with {discount_percent}% discount</b>\n\n"
+        "After activation, we will apply an additional discount to your next subscription payment. "
+        "Discount is added to promo group and applies once.\n"
+        "Offer valid for {valid_hours} hours.\n"
+        "After activation, discount is valid for {active_discount_hours} hours."
     ),
 }
 
@@ -47,13 +47,13 @@ LEGACY_TEMPLATE_MESSAGES = {
 DEFAULT_TEMPLATES: tuple[dict, ...] = (
     {
         "offer_type": "test_access",
-        "name": "Тестовые сервера",
+        "name": "Test Servers",
         "message_text": (
-            "🔥 <b>Испытайте новые сервера</b>\n\n"
-            "Активируйте предложение и получите временный доступ к дополнительным сквадам на {test_duration_hours} ч.\n"
-            "Предложение действительно {valid_hours} ч."
+            "🔥 <b>Try new servers</b>\n\n"
+            "Activate the offer and get temporary access to additional squads for {test_duration_hours} hours.\n"
+            "Offer valid for {valid_hours} hours."
         ),
-        "button_text": "🚀 Попробовать серверы",
+        "button_text": "🚀 Try servers",
         "valid_hours": 24,
         "discount_percent": 0,
         "bonus_amount_kopeks": 0,
@@ -63,9 +63,9 @@ DEFAULT_TEMPLATES: tuple[dict, ...] = (
     },
     {
         "offer_type": "extend_discount",
-        "name": "Скидка на продление",
+        "name": "Renewal Discount",
         "message_text": UPDATED_TEMPLATE_MESSAGES["extend_discount"],
-        "button_text": "🎁 Получить скидку",
+        "button_text": "🎁 Get discount",
         "valid_hours": 24,
         "discount_percent": 20,
         "bonus_amount_kopeks": 0,
@@ -75,9 +75,9 @@ DEFAULT_TEMPLATES: tuple[dict, ...] = (
     },
     {
         "offer_type": "purchase_discount",
-        "name": "Скидка на покупку",
+        "name": "Purchase Discount",
         "message_text": UPDATED_TEMPLATE_MESSAGES["purchase_discount"],
-        "button_text": "🎁 Забрать скидку",
+        "button_text": "🎁 Claim discount",
         "valid_hours": 48,
         "discount_percent": 25,
         "bonus_amount_kopeks": 0,
@@ -115,7 +115,7 @@ async def ensure_default_templates(db: AsyncSession, *, created_by: Optional[int
             if new_message and legacy_message and existing.message_text == legacy_message:
                 should_update = True
             elif new_message and (
-                "{bonus_amount" in existing.message_text or "Мы начислим" in existing.message_text
+                "{bonus_amount" in existing.message_text or "We will credit" in existing.message_text
             ):
                 should_update = True
 

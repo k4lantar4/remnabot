@@ -8,7 +8,7 @@ from app.database.models import Ticket, TicketMessage, TicketStatus, User, Suppo
 
 
 class TicketCRUD:
-    """CRUD операции для работы с тикетами"""
+    """CRUD operations for working with tickets"""
     
     @staticmethod
     async def create_ticket(
@@ -22,7 +22,7 @@ class TicketCRUD:
         media_file_id: Optional[str] = None,
         media_caption: Optional[str] = None,
     ) -> Ticket:
-        """Создать новый тикет с первым сообщением"""
+        """Create new ticket with first message"""
         ticket = Ticket(
             user_id=user_id,
             title=title,
@@ -30,9 +30,9 @@ class TicketCRUD:
             priority=priority
         )
         db.add(ticket)
-        await db.flush()  # Получаем ID тикета
+        await db.flush()  # Get ticket ID
         
-        # Создаем первое сообщение
+        # Create first message
         message = TicketMessage(
             ticket_id=ticket.id,
             user_id=user_id,
@@ -56,7 +56,7 @@ class TicketCRUD:
         load_messages: bool = True,
         load_user: bool = False
     ) -> Optional[Ticket]:
-        """Получить тикет по ID"""
+        """Get ticket by ID"""
         query = select(Ticket).where(Ticket.id == ticket_id)
         
         if load_user:
@@ -76,7 +76,7 @@ class TicketCRUD:
         limit: int = 20,
         offset: int = 0
     ) -> List[Ticket]:
-        """Получить тикеты пользователя"""
+        """Get user tickets"""
         query = select(Ticket).where(Ticket.user_id == user_id)
         
         if status:
@@ -93,7 +93,7 @@ class TicketCRUD:
         user_id: int,
         statuses: List[str]
     ) -> int:
-        """Подсчитать количество тикетов пользователя по списку статусов"""
+        """Count number of user tickets by status list"""
         query = select(func.count()).select_from(Ticket).where(Ticket.user_id == user_id)
         if statuses:
             query = query.where(Ticket.status.in_(statuses))
@@ -108,7 +108,7 @@ class TicketCRUD:
         limit: int = 20,
         offset: int = 0
     ) -> List[Ticket]:
-        """Получить тикеты пользователя по списку статусов с пагинацией"""
+        """Get user tickets by status list with pagination"""
         query = (
             select(Ticket)
             .where(Ticket.user_id == user_id)
@@ -126,7 +126,7 @@ class TicketCRUD:
         db: AsyncSession,
         user_id: int
     ) -> bool:
-        """Проверить, есть ли у пользователя активный (не закрытый) тикет"""
+        """Check if user has active (not closed) ticket"""
         query = (
             select(Ticket.id)
             .where(
@@ -143,8 +143,8 @@ class TicketCRUD:
         db: AsyncSession,
         user_id: int
     ) -> Optional[datetime]:
-        """Проверить, заблокирован ли пользователь для создания/ответов по любому тикету.
-        Возвращает дату окончания блокировки, если активна, или None.
+        """Check if user is blocked for creating/replying to any ticket.
+        Returns block end date if active, or None.
         """
         query = select(Ticket).where(
             Ticket.user_id == user_id,
@@ -155,11 +155,11 @@ class TicketCRUD:
         if not tickets:
             return None
         from datetime import datetime
-        # Если есть вечная блокировка в любом тикете — блок активен без срока
+        # If there is permanent block in any ticket — block is active without term
         for t in tickets:
             if t.user_reply_block_permanent:
                 return datetime.max
-        # Иначе ищем максимальный срок блокировки, если он в будущем
+        # Otherwise find maximum block term, if it's in the future
         future_until = [t.user_reply_block_until for t in tickets if t.user_reply_block_until]
         if not future_until:
             return None
@@ -174,7 +174,7 @@ class TicketCRUD:
         limit: int = 50,
         offset: int = 0
     ) -> List[Ticket]:
-        """Получить все тикеты (для админов)"""
+        """Get all tickets (for admins)"""
         query = select(Ticket).options(selectinload(Ticket.user))
         
         conditions = []
@@ -234,7 +234,7 @@ class TicketCRUD:
         status: str,
         closed_at: Optional[datetime] = None
     ) -> bool:
-        """Обновить статус тикета"""
+        """Update ticket status"""
         ticket = await TicketCRUD.get_ticket_by_id(db, ticket_id, load_messages=False)
         if not ticket:
             return False
@@ -269,7 +269,7 @@ class TicketCRUD:
         db: AsyncSession,
         ticket_id: int
     ) -> bool:
-        """Закрыть тикет"""
+        """Close ticket"""
         return await TicketCRUD.update_ticket_status(
             db, ticket_id, TicketStatus.CLOSED.value, datetime.utcnow()
         )
@@ -278,7 +278,7 @@ class TicketCRUD:
     async def close_all_open_tickets(
         db: AsyncSession,
     ) -> List[int]:
-        """Закрыть все открытые тикеты. Возвращает список идентификаторов закрытых тикетов."""
+        """Close all open tickets. Returns list of closed ticket IDs."""
         open_statuses = [TicketStatus.OPEN.value, TicketStatus.ANSWERED.value]
         result = await db.execute(
             select(Ticket.id).where(Ticket.status.in_(open_statuses))
@@ -324,7 +324,7 @@ class TicketCRUD:
             await db.commit()
         except Exception:
             await db.rollback()
-            # не мешаем основной логике
+            # don't interfere with main logic
             pass
 
     @staticmethod
@@ -372,7 +372,7 @@ class TicketCRUD:
     
     @staticmethod
     async def get_open_tickets_count(db: AsyncSession) -> int:
-        """Получить количество открытых тикетов"""
+        """Get number of open tickets"""
         query = select(Ticket).where(Ticket.status.in_([
             TicketStatus.OPEN.value,
             TicketStatus.ANSWERED.value
@@ -382,7 +382,7 @@ class TicketCRUD:
 
 
 class TicketMessageCRUD:
-    """CRUD операции для работы с сообщениями тикетов"""
+    """CRUD operations for working with ticket messages"""
     
     @staticmethod
     async def add_message(
@@ -395,7 +395,7 @@ class TicketMessageCRUD:
         media_file_id: Optional[str] = None,
         media_caption: Optional[str] = None
     ) -> TicketMessage:
-        """Добавить сообщение в тикет"""
+        """Add message to ticket"""
         message = TicketMessage(
             ticket_id=ticket_id,
             user_id=user_id,
@@ -409,22 +409,22 @@ class TicketMessageCRUD:
         
         db.add(message)
         
-        # Обновляем статус тикета
+        # Update ticket status
         ticket = await TicketCRUD.get_ticket_by_id(db, ticket_id, load_messages=False)
         if ticket:
-            # Если тикет закрыт, запрещаем изменение статуса при сообщении пользователя
+            # If ticket is closed, prevent status change when user sends message
             if not is_from_admin and ticket.status == TicketStatus.CLOSED.value:
                 return message
             if is_from_admin:
-                # Админ ответил - тикет отвечен
+                # Admin replied - ticket answered
                 ticket.status = TicketStatus.ANSWERED.value
             else:
-                # Пользователь ответил - тикет открыт
+                # User replied - ticket opened
                 ticket.status = TicketStatus.OPEN.value
-                # Сбросить отметку последнего SLA-напоминания, чтобы снова напоминать от времени нового сообщения
+                # Reset last SLA reminder mark to remind again from new message time
                 try:
                     from sqlalchemy import inspect as sa_inspect
-                    # если колонка существует в модели
+                    # if column exists in model
                     if hasattr(ticket, 'last_sla_reminder_at'):
                         ticket.last_sla_reminder_at = None
                 except Exception:
@@ -443,7 +443,7 @@ class TicketMessageCRUD:
         limit: int = 50,
         offset: int = 0
     ) -> List[TicketMessage]:
-        """Получить сообщения тикета"""
+        """Get ticket messages"""
         query = (
             select(TicketMessage)
             .where(TicketMessage.ticket_id == ticket_id)
@@ -460,7 +460,7 @@ class TicketMessageCRUD:
         db: AsyncSession,
         ticket_id: int
     ) -> Optional[TicketMessage]:
-        """Получить последнее сообщение в тикете"""
+        """Get last message in ticket"""
         query = (
             select(TicketMessage)
             .where(TicketMessage.ticket_id == ticket_id)

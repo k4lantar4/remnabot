@@ -1,4 +1,4 @@
-"""CRUD-операции для платежей Platega."""
+"""CRUD operations for Platega payments."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ async def create_platega_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Platega платеж #%s (tx=%s) на сумму %s копеек для пользователя %s",
+        "Platega payment created #%s (tx=%s) for amount %s kopeks for user %s",
         payment.id,
         platega_transaction_id,
         amount_kopeks,

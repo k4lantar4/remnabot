@@ -36,7 +36,7 @@ async def create_transaction(
     await db.commit()
     await db.refresh(transaction)
     
-    logger.info(f"💳 Создана транзакция: {type.value} на {amount_kopeks/100}₽ для пользователя {user_id}")
+    logger.info(f"💳 Transaction created: {type.value} for {amount_kopeks/100}₽ for user {user_id}")
 
     try:
         from app.services.promo_group_assignment import (
@@ -46,7 +46,7 @@ async def create_transaction(
         await maybe_assign_promo_group_by_total_spent(db, user_id)
     except Exception as exc:
         logger.debug(
-            "Не удалось проверить автовыдачу промогруппы для пользователя %s: %s",
+            "Failed to check auto-assignment of promo group for user %s: %s",
             user_id,
             exc,
         )
@@ -133,7 +133,7 @@ async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Tr
     await db.commit()
     await db.refresh(transaction)
 
-    logger.info(f"✅ Транзакция {transaction.id} завершена")
+    logger.info(f"✅ Transaction {transaction.id} completed")
 
     try:
         from app.services.promo_group_assignment import (
@@ -143,7 +143,7 @@ async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Tr
         await maybe_assign_promo_group_by_total_spent(db, transaction.user_id)
     except Exception as exc:
         logger.debug(
-            "Не удалось проверить автовыдачу промогруппы для пользователя %s: %s",
+            "Failed to check auto-assignment of promo group for user %s: %s",
             transaction.user_id,
             exc,
         )
@@ -372,7 +372,7 @@ async def check_tribute_payment_duplicate(
     transaction = result.scalar_one_or_none()
     
     if transaction:
-        logger.info(f"🔍 Найден дубликат платежа в течение 24ч: {transaction.id}")
+        logger.info(f"🔍 Duplicate payment found within 24h: {transaction.id}")
     
     return transaction
 
@@ -393,7 +393,7 @@ async def create_unique_tribute_transaction(
         timestamp = int(datetime.utcnow().timestamp())
         external_id = f"donation_{payment_id}_{amount_kopeks}_{timestamp}"
         
-        logger.info(f"Создан уникальный external_id для избежания дубликатов: {external_id}")
+        logger.info(f"Created unique external_id to avoid duplicates: {external_id}")
     
     return await create_transaction(
         db=db,

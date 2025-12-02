@@ -52,7 +52,7 @@ async def create_wata_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Wata платеж #%s для пользователя %s: %s копеек (статус %s)",
+        "Wata payment created #%s for user %s: %s kopeks (status %s)",
         payment.id,
         user_id,
         amount_kopeks,
@@ -137,7 +137,7 @@ async def update_wata_payment_status(
     await db.refresh(payment)
 
     logger.info(
-        "Обновлен Wata платеж %s: статус=%s, is_paid=%s",
+        "Wata payment updated %s: status=%s, is_paid=%s",
         payment.payment_link_id,
         payment.status,
         payment.is_paid,
@@ -160,7 +160,7 @@ async def link_wata_payment_to_transaction(
     await db.refresh(payment)
 
     logger.info(
-        "Wata платеж %s привязан к транзакции %s",
+        "Wata payment %s linked to transaction %s",
         payment.payment_link_id,
         transaction_id,
     )

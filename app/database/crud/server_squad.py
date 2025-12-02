@@ -68,7 +68,7 @@ async def create_server_squad(
 
     if len(promo_groups) != len(normalized_group_ids):
         logger.warning(
-            "Не все промогруппы найдены при создании сервера %s", display_name
+            "Not all promo groups found when creating server %s", display_name
         )
 
     server_squad = ServerSquad(
@@ -89,7 +89,7 @@ async def create_server_squad(
     await db.commit()
     await db.refresh(server_squad)
     
-    logger.info(f"✅ Создан сервер {display_name} (UUID: {squad_uuid})")
+    logger.info(f"✅ Server created {display_name} (UUID: {squad_uuid})")
     return server_squad
 
 
@@ -170,7 +170,7 @@ async def get_available_server_squads(
 
 
 async def get_active_server_squads(db: AsyncSession) -> List[ServerSquad]:
-    """Возвращает список активных серверов, доступных для подключения."""
+    """Returns list of active servers available for connection."""
 
     squads = await get_available_server_squads(db)
 
@@ -197,7 +197,7 @@ async def get_active_server_squads(db: AsyncSession) -> List[ServerSquad]:
 async def choose_random_active_server_squad(
     db: AsyncSession,
 ) -> Optional[ServerSquad]:
-    """Возвращает случайный активный сервер."""
+    """Returns random active server."""
 
     squads = await get_active_server_squads(db)
 
@@ -211,7 +211,7 @@ async def get_random_active_squad_uuid(
     db: AsyncSession,
     fallback_uuid: Optional[str] = None,
 ) -> Optional[str]:
-    """Возвращает UUID случайного активного сервера или запасной UUID."""
+    """Returns UUID of random active server or fallback UUID."""
 
     squad = await choose_random_active_server_squad(db)
 
@@ -227,7 +227,7 @@ async def update_server_squad_promo_groups(
     unique_ids = [int(pg_id) for pg_id in set(promo_group_ids)]
 
     if not unique_ids:
-        raise ValueError("Нужно выбрать хотя бы одну промогруппу")
+        raise ValueError("At least one promo group must be selected")
 
     server = await get_server_squad_by_id(db, server_id)
     if not server:
@@ -239,14 +239,14 @@ async def update_server_squad_promo_groups(
     promo_groups = result.scalars().all()
 
     if not promo_groups:
-        raise ValueError("Не найдены промогруппы для обновления сервера")
+        raise ValueError("Promo groups not found for server update")
 
     server.allowed_promo_groups = promo_groups
     await db.commit()
     await db.refresh(server)
 
     logger.info(
-        "Обновлены промогруппы сервера %s (ID: %s): %s",
+        "Server promo groups updated %s (ID: %s): %s",
         server.display_name,
         server.id,
         ", ".join(pg.name for pg in promo_groups),
@@ -298,7 +298,7 @@ async def delete_server_squad(db: AsyncSession, server_id: int) -> bool:
     connections_count = connections_result.scalar()
     
     if connections_count > 0:
-        logger.warning(f"⚠ Нельзя удалить сервер {server_id}: есть активные подключения ({connections_count})")
+        logger.warning(f"⚠ Cannot delete server {server_id}: active connections exist ({connections_count})")
         return False
     
     await db.execute(
@@ -306,7 +306,7 @@ async def delete_server_squad(db: AsyncSession, server_id: int) -> bool:
     )
     await db.commit()
     
-    logger.info(f"🗑️ Удален сервер (ID: {server_id})")
+    logger.info(f"🗑️ Server deleted (ID: {server_id})")
     return True
 
 
@@ -364,7 +364,7 @@ async def sync_with_remnawave(
 
         for server in removed_servers:
             logger.info(
-                "🗑️ Удаляется сервер %s (UUID: %s)",
+                "🗑️ Deleting server %s (UUID: %s)",
                 server.display_name,
                 server.squad_uuid,
             )
@@ -417,13 +417,13 @@ async def sync_with_remnawave(
 
         if cleaned_subscriptions:
             logger.info(
-                "🧹 Обновлены подписки после удаления серверов: %s",
+                "🧹 Subscriptions updated after server deletion: %s",
                 cleaned_subscriptions,
             )
 
     await db.commit()
 
-    logger.info(f"🔄 Синхронизация завершена: +{created} ~{updated} -{removed}")
+    logger.info(f"🔄 Synchronization completed: +{created} ~{updated} -{removed}")
     return created, updated, removed
 
 
@@ -528,17 +528,17 @@ async def get_random_trial_squad_uuid(
 def _generate_display_name(original_name: str) -> str:
 
     country_names = {
-        'NL': '🇳🇱 Нидерланды',
-        'DE': '🇩🇪 Германия', 
-        'US': '🇺🇸 США',
-        'FR': '🇫🇷 Франция',
-        'GB': '🇬🇧 Великобритания',
-        'IT': '🇮🇹 Италия',
-        'ES': '🇪🇸 Испания',
-        'CA': '🇨🇦 Канада',
-        'JP': '🇯🇵 Япония',
-        'SG': '🇸🇬 Сингапур',
-        'AU': '🇦🇺 Австралия',
+        'NL': '🇳🇱 Netherlands',
+        'DE': '🇩🇪 Germany', 
+        'US': '🇺🇸 USA',
+        'FR': '🇫🇷 France',
+        'GB': '🇬🇧 United Kingdom',
+        'IT': '🇮🇹 Italy',
+        'ES': '🇪🇸 Spain',
+        'CA': '🇨🇦 Canada',
+        'JP': '🇯🇵 Japan',
+        'SG': '🇸🇬 Singapore',
+        'AU': '🇦🇺 Australia',
     }
     
     name_upper = original_name.upper()
@@ -606,7 +606,7 @@ async def get_server_statistics(db: AsyncSession) -> dict:
 
 
 async def count_active_users_for_squad(db: AsyncSession, squad_uuid: str) -> int:
-    """Возвращает количество активных подписок, подключенных к указанному скваду."""
+    """Returns the number of active subscriptions connected to the specified squad."""
 
     result = await db.execute(
         select(func.count(Subscription.id)).where(
@@ -637,11 +637,11 @@ async def add_user_to_servers(
             )
         
         await db.commit()
-        logger.info(f"✅ Увеличен счетчик пользователей для серверов: {server_squad_ids}")
+        logger.info(f"✅ User counter increased for servers: {server_squad_ids}")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка увеличения счетчика пользователей: {e}")
+        logger.error(f"Error increasing user counter: {e}")
         await db.rollback()
         return False
 
@@ -660,11 +660,11 @@ async def remove_user_from_servers(
             )
         
         await db.commit()
-        logger.info(f"✅ Уменьшен счетчик пользователей для серверов: {server_squad_ids}")
+        logger.info(f"✅ User counter decreased for servers: {server_squad_ids}")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка уменьшения счетчика пользователей: {e}")
+        logger.error(f"Error decreasing user counter: {e}")
         await db.rollback()
         return False
 
@@ -687,7 +687,7 @@ async def sync_server_user_counts(db: AsyncSession) -> int:
         all_servers_result = await db.execute(select(ServerSquad.id, ServerSquad.squad_uuid))
         all_servers = all_servers_result.fetchall()
         
-        logger.info(f"🔍 Найдено серверов для синхронизации: {len(all_servers)}")
+        logger.info(f"🔍 Found servers for synchronization: {len(all_servers)}")
         
         updated_count = 0
         for server_id, squad_uuid in all_servers:
@@ -702,7 +702,7 @@ async def sync_server_user_counts(db: AsyncSession) -> int:
             )
             actual_users = count_result.scalar() or 0
             
-            logger.info(f"📊 Сервер {server_id} ({squad_uuid[:8]}): {actual_users} пользователей")
+            logger.info(f"📊 Server {server_id} ({squad_uuid[:8]}): {actual_users} users")
             
             await db.execute(
                 update(ServerSquad)
@@ -712,10 +712,10 @@ async def sync_server_user_counts(db: AsyncSession) -> int:
             updated_count += 1
         
         await db.commit()
-        logger.info(f"✅ Синхронизированы счетчики для {updated_count} серверов")
+        logger.info(f"✅ Counters synchronized for {updated_count} servers")
         return updated_count
         
     except Exception as e:
-        logger.error(f"Ошибка синхронизации счетчиков пользователей: {e}")
+        logger.error(f"Error synchronizing user counters: {e}")
         await db.rollback()
         return 0

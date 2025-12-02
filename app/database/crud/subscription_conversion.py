@@ -31,7 +31,7 @@ async def create_subscription_conversion(
     await db.commit()
     await db.refresh(conversion)
     
-    logger.info(f"✅ Создана запись о конверсии для пользователя {user_id}: {trial_duration_days} дн. → {first_paid_period_days} дн. за {first_payment_amount_kopeks/100}₽")
+    logger.info(f"✅ Conversion record created for user {user_id}: {trial_duration_days} days → {first_paid_period_days} days for {first_payment_amount_kopeks/100}₽")
     
     return conversion
 
@@ -88,10 +88,10 @@ async def get_conversion_statistics(db: AsyncSession) -> dict:
     )
     month_conversions = month_conversions_result.scalar()
     
-    logger.info(f"📊 Статистика конверсий:")
-    logger.info(f"   Всего записей о конверсиях: {total_conversions}")
-    logger.info(f"   Пользователей с платными подписками: {users_with_paid}")
-    logger.info(f"   Рассчитанная конверсия: {conversion_rate}%")
+    logger.info(f"📊 Conversion statistics:")
+    logger.info(f"   Total conversion records: {total_conversions}")
+    logger.info(f"   Users with paid subscriptions: {users_with_paid}")
+    logger.info(f"   Calculated conversion rate: {conversion_rate}%")
     
     return {
         "total_conversions": total_conversions,

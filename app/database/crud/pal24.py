@@ -50,7 +50,7 @@ async def create_pal24_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Pal24 платеж #%s для пользователя %s: %s копеек (статус %s)",
+        "Pal24 payment created #%s for user %s: %s kopeks (status %s)",
         payment.id,
         user_id,
         amount_kopeks,
@@ -137,7 +137,7 @@ async def update_pal24_payment_status(
     await db.refresh(payment)
 
     logger.info(
-        "Обновлен Pal24 платеж %s: статус=%s, is_paid=%s",
+        "Pal24 payment updated %s: status=%s, is_paid=%s",
         payment.bill_id,
         payment.status,
         payment.is_paid,
@@ -159,7 +159,7 @@ async def link_pal24_payment_to_transaction(
     await db.commit()
     await db.refresh(payment)
     logger.info(
-        "Pal24 платеж %s привязан к транзакции %s",
+        "Pal24 payment %s linked to transaction %s",
         payment.bill_id,
         transaction_id,
     )

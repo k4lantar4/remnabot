@@ -43,7 +43,7 @@ async def create_yookassa_payment(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"Создан платеж YooKassa: {yookassa_payment_id} на {amount_kopeks/100}₽ для пользователя {user_id}")
+    logger.info(f"YooKassa payment created: {yookassa_payment_id} for {amount_kopeks/100}₽ for user {user_id}")
     return payment
 
 
@@ -111,7 +111,7 @@ async def update_yookassa_payment_status(
     payment = result.scalar_one_or_none()
     
     if payment:
-        logger.info(f"Обновлен статус платежа YooKassa {yookassa_payment_id}: {status}, paid={is_paid}")
+        logger.info(f"YooKassa payment status updated {yookassa_payment_id}: {status}, paid={is_paid}")
     
     return payment
 
@@ -137,7 +137,7 @@ async def link_yookassa_payment_to_transaction(
     payment = result.scalar_one_or_none()
     
     if payment:
-        logger.info(f"Платеж YooKassa {yookassa_payment_id} связан с транзакцией {transaction_id}")
+        logger.info(f"YooKassa payment {yookassa_payment_id} linked to transaction {transaction_id}")
     
     return payment
 
@@ -215,7 +215,7 @@ async def delete_yookassa_payment(
     if payment:
         await db.delete(payment)
         await db.commit()
-        logger.info(f"Удален платеж YooKassa: {yookassa_payment_id}")
+        logger.info(f"YooKassa payment deleted: {yookassa_payment_id}")
         return True
     
     return False
