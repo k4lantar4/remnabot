@@ -369,7 +369,7 @@ async def apply_countries_changes(
 
     if added_names:
         logger.info(
-            "New servers cost: %.2f₽/month × %s months = %.2f₽ (discount %.2f₽)",
+            "New servers cost: %.2f RUB/month × %s months = %.2f RUB (discount %.2f RUB)",
             cost_per_month / 100,
             charged_months,
             total_cost / 100,
@@ -531,7 +531,7 @@ async def apply_countries_changes(
 
         await state.clear()
         logger.info(
-            f"✅ User {db_user.telegram_id} updated countries. Added: {len(added)}, removed: {len(removed)}, paid: {total_cost / 100}₽")
+            f"✅ User {db_user.telegram_id} updated countries. Added: {len(added)}, removed: {len(removed)}, paid: {total_cost / 100} RUB")
 
     except Exception as e:
         logger.error(f"⚠️ Error applying changes: {e}")

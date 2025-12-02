@@ -431,7 +431,7 @@ def get_traffic_switch_keyboard(
             action_text = ""
             price_text = texts.t(
                 "subscription.traffic.switch.price_increase",
-                f" (+{total_price_diff // 100}₽{period_text})"
+                f" (+{total_price_diff // 100} RUB{period_text})"
             ).format(amount=total_price_diff // 100, period=period_text)
             if discount_percent > 0:
                 discount_total = (
@@ -441,7 +441,7 @@ def get_traffic_switch_keyboard(
                 if discount_total > 0:
                     price_text += texts.t(
                         "subscription.traffic.switch.discount_info",
-                        f" (discount {discount_percent}%: -{discount_total // 100}₽)"
+                        f" (discount {discount_percent}%: -{discount_total // 100} RUB)"
                     ).format(percent=discount_percent, amount=discount_total // 100)
         elif total_price_diff < 0:
             emoji = "⬇️"

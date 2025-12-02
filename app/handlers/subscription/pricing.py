@@ -456,21 +456,21 @@ async def get_subscription_cost(subscription, db: AsyncSession) -> int:
         total_cost = base_cost + servers_cost + traffic_cost + devices_cost
 
         logger.info(f"📊 Monthly cost of subscription {subscription.id} configuration:")
-        base_log = f"   📅 Base tariff (30 days): {base_cost_original / 100}₽"
+        base_log = f"   📅 Base tariff (30 days): {base_cost_original / 100} RUB"
         if period_discount_percent > 0:
             discount_value = base_cost_original * period_discount_percent // 100
             base_log += (
-                f" → {base_cost / 100}₽"
-                f" (discount {period_discount_percent}%: -{discount_value / 100}₽)"
+                f" → {base_cost / 100} RUB"
+                f" (discount {period_discount_percent}%: -{discount_value / 100} RUB)"
             )
         logger.info(base_log)
         if servers_cost > 0:
-            logger.info(f"   🌍 Servers: {servers_cost / 100}₽")
+            logger.info(f"   🌍 Servers: {servers_cost / 100} RUB")
         if traffic_cost > 0:
-            logger.info(f"   📊 Traffic: {traffic_cost / 100}₽")
+            logger.info(f"   📊 Traffic: {traffic_cost / 100} RUB")
         if devices_cost > 0:
-            logger.info(f"   📱 Devices: {devices_cost / 100}₽")
-        logger.info(f"   💎 TOTAL: {total_cost / 100}₽")
+            logger.info(f"   📱 Devices: {devices_cost / 100} RUB")
+        logger.info(f"   💎 TOTAL: {total_cost / 100} RUB")
 
         return total_cost
 

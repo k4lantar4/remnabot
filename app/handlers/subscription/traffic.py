@@ -328,7 +328,7 @@ async def refresh_traffic_config():
         for pkg in packages:
             if pkg['enabled']:
                 gb_text = "♾️ Unlimited" if pkg['gb'] == 0 else f"{pkg['gb']} GB"
-                logger.info(f"   📦 {gb_text}: {pkg['price'] / 100}₽")
+                logger.info(f"   📦 {gb_text}: {pkg['price'] / 100} RUB")
 
         return True
 
@@ -349,13 +349,13 @@ async def get_traffic_packages_info() -> str:
             info_lines.append("\n✅ Active:")
             for pkg in enabled_packages:
                 gb_text = "♾️ Unlimited" if pkg['gb'] == 0 else f"{pkg['gb']} GB"
-                info_lines.append(f"   • {gb_text}: {pkg['price'] // 100}₽")
+                info_lines.append(f"   • {gb_text}: {pkg['price'] // 100} RUB")
 
         if disabled_packages:
             info_lines.append("\n❌ Disabled:")
             for pkg in disabled_packages:
                 gb_text = "♾️ Unlimited" if pkg['gb'] == 0 else f"{pkg['gb']} GB"
-                info_lines.append(f"   • {gb_text}: {pkg['price'] // 100}₽")
+                info_lines.append(f"   • {gb_text}: {pkg['price'] // 100} RUB")
 
         info_lines.append(f"\n📊 Total packages: {len(packages)}")
         info_lines.append(f"🟢 Active: {len(enabled_packages)}")
@@ -848,7 +848,7 @@ async def execute_switch_traffic(
         )
 
         logger.info(
-            f"✅ User {db_user.telegram_id} switched traffic from {current_traffic}GB to {new_traffic_gb}GB, additional payment: {price_difference / 100}₽")
+            f"✅ User {db_user.telegram_id} switched traffic from {current_traffic}GB to {new_traffic_gb}GB, additional payment: {price_difference / 100} RUB")
 
     except Exception as e:
         logger.error(f"Error switching traffic: {e}")
