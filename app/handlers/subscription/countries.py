@@ -811,19 +811,19 @@ async def _should_show_countries_management(user: Optional[User] = None) -> bool
 
             if allowed_servers:
                 if len(allowed_servers) > 1:
-                logger.debug(
-                    "Promo group %s has %s available servers, showing country management",
-                    promo_group.id,
-                    len(allowed_servers),
-                )
-                return True
-
-                logger.debug(
-                    "Promo group %s has only %s available server, skipping country selection step",
-                    promo_group.id,
-                    len(allowed_servers),
-                )
-                return False
+                    logger.debug(
+                        "Promo group %s has %s available servers, showing country management",
+                        promo_group.id,
+                        len(allowed_servers),
+                    )
+                    return True
+                else:
+                    logger.debug(
+                        "Promo group %s has only %s available server, skipping country selection step",
+                        promo_group.id,
+                        len(allowed_servers),
+                    )
+                    return False
 
         countries = await _get_available_countries(promo_group_id)
         available_countries = [c for c in countries if c.get('is_available', True)]

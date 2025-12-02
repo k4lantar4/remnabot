@@ -270,7 +270,7 @@ async def show_payment_methods(
             additional_devices = max(0, (current_device_limit or 0) - settings.DEFAULT_DEVICE_LIMIT)
             devices_price_per_month = additional_devices * settings.PRICE_PER_DEVICE
             devices_discount_percent = db_user.get_promo_discount("devices", duration_days)
-                devices_discounted_per_month, devices_discount_per_month = apply_percentage_discount(
+            devices_discounted_per_month, devices_discount_per_month = apply_percentage_discount(
                 devices_price_per_month,
                 devices_discount_percent,
             )
