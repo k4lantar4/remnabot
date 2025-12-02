@@ -27,16 +27,16 @@ async def _notify_admins_about_auto_assignment(
 
     bot_token = getattr(settings, "BOT_TOKEN", None)
     if not bot_token:
-        logger.debug("BOT_TOKEN не настроен — пропускаем уведомление о промогруппе")
+        logger.debug("BOT_TOKEN not configured — skipping promo group notification")
         return
 
     bot = Bot(token=bot_token, default=DefaultBotProperties(parse_mode="HTML"))
     try:
         notification_service = AdminNotificationService(bot)
         reason = (
-            f"Автоназначение за траты {settings.format_price(total_spent_kopeks)}"
+            f"Auto-assignment for spending {settings.format_price(total_spent_kopeks)}"
             if hasattr(settings, "format_price")
-            else f"Автоназначение за траты {total_spent_kopeks / 100:.2f}₽"
+            else f"Auto-assignment for spending {total_spent_kopeks / 100:.2f}₽"
         )
         await notification_service.send_user_promo_group_change_notification(
             db,
@@ -49,7 +49,7 @@ async def _notify_admins_about_auto_assignment(
         )
     except Exception as exc:
         logger.error(
-            "Ошибка отправки уведомления о автоназначении промогруппы пользователю %s: %s",
+            "Error sending auto-assignment promo group notification for user %s: %s",
             user.telegram_id,
             exc,
         )
@@ -100,10 +100,10 @@ async def maybe_assign_promo_group_by_total_spent(
 
     user = await db.get(User, user_id)
     if not user:
-        logger.debug("Не удалось найти пользователя %s для автовыдачи промогруппы", user_id)
+        logger.debug("Failed to find user %s for auto promo group assignment", user_id)
         return None
 
-    # Получаем текущую primary промогруппу
+    # Get current primary promo group
     old_group = user.get_primary_promo_group()
 
     total_spent = await get_user_total_spent_kopeks(db, user_id)
@@ -125,7 +125,7 @@ async def maybe_assign_promo_group_by_total_spent(
 
         if target_threshold <= previous_threshold:
             logger.debug(
-                "Порог промогруппы '%s' (%s) не превышает ранее назначенный (%s) для пользователя %s",
+                "Promo group threshold '%s' (%s) does not exceed previously assigned (%s) for user %s",
                 target_group.name,
                 target_threshold,
                 previous_threshold,
@@ -133,12 +133,12 @@ async def maybe_assign_promo_group_by_total_spent(
             )
             return None
 
-        # Проверяем, есть ли уже эта группа у пользователя
+        # Check if user already has this group
         already_has_group = await has_user_promo_group(db, user_id, target_group.id)
 
         if user.auto_promo_group_assigned and already_has_group:
             logger.debug(
-                "Пользователь %s уже имеет промогруппу '%s', повторная выдача не требуется",
+                "User %s already has promo group '%s', re-assignment not required",
                 user.telegram_id,
                 target_group.name,
             )
@@ -155,17 +155,17 @@ async def maybe_assign_promo_group_by_total_spent(
         user.updated_at = datetime.utcnow()
 
         if not already_has_group:
-            # Добавляем новую промогруппу к существующим
+            # Add new promo group to existing ones
             await add_user_to_promo_group(db, user_id, target_group.id, assigned_by="auto")
             logger.info(
-                "🤖 Пользователю %s добавлена промогруппа '%s' за траты %s ₽",
-                user.telegram_id,
+                "Promo group '%s' added to user %s for spending %s ₽",
                 target_group.name,
+                user.telegram_id,
                 total_spent / 100,
             )
         else:
             logger.info(
-                "🤖 Пользователь %s уже имеет промогруппу '%s', отмечаем автоприсвоение",
+                "User %s already has promo group '%s', marking auto-assignment",
                 user.telegram_id,
                 target_group.name,
             )
@@ -185,7 +185,7 @@ async def maybe_assign_promo_group_by_total_spent(
         return target_group
     except Exception as exc:
         logger.error(
-            "Ошибка при автоматическом назначении промогруппы пользователю %s: %s",
+            "Error auto-assigning promo group to user %s: %s",
             user_id,
             exc,
         )
