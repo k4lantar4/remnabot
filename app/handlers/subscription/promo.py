@@ -178,7 +178,7 @@ async def claim_discount_offer(
         offer_id = int(callback.data.split("_")[-1])
     except (ValueError, AttributeError):
         await callback.answer(
-            texts.get("DISCOUNT_CLAIM_NOT_FOUND", "❌ Предложение не найдено"),
+            texts.get("DISCOUNT_CLAIM_NOT_FOUND", "❌ Offer not found"),
             show_alert=True,
         )
         return
@@ -186,7 +186,7 @@ async def claim_discount_offer(
     offer = await get_offer_by_id(db, offer_id)
     if not offer or offer.user_id != db_user.id:
         await callback.answer(
-            texts.get("DISCOUNT_CLAIM_NOT_FOUND", "❌ Предложение не найдено"),
+            texts.get("DISCOUNT_CLAIM_NOT_FOUND", "❌ Offer not found"),
             show_alert=True,
         )
         return
@@ -194,7 +194,7 @@ async def claim_discount_offer(
     now = datetime.utcnow()
     if offer.claimed_at is not None:
         await callback.answer(
-            texts.get("DISCOUNT_CLAIM_ALREADY", "ℹ️ Скидка уже была активирована"),
+            texts.get("DISCOUNT_CLAIM_ALREADY", "ℹ️ Discount already activated"),
             show_alert=True,
         )
         return
@@ -203,7 +203,7 @@ async def claim_discount_offer(
         offer.is_active = False
         await db.commit()
         await callback.answer(
-            texts.get("DISCOUNT_CLAIM_EXPIRED", "⚠️ Время действия предложения истекло"),
+            texts.get("DISCOUNT_CLAIM_EXPIRED", "⚠️ Offer expired"),
             show_alert=True,
         )
         return
@@ -223,27 +223,27 @@ async def claim_discount_offer(
             if error_code == "subscription_missing":
                 error_message = texts.get(
                     "TEST_ACCESS_NO_SUBSCRIPTION",
-                    "❌ Для активации предложения необходима действующая подписка.",
+                    "❌ An active subscription is required to activate the offer.",
                 )
             elif error_code == "squads_missing":
                 error_message = texts.get(
                     "TEST_ACCESS_NO_SQUADS",
-                    "❌ Не удалось определить список серверов для теста. Обратитесь к администратору.",
+                    "❌ Failed to determine the list of servers for the test. Please contact the administrator.",
                 )
             elif error_code == "already_connected":
                 error_message = texts.get(
                     "TEST_ACCESS_ALREADY_CONNECTED",
-                    "ℹ️ Этот сервер уже подключен к вашей подписке.",
+                    "ℹ️ This server is already connected to your subscription.",
                 )
             elif error_code == "remnawave_sync_failed":
                 error_message = texts.get(
                     "TEST_ACCESS_REMNAWAVE_ERROR",
-                    "❌ Не удалось подключить серверы. Попробуйте позже или обратитесь в поддержку.",
+                    "❌ Failed to connect servers. Try again later or contact support.",
                 )
             else:
                 error_message = texts.get(
                     "TEST_ACCESS_UNKNOWN_ERROR",
-                    "❌ Не удалось активировать предложение. Попробуйте позже.",
+                    "❌ Failed to activate offer. Try again later.",
                 )
             await callback.answer(error_message, show_alert=True)
             return
@@ -261,16 +261,16 @@ async def claim_discount_offer(
         expires_text = expires_at.strftime("%d.%m.%Y %H:%M") if expires_at else ""
         success_message = texts.get(
             "TEST_ACCESS_ACTIVATED_MESSAGE",
-            "🎉 Тестовые сервера подключены! Доступ активен до {expires_at}.",
+            "🎉 Test servers connected! Access is active until {expires_at}.",
         ).format(expires_at=expires_text)
 
-        popup_text = texts.get("TEST_ACCESS_ACTIVATED_POPUP", "✅ Доступ выдан!")
+        popup_text = texts.get("TEST_ACCESS_ACTIVATED_POPUP", "✅ Access granted!")
         await callback.answer(popup_text, show_alert=True)
         back_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=texts.get("BACK_TO_MENU", "🏠 В главное меню"),
+                        text=texts.get("BACK_TO_MENU", "🏠 Back to main menu"),
                         callback_data="back_to_menu",
                     )
                 ]
@@ -282,7 +282,7 @@ async def claim_discount_offer(
     discount_percent = int(offer.discount_percent or 0)
     if discount_percent <= 0:
         await callback.answer(
-            texts.get("DISCOUNT_CLAIM_ERROR", "❌ Не удалось активировать скидку. Попробуйте позже."),
+            texts.get("DISCOUNT_CLAIM_ERROR", "❌ Failed to activate discount. Try again later."),
             show_alert=True,
         )
         return
@@ -328,7 +328,7 @@ async def claim_discount_offer(
 
     success_template = texts.get(
         "DISCOUNT_CLAIM_SUCCESS",
-        "🎉 Скидка {percent}% активирована! Она автоматически применится при следующей оплате.",
+        "🎉 {percent}% discount activated! It will be automatically applied to your next payment.",
     )
 
     expires_text = (
@@ -403,7 +403,7 @@ async def claim_discount_offer(
 
     success_message = _format_text_with_placeholders(success_template, format_values)
 
-    await callback.answer("✅ Скидка активирована!", show_alert=True)
+    await callback.answer("✅ Discount activated!", show_alert=True)
 
     offer_type = None
     if isinstance(extra_data, dict):
@@ -412,10 +412,10 @@ async def claim_discount_offer(
     subscription = getattr(db_user, "subscription", None)
 
     if offer_type == "purchase_discount":
-        button_text = texts.get("MENU_BUY_SUBSCRIPTION", "💎 Купить подписку")
+        button_text = texts.get("MENU_BUY_SUBSCRIPTION", "💎 Buy subscription")
         button_callback = "subscription_upgrade"
     elif offer_type == "extend_discount":
-        button_text = texts.get("SUBSCRIPTION_EXTEND", "💎 Продлить подписку")
+        button_text = texts.get("SUBSCRIPTION_EXTEND", "💎 Extend subscription")
         button_callback = "subscription_extend"
     else:
         has_active_paid_subscription = bool(
@@ -425,10 +425,10 @@ async def claim_discount_offer(
         )
 
         if has_active_paid_subscription:
-            button_text = texts.get("SUBSCRIPTION_EXTEND", "💎 Продлить подписку")
+            button_text = texts.get("SUBSCRIPTION_EXTEND", "💎 Extend subscription")
             button_callback = "subscription_extend"
         else:
-            button_text = texts.get("MENU_BUY_SUBSCRIPTION", "💎 Купить подписку")
+            button_text = texts.get("MENU_BUY_SUBSCRIPTION", "💎 Buy subscription")
             button_callback = "subscription_upgrade"
 
     buy_keyboard = InlineKeyboardMarkup(

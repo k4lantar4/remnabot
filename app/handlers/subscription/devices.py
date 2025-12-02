@@ -105,12 +105,12 @@ async def get_current_devices_detailed(db_user: User) -> dict:
                 return {"count": 0, "devices": []}
 
     except Exception as e:
-        logger.error(f"Ошибка получения детальной информации об устройствах: {e}")
+        logger.error(f"Error fetching detailed device information: {e}")
         return {"count": 0, "devices": []}
 
 async def get_servers_display_names(squad_uuids: List[str]) -> str:
     if not squad_uuids:
-        return "Нет серверов"
+        return texts.t("SUBSCRIPTION_NO_SERVERS", "No servers")
 
     try:
         from app.database.database import AsyncSessionLocal
@@ -123,9 +123,9 @@ async def get_servers_display_names(squad_uuids: List[str]) -> str:
                 server = await get_server_squad_by_uuid(db, uuid)
                 if server:
                     server_names.append(server.display_name)
-                    logger.debug(f"Найден сервер в БД: {uuid} -> {server.display_name}")
+                    logger.debug(f"Found server in DB: {uuid} -> {server.display_name}")
                 else:
-                    logger.warning(f"Сервер с UUID {uuid} не найден в БД")
+                    logger.warning(f"Server with UUID {uuid} not found in DB")
 
         if not server_names:
             countries = await _get_available_countries()
@@ -133,26 +133,29 @@ async def get_servers_display_names(squad_uuids: List[str]) -> str:
                 for country in countries:
                     if country['uuid'] == uuid:
                         server_names.append(country['name'])
-                        logger.debug(f"Найден сервер в кэше: {uuid} -> {country['name']}")
+                        logger.debug(f"Found server in cache: {uuid} -> {country['name']}")
                         break
 
         if not server_names:
             if len(squad_uuids) == 1:
-                return "🎯 Тестовый сервер"
-            return f"{len(squad_uuids)} стран"
+                return texts.t("TRIAL_SERVER_DEFAULT_NAME", "🎯 Test server")
+            return texts.t("subscription.countries.multiple_countries", "{count} countries").format(count=len(squad_uuids))
 
         if len(server_names) > 6:
             displayed = ", ".join(server_names[:6])
             remaining = len(server_names) - 6
-            return f"{displayed} и ещё {remaining}"
+            return texts.t("subscription.countries.more_servers", "{displayed} and {remaining} more").format(
+                displayed=displayed,
+                remaining=remaining
+            )
         else:
             return ", ".join(server_names)
 
     except Exception as e:
-        logger.error(f"Ошибка получения названий серверов: {e}")
+        logger.error(f"Error fetching server names: {e}")
         if len(squad_uuids) == 1:
-            return "🎯 Тестовый сервер"
-        return f"{len(squad_uuids)} стран"
+            return texts.t("TRIAL_SERVER_DEFAULT_NAME", "🎯 Test server")
+        return texts.t("subscription.countries.multiple_countries", "{count} countries").format(count=len(squad_uuids))
 
 async def get_current_devices_count(db_user: User) -> str:
     try:
@@ -172,7 +175,7 @@ async def get_current_devices_count(db_user: User) -> str:
                 return "—"
 
     except Exception as e:
-        logger.error(f"Ошибка получения количества устройств: {e}")
+        logger.error(f"Error fetching device count: {e}")
         return "—"
 
 async def handle_change_devices(
@@ -185,14 +188,14 @@ async def handle_change_devices(
 
     if not settings.is_devices_selection_enabled():
         await callback.answer(
-            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Изменение количества устройств недоступно"),
+            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Device count change unavailable"),
             show_alert=True,
         )
         return
 
     if not subscription or subscription.is_trial:
         await callback.answer(
-            texts.t("PAID_FEATURE_ONLY", "⚠️ Эта функция доступна только для платных подписок"),
+            texts.t("PAID_FEATURE_ONLY", "⚠️ This feature is only available for paid subscriptions"),
             show_alert=True,
         )
         return
@@ -209,12 +212,12 @@ async def handle_change_devices(
     prompt_text = texts.t(
         "CHANGE_DEVICES_PROMPT",
         (
-            "📱 <b>Изменение количества устройств</b>\n\n"
-            "Текущий лимит: {current_devices} устройств\n"
-            "Выберите новое количество устройств:\n\n"
-            "💡 <b>Важно:</b>\n"
-            "• При увеличении - доплата пропорционально оставшемуся времени\n"
-            "• При уменьшении - возврат средств не производится"
+            "📱 <b>Change device count</b>\n\n"
+            "Current limit: {current_devices} devices\n"
+            "Choose new device count:\n\n"
+            "💡 <b>Important:</b>\n"
+            "• When increasing - additional payment proportional to remaining time\n"
+            "• When decreasing - no refund is provided"
         ),
     ).format(current_devices=current_devices)
 
@@ -242,7 +245,7 @@ async def confirm_change_devices(
 
     if not settings.is_devices_selection_enabled():
         await callback.answer(
-            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Изменение количества устройств недоступно"),
+            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Device count change unavailable"),
             show_alert=True,
         )
         return
@@ -251,7 +254,7 @@ async def confirm_change_devices(
 
     if new_devices_count == current_devices:
         await callback.answer(
-            texts.t("DEVICES_NO_CHANGE", "ℹ️ Количество устройств не изменилось"),
+            texts.t("DEVICES_NO_CHANGE", "ℹ️ Device count was not changed"),
             show_alert=True,
         )
         return
@@ -260,7 +263,7 @@ async def confirm_change_devices(
         await callback.answer(
             texts.t(
                 "DEVICES_LIMIT_EXCEEDED",
-                "⚠️ Превышен максимальный лимит устройств ({limit})",
+                "⚠️ Maximum device limit exceeded ({limit})",
             ).format(limit=settings.MAX_DEVICES_LIMIT),
             show_alert=True
         )
@@ -297,15 +300,18 @@ async def confirm_change_devices(
 
         if price > 0 and db_user.balance_kopeks < price:
             missing_kopeks = price - db_user.balance_kopeks
-            required_text = f"{texts.format_price(price)} (за {charged_months} мес)"
+            required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
+                amount=texts.format_price(price),
+                months=charged_months
+            )
             message_text = texts.t(
                 "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
                 (
-                    "⚠️ <b>Недостаточно средств</b>\n\n"
-                    "Стоимость услуги: {required}\n"
-                    "На балансе: {balance}\n"
-                    "Не хватает: {missing}\n\n"
-                    "Выберите способ пополнения. Сумма подставится автоматически."
+                    "⚠️ <b>Insufficient funds</b>\n\n"
+                    "Service price: {required}\n"
+                    "Balance: {balance}\n"
+                    "Missing: {missing}\n\n"
+                    "Choose a top-up method. The amount will be filled in automatically."
                 ),
             ).format(
                 required=required_text,
@@ -326,12 +332,12 @@ async def confirm_change_devices(
 
         action_text = texts.t(
             "DEVICE_CHANGE_ACTION_INCREASE",
-            "увеличить до {count}",
+            "increase to {count}",
         ).format(count=new_devices_count)
         if price > 0:
             cost_text = texts.t(
                 "DEVICE_CHANGE_EXTRA_COST",
-                "Доплата: {amount} (за {months} мес)",
+                "Additional payment: {amount} (for {months} months)",
             ).format(
                 amount=texts.format_price(price),
                 months=charged_months,
@@ -339,31 +345,31 @@ async def confirm_change_devices(
             if total_discount > 0:
                 cost_text += texts.t(
                     "DEVICE_CHANGE_DISCOUNT_INFO",
-                    " (скидка {percent}%: -{amount})",
+                    " (discount {percent}%: -{amount})",
                 ).format(
                     percent=devices_discount_percent,
                     amount=texts.format_price(total_discount),
                 )
         else:
-            cost_text = texts.t("DEVICE_CHANGE_FREE", "Бесплатно")
+            cost_text = texts.t("DEVICE_CHANGE_FREE", "Free")
 
     else:
         price = 0
         action_text = texts.t(
             "DEVICE_CHANGE_ACTION_DECREASE",
-            "уменьшить до {count}",
+            "decrease to {count}",
         ).format(count=new_devices_count)
-        cost_text = texts.t("DEVICE_CHANGE_NO_REFUND", "Возврат средств не производится")
+        cost_text = texts.t("DEVICE_CHANGE_NO_REFUND", "Refunds are not provided")
 
     confirm_text = texts.t(
         "DEVICE_CHANGE_CONFIRMATION",
         (
-            "📱 <b>Подтверждение изменения</b>\n\n"
-            "Текущее количество: {current} устройств\n"
-            "Новое количество: {new} устройств\n\n"
-            "Действие: {action}\n"
+            "📱 <b>Confirm change</b>\n\n"
+            "Current count: {current} devices\n"
+            "New count: {new} devices\n\n"
+            "Action: {action}\n"
             "💰 {cost}\n\n"
-            "Подтвердить изменение?"
+            "Confirm change?"
         ),
     ).format(
         current=current_devices,
@@ -395,7 +401,7 @@ async def execute_change_devices(
 
     if not settings.is_devices_selection_enabled():
         await callback.answer(
-            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Изменение количества устройств недоступно"),
+            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Device count change unavailable"),
             show_alert=True,
         )
         return
@@ -404,12 +410,15 @@ async def execute_change_devices(
         if price > 0:
             success = await subtract_user_balance(
                 db, db_user, price,
-                f"Изменение количества устройств с {current_devices} до {new_devices_count}"
+                texts.t("subscription.devices.change_transaction_desc", "Changing device count from {old} to {new}").format(
+                    old=current_devices,
+                    new=new_devices_count
+                )
             )
 
             if not success:
                 await callback.answer(
-                    texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Ошибка списания средств"),
+                    texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"),
                     show_alert=True,
                 )
                 return
@@ -420,7 +429,11 @@ async def execute_change_devices(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=price,
-                description=f"Изменение устройств с {current_devices} до {new_devices_count} на {charged_months} мес"
+                description=texts.t("subscription.devices.change_transaction_desc_full", "Changing devices from {old} to {new} for {months} months").format(
+                    old=current_devices,
+                    new=new_devices_count,
+                    months=charged_months
+                )
             )
 
         subscription.device_limit = new_devices_count
@@ -441,34 +454,34 @@ async def execute_change_devices(
                 db, db_user, subscription, "devices", current_devices, new_devices_count, price
             )
         except Exception as e:
-            logger.error(f"Ошибка отправки уведомления об изменении устройств: {e}")
+            logger.error(f"Error sending device change notification: {e}")
 
         if new_devices_count > current_devices:
             success_text = texts.t(
                 "DEVICE_CHANGE_INCREASE_SUCCESS",
-                "✅ Количество устройств увеличено!\n\n",
+                "✅ Device count increased!\n\n",
             )
             success_text += texts.t(
                 "DEVICE_CHANGE_RESULT_LINE",
-                "📱 Было: {old} → Стало: {new}\n",
+                "📱 Was: {old} → Now: {new}\n",
             ).format(old=current_devices, new=new_devices_count)
             if price > 0:
                 success_text += texts.t(
                     "DEVICE_CHANGE_CHARGED",
-                    "💰 Списано: {amount}",
+                    "💰 Charged: {amount}",
                 ).format(amount=texts.format_price(price))
         else:
             success_text = texts.t(
                 "DEVICE_CHANGE_DECREASE_SUCCESS",
-                "✅ Количество устройств уменьшено!\n\n",
+                "✅ Device count decreased!\n\n",
             )
             success_text += texts.t(
                 "DEVICE_CHANGE_RESULT_LINE",
-                "📱 Было: {old} → Стало: {new}\n",
+                "📱 Was: {old} → Now: {new}\n",
             ).format(old=current_devices, new=new_devices_count)
             success_text += texts.t(
                 "DEVICE_CHANGE_NO_REFUND_INFO",
-                "ℹ️ Возврат средств не производится",
+                "ℹ️ No refund provided",
             )
 
         await callback.message.edit_text(
@@ -477,10 +490,10 @@ async def execute_change_devices(
         )
 
         logger.info(
-            f"✅ Пользователь {db_user.telegram_id} изменил количество устройств с {current_devices} на {new_devices_count}, доплата: {price / 100}₽")
+            f"✅ User {db_user.telegram_id} changed device count from {current_devices} to {new_devices_count}, additional payment: {price / 100}₽")
 
     except Exception as e:
-        logger.error(f"Ошибка изменения количества устройств: {e}")
+        logger.error(f"Error changing device count: {e}")
         await callback.message.edit_text(
             texts.ERROR,
             reply_markup=get_back_keyboard(db_user.language)
@@ -498,14 +511,14 @@ async def handle_device_management(
 
     if not subscription or subscription.is_trial:
         await callback.answer(
-            texts.t("PAID_FEATURE_ONLY", "⚠️ Эта функция доступна только для платных подписок"),
+            texts.t("PAID_FEATURE_ONLY", "⚠️ This feature is only available for paid subscriptions"),
             show_alert=True,
         )
         return
 
     if not db_user.remnawave_uuid:
         await callback.answer(
-            texts.t("DEVICE_UUID_NOT_FOUND", "❌ UUID пользователя не найден"),
+            texts.t("DEVICE_UUID_NOT_FOUND", "❌ User UUID not found"),
             show_alert=True,
         )
         return
@@ -524,7 +537,7 @@ async def handle_device_management(
 
                 if total_devices == 0:
                     await callback.message.edit_text(
-                        texts.t("DEVICE_NONE_CONNECTED", "ℹ️ У вас нет подключенных устройств"),
+                        texts.t("DEVICE_NONE_CONNECTED", "ℹ️ You have no connected devices"),
                         reply_markup=get_back_keyboard(db_user.language)
                     )
                     await callback.answer()
@@ -535,17 +548,17 @@ async def handle_device_management(
                 await callback.answer(
                     texts.t(
                         "DEVICE_FETCH_INFO_ERROR",
-                        "❌ Ошибка получения информации об устройствах",
+                        "❌ Error fetching device information",
                     ),
                     show_alert=True,
                 )
 
     except Exception as e:
-        logger.error(f"Ошибка получения списка устройств: {e}")
+        logger.error(f"Error fetching device list: {e}")
         await callback.answer(
             texts.t(
                 "DEVICE_FETCH_INFO_ERROR",
-                "❌ Ошибка получения информации об устройствах",
+                "❌ Error fetching device information",
             ),
             show_alert=True,
         )
@@ -566,16 +579,16 @@ async def show_devices_page(
     devices_text = texts.t(
         "DEVICE_MANAGEMENT_OVERVIEW",
         (
-            "🔄 <b>Управление устройствами</b>\n\n"
-            "📊 Всего подключено: {total} устройств\n"
-            "📄 Страница {page} из {pages}\n\n"
+            "🔄 <b>Device management</b>\n\n"
+            "📊 Total connected: {total} devices\n"
+            "📄 Page {page} of {pages}\n\n"
         ),
     ).format(total=len(devices_list), page=pagination.page, pages=pagination.total_pages)
 
     if pagination.items:
         devices_text += texts.t(
             "DEVICE_MANAGEMENT_CONNECTED_HEADER",
-            "<b>Подключенные устройства:</b>\n",
+            "<b>Connected devices:</b>\n",
         )
         for i, device in enumerate(pagination.items, 1):
             platform = device.get('platform', 'Unknown')
@@ -593,9 +606,9 @@ async def show_devices_page(
     devices_text += texts.t(
         "DEVICE_MANAGEMENT_ACTIONS",
         (
-            "\n💡 <b>Действия:</b>\n"
-            "• Выберите устройство для сброса\n"
-            "• Или сбросьте все устройства сразу"
+            "\n💡 <b>Actions:</b>\n"
+            "• Select a device to reset\n"
+            "• Or reset all devices at once"
         ),
     )
 
@@ -629,14 +642,14 @@ async def handle_devices_page(
                 await show_devices_page(callback, db_user, devices_list, page=page)
             else:
                 await callback.answer(
-                    texts.t("DEVICE_FETCH_ERROR", "❌ Ошибка получения устройств"),
+                    texts.t("DEVICE_FETCH_ERROR", "❌ Error fetching devices"),
                     show_alert=True,
                 )
 
     except Exception as e:
-        logger.error(f"Ошибка перехода на страницу устройств: {e}")
+        logger.error(f"Error navigating to devices page: {e}")
         await callback.answer(
-            texts.t("DEVICE_PAGE_LOAD_ERROR", "❌ Ошибка загрузки страницы"),
+            texts.t("DEVICE_PAGE_LOAD_ERROR", "❌ Error loading page"),
             show_alert=True,
         )
 
@@ -648,9 +661,9 @@ async def handle_single_device_reset(
     try:
         callback_parts = callback.data.split('_')
         if len(callback_parts) < 4:
-            logger.error(f"Некорректный формат callback_data: {callback.data}")
+            logger.error(f"Invalid callback_data format: {callback.data}")
             await callback.answer(
-                texts.t("DEVICE_RESET_INVALID_REQUEST", "❌ Ошибка: некорректный запрос"),
+                texts.t("DEVICE_RESET_INVALID_REQUEST", "❌ Error: invalid request"),
                 show_alert=True,
             )
             return
@@ -658,12 +671,12 @@ async def handle_single_device_reset(
         device_index = int(callback_parts[2])
         page = int(callback_parts[3])
 
-        logger.info(f"🔧 Сброс устройства: index={device_index}, page={page}")
+        logger.info(f"🔧 Resetting device: index={device_index}, page={page}")
 
     except (ValueError, IndexError) as e:
-        logger.error(f"❌ Ошибка парсинга callback_data {callback.data}: {e}")
+        logger.error(f"❌ Error parsing callback_data {callback.data}: {e}")
         await callback.answer(
-            texts.t("DEVICE_RESET_PARSE_ERROR", "❌ Ошибка обработки запроса"),
+            texts.t("DEVICE_RESET_PARSE_ERROR", "❌ Error processing request"),
             show_alert=True,
         )
         return
@@ -702,7 +715,7 @@ async def handle_single_device_reset(
                         await callback.answer(
                             texts.t(
                                 "DEVICE_RESET_SUCCESS",
-                                "✅ Устройство {device} успешно сброшено!",
+                                "✅ Device {device} successfully reset!",
                             ).format(device=device_info),
                             show_alert=True,
                         )
@@ -722,35 +735,35 @@ async def handle_single_device_reset(
                                 await callback.message.edit_text(
                                     texts.t(
                                         "DEVICE_RESET_ALL_DONE",
-                                        "ℹ️ Все устройства сброшены",
+                                        "ℹ️ All devices have been reset",
                                     ),
                                     reply_markup=get_back_keyboard(db_user.language)
                                 )
 
-                        logger.info(f"✅ Пользователь {db_user.telegram_id} сбросил устройство {device_info}")
+                        logger.info(f"✅ User {db_user.telegram_id} reset device {device_info}")
                     else:
                         await callback.answer(
                             texts.t(
                                 "DEVICE_RESET_ID_FAILED",
-                                "❌ Не удалось получить ID устройства",
+                                "❌ Failed to get device ID",
                             ),
                             show_alert=True,
                         )
                 else:
                     await callback.answer(
-                        texts.t("DEVICE_RESET_NOT_FOUND", "❌ Устройство не найдено"),
+                        texts.t("DEVICE_RESET_NOT_FOUND", "❌ Device not found"),
                         show_alert=True,
                     )
             else:
                 await callback.answer(
-                    texts.t("DEVICE_FETCH_ERROR", "❌ Ошибка получения устройств"),
+                    texts.t("DEVICE_FETCH_ERROR", "❌ Error fetching devices"),
                     show_alert=True,
                 )
 
     except Exception as e:
-        logger.error(f"Ошибка сброса устройства: {e}")
+        logger.error(f"Error resetting device: {e}")
         await callback.answer(
-            texts.t("DEVICE_RESET_ERROR", "❌ Ошибка сброса устройства"),
+            texts.t("DEVICE_RESET_ERROR", "❌ Error resetting device"),
             show_alert=True,
         )
 
@@ -763,7 +776,7 @@ async def handle_all_devices_reset_from_management(
 
     if not db_user.remnawave_uuid:
         await callback.answer(
-            texts.t("DEVICE_UUID_NOT_FOUND", "❌ UUID пользователя не найден"),
+            texts.t("DEVICE_UUID_NOT_FOUND", "❌ User UUID not found"),
             show_alert=True,
         )
         return
@@ -779,7 +792,7 @@ async def handle_all_devices_reset_from_management(
                 await callback.answer(
                     texts.t(
                         "DEVICE_LIST_FETCH_ERROR",
-                        "❌ Ошибка получения списка устройств",
+                        "❌ Error fetching device list",
                     ),
                     show_alert=True,
                 )
@@ -789,12 +802,12 @@ async def handle_all_devices_reset_from_management(
 
             if not devices_list:
                 await callback.answer(
-                    texts.t("DEVICE_NONE_CONNECTED", "ℹ️ У вас нет подключенных устройств"),
+                        texts.t("DEVICE_NONE_CONNECTED", "ℹ️ You have no connected devices"),
                     show_alert=True,
                 )
                 return
 
-            logger.info(f"🔧 Найдено {len(devices_list)} устройств для сброса")
+            logger.info(f"🔧 Found {len(devices_list)} devices to reset")
 
             success_count = 0
             failed_count = 0
@@ -810,14 +823,14 @@ async def handle_all_devices_reset_from_management(
 
                         await api._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
                         success_count += 1
-                        logger.info(f"✅ Устройство {device_hwid} удалено")
+                        logger.info(f"✅ Device {device_hwid} deleted")
 
                     except Exception as device_error:
                         failed_count += 1
-                        logger.error(f"❌ Ошибка удаления устройства {device_hwid}: {device_error}")
+                        logger.error(f"❌ Error deleting device {device_hwid}: {device_error}")
                 else:
                     failed_count += 1
-                    logger.warning(f"⚠️ У устройства нет HWID: {device}")
+                    logger.warning(f"⚠️ Device has no HWID: {device}")
 
             if success_count > 0:
                 if failed_count == 0:
@@ -825,49 +838,49 @@ async def handle_all_devices_reset_from_management(
                         texts.t(
                             "DEVICE_RESET_ALL_SUCCESS_MESSAGE",
                             (
-                                "✅ <b>Все устройства успешно сброшены!</b>\n\n"
-                                "🔄 Сброшено: {count} устройств\n"
-                                "📱 Теперь вы можете заново подключить свои устройства\n\n"
-                                "💡 Используйте ссылку из раздела 'Моя подписка' для повторного подключения"
+                                "✅ <b>All devices successfully reset!</b>\n\n"
+                                "🔄 Reset: {count} devices\n"
+                                "📱 You can now reconnect your devices\n\n"
+                                "💡 Use the link from the 'My subscription' section to reconnect"
                             ),
                         ).format(count=success_count),
                         reply_markup=get_back_keyboard(db_user.language),
                         parse_mode="HTML"
                     )
-                    logger.info(f"✅ Пользователь {db_user.telegram_id} успешно сбросил {success_count} устройств")
+                    logger.info(f"✅ User {db_user.telegram_id} successfully reset {success_count} devices")
                 else:
                     await callback.message.edit_text(
                         texts.t(
                             "DEVICE_RESET_PARTIAL_MESSAGE",
                             (
-                                "⚠️ <b>Частичный сброс устройств</b>\n\n"
-                                "✅ Удалено: {success} устройств\n"
-                                "❌ Не удалось удалить: {failed} устройств\n\n"
-                                "Попробуйте еще раз или обратитесь в поддержку."
+                                "⚠️ <b>Partial device reset</b>\n\n"
+                                "✅ Removed: {success} devices\n"
+                                "❌ Failed to remove: {failed} devices\n\n"
+                                "Try again or contact support."
                             ),
                         ).format(success=success_count, failed=failed_count),
                         reply_markup=get_back_keyboard(db_user.language),
                         parse_mode="HTML"
                     )
                     logger.warning(
-                        f"⚠️ Частичный сброс у пользователя {db_user.telegram_id}: {success_count}/{len(devices_list)}")
+                        f"⚠️ Partial reset for user {db_user.telegram_id}: {success_count}/{len(devices_list)}")
             else:
                 await callback.message.edit_text(
                     texts.t(
                         "DEVICE_RESET_ALL_FAILED_MESSAGE",
                         (
-                            "❌ <b>Не удалось сбросить устройства</b>\n\n"
-                            "Попробуйте еще раз позже или обратитесь в техподдержку.\n\n"
-                            "Всего устройств: {total}"
+                            "❌ <b>Failed to reset devices</b>\n\n"
+                            "Please try again later or contact support.\n\n"
+                            "Total devices: {total}"
                         ),
                     ).format(total=len(devices_list)),
                     reply_markup=get_back_keyboard(db_user.language),
                     parse_mode="HTML"
                 )
-                logger.error(f"❌ Не удалось сбросить ни одного устройства у пользователя {db_user.telegram_id}")
+                logger.error(f"❌ Failed to reset any devices for user {db_user.telegram_id}")
 
     except Exception as e:
-        logger.error(f"Ошибка сброса всех устройств: {e}")
+        logger.error(f"Error resetting all devices: {e}")
         await callback.message.edit_text(
             texts.ERROR,
             reply_markup=get_back_keyboard(db_user.language)
@@ -886,7 +899,7 @@ async def confirm_add_devices(
 
     if not settings.is_devices_selection_enabled():
         await callback.answer(
-            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Изменение количества устройств недоступно"),
+            texts.t("DEVICES_SELECTION_DISABLED", "⚠️ Device count change unavailable"),
             show_alert=True,
         )
         return
@@ -897,8 +910,8 @@ async def confirm_add_devices(
 
     if settings.MAX_DEVICES_LIMIT > 0 and new_total_devices > settings.MAX_DEVICES_LIMIT:
         await callback.answer(
-            f"⚠️ Превышен максимальный лимит устройств ({settings.MAX_DEVICES_LIMIT}). "
-            f"У вас: {subscription.device_limit}, добавляете: {devices_count}",
+            texts.t("DEVICES_LIMIT_EXCEEDED", "⚠️ Maximum device limit exceeded ({limit})").format(limit=settings.MAX_DEVICES_LIMIT) +
+            f"\nCurrent: {subscription.device_limit}, adding: {devices_count}",
             show_alert=True
         )
         return
@@ -922,7 +935,7 @@ async def confirm_add_devices(
     total_discount = discount_per_month * charged_months
 
     logger.info(
-        "Добавление %s устройств: %.2f₽/мес × %s мес = %.2f₽ (скидка %.2f₽)",
+        "Adding %s devices: %.2f₽/month × %s months = %.2f₽ (discount %.2f₽)",
         devices_count,
         discounted_per_month / 100,
         charged_months,
@@ -932,15 +945,18 @@ async def confirm_add_devices(
 
     if db_user.balance_kopeks < price:
         missing_kopeks = price - db_user.balance_kopeks
-        required_text = f"{texts.format_price(price)} (за {charged_months} мес)"
+        required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
+            amount=texts.format_price(price),
+            months=charged_months
+        )
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
-                "⚠️ <b>Недостаточно средств</b>\n\n"
-                "Стоимость услуги: {required}\n"
-                "На балансе: {balance}\n"
-                "Не хватает: {missing}\n\n"
-                "Выберите способ пополнения. Сумма подставится автоматически."
+                "⚠️ <b>Insufficient funds</b>\n\n"
+                "Service price: {required}\n"
+                "Balance: {balance}\n"
+                "Missing: {missing}\n\n"
+                "Choose a top-up method. The amount will be filled in automatically."
             ),
         ).format(
             required=required_text,
@@ -963,11 +979,17 @@ async def confirm_add_devices(
     try:
         success = await subtract_user_balance(
             db, db_user, price,
-            f"Добавление {devices_count} устройств на {charged_months} мес"
+            texts.t("subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months").format(
+                count=devices_count,
+                months=charged_months
+            )
         )
 
         if not success:
-            await callback.answer("⚠️ Ошибка списания средств", show_alert=True)
+            await callback.answer(
+                texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"),
+                show_alert=True
+            )
             return
 
         await add_subscription_devices(db, subscription, devices_count)
@@ -980,22 +1002,28 @@ async def confirm_add_devices(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=price,
-            description=f"Добавление {devices_count} устройств на {charged_months} мес"
+            description=texts.t("subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months").format(
+                count=devices_count,
+                months=charged_months
+            )
         )
 
         await db.refresh(db_user)
         await db.refresh(subscription)
 
         success_text = (
-            "✅ Устройства успешно добавлены!\n\n"
-            f"📱 Добавлено: {devices_count} устройств\n"
-            f"Новый лимит: {subscription.device_limit} устройств\n"
+            texts.t("subscription.devices.add_success", "✅ Devices successfully added!\n\n") +
+            texts.t("subscription.devices.added_count", "📱 Added: {count} devices\n").format(count=devices_count) +
+            texts.t("subscription.devices.new_limit", "New limit: {limit} devices\n").format(limit=subscription.device_limit)
         )
-        success_text += f"💰 Списано: {texts.format_price(price)} (за {charged_months} мес)"
+        success_text += texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
+            amount=texts.format_price(price),
+            months=charged_months
+        )
         if total_discount > 0:
-            success_text += (
-                f" (скидка {devices_discount_percent}%:"
-                f" -{texts.format_price(total_discount)})"
+            success_text += texts.t("DEVICE_CHANGE_DISCOUNT_INFO", " (discount {percent}%: -{amount})").format(
+                percent=devices_discount_percent,
+                amount=texts.format_price(total_discount)
             )
 
         await callback.message.edit_text(
@@ -1003,10 +1031,10 @@ async def confirm_add_devices(
             reply_markup=get_back_keyboard(db_user.language)
         )
 
-        logger.info(f"✅ Пользователь {db_user.telegram_id} добавил {devices_count} устройств за {price / 100}₽")
+        logger.info(f"✅ User {db_user.telegram_id} added {devices_count} devices for {price / 100}₽")
 
     except Exception as e:
-        logger.error(f"Ошибка добавления устройств: {e}")
+        logger.error(f"Error adding devices: {e}")
         await callback.message.edit_text(
             texts.ERROR,
             reply_markup=get_back_keyboard(db_user.language)
@@ -1040,7 +1068,7 @@ async def handle_device_guide(
 
     if not subscription_link:
         await callback.answer(
-            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Ссылка подписки недоступна"),
+            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"),
             show_alert=True,
         )
         return
@@ -1050,7 +1078,7 @@ async def handle_device_guide(
 
     if not apps:
         await callback.answer(
-            texts.t("SUBSCRIPTION_DEVICE_APPS_NOT_FOUND", "❌ Приложения для этого устройства не найдены"),
+            texts.t("SUBSCRIPTION_DEVICE_APPS_NOT_FOUND", "❌ No apps found for this device"),
             show_alert=True,
         )
         return
@@ -1070,17 +1098,17 @@ async def handle_device_guide(
 
     if hide_subscription_link:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Ссылка подписки:</b>")
+                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
                 + "\n"
                 + texts.t(
             "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
-            "ℹ️ Ссылка подписки доступна по кнопкам ниже или в разделе \"Моя подписка\".",
+            "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
         )
                 + "\n\n"
         )
     else:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Ссылка подписки:</b>")
+                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
                 + f"\n<code>{subscription_link}</code>\n\n"
         )
 
@@ -1101,59 +1129,59 @@ async def handle_device_guide(
     guide_text = (
             texts.t(
                 "SUBSCRIPTION_DEVICE_GUIDE_TITLE",
-                "📱 <b>Настройка для {device_name}</b>",
+                "📱 <b>Setup for {device_name}</b>",
             ).format(device_name=get_device_name(device_type, db_user.language))
             + "\n\n"
             + link_section
             + texts.t(
         "SUBSCRIPTION_DEVICE_FEATURED_APP",
-        "📋 <b>Рекомендуемое приложение:</b> {app_name}",
+        "📋 <b>Recommended app:</b> {app_name}",
     ).format(app_name=featured_app.get('name', ''))
     )
 
     if other_app_names:
         guide_text += "\n\n" + texts.t(
             "SUBSCRIPTION_DEVICE_OTHER_APPS",
-            "📦 <b>Другие приложения:</b> {app_list}",
+            "📦 <b>Other apps:</b> {app_list}",
         ).format(app_list=other_app_names)
         guide_text += "\n" + texts.t(
             "SUBSCRIPTION_DEVICE_OTHER_APPS_HINT",
-            "Нажмите кнопку \"Другие приложения\" ниже, чтобы выбрать приложение.",
+            "Tap the 'Other apps' button below to choose another app.",
         )
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_INSTALL_TITLE", "<b>Шаг 1 - Установка:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_INSTALL_TITLE", "<b>Step 1 - Install:</b>")
     if installation_description:
         guide_text += f"\n{installation_description}"
 
     if additional_before_text:
         guide_text += f"\n\n{additional_before_text}"
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_ADD_TITLE", "<b>Шаг 2 - Добавление подписки:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_ADD_TITLE", "<b>Step 2 - Add subscription:</b>")
     if add_description:
         guide_text += f"\n{add_description}"
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_CONNECT_TITLE", "<b>Шаг 3 - Подключение:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_CONNECT_TITLE", "<b>Step 3 - Connect:</b>")
     if connect_description:
         guide_text += f"\n{connect_description}"
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_HOW_TO_TITLE", "💡 <b>Как подключить:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_HOW_TO_TITLE", "💡 <b>How to connect:</b>")
     guide_text += "\n" + "\n".join(
         [
             texts.t(
                 "SUBSCRIPTION_DEVICE_HOW_TO_STEP1",
-                "1. Установите приложение по ссылке выше",
+                "1. Install the app from the link above",
             ),
             texts.t(
                 "SUBSCRIPTION_DEVICE_HOW_TO_STEP2",
-                "2. Нажмите кнопку \"Подключиться\" ниже",
+                "2. Tap the 'Connect' button below",
             ),
             texts.t(
                 "SUBSCRIPTION_DEVICE_HOW_TO_STEP3",
-                "3. Откройте приложение и вставьте ссылку",
+                "3. Open the app and paste the link",
             ),
             texts.t(
                 "SUBSCRIPTION_DEVICE_HOW_TO_STEP4",
-                "4. Подключитесь к серверу",
+                "4. Connect to a server",
             ),
         ]
     )
@@ -1187,7 +1215,7 @@ async def handle_app_selection(
 
     if not apps:
         await callback.answer(
-            texts.t("SUBSCRIPTION_DEVICE_APPS_NOT_FOUND", "❌ Приложения для этого устройства не найдены"),
+            texts.t("SUBSCRIPTION_DEVICE_APPS_NOT_FOUND", "❌ No apps found for this device"),
             show_alert=True,
         )
         return
@@ -1195,10 +1223,10 @@ async def handle_app_selection(
     app_text = (
             texts.t(
                 "SUBSCRIPTION_APPS_TITLE",
-                "📱 <b>Приложения для {device_name}</b>",
+                "📱 <b>Apps for {device_name}</b>",
             ).format(device_name=get_device_name(device_type, db_user.language))
             + "\n\n"
-            + texts.t("SUBSCRIPTION_APPS_PROMPT", "Выберите приложение для подключения:")
+            + texts.t("SUBSCRIPTION_APPS_PROMPT", "Choose an app to connect:")
     )
 
     await callback.message.edit_text(
@@ -1221,7 +1249,7 @@ async def handle_specific_app_guide(
 
     if not subscription_link:
         await callback.answer(
-            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Ссылка подписки недоступна"),
+            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"),
             show_alert=True,
         )
         return
@@ -1231,7 +1259,7 @@ async def handle_specific_app_guide(
 
     if not app:
         await callback.answer(
-            texts.t("SUBSCRIPTION_APP_NOT_FOUND", "❌ Приложение не найдено"),
+            texts.t("SUBSCRIPTION_APP_NOT_FOUND", "❌ App not found"),
             show_alert=True,
         )
         return
@@ -1240,17 +1268,17 @@ async def handle_specific_app_guide(
 
     if hide_subscription_link:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Ссылка подписки:</b>")
+                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
                 + "\n"
                 + texts.t(
             "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
-            "ℹ️ Ссылка подписки доступна по кнопкам ниже или в разделе \"Моя подписка\".",
+            "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
         )
                 + "\n\n"
         )
     else:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Ссылка подписки:</b>")
+                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
                 + f"\n<code>{subscription_link}</code>\n\n"
         )
 
@@ -1277,18 +1305,18 @@ async def handle_specific_app_guide(
             + link_section
     )
 
-    guide_text += texts.t("SUBSCRIPTION_DEVICE_STEP_INSTALL_TITLE", "<b>Шаг 1 - Установка:</b>")
+    guide_text += texts.t("SUBSCRIPTION_DEVICE_STEP_INSTALL_TITLE", "<b>Step 1 - Install:</b>")
     if installation_description:
         guide_text += f"\n{installation_description}"
 
     if additional_before_text:
         guide_text += f"\n\n{additional_before_text}"
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_ADD_TITLE", "<b>Шаг 2 - Добавление подписки:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_ADD_TITLE", "<b>Step 2 - Add subscription:</b>")
     if add_description:
         guide_text += f"\n{add_description}"
 
-    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_CONNECT_TITLE", "<b>Шаг 3 - Подключение:</b>")
+    guide_text += "\n\n" + texts.t("SUBSCRIPTION_DEVICE_STEP_CONNECT_TITLE", "<b>Step 3 - Connect:</b>")
     if connect_description:
         guide_text += f"\n{connect_description}"
 
@@ -1316,31 +1344,35 @@ async def show_device_connection_help(
     subscription_link = get_display_subscription_link(subscription)
 
     if not subscription_link:
-        await callback.answer("❌ Ссылка подписки недоступна", show_alert=True)
+        await callback.answer(
+            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"),
+            show_alert=True
+        )
         return
 
-    help_text = f"""
-📱 <b>Как подключить устройство заново</b>
+    help_text = texts.t(
+        "DEVICE_CONNECTION_HELP_TEXT",
+        """📱 <b>How to reconnect a device</b>
 
-После сброса устройства вам нужно:
+After resetting a device you need to:
 
-<b>1. Получить ссылку подписки:</b>
-📋 Скопируйте ссылку ниже или найдите её в разделе "Моя подписка"
+<b>1. Get subscription link:</b>
+📋 Copy the link below or find it in the "My subscription" section
 
-<b>2. Настроить VPN приложение:</b>
-• Откройте ваше VPN приложение
-• Найдите функцию "Добавить подписку" или "Import"
-• Вставьте скопированную ссылку
+<b>2. Configure VPN app:</b>
+• Open your VPN app
+• Find the "Add subscription" or "Import" function
+• Paste the copied link
 
-<b>3. Подключиться:</b>
-• Выберите сервер
-• Нажмите "Подключить"
+<b>3. Connect:</b>
+• Select a server
+• Tap "Connect"
 
-<b>🔗 Ваша ссылка подписки:</b>
+<b>🔗 Your subscription link:</b>
 <code>{subscription_link}</code>
 
-💡 <b>Совет:</b> Сохраните эту ссылку - она понадобится для подключения новых устройств
-"""
+💡 <b>Tip:</b> Save this link - you'll need it to connect new devices"""
+    ).format(subscription_link=subscription_link)
 
     await callback.message.edit_text(
         help_text,

@@ -175,22 +175,16 @@ def _apply_discount_to_monthly_component(
 def update_traffic_prices():
     from app.config import refresh_traffic_prices
     refresh_traffic_prices()
-    logger.info("🔄 TRAFFIC_PRICES обновлены из конфигурации")
+    logger.info("🔄 TRAFFIC_PRICES updated from configuration")
 
 def format_traffic_display(traffic_gb: int, is_fixed_mode: bool = None) -> str:
     if is_fixed_mode is None:
         is_fixed_mode = settings.is_traffic_fixed()
 
     if traffic_gb == 0:
-        if is_fixed_mode:
-            return "Безлимитный"
-        else:
-            return "Безлимитный"
+        return "Unlimited"
     else:
-        if is_fixed_mode:
-            return f"{traffic_gb} ГБ"
-        else:
-            return f"{traffic_gb} ГБ"
+        return f"{traffic_gb} GB"
 
 def validate_traffic_price(gb: int) -> bool:
     from app.config import settings
@@ -210,9 +204,9 @@ def load_app_config() -> Dict[str, Any]:
             data = json.load(f)
             if isinstance(data, dict):
                 return data
-            logger.error("Некорректный формат app-config.json: ожидается объект")
+            logger.error("Invalid app-config.json format: expected object")
     except Exception as e:
-        logger.error(f"Ошибка загрузки конфига приложений: {e}")
+        logger.error(f"Error loading app config: {e}")
 
     return {}
 
@@ -358,7 +352,7 @@ def create_deep_link(app: Dict[str, Any], subscription_url: str) -> Optional[str
             payload = base64.b64encode(subscription_url.encode("utf-8")).decode("utf-8")
         except Exception as exc:
             logger.warning(
-                "Не удалось закодировать ссылку подписки в base64 для приложения %s: %s",
+                "Failed to encode subscription link in base64 for app %s: %s",
                 app.get("id"),
                 exc,
             )
@@ -376,12 +370,15 @@ def get_reset_devices_confirm_keyboard(language: str = "ru") -> InlineKeyboardMa
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text="✅ Да, сбросить все устройства",
+                text=texts.t("subscription.devices.reset_all_confirm", "✅ Yes, reset all devices"),
                 callback_data="confirm_reset_devices"
             )
         ],
         [
-            InlineKeyboardButton(text="❌ Отмена", callback_data="menu_subscription")
+            InlineKeyboardButton(
+                text=texts.t("subscription.cancel", "❌ Cancel"),
+                callback_data="menu_subscription"
+            )
         ]
     ])
 
@@ -392,13 +389,16 @@ def get_traffic_switch_keyboard(
         discount_percent: int = 0,
 ) -> InlineKeyboardMarkup:
     from app.config import settings
+    from app.localization.texts import get_texts
+    
+    texts = get_texts(language)
 
     months_multiplier = 1
     period_text = ""
     if subscription_end_date:
         months_multiplier = get_remaining_months(subscription_end_date)
         if months_multiplier > 1:
-            period_text = f" (за {months_multiplier} мес)"
+            period_text = texts.t("subscription.traffic.switch.period_suffix", f" (for {months_multiplier} months)").format(months=months_multiplier)
 
     packages = settings.get_traffic_packages()
     enabled_packages = [pkg for pkg in packages if pkg['enabled']]
@@ -424,32 +424,38 @@ def get_traffic_switch_keyboard(
 
         if gb == current_traffic_gb:
             emoji = "✅"
-            action_text = " (текущий)"
+            action_text = texts.t("subscription.traffic.switch.current", " (current)")
             price_text = ""
         elif total_price_diff > 0:
             emoji = "⬆️"
             action_text = ""
-            price_text = f" (+{total_price_diff // 100}₽{period_text})"
+            price_text = texts.t(
+                "subscription.traffic.switch.price_increase",
+                f" (+{total_price_diff // 100}₽{period_text})"
+            ).format(amount=total_price_diff // 100, period=period_text)
             if discount_percent > 0:
                 discount_total = (
                         (price_per_month - current_price_per_month) * months_multiplier
                         - total_price_diff
                 )
                 if discount_total > 0:
-                    price_text += f" (скидка {discount_percent}%: -{discount_total // 100}₽)"
+                    price_text += texts.t(
+                        "subscription.traffic.switch.discount_info",
+                        f" (discount {discount_percent}%: -{discount_total // 100}₽)"
+                    ).format(percent=discount_percent, amount=discount_total // 100)
         elif total_price_diff < 0:
             emoji = "⬇️"
             action_text = ""
-            price_text = " (без возврата)"
+            price_text = texts.t("subscription.traffic.switch.no_refund", " (no refund)")
         else:
             emoji = "🔄"
             action_text = ""
-            price_text = " (бесплатно)"
+            price_text = texts.t("subscription.traffic.switch.free", " (free)")
 
         if gb == 0:
-            traffic_text = "Безлимит"
+            traffic_text = texts.t("subscription.traffic.unlimited", "Unlimited")
         else:
-            traffic_text = f"{gb} ГБ"
+            traffic_text = f"{gb} GB"
 
         button_text = f"{emoji} {traffic_text}{action_text}{price_text}"
 
@@ -457,8 +463,6 @@ def get_traffic_switch_keyboard(
             InlineKeyboardButton(text=button_text, callback_data=f"switch_traffic_{gb}")
         ])
 
-    from app.localization.texts import get_texts
-    texts = get_texts(language)
     buttons.append([
         InlineKeyboardButton(
             text=texts.t("BACK_BUTTON", "⬅️ Back"),
@@ -473,16 +477,17 @@ def get_confirm_switch_traffic_keyboard(
         price_difference: int,
         language: str = "ru"
 ) -> InlineKeyboardMarkup:
+    texts = get_texts(language)
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text="✅ Подтвердить переключение",
+                text=texts.t("subscription.traffic.switch.confirm", "✅ Confirm switch"),
                 callback_data=f"confirm_switch_traffic_{new_traffic_gb}_{price_difference}"
             )
         ],
         [
             InlineKeyboardButton(
-                text="❌ Отмена",
+                text=texts.t("subscription.cancel", "❌ Cancel"),
                 callback_data="subscription_settings"
             )
         ]

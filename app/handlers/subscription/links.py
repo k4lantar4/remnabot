@@ -92,7 +92,7 @@ async def handle_connect_subscription(
         await callback.answer(
             texts.t(
                 "SUBSCRIPTION_NO_ACTIVE_LINK",
-                "⚠ У вас нет активной подписки или ссылка еще генерируется",
+                "⚠ You don't have an active subscription or the link is still being generated",
             ),
             show_alert=True,
         )
@@ -104,7 +104,7 @@ async def handle_connect_subscription(
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                     web_app=types.WebAppInfo(url=subscription_link)
                 )
             ],
@@ -116,9 +116,9 @@ async def handle_connect_subscription(
         await callback.message.edit_text(
             texts.t(
                 "SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE",
-                """📱 <b>Подключить подписку</b>
+                """📱 <b>Connect subscription</b>
 
-🚀 Нажмите кнопку ниже, чтобы открыть подписку в мини-приложении Telegram:""",
+🚀 Click the button below to open the subscription in Telegram mini-app:""",
             ),
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -129,7 +129,7 @@ async def handle_connect_subscription(
             await callback.answer(
                 texts.t(
                     "CUSTOM_MINIAPP_URL_NOT_SET",
-                    "⚠ Кастомная ссылка для мини-приложения не настроена",
+                    "⚠ Custom mini-app URL is not configured",
                 ),
                 show_alert=True,
             )
@@ -138,7 +138,7 @@ async def handle_connect_subscription(
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                     web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL)
                 )
             ],
@@ -150,9 +150,9 @@ async def handle_connect_subscription(
         await callback.message.edit_text(
             texts.t(
                 "SUBSCRIPTION_CONNECT_CUSTOM_MESSAGE",
-                """🚀 <b>Подключить подписку</b>
+                """🚀 <b>Connect subscription</b>
 
-📱 Нажмите кнопку ниже, чтобы открыть приложение:""",
+📱 Click the button below to open the app:""",
             ),
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -162,7 +162,7 @@ async def handle_connect_subscription(
         rows = [
             [
                 InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                     url=subscription_link
                 )
             ]
@@ -179,9 +179,9 @@ async def handle_connect_subscription(
         await callback.message.edit_text(
             texts.t(
                 "SUBSCRIPTION_CONNECT_LINK_MESSAGE",
-                """🚀 <b>Подключить подписку</b>",
+                """🚀 <b>Connect subscription</b>
 
-🔗 Нажмите кнопку ниже, чтобы открыть ссылку подписки:""",
+🔗 Click the button below to open the subscription link:""",
             ),
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -190,7 +190,7 @@ async def handle_connect_subscription(
         rows = [
             [
                 InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                     callback_data="open_subscription_link",
                 )
             ]
@@ -207,9 +207,9 @@ async def handle_connect_subscription(
         await callback.message.edit_text(
             texts.t(
                 "SUBSCRIPTION_CONNECT_LINK_MESSAGE",
-                """🚀 <b>Подключить подписку</b>",
+                """🚀 <b>Connect subscription</b>
 
-🔗 Нажмите кнопку ниже, чтобы открыть ссылку подписки:""",
+🔗 Click the button below to open the subscription link:""",
             ),
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -218,21 +218,21 @@ async def handle_connect_subscription(
         if hide_subscription_link:
             device_text = texts.t(
                 "SUBSCRIPTION_CONNECT_DEVICE_MESSAGE_HIDDEN",
-                """📱 <b>Подключить подписку</b>
+                """📱 <b>Connect subscription</b>
 
-ℹ️ Ссылка подписки доступна по кнопкам ниже или в разделе "Моя подписка".
+ℹ️ Subscription link is available via buttons below or in the "My subscription" section.
 
-💡 <b>Выберите ваше устройство</b> для получения подробной инструкции по настройке:""",
+💡 <b>Choose your device</b> to get detailed setup instructions:""",
             )
         else:
             device_text = texts.t(
                 "SUBSCRIPTION_CONNECT_DEVICE_MESSAGE",
-                """📱 <b>Подключить подписку</b>
+                """📱 <b>Connect subscription</b>
 
-🔗 <b>Ссылка подписки:</b>
+🔗 <b>Subscription link:</b>
 <code>{subscription_url}</code>
 
-💡 <b>Выберите ваше устройство</b> для получения подробной инструкции по настройке:""",
+💡 <b>Choose your device</b> to get detailed setup instructions:""",
             ).format(subscription_url=subscription_link)
 
         await callback.message.edit_text(
@@ -254,7 +254,7 @@ async def handle_open_subscription_link(
 
     if not subscription_link:
         await callback.answer(
-            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Ссылка подписки недоступна"),
+            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"),
             show_alert=True,
         )
         return
@@ -265,24 +265,24 @@ async def handle_open_subscription_link(
         happ_message = (
                 texts.t(
                     "SUBSCRIPTION_HAPP_OPEN_TITLE",
-                    "🔗 <b>Подключение через Happ</b>",
+                    "🔗 <b>Connection via Happ</b>",
                 )
                 + "\n\n"
                 + texts.t(
             "SUBSCRIPTION_HAPP_OPEN_LINK",
-            "<a href=\"{subscription_link}\">🔓 Открыть ссылку в Happ</a>",
+            "<a href=\"{subscription_link}\">🔓 Open link in Happ</a>",
         ).format(subscription_link=happ_scheme_link)
                 + "\n\n"
                 + texts.t(
             "SUBSCRIPTION_HAPP_OPEN_HINT",
-            "💡 Если ссылка не открывается автоматически, скопируйте её вручную:",
+            "💡 If the link doesn't open automatically, copy it manually:",
         )
         )
 
         if redirect_link:
             happ_message += "\n\n" + texts.t(
                 "SUBSCRIPTION_HAPP_OPEN_BUTTON_HINT",
-                "▶️ Нажмите кнопку \"Подключиться\" ниже, чтобы открыть Happ и добавить подписку автоматически.",
+                "▶️ Click the \"Connect\" button below to open Happ and add the subscription automatically.",
             )
 
         happ_message += "\n\n" + texts.t(
@@ -306,35 +306,35 @@ async def handle_open_subscription_link(
         return
 
     link_text = (
-            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Ссылка подписки:</b>")
+            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
             + "\n\n"
             + f"<code>{subscription_link}</code>\n\n"
-            + texts.t("SUBSCRIPTION_LINK_USAGE_TITLE", "📱 <b>Как использовать:</b>")
+            + texts.t("SUBSCRIPTION_LINK_USAGE_TITLE", "📱 <b>How to use:</b>")
             + "\n"
             + "\n".join(
         [
             texts.t(
                 "SUBSCRIPTION_LINK_STEP1",
-                "1. Нажмите на ссылку выше чтобы её скопировать",
+                "1. Click the link above to copy it",
             ),
             texts.t(
                 "SUBSCRIPTION_LINK_STEP2",
-                "2. Откройте ваше VPN приложение",
+                "2. Open your VPN app",
             ),
             texts.t(
                 "SUBSCRIPTION_LINK_STEP3",
-                "3. Найдите функцию \"Добавить подписку\" или \"Import\"",
+                "3. Find the \"Add subscription\" or \"Import\" function",
             ),
             texts.t(
                 "SUBSCRIPTION_LINK_STEP4",
-                "4. Вставьте скопированную ссылку",
+                "4. Paste the copied link",
             ),
         ]
     )
             + "\n\n"
             + texts.t(
         "SUBSCRIPTION_LINK_HINT",
-        "💡 Если ссылка не скопировалась, выделите её вручную и скопируйте.",
+        "💡 If the link wasn't copied, select it manually and copy.",
     )
     )
 
@@ -342,7 +342,7 @@ async def handle_open_subscription_link(
         link_text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                InlineKeyboardButton(text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                                      callback_data="subscription_connect")
             ],
             [

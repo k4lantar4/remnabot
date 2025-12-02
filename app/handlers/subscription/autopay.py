@@ -91,25 +91,25 @@ async def handle_autopay_menu(
     subscription = db_user.subscription
     if not subscription:
         await callback.answer(
-            texts.t("SUBSCRIPTION_ACTIVE_REQUIRED", "⚠️ У вас нет активной подписки!"),
+            texts.t("SUBSCRIPTION_ACTIVE_REQUIRED", "⚠️ You don't have an active subscription!"),
             show_alert=True,
         )
         return
 
     status = (
-        texts.t("AUTOPAY_STATUS_ENABLED", "включен")
+        texts.t("AUTOPAY_STATUS_ENABLED", "enabled")
         if subscription.autopay_enabled
-        else texts.t("AUTOPAY_STATUS_DISABLED", "выключен")
+        else texts.t("AUTOPAY_STATUS_DISABLED", "disabled")
     )
     days = subscription.autopay_days_before
 
     text = texts.t(
         "AUTOPAY_MENU_TEXT",
         (
-            "💳 <b>Автоплатеж</b>\n\n"
-            "📊 <b>Статус:</b> {status}\n"
-            "⏰ <b>Списание за:</b> {days} дн. до окончания\n\n"
-            "Выберите действие:"
+            "💳 <b>Autopay</b>\n\n"
+            "📊 <b>Status:</b> {status}\n"
+            "⏰ <b>Charge:</b> {days} days before expiration\n\n"
+            "Choose an action:"
         ),
     ).format(status=status, days=days)
 
@@ -132,12 +132,12 @@ async def toggle_autopay(
 
     texts = get_texts(db_user.language)
     status = (
-        texts.t("AUTOPAY_STATUS_ENABLED", "включен")
+        texts.t("AUTOPAY_STATUS_ENABLED", "enabled")
         if enable
-        else texts.t("AUTOPAY_STATUS_DISABLED", "выключен")
+        else texts.t("AUTOPAY_STATUS_DISABLED", "disabled")
     )
     await callback.answer(
-        texts.t("AUTOPAY_TOGGLE_SUCCESS", "✅ Автоплатеж {status}!").format(status=status)
+        texts.t("AUTOPAY_TOGGLE_SUCCESS", "✅ Autopay {status}!").format(status=status)
     )
 
     await handle_autopay_menu(callback, db_user, db)
@@ -150,7 +150,7 @@ async def show_autopay_days(
     await callback.message.edit_text(
         texts.t(
             "AUTOPAY_SELECT_DAYS_PROMPT",
-            "⏰ Выберите за сколько дней до окончания списывать средства:",
+            "⏰ Choose how many days before expiration to charge:",
         ),
         reply_markup=get_autopay_days_keyboard(db_user.language)
     )
@@ -170,7 +170,7 @@ async def set_autopay_days(
 
     texts = get_texts(db_user.language)
     await callback.answer(
-        texts.t("AUTOPAY_DAYS_SET", "✅ Установлено {days} дней!").format(days=days)
+        texts.t("AUTOPAY_DAYS_SET", "✅ Set to {days} days!").format(days=days)
     )
 
     await handle_autopay_menu(callback, db_user, db)
@@ -241,13 +241,15 @@ async def handle_subscription_cancel(
     await state.clear()
     await clear_subscription_checkout_draft(db_user.id)
 
-    # Удаляем сохраненную корзину, чтобы не показывать кнопку возврата
+    # Delete saved cart to hide the return button
     await user_cart_service.delete_user_cart(db_user.id)
 
     from app.handlers.menu import show_main_menu
     await show_main_menu(callback, db_user, db)
 
-    await callback.answer("❌ Покупка отменена")
+    await callback.answer(
+        texts.t("subscription.purchase_cancelled", "❌ Purchase cancelled")
+    )
 async def _show_previous_configuration_step(
         callback: types.CallbackQuery,
         state: FSMContext,
