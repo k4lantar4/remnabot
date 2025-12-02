@@ -39,7 +39,7 @@ async def create_user_message(
     await db.commit()
     await db.refresh(message)
     
-    logger.info(f"✅ Создано сообщение ID {message.id} пользователем {created_by}")
+    logger.info(f"✅ Message created ID {message.id} by user {created_by}")
     return message
 
 
@@ -125,7 +125,7 @@ async def update_user_message(
     await db.commit()
     await db.refresh(message)
     
-    logger.info(f"📝 Обновлено сообщение ID {message_id}")
+    logger.info(f"📝 Message updated ID {message_id}")
     return message
 
 
@@ -144,8 +144,8 @@ async def toggle_user_message_status(
     await db.commit()
     await db.refresh(message)
     
-    status_text = "активировано" if message.is_active else "деактивировано"
-    logger.info(f"🔄 Сообщение ID {message_id} {status_text}")
+    status_text = "activated" if message.is_active else "deactivated"
+    logger.info(f"🔄 Message ID {message_id} {status_text}")
     
     return message
 
@@ -159,7 +159,7 @@ async def delete_user_message(db: AsyncSession, message_id: int) -> bool:
     await db.delete(message)
     await db.commit()
     
-    logger.info(f"🗑️ Удалено сообщение ID {message_id}")
+    logger.info(f"🗑️ Message deleted ID {message_id}")
     return True
 
 

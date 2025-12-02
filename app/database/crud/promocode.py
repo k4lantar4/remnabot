@@ -24,8 +24,8 @@ async def get_promocode_by_code(db: AsyncSession, code: str) -> Optional[PromoCo
 
 async def get_promocode_by_id(db: AsyncSession, promo_id: int) -> Optional[PromoCode]:
     """
-    Получает промокод по ID с eager loading всех связанных данных.
-    Используется для избежания lazy loading в async контексте.
+    Gets promo code by ID with eager loading of all related data.
+    Used to avoid lazy loading in async context.
     """
     result = await db.execute(
         select(PromoCode)
@@ -40,8 +40,8 @@ async def get_promocode_by_id(db: AsyncSession, promo_id: int) -> Optional[Promo
 
 async def check_promocode_validity(db: AsyncSession, code: str) -> dict:
     """
-    Проверяет существование и валидность промокода без активации.
-    Возвращает словарь с информацией о промокоде.
+    Checks existence and validity of promo code without activation.
+    Returns dictionary with promo code information.
     """
     promocode = await get_promocode_by_code(db, code)
 
@@ -85,9 +85,9 @@ async def create_promocode(
     await db.refresh(promocode)
 
     if promo_group_id:
-        logger.info(f"✅ Создан промокод: {code} с промогруппой ID {promo_group_id}")
+        logger.info(f"✅ Promo code created: {code} with promo group ID {promo_group_id}")
     else:
-        logger.info(f"✅ Создан промокод: {code}")
+        logger.info(f"✅ Promo code created: {code}")
     return promocode
 
 
@@ -112,11 +112,11 @@ async def use_promocode(
         
         await db.commit()
         
-        logger.info(f"✅ Промокод {promocode.code} использован пользователем {user_id}")
+        logger.info(f"✅ Promo code {promocode.code} used by user {user_id}")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка использования промокода: {e}")
+        logger.error(f"Error using promo code: {e}")
         await db.rollback()
         return False
 
@@ -150,7 +150,7 @@ async def create_promocode_use(db: AsyncSession, promocode_id: int, user_id: int
     await db.commit()
     await db.refresh(promocode_use)
     
-    logger.info(f"📝 Записано использование промокода {promocode_id} пользователем {user_id}")
+    logger.info(f"📝 Promo code usage recorded {promocode_id} by user {user_id}")
     return promocode_use
 
 
@@ -243,11 +243,11 @@ async def delete_promocode(db: AsyncSession, promocode: PromoCode) -> bool:
         await db.delete(promocode)
         await db.commit()
         
-        logger.info(f"🗑️ Удален промокод: {promocode.code}")
+        logger.info(f"🗑️ Promo code deleted: {promocode.code}")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка удаления промокода: {e}")
+        logger.error(f"Error deleting promo code: {e}")
         await db.rollback()
         return False
 

@@ -68,7 +68,7 @@ async def create_server_squad(
 
     if len(promo_groups) != len(normalized_group_ids):
         logger.warning(
-            "Не все промогруппы найдены при создании сервера %s", display_name
+            "Not all promo groups found when creating server %s", display_name
         )
 
     server_squad = ServerSquad(
@@ -89,7 +89,7 @@ async def create_server_squad(
     await db.commit()
     await db.refresh(server_squad)
     
-    logger.info(f"✅ Создан сервер {display_name} (UUID: {squad_uuid})")
+    logger.info(f"✅ Server created {display_name} (UUID: {squad_uuid})")
     return server_squad
 
 
@@ -170,7 +170,7 @@ async def get_available_server_squads(
 
 
 async def get_active_server_squads(db: AsyncSession) -> List[ServerSquad]:
-    """Возвращает список активных серверов, доступных для подключения."""
+    """Returns list of active servers available for connection."""
 
     squads = await get_available_server_squads(db)
 
@@ -197,7 +197,7 @@ async def get_active_server_squads(db: AsyncSession) -> List[ServerSquad]:
 async def choose_random_active_server_squad(
     db: AsyncSession,
 ) -> Optional[ServerSquad]:
-    """Возвращает случайный активный сервер."""
+    """Returns random active server."""
 
     squads = await get_active_server_squads(db)
 
@@ -211,7 +211,7 @@ async def get_random_active_squad_uuid(
     db: AsyncSession,
     fallback_uuid: Optional[str] = None,
 ) -> Optional[str]:
-    """Возвращает UUID случайного активного сервера или запасной UUID."""
+    """Returns UUID of random active server or fallback UUID."""
 
     squad = await choose_random_active_server_squad(db)
 
@@ -227,7 +227,7 @@ async def update_server_squad_promo_groups(
     unique_ids = [int(pg_id) for pg_id in set(promo_group_ids)]
 
     if not unique_ids:
-        raise ValueError("Нужно выбрать хотя бы одну промогруппу")
+        raise ValueError("At least one promo group must be selected")
 
     server = await get_server_squad_by_id(db, server_id)
     if not server:
@@ -239,14 +239,14 @@ async def update_server_squad_promo_groups(
     promo_groups = result.scalars().all()
 
     if not promo_groups:
-        raise ValueError("Не найдены промогруппы для обновления сервера")
+        raise ValueError("Promo groups not found for server update")
 
     server.allowed_promo_groups = promo_groups
     await db.commit()
     await db.refresh(server)
 
     logger.info(
-        "Обновлены промогруппы сервера %s (ID: %s): %s",
+        "Server promo groups updated %s (ID: %s): %s",
         server.display_name,
         server.id,
         ", ".join(pg.name for pg in promo_groups),
@@ -298,7 +298,7 @@ async def delete_server_squad(db: AsyncSession, server_id: int) -> bool:
     connections_count = connections_result.scalar()
     
     if connections_count > 0:
-        logger.warning(f"⚠ Нельзя удалить сервер {server_id}: есть активные подключения ({connections_count})")
+        logger.warning(f"⚠ Cannot delete server {server_id}: active connections exist ({connections_count})")
         return False
     
     await db.execute(
@@ -306,7 +306,7 @@ async def delete_server_squad(db: AsyncSession, server_id: int) -> bool:
     )
     await db.commit()
     
-    logger.info(f"🗑️ Удален сервер (ID: {server_id})")
+    logger.info(f"🗑️ Server deleted (ID: {server_id})")
     return True
 
 
@@ -364,7 +364,7 @@ async def sync_with_remnawave(
 
         for server in removed_servers:
             logger.info(
-                "🗑️ Удаляется сервер %s (UUID: %s)",
+                "🗑️ Deleting server %s (UUID: %s)",
                 server.display_name,
                 server.squad_uuid,
             )
@@ -417,7 +417,7 @@ async def sync_with_remnawave(
 
         if cleaned_subscriptions:
             logger.info(
-                "🧹 Обновлены подписки после удаления серверов: %s",
+                "🧹 Subscriptions updated after server deletion: %s",
                 cleaned_subscriptions,
             )
 

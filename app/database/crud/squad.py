@@ -42,7 +42,7 @@ async def create_squad(
     await db.commit()
     await db.refresh(squad)
     
-    logger.info(f"✅ Создан сквад: {name}")
+    logger.info(f"✅ Squad created: {name}")
     return squad
 
 

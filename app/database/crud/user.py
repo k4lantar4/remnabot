@@ -142,7 +142,7 @@ async def _sync_users_sequence(db: AsyncSession) -> None:
     )
     await db.commit()
     logger.warning(
-        "🔄 Последовательность users_id_seq была синхронизирована с текущим максимумом id"
+        "🔄 Sequence users_id_seq synchronized with current max id"
     )
 
 
@@ -152,7 +152,7 @@ async def _get_or_create_default_promo_group(db: AsyncSession) -> PromoGroup:
         return default_group
 
     default_group = PromoGroup(
-        name="Базовый юзер",
+        name="Basic User",
         server_discount_percent=0,
         traffic_discount_percent=0,
         device_discount_percent=0,
@@ -174,7 +174,7 @@ async def create_user_no_commit(
     referral_code: str = None
 ) -> User:
     """
-    Создает пользователя без немедленного коммита для пакетной обработки
+    Creates user without immediate commit for batch processing
     """
     
     if not referral_code:
@@ -201,7 +201,7 @@ async def create_user_no_commit(
 
     db.add(user)
 
-    # Обязательно выполняем flush, чтобы получить присвоенный первичный ключ
+    # Must flush to get assigned primary key
     await db.flush()
 
     # Сохраняем ссылку на группу, чтобы дальнейшие операции могли её использовать
@@ -270,19 +270,19 @@ async def create_user(
                 and "users_pkey" in str(exc.orig)
                 and attempt < attempts
             ):
-                logger.warning(
-                    "⚠️ Обнаружено несоответствие последовательности users_id_seq при создании пользователя %s. "
-                    "Выполняем повторную синхронизацию (попытка %s/%s)",
-                    telegram_id,
-                    attempt,
-                    attempts,
-                )
+            logger.warning(
+                "⚠️ Sequence mismatch users_id_seq detected when creating user %s. "
+                "Performing re-synchronization (attempt %s/%s)",
+                telegram_id,
+                attempt,
+                attempts,
+            )
                 await _sync_users_sequence(db)
                 continue
 
             raise
 
-    raise RuntimeError("Не удалось создать пользователя после синхронизации последовательности")
+    raise RuntimeError("Failed to create user after sequence synchronization")
 
 
 async def update_user(
@@ -334,11 +334,11 @@ async def add_user_balance(
         await db.refresh(user)
         
         
-        logger.info(f"💰 Баланс пользователя {user.telegram_id} изменен: {old_balance} → {user.balance_kopeks} (изменение: +{amount_kopeks})")
+        logger.info(f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_kopeks} (change: +{amount_kopeks})")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка изменения баланса пользователя {user.id}: {e}")
+        logger.error(f"Error changing user balance {user.id}: {e}")
         await db.rollback()
         return False
 
@@ -353,7 +353,7 @@ async def add_user_balance_by_id(
     try:
         user = await get_user_by_telegram_id(db, telegram_id)
         if not user:
-            logger.error(f"Пользователь с telegram_id {telegram_id} не найден")
+            logger.error(f"User with telegram_id {telegram_id} not found")
             return False
         
         return await add_user_balance(

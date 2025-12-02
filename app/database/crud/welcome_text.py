@@ -92,8 +92,8 @@ async def toggle_welcome_text_status(db: AsyncSession, admin_id: int) -> bool:
             await db.commit()
             await db.refresh(welcome_text)
             
-            status = "включен" if welcome_text.is_enabled else "отключен"
-            logger.info(f"Приветственный текст {status} администратором {admin_id}")
+            status = "enabled" if welcome_text.is_enabled else "disabled"
+            logger.info(f"Welcome text {status} by administrator {admin_id}")
             return welcome_text.is_enabled
         else:
             default_text = await get_current_welcome_text_or_default()
@@ -108,11 +108,11 @@ async def toggle_welcome_text_status(db: AsyncSession, admin_id: int) -> bool:
             await db.commit()
             await db.refresh(new_welcome_text)
             
-            logger.info(f"Создан и включен дефолтный приветственный текст администратором {admin_id}")
+            logger.info(f"Default welcome text created and enabled by administrator {admin_id}")
             return True
             
     except Exception as e:
-        logger.error(f"Ошибка при переключении статуса приветственного текста: {e}")
+        logger.error(f"Error toggling welcome text status: {e}")
         await db.rollback()
         return False
 
@@ -136,11 +136,11 @@ async def set_welcome_text(db: AsyncSession, text_content: str, admin_id: int) -
         await db.commit()
         await db.refresh(new_welcome_text)
         
-        logger.info(f"Установлен новый приветственный текст администратором {admin_id}")
+        logger.info(f"New welcome text set by administrator {admin_id}")
         return True
         
     except Exception as e:
-        logger.error(f"Ошибка при установке приветственного текста: {e}")
+        logger.error(f"Error setting welcome text: {e}")
         await db.rollback()
         return False
 
@@ -174,7 +174,7 @@ async def create_welcome_text(
     await db.refresh(welcome_text)
 
     logger.info(
-        "✅ Создан приветственный текст ID %s (активный=%s, включен=%s)",
+        "✅ Welcome text created ID %s (active=%s, enabled=%s)",
         welcome_text.id,
         welcome_text.is_active,
         welcome_text.is_enabled,
@@ -212,7 +212,7 @@ async def update_welcome_text(
     await db.refresh(welcome_text)
 
     logger.info(
-        "📝 Обновлен приветственный текст ID %s (активный=%s, включен=%s)",
+        "📝 Welcome text updated ID %s (active=%s, enabled=%s)",
         welcome_text.id,
         welcome_text.is_active,
         welcome_text.is_enabled,
@@ -223,7 +223,7 @@ async def update_welcome_text(
 async def delete_welcome_text(db: AsyncSession, welcome_text: WelcomeText) -> None:
     await db.delete(welcome_text)
     await db.commit()
-    logger.info("🗑️ Удален приветственный текст ID %s", welcome_text.id)
+    logger.info("🗑️ Welcome text deleted ID %s", welcome_text.id)
 
 async def get_current_welcome_text_or_default() -> str:
     return (
@@ -243,10 +243,10 @@ def replace_placeholders(text: str, user) -> str:
     first_name = first_name.strip() if first_name else None
     username = username.strip() if username else None
     
-    user_name = first_name or username or "друг"
-    display_first_name = first_name or "друг"
-    display_username = f"@{username}" if username else (first_name or "друг")
-    clean_username = username or first_name or "друг"
+    user_name = first_name or username or "friend"
+    display_first_name = first_name or "friend"
+    display_username = f"@{username}" if username else (first_name or "friend")
+    clean_username = username or first_name or "friend"
     
     replacements = {
         '{user_name}': user_name,

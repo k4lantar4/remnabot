@@ -31,7 +31,7 @@ async def create_referral_earning(
     await db.commit()
     await db.refresh(earning)
     
-    logger.info(f"💰 Создан реферальный заработок: {amount_kopeks/100}₽ для пользователя {user_id}")
+    logger.info(f"💰 Referral earning created: {amount_kopeks/100}₽ for user {user_id}")
     return earning
 
 
@@ -256,7 +256,7 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     )
     month_earnings = month_referral_earnings_result.scalar() + month_transaction_earnings_result.scalar()
     
-    logger.info(f"Реферальная статистика: {users_with_referrals} рефералов, {active_referrers} рефереров, выплачено {total_paid} копеек")
+    logger.info(f"Referral statistics: {users_with_referrals} referrals, {active_referrers} referrers, paid {total_paid} kopeks")
     
     return {
         "users_with_referrals": users_with_referrals,

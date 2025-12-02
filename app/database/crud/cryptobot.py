@@ -41,7 +41,7 @@ async def create_cryptobot_payment(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"Создан CryptoBot платеж: {invoice_id} на {amount} {asset} для пользователя {user_id}")
+    logger.info(f"CryptoBot payment created: {invoice_id} for {amount} {asset} for user {user_id}")
     return payment
 
 
@@ -92,7 +92,7 @@ async def update_cryptobot_payment_status(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"Обновлен статус CryptoBot платежа {invoice_id}: {status}")
+    logger.info(f"CryptoBot payment status updated {invoice_id}: {status}")
     return payment
 
 
@@ -113,7 +113,7 @@ async def link_cryptobot_payment_to_transaction(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"Связан CryptoBot платеж {invoice_id} с транзакцией {transaction_id}")
+    logger.info(f"CryptoBot payment {invoice_id} linked to transaction {transaction_id}")
     return payment
 
 

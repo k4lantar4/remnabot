@@ -16,7 +16,7 @@ async def _sync_user_primary_promo_group(
     db: AsyncSession,
     user_id: int,
 ) -> None:
-    """Синхронизирует колонку users.promo_group_id с primary промогруппой."""
+    """Synchronizes users.promo_group_id column with primary promo group."""
 
     try:
         result = await db.execute(
@@ -39,7 +39,7 @@ async def _sync_user_primary_promo_group(
 
     except Exception as error:
         logger.error(
-            "Ошибка синхронизации primary промогруппы пользователя %s: %s",
+            "Error synchronizing primary promo group for user %s: %s",
             user_id,
             error,
         )
@@ -49,7 +49,7 @@ async def sync_user_primary_promo_group(
     db: AsyncSession,
     user_id: int,
 ) -> None:
-    """Публичная обертка для синхронизации primary промогруппы пользователя."""
+    """Public wrapper for synchronizing user's primary promo group."""
 
     await _sync_user_primary_promo_group(db, user_id)
 
@@ -61,25 +61,25 @@ async def add_user_to_promo_group(
     assigned_by: str = "admin"
 ) -> Optional[UserPromoGroup]:
     """
-    Добавляет пользователю промогруппу.
+    Adds promo group to user.
 
     Args:
-        db: Сессия БД
-        user_id: ID пользователя
-        promo_group_id: ID промогруппы
-        assigned_by: Кто назначил ('admin', 'system', 'auto', 'promocode')
+        db: DB session
+        user_id: User ID
+        promo_group_id: Promo group ID
+        assigned_by: Who assigned ('admin', 'system', 'auto', 'promocode')
 
     Returns:
-        UserPromoGroup или None если уже существует
+        UserPromoGroup or None if already exists
     """
     try:
-        # Проверяем существование связи
+        # Check if link exists
         existing = await has_user_promo_group(db, user_id, promo_group_id)
         if existing:
-            logger.info(f"Пользователь {user_id} уже имеет промогруппу {promo_group_id}")
+            logger.info(f"User {user_id} already has promo group {promo_group_id}")
             return None
 
-        # Создаем новую связь
+        # Create new link
         user_promo_group = UserPromoGroup(
             user_id=user_id,
             promo_group_id=promo_group_id,
@@ -93,11 +93,11 @@ async def add_user_to_promo_group(
         await db.commit()
         await db.refresh(user_promo_group)
 
-        logger.info(f"Пользователю {user_id} добавлена промогруппа {promo_group_id} ({assigned_by})")
+        logger.info(f"Promo group {promo_group_id} added to user {user_id} ({assigned_by})")
         return user_promo_group
 
     except Exception as error:
-        logger.error(f"Ошибка добавления промогруппы пользователю: {error}")
+        logger.error(f"Error adding promo group to user: {error}")
         await db.rollback()
         return None
 
@@ -108,15 +108,15 @@ async def remove_user_from_promo_group(
     promo_group_id: int
 ) -> bool:
     """
-    Удаляет промогруппу у пользователя.
+    Removes promo group from user.
 
     Args:
-        db: Сессия БД
-        user_id: ID пользователя
-        promo_group_id: ID промогруппы
+        db: DB session
+        user_id: User ID
+        promo_group_id: Promo group ID
 
     Returns:
-        True если удалено, False если связи не было
+        True if removed, False if link didn't exist
     """
     try:
         result = await db.execute(

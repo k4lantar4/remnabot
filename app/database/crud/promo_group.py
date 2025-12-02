@@ -135,7 +135,7 @@ async def create_promo_group(
     await db.refresh(promo_group)
 
     logger.info(
-        "Создана промогруппа '%s' (default=%s) с скидками (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) и порогом автоприсвоения %s₽, скидки на доп. услуги: %s",
+        "Promo group created '%s' (default=%s) with discounts (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) and auto-assign threshold %s₽, addon discounts: %s",
         promo_group.name,
         promo_group.is_default,
         promo_group.server_discount_percent,
@@ -215,7 +215,7 @@ async def update_promo_group(
     await db.refresh(group)
 
     logger.info(
-        "Обновлена промогруппа '%s' (id=%s)",
+        "Promo group updated '%s' (id=%s)",
         group.name,
         group.id,
     )
@@ -224,16 +224,16 @@ async def update_promo_group(
 
 async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
     if group.is_default:
-        logger.warning("Попытка удалить базовую промогруппу запрещена")
+        logger.warning("Attempt to delete default promo group is forbidden")
         return False
 
     default_group = await get_default_promo_group(db)
     if not default_group:
-        logger.error("Не найдена базовая промогруппа для reassignment")
+        logger.error("Default promo group not found for reassignment")
         return False
 
 
-    # Получаем список пользователей, связанных с удаляемой промогруппой
+    # Get list of users linked to promo group being deleted
     affected_user_ids: Set[int] = set()
 
     user_ids_result = await db.execute(
@@ -273,7 +273,7 @@ async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
     await db.commit()
 
     logger.info(
-        "Промогруппа '%s' (id=%s) удалена, пользователи переведены в '%s'",
+        "Promo group '%s' (id=%s) deleted, users moved to '%s'",
         group.name,
         group.id,
         default_group.name,
