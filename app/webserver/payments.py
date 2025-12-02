@@ -14,14 +14,12 @@ from aiogram import Bot
 
 from app.config import settings
 from app.database.database import get_db
-from app.external.tribute import TributeService as TributeAPI
 from app.external import yookassa_webhook as yookassa_webhook_module
 from app.external.wata_webhook import WataWebhookHandler
 from app.external.heleket_webhook import HeleketWebhookHandler
 from app.external.pal24_client import Pal24APIError
 from app.services.pal24_service import Pal24Service
 from app.services.payment_service import PaymentService
-from app.services.tribute_service import TributeService
 
 
 logger = logging.getLogger(__name__)

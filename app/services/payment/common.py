@@ -1,8 +1,8 @@
-"""Общие инструменты платёжного сервиса.
+"""Common tools for the payment service.
 
-В этом модуле собраны методы, которые нужны всем платёжным каналам:
-построение клавиатур, базовые уведомления и стандартная обработка
-успешных платежей.
+This module contains helpers that are shared across all payment channels:
+keyboard construction, basic notifications and standard handling
+of successful payments.
 """
 
 from __future__ import annotations
@@ -30,14 +30,14 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentCommonMixin:
-    """Mixin с базовой логикой, которую используют остальные платёжные блоки."""
+    """Mixin with base logic used by all other payment blocks."""
 
     async def build_topup_success_keyboard(self, user: Any) -> InlineKeyboardMarkup:
-        """Формирует клавиатуру по завершении платежа, подстраиваясь под пользователя."""
-        # Загружаем нужные тексты с учётом выбранного языка пользователя.
+        """Builds a post-payment keyboard adapted to the specific user."""
+        # Load texts taking the user's language into account.
         texts = get_texts(user.language if user else "ru")
 
-        # Определяем статус подписки, чтобы показать подходящую кнопку.
+        # Determine subscription status to show the appropriate button.
         has_active_subscription = False
         subscription = None
         if user:
@@ -50,18 +50,20 @@ class PaymentCommonMixin:
                 )
             except MissingGreenlet as error:
                 logger.warning(
-                    "Не удалось лениво загрузить подписку пользователя %s при построении клавиатуры после пополнения: %s",
+                    "Failed to lazy-load subscription for user %s "
+                    "while building keyboard after top-up: %s",
                     getattr(user, "id", None),
                     error,
                 )
-            except Exception as error:  # pragma: no cover - защитный код
+            except Exception as error:  # pragma: no cover - defensive code
                 logger.error(
-                    "Ошибка загрузки подписки пользователя %s при построении клавиатуры после пополнения: %s",
+                    "Error loading subscription for user %s while building keyboard "
+                    "after top-up: %s",
                     getattr(user, "id", None),
                     error,
                 )
 
-        # Создаем основную кнопку: если есть активная подписка - продлить, иначе купить
+        # Build the primary button: extend if subscription is active, otherwise buy
         first_button = build_miniapp_or_callback_button(
             text=(
                 texts.MENU_EXTEND_SUBSCRIPTION
@@ -73,10 +75,10 @@ class PaymentCommonMixin:
             ),
         )
 
-        # Кнопка активации подписки (всегда отображается)
+        # Subscription activation button (always shown)
         activate_subscription_button = build_miniapp_or_callback_button(
-            text="🚀 Активировать подписку",
-            callback_data="menu_buy"  # Используем ту же callback_data что и "Купить подписку"
+            text="🚀 Activate subscription",
+            callback_data="menu_buy",  # Use same callback_data as for 'Buy subscription'
         )
 
         keyboard_rows: list[list[InlineKeyboardButton]] = [
@@ -84,13 +86,13 @@ class PaymentCommonMixin:
             [activate_subscription_button]
         ]
 
-        # Если для пользователя есть незавершённый checkout, предлагаем вернуться к нему.
+        # If the user has an unfinished checkout, offer to return to it.
         if user:
             try:
                 has_saved_cart = await user_cart_service.has_user_cart(user.id)
             except Exception as cart_error:
                 logger.warning(
-                    "Не удалось проверить наличие сохраненной корзины у пользователя %s: %s",
+                    "Failed to check presence of saved cart for user %s: %s",
                     user.id,
                     cart_error,
                 )
@@ -113,16 +115,16 @@ class PaymentCommonMixin:
                         )
                     ])
 
-        # Стандартные кнопки быстрого доступа к балансу и главному меню.
+        # Standard quick-access buttons to balance and main menu.
         keyboard_rows.append([
             build_miniapp_or_callback_button(
-                text="💰 Мой баланс",
+                text="💰 My balance",
                 callback_data="menu_balance",
             )
         ])
         keyboard_rows.append([
             InlineKeyboardButton(
-                text="🏠 Главное меню",
+                text="🏠 Main menu",
                 callback_data="back_to_menu",
             )
         ])
@@ -138,9 +140,9 @@ class PaymentCommonMixin:
         db: AsyncSession | None = None,
         payment_method_title: str | None = None,
     ) -> None:
-        """Отправляет пользователю уведомление об успешном платеже."""
+        """Sends a notification to the user about a successful payment."""
         if not getattr(self, "bot", None):
-            # Если бот не передан (например, внутри фоновых задач), уведомление пропускаем.
+            # If bot instance is not provided (e.g. inside background tasks), skip notification.
             return
 
         user_snapshot = await self._ensure_user_snapshot(
@@ -152,16 +154,16 @@ class PaymentCommonMixin:
         try:
             keyboard = await self.build_topup_success_keyboard(user_snapshot)
 
-            payment_method = payment_method_title or "Банковская карта (YooKassa)"
+            payment_method = payment_method_title or "Bank card (YooKassa)"
             message = (
-                "✅ <b>Платеж успешно завершен!</b>\n\n"
-                f"💰 Сумма: {settings.format_price(amount_kopeks)}\n"
-                f"💳 Способ: {payment_method}\n\n"
-                "Средства зачислены на ваш баланс!\n\n"
-                "⚠️ <b>Важно:</b> Пополнение баланса не активирует подписку автоматически. "
-                "Обязательно активируйте подписку отдельно!\n\n"
-                f"🔄 При наличии сохранённой корзины подписки и включенной автопокупке, "
-                f"подписка будет приобретена автоматически после пополнения баланса."
+                "✅ <b>Payment completed successfully!</b>\n\n"
+                f"💰 Amount: {settings.format_price(amount_kopeks)}\n"
+                f"💳 Method: {payment_method}\n\n"
+                "The funds have been credited to your balance!\n\n"
+                "⚠️ <b>Important:</b> Topping up your balance does not activate a subscription "
+                "automatically. You must activate your subscription separately.\n\n"
+                "🔄 If you have a saved subscription cart and auto-purchase is enabled, "
+                "the subscription will be purchased automatically after the top-up."
             )
 
             await self.bot.send_message(
@@ -172,7 +174,7 @@ class PaymentCommonMixin:
             )
         except Exception as error:
             logger.error(
-                "Ошибка отправки уведомления пользователю %s: %s",
+                "Error sending payment success notification to user %s: %s",
                 telegram_id,
                 error,
             )
@@ -184,7 +186,7 @@ class PaymentCommonMixin:
         *,
         db: AsyncSession | None = None,
     ) -> Any | None:
-        """Гарантирует, что данные пользователя пригодны для построения клавиатуры."""
+        """Ensures that user data is safe to use for keyboard construction."""
 
         def _build_snapshot(source: Any | None) -> SimpleNamespace | None:
             if source is None:
@@ -223,7 +225,7 @@ class PaymentCommonMixin:
                 return _build_snapshot(fetched_user)
             except Exception as fetch_error:
                 logger.warning(
-                    "Не удалось обновить пользователя %s из переданной сессии: %s",
+                    "Failed to refresh user %s from provided session: %s",
                     telegram_id,
                     fetch_error,
                 )
@@ -234,7 +236,7 @@ class PaymentCommonMixin:
                 return _build_snapshot(fetched_user)
         except Exception as fetch_error:
             logger.warning(
-                "Не удалось получить пользователя %s для уведомления: %s",
+                "Failed to load user %s from DB for notification: %s",
                 telegram_id,
                 fetch_error,
             )
@@ -248,10 +250,10 @@ class PaymentCommonMixin:
         user_id: int,
         payment_method: str,
     ) -> bool:
-        """Общая точка учёта успешных платежей (используется провайдерами при необходимости)."""
+        """Common accounting entry point for successful payments (used by providers as needed)."""
         try:
             logger.info(
-                "Обработан успешный платеж: %s, %s₽, пользователь %s, метод %s",
+                "Processed successful payment: %s, %s RUB, user %s, method %s",
                 payment_id,
                 amount_kopeks / 100,
                 user_id,
@@ -259,5 +261,5 @@ class PaymentCommonMixin:
             )
             return True
         except Exception as error:
-            logger.error("Ошибка обработки платежа %s: %s", payment_id, error)
+            logger.error("Error processing payment %s: %s", payment_id, error)
             return False

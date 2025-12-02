@@ -9,7 +9,6 @@ from aiohttp import web
 from aiogram import Bot
 
 from app.config import settings
-from app.services.tribute_service import TributeService
 from app.services.payment_service import PaymentService
 from app.database.database import get_db
 
@@ -23,40 +22,24 @@ class WebhookServer:
         self.app = None
         self.runner = None
         self.site = None
-        self.tribute_service = TributeService(bot)
     
     async def create_app(self) -> web.Application:
         
         self.app = web.Application()
         
-        self.app.router.add_post(settings.TRIBUTE_WEBHOOK_PATH, self._tribute_webhook_handler)
-
-        if settings.is_mulenpay_enabled():
-            self.app.router.add_post(settings.MULENPAY_WEBHOOK_PATH, self._mulenpay_webhook_handler)
-
+        # Only CryptoBot webhook is supported in this trimmed build.
         if settings.is_cryptobot_enabled():
             self.app.router.add_post(settings.CRYPTOBOT_WEBHOOK_PATH, self._cryptobot_webhook_handler)
         
         self.app.router.add_get('/health', self._health_check)
         
-        self.app.router.add_options(settings.TRIBUTE_WEBHOOK_PATH, self._options_handler)
-        if settings.is_mulenpay_enabled():
-            self.app.router.add_options(settings.MULENPAY_WEBHOOK_PATH, self._options_handler)
         if settings.is_cryptobot_enabled():
             self.app.router.add_options(settings.CRYPTOBOT_WEBHOOK_PATH, self._options_handler)
         
-        logger.info(f"Webhook сервер настроен:")
-        logger.info(f"  - Tribute webhook: POST {settings.TRIBUTE_WEBHOOK_PATH}")
-        if settings.is_mulenpay_enabled():
-            mulenpay_name = settings.get_mulenpay_display_name()
-            logger.info(
-                "  - %s webhook: POST %s",
-                mulenpay_name,
-                settings.MULENPAY_WEBHOOK_PATH,
-            )
+        logger.info("Webhook server configured:")
         if settings.is_cryptobot_enabled():
-            logger.info(f"  - CryptoBot webhook: POST {settings.CRYPTOBOT_WEBHOOK_PATH}")
-        logger.info(f"  - Health check: GET /health")
+            logger.info("  - CryptoBot webhook: POST %s", settings.CRYPTOBOT_WEBHOOK_PATH)
+        logger.info("  - Health check: GET /health")
         
         return self.app
     

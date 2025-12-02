@@ -18,16 +18,11 @@ from app.config import settings
 from app.database.database import AsyncSessionLocal
 from app.database.models import (
     CryptoBotPayment,
-    HeleketPayment,
-    MulenPayPayment,
     Pal24Payment,
-    PlategaPayment,
     PaymentMethod,
     Transaction,
     TransactionType,
     User,
-    WataPayment,
-    YooKassaPayment,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,64 +52,33 @@ class PendingPayment:
 
 SUPPORTED_MANUAL_CHECK_METHODS: frozenset[PaymentMethod] = frozenset(
     {
-        PaymentMethod.YOOKASSA,
-        PaymentMethod.MULENPAY,
         PaymentMethod.PAL24,
-        PaymentMethod.WATA,
-        PaymentMethod.HELEKET,
         PaymentMethod.CRYPTOBOT,
-        PaymentMethod.PLATEGA,
     }
 )
 
 
 SUPPORTED_AUTO_CHECK_METHODS: frozenset[PaymentMethod] = frozenset(
     {
-        PaymentMethod.YOOKASSA,
-        PaymentMethod.MULENPAY,
         PaymentMethod.PAL24,
-        PaymentMethod.WATA,
         PaymentMethod.CRYPTOBOT,
-        PaymentMethod.PLATEGA,
     }
 )
 
 
 def method_display_name(method: PaymentMethod) -> str:
-    if method == PaymentMethod.MULENPAY:
-        return settings.get_mulenpay_display_name()
     if method == PaymentMethod.PAL24:
         return "PayPalych"
-    if method == PaymentMethod.YOOKASSA:
-        return "YooKassa"
-    if method == PaymentMethod.WATA:
-        return "WATA"
-    if method == PaymentMethod.PLATEGA:
-        return "Platega"
     if method == PaymentMethod.CRYPTOBOT:
         return "CryptoBot"
-    if method == PaymentMethod.HELEKET:
-        return "Heleket"
-    if method == PaymentMethod.TELEGRAM_STARS:
-        return "Telegram Stars"
     return method.value
 
 
 def _method_is_enabled(method: PaymentMethod) -> bool:
-    if method == PaymentMethod.YOOKASSA:
-        return settings.is_yookassa_enabled()
-    if method == PaymentMethod.MULENPAY:
-        return settings.is_mulenpay_enabled()
     if method == PaymentMethod.PAL24:
         return settings.is_pal24_enabled()
-    if method == PaymentMethod.WATA:
-        return settings.is_wata_enabled()
-    if method == PaymentMethod.PLATEGA:
-        return settings.is_platega_enabled()
     if method == PaymentMethod.CRYPTOBOT:
         return settings.is_cryptobot_enabled()
-    if method == PaymentMethod.HELEKET:
-        return settings.is_heleket_enabled()
     return False
 
 
@@ -301,48 +265,6 @@ def _is_pal24_pending(payment: Pal24Payment) -> bool:
     return status in {"NEW", "PROCESS"}
 
 
-def _is_mulenpay_pending(payment: MulenPayPayment) -> bool:
-    if payment.is_paid:
-        return False
-    status = (payment.status or "").lower()
-    return status in {"created", "processing", "hold"}
-
-
-def _is_wata_pending(payment: WataPayment) -> bool:
-    if payment.is_paid:
-        return False
-    status = (payment.status or "").lower()
-    return status not in {
-        "paid",
-        "closed",
-        "declined",
-        "canceled",
-        "cancelled",
-        "expired",
-    }
-
-
-def _is_platega_pending(payment: PlategaPayment) -> bool:
-    if payment.is_paid:
-        return False
-    status = (payment.status or "").lower()
-    return status in {"pending", "inprogress", "in_progress"}
-
-
-def _is_heleket_pending(payment: HeleketPayment) -> bool:
-    if payment.is_paid:
-        return False
-    status = (payment.status or "").lower()
-    return status not in {"paid", "paid_over", "cancel", "canceled", "failed", "fail", "expired"}
-
-
-def _is_yookassa_pending(payment: YooKassaPayment) -> bool:
-    if getattr(payment, "is_paid", False) and payment.status == "succeeded":
-        return False
-    status = (payment.status or "").lower()
-    return status in {"pending", "waiting_for_capture"}
-
-
 def _is_cryptobot_pending(payment: CryptoBotPayment) -> bool:
     status = (payment.status or "").lower()
     return status == "active"
@@ -359,10 +281,9 @@ def _parse_cryptobot_amount_kopeks(payment: CryptoBotPayment) -> int:
     return 0
 
 
-def _metadata_is_balance(payment: YooKassaPayment) -> bool:
-    metadata = getattr(payment, "metadata_json", {}) or {}
-    payment_type = str(metadata.get("type") or metadata.get("payment_type") or "").lower()
-    return payment_type.startswith("balance_topup")
+def _metadata_is_balance(_payment: Any) -> bool:
+    """Stub helper kept for compatibility; non-CryptoBot/Pal24 methods are disabled."""
+    return False
 
 
 def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amount_kopeks: int,
@@ -422,137 +343,29 @@ async def _fetch_pal24_payments(db: AsyncSession, cutoff: datetime) -> List[Pend
     return records
 
 
-async def _fetch_mulenpay_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
-    stmt = (
-        select(MulenPayPayment)
-        .options(selectinload(MulenPayPayment.user))
-        .where(MulenPayPayment.created_at >= cutoff)
-        .order_by(desc(MulenPayPayment.created_at))
-    )
-    result = await db.execute(stmt)
-    records: List[PendingPayment] = []
-    for payment in result.scalars().all():
-        if not _is_mulenpay_pending(payment):
-            continue
-        record = _build_record(
-            PaymentMethod.MULENPAY,
-            payment,
-            identifier=payment.uuid,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-        )
-        if record:
-            records.append(record)
-    return records
+async def _fetch_mulenpay_payments(_db: AsyncSession, _cutoff: datetime) -> List[PendingPayment]:
+    """Disabled: MulenPay provider removed; kept for backward compatibility."""
+    return []
 
 
-async def _fetch_wata_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
-    stmt = (
-        select(WataPayment)
-        .options(selectinload(WataPayment.user))
-        .where(WataPayment.created_at >= cutoff)
-        .order_by(desc(WataPayment.created_at))
-    )
-    result = await db.execute(stmt)
-    records: List[PendingPayment] = []
-    for payment in result.scalars().all():
-        if not _is_wata_pending(payment):
-            continue
-        record = _build_record(
-            PaymentMethod.WATA,
-            payment,
-            identifier=payment.payment_link_id,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-        if record:
-            records.append(record)
-    return records
+async def _fetch_wata_payments(_db: AsyncSession, _cutoff: datetime) -> List[PendingPayment]:
+    """Disabled: WATA provider removed; kept for backward compatibility."""
+    return []
 
 
-async def _fetch_platega_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
-    stmt = (
-        select(PlategaPayment)
-        .options(selectinload(PlategaPayment.user))
-        .where(PlategaPayment.created_at >= cutoff)
-        .order_by(desc(PlategaPayment.created_at))
-    )
-    result = await db.execute(stmt)
-    records: List[PendingPayment] = []
-    for payment in result.scalars().all():
-        if not _is_platega_pending(payment):
-            continue
-        identifier = payment.platega_transaction_id or payment.correlation_id or str(payment.id)
-        record = _build_record(
-            PaymentMethod.PLATEGA,
-            payment,
-            identifier=identifier,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-        if record:
-            records.append(record)
-    return records
+async def _fetch_platega_payments(_db: AsyncSession, _cutoff: datetime) -> List[PendingPayment]:
+    """Disabled: Platega provider removed; kept for backward compatibility."""
+    return []
 
 
-async def _fetch_heleket_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
-    stmt = (
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.created_at >= cutoff)
-        .order_by(desc(HeleketPayment.created_at))
-    )
-    result = await db.execute(stmt)
-    records: List[PendingPayment] = []
-    for payment in result.scalars().all():
-        if not _is_heleket_pending(payment):
-            continue
-        record = _build_record(
-            PaymentMethod.HELEKET,
-            payment,
-            identifier=payment.uuid,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-        if record:
-            records.append(record)
-    return records
+async def _fetch_heleket_payments(_db: AsyncSession, _cutoff: datetime) -> List[PendingPayment]:
+    """Disabled: Heleket provider removed; kept for backward compatibility."""
+    return []
 
 
-async def _fetch_yookassa_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
-    stmt = (
-        select(YooKassaPayment)
-        .options(selectinload(YooKassaPayment.user))
-        .where(YooKassaPayment.created_at >= cutoff)
-        .order_by(desc(YooKassaPayment.created_at))
-    )
-    result = await db.execute(stmt)
-    records: List[PendingPayment] = []
-    for payment in result.scalars().all():
-        if payment.transaction_id:
-            continue
-        if not _metadata_is_balance(payment):
-            continue
-        if not _is_yookassa_pending(payment):
-            continue
-        record = _build_record(
-            PaymentMethod.YOOKASSA,
-            payment,
-            identifier=payment.yookassa_payment_id,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(getattr(payment, "is_paid", False)),
-        )
-        if record:
-            records.append(record)
-    return records
+async def _fetch_yookassa_payments(_db: AsyncSession, _cutoff: datetime) -> List[PendingPayment]:
+    """Disabled: YooKassa provider removed; kept for backward compatibility."""
+    return []
 
 
 async def _fetch_cryptobot_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
@@ -619,14 +432,8 @@ async def list_recent_pending_payments(
     cutoff = datetime.utcnow() - max_age
 
     tasks: Iterable[List[PendingPayment]] = (
-        await _fetch_yookassa_payments(db, cutoff),
         await _fetch_pal24_payments(db, cutoff),
-        await _fetch_mulenpay_payments(db, cutoff),
-        await _fetch_wata_payments(db, cutoff),
-        await _fetch_platega_payments(db, cutoff),
-        await _fetch_heleket_payments(db, cutoff),
         await _fetch_cryptobot_payments(db, cutoff),
-        await _fetch_stars_transactions(db, cutoff),
     )
 
     records: List[PendingPayment] = []
@@ -659,82 +466,6 @@ async def get_payment_record(
             status=payment.status or "",
             is_paid=bool(payment.is_paid),
             expires_at=getattr(payment, "expires_at", None),
-        )
-
-    if method == PaymentMethod.MULENPAY:
-        payment = await db.get(MulenPayPayment, local_payment_id)
-        if not payment:
-            return None
-        await db.refresh(payment, attribute_names=["user"])
-        return _build_record(
-            method,
-            payment,
-            identifier=payment.uuid,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-        )
-
-    if method == PaymentMethod.WATA:
-        payment = await db.get(WataPayment, local_payment_id)
-        if not payment:
-            return None
-        await db.refresh(payment, attribute_names=["user"])
-        return _build_record(
-            method,
-            payment,
-            identifier=payment.payment_link_id,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-
-    if method == PaymentMethod.PLATEGA:
-        payment = await db.get(PlategaPayment, local_payment_id)
-        if not payment:
-            return None
-        await db.refresh(payment, attribute_names=["user"])
-        identifier = payment.platega_transaction_id or payment.correlation_id or str(payment.id)
-        return _build_record(
-            method,
-            payment,
-            identifier=identifier,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-
-    if method == PaymentMethod.HELEKET:
-        payment = await db.get(HeleketPayment, local_payment_id)
-        if not payment:
-            return None
-        await db.refresh(payment, attribute_names=["user"])
-        return _build_record(
-            method,
-            payment,
-            identifier=payment.uuid,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(payment.is_paid),
-            expires_at=getattr(payment, "expires_at", None),
-        )
-
-    if method == PaymentMethod.YOOKASSA:
-        payment = await db.get(YooKassaPayment, local_payment_id)
-        if not payment:
-            return None
-        await db.refresh(payment, attribute_names=["user"])
-        if payment.created_at < cutoff:
-            logger.debug("YooKassa payment %s is older than cutoff", payment.id)
-        return _build_record(
-            method,
-            payment,
-            identifier=payment.yookassa_payment_id,
-            amount_kopeks=payment.amount_kopeks,
-            status=payment.status or "",
-            is_paid=bool(getattr(payment, "is_paid", False)),
         )
 
     if method == PaymentMethod.CRYPTOBOT:

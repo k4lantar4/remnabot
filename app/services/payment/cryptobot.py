@@ -1,4 +1,4 @@
-"""Mixin с логикой обработки платежей CryptoBot."""
+"""Mixin with CryptoBot payment processing logic."""
 
 from __future__ import annotations
 import logging
@@ -62,7 +62,7 @@ class _SavedCartNotificationPayload:
 
 
 class CryptoBotPaymentMixin:
-    """Mixin, отвечающий за генерацию инвойсов CryptoBot и обработку webhook."""
+    """Mixin responsible for generating CryptoBot invoices and handling webhooks."""
 
     async def create_cryptobot_payment(
         self,
@@ -70,12 +70,12 @@ class CryptoBotPaymentMixin:
         user_id: int,
         amount_usd: float,
         asset: str = "USDT",
-        description: str = "Пополнение баланса",
+        description: str = "Balance top-up",
         payload: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Создаёт invoice в CryptoBot и сохраняет локальную запись."""
+        """Creates an invoice in CryptoBot and stores a local record."""
         if not getattr(self, "cryptobot_service", None):
-            logger.error("CryptoBot сервис не инициализирован")
+            logger.error("CryptoBot service is not initialised")
             return None
 
         try:
@@ -90,7 +90,7 @@ class CryptoBotPaymentMixin:
             )
 
             if not invoice_data:
-                logger.error("Ошибка создания CryptoBot invoice")
+                logger.error("Failed to create CryptoBot invoice")
                 return None
 
             cryptobot_crud = import_module("app.database.crud.cryptobot")
@@ -110,11 +110,11 @@ class CryptoBotPaymentMixin:
             )
 
             logger.info(
-                "Создан CryptoBot платеж %s на %s %s для пользователя %s",
+                "Created CryptoBot payment %s for user %s: %s %s",
                 invoice_data["invoice_id"],
+                user_id,
                 amount_str,
                 asset,
-                user_id,
             )
 
             return {
@@ -134,7 +134,7 @@ class CryptoBotPaymentMixin:
             }
 
         except Exception as error:
-            logger.error("Ошибка создания CryptoBot платежа: %s", error)
+            logger.error("Error creating CryptoBot payment: %s", error)
             return None
 
     async def process_cryptobot_webhook(
@@ -142,12 +142,12 @@ class CryptoBotPaymentMixin:
         db: AsyncSession,
         webhook_data: Dict[str, Any],
     ) -> bool:
-        """Обрабатывает webhook от CryptoBot и начисляет средства пользователю."""
+        """Processes a CryptoBot webhook and credits funds to the user."""
         try:
             update_type = webhook_data.get("update_type")
 
             if update_type != "invoice_paid":
-                logger.info("Пропуск CryptoBot webhook с типом: %s", update_type)
+                logger.info("Skipping CryptoBot webhook with type: %s", update_type)
                 return True
 
             payload = webhook_data.get("payload", {})
@@ -155,7 +155,7 @@ class CryptoBotPaymentMixin:
             status = "paid"
 
             if not invoice_id:
-                logger.error("CryptoBot webhook без invoice_id")
+                logger.error("CryptoBot webhook without invoice_id")
                 return False
 
             cryptobot_crud = import_module("app.database.crud.cryptobot")
@@ -163,11 +163,11 @@ class CryptoBotPaymentMixin:
                 db, invoice_id
             )
             if not payment:
-                logger.error("CryptoBot платеж не найден в БД: %s", invoice_id)
+                logger.error("CryptoBot payment not found in DB: %s", invoice_id)
                 return False
 
             if payment.status == "paid":
-                logger.info("CryptoBot платеж %s уже обработан", invoice_id)
+                logger.info("CryptoBot payment %s already processed", invoice_id)
                 return True
 
             paid_at_str = payload.get("paid_at")
@@ -226,7 +226,7 @@ class CryptoBotPaymentMixin:
                         amount_rubles / amount_usd if amount_usd > 0 else 0
                     )
                     logger.info(
-                        "Конвертация USD->RUB: $%s -> %s₽ (округлено до %s₽, курс: %.2f)",
+                        "Conversion USD->RUB: $%s -> %s RUB (rounded to %s RUB, rate: %.2f)",
                         amount_usd,
                         amount_rubles,
                         amount_rubles_rounded,
@@ -234,7 +234,7 @@ class CryptoBotPaymentMixin:
                     )
                 except Exception as error:
                     logger.warning(
-                        "Ошибка конвертации валют для платежа %s, используем курс 1:1: %s",
+                        "Currency conversion error for payment %s, falling back to 1:1 rate: %s",
                         invoice_id,
                         error,
                     )
@@ -245,7 +245,7 @@ class CryptoBotPaymentMixin:
 
                 if amount_kopeks <= 0:
                     logger.error(
-                        "Некорректная сумма после конвертации: %s копеек для платежа %s",
+                        "Invalid amount after conversion: %s kopeks for payment %s",
                         amount_kopeks,
                         invoice_id,
                     )
@@ -258,8 +258,8 @@ class CryptoBotPaymentMixin:
                     type=TransactionType.DEPOSIT,
                     amount_kopeks=amount_kopeks,
                     description=(
-                        "Пополнение через CryptoBot "
-                        f"({updated_payment.amount} {updated_payment.asset} → {amount_rubles_rounded:.2f}₽)"
+                        "Top-up via CryptoBot "
+                        f"({updated_payment.amount} {updated_payment.asset} → {amount_rubles_rounded:.2f} RUB)"
                     ),
                     payment_method=PaymentMethod.CRYPTOBOT,
                     external_id=invoice_id,
@@ -274,7 +274,7 @@ class CryptoBotPaymentMixin:
                 user = await get_user_by_id(db, updated_payment.user_id)
                 if not user:
                     logger.error(
-                        "Пользователь с ID %s не найден при пополнении баланса",
+                        "User with ID %s not found while processing balance top-up",
                         updated_payment.user_id,
                     )
                     return False
@@ -287,7 +287,7 @@ class CryptoBotPaymentMixin:
 
                 referrer_info = format_referrer_info(user)
                 topup_status = (
-                    "🆕 Первое пополнение" if was_first_topup else "🔄 Пополнение"
+                    "🆕 First top-up" if was_first_topup else "🔄 Top-up"
                 )
 
                 await db.commit()
@@ -303,7 +303,7 @@ class CryptoBotPaymentMixin:
                     )
                 except Exception as error:
                     logger.error(
-                        "Ошибка обработки реферального пополнения CryptoBot: %s",
+                        "Error processing referral top-up for CryptoBot: %s",
                         error,
                     )
 
@@ -330,12 +330,12 @@ class CryptoBotPaymentMixin:
                     try:
                         keyboard = await self.build_topup_success_keyboard(user)
                         message_text = (
-                            "✅ <b>Пополнение успешно!</b>\n\n"
-                            f"💰 Сумма: {settings.format_price(amount_kopeks)}\n"
-                            f"🪙 Платеж: {updated_payment.amount} {updated_payment.asset}\n"
-                            f"💱 Курс: 1 USD = {conversion_rate:.2f}₽\n"
-                            f"🆔 Транзакция: {invoice_id[:8]}...\n\n"
-                            "Баланс пополнен автоматически!"
+                            "✅ <b>Top-up successful!</b>\n\n"
+                            f"💰 Amount: {settings.format_price(amount_kopeks)}\n"
+                            f"🪙 Payment: {updated_payment.amount} {updated_payment.asset}\n"
+                            f"💱 Rate: 1 USD = {conversion_rate:.2f} RUB\n"
+                            f"🆔 Transaction: {invoice_id[:8]}...\n\n"
+                            "The balance has been credited automatically."
                         )
                         user_notification = _UserNotificationPayload(
                             telegram_id=user.telegram_id,
@@ -347,11 +347,11 @@ class CryptoBotPaymentMixin:
                         )
                     except Exception as error:
                         logger.error(
-                            "Ошибка подготовки уведомления о пополнении CryptoBot: %s",
+                            "Error preparing CryptoBot top-up notification: %s",
                             error,
                         )
 
-                # Проверяем наличие сохраненной корзины для возврата к оформлению подписки
+                # Check for a saved cart to offer returning to subscription checkout
                 try:
                     from app.services.user_cart_service import user_cart_service
                     from aiogram import types
@@ -367,7 +367,7 @@ class CryptoBotPaymentMixin:
                             )
                         except Exception as auto_error:
                             logger.error(
-                                "Ошибка автоматической покупки подписки для пользователя %s: %s",
+                                "Error during automatic subscription purchase for user %s: %s",
                                 user.id,
                                 auto_error,
                                 exc_info=True,
@@ -390,30 +390,30 @@ class CryptoBotPaymentMixin:
                                 callback_data="return_to_saved_cart"
                             )],
                             [types.InlineKeyboardButton(
-                                text="💰 Мой баланс",
+                                text="💰 My balance",
                                 callback_data="menu_balance"
                             )],
                             [types.InlineKeyboardButton(
-                                text="🏠 Главное меню",
+                                text="🏠 Main menu",
                                 callback_data="back_to_menu"
                             )]
                         ])
 
                         saved_cart_notification = _SavedCartNotificationPayload(
                             telegram_id=user.telegram_id,
-                            text=(
-                                f"✅ Баланс пополнен на {settings.format_price(amount_kopeks)}!\n\n"
-                                f"⚠️ <b>Важно:</b> Пополнение баланса не активирует подписку автоматически. "
-                                f"Обязательно активируйте подписку отдельно!\n\n"
-                                f"🔄 При наличии сохранённой корзины подписки и включенной автопокупке, "
-                                f"подписка будет приобретена автоматически после пополнения баланса.\n\n{cart_message}"
-                            ),
+                                text=(
+                                    f"✅ Balance has been topped up by {settings.format_price(amount_kopeks)}!\n\n"
+                                    f"⚠️ <b>Important:</b> Topping up your balance does not activate a subscription automatically. "
+                                    f"Be sure to activate your subscription separately.\n\n"
+                                    f"🔄 If you have a saved subscription cart and auto-purchase is enabled, "
+                                    f"the subscription will be purchased automatically after the top-up.\n\n{cart_message}"
+                                ),
                             reply_markup=keyboard,
                             user_id=user.id,
                         )
                 except Exception as error:
                     logger.error(
-                        "Ошибка при работе с сохраненной корзиной для пользователя %s: %s",
+                        "Error while working with saved cart for user %s: %s",
                         user.id,
                         error,
                         exc_info=True,
@@ -432,7 +432,7 @@ class CryptoBotPaymentMixin:
 
         except Exception as error:
             logger.error(
-                "Ошибка обработки CryptoBot webhook: %s", error, exc_info=True
+                "Error processing CryptoBot webhook: %s", error, exc_info=True
             )
             return False
 
@@ -448,7 +448,7 @@ class CryptoBotPaymentMixin:
             user = await payment_service_module.get_user_by_id(db, payment.user_id)
         except Exception as error:
             logger.error(
-                "Не удалось загрузить пользователя %s для продления через CryptoBot: %s",
+                "Failed to load user %s for renewal via CryptoBot: %s",
                 getattr(payment, "user_id", None),
                 error,
             )
@@ -456,7 +456,7 @@ class CryptoBotPaymentMixin:
 
         if not user:
             logger.error(
-                "Пользователь %s не найден при обработке продления через CryptoBot",
+                "User %s not found while processing renewal via CryptoBot",
                 getattr(payment, "user_id", None),
             )
             return False
@@ -464,7 +464,7 @@ class CryptoBotPaymentMixin:
         subscription = getattr(user, "subscription", None)
         if not subscription or subscription.id != descriptor.subscription_id:
             logger.warning(
-                "Продление через CryptoBot отклонено: подписка %s не совпадает с ожидаемой %s",
+                "Renewal via CryptoBot rejected: subscription %s does not match expected %s",
                 getattr(subscription, "id", None),
                 descriptor.subscription_id,
             )
@@ -478,7 +478,7 @@ class CryptoBotPaymentMixin:
                 )
             except Exception as error:
                 logger.warning(
-                    "Не удалось восстановить сохраненную стоимость продления из payload %s: %s",
+                    "Failed to restore saved renewal pricing from payload %s: %s",
                     payment.invoice_id,
                     error,
                 )
@@ -493,7 +493,7 @@ class CryptoBotPaymentMixin:
                 )
             except Exception as error:
                 logger.error(
-                    "Не удалось пересчитать стоимость продления для CryptoBot %s: %s",
+                    "Failed to recalculate renewal pricing for CryptoBot %s: %s",
                     payment.invoice_id,
                     error,
                 )
@@ -501,7 +501,7 @@ class CryptoBotPaymentMixin:
 
             if pricing_model.final_total != descriptor.total_amount_kopeks:
                 logger.warning(
-                    "Сумма продления через CryptoBot %s изменилась (ожидалось %s, получено %s)",
+                    "Renewal amount via CryptoBot %s has changed (expected %s, got %s)",
                     payment.invoice_id,
                     descriptor.total_amount_kopeks,
                     pricing_model.final_total,
@@ -527,14 +527,14 @@ class CryptoBotPaymentMixin:
         current_balance = getattr(user, "balance_kopeks", 0)
         if current_balance < required_balance:
             logger.warning(
-                "Недостаточно средств на балансе пользователя %s для завершения продления: нужно %s, доступно %s",
+                "Insufficient user balance %s to complete renewal: required %s, available %s",
                 user.id,
                 required_balance,
                 current_balance,
             )
             return False
 
-        description = f"Продление подписки на {descriptor.period_days} дней"
+        description = f"Subscription renewal for {descriptor.period_days} days"
 
         try:
             result = await renewal_service.finalize(
@@ -548,14 +548,14 @@ class CryptoBotPaymentMixin:
             )
         except SubscriptionRenewalChargeError as error:
             logger.error(
-                "Списание баланса не выполнено при продлении через CryptoBot %s: %s",
+                "Balance charge failed while renewing via CryptoBot %s: %s",
                 payment.invoice_id,
                 error,
             )
             return False
         except Exception as error:
             logger.error(
-                "Ошибка завершения продления через CryptoBot %s: %s",
+                "Error finalising renewal via CryptoBot %s: %s",
                 payment.invoice_id,
                 error,
                 exc_info=True,
@@ -572,7 +572,7 @@ class CryptoBotPaymentMixin:
                 )
             except Exception as error:
                 logger.warning(
-                    "Не удалось связать платеж CryptoBot %s с транзакцией %s: %s",
+                    "Failed to link CryptoBot payment %s with transaction %s: %s",
                     payment.invoice_id,
                     transaction.id,
                     error,
@@ -582,7 +582,7 @@ class CryptoBotPaymentMixin:
         balance_amount_label = settings.format_price(required_balance)
 
         logger.info(
-            "Подписка %s продлена через CryptoBot invoice %s (внешний платеж %s, списано с баланса %s)",
+            "Subscription %s renewed via CryptoBot invoice %s (external payment %s, charged from balance %s)",
             subscription.id,
             payment.invoice_id,
             external_amount_label,
@@ -604,7 +604,7 @@ class CryptoBotPaymentMixin:
             from app.database.crud.transaction import get_transaction_by_id
         except Exception as error:
             logger.error(
-                "Не удалось импортировать зависимости для админ-уведомления CryptoBot: %s",
+                "Failed to import dependencies for CryptoBot admin notification: %s",
                 error,
                 exc_info=True,
             )
@@ -616,7 +616,7 @@ class CryptoBotPaymentMixin:
                 transaction = await get_transaction_by_id(session, context.transaction_id)
             except Exception as error:
                 logger.error(
-                    "Ошибка загрузки данных для админ-уведомления CryptoBot: %s",
+                    "Error loading data for CryptoBot admin notification: %s",
                     error,
                     exc_info=True,
                 )
@@ -625,7 +625,7 @@ class CryptoBotPaymentMixin:
 
             if not user or not transaction:
                 logger.warning(
-                    "Пропущена отправка админ-уведомления CryptoBot: user=%s transaction=%s",
+                    "Skipped CryptoBot admin notification: user=%s transaction=%s",
                     bool(user),
                     bool(transaction),
                 )
@@ -645,7 +645,7 @@ class CryptoBotPaymentMixin:
                 )
             except Exception as error:
                 logger.error(
-                    "Ошибка отправки админ-уведомления о пополнении CryptoBot: %s",
+                    "Error sending CryptoBot admin top-up notification: %s",
                     error,
                     exc_info=True,
                 )
@@ -665,14 +665,14 @@ class CryptoBotPaymentMixin:
                 reply_markup=payload.reply_markup,
             )
             logger.info(
-                "✅ Отправлено уведомление пользователю %s о пополнении на %s₽ (%s)",
+                "✅ Sent notification to user %s about top-up of %s RUB (%s)",
                 payload.telegram_id,
                 f"{payload.amount_rubles:.2f}",
                 payload.asset,
             )
         except Exception as error:
             logger.error(
-                "Ошибка отправки уведомления о пополнении CryptoBot: %s",
+                "Error sending CryptoBot top-up notification: %s",
                 error,
             )
 
@@ -690,12 +690,12 @@ class CryptoBotPaymentMixin:
                 reply_markup=payload.reply_markup,
             )
             logger.info(
-                "Отправлено уведомление с кнопкой возврата к оформлению подписки пользователю %s",
+                "Sent notification with return-to-checkout button to user %s",
                 payload.user_id,
             )
         except Exception as error:
             logger.error(
-                "Ошибка отправки уведомления о сохраненной корзине для пользователя %s: %s",
+                "Error sending saved-cart notification for user %s: %s",
                 payload.user_id,
                 error,
                 exc_info=True,
@@ -706,16 +706,16 @@ class CryptoBotPaymentMixin:
         db: AsyncSession,
         local_payment_id: int,
     ) -> Optional[Dict[str, Any]]:
-        """Запрашивает актуальный статус CryptoBot invoice и синхронизирует его."""
+        """Fetches the current CryptoBot invoice status and synchronises it."""
 
         cryptobot_crud = import_module("app.database.crud.cryptobot")
         payment = await cryptobot_crud.get_cryptobot_payment_by_id(db, local_payment_id)
         if not payment:
-            logger.warning("CryptoBot платеж %s не найден", local_payment_id)
+            logger.warning("CryptoBot payment %s not found", local_payment_id)
             return None
 
         if not self.cryptobot_service:
-            logger.warning("CryptoBot сервис не инициализирован для ручной проверки")
+            logger.warning("CryptoBot service is not initialised for manual check")
             return {"payment": payment}
 
         invoice_id = payment.invoice_id
@@ -725,7 +725,7 @@ class CryptoBotPaymentMixin:
             )
         except Exception as error:  # pragma: no cover - network errors
             logger.error(
-                "Ошибка запроса статуса CryptoBot invoice %s: %s",
+                "Error requesting CryptoBot invoice %s status: %s",
                 invoice_id,
                 error,
             )
@@ -740,7 +740,7 @@ class CryptoBotPaymentMixin:
 
         if not remote_invoice:
             logger.info(
-                "CryptoBot invoice %s не найден через API при ручной проверке",
+                "CryptoBot invoice %s not found via API during manual check",
                 invoice_id,
             )
             refreshed = await cryptobot_crud.get_cryptobot_payment_by_id(db, local_payment_id)

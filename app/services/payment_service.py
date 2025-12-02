@@ -11,25 +11,12 @@ from aiogram import Bot
 from app.config import settings
 from app.utils.currency_converter import currency_converter  # noqa: F401
 from app.external.cryptobot import CryptoBotService
-from app.external.heleket import HeleketService
-from app.external.telegram_stars import TelegramStarsService
-from app.services.mulenpay_service import MulenPayService
 from app.services.pal24_service import Pal24Service
-from app.services.platega_service import PlategaService
 from app.services.payment import (
     CryptoBotPaymentMixin,
-    HeleketPaymentMixin,
-    MulenPayPaymentMixin,
     Pal24PaymentMixin,
-    PlategaPaymentMixin,
     PaymentCommonMixin,
-    TelegramStarsMixin,
-    TributePaymentMixin,
-    YooKassaPaymentMixin,
-    WataPaymentMixin,
 )
-from app.services.yookassa_service import YooKassaService
-from app.services.wata_service import WataService
 
 logger = logging.getLogger(__name__)
 
@@ -87,41 +74,6 @@ async def get_user_by_telegram_id(*args, **kwargs):
     return await user_crud.get_user_by_telegram_id(*args, **kwargs)
 
 
-async def create_mulenpay_payment(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.create_mulenpay_payment(*args, **kwargs)
-
-
-async def get_mulenpay_payment_by_uuid(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.get_mulenpay_payment_by_uuid(*args, **kwargs)
-
-
-async def get_mulenpay_payment_by_mulen_id(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.get_mulenpay_payment_by_mulen_id(*args, **kwargs)
-
-
-async def get_mulenpay_payment_by_local_id(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.get_mulenpay_payment_by_local_id(*args, **kwargs)
-
-
-async def update_mulenpay_payment_status(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.update_mulenpay_payment_status(*args, **kwargs)
-
-
-async def update_mulenpay_payment_metadata(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.update_mulenpay_payment_metadata(*args, **kwargs)
-
-
-async def link_mulenpay_payment_to_transaction(*args, **kwargs):
-    mulenpay_crud = import_module("app.database.crud.mulenpay")
-    return await mulenpay_crud.link_mulenpay_payment_to_transaction(*args, **kwargs)
-
-
 async def create_pal24_payment(*args, **kwargs):
     pal_crud = import_module("app.database.crud.pal24")
     return await pal_crud.create_pal24_payment(*args, **kwargs)
@@ -152,71 +104,6 @@ async def link_pal24_payment_to_transaction(*args, **kwargs):
     return await pal_crud.link_pal24_payment_to_transaction(*args, **kwargs)
 
 
-async def create_wata_payment(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.create_wata_payment(*args, **kwargs)
-
-
-async def get_wata_payment_by_link_id(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.get_wata_payment_by_link_id(*args, **kwargs)
-
-
-async def get_wata_payment_by_id(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.get_wata_payment_by_id(*args, **kwargs)
-
-
-async def get_wata_payment_by_order_id(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.get_wata_payment_by_order_id(*args, **kwargs)
-
-
-async def update_wata_payment_status(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.update_wata_payment_status(*args, **kwargs)
-
-
-async def link_wata_payment_to_transaction(*args, **kwargs):
-    wata_crud = import_module("app.database.crud.wata")
-    return await wata_crud.link_wata_payment_to_transaction(*args, **kwargs)
-
-
-async def create_platega_payment(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.create_platega_payment(*args, **kwargs)
-
-
-async def get_platega_payment_by_id(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.get_platega_payment_by_id(*args, **kwargs)
-
-
-async def get_platega_payment_by_id_for_update(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.get_platega_payment_by_id_for_update(*args, **kwargs)
-
-
-async def get_platega_payment_by_transaction_id(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.get_platega_payment_by_transaction_id(*args, **kwargs)
-
-
-async def get_platega_payment_by_correlation_id(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.get_platega_payment_by_correlation_id(*args, **kwargs)
-
-
-async def update_platega_payment(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.update_platega_payment(*args, **kwargs)
-
-
-async def link_platega_payment_to_transaction(*args, **kwargs):
-    platega_crud = import_module("app.database.crud.platega")
-    return await platega_crud.link_platega_payment_to_transaction(*args, **kwargs)
-
-
 async def create_cryptobot_payment(*args, **kwargs):
     crypto_crud = import_module("app.database.crud.cryptobot")
     return await crypto_crud.create_cryptobot_payment(*args, **kwargs)
@@ -237,80 +124,25 @@ async def link_cryptobot_payment_to_transaction(*args, **kwargs):
     return await crypto_crud.link_cryptobot_payment_to_transaction(*args, **kwargs)
 
 
-async def create_heleket_payment(*args, **kwargs):
-    heleket_crud = import_module("app.database.crud.heleket")
-    return await heleket_crud.create_heleket_payment(*args, **kwargs)
-
-
-async def get_heleket_payment_by_uuid(*args, **kwargs):
-    heleket_crud = import_module("app.database.crud.heleket")
-    return await heleket_crud.get_heleket_payment_by_uuid(*args, **kwargs)
-
-
-async def get_heleket_payment_by_id(*args, **kwargs):
-    heleket_crud = import_module("app.database.crud.heleket")
-    return await heleket_crud.get_heleket_payment_by_id(*args, **kwargs)
-
-
-async def update_heleket_payment(*args, **kwargs):
-    heleket_crud = import_module("app.database.crud.heleket")
-    return await heleket_crud.update_heleket_payment(*args, **kwargs)
-
-
-async def link_heleket_payment_to_transaction(*args, **kwargs):
-    heleket_crud = import_module("app.database.crud.heleket")
-    return await heleket_crud.link_heleket_payment_to_transaction(*args, **kwargs)
-
-
 class PaymentService(
     PaymentCommonMixin,
-    TelegramStarsMixin,
-    YooKassaPaymentMixin,
-    TributePaymentMixin,
     CryptoBotPaymentMixin,
-    HeleketPaymentMixin,
-    MulenPayPaymentMixin,
     Pal24PaymentMixin,
-    PlategaPaymentMixin,
-    WataPaymentMixin,
 ):
     """Main payment interface that delegates work to specialized mixins."""
 
     def __init__(self, bot: Optional[Bot] = None) -> None:
-        # Bot is needed for sending notifications and creating star invoices.
+        # Bot is needed for sending notifications.
         self.bot = bot
-        # Below we initialize wrapper services only if the corresponding provider is enabled.
-        self.yookassa_service = (
-            YooKassaService() if settings.is_yookassa_enabled() else None
-        )
-        self.stars_service = TelegramStarsService(bot) if bot else None
+        # Initialize wrapper services only for the enabled sample providers.
         self.cryptobot_service = (
             CryptoBotService() if settings.is_cryptobot_enabled() else None
-        )
-        self.heleket_service = (
-            HeleketService() if settings.is_heleket_enabled() else None
-        )
-        self.mulenpay_service = (
-            MulenPayService() if settings.is_mulenpay_enabled() else None
         )
         self.pal24_service = (
             Pal24Service() if settings.is_pal24_enabled() else None
         )
-        self.platega_service = (
-            PlategaService() if settings.is_platega_enabled() else None
-        )
-        self.wata_service = WataService() if settings.is_wata_enabled() else None
-
-        mulenpay_name = settings.get_mulenpay_display_name()
         logger.debug(
-            "PaymentService initialized (YooKassa=%s, Stars=%s, CryptoBot=%s, Heleket=%s, %s=%s, Pal24=%s, Platega=%s, Wata=%s)",
-            bool(self.yookassa_service),
-            bool(self.stars_service),
+            "PaymentService initialized (CryptoBot=%s, Pal24=%s)",
             bool(self.cryptobot_service),
-            bool(self.heleket_service),
-            mulenpay_name,
-            bool(self.mulenpay_service),
             bool(self.pal24_service),
-            bool(self.platega_service),
-            bool(self.wata_service),
         )

@@ -22,7 +22,6 @@ from app.localization.texts import get_texts
 from app.config import settings
 from app.services.remnawave_service import RemnaWaveService
 from app.services.payment_service import PaymentService
-from app.services.tribute_service import TributeService
 from app.services.system_settings_service import (
     ReadOnlySettingError,
     bot_configuration_service,
@@ -2040,42 +2039,10 @@ async def test_payment_provider(
         return
 
     if method == "tribute":
-        if not settings.TRIBUTE_ENABLED:
-            await callback.answer("❌ Tribute отключен", show_alert=True)
-            return
-
-        tribute_service = TributeService(callback.bot)
-        try:
-            payment_url = await tribute_service.create_payment_link(
-                user_id=db_user.telegram_id,
-                amount_kopeks=10 * 100,
-                description="Тестовый платеж Tribute (админ)",
-            )
-        except Exception:
-            payment_url = None
-
-        if not payment_url:
-            await callback.answer("❌ Не удалось создать платеж Tribute", show_alert=True)
-            await _refresh_markup()
-            return
-
-        message_text = (
-            "🧪 <b>Тестовый платеж Tribute</b>\n\n"
-            f"💰 Сумма: {texts.format_price(10 * 100)}\n"
-            "🔗 Нажмите кнопку ниже, чтобы открыть ссылку на оплату."
+        await callback.answer(
+            "❌ Tribute payments are not available in this build",
+            show_alert=True,
         )
-        reply_markup = types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text="💳 Перейти к оплате",
-                        url=payment_url,
-                    )
-                ]
-            ]
-        )
-        await callback.message.answer(message_text, reply_markup=reply_markup, parse_mode="HTML")
-        await callback.answer("✅ Ссылка на платеж Tribute отправлена", show_alert=True)
         await _refresh_markup()
         return
 

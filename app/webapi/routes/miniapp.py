@@ -63,7 +63,7 @@ from app.services.remnawave_service import (
     RemnaWaveConfigurationError,
     RemnaWaveService,
 )
-from app.services.payment_service import PaymentService, get_wata_payment_by_link_id
+from app.services.payment_service import PaymentService
 from app.services.promo_offer_service import promo_offer_service
 from app.services.promocode_service import PromoCodeService
 from app.services.maintenance_service import maintenance_service
@@ -91,7 +91,6 @@ from app.services.subscription_purchase_service import (
     PurchaseBalanceError,
     PurchaseValidationError,
 )
-from app.services.tribute_service import TributeService
 from app.utils.currency_converter import currency_converter
 from app.utils.subscription_utils import get_happ_cryptolink_redirect_link
 from app.utils.telegram_webapp import (
@@ -1329,32 +1328,9 @@ async def create_payment_link(
         )
 
     if method == "tribute":
-        if not settings.TRIBUTE_ENABLED:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if not settings.BOT_TOKEN:
-            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Bot token is not configured")
-
-        bot = Bot(token=settings.BOT_TOKEN)
-        try:
-            tribute_service = TributeService(bot)
-            payment_url = await tribute_service.create_payment_link(
-                user_id=user.telegram_id,
-                amount_kopeks=amount_kopeks or 0,
-                description=settings.get_balance_payment_description(amount_kopeks or 0),
-            )
-        finally:
-            await bot.session.close()
-
-        if not payment_url:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to create payment")
-
-        return MiniAppPaymentCreateResponse(
-            method=method,
-            payment_url=payment_url,
-            amount_kopeks=amount_kopeks,
-            extra={
-                "requested_at": _current_request_timestamp(),
-            },
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Tribute payments are not available in this build",
         )
 
     raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Unknown payment method")
@@ -1648,102 +1624,31 @@ async def _resolve_platega_payment_status(
 
 
 async def _resolve_wata_payment_status(
-    payment_service: PaymentService,
-    db: AsyncSession,
-    user: User,
+    _payment_service: PaymentService,
+    _db: AsyncSession,
+    _user: User,
     query: MiniAppPaymentStatusQuery,
 ) -> MiniAppPaymentStatusResult:
-    local_id = query.local_payment_id
+    """WATA provider is not available in this trimmed build; always report pending."""
     payment_link_id = query.payment_link_id or query.payment_id or query.invoice_id
-    fallback_payment = None
-
-    if not local_id and payment_link_id:
-        fallback_payment = await get_wata_payment_by_link_id(db, payment_link_id)
-        if fallback_payment:
-            local_id = fallback_payment.id
-
-    if not local_id:
-        return MiniAppPaymentStatusResult(
-            method="wata",
-            status="pending",
-            is_paid=False,
-            amount_kopeks=query.amount_kopeks,
-            message="Missing payment identifier",
-            extra={
-                "local_payment_id": query.local_payment_id,
-                "payment_link_id": payment_link_id,
-                "payment_id": query.payment_id,
-                "invoice_id": query.invoice_id,
-                "payload": query.payload,
-                "started_at": query.started_at,
-            },
-        )
-
-    status_info = await payment_service.get_wata_payment_status(db, local_id)
-    payment = (status_info or {}).get("payment") or fallback_payment
-
-    if not payment or payment.user_id != user.id:
-        return MiniAppPaymentStatusResult(
-            method="wata",
-            status="pending",
-            is_paid=False,
-            amount_kopeks=query.amount_kopeks,
-            message="Payment not found",
-            extra={
-                "local_payment_id": local_id,
-                "payment_link_id": (payment_link_id or getattr(payment, "payment_link_id", None)),
-                "payment_id": query.payment_id,
-                "invoice_id": query.invoice_id,
-                "payload": query.payload,
-                "started_at": query.started_at,
-            },
-        )
-
-    remote_link = (status_info or {}).get("remote_link") if status_info else None
-    transaction_payload = (status_info or {}).get("transaction") if status_info else None
-    status_raw = (status_info or {}).get("status") or getattr(payment, "status", None)
-    is_paid_flag = bool((status_info or {}).get("is_paid") or getattr(payment, "is_paid", False))
-    status_value = _classify_status(status_raw, is_paid_flag)
-    completed_at = (
-        getattr(payment, "paid_at", None)
-        or getattr(payment, "updated_at", None)
-        or getattr(payment, "created_at", None)
-    )
-
-    message = None
-    if status_value == "failed":
-        message = (
-            (transaction_payload or {}).get("errorDescription")
-            or (transaction_payload or {}).get("errorCode")
-            or (remote_link or {}).get("status")
-        )
-
-    extra: Dict[str, Any] = {
-        "local_payment_id": payment.id,
-        "payment_link_id": payment.payment_link_id,
-        "payment_id": payment.payment_link_id,
-        "status": status_raw,
-        "is_paid": getattr(payment, "is_paid", False),
-        "order_id": getattr(payment, "order_id", None),
-        "payload": query.payload,
-        "started_at": query.started_at,
-    }
-    if remote_link:
-        extra["remote_link"] = remote_link
-    if transaction_payload:
-        extra["transaction"] = transaction_payload
 
     return MiniAppPaymentStatusResult(
         method="wata",
-        status=status_value,
-        is_paid=status_value == "paid",
-        amount_kopeks=payment.amount_kopeks,
-        currency=payment.currency,
-        completed_at=completed_at,
-        transaction_id=payment.transaction_id,
-        external_id=payment.payment_link_id,
-        message=message,
-        extra=extra,
+        status="pending",
+        is_paid=False,
+        amount_kopeks=query.amount_kopeks,
+        message="WATA payments are not available in this build",
+        completed_at=None,
+        transaction_id=None,
+        external_id=None,
+        extra={
+            "local_payment_id": query.local_payment_id,
+            "payment_link_id": payment_link_id,
+            "payment_id": query.payment_id,
+            "invoice_id": query.invoice_id,
+            "payload": query.payload,
+            "started_at": query.started_at,
+        },
     )
 
 
