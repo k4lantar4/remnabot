@@ -150,7 +150,7 @@ async def show_main_menu(
     skip_callback_answer: bool = False,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -177,11 +177,11 @@ async def show_main_menu(
     draft_exists = await has_subscription_checkout_draft(db_user.id)
     show_resume_checkout = should_offer_checkout_resume(db_user, draft_exists)
 
-    # Проверяем наличие сохраненной корзины в Redis
+    # Check for saved cart in Redis
     try:
         has_saved_cart = await user_cart_service.has_user_cart(db_user.id)
     except Exception as e:
-        logger.error(f"Ошибка проверки сохраненной корзины для пользователя {db_user.id}: {e}")
+        logger.error(f"Error checking saved cart for user {db_user.id}: {e}")
         has_saved_cart = False
 
     is_admin = settings.is_admin(db_user.telegram_id)
@@ -211,7 +211,7 @@ async def show_main_menu(
             balance_kopeks=db_user.balance_kopeks,
             subscription=db_user.subscription,
             show_resume_checkout=show_resume_checkout,
-            has_saved_cart=has_saved_cart,  # Добавляем параметр для отображения уведомления о сохраненной корзине
+            has_saved_cart=has_saved_cart,  # Add parameter for displaying saved cart notification
             custom_buttons=custom_buttons,
         ),
         parse_mode="HTML",
@@ -243,7 +243,7 @@ async def show_service_rules(
     db: AsyncSession
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -277,7 +277,7 @@ async def show_info_menu(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -320,7 +320,7 @@ async def show_promo_groups_info(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -472,7 +472,7 @@ async def show_faq_pages(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -528,7 +528,7 @@ async def show_faq_page(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -663,7 +663,7 @@ async def show_privacy_policy(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -782,7 +782,7 @@ async def show_public_offer(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -901,7 +901,7 @@ async def show_language_menu(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -943,7 +943,7 @@ async def process_language_change(
     db: AsyncSession,
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -1010,7 +1010,7 @@ async def handle_back_to_menu(
     db: AsyncSession
 ):
     if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
+        # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
         await callback.answer(
             texts.t(
@@ -1036,11 +1036,11 @@ async def handle_back_to_menu(
     draft_exists = await has_subscription_checkout_draft(db_user.id)
     show_resume_checkout = should_offer_checkout_resume(db_user, draft_exists)
 
-    # Проверяем наличие сохраненной корзины в Redis
+    # Check for saved cart in Redis
     try:
         has_saved_cart = await user_cart_service.has_user_cart(db_user.id)
     except Exception as e:
-        logger.error(f"Ошибка проверки сохраненной корзины для пользователя {db_user.id}: {e}")
+        logger.error(f"Error checking saved cart for user {db_user.id}: {e}")
         has_saved_cart = False
 
     is_admin = settings.is_admin(db_user.telegram_id)
@@ -1070,7 +1070,7 @@ async def handle_back_to_menu(
             balance_kopeks=db_user.balance_kopeks,
             subscription=db_user.subscription,
             show_resume_checkout=show_resume_checkout,
-            has_saved_cart=has_saved_cart,  # Добавляем параметр для отображения уведомления о сохраненной корзине
+            has_saved_cart=has_saved_cart,  # Add parameter for displaying saved cart notification
             custom_buttons=custom_buttons,
         ),
         parse_mode="HTML",
@@ -1214,7 +1214,7 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
             return _insert_random_message(base_text, random_message, action_prompt)
                 
     except Exception as e:
-        logger.error(f"Ошибка получения случайного сообщения: {e}")
+        logger.error(f"Error getting random message: {e}")
     
     return base_text
 

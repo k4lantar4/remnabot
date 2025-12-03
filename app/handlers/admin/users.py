@@ -60,21 +60,17 @@ async def show_users_menu(
     user_service = UserService()
     stats = await user_service.get_user_statistics(db)
     
-    text = f"""
-👥 <b>Управление пользователями</b>
-
-📊 <b>Статистика:</b>
-• Всего: {stats['total_users']}
-• Активных: {stats['active_users']}
-• Заблокированных: {stats['blocked_users']}
-
-📈 <b>Новые пользователи:</b>
-• Сегодня: {stats['new_today']}
-• За неделю: {stats['new_week']}
-• За месяц: {stats['new_month']}
-
-Выберите действие:
-"""
+    texts = get_texts(db_user.language)
+    text = texts.t("ADMIN_USERS_MENU_TITLE", "👥 <b>User Management</b>") + "\n\n"
+    text += texts.t("ADMIN_USERS_STATS_HEADER", "📊 <b>Statistics:</b>") + "\n"
+    text += texts.t("ADMIN_USERS_TOTAL", "• Total: {count}").format(count=stats['total_users']) + "\n"
+    text += texts.t("ADMIN_USERS_ACTIVE", "• Active: {count}").format(count=stats['active_users']) + "\n"
+    text += texts.t("ADMIN_USERS_BLOCKED", "• Blocked: {count}").format(count=stats['blocked_users']) + "\n\n"
+    text += texts.t("ADMIN_USERS_NEW_HEADER", "📈 <b>New Users:</b>") + "\n"
+    text += texts.t("ADMIN_USERS_NEW_TODAY", "• Today: {count}").format(count=stats['new_today']) + "\n"
+    text += texts.t("ADMIN_USERS_NEW_WEEK", "• This week: {count}").format(count=stats['new_week']) + "\n"
+    text += texts.t("ADMIN_USERS_NEW_MONTH", "• This month: {count}").format(count=stats['new_month']) + "\n\n"
+    text += texts.t("ADMIN_SELECT_ACTION", "Select action:") + "\n"
     
     await callback.message.edit_text(
         text,
@@ -91,7 +87,9 @@ async def show_users_filters(
     state: FSMContext
 ):
     
-    text = ("⚙️ <b>Фильтры пользователей</b>\n\nВыберите фильтр для отображения пользователей:\n")
+    texts = get_texts(db_user.language)
+    text = texts.t("ADMIN_USERS_FILTERS_TITLE", "⚙️ <b>User Filters</b>") + "\n\n"
+    text += texts.t("ADMIN_USERS_FILTERS_SELECT", "Select filter to display users:") + "\n"
     
     await callback.message.edit_text(
         text,
@@ -770,7 +768,7 @@ async def handle_users_list_pagination_fixed(
         page = int(callback_parts[-1]) 
         await show_users_list(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list(callback, db_user, db, state, 1)
 
 
@@ -787,7 +785,7 @@ async def handle_users_balance_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_balance(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_balance(callback, db_user, db, state, 1)
 
 
@@ -804,7 +802,7 @@ async def handle_users_traffic_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_traffic(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_traffic(callback, db_user, db, state, 1)
 
 
@@ -821,7 +819,7 @@ async def handle_users_activity_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_last_activity(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_last_activity(callback, db_user, db, state, 1)
 
 
@@ -838,7 +836,7 @@ async def handle_users_spending_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_spending(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_spending(callback, db_user, db, state, 1)
 
 
@@ -855,7 +853,7 @@ async def handle_users_purchases_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_purchases(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_purchases(callback, db_user, db, state, 1)
 
 
@@ -872,7 +870,7 @@ async def handle_users_campaign_list_pagination(
         page = int(callback_parts[-1]) 
         await show_users_list_by_campaign(callback, db_user, db, state, page)
     except (ValueError, IndexError) as e:
-        logger.error(f"Ошибка парсинга номера страницы: {e}")
+        logger.error(f"Error parsing page number: {e}")
         await show_users_list_by_campaign(callback, db_user, db, state, 1)
 
 
@@ -1046,7 +1044,7 @@ async def _render_user_subscription_overview(
                     else:
                         text += f"• {squad_uuid[:8]}... (неизвестный)\n"
                 except Exception as e:
-                    logger.error(f"Ошибка получения сервера {squad_uuid}: {e}")
+                    logger.error(f"Error getting server {squad_uuid}: {e}")
                     text += f"• {squad_uuid[:8]}... (ошибка загрузки)\n"
         else:
             text += "\n<b>Подключенные серверы:</b> отсутствуют\n"
@@ -1807,7 +1805,7 @@ async def _update_referral_commission_percent(
         try:
             await db.rollback()
         except Exception as rollback_error:
-            logger.error("Ошибка отката транзакции: %s", rollback_error)
+            logger.error("Error rolling back transaction: %s", rollback_error)
         return False, None
 
 
@@ -2468,14 +2466,14 @@ async def process_send_user_message(
             reply_markup=confirmation_keyboard,
         )
     except TelegramBadRequest as err:
-        logger.error("Ошибка отправки сообщения пользователю %s: %s", target_user.telegram_id, err)
+        logger.error("Error sending message to user %s: %s", target_user.telegram_id, err)
         await message.answer(
             texts.t("ADMIN_USER_SEND_MESSAGE_BAD_REQUEST", "❌ Telegram отклонил сообщение. Проверьте текст и попробуйте ещё раз."),
             reply_markup=confirmation_keyboard,
         )
         return
     except Exception as err:
-        logger.error("Неожиданная ошибка отправки сообщения пользователю %s: %s", target_user.telegram_id, err)
+        logger.error("Unexpected error sending message to user %s: %s", target_user.telegram_id, err)
         await message.answer(
             texts.t("ADMIN_USER_SEND_MESSAGE_ERROR", "❌ Не удалось отправить сообщение. Попробуйте позже."),
             reply_markup=confirmation_keyboard,
@@ -3467,7 +3465,7 @@ async def _show_servers_for_user(
         )
         
     except Exception as e:
-        logger.error(f"Ошибка показа серверов: {e}")
+        logger.error(f"Error showing servers: {e}")
 
 @admin_required
 @error_handler
@@ -3519,16 +3517,16 @@ async def toggle_user_server(
                             telegram_id=user.telegram_id
                         )
                     )
-                logger.info(f"✅ Обновлены серверы в RemnaWave для пользователя {user.telegram_id}")
+                logger.info(f"✅ Updated servers in RemnaWave for user {user.telegram_id}")
             except Exception as rw_error:
-                logger.error(f"❌ Ошибка обновления RemnaWave: {rw_error}")
+                logger.error(f"❌ Error updating RemnaWave: {rw_error}")
         
-        logger.info(f"Админ {db_user.id}: сервер {server.display_name} {action_text} для пользователя {user_id}")
+        logger.info(f"Admin {db_user.id}: server {server.display_name} {action_text} for user {user_id}")
         
         await refresh_server_selection_screen(callback, user_id, db_user, db)
         
     except Exception as e:
-        logger.error(f"Ошибка переключения сервера: {e}")
+        logger.error(f"Error toggling server: {e}")
         await callback.answer("❌ Ошибка изменения сервера", show_alert=True)
 
 async def refresh_server_selection_screen(
@@ -3583,7 +3581,7 @@ async def refresh_server_selection_screen(
         )
         
     except Exception as e:
-        logger.error(f"Ошибка обновления экрана серверов: {e}")
+        logger.error(f"Error updating servers screen: {e}")
 
 
 @admin_required
@@ -3863,7 +3861,7 @@ async def reset_user_devices(
                     [types.InlineKeyboardButton(text="📱 Подписка и настройки", callback_data=f"admin_user_subscription_{user_id}")]
                 ])
             )
-            logger.info(f"Админ {db_user.id} сбросил устройства пользователя {user_id}")
+            logger.info(f"Admin {db_user.id} reset devices for user {user_id}")
         else:
             await callback.message.edit_text(
                 "❌ Ошибка сброса устройств",
@@ -3873,7 +3871,7 @@ async def reset_user_devices(
             )
         
     except Exception as e:
-        logger.error(f"Ошибка сброса устройств: {e}")
+        logger.error(f"Error resetting devices: {e}")
         await callback.answer("❌ Ошибка сброса устройств", show_alert=True)
 
 async def _update_user_devices(db: AsyncSession, user_id: int, devices: int, admin_id: int) -> bool:

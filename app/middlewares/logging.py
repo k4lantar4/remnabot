@@ -22,21 +22,21 @@ class LoggingMiddleware(BaseMiddleware):
             if isinstance(event, Message):
                 user_info = f"@{event.from_user.username}" if event.from_user.username else f"ID:{event.from_user.id}"
                 text = event.text or event.caption or "[медиа]"
-                logger.info(f"📩 Сообщение от {user_info}: {text}")
+                logger.info(f"📩 Message from {user_info}: {text}")
                 
             elif isinstance(event, CallbackQuery):
                 user_info = f"@{event.from_user.username}" if event.from_user.username else f"ID:{event.from_user.id}"
-                logger.info(f"🔘 Callback от {user_info}: {event.data}")
+                logger.info(f"🔘 Callback from {user_info}: {event.data}")
             
             result = await handler(event, data)
             
             execution_time = time.time() - start_time
             if execution_time > 1.0:  
-                logger.warning(f"⏱️ Медленная операция: {execution_time:.2f}s")
+                logger.warning(f"⏱️ Slow operation: {execution_time:.2f}s")
             
             return result
             
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"❌ Ошибка при обработке события за {execution_time:.2f}s: {e}")
+            logger.error(f"❌ Error processing event in {execution_time:.2f}s: {e}")
             raise

@@ -39,7 +39,7 @@ class MaintenanceMiddleware(BaseMiddleware):
             elif isinstance(event, CallbackQuery):
                 await event.answer(maintenance_message, show_alert=True)
         except Exception as e:
-            logger.error(f"Ошибка отправки сообщения о техработах пользователю {user.id}: {e}")
+            logger.error(f"Error sending maintenance message to user {user.id}: {e}")
         
-        logger.info(f"🔧 Пользователь {user.id} заблокирован во время техработ")
+        logger.info(f"🔧 User {user.id} blocked during maintenance")
         return 

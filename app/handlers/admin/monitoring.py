@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-def _format_toggle(enabled: bool) -> str:
-    return "🟢 Вкл" if enabled else "🔴 Выкл"
+def _format_toggle(enabled: bool, language: str = "en") -> str:
+    texts = get_texts(language)
+    return texts.t("ENABLED", "🟢 On") if enabled else texts.t("DISABLED", "🔴 Off")
 
 
 def _build_notification_settings_view(language: str):
@@ -35,47 +36,49 @@ def _build_notification_settings_view(language: str):
     third_hours = NotificationSettingsService.get_third_wave_valid_hours()
     third_days = NotificationSettingsService.get_third_wave_trigger_days()
 
-    trial_1h_status = _format_toggle(config["trial_inactive_1h"].get("enabled", True))
-    trial_24h_status = _format_toggle(config["trial_inactive_24h"].get("enabled", True))
+    trial_1h_status = _format_toggle(config["trial_inactive_1h"].get("enabled", True), language)
+    trial_24h_status = _format_toggle(config["trial_inactive_24h"].get("enabled", True), language)
     trial_channel_status = _format_toggle(
-        config["trial_channel_unsubscribed"].get("enabled", True)
+        config["trial_channel_unsubscribed"].get("enabled", True), language
     )
-    expired_1d_status = _format_toggle(config["expired_1d"].get("enabled", True))
-    second_wave_status = _format_toggle(config["expired_second_wave"].get("enabled", True))
-    third_wave_status = _format_toggle(config["expired_third_wave"].get("enabled", True))
+    expired_1d_status = _format_toggle(config["expired_1d"].get("enabled", True), language)
+    second_wave_status = _format_toggle(config["expired_second_wave"].get("enabled", True), language)
+    third_wave_status = _format_toggle(config["expired_third_wave"].get("enabled", True), language)
 
-    summary_text = (
-        "🔔 <b>Уведомления пользователям</b>\n\n"
-        f"• 1 час после триала: {trial_1h_status}\n"
-        f"• 24 часа после триала: {trial_24h_status}\n"
-        f"• Отписка от канала: {trial_channel_status}\n"
-        f"• 1 день после истечения: {expired_1d_status}\n"
-        f"• 2-3 дня (скидка {second_percent}% / {second_hours} ч): {second_wave_status}\n"
-        f"• {third_days} дней (скидка {third_percent}% / {third_hours} ч): {third_wave_status}"
+    summary_text = texts.t("ADMIN_MON_NOTIFICATIONS_TITLE", "🔔 <b>User Notifications</b>") + "\n\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_TRIAL_1H", "• 1 hour after trial: {status}").format(status=trial_1h_status) + "\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_TRIAL_24H", "• 24 hours after trial: {status}").format(status=trial_24h_status) + "\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_CHANNEL_UNSUB", "• Channel unsubscription: {status}").format(status=trial_channel_status) + "\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_EXPIRED_1D", "• 1 day after expiration: {status}").format(status=expired_1d_status) + "\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_2_3_DAYS", "• 2-3 days (discount {percent}% / {hours} h): {status}").format(
+        percent=second_percent, hours=second_hours, status=second_wave_status
+    ) + "\n"
+    summary_text += texts.t("ADMIN_MON_NOTIFY_N_DAYS", "• {days} days (discount {percent}% / {hours} h): {status}").format(
+        days=third_days, percent=third_percent, hours=third_hours, status=third_wave_status
     )
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"{trial_1h_status} • 1 час после триала", callback_data="admin_mon_notify_toggle_trial_1h")],
-        [InlineKeyboardButton(text="🧪 Тест: 1 час после триала", callback_data="admin_mon_notify_preview_trial_1h")],
-        [InlineKeyboardButton(text=f"{trial_24h_status} • 24 часа после триала", callback_data="admin_mon_notify_toggle_trial_24h")],
-        [InlineKeyboardButton(text="🧪 Тест: 24 часа после триала", callback_data="admin_mon_notify_preview_trial_24h")],
-        [InlineKeyboardButton(text=f"{trial_channel_status} • Отписка от канала", callback_data="admin_mon_notify_toggle_trial_channel")],
-        [InlineKeyboardButton(text="🧪 Тест: отписка от канала", callback_data="admin_mon_notify_preview_trial_channel")],
-        [InlineKeyboardButton(text=f"{expired_1d_status} • 1 день после истечения", callback_data="admin_mon_notify_toggle_expired_1d")],
-        [InlineKeyboardButton(text="🧪 Тест: 1 день после истечения", callback_data="admin_mon_notify_preview_expired_1d")],
-        [InlineKeyboardButton(text=f"{second_wave_status} • 2-3 дня со скидкой", callback_data="admin_mon_notify_toggle_expired_2d")],
-        [InlineKeyboardButton(text="🧪 Тест: скидка 2-3 день", callback_data="admin_mon_notify_preview_expired_2d")],
-        [InlineKeyboardButton(text=f"✏️ Скидка 2-3 дня: {second_percent}%", callback_data="admin_mon_notify_edit_2d_percent")],
-        [InlineKeyboardButton(text=f"⏱️ Срок скидки 2-3 дня: {second_hours} ч", callback_data="admin_mon_notify_edit_2d_hours")],
-        [InlineKeyboardButton(text=f"{third_wave_status} • {third_days} дней со скидкой", callback_data="admin_mon_notify_toggle_expired_nd")],
-        [InlineKeyboardButton(text="🧪 Тест: скидка спустя дни", callback_data="admin_mon_notify_preview_expired_nd")],
-        [InlineKeyboardButton(text=f"✏️ Скидка {third_days} дней: {third_percent}%", callback_data="admin_mon_notify_edit_nd_percent")],
-        [InlineKeyboardButton(text=f"⏱️ Срок скидки {third_days} дней: {third_hours} ч", callback_data="admin_mon_notify_edit_nd_hours")],
-        [InlineKeyboardButton(text=f"📆 Порог уведомления: {third_days} дн.", callback_data="admin_mon_notify_edit_nd_threshold")],
-        [InlineKeyboardButton(text="🧪 Отправить все тесты", callback_data="admin_mon_notify_preview_all")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_mon_settings")],
+        [InlineKeyboardButton(text=f"{trial_1h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_1H_LABEL', '1 hour after trial')}", callback_data="admin_mon_notify_toggle_trial_1h")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_TRIAL_1H", "🧪 Test: 1 hour after trial"), callback_data="admin_mon_notify_preview_trial_1h")],
+        [InlineKeyboardButton(text=f"{trial_24h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_24H_LABEL', '24 hours after trial')}", callback_data="admin_mon_notify_toggle_trial_24h")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_TRIAL_24H", "🧪 Test: 24 hours after trial"), callback_data="admin_mon_notify_preview_trial_24h")],
+        [InlineKeyboardButton(text=f"{trial_channel_status} • {texts.t('ADMIN_MON_NOTIFY_CHANNEL_UNSUB_LABEL', 'Channel unsubscription')}", callback_data="admin_mon_notify_toggle_trial_channel")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_CHANNEL_UNSUB", "🧪 Test: channel unsubscription"), callback_data="admin_mon_notify_preview_trial_channel")],
+        [InlineKeyboardButton(text=f"{expired_1d_status} • {texts.t('ADMIN_MON_NOTIFY_EXPIRED_1D_LABEL', '1 day after expiration')}", callback_data="admin_mon_notify_toggle_expired_1d")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_EXPIRED_1D", "🧪 Test: 1 day after expiration"), callback_data="admin_mon_notify_preview_expired_1d")],
+        [InlineKeyboardButton(text=f"{second_wave_status} • {texts.t('ADMIN_MON_NOTIFY_2_3_DAYS_LABEL', '2-3 days with discount')}", callback_data="admin_mon_notify_toggle_expired_2d")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_2_3_DAYS", "🧪 Test: discount 2-3 days"), callback_data="admin_mon_notify_preview_expired_2d")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_2_3_DISCOUNT", "✏️ Discount 2-3 days: {percent}%").format(percent=second_percent), callback_data="admin_mon_notify_edit_2d_percent")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_2_3_HOURS", "⏱️ Discount period 2-3 days: {hours} h").format(hours=second_hours), callback_data="admin_mon_notify_edit_2d_hours")],
+        [InlineKeyboardButton(text=f"{third_wave_status} • {texts.t('ADMIN_MON_NOTIFY_N_DAYS_LABEL', '{days} days with discount').format(days=third_days)}", callback_data="admin_mon_notify_toggle_expired_nd")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_N_DAYS", "🧪 Test: discount after days"), callback_data="admin_mon_notify_preview_expired_nd")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_N_DISCOUNT", "✏️ Discount {days} days: {percent}%").format(days=third_days, percent=third_percent), callback_data="admin_mon_notify_edit_nd_percent")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_N_HOURS", "⏱️ Discount period {days} days: {hours} h").format(days=third_days, hours=third_hours), callback_data="admin_mon_notify_edit_nd_hours")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_NOTIFY_THRESHOLD", "📆 Notification threshold: {days} days").format(days=third_days), callback_data="admin_mon_notify_edit_nd_threshold")],
+        [InlineKeyboardButton(text=texts.t("ADMIN_MON_SEND_ALL_TESTS", "🧪 Send all tests"), callback_data="admin_mon_notify_preview_all")],
+        [InlineKeyboardButton(text=texts.BACK, callback_data="admin_mon_settings")],
     ])
 
     return summary_text, keyboard
@@ -88,7 +91,7 @@ def _build_notification_preview_message(language: str, notification_type: str):
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-    header = "🧪 <b>Тестовое уведомление мониторинга</b>\n\n"
+    header = texts.t("ADMIN_MON_TEST_NOTIFICATION_HEADER", "🧪 <b>Monitoring Test Notification</b>") + "\n\n"
 
     if notification_type == "trial_inactive_1h":
         template = texts.get(
@@ -406,7 +409,7 @@ async def admin_monitoring_menu(callback: CallbackQuery):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка в админ меню мониторинга: {e}")
+        logger.error(f"Error in admin monitoring menu: {e}")
         await callback.answer("❌ Ошибка получения данных", show_alert=True)
 
 
@@ -438,7 +441,7 @@ async def admin_monitoring_settings(callback: CallbackQuery):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
 
     except Exception as e:
-        logger.error(f"Ошибка отображения настроек мониторинга: {e}")
+        logger.error(f"Error displaying monitoring settings: {e}")
         await callback.answer("❌ Не удалось открыть настройки", show_alert=True)
 
 
@@ -448,7 +451,7 @@ async def admin_notify_settings(callback: CallbackQuery):
     try:
         await _render_notification_settings(callback)
     except Exception as e:
-        logger.error(f"Ошибка отображения настроек уведомлений: {e}")
+        logger.error(f"Error displaying notification settings: {e}")
         await callback.answer("❌ Не удалось загрузить настройки", show_alert=True)
 
 
@@ -709,7 +712,7 @@ async def start_monitoring_callback(callback: CallbackQuery):
         await admin_monitoring_menu(callback)
         
     except Exception as e:
-        logger.error(f"Ошибка запуска мониторинга: {e}")
+        logger.error(f"Error starting monitoring: {e}")
         await callback.answer(f"❌ Ошибка запуска: {str(e)}", show_alert=True)
 
 
@@ -727,7 +730,7 @@ async def stop_monitoring_callback(callback: CallbackQuery):
         await admin_monitoring_menu(callback)
         
     except Exception as e:
-        logger.error(f"Ошибка остановки мониторинга: {e}")
+        logger.error(f"Error stopping monitoring: {e}")
         await callback.answer(f"❌ Ошибка остановки: {str(e)}", show_alert=True)
 
 
@@ -762,7 +765,7 @@ async def force_check_callback(callback: CallbackQuery):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка принудительной проверки: {e}")
+        logger.error(f"Error in forced check: {e}")
         await callback.answer(f"❌ Ошибка проверки: {str(e)}", show_alert=True)
 
 
@@ -815,7 +818,7 @@ async def monitoring_logs_callback(callback: CallbackQuery):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка получения логов: {e}")
+        logger.error(f"Error getting logs: {e}")
         await callback.answer("❌ Ошибка получения логов", show_alert=True)
 
 
@@ -835,7 +838,7 @@ async def clear_logs_callback(callback: CallbackQuery):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка очистки логов: {e}")
+        logger.error(f"Error clearing logs: {e}")
         await callback.answer(f"❌ Ошибка очистки: {str(e)}", show_alert=True)
 
 
@@ -865,7 +868,7 @@ async def test_notifications_callback(callback: CallbackQuery):
         await callback.answer("✅ Тестовое уведомление отправлено!")
         
     except Exception as e:
-        logger.error(f"Ошибка отправки тестового уведомления: {e}")
+        logger.error(f"Error sending test notification: {e}")
         await callback.answer(f"❌ Ошибка отправки: {str(e)}", show_alert=True)
 
 
@@ -921,7 +924,7 @@ async def monitoring_statistics_callback(callback: CallbackQuery):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка получения статистики: {e}")
+        logger.error(f"Error getting statistics: {e}")
         await callback.answer(f"❌ Ошибка получения статистики: {str(e)}", show_alert=True)
 
 
@@ -1001,7 +1004,7 @@ async def monitoring_command(message: Message):
             break
             
     except Exception as e:
-        logger.error(f"Ошибка команды /monitoring: {e}")
+        logger.error(f"Error in /monitoring command: {e}")
         await message.answer(f"❌ Ошибка: {str(e)}")
 
 

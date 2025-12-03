@@ -33,7 +33,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         last_call = self.user_buckets.get(user_id, 0)
         
         if now - last_call < self.rate_limit:
-            logger.warning(f"🚫 Throttling для пользователя {user_id}")
+            logger.warning(f"🚫 Throttling for user {user_id}")
 
             # Для сообщений: молчим только если это состояние работы с тикетами; иначе показываем блок
             if isinstance(event, Message):

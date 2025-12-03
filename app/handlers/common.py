@@ -21,12 +21,12 @@ async def handle_unknown_callback(
     await callback.answer(
         texts.t(
             "UNKNOWN_CALLBACK_ALERT",
-            "❓ Неизвестная команда. Попробуйте ещё раз.",
+            "❓ Unknown command. Please try again.",
         ),
         show_alert=True,
     )
     
-    logger.warning(f"Неизвестный callback: {callback.data} от пользователя {callback.from_user.id}")
+    logger.warning(f"Unknown callback: {callback.data} from user {callback.from_user.id}")
 
 
 async def handle_noop(
@@ -75,7 +75,7 @@ async def handle_unknown_message(
     await message.answer(
         texts.t(
             "UNKNOWN_COMMAND_MESSAGE",
-            "❓ Не понимаю эту команду. Используйте кнопки меню.",
+            "❓ I don't understand this command. Please use the menu buttons.",
         ),
         reply_markup=get_back_keyboard(db_user.language if db_user else "ru"),
     )
@@ -120,9 +120,9 @@ def register_handlers(dp: Dispatcher):
         F.data.in_(["cancel", "subscription_cancel"])
     )
 
-    # Самый последний: ловим любые неизвестные текстовые сообщения
-    # Исключаем специальные сервисные события (например, успешные платежи),
-    # чтобы их обработка не прерывалась общим хендлером неизвестных сообщений
+    # Last handler: catch any unknown text messages
+    # Exclude special service events (e.g., successful payments),
+    # so their processing is not interrupted by the general unknown message handler
     dp.message.register(
         handle_unknown_message,
         StateFilter(None),

@@ -15,10 +15,10 @@ def get_main_reply_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
         ]
     ]
     
-    # Добавляем кнопки промокода и рефералов, учитывая настройки
+    # Add promocode and referral buttons based on settings
     second_row = [KeyboardButton(text=texts.MENU_PROMOCODE)]
     
-    # Добавляем кнопку рефералов только если программа включена
+    # Add referral button only if program is enabled
     if settings.is_referral_program_enabled():
         second_row.append(KeyboardButton(text=texts.MENU_REFERRALS))
     
@@ -54,7 +54,7 @@ def get_admin_reply_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=texts.ADMIN_MONITORING)
             ],
             [
-                KeyboardButton(text=texts.t("ADMIN_MAIN_MENU", "🏠 Главное меню"))
+                KeyboardButton(text=texts.t("ADMIN_MAIN_MENU", "🏠 Main Menu"))
             ]
         ],
         resize_keyboard=True,
@@ -108,7 +108,7 @@ def get_contact_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=texts.t("SEND_CONTACT_BUTTON", "📱 Отправить контакт"), request_contact=True)],
+            [KeyboardButton(text=texts.t("SEND_CONTACT_BUTTON", "📱 Send Contact"), request_contact=True)],
             [KeyboardButton(text=texts.CANCEL)]
         ],
         resize_keyboard=True,
@@ -120,7 +120,7 @@ def get_location_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=texts.t("SEND_LOCATION_BUTTON", "📍 Отправить геолокацию"), request_location=True)],
+            [KeyboardButton(text=texts.t("SEND_LOCATION_BUTTON", "📍 Send Location"), request_location=True)],
             [KeyboardButton(text=texts.CANCEL)]
         ],
         resize_keyboard=True,
