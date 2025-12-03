@@ -13,11 +13,11 @@ from .message_patch import (
 
 
 def _resolve_media(message: types.Message):
-    # Всегда используем логотип если включен режим логотипа,
-    # кроме специальных случаев (QR сообщения)
+    # Always use logo if logo mode is enabled,
+    # except for special cases (QR messages)
     if settings.ENABLE_LOGO_MODE and not is_qr_message(message):
         return FSInputFile(LOGO_PATH)
-    # Только если режим логотипа выключен, используем фото из сообщения
+    # Only if logo mode is disabled, use photo from message
     elif message.photo:
         return message.photo[-1].file_id
     return FSInputFile(LOGO_PATH)
@@ -73,7 +73,7 @@ async def edit_or_answer_photo(
     force_text: bool = False,
 ) -> None:
     resolved_parse_mode = parse_mode or "HTML"
-    # Если режим логотипа выключен или требуется текстовое сообщение — работаем текстом
+    # If logo mode is disabled or text message is required, work with text
     if force_text or not settings.ENABLE_LOGO_MODE:
         try:
             if callback.message.photo:
@@ -93,7 +93,7 @@ async def edit_or_answer_photo(
             await _answer_text(callback, caption, keyboard, resolved_parse_mode, error)
         return
 
-    # Если текст слишком длинный для caption — отправим как текст
+    # If text is too long for caption, send as text
     if caption and len(caption) > 1000:
         try:
             if callback.message.photo:
@@ -117,13 +117,13 @@ async def edit_or_answer_photo(
                 pass
             await _answer_text(callback, caption, keyboard, resolved_parse_mode, error)
             return
-        # Фоллбек: если не удалось обновить фото — отправим текст, чтобы не упасть на лимите caption
+        # Fallback: if failed to update photo, send text to avoid hitting caption limit
         try:
             await callback.message.delete()
         except Exception:
             pass
         try:
-            # Отправим как фото с логотипом
+            # Send as photo with logo
             await callback.message.answer_photo(
                 photo=media if isinstance(media, FSInputFile) else FSInputFile(LOGO_PATH),
                 caption=caption,
@@ -133,5 +133,5 @@ async def edit_or_answer_photo(
         except TelegramBadRequest as photo_error:
             await _answer_text(callback, caption, keyboard, resolved_parse_mode, photo_error)
         except Exception:
-            # Последний фоллбек — обычный текст
+            # Last fallback — plain text
             await _answer_text(callback, caption, keyboard, resolved_parse_mode)

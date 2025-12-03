@@ -84,16 +84,13 @@ def validate_uuid(uuid_str: str) -> bool:
 def validate_traffic_amount(traffic_str: str) -> Optional[int]:
     traffic_str = traffic_str.upper().strip()
     
-    if traffic_str in ['UNLIMITED', 'БЕЗЛИМИТ', '∞']:
+    if traffic_str in ['UNLIMITED', '∞']:
         return 0
     
     units = {
         'MB': 1,
         'GB': 1024,
-        'TB': 1024 * 1024,
-        'МБ': 1,  # Russian MB - kept for backward compatibility
-        'ГБ': 1024,  # Russian GB - kept for backward compatibility
-        'ТБ': 1024 * 1024  # Russian TB - kept for backward compatibility
+        'TB': 1024 * 1024
     }
     
     for unit, multiplier in units.items():
@@ -139,9 +136,9 @@ def sanitize_html(text: str) -> str:
 
     allowed_tags = ALLOWED_HTML_TAGS.union(SELF_CLOSING_TAGS)
 
-    # Обработка всех разрешенных тегов
+    # Process all allowed tags
     for tag in allowed_tags:
-        # Паттерн: захватываем &lt;tag&gt;, &lt;/tag&gt;, или &lt;tag атрибуты&gt;
+        # Pattern: capture &lt;tag&gt;, &lt;/tag&gt;, or &lt;tag attributes&gt;
         # Use a more complex pattern to capture attributes up to closing &gt;
         # (?s) - allows . to match newline
         # [^>]*? - lazy capture until >

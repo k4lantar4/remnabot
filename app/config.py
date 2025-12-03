@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = "api_key"
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = "Bot user: {full_name} {username}"
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = "user_{telegram_id}"
-    REMNAWAVE_USER_DELETE_MODE: str = "delete"  # "delete" или "disable"
+    REMNAWAVE_USER_DELETE_MODE: str = "delete"  # "delete" or "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = "03:00"
     
@@ -165,7 +165,7 @@ class Settings(BaseSettings):
     MAINTENANCE_AUTO_ENABLE: bool = True
     MAINTENANCE_MONITORING_ENABLED: bool = True
     MAINTENANCE_RETRY_ATTEMPTS: int = 1
-    MAINTENANCE_MESSAGE: str = "🔧 Ведутся технические работы. Сервис временно недоступен. Попробуйте позже."
+    MAINTENANCE_MESSAGE: str = "🔧 Maintenance in progress. Service is temporarily unavailable. Please try again later."
     
     TELEGRAM_STARS_ENABLED: bool = True
     TELEGRAM_STARS_RATE_RUB: float = 1.3
@@ -200,15 +200,15 @@ class Settings(BaseSettings):
 
     AUTO_PURCHASE_AFTER_TOPUP_ENABLED: bool = False
 
-    # Настройки простой покупки
+    # Simple purchase settings
     SIMPLE_SUBSCRIPTION_ENABLED: bool = False
     SIMPLE_SUBSCRIPTION_PERIOD_DAYS: int = 30
     SIMPLE_SUBSCRIPTION_DEVICE_LIMIT: int = 1
-    SIMPLE_SUBSCRIPTION_TRAFFIC_GB: int = 0  # 0 означает безлимит
+    SIMPLE_SUBSCRIPTION_TRAFFIC_GB: int = 0  # 0 means unlimited
     SIMPLE_SUBSCRIPTION_SQUAD_UUID: Optional[str] = None
-    PAYMENT_BALANCE_DESCRIPTION: str = "Пополнение баланса"
-    PAYMENT_SUBSCRIPTION_DESCRIPTION: str = "Оплата подписки"
-    PAYMENT_SERVICE_NAME: str = "Интернет-сервис"
+    PAYMENT_BALANCE_DESCRIPTION: str = "Balance top-up"
+    PAYMENT_SUBSCRIPTION_DESCRIPTION: str = "Subscription payment"
+    PAYMENT_SERVICE_NAME: str = "Internet service"
     PAYMENT_BALANCE_TEMPLATE: str = "{service_name} - {description}"
     PAYMENT_SUBSCRIPTION_TEMPLATE: str = "{service_name} - {description}"
 
@@ -245,7 +245,7 @@ class Settings(BaseSettings):
     MULENPAY_BASE_URL: str = "https://mulenpay.ru/api"
     MULENPAY_WEBHOOK_PATH: str = "/mulenpay-webhook"
     MULENPAY_DISPLAY_NAME: str = "Mulen Pay"
-    MULENPAY_DESCRIPTION: str = "Пополнение баланса"
+    MULENPAY_DESCRIPTION: str = "Balance top-up"
     MULENPAY_LANGUAGE: str = "ru"
     MULENPAY_VAT_CODE: int = 0
 
@@ -265,7 +265,7 @@ class Settings(BaseSettings):
     PAL24_BASE_URL: str = "https://pal24.pro/api/v1/"
     PAL24_WEBHOOK_PATH: str = "/pal24-webhook"
     PAL24_WEBHOOK_PORT: int = 8084
-    PAL24_PAYMENT_DESCRIPTION: str = "Пополнение баланса"
+    PAL24_PAYMENT_DESCRIPTION: str = "Balance top-up"
     PAL24_MIN_AMOUNT_KOPEKS: int = 10000
     PAL24_MAX_AMOUNT_KOPEKS: int = 100000000
     PAL24_REQUEST_TIMEOUT: int = 30
@@ -292,7 +292,7 @@ class Settings(BaseSettings):
     WATA_BASE_URL: str = "https://api.wata.pro/api/h2h"
     WATA_ACCESS_TOKEN: Optional[str] = None
     WATA_TERMINAL_PUBLIC_ID: Optional[str] = None
-    WATA_PAYMENT_DESCRIPTION: str = "Пополнение баланса"
+    WATA_PAYMENT_DESCRIPTION: str = "Balance top-up"
     WATA_PAYMENT_TYPE: str = "OneTime"
     WATA_SUCCESS_REDIRECT_URL: Optional[str] = None
     WATA_FAIL_REDIRECT_URL: Optional[str] = None
@@ -330,8 +330,8 @@ class Settings(BaseSettings):
     SKIP_RULES_ACCEPT: bool = False
     SKIP_REFERRAL_CODE: bool = False
 
-    DEFAULT_LANGUAGE: str = "ru"
-    AVAILABLE_LANGUAGES: str = "ru,en,fa"
+    DEFAULT_LANGUAGE: str = "en"
+    AVAILABLE_LANGUAGES: str = "en,fa"
     LANGUAGE_SELECTION_ENABLED: bool = True
     
     LOG_LEVEL: str = "INFO"
@@ -505,11 +505,11 @@ class Settings(BaseSettings):
             return self._get_sqlite_url()
     
     def is_postgresql(self) -> bool:
-        """Проверяет, используется ли PostgreSQL"""
+        """Checks if PostgreSQL is being used"""
         return "postgresql" in self.get_database_url()
     
     def is_sqlite(self) -> bool:
-        """Проверяет, используется ли SQLite"""
+        """Checks if SQLite is being used"""
         return "sqlite" in self.get_database_url()
     
     def is_admin(self, user_id: int) -> bool:
@@ -554,7 +554,7 @@ class Settings(BaseSettings):
         return self.PAL24_CARD_BUTTON_VISIBLE
     
     def get_remnawave_user_delete_mode(self) -> str:
-        """Возвращает режим удаления пользователей: 'delete' или 'disable'"""
+        """Returns user deletion mode: 'delete' or 'disable'"""
         mode = self.REMNAWAVE_USER_DELETE_MODE.lower().strip()
         return mode if mode in ["delete", "disable"] else "delete"
 
@@ -702,7 +702,7 @@ class Settings(BaseSettings):
         return bool(value)
     
     def get_available_languages(self) -> List[str]:
-        defaults = ["ru", "en", "ua", "zh"]
+        defaults = ["en", "ua", "zh"]
 
         try:
             langs = self.AVAILABLE_LANGUAGES
@@ -772,7 +772,7 @@ class Settings(BaseSettings):
             return time(hour=hours, minute=minutes)
         except (ValueError, AttributeError):
             logging.getLogger(__name__).warning(
-                "Некорректное значение ADMIN_REPORTS_SEND_TIME: %s", value
+                "Invalid ADMIN_REPORTS_SEND_TIME value: %s", value
             )
             return None
     
@@ -854,7 +854,7 @@ class Settings(BaseSettings):
         return self.APP_CONFIG_CACHE_TTL
 
     def build_external_admin_token(self, bot_username: str) -> str:
-        """Генерирует детерминированный и криптографически стойкий токен внешней админки."""
+        """Generates a deterministic and cryptographically secure external admin token."""
         normalized = (bot_username or "").strip().lstrip("@").lower()
         if not normalized:
             raise ValueError("Bot username is required to build external admin token")
@@ -877,9 +877,9 @@ class Settings(BaseSettings):
     def get_external_admin_bot_id(self) -> Optional[int]:
         try:
             return int(self.EXTERNAL_ADMIN_TOKEN_BOT_ID) if self.EXTERNAL_ADMIN_TOKEN_BOT_ID else None
-        except (TypeError, ValueError):  # pragma: no cover - защитная ветка для некорректных значений
+        except (TypeError, ValueError):  # pragma: no cover - defensive branch for invalid values
             logging.getLogger(__name__).warning(
-                "Некорректный идентификатор бота для внешней админки: %s",
+                "Invalid bot identifier for external admin: %s",
                 self.EXTERNAL_ADMIN_TOKEN_BOT_ID,
             )
             return None
@@ -906,7 +906,7 @@ class Settings(BaseSettings):
             value = int(raw_value)
         except (TypeError, ValueError):
             logger.warning(
-                "Некорректное значение DEVICES_SELECTION_DISABLED_AMOUNT: %s",
+                "Invalid DEVICES_SELECTION_DISABLED_AMOUNT value: %s",
                 raw_value,
             )
             return None
@@ -927,7 +927,7 @@ class Settings(BaseSettings):
             value = int(self.TRIAL_ACTIVATION_PRICE)
         except (TypeError, ValueError):
             logger.warning(
-                "Некорректное значение TRIAL_ACTIVATION_PRICE: %s",
+                "Invalid TRIAL_ACTIVATION_PRICE value: %s",
                 self.TRIAL_ACTIVATION_PRICE,
             )
             return 0
@@ -1034,7 +1034,7 @@ class Settings(BaseSettings):
             try:
                 method_code = int(part)
             except ValueError:
-                logger.warning("Некорректный код метода Platega: %s", part)
+                logger.warning("Invalid Platega method code: %s", part)
                 continue
             if method_code in {2, 10, 11, 12, 13} and method_code not in seen:
                 methods.append(method_code)
@@ -1048,11 +1048,11 @@ class Settings(BaseSettings):
     @staticmethod
     def get_platega_method_definitions() -> Dict[int, Dict[str, str]]:
         return {
-            2: {"name": "СБП (QR)", "title": "🏦 СБП (QR)"},
-            10: {"name": "Банковские карты (RUB)", "title": "💳 Карты (RUB)"},
-            11: {"name": "Банковские карты", "title": "💳 Банковские карты"},
-            12: {"name": "Международные карты", "title": "🌍 Международные карты"},
-            13: {"name": "Криптовалюта", "title": "🪙 Криптовалюта"},
+            2: {"name": "SBP (QR)", "title": "🏦 SBP (QR)"},
+            10: {"name": "Bank cards (RUB)", "title": "💳 Cards (RUB)"},
+            11: {"name": "Bank cards", "title": "💳 Bank cards"},
+            12: {"name": "International cards", "title": "🌍 International cards"},
+            13: {"name": "Cryptocurrency", "title": "🪙 Cryptocurrency"},
         }
 
     def get_platega_method_display_name(self, method_code: int) -> str:
@@ -1060,7 +1060,7 @@ class Settings(BaseSettings):
         info = definitions.get(method_code)
         if info and info.get("name"):
             return info["name"]
-        return f"Метод {method_code}"
+        return f"Method {method_code}"
 
     def get_platega_method_display_title(self, method_code: int) -> str:
         definitions = self.get_platega_method_definitions()
@@ -1082,12 +1082,12 @@ class Settings(BaseSettings):
     def get_payment_verification_auto_check_interval(self) -> int:
         try:
             minutes = int(self.PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES)
-        except (TypeError, ValueError):  # pragma: no cover - защитная проверка конфигурации
+        except (TypeError, ValueError):  # pragma: no cover - defensive configuration check
             minutes = 10
 
         if minutes <= 0:
             logger.warning(
-                "Некорректный интервал автопроверки платежей: %s. Используется значение по умолчанию 10 минут.",
+                "Invalid payment auto-check interval: %s. Using default value of 10 minutes.",
                 self.PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES,
             )
             return 10
@@ -1268,13 +1268,13 @@ class Settings(BaseSettings):
     def get_balance_payment_description(self, amount_kopeks: int) -> str:
         return self.PAYMENT_BALANCE_TEMPLATE.format(
             service_name=self.PAYMENT_SERVICE_NAME,
-            description=f"{self.PAYMENT_BALANCE_DESCRIPTION} на {self.format_price(amount_kopeks)}"
+            description=f"{self.PAYMENT_BALANCE_DESCRIPTION} for {self.format_price(amount_kopeks)}"
         )
     
     def get_subscription_payment_description(self, period_days: int, amount_kopeks: int) -> str:
         return self.PAYMENT_SUBSCRIPTION_TEMPLATE.format(
             service_name=self.PAYMENT_SERVICE_NAME,
-            description=f"{self.PAYMENT_SUBSCRIPTION_DESCRIPTION} на {period_days} дней"
+            description=f"{self.PAYMENT_SUBSCRIPTION_DESCRIPTION} for {period_days} days"
         )
     
     def get_custom_payment_description(self, description: str) -> str:
@@ -1652,7 +1652,7 @@ class Settings(BaseSettings):
             ZoneInfo(value)
         except Exception as exc:  # pragma: no cover - defensive validation
             raise ValueError(
-                f"Некорректный идентификатор часового пояса: {value}"
+                f"Invalid timezone identifier: {value}"
             ) from exc
         return value
 

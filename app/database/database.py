@@ -31,7 +31,7 @@ else:
         "pool_timeout": 30,
         "pool_recycle": 3600,
         "pool_pre_ping": True,
-        # 🔥 Агрессивная очистка мертвых соединений
+        # Aggressive cleanup of dead connections
         "pool_reset_on_return": "rollback",
     }
 
@@ -50,16 +50,16 @@ engine = create_async_engine(
         "server_settings": {
             "application_name": "remnawave_bot",
             "jit": "on",
-            "statement_timeout": "60000",  # 60 секунд
-            "idle_in_transaction_session_timeout": "300000",  # 5 минут
+            "statement_timeout": "60000",  # 60 seconds
+            "idle_in_transaction_session_timeout": "300000",  # 5 minutes
         },
         "command_timeout": 60,
         "timeout": 10,
     } if not settings.get_database_url().startswith("sqlite") else {},
     
     execution_options={
-        "isolation_level": "READ COMMITTED",  # Оптимальный для большинства случаев
-        "compiled_cache_size": 500,  # Кеш скомпилированных запросов
+        "isolation_level": "READ COMMITTED",  # Optimal for most cases
+        "compiled_cache_size": 500,  # Cache for compiled queries
     }
 )
 
@@ -71,7 +71,7 @@ AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
-    autoflush=False,  # 🔥 Критично для производительности
+    autoflush=False,  # Critical for performance
     autocommit=False,
 )
 
@@ -88,7 +88,7 @@ if settings.DEBUG:
     @event.listens_for(Engine, "after_cursor_execute")
     def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
         total = time.time() - conn.info["query_start_time"].pop(-1)
-        if total > 0.1:  # Логируем медленные запросы > 100ms
+        if total > 0.1:  # Log slow queries > 100ms
             logger.warning(f"🐌 Slow query ({total:.3f}s): {statement[:100]}...")
         else:
             logger.debug(f"⚡ Query executed in {total:.3f}s")
@@ -98,7 +98,7 @@ if settings.DEBUG:
 # ============================================================================
 
 class DatabaseManager:
-    """Продвинутый менеджер БД с поддержкой реплик и кеширования"""
+    """Advanced DB manager with replica and caching support"""
     
     def __init__(self):
         self.engine = engine
@@ -108,7 +108,7 @@ class DatabaseManager:
             self.read_replica_engine = create_async_engine(
                 settings.DATABASE_READ_REPLICA_URL,
                 poolclass=poolclass,
-                pool_size=30,  # Больше для read операций
+                pool_size=30,  # More for read operations
                 max_overflow=50,
                 pool_pre_ping=True,
                 echo=False,
@@ -161,7 +161,7 @@ db_manager = DatabaseManager()
 # ============================================================================
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Стандартная dependency для FastAPI"""
+    """Standard dependency for FastAPI"""
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -171,7 +171,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 async def get_db_read_only() -> AsyncGenerator[AsyncSession, None]:
-    """Read-only dependency для тяжелых SELECT запросов"""
+    """Read-only dependency for heavy SELECT queries"""
     async with db_manager.session(read_only=True) as session:
         yield session
 
@@ -180,11 +180,11 @@ async def get_db_read_only() -> AsyncGenerator[AsyncSession, None]:
 # ============================================================================
 
 class BatchOperations:
-    """Утилиты для массовых операций"""
+    """Utilities for bulk operations"""
     
     @staticmethod
     async def bulk_insert(session: AsyncSession, model, data: list[dict], chunk_size: int = 1000):
-        """Массовая вставка с чанками"""
+        """Bulk insert with chunks"""
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i + chunk_size]
             session.add_all([model(**item) for item in chunk])
@@ -193,7 +193,7 @@ class BatchOperations:
     
     @staticmethod
     async def bulk_update(session: AsyncSession, model, data: list[dict], chunk_size: int = 1000):
-        """Массовое обновление с чанками"""
+        """Bulk update with chunks"""
         if not data:
             return
 
@@ -253,14 +253,14 @@ batch_ops = BatchOperations()
 # ============================================================================
 
 async def init_db():
-    """Инициализация БД с оптимизациями"""
-    logger.info("🚀 Создание таблиц базы данных...")
+    """DB initialization with optimizations"""
+    logger.info("🚀 Creating database tables...")
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     if not settings.get_database_url().startswith("sqlite"):
-        logger.info("📊 Создание индексов для оптимизации...")
+        logger.info("📊 Creating indexes for optimization...")
 
         async with engine.begin() as conn:
             indexes = [
@@ -284,7 +284,7 @@ async def init_db():
 
                 if not table_exists:
                     logger.debug(
-                        "Пропускаем создание индекса %s: таблица %s отсутствует",
+                        "Skipping index creation %s: table %s does not exist",
                         index_sql,
                         table_name,
                     )
@@ -295,24 +295,24 @@ async def init_db():
                 except Exception as e:
                     logger.debug("Index creation skipped for %s: %s", table_name, e)
     
-    logger.info("✅ База данных успешно инициализирована")
+    logger.info("✅ Database successfully initialized")
     
     health = await db_manager.health_check()
     logger.info(f"📊 Database health: {health}")
 
 async def close_db():
-    """Корректное закрытие всех соединений"""
-    logger.info("🔄 Закрытие соединений с БД...")
+    """Proper closure of all connections"""
+    logger.info("🔄 Closing database connections...")
     
     await engine.dispose()
     
     if db_manager.read_replica_engine:
         await db_manager.read_replica_engine.dispose()
     
-    logger.info("✅ Все подключения к базе данных закрыты")
+    logger.info("✅ All database connections closed")
 
 # ============================================================================
-# CONNECTION POOL METRICS (для мониторинга)
+# CONNECTION POOL METRICS (for monitoring)
 # ============================================================================
 
 def _pool_counters(pool):
@@ -368,7 +368,7 @@ def _collect_health_pool_metrics(pool) -> dict:
 
 
 async def get_pool_metrics() -> dict:
-    """Детальные метрики пула для Prometheus/Grafana"""
+    """Detailed pool metrics for Prometheus/Grafana"""
     pool = engine.pool
 
     counters = _pool_counters(pool)

@@ -111,9 +111,9 @@ async def _send_error_message(args, kwargs, original_error):
         if "query is too old" in str(e).lower():
             logger.warning("Failed to send error message - callback query is outdated")
         else:
-            logger.error(f"Ошибка при отправке сообщения об ошибке: {e}")
+            logger.error(f"Error sending error message: {e}")
     except Exception as e:
-        logger.error(f"Критическая ошибка при отправке сообщения об ошибке: {e}")
+        logger.error(f"Critical error sending error message: {e}")
 
 
 def state_cleanup(func: Callable) -> Callable:
@@ -147,7 +147,7 @@ def typing_action(func: Callable) -> Callable:
                     action="typing"
                 )
             except Exception as e:
-                logger.warning(f"Не удалось отправить typing action: {e}")
+                logger.warning(f"Failed to send typing action: {e}")
         
         return await func(event, *args, **kwargs)
     

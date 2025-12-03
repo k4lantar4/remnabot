@@ -290,27 +290,10 @@ async def compute_simple_subscription_price(
 def format_period_description(days: int, language: str = "en") -> str:
     months = calculate_months_from_days(days)
     
-    if language == "ru":
-        if days == 14:
-            return "14 дней"
-        if days == 30:
-            return "1 месяц"
-        elif days == 60:
-            return "2 месяца"
-        elif days == 90:
-            return "3 месяца"
-        elif days == 180:
-            return "6 месяцев"
-        elif days == 360:
-            return "12 месяцев"
-        else:
-            month_word = "месяц" if months == 1 else ("месяца" if 2 <= months <= 4 else "месяцев")
-            return f"{days} дней ({months} {month_word})"
-    else:
-        if days == 14:
-            return "14 days"
-        month_word = "month" if months == 1 else "months"
-        return f"{days} days ({months} {month_word})"
+    if days == 14:
+        return "14 days"
+    month_word = "month" if months == 1 else "months"
+    return f"{days} days ({months} {month_word})"
 
 
 def validate_pricing_calculation(
@@ -330,12 +313,12 @@ def validate_pricing_calculation(
 
 
 STANDARD_PERIODS = {
-    14: {"months": 0.5, "display_ru": "2 недели", "display_en": "2 weeks"},
-    30: {"months": 1, "display_ru": "1 месяц", "display_en": "1 month"},
-    60: {"months": 2, "display_ru": "2 месяца", "display_en": "2 months"},
-    90: {"months": 3, "display_ru": "3 месяца", "display_en": "3 months"},
-    180: {"months": 6, "display_ru": "6 месяцев", "display_en": "6 months"},
-    360: {"months": 12, "display_ru": "1 год", "display_en": "1 year"},
+    14: {"months": 0.5, "display_en": "2 weeks"},
+    30: {"months": 1, "display_en": "1 month"},
+    60: {"months": 2, "display_en": "2 months"},
+    90: {"months": 3, "display_en": "3 months"},
+    180: {"months": 6, "display_en": "6 months"},
+    360: {"months": 12, "display_en": "1 year"},
 }
 
 

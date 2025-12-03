@@ -20,9 +20,9 @@ class CacheService:
             self.redis_client = redis.from_url(settings.REDIS_URL)
             await self.redis_client.ping()
             self._connected = True
-            logger.info("✅ Подключение к Redis кешу установлено")
+            logger.info("✅ Redis cache connection established")
         except Exception as e:
-            logger.warning(f"⚠️ Не удалось подключиться к Redis: {e}")
+            logger.warning(f"⚠️ Failed to connect to Redis: {e}")
             self._connected = False
     
     async def disconnect(self):
@@ -40,7 +40,7 @@ class CacheService:
                 return json.loads(value)
             return None
         except Exception as e:
-            logger.error(f"Ошибка получения из кеша {key}: {e}")
+            logger.error(f"Error getting from cache {key}: {e}")
             return None
     
     async def set(
@@ -61,7 +61,7 @@ class CacheService:
             await self.redis_client.set(key, serialized_value, ex=expire)
             return True
         except Exception as e:
-            logger.error(f"Ошибка записи в кеш {key}: {e}")
+            logger.error(f"Error writing to cache {key}: {e}")
             return False
     
     async def delete(self, key: str) -> bool:
@@ -72,7 +72,7 @@ class CacheService:
             deleted = await self.redis_client.delete(key)
             return deleted > 0
         except Exception as e:
-            logger.error(f"Ошибка удаления из кеша {key}: {e}")
+            logger.error(f"Error deleting from cache {key}: {e}")
             return False
 
     async def delete_pattern(self, pattern: str) -> int:
@@ -87,7 +87,7 @@ class CacheService:
             deleted = await self.redis_client.delete(*keys)
             return int(deleted)
         except Exception as e:
-            logger.error(f"Ошибка удаления ключей по шаблону {pattern}: {e}")
+            logger.error(f"Error deleting keys by pattern {pattern}: {e}")
             return 0
     
     async def exists(self, key: str) -> bool:
@@ -97,7 +97,7 @@ class CacheService:
         try:
             return await self.redis_client.exists(key)
         except Exception as e:
-            logger.error(f"Ошибка проверки существования в кеше {key}: {e}")
+            logger.error(f"Error checking existence in cache {key}: {e}")
             return False
     
     async def expire(self, key: str, seconds: int) -> bool:
@@ -107,7 +107,7 @@ class CacheService:
         try:
             return await self.redis_client.expire(key, seconds)
         except Exception as e:
-            logger.error(f"Ошибка установки TTL для {key}: {e}")
+            logger.error(f"Error setting TTL for {key}: {e}")
             return False
     
     async def get_keys(self, pattern: str = "*") -> list:
@@ -118,7 +118,7 @@ class CacheService:
             keys = await self.redis_client.keys(pattern)
             return [key.decode() if isinstance(key, bytes) else key for key in keys]
         except Exception as e:
-            logger.error(f"Ошибка получения ключей по паттерну {pattern}: {e}")
+            logger.error(f"Error getting keys by pattern {pattern}: {e}")
             return []
     
     async def flush_all(self) -> bool:
@@ -127,10 +127,10 @@ class CacheService:
         
         try:
             await self.redis_client.flushall()
-            logger.info("🗑️ Кеш полностью очищен")
+            logger.info("🗑️ Cache fully cleared")
             return True
         except Exception as e:
-            logger.error(f"Ошибка очистки кеша: {e}")
+            logger.error(f"Error clearing cache: {e}")
             return False
     
     async def increment(self, key: str, amount: int = 1) -> Optional[int]:
@@ -140,7 +140,7 @@ class CacheService:
         try:
             return await self.redis_client.incrby(key, amount)
         except Exception as e:
-            logger.error(f"Ошибка инкремента {key}: {e}")
+            logger.error(f"Error incrementing {key}: {e}")
             return None
     
     async def set_hash(self, name: str, mapping: dict, expire: int = None) -> bool:
@@ -153,7 +153,7 @@ class CacheService:
                 await self.redis_client.expire(name, expire)
             return True
         except Exception as e:
-            logger.error(f"Ошибка записи хеша {name}: {e}")
+            logger.error(f"Error writing hash {name}: {e}")
             return False
     
     async def get_hash(self, name: str, key: str = None) -> Optional[Union[dict, str]]:
@@ -168,7 +168,7 @@ class CacheService:
                 hash_data = await self.redis_client.hgetall(name)
                 return {k.decode(): v.decode() for k, v in hash_data.items()}
         except Exception as e:
-            logger.error(f"Ошибка получения хеша {name}: {e}")
+            logger.error(f"Error getting hash {name}: {e}")
             return None
 
 
@@ -258,7 +258,7 @@ class SystemCache:
     @staticmethod
     async def set_daily_stats(date: str, stats: dict) -> bool:
         key = cache_key("stats", "daily", date)
-        return await cache.set(key, stats, 86400)  # 24 часа
+        return await cache.set(key, stats, 86400)  # 24 hours
 
 
 class RateLimitCache:

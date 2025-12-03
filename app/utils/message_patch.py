@@ -12,7 +12,7 @@ _PRIVACY_RESTRICTED_CODE = "BUTTON_USER_PRIVACY_RESTRICTED"
 
 
 def is_qr_message(message: Message) -> bool:
-    return bool(message.caption and message.caption.startswith("\U0001F517 Ваша реферальная ссылка"))
+    return bool(message.caption and message.caption.startswith("\U0001F517 Your referral link"))
 
 
 _original_answer = Message.answer
@@ -36,8 +36,8 @@ def _default_privacy_hint(language: str | None) -> str:
             "Please allow sharing your contact information or send the required details manually."
         )
     return (
-        "⚠️ Telegram запретил кнопку запроса контакта из-за настроек приватности. "
-        "Разрешите отправку контакта в настройках Telegram или отправьте данные вручную."
+        "⚠️ Telegram blocked the contact request button because of your privacy settings. "
+        "Please allow sharing your contact information or send the required details manually."
     )
 
 
@@ -79,10 +79,10 @@ def is_privacy_restricted_error(error: Exception) -> bool:
 
 
 async def _answer_with_photo(self: Message, text: str = None, **kwargs):
-    # Уважаем флаг в рантайме: если логотип выключен — не подменяем ответ
+    # Respect runtime flag: if logo mode is disabled, don't override the answer
     if not settings.ENABLE_LOGO_MODE:
         return await _original_answer(self, text, **kwargs)
-    # Если caption слишком длинный для фото — отправим как текст
+    # If caption is too long for photo, send as text
     try:
         if text is not None and len(text) > 900:
             return await _original_answer(self, text, **kwargs)
@@ -92,14 +92,14 @@ async def _answer_with_photo(self: Message, text: str = None, **kwargs):
 
     if LOGO_PATH.exists():
         try:
-            # Отправляем caption как есть; при ошибке парсинга ниже сработает фоллбек
+            # Send caption as is; fallback will trigger on parsing error below
             return await self.answer_photo(FSInputFile(LOGO_PATH), caption=text, **kwargs)
         except TelegramBadRequest as error:
             if is_privacy_restricted_error(error):
                 fallback_text = append_privacy_hint(text, language)
                 safe_kwargs = prepare_privacy_safe_kwargs(kwargs)
                 return await _original_answer(self, fallback_text, **safe_kwargs)
-            # Фоллбек, если Telegram ругается на caption или другое ограничение: отправим как текст
+            # Fallback: if Telegram complains about caption or other restriction, send as text
             return await _original_answer(self, text, **kwargs)
         except Exception:
             return await _original_answer(self, text, **kwargs)
@@ -107,12 +107,12 @@ async def _answer_with_photo(self: Message, text: str = None, **kwargs):
 
 
 async def _edit_with_photo(self: Message, text: str, **kwargs):
-    # Уважаем флаг в рантайме: если логотип выключен — не подменяем редактирование
+    # Respect runtime flag: if logo mode is disabled, don't override the edit
     if not settings.ENABLE_LOGO_MODE:
         return await _original_edit_text(self, text, **kwargs)
     if self.photo:
         language = _get_language(self)
-        # Если caption потенциально слишком длинный — отправим как текст вместо caption
+        # If caption is potentially too long, send as text instead of caption
         try:
             if text is not None and len(text) > 900:
                 try:
@@ -122,8 +122,8 @@ async def _edit_with_photo(self: Message, text: str, **kwargs):
                 return await _original_answer(self, text, **kwargs)
         except Exception:
             pass
-        # Всегда используем логотип если включен режим логотипа,
-        # кроме специальных случаев (QR сообщения)
+        # Always use logo if logo mode is enabled,
+        # except for special cases (QR messages)
         if settings.ENABLE_LOGO_MODE and LOGO_PATH.exists() and not is_qr_message(self):
             media = FSInputFile(LOGO_PATH)
         elif is_qr_message(self) and LOGO_PATH.exists():
@@ -148,7 +148,7 @@ async def _edit_with_photo(self: Message, text: str, **kwargs):
                 except Exception:
                     pass
                 return await _original_answer(self, fallback_text, **safe_kwargs)
-            # Фоллбек: удалим и отправим обычный текст без фото
+            # Fallback: delete and send plain text without photo
             try:
                 await self.delete()
             except Exception:

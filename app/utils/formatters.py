@@ -41,60 +41,38 @@ def format_time_ago(dt: Union[datetime, str], language: str = "en") -> str:
     now = datetime.utcnow()
     diff = now - dt
 
-    language_code = (language or "en").split("-")[0].lower()
-
     if diff.days > 0:
         if diff.days == 1:
-            return "вчера" if language_code == "ru" else "yesterday"
+            return "yesterday"
         if diff.days < 7:
             value = diff.days
-            if language_code == "ru":
-                return f"{value} дн. назад"
             suffix = "day" if value == 1 else "days"
             return f"{value} {suffix} ago"
         if diff.days < 30:
             value = diff.days // 7
-            if language_code == "ru":
-                return f"{value} нед. назад"
             suffix = "week" if value == 1 else "weeks"
             return f"{value} {suffix} ago"
         if diff.days < 365:
             value = diff.days // 30
-            if language_code == "ru":
-                return f"{value} мес. назад"
             suffix = "month" if value == 1 else "months"
             return f"{value} {suffix} ago"
         value = diff.days // 365
-        if language_code == "ru":
-            return f"{value} г. назад"
         suffix = "year" if value == 1 else "years"
         return f"{value} {suffix} ago"
 
     if diff.seconds > 3600:
         value = diff.seconds // 3600
-        if language_code == "ru":
-            return f"{value} ч. назад"
         suffix = "hour" if value == 1 else "hours"
         return f"{value} {suffix} ago"
 
     if diff.seconds > 60:
         value = diff.seconds // 60
-        if language_code == "ru":
-            return f"{value} мин. назад"
         suffix = "minute" if value == 1 else "minutes"
         return f"{value} {suffix} ago"
 
-    return "только что" if language_code == "ru" else "just now"
+    return "just now"
 
 def format_days_declension(days: int, language: str = "en") -> str:
-    if language == "ru":
-        if days % 10 == 1 and days % 100 != 11:
-            return f"{days} день"
-        elif days % 10 in [2, 3, 4] and days % 100 not in [12, 13, 14]:
-            return f"{days} дня"
-        else:
-            return f"{days} дней"
-    
     return f"{days} day{'s' if days != 1 else ''}"
 
 
