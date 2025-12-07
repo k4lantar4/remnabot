@@ -115,7 +115,9 @@ async def ensure_default_templates(db: AsyncSession, *, created_by: Optional[int
             if new_message and legacy_message and existing.message_text == legacy_message:
                 should_update = True
             elif new_message and (
-                "{bonus_amount" in existing.message_text or "We will credit" in existing.message_text
+                "{bonus_amount" in existing.message_text
+                or "We will credit" in existing.message_text
+                or "Мы начислим" in existing.message_text
             ):
                 should_update = True
 
