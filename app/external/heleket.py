@@ -66,7 +66,7 @@ class HeleketService:
         params: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         if not self.is_configured:
-            logger.error("Heleket сервис не настроен: merchant или api_key отсутствуют")
+            logger.error("Heleket service not configured: merchant or api_key missing")
             return None
 
         body = self._prepare_body(payload, ignore_none=True, sort_keys=True)
@@ -90,26 +90,26 @@ class HeleketService:
                 ) as response:
                     text = await response.text()
                     if response.content_type != "application/json":
-                        logger.error("Ответ Heleket не JSON (%s): %s", response.content_type, text)
+                        logger.error("Heleket response is not JSON (%s): %s", response.content_type, text)
                         return None
 
                     try:
                         data = json.loads(text)
                     except json.JSONDecodeError:
-                        logger.error("Ошибка парсинга Heleket JSON: %s", text)
+                        logger.error("Error parsing Heleket JSON: %s", text)
                         return None
 
                     if response.status >= 400:
-                        logger.error("Heleket API %s вернул статус %s: %s", endpoint, response.status, data)
+                        logger.error("Heleket API %s returned status %s: %s", endpoint, response.status, data)
                         return None
 
                     if isinstance(data, dict) and data.get("state") == 0:
                         return data
 
-                    logger.error("Heleket API вернул ошибку: %s", data)
+                    logger.error("Heleket API returned error: %s", data)
                     return None
         except Exception as error:  # pragma: no cover - defensive
-            logger.error("Ошибка запроса к Heleket API: %s", error)
+            logger.error("Error requesting Heleket API: %s", error)
             return None
 
     async def create_payment(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -122,7 +122,7 @@ class HeleketService:
         order_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         if not uuid and not order_id:
-            raise ValueError("Нужно указать uuid или order_id для Heleket payment/info")
+            raise ValueError("Must specify uuid or order_id for Heleket payment/info")
 
         payload: Dict[str, Any] = {}
         if uuid:
@@ -150,16 +150,16 @@ class HeleketService:
 
     def verify_webhook_signature(self, payload: Dict[str, Any]) -> bool:
         if not self.is_configured:
-            logger.warning("Heleket сервис не настроен, подпись пропускается")
+            logger.warning("Heleket service not configured, skipping signature")
             return True
 
         if not isinstance(payload, dict):
-            logger.error("Heleket webhook payload не dict: %s", payload)
+            logger.error("Heleket webhook payload not dict: %s", payload)
             return False
 
         signature = payload.get("sign")
         if not signature:
-            logger.error("Heleket webhook без подписи")
+            logger.error("Heleket webhook without signature")
             return False
 
         data = dict(payload)
@@ -170,5 +170,5 @@ class HeleketService:
         is_valid = hmac.compare_digest(expected, str(signature))
 
         if not is_valid:
-            logger.error("Неверная подпись Heleket webhook: ожидается %s, получено %s", expected, signature)
+            logger.error("Invalid Heleket webhook signature: expected %s, got %s", expected, signature)
         return is_valid

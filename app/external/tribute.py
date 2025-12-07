@@ -19,27 +19,27 @@ class TributeService:
         self,
         user_id: int,
         amount_kopeks: int = 0,
-        description: str = "Пополнение баланса"
+        description: str = "Balance top-up"
     ) -> Optional[str]:
         
         if not settings.TRIBUTE_ENABLED:
-            logger.warning("Tribute платежи отключены")
+            logger.warning("Tribute payments disabled")
             return None
         
         try:
             payment_url = f"{self.donate_link}&user_id={user_id}"
             
-            logger.info(f"Создана ссылка Tribute для пользователя {user_id}")
+            logger.info(f"Created Tribute link for user {user_id}")
             return payment_url
             
         except Exception as e:
-            logger.error(f"Ошибка создания Tribute ссылки: {e}")
+            logger.error(f"Error creating Tribute link: {e}")
             return None
     
     def verify_webhook_signature(self, payload: str, signature: str) -> bool:
 
         if not self.api_key:
-            logger.warning("API key не настроен, пропускаем проверку")
+            logger.warning("API key not configured, skipping verification")
             return True
 
         try:
@@ -52,27 +52,27 @@ class TributeService:
             is_valid = hmac.compare_digest(signature, expected_signature)
 
             if is_valid:
-                logger.info("✅ Подпись Tribute webhook проверена успешно")
+                logger.info("Tribute webhook signature verified successfully")
             else:
-                logger.error("❌ Неверная подпись Tribute webhook")
+                logger.error("Invalid Tribute webhook signature")
 
             return is_valid
 
         except Exception as e:
-            logger.error(f"Ошибка проверки подписи webhook: {e}")
+            logger.error(f"Error verifying webhook signature: {e}")
             return False
     
     async def process_webhook(self, payload_or_data) -> Optional[Dict[str, Any]]:
         
         try:
-            logger.info(f"🔄 Начинаем обработку Tribute webhook")
+            logger.info("Processing Tribute webhook")
             
             if isinstance(payload_or_data, str):
                 try:
                     webhook_data = json.loads(payload_or_data)
-                    logger.info(f"📊 Распарсенные данные: {webhook_data}")
+                    logger.info(f"Parsed data: {webhook_data}")
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ Ошибка парсинга JSON: {e}")
+                    logger.error(f"JSON parsing error: {e}")
                     return None
             else:
                 webhook_data = payload_or_data
@@ -108,17 +108,17 @@ class TributeService:
                 else:
                     status = "unknown"
             
-            logger.info(f"📝 Извлеченные данные: payment_id={payment_id}, status={status}, amount_kopeks={amount_kopeks}, user_id={telegram_user_id}")
+            logger.info(f"Extracted data: payment_id={payment_id}, status={status}, amount_kopeks={amount_kopeks}, user_id={telegram_user_id}")
             
             if not telegram_user_id:
-                logger.error("❌ Не найден telegram_user_id в webhook данных")
-                logger.error(f"🔍 Полные данные для отладки: {json.dumps(webhook_data, ensure_ascii=False, indent=2)}")
+                logger.error("telegram_user_id not found in webhook data")
+                logger.error(f"Full data for debugging: {json.dumps(webhook_data, ensure_ascii=False, indent=2)}")
                 return None
             
             try:
                 telegram_user_id = int(telegram_user_id)
             except (ValueError, TypeError):
-                logger.error(f"❌ Некорректный telegram_user_id: {telegram_user_id}")
+                logger.error(f"Invalid telegram_user_id: {telegram_user_id}")
                 return None
             
             result = {
@@ -131,31 +131,31 @@ class TributeService:
                 "payment_system": "tribute"
             }
             
-            logger.info(f"✅ Tribute webhook обработан успешно: {result}")
+            logger.info(f"Tribute webhook processed successfully: {result}")
             return result
             
         except Exception as e:
-            logger.error(f"❌ Ошибка обработки Tribute webhook: {e}", exc_info=True)
-            logger.error(f"🔍 Webhook data для отладки: {json.dumps(webhook_data, ensure_ascii=False, indent=2)}")
+            logger.error(f"Error processing Tribute webhook: {e}", exc_info=True)
+            logger.error(f"Webhook data for debugging: {json.dumps(webhook_data, ensure_ascii=False, indent=2)}")
             return None
     
     async def get_payment_status(self, payment_id: str) -> Optional[Dict[str, Any]]:
         try:
-            logger.info(f"Запрос статуса платежа {payment_id}")
+            logger.info(f"Requesting payment status {payment_id}")
             return {"status": "unknown", "payment_id": payment_id}
         except Exception as e:
-            logger.error(f"Ошибка получения статуса платежа: {e}")
+            logger.error(f"Error getting payment status: {e}")
             return None
     
     async def refund_payment(
         self,
         payment_id: str,
         amount_kopeks: Optional[int] = None,
-        reason: str = "Возврат по запросу"
+        reason: str = "Refund on request"
     ) -> Optional[Dict[str, Any]]:
         try:
-            logger.info(f"Создание возврата для платежа {payment_id}")
+            logger.info(f"Creating refund for payment {payment_id}")
             return {"refund_id": f"refund_{payment_id}", "status": "pending"}
         except Exception as e:
-            logger.error(f"Ошибка создания возврата: {e}")
+            logger.error(f"Error creating refund: {e}")
             return None

@@ -22,99 +22,120 @@ from app.database.crud.promo_group import get_promo_groups_with_counts
 from app.services.remnawave_service import RemnaWaveService
 from app.utils.decorators import admin_required, error_handler
 from app.utils.cache import cache
+from app.localization.texts import get_texts
 
 logger = logging.getLogger(__name__)
 
 
-def _build_server_edit_view(server):
-    status_emoji = "✅ Доступен" if server.is_available else "❌ Недоступен"
-    price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else "Бесплатно"
+def _build_server_edit_view(server, language: str = "en"):
+    texts = get_texts(language)
+    status_emoji = texts.t("ADMIN_SRV_STATUS_AVAILABLE", "✅ Available") if server.is_available else texts.t("ADMIN_SRV_STATUS_UNAVAILABLE", "❌ Unavailable")
+    price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
     promo_groups_text = (
         ", ".join(sorted(pg.name for pg in server.allowed_promo_groups))
         if server.allowed_promo_groups
-        else "Не выбраны"
+        else texts.t("ADMIN_SRV_NOT_SELECTED", "Not selected")
     )
 
-    trial_status = "✅ Да" if server.is_trial_eligible else "⚪️ Нет"
+    trial_status = texts.t("YES", "Yes") if server.is_trial_eligible else texts.t("NO", "No")
+    not_specified = texts.t("ADMIN_SRV_NOT_SPECIFIED", "Not specified")
+    no_limit = texts.t("ADMIN_SRV_NO_LIMIT", "No limit")
 
-    text = f"""
-🌐 <b>Редактирование сервера</b>
+    text = texts.t(
+        "ADMIN_SRV_EDIT_VIEW",
+        """
+🌐 <b>Server Editing</b>
 
-<b>Информация:</b>
-• ID: {server.id}
-• UUID: <code>{server.squad_uuid}</code>
-• Название: {server.display_name}
-• Оригинальное: {server.original_name or 'Не указано'}
-• Статус: {status_emoji}
+<b>Information:</b>
+• ID: {server_id}
+• UUID: <code>{uuid}</code>
+• Name: {name}
+• Original: {original}
+• Status: {status}
 
-<b>Настройки:</b>
-• Цена: {price_text}
-• Код страны: {server.country_code or 'Не указан'}
-• Лимит пользователей: {server.max_users or 'Без лимита'}
-• Текущих пользователей: {server.current_users}
-• Промогруппы: {promo_groups_text}
-• Выдача триала: {trial_status}
+<b>Settings:</b>
+• Price: {price}
+• Country code: {country}
+• User limit: {limit}
+• Current users: {current}
+• Promo groups: {promo}
+• Trial eligible: {trial}
 
-<b>Описание:</b>
-{server.description or 'Не указано'}
+<b>Description:</b>
+{description}
 
-Выберите что изменить:
+Select what to edit:
 """
+    ).format(
+        server_id=server.id,
+        uuid=server.squad_uuid,
+        name=server.display_name,
+        original=server.original_name or not_specified,
+        status=status_emoji,
+        price=price_text,
+        country=server.country_code or not_specified,
+        limit=server.max_users or no_limit,
+        current=server.current_users,
+        promo=promo_groups_text,
+        trial=trial_status,
+        description=server.description or not_specified,
+    )
 
     keyboard = [
         [
             types.InlineKeyboardButton(
-                text="✏️ Название", callback_data=f"admin_server_edit_name_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_NAME", "✏️ Name"), callback_data=f"admin_server_edit_name_{server.id}"
             ),
             types.InlineKeyboardButton(
-                text="💰 Цена", callback_data=f"admin_server_edit_price_{server.id}"
-            ),
-        ],
-        [
-            types.InlineKeyboardButton(
-                text="🌍 Страна", callback_data=f"admin_server_edit_country_{server.id}"
-            ),
-            types.InlineKeyboardButton(
-                text="👥 Лимит", callback_data=f"admin_server_edit_limit_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_PRICE", "💰 Price"), callback_data=f"admin_server_edit_price_{server.id}"
             ),
         ],
         [
             types.InlineKeyboardButton(
-                text="👥 Юзеры", callback_data=f"admin_server_users_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_COUNTRY", "🌍 Country"), callback_data=f"admin_server_edit_country_{server.id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SRV_BTN_LIMIT", "👥 Limit"), callback_data=f"admin_server_edit_limit_{server.id}"
             ),
         ],
         [
             types.InlineKeyboardButton(
-                text="🎁 Выдавать сквад" if not server.is_trial_eligible else "🚫 Не выдавать сквад",
+                text=texts.t("ADMIN_SRV_BTN_USERS", "👥 Users"), callback_data=f"admin_server_users_{server.id}"
+            ),
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SRV_BTN_ENABLE_TRIAL", "🎁 Enable for trial") if not server.is_trial_eligible else texts.t("ADMIN_SRV_BTN_DISABLE_TRIAL", "🚫 Disable for trial"),
                 callback_data=f"admin_server_trial_{server.id}",
             ),
         ],
         [
             types.InlineKeyboardButton(
-                text="🎯 Промогруппы", callback_data=f"admin_server_edit_promo_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_PROMO", "🎯 Promo groups"), callback_data=f"admin_server_edit_promo_{server.id}"
             ),
             types.InlineKeyboardButton(
-                text="📝 Описание", callback_data=f"admin_server_edit_desc_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_DESC", "📝 Description"), callback_data=f"admin_server_edit_desc_{server.id}"
             ),
         ],
         [
             types.InlineKeyboardButton(
-                text="❌ Отключить" if server.is_available else "✅ Включить",
+                text=texts.t("ADMIN_SRV_BTN_DISABLE", "❌ Disable") if server.is_available else texts.t("ADMIN_SRV_BTN_ENABLE", "✅ Enable"),
                 callback_data=f"admin_server_toggle_{server.id}",
             )
         ],
         [
             types.InlineKeyboardButton(
-                text="🗑️ Удалить", callback_data=f"admin_server_delete_{server.id}"
+                text=texts.t("ADMIN_SRV_BTN_DELETE", "🗑️ Delete"), callback_data=f"admin_server_delete_{server.id}"
             ),
-            types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_servers_list"),
+            types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_servers_list"),
         ],
     ]
 
     return text, types.InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def _build_server_promo_groups_keyboard(server_id: int, promo_groups, selected_ids):
+def _build_server_promo_groups_keyboard(server_id: int, promo_groups, selected_ids, language: str = "en"):
+    texts = get_texts(language)
     keyboard = []
     for group in promo_groups:
         emoji = "✅" if group["id"] in selected_ids else "⚪"
@@ -130,14 +151,14 @@ def _build_server_promo_groups_keyboard(server_id: int, promo_groups, selected_i
     keyboard.append(
         [
             types.InlineKeyboardButton(
-                text="💾 Сохранить", callback_data=f"admin_server_promo_save_{server_id}"
+                text=texts.t("ADMIN_SRV_BTN_SAVE", "💾 Save"), callback_data=f"admin_server_promo_save_{server_id}"
             )
         ]
     )
     keyboard.append(
         [
             types.InlineKeyboardButton(
-                text="⬅️ Назад", callback_data=f"admin_server_edit_{server_id}"
+                text=texts.BACK, callback_data=f"admin_server_edit_{server_id}"
             )
         ]
     )
@@ -152,35 +173,44 @@ async def show_servers_menu(
     db_user: User,
     db: AsyncSession
 ):
-    
+    texts = get_texts(db_user.language)
     stats = await get_server_statistics(db)
     
-    text = f"""
-🌐 <b>Управление серверами</b>
+    text = texts.t(
+        "ADMIN_SRV_MENU",
+        """
+🌐 <b>Server Management</b>
 
-📊 <b>Статистика:</b>
-• Всего серверов: {stats['total_servers']}
-• Доступные: {stats['available_servers']}
-• Недоступные: {stats['unavailable_servers']}
-• С подключениями: {stats['servers_with_connections']}
+📊 <b>Statistics:</b>
+• Total servers: {total}
+• Available: {available}
+• Unavailable: {unavailable}
+• With connections: {with_connections}
 
-💰 <b>Выручка от серверов:</b>
-• Общая: {int(stats['total_revenue_rubles'])} ₽
+💰 <b>Server revenue:</b>
+• Total: {revenue} ₽
 
-Выберите действие:
+Select an action:
 """
+    ).format(
+        total=stats['total_servers'],
+        available=stats['available_servers'],
+        unavailable=stats['unavailable_servers'],
+        with_connections=stats['servers_with_connections'],
+        revenue=int(stats['total_revenue_rubles']),
+    )
     
     keyboard = [
         [
-            types.InlineKeyboardButton(text="📋 Список серверов", callback_data="admin_servers_list"),
-            types.InlineKeyboardButton(text="🔄 Синхронизация", callback_data="admin_servers_sync")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SRV_BTN_LIST", "📋 Server list"), callback_data="admin_servers_list"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SRV_BTN_SYNC", "🔄 Sync"), callback_data="admin_servers_sync")
         ],
         [
-            types.InlineKeyboardButton(text="📊 Синхронизировать счетчики", callback_data="admin_servers_sync_counts"),
-            types.InlineKeyboardButton(text="📈 Подробная статистика", callback_data="admin_servers_stats")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SRV_BTN_SYNC_COUNTS", "📊 Sync counters"), callback_data="admin_servers_sync_counts"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SRV_BTN_STATS", "📈 Detailed stats"), callback_data="admin_servers_stats")
         ],
         [
-            types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel")
+            types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_panel")
         ]
     ]
     
@@ -199,22 +229,24 @@ async def show_servers_list(
     db: AsyncSession,
     page: int = 1
 ):
-    
+    texts = get_texts(db_user.language)
     servers, total_count = await get_all_server_squads(db, page=page, limit=10)
     total_pages = (total_count + 9) // 10
     
     if not servers:
-        text = "🌐 <b>Список серверов</b>\n\n❌ Серверы не найдены."
+        text = texts.t("ADMIN_SRV_LIST_EMPTY", "🌐 <b>Server List</b>\n\n❌ No servers found.")
     else:
-        text = f"🌐 <b>Список серверов</b>\n\n"
-        text += f"📊 Всего: {total_count} | Страница: {page}/{total_pages}\n\n"
+        text = texts.t("ADMIN_SRV_LIST_TITLE", "🌐 <b>Server List</b>") + "\n\n"
+        text += texts.t("ADMIN_SRV_LIST_STATS", "📊 Total: {total} | Page: {page}/{pages}").format(
+            total=total_count, page=page, pages=total_pages
+        ) + "\n\n"
         
         for i, server in enumerate(servers, 1 + (page - 1) * 10):
             status_emoji = "✅" if server.is_available else "❌"
-            price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else "Бесплатно"
+            price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
             
             text += f"{i}. {status_emoji} {server.display_name}\n"
-            text += f"   💰 Цена: {price_text}"
+            text += f"   💰 {texts.t('ADMIN_SRV_PRICE_LABEL', 'Price')}: {price_text}"
             
             if server.max_users:
                 text += f" | 👥 {server.current_users}/{server.max_users}"
@@ -255,7 +287,7 @@ async def show_servers_list(
         keyboard.append(nav_row)
     
     keyboard.extend([
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_servers")]
+        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_servers")]
     ])
     
     await callback.message.edit_text(

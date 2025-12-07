@@ -68,7 +68,7 @@ async def _prepare_auto_purchase(
     period_days = int(cart_data.get("period_days") or 0)
     if period_days <= 0:
         logger.info(
-            "🔁 Автопокупка: у пользователя %s нет корректного периода в сохранённой корзине",
+            "Auto-purchase: user %s has no valid period in saved cart",
             user.telegram_id,
         )
         return None
@@ -79,7 +79,7 @@ async def _prepare_auto_purchase(
     period_config = context.period_map.get(f"days:{period_days}")
     if not period_config:
         logger.warning(
-            "🔁 Автопокупка: период %s дней недоступен для пользователя %s",
+            "Auto-purchase: period %s days unavailable for user %s",
             period_days,
             user.telegram_id,
         )
@@ -133,7 +133,7 @@ async def _prepare_auto_extend_context(
     subscription = await get_subscription_by_user_id(db, user.id)
     if subscription is None:
         logger.info(
-            "🔁 Автопокупка: у пользователя %s нет активной подписки для продления",
+            "Auto-purchase: user %s has no active subscription to extend",
             user.telegram_id,
         )
         return None
@@ -143,7 +143,7 @@ async def _prepare_auto_extend_context(
         saved_subscription_id = _safe_int(saved_subscription_id, subscription.id)
         if saved_subscription_id != subscription.id:
             logger.warning(
-                "🔁 Автопокупка: сохранённая подписка %s не совпадает с текущей %s у пользователя %s",
+                "Auto-purchase: saved subscription %s does not match current %s for user %s",
                 saved_subscription_id,
                 subscription.id,
                 user.telegram_id,
@@ -159,7 +159,7 @@ async def _prepare_auto_extend_context(
 
     if period_days <= 0:
         logger.warning(
-            "🔁 Автопокупка: некорректное количество дней продления (%s) у пользователя %s",
+            "Auto-purchase: invalid extension days (%s) for user %s",
             period_days,
             user.telegram_id,
         )
@@ -167,13 +167,13 @@ async def _prepare_auto_extend_context(
 
     if price_kopeks <= 0:
         logger.warning(
-            "🔁 Автопокупка: некорректная цена продления (%s) у пользователя %s",
+            "Auto-purchase: invalid extension price (%s) for user %s",
             price_kopeks,
             user.telegram_id,
         )
         return None
 
-    description = cart_data.get("description") or f"Продление подписки на {period_days} дней"
+    description = cart_data.get("description") or f"Subscription extension for {period_days} days"
 
     device_limit = cart_data.get("device_limit")
     if device_limit is not None:
@@ -200,15 +200,12 @@ async def _prepare_auto_extend_context(
 
 def _apply_extension_updates(context: AutoExtendContext) -> None:
     """
-    Применяет обновления лимитов подписки (трафик, устройства, серверы).
-    НЕ изменяет is_trial - это делается позже после успешного коммита продления.
+    Applies subscription limit updates (traffic, devices, servers).
+    Does NOT modify is_trial - this is done later after successful extension commit.
     """
     subscription = context.subscription
 
-    # Обновляем лимиты для триальной подписки
     if subscription.is_trial:
-        # НЕ удаляем триал здесь! Это будет сделано после успешного extend_subscription()
-        # subscription.is_trial = False  # УДАЛЕНО: преждевременное удаление триала
         if context.traffic_limit_gb is not None:
             subscription.traffic_limit_gb = context.traffic_limit_gb
         if context.device_limit is not None:
@@ -216,7 +213,6 @@ def _apply_extension_updates(context: AutoExtendContext) -> None:
         if context.squad_uuid and context.squad_uuid not in (subscription.connected_squads or []):
             subscription.connected_squads = (subscription.connected_squads or []) + [context.squad_uuid]
     else:
-        # Обновляем лимиты для платной подписки
         if context.traffic_limit_gb not in (None, 0):
             subscription.traffic_limit_gb = context.traffic_limit_gb
         if (
@@ -239,7 +235,7 @@ async def _auto_extend_subscription(
         prepared = await _prepare_auto_extend_context(db, user, cart_data)
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "❌ Автопокупка: ошибка подготовки данных продления для пользователя %s: %s",
+            "Auto-purchase: error preparing extension data for user %s: %s",
             user.telegram_id,
             error,
             exc_info=True,
@@ -251,7 +247,7 @@ async def _auto_extend_subscription(
 
     if user.balance_kopeks < prepared.price_kopeks:
         logger.info(
-            "🔁 Автопокупка: у пользователя %s недостаточно средств для продления (%s < %s)",
+            "Auto-purchase: user %s has insufficient funds for extension (%s < %s)",
             user.telegram_id,
             user.balance_kopeks,
             prepared.price_kopeks,
@@ -268,7 +264,7 @@ async def _auto_extend_subscription(
         )
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "❌ Автопокупка: ошибка списания средств при продлении пользователя %s: %s",
+            "Auto-purchase: error deducting funds for user %s extension: %s",
             user.telegram_id,
             error,
             exc_info=True,
@@ -277,14 +273,14 @@ async def _auto_extend_subscription(
 
     if not deducted:
         logger.warning(
-            "❌ Автопокупка: списание средств для продления подписки пользователя %s не выполнено",
+            "Auto-purchase: funds deduction for user %s subscription extension failed",
             user.telegram_id,
         )
         return False
 
     subscription = prepared.subscription
     old_end_date = subscription.end_date
-    was_trial = subscription.is_trial  # Запоминаем, была ли подписка триальной
+    was_trial = subscription.is_trial
 
     _apply_extension_updates(prepared)
 
@@ -295,26 +291,24 @@ async def _auto_extend_subscription(
             prepared.period_days,
         )
 
-        # НОВОЕ: Конвертируем триал в платную подписку ТОЛЬКО после успешного продления
         if was_trial and subscription.is_trial:
             subscription.is_trial = False
             subscription.status = "active"
             user.has_had_paid_subscription = True
             await db.commit()
             logger.info(
-                "✅ Триал конвертирован в платную подписку %s для пользователя %s",
+                "Trial converted to paid subscription %s for user %s",
                 subscription.id,
                 user.telegram_id,
             )
 
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "❌ Автопокупка: не удалось продлить подписку пользователя %s: %s",
+            "Auto-purchase: failed to extend subscription for user %s: %s",
             user.telegram_id,
             error,
             exc_info=True,
         )
-        # НОВОЕ: Откатываем изменения при ошибке
         await db.rollback()
         return False
 
@@ -329,7 +323,7 @@ async def _auto_extend_subscription(
         )
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "⚠️ Автопокупка: не удалось зафиксировать транзакцию продления для пользователя %s: %s",
+            "Auto-purchase: failed to record extension transaction for user %s: %s",
             user.telegram_id,
             error,
             exc_info=True,
@@ -341,11 +335,11 @@ async def _auto_extend_subscription(
             db,
             updated_subscription,
             reset_traffic=settings.RESET_TRAFFIC_ON_PAYMENT,
-            reset_reason="продление подписки",
+            reset_reason="subscription extension",
         )
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "⚠️ Автопокупка: не удалось обновить RemnaWave пользователя %s после продления: %s",
+            "Auto-purchase: failed to update RemnaWave for user %s after extension: %s",
             user.telegram_id,
             error,
         )
@@ -376,7 +370,7 @@ async def _auto_extend_subscription(
             )
         except Exception as error:  # pragma: no cover - defensive logging
             logger.error(
-                "⚠️ Автопокупка: не удалось уведомить администраторов о продлении пользователя %s: %s",
+                "Auto-purchase: failed to notify admins about extension for user %s: %s",
                 user.telegram_id,
                 error,
             )
@@ -426,13 +420,13 @@ async def _auto_extend_subscription(
             )
         except Exception as error:  # pragma: no cover - defensive logging
             logger.error(
-                "⚠️ Автопокупка: не удалось уведомить пользователя %s о продлении: %s",
+                "Auto-purchase: failed to notify user %s about extension: %s",
                 user.telegram_id,
                 error,
             )
 
     logger.info(
-        "✅ Автопокупка: подписка продлена на %s дней для пользователя %s",
+        "Auto-purchase: subscription extended by %s days for user %s",
         prepared.period_days,
         user.telegram_id,
     )
@@ -459,7 +453,7 @@ async def auto_purchase_saved_cart_after_topup(
         return False
 
     logger.info(
-        "🔁 Автопокупка: обнаружена сохранённая корзина у пользователя %s", user.telegram_id
+        "Auto-purchase: saved cart found for user %s", user.telegram_id
     )
 
     cart_mode = cart_data.get("cart_mode") or cart_data.get("mode")
@@ -470,14 +464,14 @@ async def auto_purchase_saved_cart_after_topup(
         prepared = await _prepare_auto_purchase(db, user, cart_data)
     except PurchaseValidationError as error:
         logger.error(
-            "❌ Автопокупка: ошибка валидации корзины пользователя %s: %s",
+            "Auto-purchase: cart validation error for user %s: %s",
             user.telegram_id,
             error,
         )
         return False
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "❌ Автопокупка: непредвиденная ошибка при подготовке корзины %s: %s",
+            "Auto-purchase: unexpected error preparing cart for user %s: %s",
             user.telegram_id,
             error,
             exc_info=True,
@@ -492,7 +486,7 @@ async def auto_purchase_saved_cart_after_topup(
 
     if pricing.final_total <= 0:
         logger.warning(
-            "❌ Автопокупка: итоговая сумма для пользователя %s некорректна (%s)",
+            "Auto-purchase: invalid final total for user %s (%s)",
             user.telegram_id,
             pricing.final_total,
         )
@@ -500,7 +494,7 @@ async def auto_purchase_saved_cart_after_topup(
 
     if user.balance_kopeks < pricing.final_total:
         logger.info(
-            "🔁 Автопокупка: у пользователя %s недостаточно средств (%s < %s)",
+            "Auto-purchase: user %s has insufficient funds (%s < %s)",
             user.telegram_id,
             user.balance_kopeks,
             pricing.final_total,
@@ -517,20 +511,20 @@ async def auto_purchase_saved_cart_after_topup(
         )
     except PurchaseBalanceError:
         logger.info(
-            "🔁 Автопокупка: баланс пользователя %s изменился и стал недостаточным",
+            "Auto-purchase: user %s balance changed and became insufficient",
             user.telegram_id,
         )
         return False
     except PurchaseValidationError as error:
         logger.error(
-            "❌ Автопокупка: не удалось подтвердить корзину пользователя %s: %s",
+            "Auto-purchase: failed to confirm cart for user %s: %s",
             user.telegram_id,
             error,
         )
         return False
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error(
-            "❌ Автопокупка: ошибка оформления подписки для пользователя %s: %s",
+            "Auto-purchase: error processing subscription for user %s: %s",
             user.telegram_id,
             error,
             exc_info=True,
@@ -558,7 +552,7 @@ async def auto_purchase_saved_cart_after_topup(
             )
         except Exception as error:  # pragma: no cover - defensive logging
             logger.error(
-                "⚠️ Автопокупка: не удалось отправить уведомление админам (%s): %s",
+                "Auto-purchase: failed to send admin notification (%s): %s",
                 user.telegram_id,
                 error,
             )
@@ -610,13 +604,13 @@ async def auto_purchase_saved_cart_after_topup(
             )
         except Exception as error:  # pragma: no cover - defensive logging
             logger.error(
-                "⚠️ Автопокупка: не удалось уведомить пользователя %s: %s",
+                "Auto-purchase: failed to notify user %s: %s",
                 user.telegram_id,
                 error,
             )
 
     logger.info(
-        "✅ Автопокупка: подписка на %s дней оформлена для пользователя %s",
+        "Auto-purchase: subscription for %s days completed for user %s",
         selection.period.days,
         user.telegram_id,
     )
