@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from app.config import settings
 from app.database.database import get_db
 from app.database.crud.user import get_user_by_telegram_id, create_user
+from app.localization.texts import get_texts
 from app.services.remnawave_service import RemnaWaveService
 from app.states import RegistrationStates
 from app.utils.check_reg_process import is_registration_process
@@ -27,11 +28,11 @@ async def _refresh_remnawave_description(
         async with remnawave_service.get_api_client() as api:
             await api.update_user(uuid=remnawave_uuid, description=description)
         logger.info(
-            f"✅ [Middleware] Описание пользователя {telegram_id} обновлено в RemnaWave"
+            f"✅ [Middleware] User {telegram_id} description updated in RemnaWave"
         )
     except Exception as remnawave_error:
         logger.error(
-            f"❌ [Middleware] Ошибка обновления RemnaWave для {telegram_id}: {remnawave_error}"
+            f"❌ [Middleware] Error updating RemnaWave for {telegram_id}: {remnawave_error}"
         )
 
 
@@ -86,25 +87,36 @@ class AuthMiddleware(BaseMiddleware):
                         data['is_admin'] = False
                         return await handler(event, data)
                     else:
+                        user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                        texts = get_texts(user_lang)
                         if isinstance(event, Message):
-                            await event.answer(
-                                "▶️ Для начала работы необходимо выполнить команду /start"
+                            message = texts.get(
+                                "START_REQUIRED_MESSAGE",
+                                "▶️ To get started, please use the /start command"
                             )
+                            await event.answer(message)
                         elif isinstance(event, CallbackQuery):
-                            await event.answer(
-                                "▶️ Необходимо начать с команды /start",
-                                show_alert=True
+                            message = texts.get(
+                                "START_REQUIRED_ALERT",
+                                "▶️ You need to start with the /start command"
                             )
+                            await event.answer(message, show_alert=True)
                         logger.info(f"🚫 Blocked unregistered user {user.id}")
                         return
                 else:
                     from app.database.models import UserStatus
                     
                     if db_user.status == UserStatus.BLOCKED.value:
+                        user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                        texts = get_texts(user_lang)
+                        message = texts.get(
+                            "ACCOUNT_BLOCKED",
+                            "🚫 Your account has been blocked by an administrator."
+                        )
                         if isinstance(event, Message):
-                            await event.answer("🚫 Ваш аккаунт заблокирован администратором.")
+                            await event.answer(message)
                         elif isinstance(event, CallbackQuery):
-                            await event.answer("🚫 Ваш аккаунт заблокирован администратором.", show_alert=True)
+                            await event.answer(message, show_alert=True)
                         logger.info(f"🚫 Blocked user {user.id} attempted to use bot")
                         return
                     
@@ -142,16 +154,20 @@ class AuthMiddleware(BaseMiddleware):
                             data['is_admin'] = False
                             return await handler(event, data)
                         else:
+                            user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                            texts = get_texts(user_lang)
                             if isinstance(event, Message):
-                                await event.answer(
-                                    "❌ Ваш аккаунт был удален.\n"
-                                    "🔄 Для повторной регистрации выполните команду /start"
+                                message = texts.get(
+                                    "ACCOUNT_DELETED_MESSAGE",
+                                    "❌ Your account has been deleted.\n🔄 To re-register, please use the /start command"
                                 )
+                                await event.answer(message)
                             elif isinstance(event, CallbackQuery):
-                                await event.answer(
-                                    "❌ Ваш аккаунт был удален. Для повторной регистрации выполните /start",
-                                    show_alert=True
+                                message = texts.get(
+                                    "ACCOUNT_DELETED_ALERT",
+                                    "❌ Your account has been deleted. To re-register, please use /start"
                                 )
+                                await event.answer(message, show_alert=True)
                             logger.info(f"❌ Deleted user {user.id} attempted to use bot without /start")
                             return
                     

@@ -56,12 +56,12 @@ class ChannelCheckerMiddleware(BaseMiddleware):
             return await handler(event, data)
 
 
-        # Админам разрешаем пропускать проверку подписки, чтобы не блокировать
-        # работу панели управления даже при отсутствии подписки. Важно делать
-        # это до обращения к состоянию, чтобы не выполнять лишние операции.
+        # Allow admins to skip subscription check to avoid blocking
+        # admin panel functionality even without subscription. Important to do
+        # this before accessing state to avoid unnecessary operations.
         if settings.is_admin(telegram_id):
             logger.debug(
-                "✅ Пользователь %s является администратором — пропускаем проверку подписки",
+                "✅ User %s is an administrator — skipping subscription check",
                 telegram_id,
             )
             return await handler(event, data)
@@ -97,7 +97,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
 
         if not channel_link:
             logger.warning(
-                "⚠️ CHANNEL_LINK не задан или невалиден, кнопка подписки будет скрыта"
+                "⚠️ CHANNEL_LINK not set or invalid, subscription button will be hidden"
             )
 
         try:
@@ -114,7 +114,18 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                 await self._capture_start_payload(state, event, bot)
 
                 if isinstance(event, CallbackQuery) and event.data == "sub_channel_check":
-                    await event.answer("❌ Вы еще не подписались на канал! Подпишитесь и попробуйте снова.", show_alert=True)
+                    user = None
+                    if isinstance(event, CallbackQuery):
+                        user = event.from_user
+                    language = DEFAULT_LANGUAGE
+                    if user and user.language_code:
+                        language = user.language_code.split('-')[0]
+                    texts = get_texts(language)
+                    message = texts.get(
+                        "CHANNEL_NOT_SUBSCRIBED",
+                        "❌ You haven't subscribed to the channel yet! Subscribe and try again."
+                    )
+                    await event.answer(message, show_alert=True)
                     return
 
                 return await self._deny_message(event, bot, channel_link, channel_id)
@@ -213,7 +224,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
             data = await state.get_data() or {}
         except Exception as error:
             logger.error(
-                "❌ Не удалось получить данные состояния для уведомления по кампании %s: %s",
+                "❌ Failed to get state data for campaign notification %s: %s",
                 payload,
                 error,
             )
@@ -246,7 +257,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                 break
             except Exception as error:
                 logger.error(
-                    "❌ Ошибка отправки уведомления о переходе по кампании %s: %s",
+                    "❌ Error sending campaign visit notification %s: %s",
                     payload,
                     error,
                 )
@@ -259,7 +270,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                 user = await get_user_by_telegram_id(db, telegram_id)
                 if not user or not user.subscription:
                     logger.debug(
-                        "⚠️ Пользователь %s отсутствует или не имеет подписки — пропускаем деактивацию",
+                        "⚠️ User %s not found or has no subscription — skipping deactivation",
                         telegram_id,
                     )
                     break
@@ -268,7 +279,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                 if (not subscription.is_trial or
                         subscription.status != SubscriptionStatus.ACTIVE.value):
                     logger.debug(
-                        "ℹ️ Подписка пользователя %s не требует деактивации (trial=%s, status=%s)",
+                        "ℹ️ User %s subscription does not require deactivation (trial=%s, status=%s)",
                         telegram_id,
                         subscription.is_trial,
                         subscription.status,
@@ -277,7 +288,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
 
                 await deactivate_subscription(db, subscription)
                 logger.info(
-                    "🚫 Триальная подписка пользователя %s отключена после отписки от канала",
+                    "🚫 Trial subscription for user %s disabled after channel unsubscription",
                     telegram_id,
                 )
 
@@ -287,13 +298,13 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                         await service.disable_remnawave_user(user.remnawave_uuid)
                     except Exception as api_error:
                         logger.error(
-                            "❌ Не удалось отключить пользователя RemnaWave %s: %s",
+                            "❌ Failed to disable RemnaWave user %s: %s",
                             user.remnawave_uuid,
                             api_error,
                         )
             except Exception as db_error:
                 logger.error(
-                    "❌ Ошибка деактивации подписки пользователя %s после отписки: %s",
+                    "❌ Error deactivating subscription for user %s after unsubscription: %s",
                     telegram_id,
                     db_error,
                 )
@@ -324,9 +335,9 @@ class ChannelCheckerMiddleware(BaseMiddleware):
 
         texts = get_texts(language)
         channel_sub_kb = get_channel_sub_keyboard(channel_link, language=language)
-        text = texts.t(
+        text = texts.get(
             "CHANNEL_REQUIRED_TEXT",
-            "🔒 Для использования бота подпишитесь на новостной канал, чтобы получать уведомления о новых возможностях и обновлениях бота. Спасибо!",
+            "🔒 To use the bot, please subscribe to our news channel to receive notifications about new features and bot updates. Thank you!",
         )
 
         if not channel_link and channel_id:

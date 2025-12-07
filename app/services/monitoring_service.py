@@ -225,7 +225,7 @@ class MonitoringService:
                 )
                 
             except Exception as e:
-                logger.error(f"Ошибка в цикле мониторинга: {e}")
+                logger.error(f"Error in monitoring cycle: {e}")
                 await self._log_monitoring_event(
                     db, "monitoring_cycle_error", 
                     f"Error in monitoring cycle: {str(e)}", 
@@ -329,10 +329,10 @@ class MonitoringService:
                 return updated_user
                 
         except RemnaWaveAPIError as e:
-            logger.error(f"Ошибка обновления RemnaWave пользователя: {e}")
+            logger.error(f"Error updating RemnaWave user: {e}")
             return None
         except Exception as e:
-            logger.error(f"Ошибка обновления RemnaWave пользователя: {e}")
+            logger.error(f"Error updating RemnaWave user: {e}")
             return None
     
     async def _check_expiring_subscriptions(self, db: AsyncSession):
@@ -1026,8 +1026,14 @@ Your subscription has expired. To restore access, renew your subscription.
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(text="💎 Купить подписку", callback_data="menu_buy")],
-                [build_miniapp_or_callback_button(text="💳 Пополнить баланс", callback_data="balance_topup")],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"),
+                    callback_data="menu_buy"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
+                    callback_data="balance_topup"
+                )],
             ])
 
             await self._send_message_with_logo(
@@ -1042,14 +1048,14 @@ Your subscription has expired. To restore access, renew your subscription.
             if self._handle_unreachable_user(user, exc, "subscription expiration notification"):
                 return True
             logger.error(
-                "Ошибка Telegram API при отправке уведомления об истечении подписки пользователю %s: %s",
+                "Telegram API error sending subscription expiration notification to user %s: %s",
                 user.telegram_id,
                 exc,
             )
             return False
         except Exception as e:
             logger.error(
-                "Ошибка отправки уведомления об истечении подписки пользователю %s: %s",
+                "Error sending subscription expiration notification to user %s: %s",
                 user.telegram_id,
                 e,
             )
@@ -1082,9 +1088,18 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(text="⏰ Продлить подписку", callback_data="subscription_extend")],
-                [build_miniapp_or_callback_button(text="💳 Пополнить баланс", callback_data="balance_topup")],
-                [build_miniapp_or_callback_button(text="📱 Моя подписка", callback_data="menu_subscription")],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "⏰ Extend subscription"),
+                    callback_data="subscription_extend"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
+                    callback_data="balance_topup"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
+                    callback_data="menu_subscription"
+                )],
             ])
 
             await self._send_message_with_logo(
@@ -1099,14 +1114,14 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
             if self._handle_unreachable_user(user, exc, "expiring subscription notification"):
                 return True
             logger.error(
-                "Ошибка Telegram API при отправке уведомления об истечении подписки пользователю %s: %s",
+                "Telegram API error sending expiring subscription notification to user %s: %s",
                 user.telegram_id,
                 exc,
             )
             return False
         except Exception as e:
             logger.error(
-                "Ошибка отправки уведомления об истечении подписки пользователю %s: %s",
+                "Error sending expiring subscription notification to user %s: %s",
                 user.telegram_id,
                 e,
             )
@@ -1189,8 +1204,14 @@ Switch to a full subscription!
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(text="💎 Купить подписку", callback_data="menu_buy")],
-                [build_miniapp_or_callback_button(text="💰 Пополнить баланс", callback_data="balance_topup")],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"),
+                    callback_data="menu_buy"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💰 Top up balance"),
+                    callback_data="balance_topup"
+                )],
             ])
 
             await self._send_message_with_logo(
@@ -1248,14 +1269,14 @@ Switch to a full subscription!
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [build_miniapp_or_callback_button(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Подключиться"),
+                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
                     callback_data="subscription_connect",
                 )],
                 [build_miniapp_or_callback_button(
-                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 Моя подписка"),
+                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
                     callback_data="menu_subscription",
                 )],
-                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Поддержка"), callback_data="menu_support")],
+                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
             ])
 
             await self._send_message_with_logo(
@@ -1305,7 +1326,7 @@ Switch to a full subscription!
                 buttons.append(
                     [
                         InlineKeyboardButton(
-                            text=texts.t("CHANNEL_SUBSCRIBE_BUTTON", "🔗 Подписаться"),
+                            text=texts.t("CHANNEL_SUBSCRIBE_BUTTON", "🔗 Subscribe"),
                             url=settings.CHANNEL_LINK,
                         )
                     ]
@@ -1365,14 +1386,14 @@ Switch to a full subscription!
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [build_miniapp_or_callback_button(
-                    text=texts.t("SUBSCRIPTION_EXTEND", "💎 Продлить подписку"),
+                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
                     callback_data="subscription_extend",
                 )],
                 [build_miniapp_or_callback_button(
-                    text=texts.t("BALANCE_TOPUP", "💳 Пополнить баланс"),
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
                     callback_data="balance_topup",
                 )],
-                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Поддержка"), callback_data="menu_support")],
+                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
             ])
 
             await self._send_message_with_logo(
@@ -1441,16 +1462,22 @@ Switch to a full subscription!
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(text="🎁 Получить скидку", callback_data=f"claim_discount_{offer_id}")],
                 [build_miniapp_or_callback_button(
-                    text=texts.t("SUBSCRIPTION_EXTEND", "💎 Продлить подписку"),
+                    text=texts.t("BUTTON_CLAIM_DISCOUNT", "🎁 Claim discount"),
+                    callback_data=f"claim_discount_{offer_id}"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
                     callback_data="subscription_extend",
                 )],
                 [build_miniapp_or_callback_button(
-                    text=texts.t("BALANCE_TOPUP", "💳 Пополнить баланс"),
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
                     callback_data="balance_topup",
                 )],
-                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Поддержка"), callback_data="menu_support")],
+                [InlineKeyboardButton(
+                    text=texts.t("SUPPORT_BUTTON", "🆘 Support"),
+                    callback_data="menu_support"
+                )],
             ])
 
             await self._send_message_with_logo(
@@ -1515,8 +1542,14 @@ Switch to a full subscription!
             from aiogram.types import InlineKeyboardMarkup
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(text="💳 Пополнить баланс", callback_data="balance_topup")],
-                [build_miniapp_or_callback_button(text="📱 Моя подписка", callback_data="menu_subscription")],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
+                    callback_data="balance_topup"
+                )],
+                [build_miniapp_or_callback_button(
+                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
+                    callback_data="menu_subscription"
+                )],
             ])
             
             await self._send_message_with_logo(

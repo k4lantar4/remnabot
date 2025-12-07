@@ -6,6 +6,9 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 from aiogram.fsm.context import FSMContext
 
+from app.localization.texts import get_texts
+from app.localization.loader import DEFAULT_LANGUAGE
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,16 +38,16 @@ class ThrottlingMiddleware(BaseMiddleware):
         if now - last_call < self.rate_limit:
             logger.warning(f"🚫 Throttling for user {user_id}")
 
-            # Для сообщений: молчим только если это состояние работы с тикетами; иначе показываем блок
+            # For messages: silently ignore only if in ticket states; otherwise show block
             if isinstance(event, Message):
                 try:
-                    fsm: FSMContext = data.get("state")  # может отсутствовать
+                    fsm: FSMContext = data.get("state")  # may be absent
                     current = await fsm.get_state() if fsm else None
                 except Exception:
                     current = None
                 is_ticket_state = False
                 if current:
-                    # Молчим только в состояниях работы с тикетами (user/admin): waiting_for_message / waiting_for_reply
+                    # Silently ignore only in ticket states (user/admin): waiting_for_message / waiting_for_reply
                     lowered = str(current)
                     is_ticket_state = (
                         (":waiting_for_message" in lowered or ":waiting_for_reply" in lowered) and
@@ -52,12 +55,30 @@ class ThrottlingMiddleware(BaseMiddleware):
                     )
                 if is_ticket_state:
                     return
-                # В остальных случаях — явный блок
-                await event.answer("⏳ Пожалуйста, не отправляйте сообщения так часто!")
+                # In other cases — explicit block
+                user = event.from_user
+                language = DEFAULT_LANGUAGE
+                if user and user.language_code:
+                    language = user.language_code.split('-')[0]
+                texts = get_texts(language)
+                message = texts.get(
+                    "THROTTLING_MESSAGE",
+                    "⏳ Please don't send messages so frequently!"
+                )
+                await event.answer(message)
                 return
-            # Для callback допустим краткое уведомление
+            # For callbacks, allow brief notification
             elif isinstance(event, CallbackQuery):
-                await event.answer("⏳ Слишком быстро! Подождите немного.", show_alert=True)
+                user = event.from_user
+                language = DEFAULT_LANGUAGE
+                if user and user.language_code:
+                    language = user.language_code.split('-')[0]
+                texts = get_texts(language)
+                message = texts.get(
+                    "THROTTLING_CALLBACK",
+                    "⏳ Too fast! Please wait a moment."
+                )
+                await event.answer(message, show_alert=True)
                 return
         
         self.user_buckets[user_id] = now
