@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class HealthFeatureFlags(BaseModel):
-    """Флаги доступности функций административного API."""
+    """Availability flags for administrative API features."""
 
     monitoring: bool
     maintenance: bool
@@ -15,7 +15,7 @@ class HealthFeatureFlags(BaseModel):
 
 
 class HealthCheckResponse(BaseModel):
-    """Ответ на health-check административного API."""
+    """Response for administrative API health check."""
 
     status: str
     api_version: str

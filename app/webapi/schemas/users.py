@@ -84,5 +84,5 @@ class UserUpdateRequest(BaseModel):
 
 class BalanceUpdateRequest(BaseModel):
     amount_kopeks: int
-    description: Optional[str] = Field(default="Корректировка через веб-API")
+    description: Optional[str] = Field(default="Adjustment via web API")
     create_transaction: bool = True

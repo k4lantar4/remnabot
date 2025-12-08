@@ -9,24 +9,24 @@ from pydantic import BaseModel, Field
 class RichTextPageResponse(BaseModel):
     """Generic representation for rich text informational pages."""
 
-    requested_language: str = Field(..., description="Язык, запрошенный клиентом")
-    language: str = Field(..., description="Фактический язык найденной записи")
+    requested_language: str = Field(..., description="Language requested by client")
+    language: str = Field(..., description="Actual language of the found record")
     is_enabled: Optional[bool] = Field(
         default=None,
-        description="Текущий статус публикации страницы (если применимо)",
+        description="Current publication status of the page (if applicable)",
     )
-    content: str = Field(..., description="Полное содержимое страницы")
+    content: str = Field(..., description="Full page content")
     content_pages: List[str] = Field(
         default_factory=list,
-        description="Содержимое, разбитое на страницы фиксированной длины",
+        description="Content split into fixed-length pages",
     )
     created_at: Optional[datetime] = Field(
         default=None,
-        description="Дата создания записи",
+        description="Record creation date",
     )
     updated_at: Optional[datetime] = Field(
         default=None,
-        description="Дата последнего обновления записи",
+        description="Last update date",
     )
 
 
@@ -35,12 +35,12 @@ class RichTextPageUpdateRequest(BaseModel):
         default="ru",
         min_length=2,
         max_length=10,
-        description="Язык, для которого выполняется обновление",
+        description="Language being updated",
     )
-    content: str = Field(..., description="Новое содержимое страницы")
+    content: str = Field(..., description="New page content")
     is_enabled: Optional[bool] = Field(
         default=None,
-        description="Если указано — обновить статус публикации",
+        description="If provided, update publication status",
     )
 
 
@@ -69,18 +69,18 @@ class FaqPageCreateRequest(BaseModel):
         default="ru",
         min_length=2,
         max_length=10,
-        description="Язык создаваемой страницы",
+        description="Language of the page being created",
     )
     title: str = Field(..., min_length=1, max_length=255)
     content: str = Field(...)
     display_order: Optional[int] = Field(
         default=None,
         ge=0,
-        description="Порядок отображения (если не указан — будет рассчитан автоматически)",
+        description="Display order (calculated automatically if not provided)",
     )
     is_active: Optional[bool] = Field(
         default=True,
-        description="Начальный статус активности страницы",
+        description="Initial page activity status",
     )
 
 
@@ -101,7 +101,7 @@ class FaqReorderRequest(BaseModel):
         default="ru",
         min_length=2,
         max_length=10,
-        description="Язык, для которого применяется сортировка",
+        description="Language to which sorting applies",
     )
     items: List[FaqReorderItem]
 
@@ -136,10 +136,10 @@ class ServiceRulesUpdateRequest(BaseModel):
         default="ru",
         min_length=2,
         max_length=10,
-        description="Язык, для которого обновляются правила",
+        description="Language for which rules are updated",
     )
     title: Optional[str] = Field(
-        default="Правила сервиса",
+        default="Service rules",
         min_length=1,
         max_length=255,
     )

@@ -107,19 +107,19 @@ class AutoPaymentVerificationService:
         await self.stop()
 
         if not settings.is_payment_verification_auto_check_enabled():
-            logger.info("Автопроверка пополнений отключена настройками")
+            logger.info("Auto payment verification disabled by settings")
             return
 
         if not self._payment_service:
             logger.warning(
-                "Автопроверка пополнений не запущена: PaymentService не инициализирован"
+                "Auto payment verification not started: PaymentService not initialized"
             )
             return
 
         methods = get_enabled_auto_methods()
         if not methods:
             logger.info(
-                "Автопроверка пополнений не запущена: нет активных провайдеров"
+                "Auto payment verification not started: no active providers"
             )
             return
 
@@ -130,7 +130,7 @@ class AutoPaymentVerificationService:
 
         self._task = asyncio.create_task(self._auto_check_loop())
         logger.info(
-            "🔄 Автопроверка пополнений запущена (каждые %s мин) для: %s",
+            "🔄 Auto payment verification started (every %s min) for: %s",
             interval_minutes,
             display_names,
         )
@@ -158,24 +158,24 @@ class AutoPaymentVerificationService:
                             await self._run_checks(methods)
                         else:
                             logger.debug(
-                                "Автопроверка пополнений: активных провайдеров нет"
+                                "Auto payment verification: no active providers"
                             )
                     else:
                         logger.debug(
-                            "Автопроверка пополнений: отключена настройками или сервис не готов"
+                            "Auto payment verification: disabled by settings or service not ready"
                         )
                 except asyncio.CancelledError:
                     raise
-                except Exception as error:  # noqa: BLE001 - логируем непредвиденные ошибки
+                except Exception as error:  # noqa: BLE001 - log unexpected errors
                     logger.error(
-                        "Ошибка автопроверки пополнений: %s",
+                        "Auto payment verification error: %s",
                         error,
                         exc_info=True,
                     )
 
                 await asyncio.sleep(max(1, interval_minutes) * 60)
         except asyncio.CancelledError:
-            logger.info("Автопроверка пополнений остановлена")
+            logger.info("Auto payment verification stopped")
             raise
 
     async def _run_checks(self, methods: List[PaymentMethod]) -> None:
@@ -193,7 +193,7 @@ class AutoPaymentVerificationService:
 
                 if not candidates:
                     logger.debug(
-                        "Автопроверка пополнений: подходящих ожидающих платежей нет"
+                        "Auto payment verification: no suitable pending payments"
                     )
                     return
 
@@ -205,7 +205,7 @@ class AutoPaymentVerificationService:
                     )
                 )
                 logger.info(
-                    "🔄 Автопроверка пополнений: найдено %s инвойсов (%s)",
+                    "🔄 Auto payment verification: found %s invoices (%s)",
                     len(candidates),
                     summary,
                 )
@@ -220,7 +220,7 @@ class AutoPaymentVerificationService:
 
                     if not refreshed:
                         logger.debug(
-                            "Автопроверка пополнений: не удалось обновить %s %s",
+                            "Auto payment verification: failed to update %s %s",
                             method_display_name(record.method),
                             record.identifier,
                         )
@@ -228,13 +228,13 @@ class AutoPaymentVerificationService:
 
                     if refreshed.is_paid and not record.is_paid:
                         logger.info(
-                            "✅ %s %s отмечен как оплаченный после автопроверки",
+                            "✅ %s %s marked as paid after auto verification",
                             method_display_name(refreshed.method),
                             refreshed.identifier,
                         )
                     elif refreshed.status != record.status:
                         logger.info(
-                            "ℹ️ %s %s обновлён: %s → %s",
+                            "ℹ️ %s %s updated: %s → %s",
                             method_display_name(refreshed.method),
                             refreshed.identifier,
                             record.status or "—",
@@ -242,7 +242,7 @@ class AutoPaymentVerificationService:
                         )
                     else:
                         logger.debug(
-                            "Автопроверка пополнений: %s %s без изменений (%s)",
+                            "Auto payment verification: %s %s no changes (%s)",
                             method_display_name(refreshed.method),
                             refreshed.identifier,
                             refreshed.status or "—",

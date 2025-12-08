@@ -61,7 +61,7 @@ class WebhookServer:
             await self.site.start()
 
             logger.info(
-                "Webhook сервер запущен на %s:%s",
+                "Webhook server started on %s:%s",
                 settings.TRIBUTE_WEBHOOK_HOST,
                 settings.TRIBUTE_WEBHOOK_PORT,
             )
@@ -89,7 +89,7 @@ class WebhookServer:
                 )
             
         except Exception as e:
-            logger.error(f"Ошибка запуска webhook сервера: {e}")
+            logger.error(f"Error starting webhook server: {e}")
             raise
     
     async def stop(self):
@@ -97,14 +97,14 @@ class WebhookServer:
         try:
             if self.site:
                 await self.site.stop()
-                logger.info("Webhook сайт остановлен")
+                logger.info("Webhook site stopped")
             
             if self.runner:
                 await self.runner.cleanup()
-                logger.info("Webhook runner очищен")
+                logger.info("Webhook runner cleaned up")
                 
         except Exception as e:
-            logger.error(f"Ошибка остановки webhook сервера: {e}")
+            logger.error(f"Error stopping webhook server: {e}")
     
     async def _options_handler(self, request: web.Request) -> web.Response:
         return web.Response(
@@ -130,14 +130,14 @@ class WebhookServer:
                 mulenpay_name,
                 dict(request.headers),
             )
-            raw_body = await request.read()
+        raw_body = await request.read()
 
-            if not raw_body:
-                logger.warning("Пустой %s webhook", mulenpay_name)
-                return web.json_response({"status": "error", "reason": "empty_body"}, status=400)
+        if not raw_body:
+            logger.warning("Empty %s webhook", mulenpay_name)
+            return web.json_response({"status": "error", "reason": "empty_body"}, status=400)
 
-            # Временно отключаем проверку подписи для отладки
-            # TODO: Включить обратно после настройки MulenPay
+        # Temporarily disable signature verification for debugging
+        # TODO: Re-enable after MulenPay configuration
             if not self._verify_mulenpay_signature(request, raw_body):
                 logger.warning(
                     "%s webhook signature verification failed, but processing anyway for debugging",
@@ -145,29 +145,28 @@ class WebhookServer:
                 )
                 # return web.json_response({"status": "error", "reason": "invalid_signature"}, status=401)
 
-            try:
-                payload = json.loads(raw_body.decode('utf-8'))
-            except json.JSONDecodeError as error:
-                logger.error(f"Ошибка парсинга {mulenpay_name} webhook: {error}")
-                return web.json_response({"status": "error", "reason": "invalid_json"}, status=400)
+        try:
+            payload = json.loads(raw_body.decode('utf-8'))
+        except json.JSONDecodeError as error:
+            logger.error(f"Error parsing {mulenpay_name} webhook: {error}")
+            return web.json_response({"status": "error", "reason": "invalid_json"}, status=400)
 
-            payment_service = PaymentService(self.bot)
+        payment_service = PaymentService(self.bot)
 
-            # Получаем соединение с БД
-            db_generator = get_db()
-            db = await db_generator.__anext__()
-            
-            try:
-                success = await payment_service.process_mulenpay_callback(db, payload)
-                if success:
-                    return web.json_response({"status": "ok"}, status=200)
-                return web.json_response({"status": "error", "reason": "processing_failed"}, status=400)
-            except Exception as error:
-                logger.error(
-                    f"Ошибка обработки {mulenpay_name} webhook: {error}",
-                    exc_info=True,
-                )
-                return web.json_response({"status": "error", "reason": "internal_error"}, status=500)
+        db_generator = get_db()
+        db = await db_generator.__anext__()
+        
+        try:
+            success = await payment_service.process_mulenpay_callback(db, payload)
+            if success:
+                return web.json_response({"status": "ok"}, status=200)
+            return web.json_response({"status": "error", "reason": "processing_failed"}, status=400)
+        except Exception as error:
+            logger.error(
+                f"Error processing {mulenpay_name} webhook: {error}",
+                exc_info=True,
+            )
+            return web.json_response({"status": "error", "reason": "internal_error"}, status=500)
             finally:
                 try:
                     await db_generator.__anext__()
@@ -177,7 +176,7 @@ class WebhookServer:
         except Exception as error:
             mulenpay_name = settings.get_mulenpay_display_name()
             logger.error(
-                f"Критическая ошибка {mulenpay_name} webhook: {error}",
+                f"Critical error in {mulenpay_name} webhook: {error}",
                 exc_info=True,
             )
             return web.json_response({"status": "error", "reason": "internal_error", "message": str(error)}, status=500)
@@ -198,7 +197,6 @@ class WebhookServer:
             logger.error("%s secret key is not configured", display_name)
             return False
 
-        # Логируем все заголовки для отладки
         logger.info("%s webhook headers for signature verification:", display_name)
         for header_name, header_value in request.headers.items():
             if any(keyword in header_name.lower() for keyword in ['signature', 'sign', 'token', 'auth']):
@@ -250,7 +248,7 @@ class WebhookServer:
             if hmac.compare_digest(normalized_signature_no_padding, expected_urlsafe_base64_signature.rstrip('=')):
                 return True
 
-            logger.error("Неверная подпись %s webhook", display_name)
+            logger.error("Invalid %s webhook signature", display_name)
             return False
 
         authorization_header = request.headers.get('Authorization')
@@ -263,7 +261,7 @@ class WebhookServer:
                 if hmac.compare_digest(token, secret_key):
                     return True
 
-                logger.error("Неверный %s токен %s webhook", scheme, display_name)
+                logger.error("Invalid %s token for %s webhook", scheme, display_name)
                 return False
 
             if not value and hmac.compare_digest(token, secret_key):
@@ -286,19 +284,19 @@ class WebhookServer:
             {key: value for key, value in request.headers.items() if 'authorization' not in key.lower()}
         )
 
-        logger.error("Отсутствует подпись %s webhook", display_name)
+        logger.error("Missing %s webhook signature", display_name)
         return False
 
     async def _tribute_webhook_handler(self, request: web.Request) -> web.Response:
 
         try:
-            logger.info(f"Получен Tribute webhook: {request.method} {request.path}")
+            logger.info(f"Received Tribute webhook: {request.method} {request.path}")
             logger.info(f"Headers: {dict(request.headers)}")
             
             raw_body = await request.read()
             
             if not raw_body:
-                logger.warning("Получен пустой webhook от Tribute")
+                logger.warning("Received empty webhook from Tribute")
                 return web.json_response(
                     {"status": "error", "reason": "empty_body"},
                     status=400
@@ -309,9 +307,9 @@ class WebhookServer:
             
             try:
                 webhook_data = json.loads(payload)
-                logger.info(f"Распарсенные данные: {webhook_data}")
+                logger.info(f"Parsed data: {webhook_data}")
             except json.JSONDecodeError as e:
-                logger.error(f"Ошибка парсинга JSON: {e}")
+                logger.error(f"Error parsing JSON: {e}")
                 return web.json_response(
                     {"status": "error", "reason": "invalid_json"},
                     status=400
@@ -321,7 +319,7 @@ class WebhookServer:
             logger.info(f"Signature: {signature}")
 
             if not signature:
-                logger.error("Отсутствует заголовок подписи Tribute webhook")
+                logger.error("Missing Tribute webhook signature header")
                 return web.json_response(
                     {"status": "error", "reason": "missing_signature"},
                     status=401
@@ -331,7 +329,7 @@ class WebhookServer:
                 from app.external.tribute import TributeService as TributeAPI
                 tribute_api = TributeAPI()
                 if not tribute_api.verify_webhook_signature(payload, signature):
-                    logger.error("Неверная подпись Tribute webhook")
+                    logger.error("Invalid Tribute webhook signature")
                     return web.json_response(
                         {"status": "error", "reason": "invalid_signature"},
                         status=401
@@ -340,17 +338,17 @@ class WebhookServer:
             result = await self.tribute_service.process_webhook(payload)
             
             if result:
-                logger.info(f"Tribute webhook обработан успешно: {result}")
+                logger.info(f"Tribute webhook processed successfully: {result}")
                 return web.json_response({"status": "ok", "result": result}, status=200)
             else:
-                logger.error("Ошибка обработки Tribute webhook")
+                logger.error("Error processing Tribute webhook")
                 return web.json_response(
                     {"status": "error", "reason": "processing_failed"},
                     status=400
                 )
             
         except Exception as e:
-            logger.error(f"Критическая ошибка обработки Tribute webhook: {e}", exc_info=True)
+            logger.error(f"Critical error processing Tribute webhook: {e}", exc_info=True)
             return web.json_response(
                 {"status": "error", "reason": "internal_error", "message": str(e)},
                 status=500
@@ -359,13 +357,13 @@ class WebhookServer:
     async def _cryptobot_webhook_handler(self, request: web.Request) -> web.Response:
         
         try:
-            logger.info(f"Получен CryptoBot webhook: {request.method} {request.path}")
+            logger.info(f"Received CryptoBot webhook: {request.method} {request.path}")
             logger.info(f"Headers: {dict(request.headers)}")
             
             raw_body = await request.read()
             
             if not raw_body:
-                logger.warning("Получен пустой CryptoBot webhook")
+                logger.warning("Received empty CryptoBot webhook")
                 return web.json_response(
                     {"status": "error", "reason": "empty_body"},
                     status=400
@@ -376,9 +374,9 @@ class WebhookServer:
             
             try:
                 webhook_data = json.loads(payload)
-                logger.info(f"CryptoBot данные: {webhook_data}")
+                logger.info(f"CryptoBot data: {webhook_data}")
             except json.JSONDecodeError as e:
-                logger.error(f"Ошибка парсинга CryptoBot JSON: {e}")
+                logger.error(f"Error parsing CryptoBot JSON: {e}")
                 return web.json_response(
                     {"status": "error", "reason": "invalid_json"},
                     status=400
@@ -391,7 +389,7 @@ class WebhookServer:
                 from app.external.cryptobot import CryptoBotService
                 cryptobot_service = CryptoBotService()
                 if not cryptobot_service.verify_webhook_signature(payload, signature):
-                    logger.error("Неверная подпись CryptoBot webhook")
+                    logger.error("Invalid CryptoBot webhook signature")
                     return web.json_response(
                         {"status": "error", "reason": "invalid_signature"},
                         status=401
@@ -406,17 +404,17 @@ class WebhookServer:
                 result = await payment_service.process_cryptobot_webhook(db, webhook_data)
             
             if result:
-                logger.info(f"CryptoBot webhook обработан успешно")
+                logger.info(f"CryptoBot webhook processed successfully")
                 return web.json_response({"status": "ok"}, status=200)
             else:
-                logger.error("Ошибка обработки CryptoBot webhook")
+                logger.error("Error processing CryptoBot webhook")
                 return web.json_response(
                     {"status": "error", "reason": "processing_failed"},
                     status=400
                 )
             
         except Exception as e:
-            logger.error(f"Критическая ошибка обработки CryptoBot webhook: {e}", exc_info=True)
+            logger.error(f"Critical error processing CryptoBot webhook: {e}", exc_info=True)
             return web.json_response(
                 {"status": "error", "reason": "internal_error", "message": str(e)},
                 status=500

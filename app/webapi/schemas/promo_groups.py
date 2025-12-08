@@ -43,8 +43,8 @@ class _PromoGroupBase(BaseModel):
     period_discounts: Optional[Dict[int, int]] = Field(
         default=None,
         description=(
-            "Словарь скидок по длительности подписки. Ключ — количество месяцев, "
-            "значение — скидка в процентах. Например: {1: 10, 6: 20}."
+            "Dictionary of discounts by subscription duration. Key is number of months, "
+            "value is discount percent. Example: {1: 10, 6: 20}."
         ),
         example={1: 10, 6: 20},
     )

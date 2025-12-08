@@ -28,25 +28,20 @@ async def show_referral_statistics(
             avg_per_referrer = stats.get('total_paid_kopeks', 0) / stats['active_referrers']
         
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        texts = get_texts(db_user.language)
         
-        text = f"""
-🤝 <b>Реферальная статистика</b>
-
-<b>Общие показатели:</b>
-- Пользователей с рефералами: {stats.get('users_with_referrals', 0)}
-- Активных рефереров: {stats.get('active_referrers', 0)}
-- Выплачено всего: {settings.format_price(stats.get('total_paid_kopeks', 0))}
-
-<b>За период:</b>
-- Сегодня: {settings.format_price(stats.get('today_earnings_kopeks', 0))}
-- За неделю: {settings.format_price(stats.get('week_earnings_kopeks', 0))}
-- За месяц: {settings.format_price(stats.get('month_earnings_kopeks', 0))}
-
-<b>Средние показатели:</b>
-- На одного реферера: {settings.format_price(int(avg_per_referrer))}
-
-<b>Топ-5 рефереров:</b>
-"""
+        text = texts.t("ADMIN_REFERRAL_TITLE", "🤝 <b>Referral statistics</b>") + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_GENERAL_METRICS", "<b>General metrics:</b>") + "\n"
+        text += texts.t("ADMIN_REFERRAL_USERS_WITH_REFERRALS", "- Users with referrals: {count}").format(count=stats.get('users_with_referrals', 0)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_ACTIVE_REFERRERS", "- Active referrers: {count}").format(count=stats.get('active_referrers', 0)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_TOTAL_PAID", "- Total paid: {amount}").format(amount=settings.format_price(stats.get('total_paid_kopeks', 0))) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_PERIOD_TITLE", "<b>Period earnings:</b>") + "\n"
+        text += texts.t("ADMIN_REFERRAL_TODAY", "- Today: {amount}").format(amount=settings.format_price(stats.get('today_earnings_kopeks', 0))) + "\n"
+        text += texts.t("ADMIN_REFERRAL_WEEK", "- This week: {amount}").format(amount=settings.format_price(stats.get('week_earnings_kopeks', 0))) + "\n"
+        text += texts.t("ADMIN_REFERRAL_MONTH", "- This month: {amount}").format(amount=settings.format_price(stats.get('month_earnings_kopeks', 0))) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_AVERAGES", "<b>Averages:</b>") + "\n"
+        text += texts.t("ADMIN_REFERRAL_PER_REFERRER", "- Per referrer: {amount}").format(amount=settings.format_price(int(avg_per_referrer))) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_TOP_5", "<b>Top 5 referrers:</b>") + "\n"
         
         top_referrers = stats.get('top_referrers', [])
         if top_referrers:
@@ -56,69 +51,64 @@ async def show_referral_statistics(
                 user_id = referrer.get('user_id', 'N/A')
                 
                 if count > 0:
-                    text += f"{i}. ID {user_id}: {settings.format_price(earned)} ({count} реф.)\n"
+                    text += texts.t("ADMIN_REFERRAL_TOP_ITEM", "{i}. ID {user_id}: {amount} ({count} ref.)").format(
+                        i=i, user_id=user_id, amount=settings.format_price(earned), count=count
+                    ) + "\n"
                 else:
-                    logger.warning(f"Реферер {user_id} имеет {count} рефералов, но есть в топе")
+                    logger.warning(f"Referrer {user_id} has {count} referrals but is in top")
         else:
-            text += "Нет данных\n"
+            text += texts.t("ADMIN_REFERRAL_NO_DATA", "No data") + "\n"
         
-        text += f"""
-
-<b>Настройки реферальной системы:</b>
-- Минимальное пополнение: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}
-- Бонус за первое пополнение: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}
-- Бонус пригласившему: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}
-- Комиссия с покупок: {settings.REFERRAL_COMMISSION_PERCENT}%
-- Уведомления: {'✅ Включены' if settings.REFERRAL_NOTIFICATIONS_ENABLED else '❌ Отключены'}
-
-<i>🕐 Обновлено: {current_time}</i>
-"""
+        text += "\n" + texts.t("ADMIN_REFERRAL_SETTINGS_TITLE", "<b>Referral system settings:</b>") + "\n"
+        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_COMMISSION", "- Purchase commission: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n"
+        notifications_status = texts.t("ADMIN_REFERRAL_NOTIFICATIONS_ENABLED", "✅ Enabled") if settings.REFERRAL_NOTIFICATIONS_ENABLED else texts.t("ADMIN_REFERRAL_NOTIFICATIONS_DISABLED", "❌ Disabled")
+        text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS", "- Notifications: {status}").format(status=notifications_status) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_UPDATED_AT", "<i>🕐 Updated: {time}</i>").format(time=current_time)
         
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_referrals")],
-            [types.InlineKeyboardButton(text="👥 Топ рефереров", callback_data="admin_referrals_top")],
-            [types.InlineKeyboardButton(text="⚙️ Настройки", callback_data="admin_referrals_settings")],
-            [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_referrals")],
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_TOP", "👥 Top referrers"), callback_data="admin_referrals_top")],
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_SETTINGS", "⚙️ Settings"), callback_data="admin_referrals_settings")],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_panel")]
         ])
         
         try:
             await callback.message.edit_text(text, reply_markup=keyboard)
-            await callback.answer("Обновлено")
+            await callback.answer(texts.t("ADMIN_REFERRAL_REFRESHED", "Refreshed"))
         except Exception as edit_error:
             if "message is not modified" in str(edit_error):
-                await callback.answer("Данные актуальны")
+                await callback.answer(texts.t("ADMIN_REFERRAL_DATA_CURRENT", "Data is current"))
             else:
-                logger.error(f"Ошибка редактирования сообщения: {edit_error}")
-                await callback.answer("Ошибка обновления")
+                logger.error(f"Error editing message: {edit_error}")
+                await callback.answer(texts.t("ADMIN_REFERRAL_ERROR_UPDATE", "Update error"))
         
     except Exception as e:
-        logger.error(f"Ошибка в show_referral_statistics: {e}", exc_info=True)
+        logger.error(f"Error in show_referral_statistics: {e}", exc_info=True)
+        texts = get_texts(db_user.language)
         
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
-        text = f"""
-🤝 <b>Реферальная статистика</b>
-
-❌ <b>Ошибка загрузки данных</b>
-
-<b>Текущие настройки:</b>
-- Минимальное пополнение: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}
-- Бонус за первое пополнение: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}
-- Бонус пригласившему: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}
-- Комиссия с покупок: {settings.REFERRAL_COMMISSION_PERCENT}%
-
-<i>🕐 Время: {current_time}</i>
-"""
+        text = texts.t("ADMIN_REFERRAL_TITLE", "🤝 <b>Referral statistics</b>") + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_ERROR_TITLE", "❌ <b>Data loading error</b>") + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_CURRENT_SETTINGS", "<b>Current settings:</b>") + "\n"
+        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_COMMISSION", "- Purchase commission: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_UPDATED_AT", "<i>🕐 Updated: {time}</i>").format(time=current_time)
         
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🔄 Повторить", callback_data="admin_referrals")],
-            [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_RETRY", "🔄 Retry"), callback_data="admin_referrals")],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_panel")]
         ])
         
         try:
             await callback.message.edit_text(text, reply_markup=keyboard)
         except:
             pass
-        await callback.answer("Произошла ошибка при загрузке статистики")
+        await callback.answer(texts.t("ADMIN_REFERRAL_ERROR_OCCURRED", "Error loading statistics"))
 
 
 @admin_required
@@ -131,8 +121,9 @@ async def show_top_referrers(
     try:
         stats = await get_referral_statistics(db)
         top_referrers = stats.get('top_referrers', [])
+        texts = get_texts(db_user.language)
         
-        text = "🏆 <b>Топ рефереров</b>\n\n"
+        text = texts.t("ADMIN_REFERRAL_TOP_TITLE", "🏆 <b>Top referrers</b>") + "\n\n"
         
         if top_referrers:
             for i, referrer in enumerate(top_referrers[:20], 1): 
@@ -157,21 +148,23 @@ async def show_top_referrers(
                 elif i == 3:
                     emoji = "🥉 "
                 
-                text += f"{emoji}{i}. {display_text}\n"
-                text += f"   💰 {settings.format_price(earned)} | 👥 {count} реф.\n\n"
+                text += texts.t("ADMIN_REFERRAL_TOP_ITEM_FULL", "{emoji}{i}. {display}\n   💰 {amount} | 👥 {count} ref.").format(
+                    emoji=emoji, i=i, display=display_text, amount=settings.format_price(earned), count=count
+                ) + "\n\n"
         else:
-            text += "Нет данных о рефererах\n"
+            text += texts.t("ADMIN_REFERRAL_NO_REFERRERS", "No referrer data") + "\n"
         
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="⬅️ К статистике", callback_data="admin_referrals")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_TO_STATS", "⬅️ To statistics"), callback_data="admin_referrals")]
         ])
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
         
     except Exception as e:
-        logger.error(f"Ошибка в show_top_referrers: {e}", exc_info=True)
-        await callback.answer("Ошибка загрузки топа рефереров")
+        logger.error(f"Error in show_top_referrers: {e}", exc_info=True)
+        texts = get_texts(db_user.language)
+        await callback.answer(texts.t("ADMIN_REFERRAL_ERROR_TOP", "Error loading top referrers"))
 
 
 @admin_required
@@ -181,26 +174,22 @@ async def show_referral_settings(
     db_user: User,
     db: AsyncSession
 ):
-    text = f"""
-⚙️ <b>Настройки реферальной системы</b>
-
-<b>Бонусы и награды:</b>
-• Минимальная сумма пополнения для участия: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}
-• Бонус за первое пополнение реферала: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}
-• Бонус пригласившему за первое пополнение: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}
-
-<b>Комиссионные:</b>
-• Процент с каждой покупки реферала: {settings.REFERRAL_COMMISSION_PERCENT}%
-
-<b>Уведомления:</b>
-• Статус: {'✅ Включены' if settings.REFERRAL_NOTIFICATIONS_ENABLED else '❌ Отключены'}
-• Попытки отправки: {getattr(settings, 'REFERRAL_NOTIFICATION_RETRY_ATTEMPTS', 3)}
-
-<i>💡 Для изменения настроек отредактируйте файл .env и перезапустите бота</i>
-"""
+    texts = get_texts(db_user.language)
+    text = texts.t("ADMIN_REFERRAL_SETTINGS_HEADER", "⚙️ <b>Referral system settings</b>") + "\n\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_TITLE", "<b>Bonuses and rewards:</b>") + "\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_MIN_TOPUP", "• Minimum top-up for participation: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_FIRST_TOPUP", "• Referral first top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_INVITER", "• Inviter bonus for first top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n\n"
+    text += texts.t("ADMIN_REFERRAL_COMMISSIONS_TITLE", "<b>Commissions:</b>") + "\n"
+    text += texts.t("ADMIN_REFERRAL_COMMISSIONS_PERCENT", "• Percent from each referral purchase: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n\n"
+    text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS_TITLE", "<b>Notifications:</b>") + "\n"
+    notifications_status = texts.t("ADMIN_REFERRAL_NOTIFICATIONS_ENABLED", "✅ Enabled") if settings.REFERRAL_NOTIFICATIONS_ENABLED else texts.t("ADMIN_REFERRAL_NOTIFICATIONS_DISABLED", "❌ Disabled")
+    text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS_STATUS", "• Status: {status}").format(status=notifications_status) + "\n"
+    text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS_ATTEMPTS", "• Send attempts: {attempts}").format(attempts=getattr(settings, 'REFERRAL_NOTIFICATION_RETRY_ATTEMPTS', 3)) + "\n\n"
+    text += texts.t("ADMIN_REFERRAL_SETTINGS_HINT", "<i>💡 To change settings, edit the .env file and restart the bot</i>")
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="⬅️ К статистике", callback_data="admin_referrals")]
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_REFERRAL_BTN_TO_STATS", "⬅️ To statistics"), callback_data="admin_referrals")]
     ])
     
     await callback.message.edit_text(text, reply_markup=keyboard)

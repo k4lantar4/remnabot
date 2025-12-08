@@ -5,12 +5,12 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, validator
 
-CampaignBonusType = Annotated[Literal["balance", "subscription"], Field(description="Тип бонуса кампании")]
+CampaignBonusType = Annotated[Literal["balance", "subscription"], Field(description="Campaign bonus type")]
 
 
 class CampaignBase(BaseModel):
     name: str = Field(..., max_length=255)
-    start_parameter: str = Field(..., max_length=64, description="Start parameter для deep-link (уникальный)")
+    start_parameter: str = Field(..., max_length=64, description="Start parameter for deep-link (unique)")
     bonus_type: CampaignBonusType
     balance_bonus_kopeks: int = Field(0, ge=0)
     subscription_duration_days: Optional[int] = Field(None, ge=0)

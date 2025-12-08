@@ -26,34 +26,29 @@ async def start_yookassa_payment(
     texts = get_texts(db_user.language)
     
     if not settings.is_yookassa_enabled():
-        await callback.answer("❌ Оплата картой через YooKassa временно недоступна", show_alert=True)
+        await callback.answer(texts.t("YOOKASSA_CARD_UNAVAILABLE", "❌ Card payment via YooKassa temporarily unavailable"), show_alert=True)
         return
     
     min_amount_rub = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
     max_amount_rub = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
     
-    # Формируем текст сообщения в зависимости от настройки
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
-        message_text = (
-            f"💳 <b>Оплата банковской картой</b>\n\n"
-            f"Выберите сумму пополнения или введите вручную сумму "
-            f"от {min_amount_rub:.0f} до {max_amount_rub:,.0f} рублей:"
-        )
+        message_text = texts.t(
+            "YOOKASSA_CARD_PROMPT_QUICK",
+            "💳 <b>Card payment</b>\n\nChoose a top-up amount or enter manually from {min} to {max} RUB:"
+        ).format(min=f"{min_amount_rub:.0f}", max=f"{max_amount_rub:,.0f}")
     else:
-        message_text = (
-            f"💳 <b>Оплата банковской картой</b>\n\n"
-            f"Введите сумму для пополнения от {min_amount_rub:.0f} до {max_amount_rub:,.0f} рублей:"
-        )
+        message_text = texts.t(
+            "YOOKASSA_CARD_PROMPT",
+            "💳 <b>Card payment</b>\n\nEnter a top-up amount from {min} to {max} RUB:"
+        ).format(min=f"{min_amount_rub:.0f}", max=f"{max_amount_rub:,.0f}")
     
-    # Создаем клавиатуру
     keyboard = get_back_keyboard(db_user.language)
     
-    # Если включен быстрый выбор суммы и не отключены кнопки, добавляем кнопки
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
-            # Вставляем кнопки быстрого выбора перед кнопкой "Назад"
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
     
     await callback.message.edit_text(
@@ -136,17 +131,17 @@ async def process_yookassa_payment_amount(
     texts = get_texts(db_user.language)
     
     if not settings.is_yookassa_enabled():
-        await message.answer("❌ Оплата через YooKassa временно недоступна")
+        await message.answer(texts.t("YOOKASSA_UNAVAILABLE", "❌ YooKassa payments temporarily unavailable"))
         return
     
     if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
         min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-        await message.answer(f"❌ Минимальная сумма для оплаты картой: {min_rubles:.0f} ₽")
+        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount} ₽").format(amount=f"{min_rubles:.0f}"))
         return
     
     if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
         max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
-        await message.answer(f"❌ Максимальная сумма для оплаты картой: {max_rubles:,.0f} ₽".replace(',', ' '))
+        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount} ₽").format(amount=f"{max_rubles:,.0f}".replace(',', ' ')))
         return
     
     try:
@@ -167,19 +162,19 @@ async def process_yookassa_payment_amount(
         )
         
         if not payment_result:
-            await message.answer("❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.")
+            await message.answer(texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support."))
             await state.clear()
             return
         
         confirmation_url = payment_result.get("confirmation_url")
         if not confirmation_url:
-            await message.answer("❌ Ошибка получения ссылки для оплаты. Обратитесь в поддержку.")
+            await message.answer(texts.t("PAYMENT_LINK_ERROR", "❌ Error getting payment link. Please contact support."))
             await state.clear()
             return
         
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="💳 Оплатить картой", url=confirmation_url)],
-            [types.InlineKeyboardButton(text="📊 Проверить статус", callback_data=f"check_yookassa_{payment_result['local_payment_id']}")],
+            [types.InlineKeyboardButton(text=texts.t("YOOKASSA_PAY_CARD_BTN", "💳 Pay by card"), url=confirmation_url)],
+            [types.InlineKeyboardButton(text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"), callback_data=f"check_yookassa_{payment_result['local_payment_id']}")],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
         ])
         
@@ -189,30 +184,34 @@ async def process_yookassa_payment_amount(
 
         try:
             await message.delete()
-        except Exception as delete_error:  # pragma: no cover - зависит от прав бота
-            logger.warning("Не удалось удалить сообщение с суммой YooKassa: %s", delete_error)
+        except Exception as delete_error:  # pragma: no cover - depends on bot rights
+            logger.warning("Failed to delete YooKassa amount message: %s", delete_error)
 
         if prompt_message_id:
             try:
                 await message.bot.delete_message(prompt_chat_id, prompt_message_id)
-            except Exception as delete_error:  # pragma: no cover - диагностический лог
-                logger.warning(
-                    "Не удалось удалить сообщение с запросом суммы YooKassa: %s",
-                    delete_error,
-                )
+            except Exception as delete_error:  # pragma: no cover - diagnostic log
+                logger.warning("Failed to delete YooKassa prompt message: %s", delete_error)
 
         invoice_message = await message.answer(
-            f"💳 <b>Оплата банковской картой</b>\n\n"
-            f"💰 Сумма: {settings.format_price(amount_kopeks)}\n"
-            f"🆔 ID платежа: {payment_result['yookassa_payment_id'][:8]}...\n\n"
-            f"📱 <b>Инструкция:</b>\n"
-            f"1. Нажмите кнопку 'Оплатить картой'\n"
-            f"2. Введите данные вашей карты\n"
-            f"3. Подтвердите платеж\n"
-            f"4. Деньги поступят на баланс автоматически\n\n"
-            f"🔒 Оплата происходит через защищенную систему YooKassa\n"
-            f"✅ Принимаем карты: Visa, MasterCard, МИР\n\n"
-            f"❓ Если возникнут проблемы, обратитесь в {settings.get_support_contact_display_html()}",
+            texts.t(
+                "YOOKASSA_CARD_INVOICE",
+                "💳 <b>Card payment</b>\n\n"
+                "💰 Amount: {amount}\n"
+                "🆔 Payment ID: {pid}...\n\n"
+                "📱 <b>Instructions:</b>\n"
+                "1. Tap 'Pay by card'\n"
+                "2. Enter your card details\n"
+                "3. Confirm the payment\n"
+                "4. Funds will be credited automatically\n\n"
+                "🔒 Payment is processed via secure YooKassa\n"
+                "✅ Cards accepted: Visa, MasterCard, MIR\n\n"
+                "❓ If you have issues, contact {support}"
+            ).format(
+                amount=settings.format_price(amount_kopeks),
+                pid=payment_result['yookassa_payment_id'][:8],
+                support=settings.get_support_contact_display_html(),
+            ),
             reply_markup=keyboard,
             parse_mode="HTML"
         )
@@ -235,8 +234,8 @@ async def process_yookassa_payment_amount(
                     .values(metadata_json=metadata, updated_at=datetime.utcnow())
                 )
                 await db.commit()
-        except Exception as error:  # pragma: no cover - диагностический лог
-            logger.warning("Не удалось сохранить сообщение YooKassa: %s", error)
+        except Exception as error:  # pragma: no cover - diagnostic log
+            logger.warning("Failed to store YooKassa message metadata: %s", error)
 
         await state.update_data(
             yookassa_invoice_message_id=invoice_message.message_id,
@@ -244,12 +243,16 @@ async def process_yookassa_payment_amount(
         )
 
         await state.clear()
-        logger.info(f"Создан платеж YooKassa для пользователя {db_user.telegram_id}: "
-                   f"{amount_kopeks//100}₽, ID: {payment_result['yookassa_payment_id']}")
+        logger.info(
+            "Created YooKassa payment for user %s: %s₽, ID: %s",
+            db_user.telegram_id,
+            amount_kopeks // 100,
+            payment_result["yookassa_payment_id"],
+        )
         
     except Exception as e:
-        logger.error(f"Ошибка создания YooKassa платежа: {e}")
-        await message.answer("❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.")
+        logger.error(f"Error creating YooKassa payment: {e}")
+        await message.answer(texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support."))
         await state.clear()
 
 

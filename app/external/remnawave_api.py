@@ -151,10 +151,10 @@ class RemnaWaveAPI:
             credentials = f"{self.username}:{self.password}"
             encoded_credentials = base64.b64encode(credentials.encode()).decode()
             headers['X-Api-Key'] = f"Basic {encoded_credentials}"
-            logger.debug("Используем Basic Auth в X-Api-Key заголовке")
+            logger.debug("Using Basic Auth in X-Api-Key header")
         else:
             headers['X-Api-Key'] = self.api_key
-            logger.debug("Используем API ключ в X-Api-Key заголовке")
+            logger.debug("Using API key in X-Api-Key header")
         
         headers['Authorization'] = f'Bearer {self.api_key}'
         
@@ -163,7 +163,7 @@ class RemnaWaveAPI:
     async def __aenter__(self):
         conn_type = self._detect_connection_type()
         
-        logger.debug(f"Подключение к Remnawave: {self.base_url} (тип: {conn_type})")
+        logger.debug(f"Connecting to Remnawave: {self.base_url} (type: {conn_type})")
             
         headers = self._prepare_auth_headers() 
         
@@ -172,15 +172,15 @@ class RemnaWaveAPI:
             if ':' in self.secret_key:
                 key_name, key_value = self.secret_key.split(':', 1)
                 cookies = {key_name: key_value}
-                logger.debug(f"Используем куки: {key_name}=***")
+                logger.debug(f"Using cookies: {key_name}=***")
             else:
                 cookies = {self.secret_key: self.secret_key}
-                logger.debug(f"Используем куки: {self.secret_key}=***")
+                logger.debug(f"Using cookies: {self.secret_key}=***")
         
         connector_kwargs = {}
         
         if conn_type == "local":
-            logger.debug("Используют локальные заголовки proxy")
+            logger.debug("Using local proxy headers")
             headers.update({
                 'X-Forwarded-Host': 'localhost',
                 'Host': 'localhost'
@@ -191,10 +191,10 @@ class RemnaWaveAPI:
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
                 connector_kwargs['ssl'] = ssl_context
-                logger.debug("SSL проверка отключена для локального HTTPS")
+                logger.debug("SSL verification disabled for local HTTPS")
                 
         elif conn_type == "external":
-            logger.debug("Используют внешнее подключение с полной SSL проверкой")
+            logger.debug("Using external connection with full SSL verification")
             pass
             
         connector = aiohttp.TCPConnector(**connector_kwargs)
@@ -564,13 +564,13 @@ class RemnaWaveAPI:
                         }
                         await self._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
                     except Exception as device_error:
-                        logger.error(f"Ошибка удаления устройства {device_hwid}: {device_error}")
+                        logger.error(f"Error deleting device {device_hwid}: {device_error}")
                         failed_count += 1
             
             return failed_count < len(devices) / 2
             
         except Exception as e:
-            logger.error(f"Ошибка при сбросе устройств: {e}")
+            logger.error(f"Error resetting devices: {e}")
             return False
 
     async def remove_device(self, user_uuid: str, device_hwid: str) -> bool:
@@ -582,7 +582,7 @@ class RemnaWaveAPI:
             await self._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
             return True
         except Exception as e:
-            logger.error(f"Ошибка удаления устройства {device_hwid}: {e}")
+            logger.error(f"Error deleting device {device_hwid}: {e}")
             return False
     
     

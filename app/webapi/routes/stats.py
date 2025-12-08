@@ -24,8 +24,8 @@ router = APIRouter()
 
 @router.get(
     "/overview",
-    summary="Общая статистика",
-    response_description="Агрегированные показатели пользователей, подписок, саппорта и платежей",
+    summary="Overall statistics",
+    response_description="Aggregated metrics for users, subscriptions, support and payments",
     responses={
         200: {
             "content": {

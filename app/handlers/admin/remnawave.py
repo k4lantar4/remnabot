@@ -43,19 +43,19 @@ squad_create_data = {}
 MIGRATION_PAGE_SIZE = 8
 
 
-def _format_duration(seconds: float) -> str:
+def _format_duration(seconds: float, texts) -> str:
     if seconds < 1:
-        return "менее 1с"
+        return texts.t("ADMIN_RW_DURATION_LT_1S", "less than 1s")
 
     minutes, sec = divmod(int(seconds), 60)
     if minutes:
         if sec:
-            return f"{minutes} мин {sec} с"
-        return f"{minutes} мин"
-    return f"{sec} с"
+            return texts.t("ADMIN_RW_DURATION_MIN_SEC", "{minutes} min {seconds} s").format(minutes=minutes, seconds=sec)
+        return texts.t("ADMIN_RW_DURATION_MIN", "{minutes} min").format(minutes=minutes)
+    return texts.t("ADMIN_RW_DURATION_SEC", "{seconds} s").format(seconds=sec)
 
 
-def _format_user_stats(stats: Optional[Dict[str, Any]]) -> str:
+def _format_user_stats(stats: Optional[Dict[str, Any]], texts) -> str:
     if not stats:
         return "—"
 
@@ -64,15 +64,16 @@ def _format_user_stats(stats: Optional[Dict[str, Any]]) -> str:
     deleted = stats.get("deleted", stats.get("deactivated", 0))
     errors = stats.get("errors", 0)
 
-    return (
-        f"• Создано: {created}\n"
-        f"• Обновлено: {updated}\n"
-        f"• Деактивировано: {deleted}\n"
-        f"• Ошибок: {errors}"
-    )
+    return texts.t(
+        "ADMIN_RW_USER_STATS",
+        "• Created: {created}\n"
+        "• Updated: {updated}\n"
+        "• Deactivated: {deleted}\n"
+        "• Errors: {errors}",
+    ).format(created=created, updated=updated, deleted=deleted, errors=errors)
 
 
-def _format_server_stats(stats: Optional[Dict[str, Any]]) -> str:
+def _format_server_stats(stats: Optional[Dict[str, Any]], texts) -> str:
     if not stats:
         return "—"
 
@@ -81,15 +82,17 @@ def _format_server_stats(stats: Optional[Dict[str, Any]]) -> str:
     removed = stats.get("removed", 0)
     total = stats.get("total", 0)
 
-    return (
-        f"• Создано: {created}\n"
-        f"• Обновлено: {updated}\n"
-        f"• Удалено: {removed}\n"
-        f"• Всего в панели: {total}"
-    )
+    return texts.t(
+        "ADMIN_RW_SERVER_STATS",
+        "• Created: {created}\n"
+        "• Updated: {updated}\n"
+        "• Removed: {removed}\n"
+        "• Total in panel: {total}",
+    ).format(created=created, updated=updated, removed=removed, total=total)
 
 
-def _build_auto_sync_view(status: RemnaWaveAutoSyncStatus) -> tuple[str, types.InlineKeyboardMarkup]:
+def _build_auto_sync_view(status: RemnaWaveAutoSyncStatus, language: str = "en") -> tuple[str, types.InlineKeyboardMarkup]:
+    texts = get_texts(language)
     times_text = ", ".join(t.strftime("%H:%M") for t in status.times) if status.times else "—"
     next_run_text = format_datetime(status.next_run) if status.next_run else "—"
 
@@ -105,60 +108,76 @@ def _build_auto_sync_view(status: RemnaWaveAutoSyncStatus) -> tuple[str, types.I
             if status.last_run_started_at
             else None
         )
-        duration_text = f" ({_format_duration(duration.total_seconds())})" if duration else ""
+        duration_text = f" ({_format_duration(duration.total_seconds(), texts)})" if duration else ""
         reason_map = {
-            "manual": "вручную",
-            "auto": "по расписанию",
-            "immediate": "при включении",
+            "manual": texts.t("ADMIN_RW_REASON_MANUAL", "manual"),
+            "auto": texts.t("ADMIN_RW_REASON_AUTO", "scheduled"),
+            "immediate": texts.t("ADMIN_RW_REASON_IMMEDIATE", "on start"),
         }
         reason_text = reason_map.get(status.last_run_reason or "", "—")
         result_icon = "✅" if status.last_run_success else "❌"
-        result_label = "успешно" if status.last_run_success else "с ошибками"
+        result_label = texts.t("ADMIN_RW_RESULT_SUCCESS", "success") if status.last_run_success else texts.t("ADMIN_RW_RESULT_ERRORS", "with errors")
         error_block = (
-            f"\n⚠️ Ошибка: {status.last_run_error}"
+            texts.t("ADMIN_RW_LAST_RUN_ERROR", "\n⚠️ Error: {error}").format(error=status.last_run_error)
             if status.last_run_error
             else ""
         )
-        last_run_text = (
-            f"{result_icon} {result_label}\n"
-            f"• Старт: {started_text}\n"
-            f"• Завершено: {finished_text}{duration_text}\n"
-            f"• Причина запуска: {reason_text}{error_block}"
+        last_run_text = texts.t(
+            "ADMIN_RW_LAST_RUN_SUMMARY",
+            "{icon} {label}\n"
+            "• Started: {started}\n"
+            "• Finished: {finished}{duration}\n"
+            "• Reason: {reason}{error}"
+        ).format(
+            icon=result_icon,
+            label=result_label,
+            started=started_text,
+            finished=finished_text,
+            duration=duration_text,
+            reason=reason_text,
+            error=error_block,
         )
     elif status.last_run_started_at:
         last_run_text = (
-            "⏳ Синхронизация началась, но еще не завершилась"
+            texts.t("ADMIN_RW_LAST_RUN_IN_PROGRESS", "⏳ Sync started but not finished yet")
             if status.is_running
-            else f"ℹ️ Последний запуск: {format_datetime(status.last_run_started_at)}"
+            else texts.t("ADMIN_RW_LAST_RUN_INFO", "ℹ️ Last run: {time}").format(time=format_datetime(status.last_run_started_at))
         )
     else:
         last_run_text = "—"
 
-    running_text = "⏳ Выполняется сейчас" if status.is_running else "Ожидание"
-    toggle_text = "❌ Отключить" if status.enabled else "✅ Включить"
+    running_text = texts.t("ADMIN_RW_RUNNING_NOW", "⏳ Running now") if status.is_running else texts.t("ADMIN_RW_WAITING", "Waiting")
+    toggle_text = texts.t("ADMIN_RW_DISABLE", "❌ Disable") if status.enabled else texts.t("ADMIN_RW_ENABLE", "✅ Enable")
 
-    text = f"""🔄 <b>Автосинхронизация RemnaWave</b>
-
-⚙️ <b>Статус:</b> {'✅ Включена' if status.enabled else '❌ Отключена'}
-🕒 <b>Расписание:</b> {times_text}
-📅 <b>Следующий запуск:</b> {next_run_text if status.enabled else '—'}
-⏱️ <b>Состояние:</b> {running_text}
-
-📊 <b>Последний запуск:</b>
-{last_run_text}
-
-👥 <b>Пользователи:</b>
-{_format_user_stats(status.last_user_stats)}
-
-🌐 <b>Серверы:</b>
-{_format_server_stats(status.last_server_stats)}
-"""
+    text = texts.t(
+        "ADMIN_RW_AUTOSYNC_VIEW",
+        "🔄 <b>RemnaWave Auto Sync</b>\n\n"
+        "⚙️ <b>Status:</b> {status_emoji} {status_label}\n"
+        "🕒 <b>Schedule:</b> {schedule}\n"
+        "📅 <b>Next run:</b> {next_run}\n"
+        "⏱️ <b>State:</b> {state}\n\n"
+        "📊 <b>Last run:</b>\n"
+        "{last_run}\n\n"
+        "👥 <b>Users:</b>\n"
+        "{user_stats}\n\n"
+        "🌐 <b>Servers:</b>\n"
+        "{server_stats}"
+    ).format(
+        status_emoji="✅" if status.enabled else "❌",
+        status_label=texts.t("ADMIN_RW_STATUS_ENABLED", "Enabled") if status.enabled else texts.t("ADMIN_RW_STATUS_DISABLED", "Disabled"),
+        schedule=times_text,
+        next_run=next_run_text if status.enabled else "—",
+        state=running_text,
+        last_run=last_run_text,
+        user_stats=_format_user_stats(status.last_user_stats, texts),
+        server_stats=_format_server_stats(status.last_server_stats, texts),
+    )
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="🔁 Запустить сейчас",
+                    text=texts.t("ADMIN_RW_BTN_RUN_NOW", "🔁 Run now"),
                     callback_data="remnawave_auto_sync_run",
                 )
             ],
@@ -170,13 +189,13 @@ def _build_auto_sync_view(status: RemnaWaveAutoSyncStatus) -> tuple[str, types.I
             ],
             [
                 types.InlineKeyboardButton(
-                    text="🕒 Изменить расписание",
+                    text=texts.t("ADMIN_RW_BTN_EDIT_SCHEDULE", "🕒 Edit schedule"),
                     callback_data="remnawave_auto_sync_times",
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text="⬅️ Назад",
+                    text=texts.BACK,
                     callback_data="admin_rw_sync",
                 )
             ],
@@ -325,11 +344,11 @@ async def show_squad_migration_menu(
     )
 
     message = (
-        texts.t("ADMIN_SQUAD_MIGRATION_TITLE", "🚚 <b>Переезд сквадов</b>")
+        texts.t("ADMIN_SQUAD_MIGRATION_TITLE", "🚚 <b>Squad migration</b>")
         + "\n\n"
         + texts.t(
             "ADMIN_SQUAD_MIGRATION_SELECT_SOURCE",
-            "Выберите сквад, из которого нужно переехать:",
+            "Select a squad to migrate FROM:",
         )
     )
 
@@ -338,7 +357,7 @@ async def show_squad_migration_menu(
             "\n\n"
             + texts.t(
                 "ADMIN_SQUAD_MIGRATION_NO_OPTIONS",
-                "Нет доступных сквадов. Добавьте новые или отмените операцию.",
+                "No squads available. Add new ones or cancel.",
             )
         )
 
@@ -381,11 +400,11 @@ async def paginate_migration_source(
     )
 
     message = (
-        texts.t("ADMIN_SQUAD_MIGRATION_TITLE", "🚚 <b>Переезд сквадов</b>")
+        texts.t("ADMIN_SQUAD_MIGRATION_TITLE", "🚚 <b>Squad migration</b>")
         + "\n\n"
         + texts.t(
             "ADMIN_SQUAD_MIGRATION_SELECT_SOURCE",
-            "Выберите сквад, из которого нужно переехать:",
+            "Select a squad to migrate FROM:",
         )
     )
 
@@ -394,7 +413,7 @@ async def paginate_migration_source(
             "\n\n"
             + texts.t(
                 "ADMIN_SQUAD_MIGRATION_NO_OPTIONS",
-                "Нет доступных сквадов. Добавьте новые или отмените операцию.",
+                "No squads available. Add new ones or cancel.",
             )
         )
 
@@ -2328,9 +2347,10 @@ async def show_auto_sync_settings(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     await state.clear()
     status = remnawave_sync_service.get_status()
-    text, keyboard = _build_auto_sync_view(status)
+    text, keyboard = _build_auto_sync_view(status, db_user.language)
 
     await callback.message.edit_text(
         text,
@@ -2358,7 +2378,7 @@ async def toggle_auto_sync_setting(
     await db.commit()
 
     status = remnawave_sync_service.get_status()
-    text, keyboard = _build_auto_sync_view(status)
+    text, keyboard = _build_auto_sync_view(status, db_user.language)
 
     await callback.message.edit_text(
         text,
@@ -2422,14 +2442,14 @@ async def cancel_auto_sync_schedule(
 ):
     await state.clear()
     status = remnawave_sync_service.get_status()
-    text, keyboard = _build_auto_sync_view(status)
+    text, keyboard = _build_auto_sync_view(status, db_user.language)
 
     await callback.message.edit_text(
         text,
         reply_markup=keyboard,
         parse_mode="HTML",
     )
-    await callback.answer("Изменение расписания отменено")
+    await callback.answer(texts.t("ADMIN_RW_SCHEDULE_CANCELLED", "Schedule edit cancelled"))
 
 
 @admin_required
@@ -2440,24 +2460,25 @@ async def run_auto_sync_now(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     if remnawave_sync_service.get_status().is_running:
-        await callback.answer("Синхронизация уже выполняется", show_alert=True)
+        await callback.answer(texts.t("ADMIN_RW_SYNC_ALREADY_RUNNING_SHORT", "Sync is already running"), show_alert=True)
         return
 
     await state.clear()
     await callback.message.edit_text(
-        "🔄 Запуск автосинхронизации...\n\nПодождите, это может занять несколько минут.",
+        texts.t("ADMIN_RW_SYNC_STARTING", "🔄 Starting auto-sync...\n\nPlease wait, this may take a few minutes."),
         parse_mode="HTML",
     )
-    await callback.answer("Автосинхронизация запущена")
+    await callback.answer(texts.t("ADMIN_RW_SYNC_STARTED", "Auto-sync started"))
 
     result = await remnawave_sync_service.run_sync_now(reason="manual")
     status = remnawave_sync_service.get_status()
-    base_text, keyboard = _build_auto_sync_view(status)
+    base_text, keyboard = _build_auto_sync_view(status, db_user.language)
 
     if not result.get("started"):
         await callback.message.edit_text(
-            "⚠️ <b>Синхронизация уже выполняется</b>\n\n" + base_text,
+            texts.t("ADMIN_RW_SYNC_ALREADY_RUNNING", "⚠️ <b>Sync is already running</b>\n\n") + base_text,
             reply_markup=keyboard,
             parse_mode="HTML",
         )
@@ -2505,7 +2526,7 @@ async def save_auto_sync_schedule(
     if text.lower() in {"отмена", "cancel"}:
         await state.clear()
         status = remnawave_sync_service.get_status()
-        view_text, keyboard = _build_auto_sync_view(status)
+        view_text, keyboard = _build_auto_sync_view(status, db_user.language)
         message_id = data.get("auto_sync_message_id")
         chat_id = data.get("auto_sync_message_chat_id", message.chat.id)
         if message_id:
@@ -2542,7 +2563,7 @@ async def save_auto_sync_schedule(
     await db.commit()
 
     status = remnawave_sync_service.get_status()
-    view_text, keyboard = _build_auto_sync_view(status)
+    view_text, keyboard = _build_auto_sync_view(status, db_user.language)
     message_id = data.get("auto_sync_message_id")
     chat_id = data.get("auto_sync_message_chat_id", message.chat.id)
 

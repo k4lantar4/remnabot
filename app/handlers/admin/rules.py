@@ -21,20 +21,20 @@ async def show_rules_management(
     db_user: User,
     db: AsyncSession
 ):
-    text = """
-📋 <b>Управление правилами сервиса</b>
-
-Текущие правила показываются пользователям при регистрации и в главном меню.
-
-Выберите действие:
-"""
+    texts = get_texts(db_user.language)
+    text = texts.t(
+        "ADMIN_RULES_PANEL",
+        "📋 <b>Service rules management</b>\n\n"
+        "Current rules are shown to users during registration and in the main menu.\n\n"
+        "Choose an action:"
+    )
     
     keyboard = [
-        [types.InlineKeyboardButton(text="📝 Редактировать правила", callback_data="admin_edit_rules")],
-        [types.InlineKeyboardButton(text="👀 Просмотр правил", callback_data="admin_view_rules")],
-        [types.InlineKeyboardButton(text="🗑️ Очистить правила", callback_data="admin_clear_rules")],
-        [types.InlineKeyboardButton(text="ℹ️ Помощь по HTML", callback_data="admin_rules_help")],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_submenu_settings")]
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_EDIT_BUTTON", "📝 Edit rules"), callback_data="admin_edit_rules")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_VIEW_BUTTON", "👀 View rules"), callback_data="admin_view_rules")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CLEAR_BUTTON", "🗑️ Clear rules"), callback_data="admin_clear_rules")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_HTML_HELP", "ℹ️ HTML help"), callback_data="admin_rules_help")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK", "⬅️ Back"), callback_data="admin_submenu_settings")]
     ]
     
     await callback.message.edit_text(
@@ -54,27 +54,29 @@ async def view_current_rules(
     try:
         current_rules = await get_current_rules_content(db, db_user.language)
         
+        texts = get_texts(db_user.language)
         is_valid, error_msg = validate_html_tags(current_rules)
         warning = ""
         if not is_valid:
-            warning = f"\n\n⚠️ <b>Внимание:</b> В правилах найдена ошибка HTML: {error_msg}"
+            warning = texts.t("ADMIN_RULES_HTML_WARNING", "\n\n⚠️ <b>Warning:</b> HTML error found in rules: {error}").format(error=error_msg)
         
         await callback.message.edit_text(
-            f"📋 <b>Текущие правила сервиса</b>\n\n{current_rules}{warning}",
+            texts.t("ADMIN_RULES_VIEW_TITLE", "📋 <b>Current service rules</b>\n\n{content}{warning}").format(content=current_rules, warning=warning),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="✏️ Редактировать", callback_data="admin_edit_rules")],
-                [types.InlineKeyboardButton(text="🗑️ Очистить", callback_data="admin_clear_rules")],
-                [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_EDIT", "✏️ Edit"), callback_data="admin_edit_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CLEAR", "🗑️ Clear"), callback_data="admin_clear_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK", "⬅️ Back"), callback_data="admin_rules")]
             ])
         )
         await callback.answer()
     except Exception as e:
-        logger.error(f"Ошибка при показе правил: {e}")
+        texts = get_texts(db_user.language)
+        logger.error(f"Error showing rules: {e}")
         await callback.message.edit_text(
-            "❌ Ошибка при загрузке правил. Возможно, в тексте есть некорректные HTML теги.",
+            texts.t("ADMIN_RULES_LOAD_ERROR", "❌ Error loading rules. The text may contain invalid HTML tags."),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🗑️ Очистить правила", callback_data="admin_clear_rules")],
-                [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CLEAR_BUTTON", "🗑️ Clear rules"), callback_data="admin_clear_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK", "⬅️ Back"), callback_data="admin_rules")]
             ])
         )
         await callback.answer()
@@ -91,21 +93,23 @@ async def start_edit_rules(
     try:
         current_rules = await get_current_rules_content(db, db_user.language)
         
+        texts = get_texts(db_user.language)
         preview = current_rules[:500] + ('...' if len(current_rules) > 500 else '')
         
-        text = (
-            "✏️ <b>Редактирование правил</b>\n\n"
-            f"<b>Текущие правила:</b>\n<code>{preview}</code>\n\n"
-            "Отправьте новый текст правил сервиса.\n\n"
-            "<i>Поддерживается HTML разметка. Все теги будут проверены перед сохранением.</i>\n\n"
-            "💡 <b>Совет:</b> Нажмите /html_help для просмотра поддерживаемых тегов"
-        )
+        text = texts.t(
+            "ADMIN_RULES_EDIT_PROMPT",
+            "✏️ <b>Editing rules</b>\n\n"
+            "<b>Current rules:</b>\n<code>{preview}</code>\n\n"
+            "Send the new service rules text.\n\n"
+            "<i>HTML markup is supported. All tags will be validated before saving.</i>\n\n"
+            "💡 <b>Tip:</b> Press /html_help to view supported tags"
+        ).format(preview=preview)
         
         await callback.message.edit_text(
             text,
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="ℹ️ HTML помощь", callback_data="admin_rules_help")],
-                [types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_HTML_HELP", "ℹ️ HTML help"), callback_data="admin_rules_help")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CANCEL", "❌ Cancel"), callback_data="admin_rules")]
             ])
         )
         
@@ -113,8 +117,9 @@ async def start_edit_rules(
         await callback.answer()
         
     except Exception as e:
-        logger.error(f"Ошибка при начале редактирования правил: {e}")
-        await callback.answer("❌ Ошибка при загрузке правил для редактирования", show_alert=True)
+        texts = get_texts(db_user.language)
+        logger.error(f"Error starting rules edit: {e}")
+        await callback.answer(texts.t("ADMIN_RULES_EDIT_LOAD_ERROR", "❌ Error loading rules for editing"), show_alert=True)
 
 
 @admin_required
@@ -125,45 +130,52 @@ async def process_rules_edit(
     state: FSMContext,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     new_rules = message.text
     
     if len(new_rules) > 4000:
-        await message.answer("❌ Текст правил слишком длинный (максимум 4000 символов)")
+        await message.answer(texts.t("ADMIN_RULES_TOO_LONG", "❌ Rules text is too long (maximum 4000 characters)"))
         return
     
     is_valid, error_msg = validate_html_tags(new_rules)
     if not is_valid:
         await message.answer(
-            f"❌ <b>Ошибка в HTML разметке:</b>\n{error_msg}\n\n"
-            f"Пожалуйста, исправьте ошибки и отправьте текст заново.\n\n"
-            f"💡 Используйте /html_help для просмотра правильного синтаксиса",
+            texts.t(
+                "ADMIN_RULES_HTML_ERROR_DETAILED",
+                "❌ <b>HTML markup error:</b>\n{error}\n\n"
+                "Please fix the errors and send the text again.\n\n"
+                "💡 Use /html_help to view correct syntax"
+            ).format(error=error_msg),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="ℹ️ HTML помощь", callback_data="admin_rules_help")],
-                [types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_HTML_HELP", "ℹ️ HTML help"), callback_data="admin_rules_help")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CANCEL", "❌ Cancel"), callback_data="admin_rules")]
             ])
         )
         return
     
     try:
-        preview_text = f"📋 <b>Предварительный просмотр новых правил:</b>\n\n{new_rules}\n\n"
-        preview_text += f"⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n"
-        preview_text += f"Сохранить изменения?"
+        preview_text = texts.t(
+            "ADMIN_RULES_PREVIEW",
+            "📋 <b>Preview of new rules:</b>\n\n{content}\n\n"
+            "⚠️ <b>Warning!</b> New rules will be shown to all users.\n\n"
+            "Save changes?"
+        ).format(content=new_rules)
         
         if len(preview_text) > 4000:
-            preview_text = (
-                "📋 <b>Предварительный просмотр новых правил:</b>\n\n"
-                f"{new_rules[:500]}...\n\n"
-                f"⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n"
-                f"Текст правил: {len(new_rules)} символов\n"
-                f"Сохранить изменения?"
-            )
+            preview_text = texts.t(
+                "ADMIN_RULES_PREVIEW_TRUNCATED",
+                "📋 <b>Preview of new rules:</b>\n\n{content}...\n\n"
+                "⚠️ <b>Warning!</b> New rules will be shown to all users.\n\n"
+                "Rules text: {length} characters\n"
+                "Save changes?"
+            ).format(content=new_rules[:500], length=len(new_rules))
         
         await message.answer(
             preview_text,
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text="✅ Сохранить", callback_data="admin_save_rules"),
-                    types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_rules")
+                    types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_SAVE", "✅ Save"), callback_data="admin_save_rules"),
+                    types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CANCEL", "❌ Cancel"), callback_data="admin_rules")
                 ]
             ])
         )
@@ -171,16 +183,19 @@ async def process_rules_edit(
         await state.update_data(new_rules=new_rules)
         
     except Exception as e:
-        logger.error(f"Ошибка при показе превью правил: {e}")
+        logger.error(f"Error showing rules preview: {e}")
         await message.answer(
-            "⚠️ <b>Подтверждение сохранения правил</b>\n\n"
-            f"Новые правила готовы к сохранению ({len(new_rules)} символов).\n"
-            f"HTML теги проверены и корректны.\n\n"
-            f"Сохранить изменения?",
+            texts.t(
+                "ADMIN_RULES_CONFIRM_SAVE",
+                "⚠️ <b>Rules save confirmation</b>\n\n"
+                "New rules are ready to save ({length} characters).\n"
+                "HTML tags are validated and correct.\n\n"
+                "Save changes?"
+            ).format(length=len(new_rules)),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text="✅ Сохранить", callback_data="admin_save_rules"),
-                    types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_rules")
+                    types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_SAVE", "✅ Save"), callback_data="admin_save_rules"),
+                    types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CANCEL", "❌ Cancel"), callback_data="admin_rules")
                 ]
             ])
         )
@@ -199,18 +214,22 @@ async def save_rules(
     data = await state.get_data()
     new_rules = data.get('new_rules')
     
+    texts = get_texts(db_user.language)
     if not new_rules:
-        await callback.answer("❌ Ошибка: текст правил не найден", show_alert=True)
+        await callback.answer(texts.t("ADMIN_RULES_NOT_FOUND", "❌ Error: rules text not found"), show_alert=True)
         return
     
     is_valid, error_msg = validate_html_tags(new_rules)
     if not is_valid:
         await callback.message.edit_text(
-            f"❌ <b>Ошибка при сохранении:</b>\n{error_msg}\n\n"
-            f"Правила не были сохранены из-за ошибок в HTML разметке.",
+            texts.t(
+                "ADMIN_RULES_SAVE_ERROR",
+                "❌ <b>Save error:</b>\n{error}\n\n"
+                "Rules were not saved due to HTML markup errors."
+            ).format(error=error_msg),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="admin_edit_rules")],
-                [types.InlineKeyboardButton(text="📋 К правилам", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_TRY_AGAIN", "🔄 Try again"), callback_data="admin_edit_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK_TO_RULES", "📋 Back to rules"), callback_data="admin_rules")]
             ])
         )
         await state.clear()
@@ -231,30 +250,36 @@ async def save_rules(
         await refresh_rules_cache(db_user.language)
         
         await callback.message.edit_text(
-            "✅ <b>Правила сервиса успешно обновлены!</b>\n\n"
-            "✓ Новые правила сохранены в базе данных\n"
-            "✓ HTML теги проверены и корректны\n"
-            "✓ Кеш правил очищен и обновлен\n"
-            "✓ Правила будут показываться пользователям\n\n"
-            f"📊 Размер текста: {len(new_rules)} символов",
+            texts.t(
+                "ADMIN_RULES_SAVED_SUCCESS",
+                "✅ <b>Service rules successfully updated!</b>\n\n"
+                "✓ New rules saved to database\n"
+                "✓ HTML tags validated and correct\n"
+                "✓ Rules cache cleared and updated\n"
+                "✓ Rules will be shown to users\n\n"
+                "📊 Text size: {length} characters"
+            ).format(length=len(new_rules)),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="👀 Просмотреть", callback_data="admin_view_rules")],
-                [types.InlineKeyboardButton(text="📋 К правилам", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_VIEW", "👀 View"), callback_data="admin_view_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK_TO_RULES", "📋 Back to rules"), callback_data="admin_rules")]
             ])
         )
         
         await state.clear()
-        logger.info(f"Правила сервиса обновлены администратором {db_user.telegram_id}")
+        logger.info(f"Service rules updated by admin {db_user.telegram_id}")
         await callback.answer()
         
     except Exception as e:
-        logger.error(f"Ошибка сохранения правил: {e}")
+        logger.error(f"Error saving rules: {e}")
         await callback.message.edit_text(
-            "❌ <b>Ошибка при сохранении правил</b>\n\n"
-            "Произошла ошибка при записи в базу данных. Попробуйте еще раз.",
+            texts.t(
+                "ADMIN_RULES_SAVE_DB_ERROR",
+                "❌ <b>Error saving rules</b>\n\n"
+                "An error occurred while writing to the database. Please try again."
+            ),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="admin_save_rules")],
-                [types.InlineKeyboardButton(text="📋 К правилам", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_TRY_AGAIN", "🔄 Try again"), callback_data="admin_save_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK_TO_RULES", "📋 Back to rules"), callback_data="admin_rules")]
             ])
         )
         await callback.answer()
@@ -267,15 +292,19 @@ async def clear_rules_confirmation(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     await callback.message.edit_text(
-        "🗑️ <b>Очистка правил сервиса</b>\n\n"
-        "⚠️ <b>ВНИМАНИЕ!</b> Вы собираетесь полностью удалить все правила сервиса.\n\n"
-        "После очистки пользователи будут видеть стандартные правила по умолчанию.\n\n"
-        "Это действие нельзя отменить. Продолжить?",
+        texts.t(
+            "ADMIN_RULES_CLEAR_CONFIRM",
+            "🗑️ <b>Clearing service rules</b>\n\n"
+            "⚠️ <b>WARNING!</b> You are about to completely delete all service rules.\n\n"
+            "After clearing, users will see default rules.\n\n"
+            "This action cannot be undone. Continue?"
+        ),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
             [
-                types.InlineKeyboardButton(text="✅ Да, очистить", callback_data="admin_confirm_clear_rules"),
-                types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_rules")
+                types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CLEAR_YES", "✅ Yes, clear"), callback_data="admin_confirm_clear_rules"),
+                types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CANCEL", "❌ Cancel"), callback_data="admin_rules")
             ]
         ])
     )
@@ -295,25 +324,30 @@ async def confirm_clear_rules(
         from app.localization.texts import clear_rules_cache
         clear_rules_cache()
         
+        texts = get_texts(db_user.language)
         await callback.message.edit_text(
-            "✅ <b>Правила успешно очищены!</b>\n\n"
-            "✓ Все пользовательские правила удалены\n"
-            "✓ Теперь используются стандартные правила\n"
-            "✓ Кеш правил очищен\n\n"
-            "Пользователи будут видеть правила по умолчанию.",
+            texts.t(
+                "ADMIN_RULES_CLEARED_SUCCESS",
+                "✅ <b>Rules successfully cleared!</b>\n\n"
+                "✓ All user rules deleted\n"
+                "✓ Default rules are now used\n"
+                "✓ Rules cache cleared\n\n"
+                "Users will see default rules."
+            ),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="📝 Создать новые", callback_data="admin_edit_rules")],
-                [types.InlineKeyboardButton(text="👀 Посмотреть текущие", callback_data="admin_view_rules")],
-                [types.InlineKeyboardButton(text="📋 К правилам", callback_data="admin_rules")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_CREATE_NEW", "📝 Create new"), callback_data="admin_edit_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_VIEW_CURRENT", "👀 View current"), callback_data="admin_view_rules")],
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK_TO_RULES", "📋 Back to rules"), callback_data="admin_rules")]
             ])
         )
         
-        logger.info(f"Правила очищены администратором {db_user.telegram_id}")
+        logger.info(f"Rules cleared by admin {db_user.telegram_id}")
         await callback.answer()
         
     except Exception as e:
-        logger.error(f"Ошибка при очистке правил: {e}")
-        await callback.answer("❌ Ошибка при очистке правил", show_alert=True)
+        texts = get_texts(db_user.language)
+        logger.error(f"Error clearing rules: {e}")
+        await callback.answer(texts.t("ADMIN_RULES_CLEAR_ERROR", "❌ Error clearing rules"), show_alert=True)
 
 
 @admin_required
@@ -323,13 +357,14 @@ async def show_html_help(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     help_text = get_html_help_text()
     
     await callback.message.edit_text(
-        f"ℹ️ <b>Справка по HTML форматированию</b>\n\n{help_text}",
+        texts.t("ADMIN_RULES_HTML_HELP_TITLE", "ℹ️ <b>HTML formatting help</b>\n\n{help}").format(help=help_text),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="📝 Редактировать правила", callback_data="admin_edit_rules")],
-            [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_rules")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_EDIT_BUTTON", "📝 Edit rules"), callback_data="admin_edit_rules")],
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_RULES_BACK", "⬅️ Back"), callback_data="admin_rules")]
         ])
     )
     await callback.answer()

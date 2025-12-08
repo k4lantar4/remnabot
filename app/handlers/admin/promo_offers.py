@@ -951,7 +951,7 @@ async def _render_squad_selection(
 
     if total_count == 0:
         await callback.message.edit_text(
-            texts.t("ADMIN_PROMO_OFFER_NO_SQUADS_AVAILABLE", "❌ Доступные серверы не найдены."),
+            texts.t("ADMIN_PROMO_OFFER_NO_SQUADS_AVAILABLE", "❌ No available servers found."),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data=f"promo_offer_squad_back_{template.id}")]]
             ),
@@ -1627,7 +1627,7 @@ async def show_selected_user_details(
         for offer in active_offers[:5]:
             parts: List[str] = []
             if offer.effect_type == "test_access":
-                parts.append(texts.t("ADMIN_PROMO_OFFER_SEND_USER_OFFER_TEST", "Тестовый доступ"))
+                parts.append(texts.t("ADMIN_PROMO_OFFER_SEND_USER_OFFER_TEST", "Test access"))
             if offer.discount_percent:
                 parts.append(
                     texts.t(
@@ -1674,7 +1674,7 @@ async def show_selected_user_details(
             lines.append(
                 texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATUS",
-                    "  Статус: {status}",
+                    "  Status: {status}",
                 ).format(status=status_label)
             )
 
@@ -1682,7 +1682,7 @@ async def show_selected_user_details(
             lines.append(
                 texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_OFFER_TIME_LEFT",
-                    "  Осталось: {time}",
+                    "  Remaining: {time}",
                 ).format(time=time_left)
             )
 
@@ -1696,7 +1696,7 @@ async def show_selected_user_details(
                 lines.append(
                     texts.t(
                         "ADMIN_PROMO_OFFER_SEND_USER_OFFER_ACTIVE_DURATION",
-                        "  После активации: {duration}",
+                        "  After activation: {duration}",
                     ).format(duration=format_duration(active_hours * 3600))
                 )
 
@@ -1706,7 +1706,7 @@ async def show_selected_user_details(
                     lines.append(
                         texts.t(
                             "ADMIN_PROMO_OFFER_SEND_USER_OFFER_TOTAL_DURATION",
-                            "  Всего действует: {duration}",
+                            "  Total duration: {duration}",
                         ).format(duration=format_duration(total_seconds))
                     )
 
@@ -1718,7 +1718,7 @@ async def show_selected_user_details(
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_NO_ACTIVE_OFFERS",
-                "📨 Активных предложений нет",
+                "📨 No active offers",
             )
         )
 
@@ -1748,31 +1748,31 @@ async def show_selected_user_details(
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATS_HEADER",
-                "📊 Статистика предложений",
+                "📊 Offer statistics",
             )
         )
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATS_TOTAL",
-                "Всего отправлено: {count}",
+                "Total sent: {count}",
             ).format(count=total_offers)
         )
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATS_ACCEPTED",
-                "Принято: {count}",
+                "Accepted: {count}",
             ).format(count=accepted_offers)
         )
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATS_PENDING",
-                "Не принято: {count}",
+                "Not accepted: {count}",
             ).format(count=pending_offers)
         )
         lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_OFFER_STATS_ACTIVE",
-                "Активно сейчас: {count}",
+                "Active now: {count}",
             ).format(count=len(active_offers))
         )
 
@@ -1794,7 +1794,7 @@ async def show_selected_user_details(
 
     if accesses:
         lines.append("")
-        lines.append(texts.t("ADMIN_PROMO_OFFER_SEND_USER_TEST_ACCESS", "🧪 Активные тестовые доступы:"))
+        lines.append(texts.t("ADMIN_PROMO_OFFER_SEND_USER_TEST_ACCESS", "🧪 Active test accesses:"))
         for entry in accesses[:5]:
             squad_label = html.escape(entry.squad_uuid or "—")
             expires_text = (
@@ -1805,7 +1805,7 @@ async def show_selected_user_details(
             lines.append(
                 texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_TEST_ACCESS_ITEM",
-                    "• {squad} (до {expires})",
+                    "• {squad} (until {expires})",
                 ).format(squad=squad_label, expires=expires_text)
             )
 
@@ -1814,7 +1814,7 @@ async def show_selected_user_details(
             InlineKeyboardButton(
                 text=texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_SEND_BUTTON",
-                    "📬 Отправить предложение",
+                    "📬 Send offer",
                 ),
                 callback_data=f"promo_offer_send_user_confirm_{template_id}_{user.id}",
             )
@@ -1823,7 +1823,7 @@ async def show_selected_user_details(
             InlineKeyboardButton(
                 text=texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_BACK_TO_LIST",
-                    "⬅️ К списку пользователей",
+                    "⬅️ To user list",
                 ),
                 callback_data=f"promo_offer_send_user_back_{template_id}",
             )
@@ -1853,7 +1853,7 @@ def _build_connect_button_rows(user: User, texts) -> List[List[InlineKeyboardBut
     if not subscription:
         return []
 
-    button_text = texts.t("CONNECT_BUTTON", "🔗 Подключиться")
+    button_text = texts.t("CONNECT_BUTTON", "🔗 Connect")
     subscription_link = get_display_subscription_link(subscription)
     connect_mode = settings.CONNECT_BUTTON_MODE
 
@@ -1960,7 +1960,7 @@ async def _send_offer_to_users(
 
                     keyboard_rows.append([
                         InlineKeyboardButton(
-                            text=user_texts.t("PROMO_OFFER_CLOSE", "❌ Закрыть"),
+                            text=user_texts.t("PROMO_OFFER_CLOSE", "❌ Close"),
                             callback_data="promo_offer_close",
                         )
                     ])
@@ -2052,7 +2052,7 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
         users = filtered_users
 
     if not users:
-        await callback.message.answer(texts.t("ADMIN_PROMO_OFFER_NO_USERS", "Подходящих пользователей не найдено."))
+        await callback.message.answer(texts.t("ADMIN_PROMO_OFFER_NO_USERS", "No matching users found."))
         return
 
     skipped = initial_count - len(users)
@@ -2069,12 +2069,12 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
 
     summary = texts.t(
         "ADMIN_PROMO_OFFER_RESULT",
-        "📬 Рассылка завершена\nОтправлено: {sent}\nОшибок: {failed}",
+        "📬 Broadcast completed\nSent: {sent}\nErrors: {failed}",
     ).format(sent=sent, failed=failed)
     if skipped > 0:
         summary += "\n" + texts.t(
             "ADMIN_PROMO_OFFER_SKIPPED",
-            "Пропущено: {skipped} (уже есть доступ)",
+            "Skipped: {skipped} (already have access)",
         ).format(skipped=skipped)
     refreshed = await get_promo_offer_template_by_id(db, template.id)
     result_keyboard_rows: List[List[InlineKeyboardButton]] = []
@@ -2082,14 +2082,14 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
     if refreshed:
         result_keyboard_rows.append([
             InlineKeyboardButton(
-                text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ К предложению"),
+                text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ To offer"),
                 callback_data=f"promo_offer_{refreshed.id}",
             )
         ])
 
     result_keyboard_rows.append([
         InlineKeyboardButton(
-            text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_LIST", "⬅️ К промопредложениям"),
+            text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_LIST", "⬅️ To promo offers"),
             callback_data="admin_promo_offers",
         )
     ])
@@ -2160,11 +2160,11 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
     summary_lines = [
         texts.t(
             "ADMIN_PROMO_OFFER_SEND_USER_SUMMARY_TITLE",
-            "📬 Отправка пользователю {name}",
+            "📬 Sending to user {name}",
         ).format(name=display_name),
         texts.t(
             "ADMIN_PROMO_OFFER_RESULT",
-            "📬 Рассылка завершена\nОтправлено: {sent}\nОшибок: {failed}",
+            "📬 Broadcast completed\nSent: {sent}\nErrors: {failed}",
         ).format(sent=sent, failed=failed),
     ]
 
@@ -2172,7 +2172,7 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
         summary_lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_SKIPPED",
-                "Пропущено: {skipped} (уже есть доступ)",
+                "Skipped: {skipped} (already have access)",
             ).format(skipped=skipped)
         )
 
@@ -2180,7 +2180,7 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
         summary_lines.append(
             texts.t(
                 "ADMIN_PROMO_OFFER_SEND_USER_EMPTY_RESULT",
-                "Отправка не выполнена",
+                "Sending not performed",
             )
         )
 
@@ -2189,7 +2189,7 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
             InlineKeyboardButton(
                 text=texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_BACK_TO_PROFILE",
-                    "👤 К профилю пользователя",
+                    "👤 To user profile",
                 ),
                 callback_data=f"promo_offer_send_user_select_{template.id}_{user.id}",
             )
@@ -2198,14 +2198,14 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
             InlineKeyboardButton(
                 text=texts.t(
                     "ADMIN_PROMO_OFFER_SEND_USER_BACK_TO_LIST",
-                    "⬅️ К списку пользователей",
+                    "⬅️ To user list",
                 ),
                 callback_data=f"promo_offer_send_user_back_{template.id}",
             )
         ],
         [
             InlineKeyboardButton(
-                text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ К предложению"),
+                text=texts.t("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ To offer"),
                 callback_data=f"promo_offer_{template.id}",
             )
         ],
@@ -2304,7 +2304,7 @@ async def select_squad_for_template(callback: CallbackQuery, db_user: User, db: 
         await callback.answer(
             get_texts(db_user.language).t(
                 "ADMIN_PROMO_OFFER_SELECT_SQUAD_NOT_FOUND",
-                "❌ Сервер не найден",
+                "❌ Server not found",
             ),
             show_alert=True,
         )
@@ -2316,7 +2316,7 @@ async def select_squad_for_template(callback: CallbackQuery, db_user: User, db: 
         await state.update_data(selected_promo_offer=updated.id)
 
     texts = get_texts(db_user.language)
-    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SELECT_SQUAD_UPDATED", "✅ Сквад обновлён"))
+    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SELECT_SQUAD_UPDATED", "✅ Squad updated"))
 
     if updated:
         await _render_offer_details(callback, updated, db_user.language, db)
@@ -2351,7 +2351,7 @@ async def clear_squad_for_template(callback: CallbackQuery, db_user: User, db: A
         await state.update_data(selected_promo_offer=updated.id)
 
     texts = get_texts(db_user.language)
-    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SELECT_SQUAD_CLEARED", "✅ Сквад очищен"))
+    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SELECT_SQUAD_CLEARED", "✅ Squad cleared"))
 
     if updated:
         await _render_squad_selection(callback, updated, db, db_user.language, page=page)

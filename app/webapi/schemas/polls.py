@@ -175,8 +175,8 @@ class PollSendRequest(BaseModel):
     target: str = Field(
         ...,
         description=(
-            "Аудитория для отправки опроса (например: all, active, trial, "
-            "custom_today и т.д.)"
+            "Audience to send the poll to (e.g., all, active, trial, "
+            "custom_today, etc.)"
         ),
         max_length=100,
     )

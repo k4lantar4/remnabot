@@ -40,98 +40,98 @@ from .routes import (
 OPENAPI_TAGS = [
     {
         "name": "health",
-        "description": "Мониторинг состояния административного API и связанных сервисов.",
+        "description": "Monitoring of administrative API and related services status.",
     },
     {
         "name": "stats",
-        "description": "Сводные показатели по пользователям, подпискам и платежам.",
+        "description": "Summary metrics for users, subscriptions and payments.",
     },
     {
         "name": "settings",
-        "description": "Получение и изменение конфигурации бота из административной панели.",
+        "description": "Getting and changing bot configuration from administrative panel.",
     },
     {
         "name": "main-menu",
-        "description": "Управление кнопками и сообщениями главного меню Telegram-бота.",
+        "description": "Managing buttons and messages of Telegram bot main menu.",
     },
     {
         "name": "welcome-texts",
-        "description": "Создание, редактирование и управление приветственными текстами.",
+        "description": "Creating, editing and managing welcome texts.",
     },
     {
         "name": "users",
-        "description": "Управление пользователями, балансом и статусами подписок.",
+        "description": "Managing users, balance and subscription statuses.",
     },
     {
         "name": "subscriptions",
-        "description": "Создание, продление и настройка подписок бота.",
+        "description": "Creating, extending and configuring bot subscriptions.",
     },
     {
         "name": "support",
-        "description": "Работа с тикетами поддержки, приоритетами и ограничениями на ответы.",
+        "description": "Working with support tickets, priorities and reply restrictions.",
     },
     {
         "name": "transactions",
-        "description": "История финансовых операций и пополнений баланса.",
+        "description": "Financial operations and balance top-up history.",
     },
     {
         "name": "promo-groups",
-        "description": "Создание и управление промо-группами и их участниками.",
+        "description": "Creating and managing promo groups and their members.",
     },
     {
         "name": "servers",
         "description": (
-            "Управление серверами RemnaWave, их доступностью, промогруппами и "
-            "ручная синхронизация данных.",
+            "Managing RemnaWave servers, their availability, promo groups and "
+            "manual data synchronization."
         ),
     },
     {
         "name": "promo-offers",
-        "description": "Управление промо-предложениями, шаблонами и журналом событий.",
+        "description": "Managing promo offers, templates and event log.",
     },
     {
         "name": "logs",
         "description": (
-            "Журналы мониторинга бота, действий модераторов поддержки и системный лог-файл."
+            "Bot monitoring logs, support moderator actions and system log file."
         ),
     },
     {
         "name": "auth",
-        "description": "Управление токенами доступа к административному API.",
+        "description": "Managing access tokens for administrative API.",
     },
     {
         "name": "remnawave",
         "description": (
-            "Интеграция с RemnaWave: статус панели, управление нодами, сквадами и синхронизацией "
-            "данных между ботом и панелью."
+            "RemnaWave integration: panel status, managing nodes, squads and data "
+            "synchronization between bot and panel."
         ),
     },
     {
         "name": "media",
-        "description": "Загрузка файлов в Telegram и получение ссылок на медиа.",
+        "description": "Uploading files to Telegram and getting media links.",
     },
     {
         "name": "miniapp",
-        "description": "Endpoint для Telegram Mini App с информацией о подписке пользователя.",
+        "description": "Endpoint for Telegram Mini App with user subscription information.",
     },
     {
         "name": "partners",
-        "description": "Просмотр участников реферальной программы, их доходов и рефералов.",
+        "description": "Viewing referral program participants, their earnings and referrals.",
     },
     {
         "name": "polls",
-        "description": "Создание опросов, удаление, статистика и ответы пользователей.",
+        "description": "Creating polls, deletion, statistics and user responses.",
     },
     {
         "name": "pages",
-        "description": "Управление контентом публичных страниц: оферта, политика, FAQ и правила.",
+        "description": "Managing public page content: offer, policy, FAQ and rules.",
     },
     {
         "name": "notifications",
         "description": (
-            "Получение и просмотр уведомлений о покупках, активациях и продлениях подписок, "
-            "пополнениях баланса, активациях промокодов, переходах по реферальным ссылкам и "
-            "сменах промогрупп пользователей для административной панели."
+            "Getting and viewing notifications about purchases, activations and subscription extensions, "
+            "balance top-ups, promocode activations, referral link clicks and "
+            "user promo group changes for administrative panel."
         ),
     },
 ]
@@ -140,7 +140,7 @@ OPENAPI_TAGS = [
 def create_web_api_app() -> FastAPI:
     docs_config = settings.get_web_api_docs_config()
 
-    # Убираем openapi_tags для предотвращения ошибок при генерации openapi.json
+    # Removed openapi_tags to prevent errors when generating openapi.json
     app = FastAPI(
         title=settings.WEB_API_TITLE,
         version=settings.WEB_API_VERSION,

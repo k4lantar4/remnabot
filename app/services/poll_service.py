@@ -34,14 +34,14 @@ def _build_poll_invitation_text(poll: Poll, language: str) -> str:
     if poll.reward_enabled and poll.reward_amount_kopeks > 0:
         reward_line = texts.t(
             "POLL_INVITATION_REWARD",
-            "🎁 За участие вы получите {amount}.",
+            "🎁 You will receive {amount} for participating.",
         ).format(amount=settings.format_price(poll.reward_amount_kopeks))
         lines.append(reward_line)
 
     lines.append(
         texts.t(
             "POLL_INVITATION_START",
-            "Нажмите кнопку ниже, чтобы пройти опрос.",
+            "Click the button below to take the poll.",
         )
     )
 
@@ -54,7 +54,7 @@ def build_start_keyboard(response_id: int, language: str) -> InlineKeyboardMarku
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=texts.t("POLL_START_BUTTON", "📝 Пройти опрос"),
+                    text=texts.t("POLL_START_BUTTON", "📝 Take poll"),
                     callback_data=f"poll_start:{response_id}",
                 )
             ]
@@ -85,7 +85,6 @@ async def send_poll_to_users(
         for user in users
     ]
 
-    # Получаем список пользователей, которые уже прошли опрос, за один запрос
     user_ids = [user_snapshot.id for user_snapshot in user_snapshots]
     existing_responses_result = await db.execute(
         select(PollResponse.user_id).where(
@@ -97,21 +96,16 @@ async def send_poll_to_users(
     )
     existing_user_ids = set(existing_responses_result.scalars().all())
 
-    # Используем умеренный семафор, чтобы не превышать лимиты подключений к БД
-    semaphore = asyncio.Semaphore(30)  # Баланс между производительностью и нагрузкой на БД
+    semaphore = asyncio.Semaphore(30)
 
-    # Создаем отдельную функцию для создания отдельной сессии для каждой отправки
     async def send_poll_invitation(user_snapshot):
-        """Отправляет приглашение к опросу одному пользователю"""
+        """Send poll invitation to a single user"""
         async with semaphore:
-            # Пропускаем пользователей, которые уже прошли опрос
             if user_snapshot.id in existing_user_ids:
                 return "skipped"
                 
-            # Создаем новую сессию для изоляции транзакции
             async with AsyncSessionLocal() as new_db:
                 try:
-                    # Проверяем еще раз в новой сессии на случай гонки
                     existing_response = await new_db.execute(
                         select(PollResponse.id).where(
                             and_(
@@ -155,37 +149,34 @@ async def send_poll_to_users(
                         return "failed"
                 except Exception as error:  # pragma: no cover - defensive logging
                     await new_db.rollback()
-                    # Проверяем, является ли ошибка связанной с лимитом подключений
                     if "too many clients" in str(error).lower():
                         logger.warning(
-                            "⚠️ Ограничение на количество подключений к БД: %s пользователю %s",
+                            "⚠️ DB connection limit reached: %s for user %s",
                             poll_id,
                             user_snapshot.telegram_id,
                         )
-                        # Уменьшаем вероятность переполнения, делая небольшую задержку
                         await asyncio.sleep(0.1)
                     else:
                         logger.error(
-                            "❌ Ошибка отправки опроса %s пользователю %s: %s",
+                            "❌ Error sending poll %s to user %s: %s",
                             poll_id,
                             user_snapshot.telegram_id,
                             error,
                         )
                     return "failed"
 
-    # Отправляем все приглашения одновременно без задержек для максимальной скорости
     tasks = [send_poll_invitation(user_snapshot) for user_snapshot in user_snapshots]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        if isinstance(result, str):  # Успешно выполненная задача
+        if isinstance(result, str):
             if result == "sent":
                 sent += 1
             elif result == "failed":
                 failed += 1
             elif result == "skipped":
                 skipped += 1
-        elif isinstance(result, Exception):  # Ошибка выполнения задачи
+        elif isinstance(result, Exception):
             failed += 1
 
     return {
@@ -210,7 +201,7 @@ async def reward_user_for_poll(
         return response.reward_amount_kopeks
 
     user = response.user
-    description = f"Награда за участие в опросе \"{poll.title}\""
+    description = f"Reward for participating in poll \"{poll.title}\""
 
     response.reward_given = True
     response.reward_amount_kopeks = poll.reward_amount_kopeks

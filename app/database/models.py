@@ -551,7 +551,7 @@ class PromoGroup(Base):
 
 
 class UserPromoGroup(Base):
-    """Таблица связи Many-to-Many между пользователями и промогруппами."""
+    """Many-to-Many relationship table between users and promo groups."""
     __tablename__ = "user_promo_groups"
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
@@ -619,13 +619,11 @@ class User(Base):
         return " ".join(filter(None, parts)) or self.username or f"ID{self.telegram_id}"
 
     def get_primary_promo_group(self):
-        """Возвращает промогруппу с максимальным приоритетом."""
+        """Returns the promo group with the highest priority."""
         if not self.user_promo_groups:
             return getattr(self, "promo_group", None)
 
         try:
-            # Сортируем по приоритету группы (убывание), затем по ID группы
-            # Используем getattr для защиты от ленивой загрузки
             sorted_groups = sorted(
                 self.user_promo_groups,
                 key=lambda upg: (
@@ -638,10 +636,8 @@ class User(Base):
             if sorted_groups and sorted_groups[0].promo_group:
                 return sorted_groups[0].promo_group
         except Exception:
-            # Если возникла ошибка (например, ленивая загрузка), fallback на старую связь
             pass
 
-        # Fallback на старую связь если новая пустая или возникла ошибка
         return getattr(self, "promo_group", None)
 
     def get_promo_discount(self, category: str, period_days: Optional[int] = None) -> int:
@@ -704,7 +700,7 @@ class Subscription(Base):
     
     @property
     def is_expired(self) -> bool:
-        """Проверяет, истёк ли срок подписки"""
+        """Checks if the subscription has expired."""
         return self.end_date <= datetime.utcnow()
 
     @property
@@ -745,18 +741,18 @@ class Subscription(Base):
         current_time = datetime.utcnow()
         
         if actual_status == "expired":
-            return "🔴 Истекла"
+            return "🔴 Expired"
         elif actual_status == "active":
             if self.is_trial:
-                return "🎯 Тестовая"
+                return "🎯 Trial"
             else:
-                return "🟢 Активна"
+                return "🟢 Active"
         elif actual_status == "disabled":
-            return "⚫ Отключена"
+            return "⚫ Disabled"
         elif actual_status == "trial":
-            return "🎯 Тестовая"
+            return "🎯 Trial"
         
-        return "❓ Неизвестно"
+        return "❓ Unknown"
 
     @property
     def status_emoji(self) -> str:
@@ -788,7 +784,7 @@ class Subscription(Base):
     def time_left_display(self) -> str:
         current_time = datetime.utcnow()
         if self.end_date <= current_time:
-            return "истёк"
+            return "expired"
         
         delta = self.end_date - current_time
         days = delta.days
@@ -796,11 +792,11 @@ class Subscription(Base):
         minutes = (delta.seconds % 3600) // 60
         
         if days > 0:
-            return f"{days} дн."
+            return f"{days}d"
         elif hours > 0:
-            return f"{hours} ч."
+            return f"{hours}h"
         else:
-            return f"{minutes} мин."
+            return f"{minutes}m"
     
     @property
     def traffic_used_percent(self) -> float:
@@ -1358,11 +1354,11 @@ class ServerSquad(Base):
     @property
     def availability_status(self) -> str:
         if not self.is_available:
-            return "Недоступен"
+            return "Unavailable"
         elif self.is_full:
-            return "Переполнен"
+            return "Full"
         else:
-            return "Доступен"
+            return "Available"
 
 
 class SubscriptionServer(Base):
@@ -1496,7 +1492,6 @@ class Ticket(Base):
     title = Column(String(255), nullable=False)
     status = Column(String(20), default=TicketStatus.OPEN.value, nullable=False)
     priority = Column(String(20), default="normal", nullable=False)  # low, normal, high, urgent
-    # Блокировка ответов пользователя в этом тикете
     user_reply_block_permanent = Column(Boolean, default=False, nullable=False)
     user_reply_block_until = Column(DateTime, nullable=True)
     
@@ -1506,7 +1501,6 @@ class Ticket(Base):
     # SLA reminders
     last_sla_reminder_at = Column(DateTime, nullable=True)
     
-    # Связи
     user = relationship("User", backref="tickets")
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
     
@@ -1572,7 +1566,6 @@ class TicketMessage(Base):
     message_text = Column(Text, nullable=False)
     is_from_admin = Column(Boolean, default=False, nullable=False)
     
-    # Для медиа файлов
     has_media = Column(Boolean, default=False)
     media_type = Column(String(20), nullable=True)  # photo, video, document, voice, etc.
     media_file_id = Column(String(255), nullable=True)
@@ -1580,7 +1573,6 @@ class TicketMessage(Base):
     
     created_at = Column(DateTime, default=func.now())
     
-    # Связи
     ticket = relationship("Ticket", back_populates="messages")
     user = relationship("User")
     

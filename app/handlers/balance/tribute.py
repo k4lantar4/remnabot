@@ -18,13 +18,13 @@ async def start_tribute_payment(
     texts = get_texts(db_user.language)
 
     if not settings.TRIBUTE_ENABLED:
-        await callback.answer("❌ Оплата картой временно недоступна", show_alert=True)
+        await callback.answer(texts.t("CARD_PAYMENT_UNAVAILABLE", "❌ Card payment temporarily unavailable"), show_alert=True)
         return
 
     try:
         await callback.answer("❌ Tribute payments are not available in this build", show_alert=True)
     except Exception as e:
-        logger.error(f"Ошибка создания Tribute платежа: {e}")
-        await callback.answer("❌ Ошибка создания платежа", show_alert=True)
+        logger.error(f"Error creating Tribute payment: {e}")
+        await callback.answer(texts.t("PAYMENT_CREATE_ERROR_SHORT", "❌ Payment creation error"), show_alert=True)
 
     await callback.answer()

@@ -1,4 +1,4 @@
-"""Pydantic-схемы для управления серверами через Web API."""
+"""Pydantic schemas for managing servers via Web API."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .users import PromoGroupSummary
 
 
 class ServerResponse(BaseModel):
-    """Полная информация о сервере."""
+    """Full server information."""
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -36,7 +36,7 @@ class ServerResponse(BaseModel):
 
 
 class ServerListResponse(BaseModel):
-    """Список серверов с пагинацией."""
+    """Paginated list of servers."""
 
     items: List[ServerResponse]
     total: int
@@ -45,7 +45,7 @@ class ServerListResponse(BaseModel):
 
 
 class ServerCreateRequest(BaseModel):
-    """Запрос на создание сервера."""
+    """Request to create a server."""
 
     squad_uuid: str = Field(alias="squadUuid")
     display_name: str = Field(alias="displayName")
@@ -60,12 +60,12 @@ class ServerCreateRequest(BaseModel):
     promo_group_ids: Optional[List[int]] = Field(
         default=None,
         alias="promoGroupIds",
-        description="Список идентификаторов промогрупп, доступных на сервере.",
+        description="List of promo group IDs available on the server.",
     )
 
 
 class ServerUpdateRequest(BaseModel):
-    """Запрос на обновление свойств сервера."""
+    """Request to update server properties."""
 
     display_name: Optional[str] = Field(default=None, alias="displayName")
     original_name: Optional[str] = Field(default=None, alias="originalName")
@@ -81,12 +81,12 @@ class ServerUpdateRequest(BaseModel):
     promo_group_ids: Optional[List[int]] = Field(
         default=None,
         alias="promoGroupIds",
-        description="Если передан список, он заменит текущие промогруппы сервера.",
+        description="If provided, the list replaces current server promo groups.",
     )
 
 
 class ServerSyncResponse(BaseModel):
-    """Результат синхронизации серверов с RemnaWave."""
+    """Result of server synchronization with RemnaWave."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -97,7 +97,7 @@ class ServerSyncResponse(BaseModel):
 
 
 class ServerStatisticsResponse(BaseModel):
-    """Агрегированная статистика по серверам."""
+    """Aggregated statistics for servers."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -110,7 +110,7 @@ class ServerStatisticsResponse(BaseModel):
 
 
 class ServerCountsSyncResponse(BaseModel):
-    """Результат обновления счетчиков пользователей серверов."""
+    """Result of updating server user counters."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -118,7 +118,7 @@ class ServerCountsSyncResponse(BaseModel):
 
 
 class ServerConnectedUser(BaseModel):
-    """Краткая информация о пользователе, подключенном к серверу."""
+    """Short info about a user connected to the server."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -140,7 +140,7 @@ class ServerConnectedUser(BaseModel):
 
 
 class ServerConnectedUsersResponse(BaseModel):
-    """Список пользователей, подключенных к серверу."""
+    """List of users connected to the server."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -151,7 +151,7 @@ class ServerConnectedUsersResponse(BaseModel):
 
 
 class ServerDeleteResponse(BaseModel):
-    """Ответ при удалении сервера."""
+    """Response for server deletion."""
 
     model_config = ConfigDict(populate_by_name=True)
 

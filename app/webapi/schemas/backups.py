@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class BackupCreateResponse(BaseModel):
     task_id: str
-    status: str = Field(..., description="Текущий статус задачи")
+    status: str = Field(..., description="Current task status")
 
 
 class BackupInfo(BaseModel):
@@ -39,7 +39,7 @@ class BackupStatusResponse(BaseModel):
     message: Optional[str] = None
     file_path: Optional[str] = Field(
         default=None,
-        description="Полный путь до созданного бекапа, если задача завершена",
+        description="Full path to the created backup when the task is finished",
     )
     created_by: Optional[int] = None
     created_at: datetime

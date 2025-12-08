@@ -49,7 +49,7 @@ class TicketReplyRequest(BaseModel):
     message_text: Optional[str] = Field(default=None, max_length=4000)
     media_type: Optional[str] = Field(
         default=None,
-        description="Тип медиа (photo, video, document, voice и т.д.)",
+        description="Media type (photo, video, document, voice, etc.)",
         max_length=32,
     )
     media_file_id: Optional[str] = Field(default=None, max_length=255)

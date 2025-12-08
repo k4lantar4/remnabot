@@ -38,16 +38,16 @@ from ..schemas.remnawave import (
     RemnaWaveUserTrafficResponse,
 )
 
-try:  # pragma: no cover - импорт может не работать без optional-зависимостей
+try:  # pragma: no cover - import may fail without optional deps
     from app.services.remnawave_service import (  # type: ignore
         RemnaWaveConfigurationError,
         RemnaWaveService,
     )
-except Exception:  # pragma: no cover - при ошибке импорта скрываем функционал
+except Exception:  # pragma: no cover - hide functionality if import fails
     RemnaWaveConfigurationError = None  # type: ignore[assignment]
     RemnaWaveService = None  # type: ignore[assignment]
 
-if TYPE_CHECKING:  # pragma: no cover - только для типов в IDE
+if TYPE_CHECKING:  # pragma: no cover - for IDE typing only
     from app.services.remnawave_service import RemnaWaveService as RemnaWaveServiceType
 else:
     RemnaWaveServiceType = Any
@@ -57,26 +57,26 @@ router = APIRouter()
 
 
 def _get_service() -> "RemnaWaveServiceType":
-    if RemnaWaveService is None:  # pragma: no cover - зависимость не доступна
+    if RemnaWaveService is None:  # pragma: no cover - dependency unavailable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RemnaWave сервис недоступен",
+            detail="RemnaWave service unavailable",
         )
 
     return RemnaWaveService()
 
 
 def _ensure_service_configured(service: "RemnaWaveServiceType") -> None:
-    if RemnaWaveService is None:  # pragma: no cover - зависимость не доступна
+    if RemnaWaveService is None:  # pragma: no cover - dependency unavailable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RemnaWave сервис недоступен",
+            detail="RemnaWave service unavailable",
         )
 
     if not service.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=service.configuration_error or "RemnaWave API не настроен",
+            detail=service.configuration_error or "RemnaWave API not configured",
         )
 
 
@@ -135,7 +135,7 @@ async def get_system_statistics(
 
     stats = await service.get_system_statistics()
     if not stats or "system" not in stats:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Не удалось получить статистику RemnaWave")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to fetch RemnaWave statistics")
 
     stats["last_updated"] = _parse_last_updated(stats.get("last_updated"))
     return RemnaWaveSystemStatsResponse(**stats)
@@ -172,7 +172,7 @@ async def get_node_details(
 
     node = await service.get_node_details(node_uuid)
     if not node:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Нода не найдена")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Node not found")
     return _serialize_node(node)
 
 
@@ -186,7 +186,7 @@ async def get_node_statistics(
 
     stats = await service.get_node_statistics(node_uuid)
     if not stats or not stats.get("node"):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Не удалось получить информацию по ноде")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Failed to fetch node info")
 
     node_data = _serialize_node(stats["node"])
     usage_history = stats.get("usage_history") or []
@@ -215,7 +215,7 @@ async def get_node_usage_range(
     start_dt = start or (end_dt - timedelta(days=7))
 
     if start_dt >= end_dt:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Некорректный диапазон дат")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid date range")
 
     usage = await service.get_node_user_usage_by_range(node_uuid, start_dt, end_dt)
     return RemnaWaveNodeUsageResponse(items=usage or [])
@@ -234,13 +234,13 @@ async def manage_node(
     detail = None
     if success:
         if payload.action == "enable":
-            detail = "Нода включена"
+            detail = "Node enabled"
         elif payload.action == "disable":
-            detail = "Нода отключена"
+            detail = "Node disabled"
         elif payload.action == "restart":
-            detail = "Команда перезапуска отправлена"
+            detail = "Restart command sent"
     else:
-        detail = "Не удалось выполнить действие"
+        detail = "Failed to perform action"
 
     return RemnaWaveNodeActionResponse(success=success, detail=detail)
 
@@ -253,7 +253,7 @@ async def restart_all_nodes(
     _ensure_service_configured(service)
 
     success = await service.restart_all_nodes()
-    detail = "Команда перезапуска отправлена" if success else "Не удалось перезапустить ноды"
+    detail = "Restart command sent" if success else "Failed to restart nodes"
     return RemnaWaveNodeActionResponse(success=success, detail=detail)
 
 
@@ -279,7 +279,7 @@ async def get_squad_details(
 
     squad = await service.get_squad_details(squad_uuid)
     if not squad:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сквад не найден")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Squad not found")
     return RemnaWaveSquad(**squad)
 
 
@@ -292,7 +292,7 @@ async def create_squad(
     _ensure_service_configured(service)
 
     success = await service.create_squad(payload.name, payload.inbound_uuids)
-    detail = "Сквад успешно создан" if success else "Не удалось создать сквад"
+    detail = "Squad created successfully" if success else "Failed to create squad"
     return RemnaWaveOperationResponse(success=success, detail=detail)
 
 
@@ -306,7 +306,7 @@ async def update_squad(
     _ensure_service_configured(service)
 
     success = False
-    detail = "Необходимо указать новые данные"
+    detail = "New data must be provided"
 
     if payload.name is not None or payload.inbound_uuids is not None:
         success = await service.update_squad(
@@ -314,7 +314,7 @@ async def update_squad(
             name=payload.name,
             inbounds=payload.inbound_uuids,
         )
-        detail = "Сквад обновлен" if success else "Не удалось обновить сквад"
+        detail = "Squad updated" if success else "Failed to update squad"
 
     return RemnaWaveOperationResponse(success=success, detail=detail)
 
@@ -330,27 +330,27 @@ async def squad_actions(
 
     action = payload.action
     success = False
-    detail = "Неизвестное действие"
+    detail = "Unknown action"
 
     if action == "add_all_users":
         success = await service.add_all_users_to_squad(squad_uuid)
-        detail = "Пользователи добавлены" if success else "Не удалось добавить пользователей"
+        detail = "Users added" if success else "Failed to add users"
     elif action == "remove_all_users":
         success = await service.remove_all_users_from_squad(squad_uuid)
-        detail = "Пользователи удалены" if success else "Не удалось удалить пользователей"
+        detail = "Users removed" if success else "Failed to remove users"
     elif action == "delete":
         success = await service.delete_squad(squad_uuid)
-        detail = "Сквад удален" if success else "Не удалось удалить сквад"
+        detail = "Squad deleted" if success else "Failed to delete squad"
     elif action == "rename":
         if not payload.name:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Необходимо указать новое имя")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "New name is required")
         success = await service.rename_squad(squad_uuid, payload.name)
-        detail = "Сквад переименован" if success else "Не удалось переименовать сквад"
+        detail = "Squad renamed" if success else "Failed to rename squad"
     elif action == "update_inbounds":
         if not payload.inbound_uuids:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Необходимо указать inbound_uuids")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "inbound_uuids must be provided")
         success = await service.update_squad_inbounds(squad_uuid, payload.inbound_uuids)
-        detail = "Инбаунды обновлены" if success else "Не удалось обновить инбаунды"
+        detail = "Inbounds updated" if success else "Failed to update inbounds"
 
     return RemnaWaveOperationResponse(success=success, detail=detail)
 
@@ -376,7 +376,7 @@ async def get_user_traffic(
 
     stats = await service.get_user_traffic_stats(telegram_id)
     if not stats:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Пользователь не найден в RemnaWave")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found in RemnaWave")
 
     return RemnaWaveUserTrafficResponse(telegram_id=telegram_id, **stats)
 
@@ -392,7 +392,7 @@ async def preview_squad_migration(
 
     squad = await get_server_squad_by_uuid(db, squad_uuid)
     if not squad:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сквад не найден")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Squad not found")
 
     users_to_migrate = await count_active_users_for_squad(db, squad_uuid)
 
@@ -416,9 +416,9 @@ async def sync_from_panel(
 
     try:
         stats = await service.sync_users_from_panel(db, payload.mode)
-        detail = "Синхронизация из панели выполнена"
+        detail = "Sync from panel completed"
         return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=stats)
-    except Exception as exc:  # pragma: no cover - точный тип зависит от импорта
+    except Exception as exc:  # pragma: no cover - exact type depends on import
         if RemnaWaveConfigurationError and isinstance(exc, RemnaWaveConfigurationError):
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
         raise
@@ -433,7 +433,7 @@ async def sync_to_panel(
     _ensure_service_configured(service)
 
     stats = await service.sync_users_to_panel(db)
-    detail = "Синхронизация в панель выполнена"
+    detail = "Sync to panel completed"
     return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=stats)
 
 
@@ -446,7 +446,7 @@ async def validate_and_fix_subscriptions(
     _ensure_service_configured(service)
 
     stats = await service.validate_and_fix_subscriptions(db)
-    detail = "Подписки проверены"
+    detail = "Subscriptions checked"
     return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=stats)
 
 
@@ -459,7 +459,7 @@ async def cleanup_orphaned_subscriptions(
     _ensure_service_configured(service)
 
     stats = await service.cleanup_orphaned_subscriptions(db)
-    detail = "Очистка завершена"
+    detail = "Cleanup finished"
     return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=stats)
 
 
@@ -472,7 +472,7 @@ async def sync_subscription_statuses(
     _ensure_service_configured(service)
 
     stats = await service.sync_subscription_statuses(db)
-    detail = "Статусы подписок синхронизированы"
+    detail = "Subscription statuses synchronized"
     return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=stats)
 
 
@@ -485,7 +485,7 @@ async def get_sync_recommendations(
     _ensure_service_configured(service)
 
     data = await service.get_sync_recommendations(db)
-    detail = "Рекомендации получены"
+    detail = "Recommendations received"
     return RemnaWaveGenericSyncResponse(success=True, detail=detail, data=data)
 
 
@@ -502,15 +502,15 @@ async def migrate_squad(
     target_uuid = payload.target_uuid.strip()
 
     if source_uuid == target_uuid:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Источник и назначение совпадают")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Source and destination are the same")
 
     source = await get_server_squad_by_uuid(db, source_uuid)
     if not source:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сквад-источник не найден")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source squad not found")
 
     target = await get_server_squad_by_uuid(db, target_uuid)
     if not target:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сквад-назначение не найден")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Destination squad not found")
 
     try:
         result = await service.migrate_squad_users(
@@ -518,11 +518,11 @@ async def migrate_squad(
             source_uuid=source.squad_uuid,
             target_uuid=target.squad_uuid,
         )
-    except RemnaWaveConfigurationError as exc:  # pragma: no cover - зависит от окружения
+    except RemnaWaveConfigurationError as exc:  # pragma: no cover - depends on environment
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
 
     if not result.get("success"):
-        detail = result.get("message") or "Не удалось выполнить переезд"
+        detail = result.get("message") or "Failed to perform migration"
         return RemnaWaveSquadMigrationResponse(
             success=False,
             detail=detail,
@@ -540,5 +540,5 @@ async def migrate_squad(
         target_added=result.get("target_added", 0),
     )
 
-    detail = result.get("message") or "Переезд выполнен"
+    detail = result.get("message") or "Migration completed"
     return RemnaWaveSquadMigrationResponse(success=True, detail=detail, data=stats)

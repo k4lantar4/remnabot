@@ -71,5 +71,5 @@ class PartnerReferralCommissionUpdate(BaseModel):
         default=None,
         ge=0,
         le=100,
-        description="Индивидуальный процент реферальной комиссии для пользователя",
+        description="Individual referral commission percent for the user",
     )

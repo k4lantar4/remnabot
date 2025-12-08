@@ -3891,199 +3891,199 @@ async def run_universal_migration():
         if faq_pages_ready:
             logger.info("✅ Table faq_pages ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей faq_pages")
+            logger.warning("⚠️ Issues with faq_pages table")
 
-        logger.info("=== ПРОВЕРКА БАЗОВЫХ ТОКЕНОВ ВЕБ-API ===")
+        logger.info("=== CHECKING DEFAULT WEB API TOKENS ===")
         default_token_ready = await ensure_default_web_api_token()
         if default_token_ready:
-            logger.info("✅ Бутстрап токен веб-API готов")
+            logger.info("✅ Bootstrap web API token ready")
         else:
-            logger.warning("⚠️ Не удалось создать бутстрап токен веб-API")
+            logger.warning("⚠️ Failed to create bootstrap web API token")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ CRYPTOBOT ===")
+        logger.info("=== CREATING CRYPTOBOT TABLE ===")
         cryptobot_created = await create_cryptobot_payments_table()
         if cryptobot_created:
-            logger.info("✅ Таблица CryptoBot payments готова")
+            logger.info("✅ CryptoBot payments table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей CryptoBot payments")
+            logger.warning("⚠️ Issues with CryptoBot payments table")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ HELEKET ===")
+        logger.info("=== CREATING HELEKET TABLE ===")
         heleket_created = await create_heleket_payments_table()
         if heleket_created:
-            logger.info("✅ Таблица Heleket payments готова")
+            logger.info("✅ Heleket payments table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей Heleket payments")
+            logger.warning("⚠️ Issues with Heleket payments table")
 
         mulenpay_name = settings.get_mulenpay_display_name()
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ %s ===", mulenpay_name)
+        logger.info("=== CREATING %s TABLE ===", mulenpay_name)
         mulenpay_created = await create_mulenpay_payments_table()
         if mulenpay_created:
-            logger.info("✅ Таблица %s payments готова", mulenpay_name)
+            logger.info("✅ %s payments table ready", mulenpay_name)
         else:
-            logger.warning("⚠️ Проблемы с таблицей %s payments", mulenpay_name)
+            logger.warning("⚠️ Issues with %s payments table", mulenpay_name)
 
         mulenpay_schema_ok = await ensure_mulenpay_payment_schema()
         if mulenpay_schema_ok:
-            logger.info("✅ Схема %s payments актуальна", mulenpay_name)
+            logger.info("✅ %s payments schema is up to date", mulenpay_name)
         else:
-            logger.warning("⚠️ Не удалось обновить схему %s payments", mulenpay_name)
+            logger.warning("⚠️ Failed to update %s payments schema", mulenpay_name)
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ PAL24 ===")
+        logger.info("=== CREATING PAL24 TABLE ===")
         pal24_created = await create_pal24_payments_table()
         if pal24_created:
-            logger.info("✅ Таблица Pal24 payments готова")
+            logger.info("✅ Pal24 payments table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей Pal24 payments")
+            logger.warning("⚠️ Issues with Pal24 payments table")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ WATA ===")
+        logger.info("=== CREATING WATA TABLE ===")
         wata_created = await create_wata_payments_table()
         if wata_created:
-            logger.info("✅ Таблица Wata payments готова")
+            logger.info("✅ Wata payments table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей Wata payments")
+            logger.warning("⚠️ Issues with Wata payments table")
 
         wata_schema_ok = await ensure_wata_payment_schema()
         if wata_schema_ok:
-            logger.info("✅ Схема Wata payments актуальна")
+            logger.info("✅ Wata payments schema is up to date")
         else:
-            logger.warning("⚠️ Не удалось обновить схему Wata payments")
+            logger.warning("⚠️ Failed to update Wata payments schema")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ DISCOUNT_OFFERS ===")
+        logger.info("=== CREATING DISCOUNT_OFFERS TABLE ===")
         discount_created = await create_discount_offers_table()
         if discount_created:
-            logger.info("✅ Таблица discount_offers готова")
+            logger.info("✅ discount_offers table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей discount_offers")
+            logger.warning("⚠️ Issues with discount_offers table")
 
         discount_columns_ready = await ensure_discount_offer_columns()
         if discount_columns_ready:
-            logger.info("✅ Колонки discount_offers в актуальном состоянии")
+            logger.info("✅ discount_offers columns are up to date")
         else:
-            logger.warning("⚠️ Не удалось обновить колонки discount_offers")
+            logger.warning("⚠️ Failed to update discount_offers columns")
 
         user_discount_columns_ready = await ensure_user_promo_offer_discount_columns()
         if user_discount_columns_ready:
-            logger.info("✅ Колонки пользовательских промо-скидок готовы")
+            logger.info("✅ User promo discount columns ready")
         else:
-            logger.warning("⚠️ Не удалось обновить пользовательские промо-скидки")
+            logger.warning("⚠️ Failed to update user promo discount columns")
 
         effect_types_updated = await migrate_discount_offer_effect_types()
         if effect_types_updated:
-            logger.info("✅ Типы эффектов промо-предложений обновлены")
+            logger.info("✅ Promo offer effect types updated")
         else:
-            logger.warning("⚠️ Не удалось обновить типы эффектов промо-предложений")
+            logger.warning("⚠️ Failed to update promo offer effect types")
 
         bonuses_reset = await reset_discount_offer_bonuses()
         if bonuses_reset:
-            logger.info("✅ Бонусные начисления промо-предложений отключены")
+            logger.info("✅ Promo offer bonuses disabled")
         else:
-            logger.warning("⚠️ Не удалось обнулить бонусы промо-предложений")
+            logger.warning("⚠️ Failed to reset promo offer bonuses")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ PROMO_OFFER_TEMPLATES ===")
+        logger.info("=== CREATING PROMO_OFFER_TEMPLATES TABLE ===")
         promo_templates_created = await create_promo_offer_templates_table()
         if promo_templates_created:
-            logger.info("✅ Таблица promo_offer_templates готова")
+            logger.info("✅ promo_offer_templates table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей promo_offer_templates")
+            logger.warning("⚠️ Issues with promo_offer_templates table")
 
-        logger.info("=== ДОБАВЛЕНИЕ ПРИОРИТЕТА В ПРОМОГРУППЫ ===")
+        logger.info("=== ADDING PRIORITY TO PROMO GROUPS ===")
         priority_column_ready = await add_promo_group_priority_column()
         if priority_column_ready:
-            logger.info("✅ Колонка priority в promo_groups готова")
+            logger.info("✅ priority column in promo_groups ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением priority в promo_groups")
+            logger.warning("⚠️ Issues adding priority to promo_groups")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ USER_PROMO_GROUPS ===")
+        logger.info("=== CREATING USER_PROMO_GROUPS TABLE ===")
         user_promo_groups_ready = await create_user_promo_groups_table()
         if user_promo_groups_ready:
-            logger.info("✅ Таблица user_promo_groups готова")
+            logger.info("✅ user_promo_groups table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей user_promo_groups")
+            logger.warning("⚠️ Issues with user_promo_groups table")
 
-        logger.info("=== МИГРАЦИЯ ДАННЫХ В USER_PROMO_GROUPS ===")
+        logger.info("=== MIGRATING DATA TO USER_PROMO_GROUPS ===")
         data_migrated = await migrate_existing_user_promo_groups_data()
         if data_migrated:
-            logger.info("✅ Данные перенесены в user_promo_groups")
+            logger.info("✅ Data migrated to user_promo_groups")
         else:
-            logger.warning("⚠️ Проблемы с миграцией данных в user_promo_groups")
+            logger.warning("⚠️ Issues migrating data to user_promo_groups")
 
-        logger.info("=== ДОБАВЛЕНИЕ PROMO_GROUP_ID В PROMOCODES ===")
+        logger.info("=== ADDING PROMO_GROUP_ID TO PROMOCODES ===")
         promocode_column_ready = await add_promocode_promo_group_column()
         if promocode_column_ready:
-            logger.info("✅ Колонка promo_group_id в promocodes готова")
+            logger.info("✅ promo_group_id column in promocodes ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением promo_group_id в promocodes")
+            logger.warning("⚠️ Issues adding promo_group_id to promocodes")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ MAIN_MENU_BUTTONS ===")
+        logger.info("=== CREATING MAIN_MENU_BUTTONS TABLE ===")
         main_menu_buttons_created = await create_main_menu_buttons_table()
         if main_menu_buttons_created:
-            logger.info("✅ Таблица main_menu_buttons готова")
+            logger.info("✅ main_menu_buttons table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей main_menu_buttons")
+            logger.warning("⚠️ Issues with main_menu_buttons table")
 
         template_columns_ready = await ensure_promo_offer_template_active_duration_column()
         if template_columns_ready:
-            logger.info("✅ Колонка active_discount_hours промо-предложений готова")
+            logger.info("✅ active_discount_hours column for promo offers ready")
         else:
-            logger.warning("⚠️ Не удалось обновить колонку active_discount_hours промо-предложений")
+            logger.warning("⚠️ Failed to update active_discount_hours column for promo offers")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ PROMO_OFFER_LOGS ===")
+        logger.info("=== CREATING PROMO_OFFER_LOGS TABLE ===")
         promo_logs_created = await create_promo_offer_logs_table()
         if promo_logs_created:
-            logger.info("✅ Таблица promo_offer_logs готова")
+            logger.info("✅ promo_offer_logs table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей promo_offer_logs")
+            logger.warning("⚠️ Issues with promo_offer_logs table")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ SUBSCRIPTION_TEMPORARY_ACCESS ===")
+        logger.info("=== CREATING SUBSCRIPTION_TEMPORARY_ACCESS TABLE ===")
         temp_access_created = await create_subscription_temporary_access_table()
         if temp_access_created:
-            logger.info("✅ Таблица subscription_temporary_access готова")
+            logger.info("✅ subscription_temporary_access table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей subscription_temporary_access")
+            logger.warning("⚠️ Issues with subscription_temporary_access table")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ USER_MESSAGES ===")
+        logger.info("=== CREATING USER_MESSAGES TABLE ===")
         user_messages_created = await create_user_messages_table()
         if user_messages_created:
-            logger.info("✅ Таблица user_messages готова")
+            logger.info("✅ user_messages table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей user_messages")
+            logger.warning("⚠️ Issues with user_messages table")
 
-        logger.info("=== СОЗДАНИЕ/ОБНОВЛЕНИЕ ТАБЛИЦЫ WELCOME_TEXTS ===")
+        logger.info("=== CREATING/UPDATING WELCOME_TEXTS TABLE ===")
         welcome_texts_created = await create_welcome_texts_table()
         if welcome_texts_created:
-            logger.info("✅ Таблица welcome_texts готова с полем is_enabled")
+            logger.info("✅ welcome_texts table ready with is_enabled field")
         else:
-            logger.warning("⚠️ Проблемы с таблицей welcome_texts")
+            logger.warning("⚠️ Issues with welcome_texts table")
         
-        logger.info("=== ДОБАВЛЕНИЕ МЕДИА ПОЛЕЙ В BROADCAST_HISTORY ===")
+        logger.info("=== ADDING MEDIA FIELDS TO BROADCAST_HISTORY ===")
         media_fields_added = await add_media_fields_to_broadcast_history()
         if media_fields_added:
-            logger.info("✅ Медиа поля в broadcast_history готовы")
+            logger.info("✅ Media fields in broadcast_history ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением медиа полей")
+            logger.warning("⚠️ Issues adding media fields")
 
-        logger.info("=== ДОБАВЛЕНИЕ ПОЛЕЙ БЛОКИРОВКИ В TICKETS ===")
+        logger.info("=== ADDING BLOCK FIELDS TO TICKETS ===")
         tickets_block_cols_added = await add_ticket_reply_block_columns()
         if tickets_block_cols_added:
-            logger.info("✅ Поля блокировок в tickets готовы")
+            logger.info("✅ Block fields in tickets ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением полей блокировок в tickets")
+            logger.warning("⚠️ Issues adding block fields to tickets")
 
-        logger.info("=== ДОБАВЛЕНИЕ ПОЛЕЙ SLA В TICKETS ===")
+        logger.info("=== ADDING SLA FIELDS TO TICKETS ===")
         sla_cols_added = await add_ticket_sla_columns()
         if sla_cols_added:
-            logger.info("✅ Поля SLA в tickets готовы")
+            logger.info("✅ SLA fields in tickets ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением полей SLA в tickets")
+            logger.warning("⚠️ Issues adding SLA fields to tickets")
 
-        logger.info("=== ДОБАВЛЕНИЕ КОЛОНКИ CRYPTO LINK ДЛЯ ПОДПИСОК ===")
+        logger.info("=== ADDING CRYPTO LINK COLUMN FOR SUBSCRIPTIONS ===")
         crypto_link_added = await add_subscription_crypto_link_column()
         if crypto_link_added:
-            logger.info("✅ Колонка subscription_crypto_link готова")
+            logger.info("✅ subscription_crypto_link column ready")
         else:
-            logger.warning("⚠️ Проблемы с добавлением колонки subscription_crypto_link")
+            logger.warning("⚠️ Issues adding subscription_crypto_link column")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ АУДИТА ПОДДЕРЖКИ ===")
+        logger.info("=== CREATING SUPPORT AUDIT TABLE ===")
         try:
             async with engine.begin() as conn:
                 db_type = await get_database_type()
@@ -4143,45 +4143,45 @@ async def run_universal_migration():
                         CREATE INDEX idx_support_audit_logs_action ON support_audit_logs(action);
                         """
                     await conn.execute(text(create_sql))
-                    logger.info("✅ Таблица support_audit_logs создана")
+                    logger.info("✅ support_audit_logs table created")
                 else:
-                    logger.info("ℹ️ Таблица support_audit_logs уже существует")
+                    logger.info("ℹ️ support_audit_logs table already exists")
         except Exception as e:
-            logger.warning(f"⚠️ Проблемы с созданием таблицы support_audit_logs: {e}")
+            logger.warning(f"⚠️ Issues creating support_audit_logs table: {e}")
 
         logger.info("=== SETTING UP PROMO GROUPS ===")
         promo_groups_ready = await ensure_promo_groups_setup()
         if promo_groups_ready:
-            logger.info("✅ Промо группы готовы")
+            logger.info("✅ Promo groups ready")
         else:
-            logger.warning("⚠️ Проблемы с настройкой промо групп")
+            logger.warning("⚠️ Issues with promo groups setup")
 
         server_promo_groups_ready = await ensure_server_promo_groups_setup()
         if server_promo_groups_ready:
-            logger.info("✅ Доступ серверов по промогруппам настроен")
+            logger.info("✅ Server access by promo groups configured")
         else:
-            logger.warning("⚠️ Проблемы с настройкой доступа серверов к промогруппам")
+            logger.warning("⚠️ Issues configuring server access to promo groups")
 
-        logger.info("=== ОБНОВЛЕНИЕ ВНЕШНИХ КЛЮЧЕЙ ===")
+        logger.info("=== UPDATING FOREIGN KEYS ===")
         fk_updated = await fix_foreign_keys_for_user_deletion()
         if fk_updated:
-            logger.info("✅ Внешние ключи обновлены")
+            logger.info("✅ Foreign keys updated")
         else:
-            logger.warning("⚠️ Проблемы с обновлением внешних ключей")
+            logger.warning("⚠️ Issues updating foreign keys")
         
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ КОНВЕРСИЙ ПОДПИСОК ===")
+        logger.info("=== CREATING SUBSCRIPTION CONVERSIONS TABLE ===")
         conversions_created = await create_subscription_conversions_table()
         if conversions_created:
-            logger.info("✅ Таблица subscription_conversions готова")
+            logger.info("✅ subscription_conversions table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей subscription_conversions")
+            logger.warning("⚠️ Issues with subscription_conversions table")
 
-        logger.info("=== СОЗДАНИЕ ТАБЛИЦЫ SUBSCRIPTION_EVENTS ===")
+        logger.info("=== CREATING SUBSCRIPTION_EVENTS TABLE ===")
         events_created = await create_subscription_events_table()
         if events_created:
-            logger.info("✅ Таблица subscription_events готова")
+            logger.info("✅ subscription_events table ready")
         else:
-            logger.warning("⚠️ Проблемы с таблицей subscription_events")
+            logger.warning("⚠️ Issues with subscription_events table")
 
         async with engine.begin() as conn:
             total_subs = await conn.execute(text("SELECT COUNT(*) FROM subscriptions"))
@@ -4190,12 +4190,12 @@ async def run_universal_migration():
             total_count = total_subs.fetchone()[0]
             unique_count = unique_users.fetchone()[0]
             
-            logger.info(f"Всего подписок: {total_count}")
-            logger.info(f"Уникальных пользователей: {unique_count}")
+            logger.info(f"Total subscriptions: {total_count}")
+            logger.info(f"Unique users: {unique_count}")
             
             if total_count == unique_count:
-                logger.info("База данных уже в корректном состоянии")
-                logger.info("=== МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО ===")
+                logger.info("Database is already in correct state")
+                logger.info("=== MIGRATION COMPLETED SUCCESSFULLY ===")
                 return True
         
         deleted_count = await fix_subscription_duplicates_universal()
@@ -4211,26 +4211,26 @@ async def run_universal_migration():
             remaining_duplicates = final_check.fetchall()
             
             if remaining_duplicates:
-                logger.warning(f"Остались дубликаты у {len(remaining_duplicates)} пользователей")
+                logger.warning(f"Duplicates remain for {len(remaining_duplicates)} users")
                 return False
             else:
-                logger.info("=== МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО ===")
-                logger.info("✅ Реферальная система обновлена")
-                logger.info("✅ CryptoBot таблица готова")
-                logger.info("✅ Heleket таблица готова")
-                logger.info("✅ Таблица конверсий подписок создана")
-                logger.info("✅ Таблица событий подписок создана")
-                logger.info("✅ Таблица welcome_texts с полем is_enabled готова")
-                logger.info("✅ Медиа поля в broadcast_history добавлены")
-                logger.info("✅ Дубликаты подписок исправлены")
+                logger.info("=== MIGRATION COMPLETED SUCCESSFULLY ===")
+                logger.info("✅ Referral system updated")
+                logger.info("✅ CryptoBot table ready")
+                logger.info("✅ Heleket table ready")
+                logger.info("✅ Subscription conversions table created")
+                logger.info("✅ Subscription events table created")
+                logger.info("✅ welcome_texts table with is_enabled field ready")
+                logger.info("✅ Media fields in broadcast_history added")
+                logger.info("✅ Subscription duplicates fixed")
                 return True
                 
     except Exception as e:
-        logger.error(f"=== ОШИБКА ВЫПОЛНЕНИЯ МИГРАЦИИ: {e} ===")
+        logger.error(f"=== MIGRATION ERROR: {e} ===")
         return False
 
 async def check_migration_status():
-    logger.info("=== ПРОВЕРКА СТАТУСА МИГРАЦИЙ ===")
+    logger.info("=== CHECKING MIGRATION STATUS ===")
     
     try:
         status = {
@@ -4325,49 +4325,49 @@ async def check_migration_status():
             status["subscription_duplicates"] = (duplicates_count == 0)
         
         check_names = {
-            "has_made_first_topup_column": "Колонка реферальной системы",
-            "cryptobot_table": "Таблица CryptoBot payments",
-            "heleket_table": "Таблица Heleket payments",
-            "user_messages_table": "Таблица пользовательских сообщений",
-            "welcome_texts_table": "Таблица приветственных текстов",
-            "privacy_policies_table": "Таблица политик конфиденциальности",
-            "public_offers_table": "Таблица публичных оферт",
-            "welcome_texts_is_enabled_column": "Поле is_enabled в welcome_texts",
-            "broadcast_history_media_fields": "Медиа поля в broadcast_history",
-            "subscription_conversions_table": "Таблица конверсий подписок",
-            "subscription_events_table": "Таблица событий подписок",
-            "subscription_duplicates": "Отсутствие дубликатов подписок",
-            "promo_groups_table": "Таблица промо-групп",
-            "server_promo_groups_table": "Связи серверов и промогрупп",
-            "server_squads_trial_column": "Колонка триального назначения у серверов",
-            "users_promo_group_column": "Колонка promo_group_id у пользователей",
-            "promo_groups_period_discounts_column": "Колонка period_discounts у промо-групп",
-            "promo_groups_auto_assign_column": "Колонка auto_assign_total_spent_kopeks у промо-групп",
-            "promo_groups_addon_discount_column": "Колонка apply_discounts_to_addons у промо-групп",
-            "users_auto_promo_group_assigned_column": "Флаг автоназначения промогруппы у пользователей",
-            "users_auto_promo_group_threshold_column": "Порог последней авто-промогруппы у пользователей",
-            "users_promo_offer_discount_percent_column": "Колонка процента промо-скидки у пользователей",
-            "users_promo_offer_discount_source_column": "Колонка источника промо-скидки у пользователей",
-            "users_promo_offer_discount_expires_column": "Колонка срока действия промо-скидки у пользователей",
-            "users_referral_commission_percent_column": "Колонка процента реферальной комиссии у пользователей",
-            "subscription_crypto_link_column": "Колонка subscription_crypto_link в subscriptions",
-            "discount_offers_table": "Таблица discount_offers",
-            "discount_offers_effect_column": "Колонка effect_type в discount_offers",
-            "discount_offers_extra_column": "Колонка extra_data в discount_offers",
-            "promo_offer_templates_table": "Таблица promo_offer_templates",
-            "promo_offer_templates_active_discount_column": "Колонка active_discount_hours в promo_offer_templates",
-            "promo_offer_logs_table": "Таблица promo_offer_logs",
-            "subscription_temporary_access_table": "Таблица subscription_temporary_access",
+            "has_made_first_topup_column": "Referral system column",
+            "cryptobot_table": "CryptoBot payments table",
+            "heleket_table": "Heleket payments table",
+            "user_messages_table": "User messages table",
+            "welcome_texts_table": "Welcome texts table",
+            "privacy_policies_table": "Privacy policies table",
+            "public_offers_table": "Public offers table",
+            "welcome_texts_is_enabled_column": "is_enabled field in welcome_texts",
+            "broadcast_history_media_fields": "Media fields in broadcast_history",
+            "subscription_conversions_table": "Subscription conversions table",
+            "subscription_events_table": "Subscription events table",
+            "subscription_duplicates": "No subscription duplicates",
+            "promo_groups_table": "Promo groups table",
+            "server_promo_groups_table": "Server promo groups associations",
+            "server_squads_trial_column": "Trial eligibility column for servers",
+            "users_promo_group_column": "promo_group_id column for users",
+            "promo_groups_period_discounts_column": "period_discounts column for promo groups",
+            "promo_groups_auto_assign_column": "auto_assign_total_spent_kopeks column for promo groups",
+            "promo_groups_addon_discount_column": "apply_discounts_to_addons column for promo groups",
+            "users_auto_promo_group_assigned_column": "Auto promo group assignment flag for users",
+            "users_auto_promo_group_threshold_column": "Last auto promo group threshold for users",
+            "users_promo_offer_discount_percent_column": "Promo discount percent column for users",
+            "users_promo_offer_discount_source_column": "Promo discount source column for users",
+            "users_promo_offer_discount_expires_column": "Promo discount expiry column for users",
+            "users_referral_commission_percent_column": "Referral commission percent column for users",
+            "subscription_crypto_link_column": "subscription_crypto_link column in subscriptions",
+            "discount_offers_table": "discount_offers table",
+            "discount_offers_effect_column": "effect_type column in discount_offers",
+            "discount_offers_extra_column": "extra_data column in discount_offers",
+            "promo_offer_templates_table": "promo_offer_templates table",
+            "promo_offer_templates_active_discount_column": "active_discount_hours column in promo_offer_templates",
+            "promo_offer_logs_table": "promo_offer_logs table",
+            "subscription_temporary_access_table": "subscription_temporary_access table",
         }
         
         for check_key, check_status in status.items():
             check_name = check_names.get(check_key, check_key)
             icon = "✅" if check_status else "❌"
-            logger.info(f"{icon} {check_name}: {'OK' if check_status else 'ТРЕБУЕТ ВНИМАНИЯ'}")
+            logger.info(f"{icon} {check_name}: {'OK' if check_status else 'NEEDS ATTENTION'}")
         
         all_good = all(status.values())
         if all_good:
-            logger.info("🎉 Все миграции выполнены успешно!")
+            logger.info("🎉 All migrations completed successfully!")
             
             try:
                 async with engine.begin() as conn:
@@ -4381,17 +4381,17 @@ async def check_migration_status():
                     welcome_count = welcome_texts_count.fetchone()[0]
                     broadcast_count = broadcasts_count.fetchone()[0]
                     
-                    logger.info(f"📊 Статистика: {usr_count} пользователей, {conv_count} конверсий, {welcome_count} приветственных текстов, {broadcast_count} рассылок")
+                    logger.info(f"📊 Statistics: {usr_count} users, {conv_count} conversions, {welcome_count} welcome texts, {broadcast_count} broadcasts")
             except Exception as stats_error:
-                logger.debug(f"Не удалось получить дополнительную статистику: {stats_error}")
+                logger.debug(f"Failed to get additional statistics: {stats_error}")
                 
         else:
-            logger.warning("⚠️ Некоторые миграции требуют внимания")
+            logger.warning("⚠️ Some migrations need attention")
             missing_migrations = [check_names[k] for k, v in status.items() if not v]
-            logger.warning(f"Требуют выполнения: {', '.join(missing_migrations)}")
+            logger.warning(f"Require execution: {', '.join(missing_migrations)}")
         
         return status
         
     except Exception as e:
-        logger.error(f"Ошибка проверки статуса миграций: {e}")
+        logger.error(f"Error checking migration status: {e}")
         return None

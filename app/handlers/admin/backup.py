@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.models import User
+from app.localization.texts import get_texts
 from app.services.backup_service import backup_service
 from app.utils.decorators import admin_required, error_handler
 
@@ -21,23 +22,25 @@ class BackupStates(StatesGroup):
     waiting_settings_update = State()
 
 
-def get_backup_main_keyboard(language: str = "ru"):
+def get_backup_main_keyboard(language: str = "en"):
+    texts = get_texts(language)
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🚀 Создать бекап", callback_data="backup_create"),
-            InlineKeyboardButton(text="📥 Восстановить", callback_data="backup_restore")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_CREATE", "🚀 Create backup"), callback_data="backup_create"),
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_RESTORE", "📥 Restore"), callback_data="backup_restore")
         ],
         [
-            InlineKeyboardButton(text="📋 Список бекапов", callback_data="backup_list"),
-            InlineKeyboardButton(text="⚙️ Настройки", callback_data="backup_settings")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_LIST", "📋 Backup list"), callback_data="backup_list"),
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_SETTINGS", "⚙️ Settings"), callback_data="backup_settings")
         ],
         [
-            InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")
+            InlineKeyboardButton(text=texts.BACK, callback_data="admin_panel")
         ]
     ])
 
 
-def get_backup_list_keyboard(backups: list, page: int = 1, per_page: int = 5):
+def get_backup_list_keyboard(backups: list, page: int = 1, per_page: int = 5, language: str = "en"):
+    texts = get_texts(language)
     keyboard = []
     
     start_idx = (page - 1) * per_page
@@ -57,7 +60,7 @@ def get_backup_list_keyboard(backups: list, page: int = 1, per_page: int = 5):
         size_str = f"{backup.get('file_size_mb', 0):.1f}MB"
         records_str = backup.get('total_records', '?')
         
-        button_text = f"📦 {date_str} • {size_str} • {records_str} записей"
+        button_text = f"📦 {date_str} • {size_str} • {records_str} records"
         callback_data = f"backup_manage_{backup['filename']}"
         
         keyboard.append([InlineKeyboardButton(text=button_text, callback_data=callback_data)])
@@ -77,52 +80,57 @@ def get_backup_list_keyboard(backups: list, page: int = 1, per_page: int = 5):
         keyboard.append(nav_row)
     
     keyboard.extend([
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="backup_panel")]
+        [InlineKeyboardButton(text=texts.BACK, callback_data="backup_panel")]
     ])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_backup_manage_keyboard(backup_filename: str):
+def get_backup_manage_keyboard(backup_filename: str, language: str = "en"):
+    texts = get_texts(language)
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📥 Восстановить", callback_data=f"backup_restore_file_{backup_filename}")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_RESTORE", "📥 Restore"), callback_data=f"backup_restore_file_{backup_filename}")
         ],
         [
-            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"backup_delete_{backup_filename}")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_DELETE", "🗑️ Delete"), callback_data=f"backup_delete_{backup_filename}")
         ],
         [
-            InlineKeyboardButton(text="◀️ К списку", callback_data="backup_list")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_TO_LIST", "◀️ To list"), callback_data="backup_list")
         ]
     ])
 
 
-def get_backup_settings_keyboard(settings_obj):
-    auto_status = "✅ Включены" if settings_obj.auto_backup_enabled else "❌ Отключены"
-    compression_status = "✅ Включено" if settings_obj.compression_enabled else "❌ Отключено"
-    logs_status = "✅ Включены" if settings_obj.include_logs else "❌ Отключены"
+def get_backup_settings_keyboard(settings_obj, language: str = "en"):
+    texts = get_texts(language)
+    enabled_text = texts.t("ENABLED", "✅ Enabled")
+    disabled_text = texts.t("DISABLED", "❌ Disabled")
+    
+    auto_status = enabled_text if settings_obj.auto_backup_enabled else disabled_text
+    compression_status = enabled_text if settings_obj.compression_enabled else disabled_text
+    logs_status = enabled_text if settings_obj.include_logs else disabled_text
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text=f"🔄 Автобекапы: {auto_status}", 
+                text=texts.t("ADMIN_BACKUP_BTN_AUTO", "🔄 Auto-backups: {status}").format(status=auto_status), 
                 callback_data="backup_toggle_auto"
             )
         ],
         [
             InlineKeyboardButton(
-                text=f"🗜️ Сжатие: {compression_status}", 
+                text=texts.t("ADMIN_BACKUP_BTN_COMPRESSION", "🗜️ Compression: {status}").format(status=compression_status), 
                 callback_data="backup_toggle_compression"
             )
         ],
         [
             InlineKeyboardButton(
-                text=f"📋 Логи в бекапе: {logs_status}", 
+                text=texts.t("ADMIN_BACKUP_BTN_LOGS", "📋 Logs in backup: {status}").format(status=logs_status), 
                 callback_data="backup_toggle_logs"
             )
         ],
         [
-            InlineKeyboardButton(text="◀️ Назад", callback_data="backup_panel")
+            InlineKeyboardButton(text=texts.BACK, callback_data="backup_panel")
         ]
     ])
 
@@ -134,25 +142,40 @@ async def show_backup_panel(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     settings_obj = await backup_service.get_backup_settings()
     
-    status_auto = "✅ Включены" if settings_obj.auto_backup_enabled else "❌ Отключены"
+    enabled_text = texts.t("ENABLED", "✅ Enabled")
+    disabled_text = texts.t("DISABLED", "❌ Disabled")
+    yes_text = texts.t("YES", "Yes")
+    no_text = texts.t("NO", "No")
     
-    text = f"""🗄️ <b>СИСТЕМА БЕКАПОВ</b>
+    status_auto = enabled_text if settings_obj.auto_backup_enabled else disabled_text
+    compression_text = yes_text if settings_obj.compression_enabled else no_text
+    
+    text = texts.t(
+        "ADMIN_BACKUP_PANEL_TEXT",
+        """🗄️ <b>BACKUP SYSTEM</b>
 
-📊 <b>Статус:</b>
-• Автобекапы: {status_auto}
-• Интервал: {settings_obj.backup_interval_hours} часов
-• Хранить: {settings_obj.max_backups_keep} файлов
-• Сжатие: {'Да' if settings_obj.compression_enabled else 'Нет'}
+📊 <b>Status:</b>
+• Auto-backups: {auto_status}
+• Interval: {interval} hours
+• Keep: {max_backups} files
+• Compression: {compression}
 
-📁 <b>Расположение:</b> <code>/app/data/backups</code>
+📁 <b>Location:</b> <code>/app/data/backups</code>
 
-⚡ <b>Доступные операции:</b>
-• Создание полного бекапа всех данных
-• Восстановление из файла бекапа
-• Управление автоматическими бекапами
+⚡ <b>Available operations:</b>
+• Create full backup of all data
+• Restore from backup file
+• Manage automatic backups
 """
+    ).format(
+        auto_status=status_auto,
+        interval=settings_obj.backup_interval_hours,
+        max_backups=settings_obj.max_backups_keep,
+        compression=compression_text
+    )
     
     await callback.message.edit_text(
         text,
@@ -169,16 +192,17 @@ async def create_backup_handler(
     db_user: User,
     db: AsyncSession
 ):
-    await callback.answer("🔄 Создание бекапа запущено...")
+    texts = get_texts(db_user.language)
+    await callback.answer(texts.t("ADMIN_BACKUP_CREATING", "🔄 Creating backup..."))
     
     progress_msg = await callback.message.edit_text(
-        "🔄 <b>Создание бекапа...</b>\n\n"
-        "⏳ Экспортируем данные из базы...\n"
-        "Это может занять несколько минут.",
+        texts.t(
+            "ADMIN_BACKUP_PROGRESS",
+            "🔄 <b>Creating backup...</b>\n\n⏳ Exporting data from database...\nThis may take a few minutes."
+        ),
         parse_mode="HTML"
     )
     
-    # Создаем бекап
     success, message, file_path = await backup_service.create_backup(
         created_by=db_user.telegram_id,
         compress=True
@@ -186,13 +210,13 @@ async def create_backup_handler(
     
     if success:
         await progress_msg.edit_text(
-            f"✅ <b>Бекап создан успешно!</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_SUCCESS", "✅ <b>Backup created successfully!</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
             reply_markup=get_backup_main_keyboard(db_user.language)
         )
     else:
         await progress_msg.edit_text(
-            f"❌ <b>Ошибка создания бекапа</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_ERROR", "❌ <b>Backup creation error</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
             reply_markup=get_backup_main_keyboard(db_user.language)
         )
@@ -205,6 +229,7 @@ async def show_backup_list(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     page = 1
     if callback.data.startswith("backup_list_page_"):
         try:
@@ -215,15 +240,14 @@ async def show_backup_list(
     backups = await backup_service.get_backup_list()
     
     if not backups:
-        text = "📦 <b>Список бекапов пуст</b>\n\nБекапы еще не создавались."
+        text = texts.t("ADMIN_BACKUP_LIST_EMPTY", "📦 <b>Backup list is empty</b>\n\nNo backups have been created yet.")
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🚀 Создать первый бекап", callback_data="backup_create")],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="backup_panel")]
+            [InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_CREATE_FIRST", "🚀 Create first backup"), callback_data="backup_create")],
+            [InlineKeyboardButton(text=texts.BACK, callback_data="backup_panel")]
         ])
     else:
-        text = f"📦 <b>Список бекапов</b> (всего: {len(backups)})\n\n"
-        text += "Выберите бекап для управления:"
-        keyboard = get_backup_list_keyboard(backups, page)
+        text = texts.t("ADMIN_BACKUP_LIST_TITLE", "📦 <b>Backup list</b> (total: {count})\n\nSelect a backup to manage:").format(count=len(backups))
+        keyboard = get_backup_list_keyboard(backups, page, language=db_user.language)
     
     await callback.message.edit_text(
         text,
@@ -240,6 +264,7 @@ async def manage_backup_file(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     filename = callback.data.replace("backup_manage_", "")
     
     backups = await backup_service.get_backup_list()
@@ -251,7 +276,7 @@ async def manage_backup_file(
             break
     
     if not backup_info:
-        await callback.answer("❌ Файл бекапа не найден", show_alert=True)
+        await callback.answer(texts.t("ADMIN_BACKUP_FILE_NOT_FOUND", "❌ Backup file not found"), show_alert=True)
         return
     
     try:
@@ -259,28 +284,42 @@ async def manage_backup_file(
             dt = datetime.fromisoformat(backup_info["timestamp"].replace('Z', '+00:00'))
             date_str = dt.strftime("%d.%m.%Y %H:%M:%S")
         else:
-            date_str = "Неизвестно"
+            date_str = texts.t("UNKNOWN", "Unknown")
     except:
-        date_str = "Ошибка формата даты"
+        date_str = texts.t("DATE_FORMAT_ERROR", "Date format error")
     
-    text = f"""📦 <b>Информация о бекапе</b>
+    yes_text = texts.t("YES", "Yes")
+    no_text = texts.t("NO", "No")
+    
+    text = texts.t(
+        "ADMIN_BACKUP_INFO",
+        """📦 <b>Backup information</b>
 
-📄 <b>Файл:</b> <code>{filename}</code>
-📅 <b>Создан:</b> {date_str}
-💾 <b>Размер:</b> {backup_info.get('file_size_mb', 0):.2f} MB
-📊 <b>Таблиц:</b> {backup_info.get('tables_count', '?')}
-📈 <b>Записей:</b> {backup_info.get('total_records', '?'):,}
-🗜️ <b>Сжатие:</b> {'Да' if backup_info.get('compressed') else 'Нет'}
-🗄️ <b>БД:</b> {backup_info.get('database_type', 'unknown')}
+📄 <b>File:</b> <code>{filename}</code>
+📅 <b>Created:</b> {date}
+💾 <b>Size:</b> {size:.2f} MB
+📊 <b>Tables:</b> {tables}
+📈 <b>Records:</b> {records:,}
+🗜️ <b>Compression:</b> {compression}
+🗄️ <b>DB:</b> {db_type}
 """
+    ).format(
+        filename=filename,
+        date=date_str,
+        size=backup_info.get('file_size_mb', 0),
+        tables=backup_info.get('tables_count', '?'),
+        records=backup_info.get('total_records', 0) or 0,
+        compression=yes_text if backup_info.get('compressed') else no_text,
+        db_type=backup_info.get('database_type', 'unknown')
+    )
     
     if backup_info.get("error"):
-        text += f"\n⚠️ <b>Ошибка:</b> {backup_info['error']}"
+        text += texts.t("ADMIN_BACKUP_ERROR_LABEL", "\n⚠️ <b>Error:</b> {error}").format(error=backup_info['error'])
     
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=get_backup_manage_keyboard(filename)
+        reply_markup=get_backup_manage_keyboard(filename, db_user.language)
     )
     await callback.answer()
 
@@ -292,17 +331,18 @@ async def delete_backup_confirm(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     filename = callback.data.replace("backup_delete_", "")
     
-    text = f"🗑️ <b>Удаление бекапа</b>\n\n"
-    text += f"Вы уверены, что хотите удалить бекап?\n\n"
-    text += f"📄 <code>{filename}</code>\n\n"
-    text += "⚠️ <b>Это действие нельзя отменить!</b>"
+    text = texts.t(
+        "ADMIN_BACKUP_DELETE_CONFIRM",
+        "🗑️ <b>Delete backup</b>\n\nAre you sure you want to delete this backup?\n\n📄 <code>{filename}</code>\n\n⚠️ <b>This action cannot be undone!</b>"
+    ).format(filename=filename)
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"backup_delete_confirm_{filename}"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data=f"backup_manage_{filename}")
+            InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_YES_DELETE", "✅ Yes, delete"), callback_data=f"backup_delete_confirm_{filename}"),
+            InlineKeyboardButton(text=texts.t("CANCEL", "❌ Cancel"), callback_data=f"backup_manage_{filename}")
         ]
     ])
     
@@ -321,23 +361,24 @@ async def delete_backup_execute(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     filename = callback.data.replace("backup_delete_confirm_", "")
     
     success, message = await backup_service.delete_backup(filename)
     
     if success:
         await callback.message.edit_text(
-            f"✅ <b>Бекап удален</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_DELETED", "✅ <b>Backup deleted</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📋 К списку бекапов", callback_data="backup_list")]
+                [InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_TO_LIST", "📋 To backup list"), callback_data="backup_list")]
             ])
         )
     else:
         await callback.message.edit_text(
-            f"❌ <b>Ошибка удаления</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_DELETE_ERROR", "❌ <b>Delete error</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
-            reply_markup=get_backup_manage_keyboard(filename)
+            reply_markup=get_backup_manage_keyboard(filename, db_user.language)
         )
     
     await callback.answer()
@@ -351,42 +392,51 @@ async def restore_backup_start(
     db: AsyncSession,
     state: FSMContext
 ):
+    texts = get_texts(db_user.language)
     if callback.data.startswith("backup_restore_file_"):
-        # Восстановление из конкретного файла
         filename = callback.data.replace("backup_restore_file_", "")
         
-        text = f"📥 <b>Восстановление из бекапа</b>\n\n"
-        text += f"📄 <b>Файл:</b> <code>{filename}</code>\n\n"
-        text += "⚠️ <b>ВНИМАНИЕ!</b>\n"
-        text += "• Процесс может занять несколько минут\n"
-        text += "• Рекомендуется создать бекап перед восстановлением\n"
-        text += "• Существующие данные будут дополнены\n\n"
-        text += "Продолжить восстановление?"
+        text = texts.t(
+            "ADMIN_BACKUP_RESTORE_FILE_CONFIRM",
+            """📥 <b>Restore from backup</b>
+
+📄 <b>File:</b> <code>{filename}</code>
+
+⚠️ <b>WARNING!</b>
+• Process may take several minutes
+• It is recommended to create a backup before restoring
+• Existing data will be supplemented
+
+Continue with restore?"""
+        ).format(filename=filename)
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Да, восстановить", callback_data=f"backup_restore_execute_{filename}"),
-                InlineKeyboardButton(text="🗑️ Очистить и восстановить", callback_data=f"backup_restore_clear_{filename}")
+                InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_YES_RESTORE", "✅ Yes, restore"), callback_data=f"backup_restore_execute_{filename}"),
+                InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_CLEAR_RESTORE", "🗑️ Clear and restore"), callback_data=f"backup_restore_clear_{filename}")
             ],
             [
-                InlineKeyboardButton(text="❌ Отмена", callback_data=f"backup_manage_{filename}")
+                InlineKeyboardButton(text=texts.t("CANCEL", "❌ Cancel"), callback_data=f"backup_manage_{filename}")
             ]
         ])
     else:
-        text = """📥 <b>Восстановление из бекапа</b>
+        text = texts.t(
+            "ADMIN_BACKUP_RESTORE_UPLOAD",
+            """📥 <b>Restore from backup</b>
 
-📎 Отправьте файл бекапа (.json или .json.gz)
+📎 Send a backup file (.json or .json.gz)
 
-⚠️ <b>ВАЖНО:</b>
-• Файл должен быть создан этой системой бекапов
-• Процесс может занять несколько минут
-• Рекомендуется создать бекап перед восстановлением
+⚠️ <b>IMPORTANT:</b>
+• File must be created by this backup system
+• Process may take several minutes
+• It is recommended to create a backup before restoring
 
-💡 Или выберите из существующих бекапов ниже."""
+💡 Or select from existing backups below."""
+        )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Выбрать из списка", callback_data="backup_list")],
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="backup_panel")]
+            [InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_SELECT_FROM_LIST", "📋 Select from list"), callback_data="backup_list")],
+            [InlineKeyboardButton(text=texts.t("CANCEL", "❌ Cancel"), callback_data="backup_panel")]
         ])
         
         await state.set_state(BackupStates.waiting_backup_file)
@@ -406,6 +456,7 @@ async def restore_backup_execute(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     if callback.data.startswith("backup_restore_execute_"):
         filename = callback.data.replace("backup_restore_execute_", "")
         clear_existing = False
@@ -413,18 +464,17 @@ async def restore_backup_execute(
         filename = callback.data.replace("backup_restore_clear_", "")
         clear_existing = True
     else:
-        await callback.answer("❌ Неверный формат команды", show_alert=True)
+        await callback.answer(texts.t("ADMIN_BACKUP_INVALID_COMMAND", "❌ Invalid command format"), show_alert=True)
         return
     
-    await callback.answer("🔄 Восстановление запущено...")
+    await callback.answer(texts.t("ADMIN_BACKUP_RESTORING", "🔄 Restore started..."))
     
-    # Показываем прогресс
-    action_text = "очисткой и восстановлением" if clear_existing else "восстановлением"
+    action_text = texts.t("ADMIN_BACKUP_ACTION_CLEAR_RESTORE", "clearing and restoring") if clear_existing else texts.t("ADMIN_BACKUP_ACTION_RESTORE", "restoring")
     progress_msg = await callback.message.edit_text(
-        f"📥 <b>Восстановление из бекапа...</b>\n\n"
-        f"⏳ Работаем с {action_text} данных...\n"
-        f"📄 Файл: <code>{filename}</code>\n\n"
-        f"Это может занять несколько минут.",
+        texts.t(
+            "ADMIN_BACKUP_RESTORE_PROGRESS",
+            "📥 <b>Restoring from backup...</b>\n\n⏳ Working on {action} data...\n📄 File: <code>{filename}</code>\n\nThis may take several minutes."
+        ).format(action=action_text, filename=filename),
         parse_mode="HTML"
     )
     
@@ -437,15 +487,15 @@ async def restore_backup_execute(
     
     if success:
         await progress_msg.edit_text(
-            f"✅ <b>Восстановление завершено!</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_RESTORE_SUCCESS", "✅ <b>Restore completed!</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
             reply_markup=get_backup_main_keyboard(db_user.language)
         )
     else:
         await progress_msg.edit_text(
-            f"❌ <b>Ошибка восстановления</b>\n\n{message}",
+            texts.t("ADMIN_BACKUP_RESTORE_ERROR", "❌ <b>Restore error</b>\n\n{message}").format(message=message),
             parse_mode="HTML",
-            reply_markup=get_backup_manage_keyboard(filename)
+            reply_markup=get_backup_manage_keyboard(filename, db_user.language)
         )
 
 
@@ -457,11 +507,12 @@ async def handle_backup_file_upload(
     db: AsyncSession,
     state: FSMContext
 ):
+    texts = get_texts(db_user.language)
     if not message.document:
         await message.answer(
-            "❌ Пожалуйста, отправьте файл бекапа (.json или .json.gz)",
+            texts.t("ADMIN_BACKUP_UPLOAD_FILE", "❌ Please send a backup file (.json or .json.gz)"),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ Отмена", callback_data="backup_panel")]
+                [InlineKeyboardButton(text=texts.t("CANCEL", "◀️ Cancel"), callback_data="backup_panel")]
             ])
         )
         return
@@ -470,18 +521,18 @@ async def handle_backup_file_upload(
     
     if not (document.file_name.endswith('.json') or document.file_name.endswith('.json.gz')):
         await message.answer(
-            "❌ Неподдерживаемый формат файла. Загрузите .json или .json.gz файл",
+            texts.t("ADMIN_BACKUP_UNSUPPORTED_FORMAT", "❌ Unsupported file format. Upload a .json or .json.gz file"),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ Отмена", callback_data="backup_panel")]
+                [InlineKeyboardButton(text=texts.t("CANCEL", "◀️ Cancel"), callback_data="backup_panel")]
             ])
         )
         return
     
     if document.file_size > 50 * 1024 * 1024:
         await message.answer(
-            "❌ Файл слишком большой (максимум 50MB)",
+            texts.t("ADMIN_BACKUP_FILE_TOO_LARGE", "❌ File is too large (maximum 50MB)"),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ Отмена", callback_data="backup_panel")]
+                [InlineKeyboardButton(text=texts.t("CANCEL", "◀️ Cancel"), callback_data="backup_panel")]
             ])
         )
         return
@@ -493,24 +544,27 @@ async def handle_backup_file_upload(
         
         await message.bot.download_file(file.file_path, temp_path)
         
-        text = f"""📥 <b>Файл загружен</b>
+        text = texts.t(
+            "ADMIN_BACKUP_FILE_UPLOADED",
+            """📥 <b>File uploaded</b>
 
-📄 <b>Имя:</b> <code>{document.file_name}</code>
-💾 <b>Размер:</b> {document.file_size / 1024 / 1024:.2f} MB
+📄 <b>Name:</b> <code>{filename}</code>
+💾 <b>Size:</b> {size:.2f} MB
 
-⚠️ <b>ВНИМАНИЕ!</b>
-Процесс восстановления изменит данные в базе.
-Рекомендуется создать бекап перед восстановлением.
+⚠️ <b>WARNING!</b>
+The restore process will modify database data.
+It is recommended to create a backup before restoring.
 
-Продолжить?"""
+Continue?"""
+        ).format(filename=document.file_name, size=document.file_size / 1024 / 1024)
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Восстановить", callback_data=f"backup_restore_uploaded_{temp_path.name}"),
-                InlineKeyboardButton(text="🗑️ Очистить и восстановить", callback_data=f"backup_restore_uploaded_clear_{temp_path.name}")
+                InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_YES_RESTORE", "✅ Restore"), callback_data=f"backup_restore_uploaded_{temp_path.name}"),
+                InlineKeyboardButton(text=texts.t("ADMIN_BACKUP_BTN_CLEAR_RESTORE", "🗑️ Clear and restore"), callback_data=f"backup_restore_uploaded_clear_{temp_path.name}")
             ],
             [
-                InlineKeyboardButton(text="❌ Отмена", callback_data="backup_panel")
+                InlineKeyboardButton(text=texts.t("CANCEL", "❌ Cancel"), callback_data="backup_panel")
             ]
         ])
         
@@ -518,11 +572,11 @@ async def handle_backup_file_upload(
         await state.clear()
         
     except Exception as e:
-        logger.error(f"Ошибка загрузки файла бекапа: {e}")
+        logger.error(f"Error uploading backup file: {e}")
         await message.answer(
-            f"❌ Ошибка загрузки файла: {str(e)}",
+            texts.t("ADMIN_BACKUP_UPLOAD_ERROR", "❌ File upload error: {error}").format(error=str(e)),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ Отмена", callback_data="backup_panel")]
+                [InlineKeyboardButton(text=texts.t("CANCEL", "◀️ Cancel"), callback_data="backup_panel")]
             ])
         )
 
@@ -534,27 +588,44 @@ async def show_backup_settings(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     settings_obj = await backup_service.get_backup_settings()
     
-    text = f"""⚙️ <b>Настройки системы бекапов</b>
+    enabled_text = texts.t("ENABLED", "✅ Enabled")
+    disabled_text = texts.t("DISABLED", "❌ Disabled")
+    yes_text = texts.t("YES", "✅ Yes")
+    no_text = texts.t("NO", "❌ No")
+    
+    text = texts.t(
+        "ADMIN_BACKUP_SETTINGS_TEXT",
+        """⚙️ <b>Backup system settings</b>
 
-🔄 <b>Автоматические бекапы:</b>
-• Статус: {'✅ Включены' if settings_obj.auto_backup_enabled else '❌ Отключены'}
-• Интервал: {settings_obj.backup_interval_hours} часов
-• Время запуска: {settings_obj.backup_time}
+🔄 <b>Automatic backups:</b>
+• Status: {auto_status}
+• Interval: {interval} hours
+• Start time: {backup_time}
 
-📦 <b>Хранение:</b>
-• Максимум файлов: {settings_obj.max_backups_keep}
-• Сжатие: {'✅ Включено' if settings_obj.compression_enabled else '❌ Отключено'}
-• Включать логи: {'✅ Да' if settings_obj.include_logs else '❌ Нет'}
+📦 <b>Storage:</b>
+• Maximum files: {max_files}
+• Compression: {compression}
+• Include logs: {include_logs}
 
-📁 <b>Расположение:</b> <code>{settings_obj.backup_location}</code>
+📁 <b>Location:</b> <code>{location}</code>
 """
+    ).format(
+        auto_status=enabled_text if settings_obj.auto_backup_enabled else disabled_text,
+        interval=settings_obj.backup_interval_hours,
+        backup_time=settings_obj.backup_time,
+        max_files=settings_obj.max_backups_keep,
+        compression=enabled_text if settings_obj.compression_enabled else disabled_text,
+        include_logs=yes_text if settings_obj.include_logs else no_text,
+        location=settings_obj.backup_location
+    )
     
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=get_backup_settings_keyboard(settings_obj)
+        reply_markup=get_backup_settings_keyboard(settings_obj, db_user.language)
     )
     await callback.answer()
 
@@ -566,25 +637,29 @@ async def toggle_backup_setting(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     settings_obj = await backup_service.get_backup_settings()
+    
+    enabled_text = texts.t("ENABLED_SHORT", "enabled")
+    disabled_text = texts.t("DISABLED_SHORT", "disabled")
     
     if callback.data == "backup_toggle_auto":
         new_value = not settings_obj.auto_backup_enabled
         await backup_service.update_backup_settings(auto_backup_enabled=new_value)
-        status = "включены" if new_value else "отключены"
-        await callback.answer(f"Автобекапы {status}")
+        status = enabled_text if new_value else disabled_text
+        await callback.answer(texts.t("ADMIN_BACKUP_AUTO_TOGGLED", "Auto-backups {status}").format(status=status))
         
     elif callback.data == "backup_toggle_compression":
         new_value = not settings_obj.compression_enabled
         await backup_service.update_backup_settings(compression_enabled=new_value)
-        status = "включено" if new_value else "отключено"
-        await callback.answer(f"Сжатие {status}")
+        status = enabled_text if new_value else disabled_text
+        await callback.answer(texts.t("ADMIN_BACKUP_COMPRESSION_TOGGLED", "Compression {status}").format(status=status))
         
     elif callback.data == "backup_toggle_logs":
         new_value = not settings_obj.include_logs
         await backup_service.update_backup_settings(include_logs=new_value)
-        status = "включены" if new_value else "отключены"
-        await callback.answer(f"Логи в бекапе {status}")
+        status = enabled_text if new_value else disabled_text
+        await callback.answer(texts.t("ADMIN_BACKUP_LOGS_TOGGLED", "Logs in backup {status}").format(status=status))
     
     await show_backup_settings(callback, db_user, db)
 

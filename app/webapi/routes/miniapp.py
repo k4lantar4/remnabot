@@ -3422,7 +3422,7 @@ async def activate_subscription_trial_endpoint(
             user,
             subscription,
             charged_amount,
-            refund_description="Возврат оплаты за активацию триала в мини-приложении",
+            refund_description="Refund for trial activation in the mini app",
         )
         if not revert_result.subscription_rolled_back:
             raise HTTPException(
@@ -3459,7 +3459,7 @@ async def activate_subscription_trial_endpoint(
             user,
             subscription,
             charged_amount,
-            refund_description="Возврат оплаты за активацию триала в мини-приложении",
+            refund_description="Refund for trial activation in the mini app",
         )
         if not revert_result.subscription_rolled_back:
             raise HTTPException(
@@ -3501,26 +3501,16 @@ async def activate_subscription_trial_endpoint(
     if not duration_days and settings.TRIAL_DURATION_DAYS > 0:
         duration_days = settings.TRIAL_DURATION_DAYS
 
-    language_code = _normalize_language_code(user)
     charged_amount_label = (
         settings.format_price(charged_amount) if charged_amount > 0 else None
     )
-    if language_code == "ru":
-        if duration_days:
-            message = f"Триал активирован на {duration_days} дн. Приятного пользования!"
-        else:
-            message = "Триал активирован. Приятного пользования!"
+    if duration_days:
+        message = f"Trial activated for {duration_days} days. Enjoy!"
     else:
-        if duration_days:
-            message = f"Trial activated for {duration_days} days. Enjoy!"
-        else:
-            message = "Trial activated successfully. Enjoy!"
+        message = "Trial activated successfully. Enjoy!"
 
     if charged_amount_label:
-        if language_code == "ru":
-            message = f"{message}\n\n💳 С вашего баланса списано {charged_amount_label}."
-        else:
-            message = f"{message}\n\n💳 {charged_amount_label} has been deducted from your balance."
+        message = f"{message}\n\n💳 {charged_amount_label} has been deducted from your balance."
 
     await with_admin_notification_service(
         lambda service: service.send_trial_activation_notification(
@@ -3931,9 +3921,7 @@ def _normalize_language_code(user: Optional[User]) -> str:
 
 
 def _build_renewal_status_message(user: Optional[User]) -> str:
-    language_code = _normalize_language_code(user)
-    if language_code == "ru":
-        return "Стоимость указана с учётом ваших текущих серверов, трафика и устройств."
+    _normalize_language_code(user)
     return "Prices already include your current servers, traffic, and devices."
 
 
@@ -3948,11 +3936,8 @@ def _build_promo_offer_payload(user: Optional[User]) -> Optional[Dict[str, Any]]
     if expires_at:
         payload["expires_at"] = expires_at
 
-    language_code = _normalize_language_code(user)
-    if language_code == "ru":
-        payload["message"] = "Дополнительная скидка применяется автоматически."
-    else:
-        payload["message"] = "Extra discount is applied automatically."
+    _normalize_language_code(user)
+    payload["message"] = "Extra discount is applied automatically."
 
     return payload
 
@@ -3961,7 +3946,7 @@ def _format_payment_method_title(method: str) -> str:
     mapping = {
         "cryptobot": "CryptoBot",
         "yookassa": "YooKassa",
-        "yookassa_sbp": "YooKassa СБП",
+        "yookassa_sbp": "YooKassa SBP",
         "mulenpay": "MulenPay",
         "pal24": "Pal24",
         "wata": "WataPay",
@@ -3979,7 +3964,6 @@ def _build_renewal_success_message(
     charged_amount: int,
     promo_discount_value: int = 0,
 ) -> str:
-    language_code = _normalize_language_code(user)
     amount_label = settings.format_price(max(0, charged_amount))
     date_label = (
         format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M")
@@ -3987,35 +3971,21 @@ def _build_renewal_success_message(
         else ""
     )
 
-    if language_code == "ru":
-        if charged_amount > 0:
-            message = (
-                f"Подписка продлена до {date_label}. " if date_label else "Подписка продлена. "
-            ) + f"Списано {amount_label}."
-        else:
-            message = (
-                f"Подписка продлена до {date_label}."
-                if date_label
-                else "Подписка успешно продлена."
-            )
+    _normalize_language_code(user)
+    if charged_amount > 0:
+        message = (
+            f"Subscription renewed until {date_label}. " if date_label else "Subscription renewed. "
+        ) + f"Charged {amount_label}."
     else:
-        if charged_amount > 0:
-            message = (
-                f"Subscription renewed until {date_label}. " if date_label else "Subscription renewed. "
-            ) + f"Charged {amount_label}."
-        else:
-            message = (
-                f"Subscription renewed until {date_label}."
-                if date_label
-                else "Subscription renewed successfully."
-            )
+        message = (
+            f"Subscription renewed until {date_label}."
+            if date_label
+            else "Subscription renewed successfully."
+        )
 
     if promo_discount_value > 0:
         discount_label = settings.format_price(promo_discount_value)
-        if language_code == "ru":
-            message += f" Применена дополнительная скидка {discount_label}."
-        else:
-            message += f" Promo discount applied: {discount_label}."
+        message += f" Promo discount applied: {discount_label}."
 
     return message
 
@@ -4025,20 +3995,10 @@ def _build_renewal_pending_message(
     missing_amount: int,
     method: str,
 ) -> str:
-    language_code = _normalize_language_code(user)
     amount_label = settings.format_price(max(0, missing_amount))
     method_title = _format_payment_method_title(method)
 
-    if language_code == "ru":
-        if method_title:
-            return (
-                f"Недостаточно средств на балансе. Доплатите {amount_label} через {method_title}, "
-                "чтобы завершить продление."
-            )
-        return (
-            f"Недостаточно средств на балансе. Доплатите {amount_label}, чтобы завершить продление."
-        )
-
+    _normalize_language_code(user)
     if method_title:
         return (
             f"Not enough balance. Pay the remaining {amount_label} via {method_title} to finish the renewal."
@@ -4725,7 +4685,7 @@ async def submit_subscription_renewal_endpoint(
     final_total = int(pricing_model.final_total)
     balance_kopeks = getattr(user, "balance_kopeks", 0)
     missing_amount = calculate_missing_amount(balance_kopeks, final_total)
-    description = f"Продление подписки на {period_days} дней"
+    description = f"Subscription renewal for {period_days} days"
 
     if missing_amount <= 0:
         try:
@@ -5168,8 +5128,8 @@ async def update_subscription_servers_endpoint(
             detail={
                 "code": "insufficient_funds",
                 "message": (
-                    "Недостаточно средств на балансе. "
-                    f"Не хватает {settings.format_price(missing)}"
+                    "Insufficient balance. "
+                    f"Missing {settings.format_price(missing)}"
                 ),
             },
         )
@@ -5177,9 +5137,9 @@ async def update_subscription_servers_endpoint(
     if total_cost > 0:
         added_names = [catalog[uuid].get("name", uuid) for uuid in added]
         description = (
-            f"Добавление серверов: {', '.join(added_names)} на {charged_months} мес"
+            f"Adding servers: {', '.join(added_names)} for {charged_months} mo"
             if added_names
-            else "Изменение списка серверов"
+            else "Server list changed"
         )
 
         success = await subtract_user_balance(
@@ -5360,15 +5320,15 @@ async def update_subscription_traffic_endpoint(
                 detail={
                     "code": "insufficient_funds",
                     "message": (
-                        "Недостаточно средств на балансе. "
-                        f"Не хватает {settings.format_price(missing)}"
+                        "Insufficient balance. "
+                        f"Missing {settings.format_price(missing)}"
                     ),
                 },
             )
 
         description = (
-            "Переключение трафика с "
-            f"{subscription.traffic_limit_gb}GB на {new_traffic}GB"
+            "Traffic change from "
+            f"{subscription.traffic_limit_gb}GB to {new_traffic}GB"
         )
 
         success = await subtract_user_balance(
@@ -5391,7 +5351,7 @@ async def update_subscription_traffic_endpoint(
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=total_price_difference,
-            description=f"{description} на {months_remaining} мес",
+            description=f"{description} for {months_remaining} mo",
         )
 
     subscription.traffic_limit_gb = new_traffic
@@ -5463,7 +5423,7 @@ async def update_subscription_devices_endpoint(
             detail={
                 "code": "devices_limit_exceeded",
                 "message": (
-                    "Превышен максимальный лимит устройств "
+                    "Maximum device limit exceeded "
                     f"({settings.MAX_DEVICES_LIMIT})"
                 ),
             },
@@ -5514,16 +5474,16 @@ async def update_subscription_devices_endpoint(
             detail={
                 "code": "insufficient_funds",
                 "message": (
-                    "Недостаточно средств на балансе. "
-                    f"Не хватает {settings.format_price(missing)}"
+                    "Insufficient balance. "
+                    f"Missing {settings.format_price(missing)}"
                 ),
             },
         )
 
     if price_to_charge > 0:
         description = (
-            "Изменение количества устройств с "
-            f"{current_devices} до {new_devices}"
+            "Changing device count from "
+            f"{current_devices} to {new_devices}"
         )
         success = await subtract_user_balance(
             db,
@@ -5545,7 +5505,7 @@ async def update_subscription_devices_endpoint(
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=price_to_charge,
-            description=f"{description} на {charged_months or get_remaining_months(subscription.end_date)} мес",
+            description=f"{description} for {charged_months or get_remaining_months(subscription.end_date)} mo",
         )
 
     subscription.device_limit = new_devices

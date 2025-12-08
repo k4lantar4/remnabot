@@ -52,7 +52,7 @@ class PromoOfferListResponse(BaseModel):
 class PromoOfferCreateRequest(BaseModel):
     user_id: int
     notification_type: str = Field(..., min_length=1)
-    valid_hours: int = Field(..., ge=1, description="Срок действия предложения в часах")
+    valid_hours: int = Field(..., ge=1, description="Offer validity period in hours")
     discount_percent: int = Field(0, ge=0)
     bonus_amount_kopeks: int = Field(0, ge=0)
     subscription_id: Optional[int] = None

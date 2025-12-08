@@ -130,15 +130,19 @@ async def show_welcome_text_panel(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     welcome_settings = await get_current_welcome_text_settings(db)
     status_emoji = "🟢" if welcome_settings['is_enabled'] else "🔴"
-    status_text = "включено" if welcome_settings['is_enabled'] else "отключено"
+    status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if welcome_settings['is_enabled'] else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
     
     await callback.message.edit_text(
-        f"👋 Управление приветственным текстом\n\n"
-        f"{status_emoji} <b>Статус:</b> {status_text}\n\n"
-        f"Здесь вы можете управлять текстом, который показывается новым пользователям после регистрации.\n\n"
-        f"💡 Доступные плейсхолдеры для автозамены:",
+        texts.t(
+            "ADMIN_WELCOME_TEXT_PANEL",
+            "👋 Welcome text management\n\n"
+            "{emoji} <b>Status:</b> {status}\n\n"
+            "Here you can manage the text that is shown to new users after registration.\n\n"
+            "💡 Available placeholders for auto-replacement:"
+        ).format(emoji=status_emoji, status=status_text),
         reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled']),
         parse_mode="HTML"
     )
@@ -151,18 +155,22 @@ async def toggle_welcome_text(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     new_status = await toggle_welcome_text_status(db, db_user.id)
     
     status_emoji = "🟢" if new_status else "🔴"
-    status_text = "включено" if new_status else "отключено"
-    action_text = "включены" if new_status else "отключены"
+    status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if new_status else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
+    action_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED_PLURAL", "enabled") if new_status else texts.t("ADMIN_WELCOME_TEXT_DISABLED_PLURAL", "disabled")
     
     await callback.message.edit_text(
-        f"👋 Управление приветственным текстом\n\n"
-        f"{status_emoji} <b>Статус:</b> {status_text}\n\n"
-        f"✅ Приветственные сообщения {action_text}!\n\n"
-        f"Здесь вы можете управлять текстом, который показывается новым пользователям после регистрации.\n\n"
-        f"💡 Доступные плейсхолдеры для автозамены:",
+        texts.t(
+            "ADMIN_WELCOME_TEXT_PANEL_TOGGLE",
+            "👋 Welcome text management\n\n"
+            "{emoji} <b>Status:</b> {status}\n\n"
+            "✅ Welcome messages {action}!\n\n"
+            "Here you can manage the text that is shown to new users after registration.\n\n"
+            "💡 Available placeholders for auto-replacement:"
+        ).format(emoji=status_emoji, status=status_text, action=action_text),
         reply_markup=get_welcome_text_keyboard(db_user.language, new_status),
         parse_mode="HTML"
     )
@@ -179,22 +187,32 @@ async def show_current_welcome_text(
     current_text = welcome_settings['text']
     is_enabled = welcome_settings['is_enabled']
 
+    texts = get_texts(db_user.language)
     if not welcome_settings['id']:
-        status = "📝 Используется стандартный текст:"
+        status = texts.t("ADMIN_WELCOME_TEXT_DEFAULT", "📝 Using default text:")
     else:
-        status = "📝 Текущий приветственный текст:"
+        status = texts.t("ADMIN_WELCOME_TEXT_CURRENT", "📝 Current welcome text:")
     
     status_emoji = "🟢" if is_enabled else "🔴"
-    status_text = "включено" if is_enabled else "отключено"
+    status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if is_enabled else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
     
     placeholders = get_available_placeholders()
     placeholders_text = "\n".join([f"• <code>{key}</code> - {desc}" for key, desc in placeholders.items()])
     
     await callback.message.edit_text(
-        f"{status_emoji} <b>Статус:</b> {status_text}\n\n"
-        f"{status}\n\n"
-        f"<code>{current_text}</code>\n\n"
-        f"💡 Доступные плейсхолдеры:\n{placeholders_text}",
+        texts.t(
+            "ADMIN_WELCOME_TEXT_VIEW",
+            "{emoji} <b>Status:</b> {status}\n\n"
+            "{text_status}\n\n"
+            "<code>{text}</code>\n\n"
+            "💡 Available placeholders:\n{placeholders}"
+        ).format(
+            emoji=status_emoji,
+            status=status_text,
+            text_status=status,
+            text=current_text,
+            placeholders=placeholders_text
+        ),
         reply_markup=get_welcome_text_keyboard(db_user.language, is_enabled),
         parse_mode="HTML"
     )
@@ -207,19 +225,21 @@ async def show_placeholders_help(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     welcome_settings = await get_current_welcome_text_settings(db)
     placeholders = get_available_placeholders()
     placeholders_text = "\n".join([f"• <code>{key}</code>\n  {desc}" for key, desc in placeholders.items()])
     
-    help_text = (
-        "💡 Доступные плейсхолдеры для автозамены:\n\n"
-        f"{placeholders_text}\n\n"
-        "📌 Примеры использования:\n"
-        "• <code>Привет, {user_name}! Добро пожаловать!</code>\n"
-        "• <code>Здравствуйте, {first_name}! Рады видеть вас!</code>\n"
-        "• <code>Привет, {username}! Спасибо за регистрацию!</code>\n\n"
-        "При отсутствии данных пользователя используется слово 'друг'."
-    )
+    help_text = texts.t(
+        "ADMIN_WELCOME_TEXT_PLACEHOLDERS_HELP",
+        "💡 Available placeholders for auto-replacement:\n\n"
+        "{placeholders}\n\n"
+        "📌 Usage examples:\n"
+        "• <code>Hello, {user_name}! Welcome!</code>\n"
+        "• <code>Hi, {first_name}! Glad to see you!</code>\n"
+        "• <code>Hello, {username}! Thanks for registering!</code>\n\n"
+        "If user data is missing, the word 'friend' is used."
+    ).format(placeholders=placeholders_text)
     
     await callback.message.edit_text(
         help_text,
@@ -253,6 +273,7 @@ async def start_edit_welcome_text(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     welcome_settings = await get_current_welcome_text_settings(db)
     current_text = welcome_settings['text']
     
@@ -260,11 +281,14 @@ async def start_edit_welcome_text(
     placeholders_text = "\n".join([f"• <code>{key}</code> - {desc}" for key, desc in placeholders.items()])
     
     await callback.message.edit_text(
-        f"📝 Редактирование приветственного текста\n\n"
-        f"Текущий текст:\n"
-        f"<code>{current_text}</code>\n\n"
-        f"💡 Доступные плейсхолдеры:\n{placeholders_text}\n\n"
-        f"Отправьте новый текст:",
+        texts.t(
+            "ADMIN_WELCOME_TEXT_EDIT_PROMPT",
+            "📝 Editing welcome text\n\n"
+            "Current text:\n"
+            "<code>{current}</code>\n\n"
+            "💡 Available placeholders:\n{placeholders}\n\n"
+            "Send the new text:"
+        ).format(current=current_text, placeholders=placeholders_text),
         parse_mode="HTML"
     )
     
@@ -279,20 +303,20 @@ async def process_welcome_text_edit(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     new_text = message.text.strip()
     
     if len(new_text) < 10:
-        await message.answer("❌ Текст слишком короткий! Минимум 10 символов.")
+        await message.answer(texts.t("ADMIN_WELCOME_TEXT_TOO_SHORT", "❌ Text is too short! Minimum 10 characters."))
         return
     
     if len(new_text) > 4000:
-        await message.answer("❌ Текст слишком длинный! Максимум 4000 символов.")
+        await message.answer(texts.t("ADMIN_WELCOME_TEXT_TOO_LONG", "❌ Text is too long! Maximum 4000 characters."))
         return
     
-    # Проверяем HTML-теги на валидность
     is_valid, error_msg = validate_html_tags(new_text)
     if not is_valid:
-        await message.answer(f"❌ Ошибка в HTML-разметке:\n\n{error_msg}")
+        await message.answer(texts.t("ADMIN_WELCOME_TEXT_HTML_ERROR", "❌ HTML markup error:\n\n{error}").format(error=error_msg))
         return
     
     success = await set_welcome_text(db, new_text, db_user.id)
@@ -300,24 +324,32 @@ async def process_welcome_text_edit(
     if success:
         welcome_settings = await get_current_welcome_text_settings(db)
         status_emoji = "🟢" if welcome_settings['is_enabled'] else "🔴"
-        status_text = "включено" if welcome_settings['is_enabled'] else "отключено"
+        status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if welcome_settings['is_enabled'] else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
         
         placeholders = get_available_placeholders()
         placeholders_text = "\n".join([f"• <code>{key}</code>" for key in placeholders.keys()])
         
         await message.answer(
-            f"✅ Приветственный текст успешно обновлен!\n\n"
-            f"{status_emoji} <b>Статус:</b> {status_text}\n\n"
-            f"Новый текст:\n"
-            f"<code>{new_text}</code>\n\n"
-            f"💡 Будут заменяться плейсхолдеры: {placeholders_text}",
+            texts.t(
+                "ADMIN_WELCOME_TEXT_UPDATED_SUCCESS",
+                "✅ Welcome text successfully updated!\n\n"
+                "{emoji} <b>Status:</b> {status}\n\n"
+                "New text:\n"
+                "<code>{text}</code>\n\n"
+                "💡 Placeholders will be replaced: {placeholders}"
+            ).format(
+                emoji=status_emoji,
+                status=status_text,
+                text=new_text,
+                placeholders=placeholders_text
+            ),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled']),
             parse_mode="HTML"
         )
     else:
         welcome_settings = await get_current_welcome_text_settings(db)
         await message.answer(
-            "❌ Ошибка при сохранении текста. Попробуйте еще раз.",
+            texts.t("ADMIN_WELCOME_TEXT_SAVE_ERROR", "❌ Error saving text. Please try again."),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled'])
         )
     
@@ -333,24 +365,28 @@ async def reset_welcome_text(
     default_text = await get_current_welcome_text_or_default()
     success = await set_welcome_text(db, default_text, db_user.id)
     
+    texts = get_texts(db_user.language)
     if success:
         welcome_settings = await get_current_welcome_text_settings(db)
         status_emoji = "🟢" if welcome_settings['is_enabled'] else "🔴"
-        status_text = "включено" if welcome_settings['is_enabled'] else "отключено"
+        status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if welcome_settings['is_enabled'] else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
         
         await callback.message.edit_text(
-            f"✅ Приветственный текст сброшен на стандартный!\n\n"
-            f"{status_emoji} <b>Статус:</b> {status_text}\n\n"
-            f"Стандартный текст:\n"
-            f"<code>{default_text}</code>\n\n"
-            f"💡 Плейсхолдер <code>{{user_name}}</code> будет заменяться на имя пользователя",
+            texts.t(
+                "ADMIN_WELCOME_TEXT_RESET_SUCCESS",
+                "✅ Welcome text reset to default!\n\n"
+                "{emoji} <b>Status:</b> {status}\n\n"
+                "Default text:\n"
+                "<code>{text}</code>\n\n"
+                "💡 Placeholder <code>{{user_name}}</code> will be replaced with user name"
+            ).format(emoji=status_emoji, status=status_text, text=default_text),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled']),
             parse_mode="HTML"
         )
     else:
         welcome_settings = await get_current_welcome_text_settings(db)
         await callback.message.edit_text(
-            "❌ Ошибка при сбросе текста. Попробуйте еще раз.",
+            texts.t("ADMIN_WELCOME_TEXT_RESET_ERROR", "❌ Error resetting text. Please try again."),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled'])
         )
     
@@ -365,9 +401,10 @@ async def show_preview_welcome_text(
 ):
     from app.database.crud.welcome_text import get_welcome_text_for_user
     
+    texts = get_texts(db_user.language)
     class TestUser:
         def __init__(self):
-            self.first_name = "Иван"
+            self.first_name = "John"
             self.username = "test_user"
     
     test_user = TestUser()
@@ -377,17 +414,23 @@ async def show_preview_welcome_text(
     
     if preview_text:
         await callback.message.edit_text(
-            f"👁️ Предварительный просмотр\n\n"
-            f"Как будет выглядеть текст для пользователя 'Иван' (@test_user):\n\n"
-            f"<code>{preview_text}</code>",
+            texts.t(
+                "ADMIN_WELCOME_TEXT_PREVIEW_ENABLED",
+                "👁️ Preview\n\n"
+                "How the text will look for user 'John' (@test_user):\n\n"
+                "<code>{text}</code>"
+            ).format(text=preview_text),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled']),
             parse_mode="HTML"
         )
     else:
         await callback.message.edit_text(
-            f"👁️ Предварительный просмотр\n\n"
-            f"🔴 Приветственные сообщения отключены.\n"
-            f"Новые пользователи не будут получать приветственный текст после регистрации.",
+            texts.t(
+                "ADMIN_WELCOME_TEXT_PREVIEW_DISABLED",
+                "👁️ Preview\n\n"
+                "🔴 Welcome messages are disabled.\n"
+                "New users will not receive welcome text after registration."
+            ),
             reply_markup=get_welcome_text_keyboard(db_user.language, welcome_settings['is_enabled']),
             parse_mode="HTML"
         )

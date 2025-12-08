@@ -1,4 +1,4 @@
-"""Маршруты административного API для просмотра логов."""
+"""Administrative API routes for viewing logs."""
 from __future__ import annotations
 
 import logging
@@ -65,10 +65,10 @@ async def get_system_log_preview(
         SYSTEM_LOG_PREVIEW_LIMIT_DEFAULT,
         ge=500,
         le=SYSTEM_LOG_PREVIEW_LIMIT_MAX,
-        description="Количество символов предпросмотра от конца файла",
+        description="Number of preview characters from end of file",
     ),
 ) -> SystemLogPreviewResponse:
-    """Получить предпросмотр системного лог-файла бота."""
+    """Get preview of the bot system log file."""
 
     log_path = _resolve_system_log_path()
 
@@ -88,7 +88,7 @@ async def get_system_log_preview(
     try:
         content, size_bytes, mtime = await _read_system_log(log_path)
     except FileNotFoundError:
-        logger.warning("Лог-файл %s исчез во время чтения", log_path)
+        logger.warning("Log file %s disappeared during read", log_path)
         return SystemLogPreviewResponse(
             path=str(log_path),
             exists=False,
@@ -100,9 +100,9 @@ async def get_system_log_preview(
             preview_truncated=False,
             download_url="/logs/system/download",
         )
-    except Exception as error:  # pragma: no cover - защита от неожиданных ошибок чтения
-        logger.error("Ошибка чтения лог-файла %s: %s", log_path, error)
-        raise HTTPException(status_code=500, detail="Не удалось прочитать лог-файл") from error
+    except Exception as error:  # pragma: no cover - defensive guard against unexpected read errors
+        logger.error("Error reading log file %s: %s", log_path, error)
+        raise HTTPException(status_code=500, detail="Failed to read log file") from error
 
     preview_text = content[-preview_limit:] if preview_limit > 0 else ""
     truncated = len(content) > len(preview_text)
@@ -124,12 +124,12 @@ async def get_system_log_preview(
 async def download_system_log(
     _: Any = Security(require_api_token),
 ) -> FileResponse:
-    """Скачать полный лог-файл бота."""
+    """Download the full bot log file."""
 
     log_path = _resolve_system_log_path()
 
     if not log_path.exists() or not log_path.is_file():
-        raise HTTPException(status_code=404, detail="Лог-файл не найден")
+        raise HTTPException(status_code=404, detail="Log file not found")
 
     try:
         return FileResponse(
@@ -137,27 +137,27 @@ async def download_system_log(
             media_type="text/plain",
             filename=log_path.name,
         )
-    except Exception as error:  # pragma: no cover - защита от неожиданных ошибок отдачи файла
-        logger.error("Ошибка отправки лог-файла %s: %s", log_path, error)
-        raise HTTPException(status_code=500, detail="Не удалось отправить лог-файл") from error
+    except Exception as error:  # pragma: no cover - defensive guard against unexpected file send errors
+        logger.error("Error sending log file %s: %s", log_path, error)
+        raise HTTPException(status_code=500, detail="Failed to send log file") from error
 
 
 @router.get("/system/full", response_model=SystemLogFullResponse)
 async def get_system_log_full(
     _: Any = Security(require_api_token),
 ) -> SystemLogFullResponse:
-    """Получить полный системный лог-файл бота."""
+    """Get the full system log file for the bot."""
 
     log_path = _resolve_system_log_path()
 
     if not log_path.exists() or not log_path.is_file():
-        raise HTTPException(status_code=404, detail="Лог-файл не найден")
+        raise HTTPException(status_code=404, detail="Log file not found")
 
     try:
         content, size_bytes, mtime = await _read_system_log(log_path)
-    except Exception as error:  # pragma: no cover - защита от неожиданных ошибок чтения
-        logger.error("Ошибка чтения лог-файла %s: %s", log_path, error)
-        raise HTTPException(status_code=500, detail="Не удалось прочитать лог-файл") from error
+    except Exception as error:  # pragma: no cover - defensive guard against unexpected read errors
+        logger.error("Error reading log file %s: %s", log_path, error)
+        raise HTTPException(status_code=500, detail="Failed to read log file") from error
 
     return SystemLogFullResponse(
         path=str(log_path),
@@ -173,15 +173,15 @@ async def get_system_log_full(
 async def list_monitoring_logs(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
-    limit: int = Query(50, ge=1, le=200, description="Количество записей на странице"),
-    offset: int = Query(0, ge=0, description="Смещение от начала списка"),
+    limit: int = Query(50, ge=1, le=200, description="Number of records per page"),
+    offset: int = Query(0, ge=0, description="Offset from start of list"),
     event_type: Optional[str] = Query(
         default=None,
         max_length=100,
-        description="Фильтр по типу события",
+        description="Filter by event type",
     ),
 ) -> MonitoringLogListResponse:
-    """Получить список логов мониторинга с пагинацией."""
+    """Get monitoring logs with pagination."""
 
     per_page = limit
     page = (offset // per_page) + 1
@@ -207,7 +207,7 @@ async def list_monitoring_event_types(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> MonitoringLogTypeListResponse:
-    """Получить список доступных типов событий мониторинга."""
+    """Get list of available monitoring event types."""
 
     event_types = await monitoring_service.get_monitoring_event_types(db)
     return MonitoringLogTypeListResponse(items=event_types)
@@ -217,15 +217,15 @@ async def list_monitoring_event_types(
 async def list_support_audit_logs(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
-    limit: int = Query(50, ge=1, le=200, description="Количество записей на странице"),
-    offset: int = Query(0, ge=0, description="Смещение от начала списка"),
+    limit: int = Query(50, ge=1, le=200, description="Number of records per page"),
+    offset: int = Query(0, ge=0, description="Offset from start of list"),
     action: Optional[str] = Query(
         default=None,
         max_length=50,
-        description="Фильтр по типу действия модератора",
+        description="Filter by moderator action type",
     ),
 ) -> SupportAuditLogListResponse:
-    """Получить список аудита действий модераторов поддержки."""
+    """Get audit list of support moderators' actions."""
 
     logs = await TicketCRUD.list_support_audit(
         db,
@@ -261,7 +261,7 @@ async def list_support_audit_actions(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> SupportAuditActionsResponse:
-    """Получить список действий, доступных в аудите поддержки."""
+    """Get list of actions available in support audit."""
 
     actions = await TicketCRUD.list_support_audit_actions(db)
     return SupportAuditActionsResponse(items=actions)

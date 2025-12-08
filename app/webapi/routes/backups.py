@@ -74,7 +74,7 @@ def _serialize_backup(raw: dict) -> BackupInfo:
     "",
     response_model=BackupCreateResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Запустить создание резервной копии",
+    summary="Start backup creation",
 )
 async def create_backup_endpoint(
     token: Any = Security(require_api_token),
@@ -87,7 +87,7 @@ async def create_backup_endpoint(
 @router.get(
     "",
     response_model=BackupListResponse,
-    summary="Список резервных копий",
+    summary="Backup list",
 )
 async def list_backups(
     _: Any = Security(require_api_token),
@@ -111,7 +111,7 @@ async def list_backups(
 @router.get(
     "/status/{task_id}",
     response_model=BackupStatusResponse,
-    summary="Статус создания резервной копии",
+    summary="Backup creation status",
 )
 async def get_backup_status(
     task_id: str,
@@ -135,11 +135,11 @@ async def get_backup_status(
 @router.get(
     "/tasks",
     response_model=BackupTaskListResponse,
-    summary="Список фоновых задач бекапов",
+    summary="List of background backup tasks",
 )
 async def list_backup_tasks(
     _: Any = Security(require_api_token),
-    active_only: bool = Query(False, description="Вернуть только активные задачи"),
+    active_only: bool = Query(False, description="Return only active tasks"),
 ) -> BackupTaskListResponse:
     states = await backup_task_manager.list(active_only=active_only)
 

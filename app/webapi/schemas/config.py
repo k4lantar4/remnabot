@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class SettingCategorySummary(BaseModel):
-    """Краткое описание категории настройки."""
+    """Short description of a settings category."""
 
     key: str
     label: str
@@ -16,7 +16,7 @@ class SettingCategorySummary(BaseModel):
 
 
 class SettingCategoryRef(BaseModel):
-    """Ссылка на категорию, к которой относится настройка."""
+    """Reference to the category a setting belongs to."""
 
     key: str
     label: str
@@ -25,7 +25,7 @@ class SettingCategoryRef(BaseModel):
 
 
 class SettingChoice(BaseModel):
-    """Вариант значения для настройки с выбором."""
+    """Selectable value option for a setting."""
 
     value: Any
     label: str
@@ -35,7 +35,7 @@ class SettingChoice(BaseModel):
 
 
 class SettingDefinition(BaseModel):
-    """Полное описание настройки и её текущего состояния."""
+    """Full description of a setting and its current state."""
 
     key: str
     name: str
@@ -52,7 +52,7 @@ class SettingDefinition(BaseModel):
 
 
 class SettingUpdateRequest(BaseModel):
-    """Запрос на обновление значения настройки."""
+    """Request to update a setting value."""
 
     value: Any
 

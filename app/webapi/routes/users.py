@@ -307,7 +307,7 @@ async def update_balance(
         db,
         found_user,
         amount_kopeks=payload.amount_kopeks,
-        description=payload.description or "Корректировка через веб-API",
+        description=payload.description or "Adjustment via web API",
         create_transaction=payload.create_transaction,
     )
 

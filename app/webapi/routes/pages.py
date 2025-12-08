@@ -92,10 +92,10 @@ async def get_public_offer(
     _: object = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
     language: str = Query("ru", min_length=2, max_length=10),
-    fallback: bool = Query(True, description="Использовать запасной язык, если контента нет"),
+    fallback: bool = Query(True, description="Use fallback language if content is missing"),
     include_disabled: bool = Query(
         True,
-        description="Возвращать контент даже если страница выключена",
+        description="Return content even if page is disabled",
     ),
 ) -> RichTextPageResponse:
     requested_lang = PublicOfferService.normalize_language(language)
@@ -434,7 +434,7 @@ async def update_service_rules(
     db: AsyncSession = Depends(get_db_session),
 ) -> ServiceRulesResponse:
     lang = payload.language.split("-")[0].lower()
-    title = payload.title or "Правила сервиса"
+    title = payload.title or "Service rules"
     rules = await create_or_update_rules(
         db,
         content=payload.content,

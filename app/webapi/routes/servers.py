@@ -1,4 +1,4 @@
-"""Маршруты управления серверами в административном API."""
+"""Administrative API routes for server management."""
 
 from __future__ import annotations
 
@@ -39,13 +39,13 @@ from ..schemas.servers import (
 )
 from ..schemas.users import PromoGroupSummary
 
-try:  # pragma: no cover - импорт может провалиться без optional-зависимостей
+try:  # pragma: no cover - import may fail without optional deps
     from app.services.remnawave_service import RemnaWaveService  # type: ignore
-except Exception:  # pragma: no cover - скрываем функционал, если сервис недоступен
+except Exception:  # pragma: no cover - hide functionality if service unavailable
     RemnaWaveService = None  # type: ignore[assignment]
 
 
-if TYPE_CHECKING:  # pragma: no cover - только для подсказок типов в IDE
+if TYPE_CHECKING:  # pragma: no cover - IDE type hints only
     from app.services.remnawave_service import (  # type: ignore
         RemnaWaveService as RemnaWaveServiceType,
     )
@@ -127,26 +127,26 @@ def _apply_filters(
 
 
 def _get_remnawave_service() -> "RemnaWaveServiceType":
-    if RemnaWaveService is None:  # pragma: no cover - зависимость не доступна
+    if RemnaWaveService is None:  # pragma: no cover - dependency unavailable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RemnaWave сервис недоступен",
+            detail="RemnaWave service unavailable",
         )
 
     return RemnaWaveService()
 
 
 def _ensure_service_configured(service: "RemnaWaveServiceType") -> None:
-    if RemnaWaveService is None:  # pragma: no cover - зависимость не доступна
+    if RemnaWaveService is None:  # pragma: no cover - dependency unavailable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RemnaWave сервис недоступен",
+            detail="RemnaWave service unavailable",
         )
 
     if not service.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=service.configuration_error or "RemnaWave API не настроен",
+            detail=service.configuration_error or "RemnaWave API not configured",
         )
 
 
@@ -158,7 +158,7 @@ async def _validate_promo_group_ids(
     if not unique_ids:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Нужно выбрать хотя бы одну промогруппу",
+            "At least one promo group must be selected",
         )
 
     result = await db.execute(
@@ -169,7 +169,7 @@ async def _validate_promo_group_ids(
     if not found_ids:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Не найдены промогруппы для обновления сервера",
+            "Promo groups for server update not found",
         )
 
     return unique_ids
