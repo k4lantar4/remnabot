@@ -52,6 +52,10 @@ class ReportPeriodRange:
 class ReportingService:
     """Generates admin summary reports (text only, no charts)."""
 
+    # Referral keyword patterns for matching transaction descriptions/comments
+    # Includes patterns in multiple languages to match historical data
+    _REFERRAL_TEXT_PATTERNS = ["%referral%", "%refer%", "%реферал%", "%рефер%"]
+
     def __init__(self) -> None:
         self.bot: Optional[Bot] = None
         self._task: Optional[asyncio.Task] = None
@@ -204,16 +208,15 @@ class ReportingService:
             clauses.append(Transaction.reason == "referral_bonus")
             clauses.append(Transaction.reason == "referral_reward")
 
-        # Text fields
-        like_patterns = ["%реферал%", "%реферальн%", "%referral%"]
+        # Text fields - check for referral-related keywords in multiple languages
         if hasattr(Transaction, "description"):
-            for pattern in like_patterns:
+            for pattern in self._REFERRAL_TEXT_PATTERNS:
                 try:
                     clauses.append(Transaction.description.ilike(pattern))
                 except Exception:  # noqa: BLE001 - best effort
                     pass
         if hasattr(Transaction, "comment"):
-            for pattern in like_patterns:
+            for pattern in self._REFERRAL_TEXT_PATTERNS:
                 try:
                     clauses.append(Transaction.comment.ilike(pattern))
                 except Exception:  # noqa: BLE001 - best effort
@@ -268,7 +271,7 @@ class ReportingService:
             f"• New users: <b>{stats['new_users']}</b>",
             f"• New trials: <b>{stats['new_trials']}</b>",
             (
-                f"• Конверсий триал → платная: <b>{stats['trial_to_paid_conversions']}</b> "
+                f"• Trial → paid conversions: <b>{stats['trial_to_paid_conversions']}</b> "
                 f"(<i>{conversion_rate:.1f}%</i>)"
             ),
             f"• New paid (total): <b>{stats['new_paid_subscriptions']}</b>",

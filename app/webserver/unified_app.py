@@ -76,7 +76,7 @@ def _mount_miniapp_static(app: FastAPI) -> tuple[bool, Path]:
         app.mount("/miniapp/static", StaticFiles(directory=static_path), name="miniapp-static")
         logger.info("📦 Miniapp static files mounted at /miniapp/static from %s", static_path)
     except RuntimeError as error:  # pragma: no cover - defensive guard
-        logger.warning("Не удалось смонтировать статические файлы миниаппа: %s", error)
+        logger.warning("Failed to mount miniapp static files: %s", error)
         return False, static_path
 
     return True, static_path

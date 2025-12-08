@@ -21,7 +21,7 @@ class LoggingMiddleware(BaseMiddleware):
         try:
             if isinstance(event, Message):
                 user_info = f"@{event.from_user.username}" if event.from_user.username else f"ID:{event.from_user.id}"
-                text = event.text or event.caption or "[медиа]"
+                text = event.text or event.caption or "[media]"
                 logger.info(f"📩 Message from {user_info}: {text}")
                 
             elif isinstance(event, CallbackQuery):

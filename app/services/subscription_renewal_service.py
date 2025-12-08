@@ -24,6 +24,7 @@ from app.database.models import PaymentMethod, Subscription, Transaction, Transa
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.remnawave_service import RemnaWaveConfigurationError
 from app.services.subscription_service import SubscriptionService
+from app.localization.texts import get_texts
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_months_from_days,
@@ -426,7 +427,13 @@ class SubscriptionRenewalService:
 
         consume_promo_offer = bool(pricing.promo_discount_value)
 
-        description_text = description or f"Продление подписки на {period_days} дней"
+        user_language = getattr(user, "language", None)
+        texts = get_texts(user_language)
+        description_template = texts.get_text(
+            "SUBSCRIPTION_RENEWAL_DESCRIPTION",
+            "Subscription renewal for {days} days",
+        )
+        description_text = description or description_template.format(days=period_days)
 
         if charge_from_balance > 0 or consume_promo_offer:
             success = await subtract_user_balance(

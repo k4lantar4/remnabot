@@ -11,7 +11,7 @@ logger = logging.getLogger("web_api")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Логирование входящих запросов в административный API."""
+    """Logging incoming requests to the admin API."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start = monotonic()

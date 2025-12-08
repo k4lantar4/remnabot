@@ -122,6 +122,12 @@ class Texts:
         except KeyError:
             return default
 
+    def get_text(self, key: str, default: Any = None) -> Any:
+        """
+        Public alias for t(), kept for readability at call sites.
+        """
+        return self.t(key, default)
+
     def t(self, key: str, default: Any = None) -> Any:
         try:
             return self._get_value(key)

@@ -109,6 +109,8 @@ async def get_current_devices_detailed(db_user: User) -> dict:
         return {"count": 0, "devices": []}
 
 async def get_servers_display_names(squad_uuids: List[str]) -> str:
+    texts = get_texts()
+
     if not squad_uuids:
         return texts.t("SUBSCRIPTION_NO_SERVERS", "No servers")
 

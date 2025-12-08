@@ -2036,7 +2036,7 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
         return
 
     texts = get_texts(db_user.language)
-    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SENDING", "Начинаем рассылку..."), show_alert=True)
+    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SENDING", "Starting broadcast..."), show_alert=True)
 
     users = await get_users_for_promo_segment(db, segment)
     initial_count = len(users)
@@ -2132,7 +2132,7 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
     effect_type = config.get("effect_type", "percent_discount")
 
     texts = get_texts(db_user.language)
-    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SENDING", "Начинаем рассылку..."), show_alert=True)
+    await callback.answer(texts.t("ADMIN_PROMO_OFFER_SENDING", "Starting broadcast..."), show_alert=True)
 
     users_to_send: List[User] = [user]
     skipped = 0

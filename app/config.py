@@ -315,7 +315,7 @@ class Settings(BaseSettings):
     MINIAPP_SERVICE_NAME_RU: str = "Capitan VPN"
     MINIAPP_SERVICE_NAME_FA: str = "کاپیتان وی پی ان"
     MINIAPP_SERVICE_DESCRIPTION_EN: str = "Secure & Fast Connection"
-    MINIAPP_SERVICE_DESCRIPTION_RU: str = "Безопасное и быстрое подключение"
+    MINIAPP_SERVICE_DESCRIPTION_DEFAULT: str = "Secure & Fast Connection"
     MINIAPP_SERVICE_DESCRIPTION_FA: str = "اتصال امن و سریع"
     CONNECT_BUTTON_HAPP_DOWNLOAD_ENABLED: bool = False
     HAPP_CRYPTOLINK_REDIRECT_TEMPLATE: Optional[str] = None
@@ -829,7 +829,7 @@ class Settings(BaseSettings):
         name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
         name_fa = _clean(self.MINIAPP_SERVICE_NAME_FA)
         desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
-        desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_RU)
+        desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
         desc_fa = _clean(self.MINIAPP_SERVICE_DESCRIPTION_FA)
 
         default_name = name_en or name_ru or "Capitan VPN"

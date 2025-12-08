@@ -36,54 +36,70 @@ async def show_maintenance_panel(
         rw_service = RemnaWaveService()
         panel_status = await rw_service.get_panel_status_summary()
     except Exception as e:
-        logger.error(f"Ошибка получения статуса панели: {e}")
-        panel_status = {"description": "❓ Не удалось проверить", "has_issues": True}
+        logger.error(f"Failed to get panel status: {e}")
+        panel_status = {"description": "❓ Failed to check", "has_issues": True}
     
     status_emoji = "🔧" if status_info["is_active"] else "✅"
-    status_text = "Включен" if status_info["is_active"] else "Выключен"
+    status_text = texts.t("ADMIN_MAINTENANCE_STATUS_ENABLED", "Enabled") if status_info["is_active"] else texts.t("ADMIN_MAINTENANCE_STATUS_DISABLED", "Disabled")
     
     api_emoji = "✅" if status_info["api_status"] else "❌"
-    api_text = "Доступно" if status_info["api_status"] else "Недоступно"
+    api_text = texts.t("ADMIN_MAINTENANCE_API_AVAILABLE", "Available") if status_info["api_status"] else texts.t("ADMIN_MAINTENANCE_API_UNAVAILABLE", "Unavailable")
     
     monitoring_emoji = "🔄" if status_info["monitoring_active"] else "⏹️"
-    monitoring_text = "Запущен" if status_info["monitoring_active"] else "Остановлен"
+    monitoring_text = texts.t("ADMIN_MAINTENANCE_MONITORING_RUNNING", "Running") if status_info["monitoring_active"] else texts.t("ADMIN_MAINTENANCE_MONITORING_STOPPED", "Stopped")
     
     enabled_info = ""
     if status_info["is_active"] and status_info["enabled_at"]:
         enabled_time = status_info["enabled_at"].strftime("%d.%m.%Y %H:%M:%S")
-        enabled_info = f"\n📅 <b>Включен:</b> {enabled_time}"
+        enabled_info = f"\n📅 <b>{texts.t('ADMIN_MAINTENANCE_ENABLED_AT', 'Enabled at:')}</b> {enabled_time}"
         if status_info["reason"]:
-            enabled_info += f"\n📝 <b>Причина:</b> {status_info['reason']}"
+            enabled_info += f"\n📝 <b>{texts.t('ADMIN_MAINTENANCE_REASON', 'Reason:')}</b> {status_info['reason']}"
     
     last_check_info = ""
     if status_info["last_check"]:
         last_check_time = status_info["last_check"].strftime("%H:%M:%S")
-        last_check_info = f"\n🕐 <b>Последняя проверка:</b> {last_check_time}"
+        last_check_info = f"\n🕐 <b>{texts.t('ADMIN_MAINTENANCE_LAST_CHECK', 'Last check:')}</b> {last_check_time}"
     
     failures_info = ""
     if status_info["consecutive_failures"] > 0:
-        failures_info = f"\n⚠️ <b>Неудачных проверок подряд:</b> {status_info['consecutive_failures']}"
+        failures_info = f"\n⚠️ <b>{texts.t('ADMIN_MAINTENANCE_CONSECUTIVE_FAILURES', 'Consecutive failed checks:')}</b> {status_info['consecutive_failures']}"
     
-    panel_info = f"\n🌐 <b>Панель Remnawave:</b> {panel_status['description']}"
+    panel_info = f"\n🌐 <b>{texts.t('ADMIN_MAINTENANCE_PANEL_STATUS', 'Remnawave panel:')}</b> {panel_status['description']}"
     if panel_status.get("response_time"):
-        panel_info += f"\n⚡ <b>Время отклика:</b> {panel_status['response_time']}с"
+        panel_info += f"\n⚡ <b>{texts.t('ADMIN_MAINTENANCE_RESPONSE_TIME', 'Response time:')}</b> {panel_status['response_time']}s"
     
-    message_text = f"""
-🔧 <b>Управление техническими работами</b>
-
-{status_emoji} <b>Режим техработ:</b> {status_text}
-{api_emoji} <b>API Remnawave:</b> {api_text}
-{monitoring_emoji} <b>Мониторинг:</b> {monitoring_text}
-🛠️ <b>Автозапуск мониторинга:</b> {'Включен' if status_info['monitoring_configured'] else 'Отключен'}
-⏱️ <b>Интервал проверки:</b> {status_info['check_interval']}с
-🤖 <b>Автовключение:</b> {'Включено' if status_info['auto_enable_configured'] else 'Отключено'}
-{panel_info}
-{enabled_info}
-{last_check_info}
-{failures_info}
-
-ℹ️ <i>В режиме техработ обычные пользователи не могут использовать бота. Администраторы имеют полный доступ.</i>
-"""
+    message_text = texts.t(
+        "ADMIN_MAINTENANCE_PANEL_TEXT",
+        "🔧 <b>Maintenance mode management</b>\n\n"
+        "{status_emoji} <b>Maintenance mode:</b> {status_text}\n"
+        "{api_emoji} <b>Remnawave API:</b> {api_text}\n"
+        "{monitoring_emoji} <b>Monitoring:</b> {monitoring_text}\n"
+        "🛠️ <b>{autostart_label}</b> {autostart_status}\n"
+        "⏱️ <b>{interval_label}</b> {interval}s\n"
+        "🤖 <b>{auto_enable_label}</b> {auto_enable_status}\n"
+        "{panel_info}\n"
+        "{enabled_info}\n"
+        "{last_check_info}\n"
+        "{failures_info}\n\n"
+        "ℹ️ <i>In maintenance mode, regular users cannot use the bot. Administrators have full access.</i>"
+    ).format(
+        status_emoji=status_emoji,
+        status_text=status_text,
+        api_emoji=api_emoji,
+        api_text=api_text,
+        monitoring_emoji=monitoring_emoji,
+        monitoring_text=monitoring_text,
+        autostart_label=texts.t('ADMIN_MAINTENANCE_MONITORING_AUTOSTART', 'Monitoring autostart:'),
+        autostart_status=texts.t('ADMIN_MAINTENANCE_STATUS_ENABLED', 'Enabled') if status_info['monitoring_configured'] else texts.t('ADMIN_MAINTENANCE_STATUS_DISABLED', 'Disabled'),
+        interval_label=texts.t('ADMIN_MAINTENANCE_CHECK_INTERVAL', 'Check interval:'),
+        interval=status_info['check_interval'],
+        auto_enable_label=texts.t('ADMIN_MAINTENANCE_AUTO_ENABLE', 'Auto-enable:'),
+        auto_enable_status=texts.t('ADMIN_MAINTENANCE_STATUS_ENABLED', 'Enabled') if status_info['auto_enable_configured'] else texts.t('ADMIN_MAINTENANCE_STATUS_DISABLED', 'Disabled'),
+        panel_info=panel_info,
+        enabled_info=enabled_info,
+        last_check_info=last_check_info,
+        failures_info=failures_info,
+    )
     
     await callback.message.edit_text(
         message_text,
@@ -107,18 +123,19 @@ async def toggle_maintenance_mode(
 ):
     is_active = maintenance_service.is_maintenance_active()
     
+    texts = get_texts(db_user.language)
     if is_active:
         success = await maintenance_service.disable_maintenance()
         if success:
-            await callback.answer("Режим техработ выключен", show_alert=True)
+            await callback.answer(texts.t("ADMIN_MAINTENANCE_DISABLED", "Maintenance mode disabled"), show_alert=True)
         else:
-            await callback.answer("Ошибка выключения режима техработ", show_alert=True)
+            await callback.answer(texts.t("ADMIN_MAINTENANCE_DISABLE_ERROR", "Error disabling maintenance mode"), show_alert=True)
     else:
         await state.set_state(MaintenanceStates.waiting_for_reason)
         await callback.message.edit_text(
-            "🔧 <b>Включение режима техработ</b>\n\nВведите причину включения техработ или отправьте /skip для пропуска:",
+            texts.t("ADMIN_MAINTENANCE_ENABLE_PROMPT", "🔧 <b>Enable maintenance mode</b>\n\nEnter the reason for enabling maintenance or send /skip to skip:"),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="❌ Отмена", callback_data="maintenance_panel")]
+                [types.InlineKeyboardButton(text=texts.t("ADMIN_CANCEL", "❌ Cancel"), callback_data="maintenance_panel")]
             ])
         )
     
@@ -142,23 +159,24 @@ async def process_maintenance_reason(
     if message.text and message.text != "/skip":
         reason = message.text[:200] 
     
+    texts = get_texts(db_user.language)
     success = await maintenance_service.enable_maintenance(reason=reason, auto=False)
     
     if success:
-        response_text = "Режим техработ включен"
+        response_text = texts.t("ADMIN_MAINTENANCE_ENABLED", "Maintenance mode enabled")
         if reason:
-            response_text += f"\nПричина: {reason}"
+            response_text += texts.t("ADMIN_MAINTENANCE_ENABLED_WITH_REASON", "\nReason: {reason}").format(reason=reason)
     else:
-        response_text = "Ошибка включения режима техработ"
+        response_text = texts.t("ADMIN_MAINTENANCE_ENABLE_ERROR", "Error enabling maintenance mode")
     
     await message.answer(response_text)
     await state.clear()
     
     status_info = maintenance_service.get_status_info()
     await message.answer(
-        "Вернуться к панели управления техработами:",
+        texts.t("ADMIN_MAINTENANCE_RETURN_PROMPT", "Return to maintenance panel:"),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🔧 Панель техработ", callback_data="maintenance_panel")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_PANEL_BUTTON", "🔧 Maintenance panel"), callback_data="maintenance_panel")]
         ])
     )
 
@@ -170,14 +188,15 @@ async def toggle_monitoring(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     status_info = maintenance_service.get_status_info()
     
     if status_info["monitoring_active"]:
         success = await maintenance_service.stop_monitoring()
-        message = "Мониторинг остановлен" if success else "Ошибка остановки мониторинга"
+        message = texts.t("ADMIN_MAINTENANCE_MONITORING_STOPPED", "Monitoring stopped") if success else texts.t("ADMIN_MAINTENANCE_MONITORING_STOP_ERROR", "Error stopping monitoring")
     else:
         success = await maintenance_service.start_monitoring()
-        message = "Мониторинг запущен" if success else "Ошибка запуска мониторинга"
+        message = texts.t("ADMIN_MAINTENANCE_MONITORING_STARTED", "Monitoring started") if success else texts.t("ADMIN_MAINTENANCE_MONITORING_START_ERROR", "Error starting monitoring")
     
     await callback.answer(message, show_alert=True)
     
@@ -191,15 +210,20 @@ async def force_api_check(
     db_user: User, 
     db: AsyncSession
 ):
-    await callback.answer("Проверка API...", show_alert=False)
+    texts = get_texts(db_user.language)
+    await callback.answer(texts.t("ADMIN_MAINTENANCE_CHECKING_API", "Checking API..."), show_alert=False)
     
     check_result = await maintenance_service.force_api_check()
     
     if check_result["success"]:
-        status_text = "доступно" if check_result["api_available"] else "недоступно"
-        message = f"API {status_text}\nВремя ответа: {check_result['response_time']}с"
+        status_text = texts.t("ADMIN_MAINTENANCE_API_AVAILABLE", "available") if check_result["api_available"] else texts.t("ADMIN_MAINTENANCE_API_UNAVAILABLE", "unavailable")
+        message = texts.t("ADMIN_MAINTENANCE_API_CHECK_RESULT", "API {status}\nResponse time: {time}s").format(
+            status=status_text, time=check_result['response_time']
+        )
     else:
-        message = f"Ошибка проверки: {check_result.get('error', 'Неизвестная ошибка')}"
+        message = texts.t("ADMIN_MAINTENANCE_API_CHECK_ERROR", "Check error: {error}").format(
+            error=check_result.get('error', texts.t("ADMIN_MAINTENANCE_UNKNOWN_ERROR", "Unknown error"))
+        )
     
     await callback.message.answer(message)
     
@@ -213,7 +237,8 @@ async def check_panel_status(
     db_user: User,
     db: AsyncSession
 ):
-    await callback.answer("Проверка статуса панели...", show_alert=False)
+    texts = get_texts(db_user.language)
+    await callback.answer(texts.t("ADMIN_MAINTENANCE_CHECKING_PANEL", "Checking panel status..."), show_alert=False)
     
     try:
         from app.services.remnawave_service import RemnaWaveService
@@ -222,32 +247,34 @@ async def check_panel_status(
         status_data = await rw_service.check_panel_health()
         
         status_text = {
-            "online": "🟢 Панель работает нормально",
-            "offline": "🔴 Панель недоступна", 
-            "degraded": "🟡 Панель работает со сбоями"
-        }.get(status_data["status"], "❓ Статус неизвестен")
+            "online": texts.t("ADMIN_MAINTENANCE_PANEL_ONLINE", "🟢 Panel is working normally"),
+            "offline": texts.t("ADMIN_MAINTENANCE_PANEL_OFFLINE", "🔴 Panel is unavailable"), 
+            "degraded": texts.t("ADMIN_MAINTENANCE_PANEL_DEGRADED", "🟡 Panel is working with issues")
+        }.get(status_data["status"], texts.t("ADMIN_MAINTENANCE_PANEL_UNKNOWN", "❓ Status unknown"))
         
         message_parts = [
-            f"🌐 <b>Статус панели Remnawave</b>\n",
-            f"{status_text}",
-            f"⚡ Время отклика: {status_data.get('response_time', 0)}с",
-            f"👥 Пользователей онлайн: {status_data.get('users_online', 0)}",
-            f"🖥️ Нод онлайн: {status_data.get('nodes_online', 0)}/{status_data.get('total_nodes', 0)}"
+            texts.t("ADMIN_MAINTENANCE_PANEL_STATUS_TITLE", "🌐 <b>Remnawave panel status</b>"),
+            status_text,
+            texts.t("ADMIN_MAINTENANCE_PANEL_RESPONSE_TIME", "⚡ Response time: {time}s").format(time=status_data.get('response_time', 0)),
+            texts.t("ADMIN_MAINTENANCE_PANEL_USERS_ONLINE", "👥 Users online: {count}").format(count=status_data.get('users_online', 0)),
+            texts.t("ADMIN_MAINTENANCE_PANEL_NODES_ONLINE", "🖥️ Nodes online: {online}/{total}").format(
+                online=status_data.get('nodes_online', 0), total=status_data.get('total_nodes', 0)
+            )
         ]
 
         attempts_used = status_data.get("attempts_used")
         if attempts_used:
-            message_parts.append(f"🔁 Попыток проверки: {attempts_used}")
+            message_parts.append(texts.t("ADMIN_MAINTENANCE_PANEL_ATTEMPTS", "🔁 Check attempts: {count}").format(count=attempts_used))
 
         if status_data.get("api_error"):
-            message_parts.append(f"❌ Ошибка: {status_data['api_error'][:100]}")
+            message_parts.append(texts.t("ADMIN_MAINTENANCE_PANEL_ERROR", "❌ Error: {error}").format(error=status_data['api_error'][:100]))
         
         message = "\n".join(message_parts)
         
         await callback.message.answer(message, parse_mode="HTML")
         
     except Exception as e:
-        await callback.message.answer(f"❌ Ошибка проверки статуса: {str(e)}")
+        await callback.message.answer(texts.t("ADMIN_MAINTENANCE_PANEL_CHECK_ERROR", "❌ Status check error: {error}").format(error=str(e)))
 
 
 @admin_required
@@ -258,22 +285,23 @@ async def send_manual_notification(
     db: AsyncSession,
     state: FSMContext
 ):
+    texts = get_texts(db_user.language)
     await state.set_state(MaintenanceStates.waiting_for_notification_message)
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [
-            types.InlineKeyboardButton(text="🟢 Онлайн", callback_data="manual_notify_online"),
-            types.InlineKeyboardButton(text="🔴 Офлайн", callback_data="manual_notify_offline")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_NOTIFY_ONLINE", "🟢 Online"), callback_data="manual_notify_online"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_NOTIFY_OFFLINE", "🔴 Offline"), callback_data="manual_notify_offline")
         ],
         [
-            types.InlineKeyboardButton(text="🟡 Проблемы", callback_data="manual_notify_degraded"),
-            types.InlineKeyboardButton(text="🔧 Обслуживание", callback_data="manual_notify_maintenance")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_NOTIFY_DEGRADED", "🟡 Issues"), callback_data="manual_notify_degraded"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_NOTIFY_MAINTENANCE", "🔧 Maintenance"), callback_data="manual_notify_maintenance")
         ],
-        [types.InlineKeyboardButton(text="❌ Отмена", callback_data="maintenance_panel")]
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_CANCEL", "❌ Cancel"), callback_data="maintenance_panel")]
     ])
     
     await callback.message.edit_text(
-        "📢 <b>Ручная отправка уведомления</b>\n\nВыберите статус для уведомления:",
+        texts.t("ADMIN_MAINTENANCE_MANUAL_NOTIFY_TITLE", "📢 <b>Manual notification</b>\n\nSelect status for notification:"),
         reply_markup=keyboard
     )
 
@@ -293,25 +321,25 @@ async def handle_manual_notification(
         "manual_notify_maintenance": "maintenance"
     }
     
+    texts = get_texts(db_user.language)
     status = status_map.get(callback.data)
     if not status:
-        await callback.answer("Неизвестный статус")
+        await callback.answer(texts.t("ADMIN_MAINTENANCE_UNKNOWN_STATUS", "Unknown status"))
         return
     
     await state.update_data(notification_status=status)
     
     status_names = {
-        "online": "🟢 Онлайн",
-        "offline": "🔴 Офлайн",
-        "degraded": "🟡 Проблемы", 
-        "maintenance": "🔧 Обслуживание"
+        "online": texts.t("ADMIN_MAINTENANCE_NOTIFY_ONLINE", "🟢 Online"),
+        "offline": texts.t("ADMIN_MAINTENANCE_NOTIFY_OFFLINE", "🔴 Offline"),
+        "degraded": texts.t("ADMIN_MAINTENANCE_NOTIFY_DEGRADED", "🟡 Issues"), 
+        "maintenance": texts.t("ADMIN_MAINTENANCE_NOTIFY_MAINTENANCE", "🔧 Maintenance")
     }
     
     await callback.message.edit_text(
-        f"📢 <b>Отправка уведомления: {status_names[status]}</b>\n\n"
-        f"Введите сообщение для уведомления или отправьте /skip для отправки без дополнительного текста:",
+        texts.t("ADMIN_MAINTENANCE_SENDING_NOTIFY", "📢 <b>Sending notification: {status}</b>\n\nEnter notification message or send /skip to send without additional text:").format(status=status_names[status]),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="❌ Отмена", callback_data="maintenance_panel")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_CANCEL", "❌ Cancel"), callback_data="maintenance_panel")]
         ])
     )
 
@@ -329,11 +357,12 @@ async def process_notification_message(
     if current_state != MaintenanceStates.waiting_for_notification_message:
         return
     
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     status = data.get("notification_status")
     
     if not status:
-        await message.answer("Ошибка: статус не выбран")
+        await message.answer(texts.t("ADMIN_MAINTENANCE_STATUS_NOT_SELECTED", "Error: status not selected"))
         await state.clear()
         return
     
@@ -352,20 +381,20 @@ async def process_notification_message(
         )
         
         if success:
-            await message.answer("✅ Уведомление отправлено")
+            await message.answer(texts.t("ADMIN_MAINTENANCE_NOTIFICATION_SENT", "✅ Notification sent"))
         else:
-            await message.answer("❌ Ошибка отправки уведомления")
+            await message.answer(texts.t("ADMIN_MAINTENANCE_NOTIFICATION_ERROR", "❌ Error sending notification"))
             
     except Exception as e:
-        logger.error(f"Ошибка отправки ручного уведомления: {e}")
-        await message.answer(f"❌ Ошибка: {str(e)}")
+        logger.error(f"Error sending manual notification: {e}")
+        await message.answer(texts.t("ADMIN_MAINTENANCE_NOTIFICATION_ERROR_DETAIL", "❌ Error: {error}").format(error=str(e)))
     
     await state.clear()
     
     await message.answer(
-        "Вернуться к панели техработ:",
+        texts.t("ADMIN_MAINTENANCE_RETURN_PROMPT", "Return to maintenance panel:"),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🔧 Панель техработ", callback_data="maintenance_panel")]
+            [types.InlineKeyboardButton(text=texts.t("ADMIN_MAINTENANCE_PANEL_BUTTON", "🔧 Maintenance panel"), callback_data="maintenance_panel")]
         ])
     )
 

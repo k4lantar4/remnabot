@@ -363,7 +363,13 @@ def create_deep_link(app: Dict[str, Any], subscription_url: str) -> Optional[str
     template = settings.get_happ_cryptolink_redirect_template()
     redirect_link = build_redirect_link(scheme_link, template) if scheme_link and template else None
 
-    return redirect_link or scheme_link or subscription_url
+    candidate = redirect_link or scheme_link or subscription_url
+
+    if candidate and not candidate.lower().startswith(("http://", "https://")):
+        logger.warning("Unsupported URL scheme for connect button: %s", candidate)
+        return subscription_url
+
+    return candidate
 
 def get_reset_devices_confirm_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     texts = get_texts(language)

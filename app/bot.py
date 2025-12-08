@@ -71,19 +71,19 @@ logger = logging.getLogger(__name__)
 
 
 async def debug_callback_handler(callback: types.CallbackQuery):
-    logger.info(f"🔍 DEBUG CALLBACK:")
-    logger.info(f"  - Data: {callback.data}")
-    logger.info(f"  - User: {callback.from_user.id}")
-    logger.info(f"  - Username: {callback.from_user.username}")
+    logger.info("🔍 DEBUG CALLBACK:")
+    logger.info("  - Data: %s", callback.data)
+    logger.info("  - User: %s", callback.from_user.id)
+    logger.info("  - Username: %s", callback.from_user.username)
 
 
 async def setup_bot() -> tuple[Bot, Dispatcher]:
     
     try:
         await cache.connect()
-        logger.info("Кеш инициализирован")
+        logger.info("Cache initialized")
     except Exception as e:
-        logger.warning(f"Кеш не инициализирован: {e}")
+        logger.warning("Cache initialization failed: %s", e)
     
     from aiogram.client.default import DefaultBotProperties
     from aiogram.enums import ParseMode
@@ -94,16 +94,16 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     )
     
     maintenance_service.set_bot(bot)
-    logger.info("Бот установлен в maintenance_service")
+    logger.info("Bot set in maintenance_service")
     
     try:
         redis_client = redis.from_url(settings.REDIS_URL)
         await redis_client.ping()
         storage = RedisStorage(redis_client)
-        logger.info("Подключено к Redis для FSM storage")
+        logger.info("Connected to Redis for FSM storage")
     except Exception as e:
-        logger.warning(f"Не удалось подключиться к Redis: {e}")
-        logger.info("Используется MemoryStorage для FSM")
+        logger.warning("Failed to connect to Redis: %s", e)
+        logger.info("Using MemoryStorage for FSM")
         storage = MemoryStorage()
     
     
@@ -129,9 +129,9 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
         channel_checker_middleware = ChannelCheckerMiddleware()
         dp.message.middleware(channel_checker_middleware)
         dp.callback_query.middleware(channel_checker_middleware)
-        logger.info("🔒 Обязательная подписка включена - ChannelCheckerMiddleware активирован")
+        logger.info("🔒 Mandatory channel subscription enabled - ChannelCheckerMiddleware activated")
     else:
-        logger.info("🔓 Обязательная подписка отключена - ChannelCheckerMiddleware не зарегистрирован")
+        logger.info("🔓 Mandatory channel subscription disabled - ChannelCheckerMiddleware not registered")
     dp.message.middleware(AuthMiddleware())
     dp.callback_query.middleware(AuthMiddleware())
     dp.pre_checkout_query.middleware(AuthMiddleware())
@@ -180,21 +180,21 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     register_stars_handlers(dp)
     user_polls.register_handlers(dp)
     simple_subscription.register_simple_subscription_handlers(dp)
-    logger.info("⭐ Зарегистрированы обработчики Telegram Stars платежей")
-    logger.info("⚡ Зарегистрированы обработчики простой покупки")
-    logger.info("⚡ Зарегистрированы обработчики простой подписки")
+    logger.info("⭐ Telegram Stars payment handlers registered")
+    logger.info("⚡ Simple purchase handlers registered")
+    logger.info("⚡ Simple subscription handlers registered")
     
     if settings.is_maintenance_monitoring_enabled():
         try:
             await maintenance_service.start_monitoring()
-            logger.info("Мониторинг техработ запущен")
+            logger.info("Maintenance monitoring started")
         except Exception as e:
-            logger.error(f"Ошибка запуска мониторинга техработ: {e}")
+            logger.error("Failed to start maintenance monitoring: %s", e)
     else:
-        logger.info("Мониторинг техработ отключен настройками")
+        logger.info("Maintenance monitoring disabled by settings")
     
-    logger.info("🛡️ GlobalErrorMiddleware активирован - бот защищен от устаревших callback queries")
-    logger.info("Бот успешно настроен")
+    logger.info("🛡️ GlobalErrorMiddleware enabled - bot protected from stale callback queries")
+    logger.info("Bot successfully configured")
     
     return bot, dp
 
@@ -202,12 +202,12 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
 async def shutdown_bot():
     try:
         await maintenance_service.stop_monitoring()
-        logger.info("Мониторинг техработ остановлен")
+        logger.info("Maintenance monitoring stopped")
     except Exception as e:
-        logger.error(f"Ошибка остановки мониторинга: {e}")
+        logger.error("Failed to stop maintenance monitoring: %s", e)
     
     try:
         await cache.close()
-        logger.info("Соединения с кешем закрыты")
+        logger.info("Cache connections closed")
     except Exception as e:
-        logger.error(f"Ошибка закрытия кеша: {e}")
+        logger.error("Failed to close cache connections: %s", e)

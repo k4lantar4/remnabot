@@ -25,11 +25,11 @@ async def show_trials_panel(
     texts = get_texts(db_user.language)
 
     stats = await get_trial_statistics(db)
-    message = texts.t("ADMIN_TRIALS_TITLE", "🧪 Управление триалами") + "\n\n" + texts.t(
+    message = texts.t("ADMIN_TRIALS_TITLE", "🧪 Trial management") + "\n\n" + texts.t(
         "ADMIN_TRIALS_STATS",
-        "• Использовано всего: {used}\n"
-        "• Активно сейчас: {active}\n"
-        "• Доступно к сбросу: {resettable}",
+        "• Total trials used: {used}\n"
+        "• Active now: {active}\n"
+        "• Eligible for reset: {resettable}",
     ).format(
         used=stats.get("used_trials", 0),
         active=stats.get("active_trials", 0),
@@ -57,10 +57,10 @@ async def reset_trials(
 
     message = texts.t(
         "ADMIN_TRIALS_RESET_RESULT",
-        "♻️ Сбросили {reset_count} триалов.\n\n"
-        "• Использовано всего: {used}\n"
-        "• Активно сейчас: {active}\n"
-        "• Доступно к сбросу: {resettable}",
+        "♻️ Reset {reset_count} trials.\n\n"
+        "• Total trials used: {used}\n"
+        "• Active now: {active}\n"
+        "• Eligible for reset: {resettable}",
     ).format(
         reset_count=reset_count,
         used=stats.get("used_trials", 0),
@@ -72,7 +72,7 @@ async def reset_trials(
         message,
         reply_markup=get_admin_trials_keyboard(db_user.language),
     )
-    await callback.answer(texts.t("ADMIN_TRIALS_RESET_TOAST", "✅ Сброс завершен"))
+    await callback.answer(texts.t("ADMIN_TRIALS_RESET_TOAST", "✅ Reset completed"))
 
 
 def register_handlers(dp: Dispatcher) -> None:

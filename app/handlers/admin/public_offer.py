@@ -268,7 +268,7 @@ async def start_edit_public_offer(
                 types.InlineKeyboardButton(
                     text=texts.t(
                         "ADMIN_PUBLIC_OFFER_HTML_HELP",
-                        "ℹ️ HTML помощь",
+                        "ℹ️ HTML help",
                     ),
                     callback_data="admin_public_offer_help",
                 )
@@ -485,7 +485,7 @@ async def show_public_offer_html_help(
         types.InlineKeyboardButton(
             text=texts.t(
                 "ADMIN_PUBLIC_OFFER_BACK_BUTTON",
-                "⬅️ К настройкам оферты",
+                "⬅️ Back to offer settings",
             ),
             callback_data="admin_public_offer",
         )

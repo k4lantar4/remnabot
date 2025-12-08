@@ -268,7 +268,7 @@ async def start_edit_privacy_policy(
                 types.InlineKeyboardButton(
                     text=texts.t(
                         "ADMIN_PRIVACY_POLICY_HTML_HELP",
-                        "ℹ️ HTML помощь",
+                        "ℹ️ HTML help",
                     ),
                     callback_data="admin_privacy_policy_help",
                 )
@@ -467,7 +467,7 @@ async def show_privacy_policy_html_help(
         types.InlineKeyboardButton(
             text=texts.t(
                 "ADMIN_PRIVACY_POLICY_BACK_BUTTON",
-                "⬅️ К настройкам политики",
+                    "⬅️ Back to policy settings",
             ),
             callback_data="admin_privacy_policy",
         )

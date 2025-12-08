@@ -10,6 +10,7 @@ from app.config import settings
 from app.database.crud.subscription import decrement_subscription_server_counts
 from app.database.crud.user import add_user_balance, subtract_user_balance
 from app.database.models import Subscription, TransactionType, User
+from app.localization.texts import get_texts
 
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,13 @@ async def charge_trial_activation_if_required(
     if price_kopeks <= 0:
         return 0
 
-    charge_description = description or "Активация триальной подписки"
+    charge_description = description
+    if not charge_description:
+        language = getattr(user, "language", settings.DEFAULT_LANGUAGE)
+        charge_description = get_texts(language).get_text(
+            "trial.activation.charge_description",
+            "Trial subscription activation charge",
+        )
 
     success = await subtract_user_balance(
         db,
@@ -94,7 +101,7 @@ async def charge_trial_activation_if_required(
     if not success:
         raise TrialPaymentChargeFailed()
 
-    # subtract_user_balance обновляет пользователя, но на всякий случай приводим к int
+    # subtract_user_balance updates the user, but cast defensively to int
     return int(price_kopeks)
 
 
@@ -110,7 +117,13 @@ async def refund_trial_activation_charge(
     if amount_kopeks <= 0:
         return True
 
-    refund_description = description or "Возврат оплаты за активацию триальной подписки"
+    refund_description = description
+    if not refund_description:
+        language = getattr(user, "language", settings.DEFAULT_LANGUAGE)
+        refund_description = get_texts(language).get_text(
+            "trial.activation.refund_description",
+            "Refund for trial subscription activation",
+        )
 
     success = await add_user_balance(
         db,

@@ -14,7 +14,7 @@ from app.utils.security import generate_api_token, hash_api_token
 
 
 class WebApiTokenService:
-    """Сервис для управления токенами административного веб-API."""
+    """Service for managing administrative web API tokens."""
 
     def __init__(self):
         self.algorithm = settings.WEB_API_TOKEN_HASH_ALGORITHM or "sha256"

@@ -1008,6 +1008,7 @@ async def show_system_stats(
    db_user: User,
    db: AsyncSession
 ):
+   texts = get_texts(db_user.language)
    from datetime import datetime, timedelta
    
    remnawave_service = RemnaWaveService()
@@ -1015,9 +1016,15 @@ async def show_system_stats(
    
    if "error" in stats:
        await callback.message.edit_text(
-           f"❌ Ошибка получения статистики: {stats['error']}",
+           texts.t(
+               "ADMIN_RW_SYSTEM_STATS_ERROR",
+               "❌ Failed to fetch statistics: {error}"
+           ).format(error=stats["error"]),
            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-               [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")]
+               [types.InlineKeyboardButton(
+                   text=texts.t("ADMIN_RW_BACK", "⬅️ Back"),
+                   callback_data="admin_remnawave"
+               )]
            ])
        )
        await callback.answer()
@@ -1067,65 +1074,114 @@ async def show_system_stats(
        else:
            return f" (🔺 {difference_str})"
    
-   text = f"""
-📊 <b>Детальная статистика Remnawave</b>
+   text = texts.t(
+       "ADMIN_RW_SYSTEM_STATS_BODY",
+       """
+📊 <b>Remnawave detailed statistics</b>
 
-🖥️ <b>Сервер:</b>
-- CPU: {server_info.get('cpu_cores', 0)} ядер ({server_info.get('cpu_physical_cores', 0)} физ.)
-- RAM: {format_bytes(server_info.get('memory_used', 0))} / {format_bytes(memory_total)} ({memory_used_percent:.1f}%)
-- Свободно: {format_bytes(server_info.get('memory_available', 0))}
-- Uptime: {uptime_str}
+🖥️ <b>Server:</b>
+- CPU: {cpu_cores} cores ({cpu_physical} physical)
+- RAM: {memory_used} / {memory_total} ({memory_percent:.1f}%)
+- Free: {memory_available}
+- Uptime: {uptime}
 
-👥 <b>Пользователи ({system.get('total_users', 0)} всего):</b>
-- 🟢 Онлайн сейчас: {system.get('users_online', 0)}
-- 📅 За сутки: {system.get('users_last_day', 0)}
-- 📊 За неделю: {system.get('users_last_week', 0)}
-- 💤 Никогда не заходили: {system.get('users_never_online', 0)}
+👥 <b>Users ({total_users} total):</b>
+- 🟢 Online now: {users_online}
+- 📅 Last day: {users_last_day}
+- 📊 Last week: {users_last_week}
+- 💤 Never logged in: {users_never_online}
 
-<b>Статусы пользователей:</b>
+<b>User statuses:</b>
 {users_status_text}
 
-🌐 <b>Ноды ({system.get('nodes_online', 0)} онлайн):</b>"""
+🌐 <b>Nodes ({nodes_online} online):</b>"""
+   ).format(
+       cpu_cores=server_info.get('cpu_cores', 0),
+       cpu_physical=server_info.get('cpu_physical_cores', 0),
+       memory_used=format_bytes(server_info.get('memory_used', 0)),
+       memory_total=format_bytes(memory_total),
+       memory_percent=memory_used_percent,
+       memory_available=format_bytes(server_info.get('memory_available', 0)),
+       uptime=uptime_str,
+       total_users=system.get('total_users', 0),
+       users_online=system.get('users_online', 0),
+       users_last_day=system.get('users_last_day', 0),
+       users_last_week=system.get('users_last_week', 0),
+       users_never_online=system.get('users_never_online', 0),
+       users_status_text=users_status_text,
+       nodes_online=system.get('nodes_online', 0),
+   )
 
    if realtime_nodes_text:
-       text += f"""
-<b>Реалтайм активность:</b>
+       text += texts.t(
+           "ADMIN_RW_SYSTEM_STATS_REALTIME_NODES",
+           """
+<b>Realtime activity:</b>
 {realtime_nodes_text}"""
+       ).format(realtime_nodes_text=realtime_nodes_text)
    
    if top_nodes_text:
-       text += f"""
-<b>Топ нод за неделю:</b>
+       text += texts.t(
+           "ADMIN_RW_SYSTEM_STATS_TOP_NODES",
+           """
+<b>Top nodes this week:</b>
 {top_nodes_text}"""
+       ).format(top_nodes_text=top_nodes_text)
    
-   text += f"""
+   text += texts.t(
+       "ADMIN_RW_SYSTEM_STATS_TRAFFIC",
+       """
 
-📈 <b>Общий трафик пользователей:</b> {format_bytes(system.get('total_user_traffic', 0))}
+📈 <b>Total user traffic:</b> {total_user_traffic}
 
-📊 <b>Трафик по периодам:</b>
-- 2 дня: {format_bytes(traffic_periods.get('last_2_days', {}).get('current', 0))}{format_traffic_change(traffic_periods.get('last_2_days', {}).get('difference', ''))}
-- 7 дней: {format_bytes(traffic_periods.get('last_7_days', {}).get('current', 0))}{format_traffic_change(traffic_periods.get('last_7_days', {}).get('difference', ''))}
-- 30 дней: {format_bytes(traffic_periods.get('last_30_days', {}).get('current', 0))}{format_traffic_change(traffic_periods.get('last_30_days', {}).get('difference', ''))}
-- Месяц: {format_bytes(traffic_periods.get('current_month', {}).get('current', 0))}{format_traffic_change(traffic_periods.get('current_month', {}).get('difference', ''))}
-- Год: {format_bytes(traffic_periods.get('current_year', {}).get('current', 0))}{format_traffic_change(traffic_periods.get('current_year', {}).get('difference', ''))}
+📊 <b>Traffic by period:</b>
+- 2 days: {last_2_days}{last_2_days_diff}
+- 7 days: {last_7_days}{last_7_days_diff}
+- 30 days: {last_30_days}{last_30_days_diff}
+- Month: {current_month}{current_month_diff}
+- Year: {current_year}{current_year_diff}
 """
+   ).format(
+       total_user_traffic=format_bytes(system.get('total_user_traffic', 0)),
+       last_2_days=format_bytes(traffic_periods.get('last_2_days', {}).get('current', 0)),
+       last_2_days_diff=format_traffic_change(traffic_periods.get('last_2_days', {}).get('difference', '')),
+       last_7_days=format_bytes(traffic_periods.get('last_7_days', {}).get('current', 0)),
+       last_7_days_diff=format_traffic_change(traffic_periods.get('last_7_days', {}).get('difference', '')),
+       last_30_days=format_bytes(traffic_periods.get('last_30_days', {}).get('current', 0)),
+       last_30_days_diff=format_traffic_change(traffic_periods.get('last_30_days', {}).get('difference', '')),
+       current_month=format_bytes(traffic_periods.get('current_month', {}).get('current', 0)),
+       current_month_diff=format_traffic_change(traffic_periods.get('current_month', {}).get('difference', '')),
+       current_year=format_bytes(traffic_periods.get('current_year', {}).get('current', 0)),
+       current_year_diff=format_traffic_change(traffic_periods.get('current_year', {}).get('difference', '')),
+   )
 
    if bandwidth.get('realtime_total', 0) > 0:
-       text += f"""
-⚡ <b>Реалтайм трафик:</b>
-- Скачивание: {format_bytes(bandwidth.get('realtime_download', 0))}
-- Загрузка: {format_bytes(bandwidth.get('realtime_upload', 0))}
-- Итого: {format_bytes(bandwidth.get('realtime_total', 0))}
+       text += texts.t(
+           "ADMIN_RW_SYSTEM_STATS_REALTIME_TRAFFIC",
+           """
+⚡ <b>Realtime traffic:</b>
+- Download: {realtime_download}
+- Upload: {realtime_upload}
+- Total: {realtime_total}
 """
+       ).format(
+           realtime_download=format_bytes(bandwidth.get('realtime_download', 0)),
+           realtime_upload=format_bytes(bandwidth.get('realtime_upload', 0)),
+           realtime_total=format_bytes(bandwidth.get('realtime_total', 0)),
+       )
    
-   text += f"""
-🕒 <b>Обновлено:</b> {format_datetime(stats.get('last_updated', datetime.now()))}
+   text += texts.t(
+       "ADMIN_RW_SYSTEM_STATS_UPDATED_AT",
+       """
+🕒 <b>Updated:</b> {last_updated}
 """
+   ).format(last_updated=format_datetime(stats.get('last_updated', datetime.now())))
    
    keyboard = [
-       [types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_rw_system")],
-       [types.InlineKeyboardButton(text="📈 Ноды", callback_data="admin_rw_nodes"),
-        types.InlineKeyboardButton(text="👥 Синхронизация", callback_data="admin_rw_sync")],
-       [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")]
+       [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_rw_system")],
+       [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BTN_NODES", "📈 Nodes"), callback_data="admin_rw_nodes"),
+        types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BTN_SYNC", "👥 Sync"), callback_data="admin_rw_sync")],
+       [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BACK", "⬅️ Back"), callback_data="admin_remnawave")]
    ]
    
    await callback.message.edit_text(
@@ -1141,6 +1197,7 @@ async def show_traffic_stats(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     from datetime import datetime, timedelta
     
     remnawave_service = RemnaWaveService()
@@ -1155,9 +1212,15 @@ async def show_traffic_stats(
             
     except Exception as e:
         await callback.message.edit_text(
-            f"❌ Ошибка получения статистики трафика: {str(e)}",
+            texts.t(
+                "ADMIN_RW_TRAFFIC_STATS_ERROR",
+                "❌ Failed to fetch traffic statistics: {error}"
+            ).format(error=str(e)),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")]
+                [types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_RW_BACK", "⬅️ Back"),
+                    callback_data="admin_remnawave"
+                )]
             ])
         )
         await callback.answer()
@@ -1274,29 +1337,46 @@ async def show_nodes_management(
    db_user: User,
    db: AsyncSession
 ):
+   texts = get_texts(db_user.language)
    remnawave_service = RemnaWaveService()
    nodes = await remnawave_service.get_all_nodes()
    
    if not nodes:
        await callback.message.edit_text(
-           "🖥️ Ноды не найдены или ошибка подключения",
+           texts.t(
+               "ADMIN_RW_NODES_NOT_FOUND",
+               "🖥️ Nodes not found or connection error"
+           ),
            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-               [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")]
+               [types.InlineKeyboardButton(
+                   text=texts.t("ADMIN_RW_BACK", "⬅️ Back"),
+                   callback_data="admin_remnawave"
+               )]
            ])
        )
        await callback.answer()
        return
    
-   text = "🖥️ <b>Управление нодами</b>\n\n"
+   text = texts.t("ADMIN_RW_NODES_TITLE", "🖥️ <b>Node management</b>\n\n")
    keyboard = []
    
    for node in nodes:
        status_emoji = "🟢" if node["is_node_online"] else "🔴"
        connection_emoji = "📡" if node["is_connected"] else "📵"
        
-       text += f"{status_emoji} {connection_emoji} <b>{node['name']}</b>\n"
-       text += f"🌍 {node['country_code']} • {node['address']}\n"
-       text += f"👥 Онлайн: {node['users_online'] or 0}\n\n"
+       text += texts.t(
+           "ADMIN_RW_NODES_ROW",
+           "{status} {connection} <b>{name}</b>\n"
+           "🌍 {country} • {address}\n"
+           "👥 Online: {online}\n\n"
+       ).format(
+           status=status_emoji,
+           connection=connection_emoji,
+           name=node['name'],
+           country=node['country_code'],
+           address=node['address'],
+           online=node['users_online'] or 0,
+       )
        
        keyboard.append([
            types.InlineKeyboardButton(
@@ -1306,8 +1386,8 @@ async def show_nodes_management(
        ])
    
    keyboard.extend([
-       [types.InlineKeyboardButton(text="🔄 Перезагрузить все", callback_data="admin_restart_all_nodes")],
-       [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")]
+       [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_NODES_RESTART_ALL", "🔄 Restart all"), callback_data="admin_restart_all_nodes")],
+       [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BACK", "⬅️ Back"), callback_data="admin_remnawave")]
    ])
    
    await callback.message.edit_text(
@@ -1474,7 +1554,7 @@ async def show_node_statistics(
         await callback.answer()
         
     except Exception as e:
-        logger.error(f"Ошибка получения статистики ноды {node_uuid}: {e}")
+        logger.error(f"Failed to fetch node statistics {node_uuid}: {e}")
         
         text = f"""
 📊 <b>Статистика ноды: {node['name']}</b>
@@ -2271,6 +2351,7 @@ async def show_sync_options(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     status = remnawave_sync_service.get_status()
     times_text = ", ".join(t.strftime("%H:%M") for t in status.times) if status.times else "—"
     next_run_text = format_datetime(status.next_run) if status.next_run else "—"
@@ -2278,58 +2359,74 @@ async def show_sync_options(
 
     if status.last_run_finished_at:
         result_icon = "✅" if status.last_run_success else "❌"
-        result_label = "успешно" if status.last_run_success else "с ошибками"
+        result_label = texts.t("ADMIN_RW_SYNC_RESULT_SUCCESS", "success") if status.last_run_success else texts.t("ADMIN_RW_SYNC_RESULT_WITH_ERRORS", "with errors")
         finished_text = format_datetime(status.last_run_finished_at)
         last_result = f"{result_icon} {result_label} ({finished_text})"
     elif status.last_run_started_at:
-        last_result = f"⏳ Запущено {format_datetime(status.last_run_started_at)}"
+        last_result = texts.t(
+            "ADMIN_RW_SYNC_RESULT_STARTED",
+            "⏳ Started at {started_at}"
+        ).format(started_at=format_datetime(status.last_run_started_at))
 
     status_lines = [
-        f"⚙️ Статус: {'✅ Включена' if status.enabled else '❌ Отключена'}",
-        f"🕒 Расписание: {times_text}",
-        f"📅 Следующий запуск: {next_run_text if status.enabled else '—'}",
-        f"📊 Последний запуск: {last_result}",
+        texts.t(
+            "ADMIN_RW_SYNC_STATUS_LINE",
+            "⚙️ Status: {status}"
+        ).format(status=texts.t("ADMIN_RW_STATUS_ENABLED", "✅ Enabled") if status.enabled else texts.t("ADMIN_RW_STATUS_DISABLED", "❌ Disabled")),
+        texts.t(
+            "ADMIN_RW_SYNC_SCHEDULE_LINE",
+            "🕒 Schedule: {schedule}"
+        ).format(schedule=times_text),
+        texts.t(
+            "ADMIN_RW_SYNC_NEXT_RUN_LINE",
+            "📅 Next run: {next_run}"
+        ).format(next_run=next_run_text if status.enabled else "—"),
+        texts.t(
+            "ADMIN_RW_SYNC_LAST_RUN_LINE",
+            "📊 Last run: {last_result}"
+        ).format(last_result=last_result),
     ]
 
-    text = (
-        "🔄 <b>Синхронизация с Remnawave</b>\n\n"
-        "🔄 <b>Полная синхронизация выполняет:</b>\n"
-        "• Создание новых пользователей из панели в боте\n"
-        "• Обновление данных существующих пользователей\n"
-        "• Деактивация подписок пользователей, отсутствующих в панели\n"
-        "• Сохранение балансов пользователей\n"
-        "• ⏱️ Время выполнения: 2-5 минут\n\n"
-        "⚠️ <b>Важно:</b>\n"
-        "• Во время синхронизации не выполняйте другие операции\n"
-        "• При полной синхронизации подписки пользователей, отсутствующих в панели, будут деактивированы\n"
-        "• Рекомендуется делать полную синхронизацию ежедневно\n"
-        "• Баланс пользователей НЕ удаляется\n\n"
-        "⬆️ <b>Обратная синхронизация:</b>\n"
-        "• Отправляет активных пользователей из бота в панель\n"
-        "• Используйте при сбоях панели или для восстановления данных\n\n"
-        + "\n".join(status_lines)
-    )
+    text = texts.t(
+        "ADMIN_RW_SYNC_OVERVIEW",
+        "🔄 <b>Remnawave sync</b>\n\n"
+        "🔄 <b>Full sync does:</b>\n"
+        "• Create new users from panel into bot\n"
+        "• Update existing users\n"
+        "• Deactivate subscriptions of users missing in panel\n"
+        "• Preserve user balances\n"
+        "• ⏱️ Expected time: 2-5 minutes\n\n"
+        "⚠️ <b>Important:</b>\n"
+        "• Avoid other operations while sync is running\n"
+        "• Full sync deactivates subscriptions for users missing in panel\n"
+        "• Recommended daily full sync\n"
+        "• User balances are NOT removed\n\n"
+        "⬆️ <b>Reverse sync:</b>\n"
+        "• Sends active bot users to the panel\n"
+        "• Use for panel issues or data recovery\n\n"
+        "{status_lines}"
+    ).format(status_lines="\n".join(status_lines))
 
     keyboard = [
         [
             types.InlineKeyboardButton(
-                text="🔄 Запустить полную синхронизацию",
+                text=texts.t("ADMIN_RW_SYNC_RUN_FULL", "🔄 Start full sync"),
                 callback_data="sync_all_users",
             )
         ],
         [
             types.InlineKeyboardButton(
-                text="⬆️ Синхронизация в панель",
+                text=texts.t("ADMIN_RW_SYNC_TO_PANEL", "⬆️ Sync to panel"),
                 callback_data="sync_to_panel",
             )
         ],
         [
             types.InlineKeyboardButton(
-                text="⚙️ Настройки автосинхронизации",
+                text=texts.t("ADMIN_RW_SYNC_AUTOSYNC_SETTINGS", "⚙️ Auto-sync settings"),
                 callback_data="admin_rw_auto_sync",
             )
         ],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_remnawave")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_RW_BACK", "⬅️ Back"), callback_data="admin_remnawave")],
     ]
 
     await callback.message.edit_text(
@@ -2368,6 +2465,7 @@ async def toggle_auto_sync_setting(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     await state.clear()
     new_value = not bool(settings.REMNAWAVE_AUTO_SYNC_ENABLED)
     await bot_configuration_service.set_value(
@@ -2386,7 +2484,12 @@ async def toggle_auto_sync_setting(
         parse_mode="HTML",
     )
     await callback.answer(
-        f"Автосинхронизация {'включена' if new_value else 'отключена'}"
+        texts.t(
+            "ADMIN_RW_AUTOSYNC_TOGGLED",
+            "Auto-sync {status}"
+        ).format(
+            status=texts.t("ADMIN_RW_STATUS_ENABLED", "enabled") if new_value else texts.t("ADMIN_RW_STATUS_DISABLED", "disabled")
+        )
     )
 
 

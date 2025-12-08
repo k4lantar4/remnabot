@@ -94,7 +94,7 @@ def _verify_mulenpay_signature(request: Request, raw_body: bytes) -> bool:
         if hmac.compare_digest(normalized_no_padding, expected_urlsafe.rstrip("=")):
             return True
 
-        logger.error("Неверная подпись %s webhook", display_name)
+        logger.error("Invalid signature for %s webhook", display_name)
         return False
 
     authorization_header = request.headers.get("Authorization")
@@ -106,7 +106,7 @@ def _verify_mulenpay_signature(request: Request, raw_body: bytes) -> bool:
         if scheme_lower in {"bearer", "token"}:
             if hmac.compare_digest(token, secret_key):
                 return True
-            logger.error("Неверный %s токен %s webhook", scheme, display_name)
+            logger.error("Invalid %s token for %s webhook", scheme, display_name)
             return False
 
         if not value and hmac.compare_digest(token, secret_key):
@@ -123,7 +123,7 @@ def _verify_mulenpay_signature(request: Request, raw_body: bytes) -> bool:
     if fallback_token and hmac.compare_digest(fallback_token, secret_key):
         return True
 
-    logger.error("Отсутствует подпись %s webhook", display_name)
+    logger.error("Missing signature for %s webhook", display_name)
     return False
 
 
@@ -155,7 +155,7 @@ async def _parse_pal24_payload(request: Request) -> dict[str, str]:
             if isinstance(data, dict):
                 return {str(k): str(v) for k, v in data.items()}
     except json.JSONDecodeError:
-        logger.debug("Pal24 webhook JSON payload не удалось распарсить")
+        logger.debug("Failed to parse Pal24 webhook JSON payload")
 
     form = await request.form()
     if form:
@@ -168,7 +168,7 @@ async def _parse_pal24_payload(request: Request) -> dict[str, str]:
             if isinstance(data, dict):
                 return {str(k): str(v) for k, v in data.items()}
         except json.JSONDecodeError:
-            logger.debug("Pal24 webhook body не удалось распарсить как JSON: %s", raw_body)
+            logger.debug("Failed to parse Pal24 webhook body as JSON: %s", raw_body)
 
     return {}
 
@@ -383,7 +383,7 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
 
             signature = request.headers.get("Signature") or request.headers.get("X-YooKassa-Signature")
             if signature:
-                logger.info("ℹ️ Получена подпись YooKassa: %s", signature)
+                logger.info("ℹ️ Received YooKassa signature: %s", signature)
 
             try:
                 webhook_data = json.loads(body)

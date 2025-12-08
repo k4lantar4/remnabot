@@ -1102,7 +1102,7 @@ async def complete_registration_from_callback(
         await db.refresh(user)
     except Exception as refresh_error:
         logger.error(
-            "Ошибка обновления данных пользователя %s после бонуса кампании: %s",
+            "Failed to refresh user %s after campaign bonus: %s",
             user.telegram_id,
             refresh_error,
         )
@@ -1111,7 +1111,7 @@ async def complete_registration_from_callback(
         await db.refresh(user, ["subscription"])
     except Exception as refresh_subscription_error:
         logger.error(
-            "Ошибка обновления подписки пользователя %s после бонуса кампании: %s",
+            "Failed to refresh user subscription %s after campaign bonus: %s",
             user.telegram_id,
             refresh_subscription_error,
         )
@@ -1367,7 +1367,7 @@ async def complete_registration(
         await db.refresh(user)
     except Exception as refresh_error:
         logger.error(
-            "Ошибка обновления данных пользователя %s после бонуса кампании: %s",
+            "Failed to refresh user %s after campaign bonus: %s",
             user.telegram_id,
             refresh_error,
         )
@@ -1376,7 +1376,7 @@ async def complete_registration(
         await db.refresh(user, ["subscription"])
     except Exception as refresh_subscription_error:
         logger.error(
-            "Ошибка обновления подписки пользователя %s после бонуса кампании: %s",
+            "Failed to refresh user subscription %s after campaign bonus: %s",
             user.telegram_id,
             refresh_subscription_error,
         )

@@ -12,6 +12,7 @@ from app.database.crud.subscription import (
 )
 from app.database.crud.user import add_user_balance
 from app.database.models import AdvertisingCampaign, User
+from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,11 @@ class AdvertisingCampaignService:
     def __init__(self) -> None:
         self.subscription_service = SubscriptionService()
 
+    @staticmethod
+    def _get_texts(user: User):
+        language = getattr(user, "language", settings.DEFAULT_LANGUAGE)
+        return get_texts(language)
+
     async def apply_campaign_bonus(
         self,
         db: AsyncSession,
@@ -40,7 +46,7 @@ class AdvertisingCampaignService:
     ) -> CampaignBonusResult:
         if not campaign.is_active:
             logger.warning(
-                "⚠️ Попытка выдать бонус по неактивной кампании %s", campaign.id
+                "⚠️ Attempt to grant a bonus for inactive campaign %s", campaign.id
             )
             return CampaignBonusResult(success=False)
 
@@ -50,7 +56,7 @@ class AdvertisingCampaignService:
         if campaign.is_subscription_bonus:
             return await self._apply_subscription_bonus(db, user, campaign)
 
-        logger.error("❌ Неизвестный тип бонуса кампании: %s", campaign.bonus_type)
+        logger.error("❌ Unknown campaign bonus type: %s", campaign.bonus_type)
         return CampaignBonusResult(success=False)
 
     async def _apply_balance_bonus(
@@ -61,10 +67,14 @@ class AdvertisingCampaignService:
     ) -> CampaignBonusResult:
         amount = campaign.balance_bonus_kopeks or 0
         if amount <= 0:
-            logger.info("ℹ️ Кампания %s не имеет бонуса на баланс", campaign.id)
+            logger.info("ℹ️ Campaign %s has no balance bonus", campaign.id)
             return CampaignBonusResult(success=False)
 
-        description = f"Бонус за регистрацию по кампании '{campaign.name}'"
+        texts = self._get_texts(user)
+        description = texts.get_text(
+            "campaign.balance_bonus_description",
+            "Registration bonus for campaign '{campaign_name}'",
+        ).format(campaign_name=campaign.name)
         success = await add_user_balance(
             db,
             user,
@@ -84,7 +94,7 @@ class AdvertisingCampaignService:
         )
 
         logger.info(
-            "💰 Пользователю %s начислен бонус %s₽ по кампании %s",
+            "💰 User %s received a %s₽ bonus for campaign %s",
             user.telegram_id,
             amount / 100,
             campaign.id,
@@ -105,7 +115,7 @@ class AdvertisingCampaignService:
         existing_subscription = await get_subscription_by_user_id(db, user.id)
         if existing_subscription:
             logger.warning(
-                "⚠️ У пользователя %s уже есть подписка, бонус кампании %s пропущен",
+                "⚠️ User %s already has a subscription, campaign %s bonus skipped",
                 user.telegram_id,
                 campaign.id,
             )
@@ -114,7 +124,7 @@ class AdvertisingCampaignService:
         duration_days = campaign.subscription_duration_days or 0
         if duration_days <= 0:
             logger.info(
-                "ℹ️ Кампания %s не содержит корректной длительности подписки",
+                "ℹ️ Campaign %s does not include a valid subscription duration",
                 campaign.id,
             )
             return CampaignBonusResult(success=False)
@@ -134,7 +144,7 @@ class AdvertisingCampaignService:
                     squads = [trial_uuid]
             except Exception as error:
                 logger.error(
-                    "Не удалось подобрать сквад для кампании %s: %s",
+                    "Failed to select squad for campaign %s: %s",
                     campaign.id,
                     error,
                 )
@@ -153,7 +163,7 @@ class AdvertisingCampaignService:
             await self.subscription_service.create_remnawave_user(db, new_subscription)
         except Exception as error:
             logger.error(
-                "❌ Ошибка синхронизации RemnaWave для кампании %s: %s",
+                "❌ RemnaWave sync error for campaign %s: %s",
                 campaign.id,
                 error,
             )
@@ -167,7 +177,7 @@ class AdvertisingCampaignService:
         )
 
         logger.info(
-            "🎁 Пользователю %s выдана подписка по кампании %s на %s дней",
+            "🎁 Subscription issued to user %s for campaign %s for %s days",
             user.telegram_id,
             campaign.id,
             duration_days,

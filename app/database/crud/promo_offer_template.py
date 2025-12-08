@@ -117,7 +117,7 @@ async def ensure_default_templates(db: AsyncSession, *, created_by: Optional[int
             elif new_message and (
                 "{bonus_amount" in existing.message_text
                 or "We will credit" in existing.message_text
-                or "Мы начислим" in existing.message_text
+                or "credit" in existing.message_text.lower()
             ):
                 should_update = True
 

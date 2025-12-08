@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User
+from app.localization.texts import get_texts
 from app.states import AdminStates
 from app.keyboards.admin import get_welcome_text_keyboard, get_admin_main_keyboard
 from app.utils.decorators import admin_required, error_handler
@@ -20,65 +21,91 @@ from app.database.crud.welcome_text import (
 logger = logging.getLogger(__name__)
 
 
-def validate_html_tags(text: str) -> tuple[bool, str]:
+def validate_html_tags(text: str, texts=None) -> tuple[bool, str | None]:
     """
-    Проверяет HTML-теги в тексте на соответствие требованиям Telegram API.
-    
-    Args:
-        text: Текст для проверки
-        
-    Returns:
-        Кортеж из (валидно ли, сообщение об ошибке или None)
+    Validate HTML tags against Telegram API requirements.
     """
-    # Поддерживаемые теги в parse_mode="HTML" для Telegram API
     allowed_tags = {
-        'b', 'strong',  # жирный
-        'i', 'em',      # курсив
-        'u', 'ins',     # подчеркнуто
-        's', 'strike', 'del',  # зачеркнуто
-        'code',         # моноширинный для коротких фрагментов
-        'pre',          # моноширинный блок кода
-        'a'             # ссылки
+        'b', 'strong',  # bold
+        'i', 'em',      # italic
+        'u', 'ins',     # underline
+        's', 'strike', 'del',  # strikethrough
+        'code',         # monospace for short fragments
+        'pre',          # monospace code block
+        'a'             # links
     }
     
-    # Убираем плейсхолдеры из строки перед проверкой тегов
-    # Плейсхолдеры имеют формат {ключ}, и не являются тегами
+    # Remove placeholders before tag validation; placeholders are not tags
     placeholder_pattern = r'\{[^{}]+\}'
     clean_text = re.sub(placeholder_pattern, '', text)
     
-    # Находим все открывающие и закрывающие теги
     tag_pattern = r'<(/?)([a-zA-Z]+)(\s[^>]*)?>'
     tags_with_pos = [(m.group(1), m.group(2), m.group(3), m.start(), m.end()) for m in re.finditer(tag_pattern, clean_text)]
     
     for closing, tag, attrs, start_pos, end_pos in tags_with_pos:
         tag_lower = tag.lower()
         
-        # Проверяем, является ли тег поддерживаемым
         if tag_lower not in allowed_tags:
-            return False, f"Неподдерживаемый HTML-тег: <{tag}>. Используйте только теги: {', '.join(sorted(allowed_tags))}"
+            allowed = ", ".join(sorted(allowed_tags))
+            message = (
+                texts.t(
+                    "ADMIN_WELCOME_TEXT_HTML_UNSUPPORTED_TAG",
+                    "Unsupported HTML tag: <{tag}>. Use only: {allowed}",
+                ).format(tag=tag, allowed=allowed)
+                if texts
+                else f"Unsupported HTML tag: <{tag}>. Use only: {allowed}"
+            )
+            return False, message
         
-        # Проверяем атрибуты для тега <a>
         if tag_lower == 'a':
             if closing:
-                continue  # Для закрывающего тега не нужно проверять атрибуты
+                continue
             if not attrs:
-                return False, "Тег <a> должен содержать атрибут href, например: <a href='URL'>ссылка</a>"
+                message = (
+                    texts.t(
+                        "ADMIN_WELCOME_TEXT_HTML_A_NEEDS_HREF",
+                        "Tag <a> must contain href attribute, e.g. <a href='URL'>link</a>",
+                    )
+                    if texts
+                    else "Tag <a> must contain href attribute, e.g. <a href='URL'>link</a>"
+                )
+                return False, message
             
-            # Проверяем, что есть атрибут href
             if 'href=' not in attrs.lower():
-                return False, "Тег <a> должен содержать атрибут href, например: <a href='URL'>ссылка</a>"
+                message = (
+                    texts.t(
+                        "ADMIN_WELCOME_TEXT_HTML_A_NEEDS_HREF",
+                        "Tag <a> must contain href attribute, e.g. <a href='URL'>link</a>",
+                    )
+                    if texts
+                    else "Tag <a> must contain href attribute, e.g. <a href='URL'>link</a>"
+                )
+                return False, message
             
-            # Проверяем формат URL
             href_match = re.search(r'href\s*=\s*[\'"]([^\'"]+)[\'"]', attrs, re.IGNORECASE)
             if href_match:
                 url = href_match.group(1)
-                # Проверяем, что URL начинается с поддерживаемой схемы
                 if not re.match(r'^https?://|^tg://', url, re.IGNORECASE):
-                    return False, f"URL в теге <a> должен начинаться с http://, https:// или tg://. Найдено: {url}"
+                    message = (
+                        texts.t(
+                            "ADMIN_WELCOME_TEXT_HTML_A_INVALID_URL",
+                            "URL in <a> must start with http://, https:// or tg://. Found: {url}",
+                        ).format(url=url)
+                        if texts
+                        else f"URL in <a> must start with http://, https:// or tg://. Found: {url}"
+                    )
+                    return False, message
             else:
-                return False, "Не удалось извлечь URL из атрибута href тега <a>"
+                message = (
+                    texts.t(
+                        "ADMIN_WELCOME_TEXT_HTML_A_URL_MISSING",
+                        "Cannot extract URL from href attribute of <a> tag",
+                    )
+                    if texts
+                    else "Cannot extract URL from href attribute of <a> tag"
+                )
+                return False, message
     
-    # Проверяем парность тегов с использованием стека
     stack = []
     for closing, tag, attrs, start_pos, end_pos in tags_with_pos:
         tag_lower = tag.lower()
@@ -87,41 +114,63 @@ def validate_html_tags(text: str) -> tuple[bool, str]:
             continue
             
         if closing:
-            # Это закрывающий тег
             if not stack:
-                return False, f"Лишний закрывающий тег: </{tag}>"
+                message = (
+                    texts.t(
+                        "ADMIN_WELCOME_TEXT_HTML_EXTRA_CLOSING",
+                        "Extra closing tag: </{tag}>",
+                    ).format(tag=tag)
+                    if texts
+                    else f"Extra closing tag: </{tag}>"
+                )
+                return False, message
                 
             last_opening_tag = stack.pop()
             if last_opening_tag.lower() != tag_lower:
-                return False, f"Тег </{tag}> не соответствует открывающему тегу <{last_opening_tag}>"
+                message = (
+                    texts.t(
+                        "ADMIN_WELCOME_TEXT_HTML_MISMATCH",
+                        "Tag </{tag}> does not match opening <{opening}>",
+                    ).format(tag=tag, opening=last_opening_tag)
+                    if texts
+                    else f"Tag </{tag}> does not match opening <{last_opening_tag}>"
+                )
+                return False, message
         else:
-            # Это открывающий тег
             stack.append(tag)
     
-    # Если остались незакрытые теги
     if stack:
         unclosed_tags = ", ".join([f"<{tag}>" for tag in stack])
-        return False, f"Незакрытые теги: {unclosed_tags}"
+        message = (
+            texts.t(
+                "ADMIN_WELCOME_TEXT_HTML_UNCLOSED",
+                "Unclosed tags: {tags}",
+            ).format(tags=unclosed_tags)
+            if texts
+            else f"Unclosed tags: {unclosed_tags}"
+        )
+        return False, message
     
     return True, None
 
-def get_telegram_formatting_info() -> str:
-    return """
-📝 <b>Поддерживаемые теги форматирования:</b>
-
-• <code>&lt;b&gt;жирный текст&lt;/b&gt;</code> → <b>жирный текст</b>
-• <code>&lt;i&gt;курсив&lt;/i&gt;</code> → <i>курсив</i>
-• <code>&lt;u&gt;подчеркнутый&lt;/u&gt;</code> → <u>подчеркнутый</u>
-• <code>&lt;s&gt;зачеркнутый&lt;/s&gt;</code> → <s>зачеркнутый</s>
-• <code>&lt;code&gt;моноширинный&lt;/code&gt;</code> → <code>моноширинный</code>
-• <code>&lt;pre&gt;блок кода&lt;/pre&gt;</code> → многострочный код
-• <code>&lt;a href="URL"&gt;ссылка&lt;/a&gt;</code> → ссылка
-
-⚠️ <b>ВНИМАНИЕ:</b> Используйте ТОЛЬКО указанные выше теги!
-Любые другие HTML-теги не поддерживаются и будут отображаться как обычный текст.
-
-❌ <b>НЕ используйте:</b> &lt;div&gt;, &lt;span&gt;, &lt;p&gt;, &lt;br&gt;, &lt;h1&gt;-&lt;h6&gt;, &lt;img&gt; и другие HTML-теги.
-"""
+def get_telegram_formatting_info(texts) -> str:
+    return texts.t(
+        "ADMIN_WELCOME_TEXT_FORMATTING_INFO",
+        (
+            "📝 <b>Supported formatting tags:</b>\n\n"
+            "• <code>&lt;b&gt;bold&lt;/b&gt;</code> → <b>bold</b>\n"
+            "• <code>&lt;i&gt;italic&lt;/i&gt;</code> → <i>italic</i>\n"
+            "• <code>&lt;u&gt;underline&lt;/u&gt;</code> → <u>underline</u>\n"
+            "• <code>&lt;s&gt;strikethrough&lt;/s&gt;</code> → <s>strikethrough</s>\n"
+            "• <code>&lt;code&gt;monospace&lt;/code&gt;</code> → <code>monospace</code>\n"
+            "• <code>&lt;pre&gt;code block&lt;/pre&gt;</code> → multiline code\n"
+            '• <code>&lt;a href="URL"&gt;link&lt;/a&gt;</code> → link\n\n'
+            "⚠️ <b>IMPORTANT:</b> Use only the tags above.\n"
+            "Other HTML tags are not supported and will be shown as plain text.\n\n"
+            "❌ <b>Do NOT use:</b> &lt;div&gt;, &lt;span&gt;, &lt;p&gt;, &lt;br&gt;, &lt;h1&gt;-&lt;h6&gt;, "
+            "&lt;img&gt; and other HTML tags."
+        ),
+    )
 
 @admin_required
 @error_handler
@@ -256,7 +305,8 @@ async def show_formatting_help(
     db: AsyncSession
 ):
     welcome_settings = await get_current_welcome_text_settings(db)
-    formatting_info = get_telegram_formatting_info()
+    texts = get_texts(db_user.language)
+    formatting_info = get_telegram_formatting_info(texts)
     
     await callback.message.edit_text(
         formatting_info,
@@ -314,7 +364,7 @@ async def process_welcome_text_edit(
         await message.answer(texts.t("ADMIN_WELCOME_TEXT_TOO_LONG", "❌ Text is too long! Maximum 4000 characters."))
         return
     
-    is_valid, error_msg = validate_html_tags(new_text)
+    is_valid, error_msg = validate_html_tags(new_text, texts)
     if not is_valid:
         await message.answer(texts.t("ADMIN_WELCOME_TEXT_HTML_ERROR", "❌ HTML markup error:\n\n{error}").format(error=error_msg))
         return

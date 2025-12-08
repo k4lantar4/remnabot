@@ -93,7 +93,7 @@ class PublicOfferService:
             content,
             enable_if_new=enable_if_new,
         )
-        logger.info("✅ Публичная оферта обновлена для языка %s", lang)
+        logger.info("✅ Public offer updated for language %s", lang)
         return offer
 
     @classmethod

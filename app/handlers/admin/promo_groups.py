@@ -744,7 +744,7 @@ async def process_create_group_devices(
     try:
         devices_discount = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Введите число от 0 до 100."))
+        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     await state.update_data(new_group_devices=devices_discount)

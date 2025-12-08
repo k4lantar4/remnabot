@@ -32,15 +32,15 @@ async def _prompt_amount(
     texts = get_texts(db_user.language)
     method_name = settings.get_platega_method_display_title(method_code)
 
-    # Всегда фиксируем выбранный метод для последующей обработки
+    # Always store selected method for subsequent processing
     await state.update_data(payment_method="platega", platega_method=method_code)
 
     data = await state.get_data()
     pending_amount = int(data.get("platega_pending_amount") or 0)
 
     if pending_amount > 0:
-        # Если сумма уже известна (например, после быстрого выбора),
-        # сразу создаём платеж и сбрасываем временное значение.
+        # If amount is already known (e.g., after quick selection),
+        # create payment immediately and reset temporary value.
         await state.update_data(platega_pending_amount=None)
 
         from app.database.database import AsyncSessionLocal
@@ -64,17 +64,23 @@ async def _prompt_amount(
     )
 
     default_prompt_body = (
-        "Введите сумму для пополнения от {min_amount} до {max_amount}.\n"
+        texts.t(
+            "PLATEGA_AMOUNT_PROMPT_WITH_MAX",
+            "Enter a top-up amount from {min_amount} to {max_amount}.\n",
+        )
         if max_amount_kopeks and max_amount_kopeks > 0
-        else "Введите сумму для пополнения от {min_amount}.\n"
+        else texts.t(
+            "PLATEGA_AMOUNT_PROMPT_WITHOUT_MAX",
+            "Enter a top-up amount from {min_amount}.\n",
+        )
     )
 
     prompt_template = texts.t(
         "PLATEGA_TOPUP_PROMPT",
         (
-            "💳 <b>Оплата через Platega ({method_name})</b>\n\n"
+            "💳 <b>Platega payment ({method_name})</b>\n\n"
             f"{default_prompt_body}"
-            "Оплата происходит через Platega."
+            "Payment is processed via Platega."
         ),
     )
 
@@ -116,7 +122,7 @@ async def start_platega_payment(
         await callback.answer(
             texts.t(
                 "PLATEGA_TEMPORARILY_UNAVAILABLE",
-                "❌ Оплата через Platega временно недоступна",
+                "❌ Platega payments are temporarily unavailable",
             ),
             show_alert=True,
         )
@@ -127,7 +133,7 @@ async def start_platega_payment(
         await callback.answer(
             texts.t(
                 "PLATEGA_METHODS_NOT_CONFIGURED",
-                "⚠️ На стороне Platega нет доступных методов оплаты",
+                "⚠️ No Platega payment methods are available",
             ),
             show_alert=True,
         )
@@ -161,7 +167,7 @@ async def start_platega_payment(
     await callback.message.edit_text(
         texts.t(
             "PLATEGA_SELECT_PAYMENT_METHOD",
-            "Выберите способ оплаты Platega:",
+            "Choose a Platega payment method:",
         ),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=method_buttons),
     )
@@ -179,11 +185,23 @@ async def handle_platega_method_selection(
     try:
         method_code = int(callback.data.rsplit("_", 1)[-1])
     except ValueError:
-        await callback.answer("❌ Некорректный способ оплаты", show_alert=True)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_INVALID_METHOD",
+                "❌ Invalid payment method",
+            ),
+            show_alert=True,
+        )
         return
 
     if method_code not in _get_active_methods():
-        await callback.answer("⚠️ Этот способ сейчас недоступен", show_alert=True)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_METHOD_UNAVAILABLE",
+                "⚠️ This method is currently unavailable",
+            ),
+            show_alert=True,
+        )
         return
 
     await _prompt_amount(callback.message, db_user, state, method_code)
@@ -204,7 +222,7 @@ async def process_platega_payment_amount(
         await message.answer(
             texts.t(
                 "PLATEGA_TEMPORARILY_UNAVAILABLE",
-                "❌ Оплата через Platega временно недоступна",
+                "❌ Platega payments are temporarily unavailable",
             )
         )
         return
@@ -215,7 +233,7 @@ async def process_platega_payment_amount(
         await message.answer(
             texts.t(
                 "PLATEGA_METHOD_SELECTION_REQUIRED",
-                "⚠️ Выберите способ оплаты Platega перед вводом суммы",
+                "⚠️ Choose a Platega method before entering an amount",
             )
         )
         await state.set_state(BalanceStates.waiting_for_platega_method)
@@ -225,7 +243,7 @@ async def process_platega_payment_amount(
         await message.answer(
             texts.t(
                 "PLATEGA_AMOUNT_TOO_LOW",
-                "Минимальная сумма для оплаты через Platega: {amount}",
+                "Minimum Platega amount: {amount}",
             ).format(amount=settings.format_price(settings.PLATEGA_MIN_AMOUNT_KOPEKS))
         )
         return
@@ -234,7 +252,7 @@ async def process_platega_payment_amount(
         await message.answer(
             texts.t(
                 "PLATEGA_AMOUNT_TOO_HIGH",
-                "Максимальная сумма для оплаты через Platega: {amount}",
+                "Maximum Platega amount: {amount}",
             ).format(amount=settings.format_price(settings.PLATEGA_MAX_AMOUNT_KOPEKS))
         )
         return
@@ -250,14 +268,14 @@ async def process_platega_payment_amount(
             payment_method_code=method_code,
         )
     except Exception as error:
-        logger.exception("Ошибка создания платежа Platega: %s", error)
+        logger.exception("Platega payment creation failed: %s", error)
         payment_result = None
 
     if not payment_result or not payment_result.get("redirect_url"):
         await message.answer(
             texts.t(
                 "PLATEGA_PAYMENT_ERROR",
-                "❌ Ошибка создания платежа Platega. Попробуйте позже или обратитесь в поддержку.",
+                "❌ Could not create Platega payment. Try again later or contact support.",
             )
         )
         await state.clear()
@@ -274,14 +292,14 @@ async def process_platega_payment_amount(
                 types.InlineKeyboardButton(
                     text=texts.t(
                         "PLATEGA_PAY_BUTTON",
-                        "💳 Оплатить через {method}",
+                        "💳 Pay with {method}",
                     ).format(method=method_title),
                     url=redirect_url,
                 )
             ],
             [
                 types.InlineKeyboardButton(
-                    text=texts.t("CHECK_STATUS_BUTTON", "📊 Проверить статус"),
+                    text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"),
                     callback_data=f"check_platega_{local_payment_id}",
                 )
             ],
@@ -292,15 +310,15 @@ async def process_platega_payment_amount(
     instructions_template = texts.t(
         "PLATEGA_PAYMENT_INSTRUCTIONS",
         (
-            "💳 <b>Оплата через Platega ({method})</b>\n\n"
-            "💰 Сумма: {amount}\n"
-            "🆔 ID транзакции: {transaction}\n\n"
-            "📱 <b>Инструкция:</b>\n"
-            "1. Нажмите кнопку «Оплатить»\n"
-            "2. Следуйте подсказкам платёжной системы\n"
-            "3. Подтвердите перевод\n"
-            "4. Средства зачислятся автоматически\n\n"
-            "❓ Если возникнут проблемы, обратитесь в {support}"
+            "💳 <b>Platega payment ({method})</b>\n\n"
+            "💰 Amount: {amount}\n"
+            "🆔 Transaction ID: {transaction}\n\n"
+            "📱 <b>Instructions:</b>\n"
+            "1. Tap Pay\n"
+            "2. Follow the payment system prompts\n"
+            "3. Confirm the transfer\n"
+            "4. Funds will be credited automatically\n\n"
+            "❓ If you have issues, contact {support}"
         ),
     )
 
@@ -310,15 +328,15 @@ async def process_platega_payment_amount(
 
     try:
         await message.delete()
-    except Exception as delete_error:  # pragma: no cover - зависит от прав бота
-        logger.warning("Не удалось удалить сообщение с суммой Platega: %s", delete_error)
+    except Exception as delete_error:  # pragma: no cover - depends on bot rights
+        logger.warning("Failed to delete Platega amount message: %s", delete_error)
 
     if prompt_message_id:
         try:
             await message.bot.delete_message(prompt_chat_id, prompt_message_id)
-        except Exception as delete_error:  # pragma: no cover - диагностический лог
+        except Exception as delete_error:  # pragma: no cover - diagnostic log
             logger.warning(
-                "Не удалось удалить сообщение с запросом суммы Platega: %s",
+                "Failed to delete Platega amount prompt message: %s",
                 delete_error,
             )
 
@@ -348,8 +366,8 @@ async def process_platega_payment_amount(
                 payment=payment,
                 metadata=payment_metadata,
             )
-    except Exception as error:  # pragma: no cover - диагностический лог
-        logger.warning("Не удалось сохранить данные сообщения Platega: %s", error)
+    except Exception as error:  # pragma: no cover - diagnostic log
+        logger.warning("Failed to persist Platega invoice message data: %s", error)
 
     await state.update_data(
         platega_invoice_message_id=invoice_message.message_id,
@@ -367,7 +385,13 @@ async def check_platega_payment_status(
     try:
         local_payment_id = int(callback.data.split("_")[-1])
     except ValueError:
-        await callback.answer("❌ Некорректный идентификатор платежа", show_alert=True)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_INVALID_PAYMENT_ID",
+                "❌ Invalid payment identifier",
+            ),
+            show_alert=True,
+        )
         return
 
     payment_service = PaymentService(callback.bot)
@@ -375,12 +399,24 @@ async def check_platega_payment_status(
     try:
         status_info = await payment_service.get_platega_payment_status(db, local_payment_id)
     except Exception as error:
-        logger.exception("Ошибка проверки статуса Platega: %s", error)
-        await callback.answer("⚠️ Ошибка проверки статуса", show_alert=True)
+        logger.exception("Platega status check failed: %s", error)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_STATUS_CHECK_ERROR",
+                "⚠️ Failed to check payment status",
+            ),
+            show_alert=True,
+        )
         return
 
     if not status_info:
-        await callback.answer("⚠️ Платёж не найден", show_alert=True)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_PAYMENT_NOT_FOUND",
+                "⚠️ Payment not found",
+            ),
+            show_alert=True,
+        )
         return
 
     payment = status_info.get("payment")
@@ -395,9 +431,18 @@ async def check_platega_payment_status(
     texts = get_texts(language)
 
     if is_paid:
-        await callback.answer(texts.t("PLATEGA_PAYMENT_ALREADY_CONFIRMED", "✅ Платёж уже зачислен"), show_alert=True)
+        await callback.answer(
+            texts.t(
+                "PLATEGA_PAYMENT_ALREADY_CONFIRMED",
+                "✅ Payment already credited",
+            ),
+            show_alert=True,
+        )
     else:
         await callback.answer(
-            texts.t("PLATEGA_PAYMENT_STATUS", "Текущий статус платежа: {status}").format(status=status),
+            texts.t(
+                "PLATEGA_PAYMENT_STATUS",
+                "Current payment status: {status}",
+            ).format(status=status),
             show_alert=True,
         )

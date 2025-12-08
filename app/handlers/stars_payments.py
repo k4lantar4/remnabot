@@ -19,18 +19,21 @@ async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
 
     try:
         logger.info(
-            f"📋 Pre-checkout query от {query.from_user.id}: {query.total_amount} XTR, payload: {query.invoice_payload}"
+            "📋 Pre-checkout query from %s: %s XTR, payload: %s",
+            query.from_user.id,
+            query.total_amount,
+            query.invoice_payload,
         )
 
         allowed_prefixes = ("balance_", "admin_stars_test_", "simple_sub_")
 
         if not query.invoice_payload or not query.invoice_payload.startswith(allowed_prefixes):
-            logger.warning(f"Невалидный payload: {query.invoice_payload}")
+            logger.warning("Invalid Stars payload: %s", query.invoice_payload)
             await query.answer(
                 ok=False,
                 error_message=texts.t(
                     "STARS_PRECHECK_INVALID_PAYLOAD",
-                    "Ошибка валидации платежа. Попробуйте еще раз.",
+                    "Payment validation error. Try again.",
                 ),
             )
             return
@@ -41,38 +44,38 @@ async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
             async for db in get_db():
                 user = await get_user_by_telegram_id(db, query.from_user.id)
                 if not user:
-                    logger.warning(f"Пользователь {query.from_user.id} не найден в БД")
+                    logger.warning("User %s not found in DB", query.from_user.id)
                     await query.answer(
                         ok=False,
                         error_message=texts.t(
                             "STARS_PRECHECK_USER_NOT_FOUND",
-                            "Пользователь не найден. Обратитесь в поддержку.",
+                            "User not found. Contact support.",
                         ),
                     )
                     return
                 texts = get_texts(user.language or DEFAULT_LANGUAGE)
                 break
         except Exception as db_error:
-            logger.error(f"Ошибка подключения к БД в pre_checkout_query: {db_error}")
+            logger.error("DB error during pre_checkout_query: %s", db_error)
             await query.answer(
                 ok=False,
                 error_message=texts.t(
                     "STARS_PRECHECK_TECHNICAL_ERROR",
-                    "Техническая ошибка. Попробуйте позже.",
+                    "Technical error. Please try later.",
                 ),
             )
             return
 
         await query.answer(ok=True)
-        logger.info(f"✅ Pre-checkout одобрен для пользователя {query.from_user.id}")
+        logger.info("Pre-checkout approved for user %s", query.from_user.id)
 
     except Exception as e:
-        logger.error(f"Ошибка в pre_checkout_query: {e}", exc_info=True)
+        logger.error("Error in pre_checkout_query: %s", e, exc_info=True)
         await query.answer(
             ok=False,
             error_message=texts.t(
                 "STARS_PRECHECK_TECHNICAL_ERROR",
-                "Техническая ошибка. Попробуйте позже.",
+                "Technical error. Please try later.",
             ),
         )
 
@@ -90,21 +93,22 @@ async def handle_successful_payment(
         user_id = message.from_user.id
 
         logger.info(
-            f"💳 Успешный Stars платеж от {user_id}: "
-            f"{payment.total_amount} XTR, "
-            f"payload: {payment.invoice_payload}, "
-            f"charge_id: {payment.telegram_payment_charge_id}"
+            "💳 Stars payment success from %s: %s XTR, payload: %s, charge_id: %s",
+            user_id,
+            payment.total_amount,
+            payment.invoice_payload,
+            payment.telegram_payment_charge_id,
         )
 
         user = await get_user_by_telegram_id(db, user_id)
         texts = get_texts(user.language if user and user.language else DEFAULT_LANGUAGE)
 
         if not user:
-            logger.error(f"Пользователь {user_id} не найден при обработке Stars платежа")
+            logger.error("User %s not found during Stars payment handling", user_id)
             await message.answer(
                 texts.t(
                     "STARS_PAYMENT_USER_NOT_FOUND",
-                    "❌ Ошибка: пользователь не найден. Обратитесь в поддержку.",
+                    "❌ Error: user not found. Contact support.",
                 )
             )
             return
@@ -118,15 +122,15 @@ async def handle_successful_payment(
         invoice_chat_id = state_data.get("stars_invoice_chat_id", message.chat.id)
 
         for chat_id, message_id, label in [
-            (prompt_chat_id, prompt_message_id, "запрос суммы"),
-            (invoice_chat_id, invoice_message_id, "инвойс Stars"),
+            (prompt_chat_id, prompt_message_id, "amount prompt"),
+            (invoice_chat_id, invoice_message_id, "Stars invoice"),
         ]:
             if message_id:
                 try:
                     await message.bot.delete_message(chat_id, message_id)
-                except Exception as delete_error:  # pragma: no cover - зависит от прав бота
+                except Exception as delete_error:  # pragma: no cover - depends on bot rights
                     logger.warning(
-                        "Не удалось удалить сообщение %s после оплаты Stars: %s",
+                        "Failed to delete %s message after Stars payment: %s",
                         label,
                         delete_error,
                     )
@@ -158,15 +162,15 @@ async def handle_successful_payment(
             await message.answer(
                 texts.t(
                     "STARS_PAYMENT_SUCCESS",
-                    "🎉 <b>Платеж успешно обработан!</b>\n\n"
-                    "⭐ Потрачено звезд: {stars_spent}\n"
-                    "💰 Зачислено на баланс: {amount} ₽\n"
-                    "🆔 ID транзакции: {transaction_id}...\n\n"
-                    "⚠️ <b>Важно:</b> Пополнение баланса не активирует подписку автоматически. "
-                    "Обязательно активируйте подписку отдельно!\n\n"
-                    "🔄 При наличии сохранённой корзины подписки и включенной автопокупке, "
-                    "подписка будет приобретена автоматически после пополнения баланса.\n\n"
-                    "Спасибо за пополнение! 🚀",
+                    "🎉 <b>Payment processed!</b>\n\n"
+                    "⭐ Stars spent: {stars_spent}\n"
+                    "💰 Credited to balance: {amount} ₽\n"
+                    "🆔 Transaction ID: {transaction_id}...\n\n"
+                    "⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. "
+                    "Activate your subscription separately!\n\n"
+                    "🔄 If a subscription cart is saved and auto-buy is enabled, "
+                    "it will be purchased automatically after the top-up.\n\n"
+                    "Thanks for topping up! 🚀",
                 ).format(
                     stars_spent=payment.total_amount,
                     amount=amount_text,
@@ -177,28 +181,27 @@ async def handle_successful_payment(
             )
 
             logger.info(
-                "✅ Stars платеж успешно обработан: пользователь %s, %s звезд → %s",
+                "✅ Stars payment processed: user %s, %s stars → %s",
                 user.id,
                 payment.total_amount,
                 settings.format_price(amount_kopeks),
             )
         else:
-            logger.error(f"Ошибка обработки Stars платежа для пользователя {user.id}")
+            logger.error("Stars payment processing failed for user %s", user.id)
             await message.answer(
                 texts.t(
                     "STARS_PAYMENT_ENROLLMENT_ERROR",
-                    "❌ Произошла ошибка при зачислении средств. "
-                    "Обратитесь в поддержку, платеж будет проверен вручную.",
+                    "❌ Failed to credit funds. Contact support; the payment will be checked manually.",
                 )
             )
 
     except Exception as e:
-        logger.error(f"Ошибка в successful_payment: {e}", exc_info=True)
+        logger.error(f"Error in successful_payment: {e}", exc_info=True)
         await message.answer(
             texts.t(
                 "STARS_PAYMENT_PROCESSING_ERROR",
-                "❌ Техническая ошибка при обработке платежа. "
-                "Обратитесь в поддержку для решения проблемы.",
+                "❌ Technical error while processing payment. "
+                "Contact support for assistance.",
             )
         )
 
@@ -215,4 +218,4 @@ def register_stars_handlers(dp: Dispatcher):
         F.successful_payment
     )
 
-    logger.info("🌟 Зарегистрированы обработчики Telegram Stars платежей")
+    logger.info("🌟 Telegram Stars payment handlers registered")

@@ -156,8 +156,18 @@ async def show_moderator_panel(
 ):
     texts = get_texts(db_user.language)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=texts.t("ADMIN_SUPPORT_TICKETS", "🎫 Тикеты поддержки"), callback_data="admin_tickets")],
-        [InlineKeyboardButton(text=texts.t("BACK_TO_MAIN_MENU_BUTTON", "⬅️ В главное меню"), callback_data="back_to_menu")]
+        [
+            InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_TICKETS", "🎫 Support tickets"),
+                callback_data="admin_tickets",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t("BACK_TO_MAIN_MENU_BUTTON", "⬅️ Back to main menu"),
+                callback_data="back_to_menu",
+            )
+        ],
     ])
     await callback.message.edit_text(
         texts.t("ADMIN_SUPPORT_MODERATION_TITLE", "🧑‍⚖️ <b>Support Moderation</b>") + "\n\n" +

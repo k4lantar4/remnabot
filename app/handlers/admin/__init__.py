@@ -1,1 +1,1 @@
-# Инициализация админских обработчиков
+# Initialization of admin handlers

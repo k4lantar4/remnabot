@@ -5,6 +5,8 @@ from app.database.database import get_db
 from app.database.crud.user import get_user_by_id, add_user_balance
 from app.database.crud.transaction import create_transaction, get_transaction_by_external_id
 from app.database.models import TransactionType, PaymentMethod
+from app.localization.loader import DEFAULT_LANGUAGE
+from app.localization.texts import get_texts
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +27,17 @@ async def handle_successful_payment(message: types.Message):
                     )
                     
                     if existing_transaction:
-                        logger.info(f"Stars платеж {payment.telegram_payment_charge_id} уже обработан")
+                        logger.info("Stars payment %s already processed", payment.telegram_payment_charge_id)
                         return
                     
                     user = await get_user_by_id(db, user_id)
+                    language = getattr(user, "language", DEFAULT_LANGUAGE)
+                    texts = get_texts(language)
                     
                     if user:
                         await add_user_balance(
                             db, user, amount_kopeks,
-                            f"Пополнение через Telegram Stars"
+                            texts.t("STARS_TOPUP_DESCRIPTION", "Top up via Telegram Stars")
                         )
                         
                         await create_transaction(
@@ -41,36 +45,49 @@ async def handle_successful_payment(message: types.Message):
                             user_id=user.id,
                             type=TransactionType.DEPOSIT,
                             amount_kopeks=amount_kopeks,
-                            description=f"Пополнение через Telegram Stars",
+                            description=texts.t("STARS_TOPUP_DESCRIPTION", "Top up via Telegram Stars"),
                             payment_method=PaymentMethod.TELEGRAM_STARS,
                             external_id=payment.telegram_payment_charge_id
                         )
                         
                         await message.answer(
-                            f"✅ Баланс успешно пополнен на {settings.format_price(amount_kopeks)}!\n\n"
-                            "⚠️ <b>Важно:</b> Пополнение баланса не активирует подписку автоматически. "
-                            "Обязательно активируйте подписку отдельно!\n\n"
-                            f"🔄 При наличии сохранённой корзины подписки и включенной автопокупке, "
-                            f"подписка будет приобретена автоматически после пополнения баланса."
+                            texts.t(
+                                "STARS_TOPUP_SUCCESS",
+                                "✅ Balance credited by {amount}!",
+                            ).format(amount=settings.format_price(amount_kopeks))
+                            + "\n\n"
+                            + texts.t(
+                                "STARS_TOPUP_IMPORTANT",
+                                "⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. Please activate the subscription separately.",
+                            )
+                            + "\n\n"
+                            + texts.t(
+                                "STARS_TOPUP_AUTOBUY",
+                                "🔄 If a saved cart and auto-purchase are enabled, the subscription will be bought automatically after top-up.",
+                            )
                         )
                         
-                        logger.info(f"✅ Обработан Stars платеж: {payment.telegram_payment_charge_id}")
+                        logger.info("✅ Processed Stars payment: %s", payment.telegram_payment_charge_id)
                 
                 except Exception as e:
-                    logger.error(f"Ошибка обработки Stars платежа: {e}")
+                    logger.error("Error processing Stars payment: %s", e)
                     await db.rollback()
                 finally:
                     break
         
     except Exception as e:
-        logger.error(f"Ошибка в обработчике Stars платежа: {e}")
+        logger.error("Error in Stars payment handler: %s", e)
 
 
 async def handle_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
     try:
         await pre_checkout_query.answer(ok=True)
-        logger.info(f"Pre-checkout query принят: {pre_checkout_query.id}")
+        logger.info("Pre-checkout query accepted: %s", pre_checkout_query.id)
         
     except Exception as e:
-        logger.error(f"Ошибка в pre-checkout query: {e}")
-        await pre_checkout_query.answer(ok=False, error_message="Ошибка обработки платежа")
+        logger.error("Error in pre-checkout query: %s", e)
+        error_texts = get_texts(DEFAULT_LANGUAGE)
+        await pre_checkout_query.answer(
+            ok=False,
+            error_message=error_texts.t("PAYMENT_PROCESSING_ERROR", "Payment processing error"),
+        )
