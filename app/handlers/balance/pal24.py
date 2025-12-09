@@ -285,7 +285,7 @@ async def start_pal24_payment(
     elif settings.is_pal24_card_button_visible():
         payment_methods_text = texts.t("PAL24_METHODS_CARD", "bank card")
     else:
-        # Если обе кнопки отключены, используем общий текст
+        # If both buttons are disabled, use generic text
         payment_methods_text = texts.t("PAL24_METHODS_GENERIC", "available methods")
 
     message_text = texts.t(

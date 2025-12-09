@@ -541,7 +541,8 @@ async def show_payment_details(
     method, payment_id = parsed
     record = await get_payment_record(db, method, payment_id)
     if not record:
-        await callback.answer("❌ Платеж не найден", show_alert=True)
+        texts = get_texts(db_user.language)
+        await callback.answer(texts.t("ADMIN_PAYMENT_NOT_FOUND", "Payment not found."), show_alert=True)
         return
 
     await _render_payment_details(callback, db_user, record)

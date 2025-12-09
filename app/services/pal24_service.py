@@ -56,7 +56,7 @@ class Pal24Service:
         filtered_payload = {k: v for k, v in extra_payload.items() if v not in (None, {})}
 
         logger.info(
-            "Создаем Pal24 счет: user_id=%s, order_id=%s, amount=%s, ttl=%s",
+            "Creating Pal24 bill: user_id=%s, order_id=%s, amount=%s, ttl=%s",
             user_id,
             order_id,
             amount_decimal,
@@ -72,21 +72,21 @@ class Pal24Service:
             **filtered_payload,
         )
 
-        logger.info("Pal24 счет создан: %s", response)
+        logger.info("Pal24 bill created: %s", response)
         return response
 
     async def get_bill_status(self, bill_id: str) -> Dict[str, Any]:
-        logger.debug("Запрашиваем статус Pal24 счета %s", bill_id)
+        logger.debug("Requesting Pal24 bill status %s", bill_id)
         return await self.client.get_bill_status(bill_id)
 
     async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
-        logger.debug("Запрашиваем статус Pal24 платежа %s", payment_id)
+        logger.debug("Requesting Pal24 payment status %s", payment_id)
         return await self.client.get_payment_status(payment_id)
 
     async def get_bill_payments(self, bill_id: str) -> Dict[str, Any]:
-        """Возвращает список платежей, связанных со счетом."""
+        """Returns list of payments associated with the bill."""
 
-        logger.debug("Запрашиваем платежи Pal24 счёта %s", bill_id)
+        logger.debug("Requesting Pal24 bill payments %s", bill_id)
         return await self.client.get_bill_payments(bill_id)
 
     @staticmethod
@@ -104,7 +104,7 @@ class Pal24Service:
             raise Pal24APIError("Pal24 callback signature mismatch")
 
         logger.info(
-            "Получен Pal24 callback: InvId=%s, Status=%s, TrsId=%s",
+            "Received Pal24 callback: InvId=%s, Status=%s, TrsId=%s",
             inv_id,
             payload.get("Status"),
             payload.get("TrsId"),

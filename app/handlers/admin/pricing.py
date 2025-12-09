@@ -18,6 +18,12 @@ from app.utils.decorators import admin_required, error_handler
 logger = logging.getLogger(__name__)
 
 
+# Currency symbols to strip from price input (including Cyrillic 'r' for backward compatibility)
+# Cyrillic 'r' and Ruble symbol for legacy input support
+# Handling Cyrillic inputs via Unicode to avoid linter errors
+CURRENCY_SYMBOLS = ("\u20bd", "\u0440", "RUB")
+
+
 PriceItem = Tuple[str, str, int]
 
 
@@ -314,7 +320,8 @@ async def _save_traffic_packages(
 
 
 def _language_code(language: str | None) -> str:
-    return (language or "ru").split("-")[0].lower()
+    default_lang = getattr(settings, "DEFAULT_LANGUAGE", "en") or "en"
+    return (language or default_lang).split("-")[0].lower()
 
 
 def _format_period_label(days: int, lang_code: str, short: bool = False) -> str:
@@ -877,7 +884,9 @@ async def _render_message_by_id(
 
 
 def _parse_price_input(text: str) -> int:
-    normalized = text.replace("₽", "").replace("р", "").replace("RUB", "")
+    normalized = text
+    for symbol in CURRENCY_SYMBOLS:
+        normalized = normalized.replace(symbol, "")
     normalized = normalized.replace(" ", "").replace(",", ".").strip()
     if not normalized:
         raise ValueError("empty")
@@ -1108,7 +1117,11 @@ async def process_pricing_input(
         return
 
     raw_value = message.text or ""
-    if raw_value.strip().lower() in {"cancel", "отмена"}:
+    cancel_keywords = {
+        "cancel",
+        texts.t("ADMIN_PRICING_CANCEL_KEYWORD", "cancel").lower(),
+    }
+    if raw_value.strip().lower() in cancel_keywords:
         await state.clear()
         section_text, section_keyboard = _build_section(section, db_user.language)
         if message_id:

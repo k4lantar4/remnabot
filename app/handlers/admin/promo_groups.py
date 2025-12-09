@@ -31,19 +31,19 @@ logger = logging.getLogger(__name__)
 
 def _format_discount_lines(texts, group) -> list[str]:
     return [
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DISCOUNTS_HEADER",
             "💸 Promo group discounts:",
         ),
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DISCOUNT_LINE_SERVERS",
             "• Servers: {percent}%",
         ).format(percent=group.server_discount_percent),
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DISCOUNT_LINE_TRAFFIC",
             "• Traffic: {percent}%",
         ).format(percent=group.traffic_discount_percent),
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DISCOUNT_LINE_DEVICES",
             "• Devices: {percent}%",
         ).format(percent=group.device_discount_percent),
@@ -53,11 +53,11 @@ def _format_discount_lines(texts, group) -> list[str]:
 def _format_addon_discounts_line(texts, group: PromoGroup) -> str:
     enabled = getattr(group, "apply_discounts_to_addons", True)
     if enabled:
-        return texts.t(
+        return texts.get_text(
             "ADMIN_PROMO_GROUP_ADDON_DISCOUNT_ENABLED",
             "🧩 Add-on discounts: <b>enabled</b>",
         )
-    return texts.t(
+    return texts.get_text(
         "ADMIN_PROMO_GROUP_ADDON_DISCOUNT_DISABLED",
         "🧩 Add-on discounts: <b>disabled</b>",
     )
@@ -66,11 +66,11 @@ def _format_addon_discounts_line(texts, group: PromoGroup) -> str:
 def _get_addon_discounts_button_text(texts, group: PromoGroup) -> str:
     enabled = getattr(group, "apply_discounts_to_addons", True)
     if enabled:
-        return texts.t(
+        return texts.get_text(
             "ADMIN_PROMO_GROUP_TOGGLE_ADDON_DISCOUNT_DISABLE",
             "🧩 Disable add-on discounts",
         )
-    return texts.t(
+    return texts.get_text(
         "ADMIN_PROMO_GROUP_TOGGLE_ADDON_DISCOUNT_ENABLE",
         "🧩 Enable add-on discounts",
     )
@@ -117,7 +117,7 @@ def _format_period_discounts_lines(texts, group: PromoGroup, language: str) -> l
     if not discounts:
         return []
 
-    header = texts.t(
+    header = texts.get_text(
         "ADMIN_PROMO_GROUP_PERIOD_DISCOUNTS_HEADER",
         "⏳ Period discounts:",
     )
@@ -127,7 +127,7 @@ def _format_period_discounts_lines(texts, group: PromoGroup, language: str) -> l
     for period_days, percent in discounts.items():
         period_display = format_period_description(period_days, language)
         lines.append(
-            texts.t("PROMO_GROUP_PERIOD_DISCOUNT_ITEM", "{period} — {percent}%").format(
+            texts.get_text("PROMO_GROUP_PERIOD_DISCOUNT_ITEM", "{period} — {percent}%").format(
                 period=period_display,
                 percent=percent,
             )
@@ -187,7 +187,7 @@ async def _prompt_for_period_discounts(
 ):
     data = await state.get_data()
     texts = get_texts(data.get("language", "en"))
-    prompt_text = texts.t(prompt_key, default_text)
+    prompt_text = texts.get_text(prompt_key, default_text)
 
     if current_value is not None:
         try:
@@ -213,7 +213,7 @@ def _format_rubles(amount_kopeks: int) -> str:
 
 def _format_priority_line(texts, group: PromoGroup) -> str:
     priority = getattr(group, "priority", 0)
-    return texts.t(
+    return texts.get_text(
         "ADMIN_PROMO_GROUP_PRIORITY_LINE",
         "🎯 Priority: {priority}",
     ).format(priority=priority)
@@ -223,13 +223,13 @@ def _format_auto_assign_line(texts, group: PromoGroup) -> str:
     threshold = getattr(group, "auto_assign_total_spent_kopeks", 0) or 0
 
     if threshold <= 0:
-        return texts.t(
+        return texts.get_text(
             "ADMIN_PROMO_GROUP_AUTO_ASSIGN_DISABLED",
             "Auto-assign by total spent: disabled",
         )
 
     amount = _format_rubles(threshold)
-    return texts.t(
+    return texts.get_text(
         "ADMIN_PROMO_GROUP_AUTO_ASSIGN_LINE",
         "Auto-assign by total spent: from {amount}",
     ).format(amount=amount)
@@ -278,7 +278,7 @@ async def _prompt_for_auto_assign_threshold(
 ):
     data = await state.get_data()
     texts = get_texts(data.get("language", "en"))
-    prompt_text = texts.t(prompt_key, default_text)
+    prompt_text = texts.get_text(prompt_key, default_text)
 
     if current_value is not None:
         try:
@@ -294,7 +294,7 @@ def _build_edit_menu_content(
     group: PromoGroup,
     language: str,
 ) -> Tuple[str, types.InlineKeyboardMarkup]:
-    header = texts.t(
+    header = texts.get_text(
         "ADMIN_PROMO_GROUP_EDIT_MENU_TITLE",
         "✏️ Promo group settings «{name}»",
     ).format(name=group.name)
@@ -309,7 +309,7 @@ def _build_edit_menu_content(
     lines.extend(period_lines)
 
     lines.append(
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_MENU_HINT",
             "Select parameter to change:",
         )
@@ -320,7 +320,7 @@ def _build_edit_menu_content(
     keyboard_rows = [
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_NAME",
                     "✏️ Edit name",
                 ),
@@ -329,7 +329,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_PRIORITY",
                     "🎯 Priority",
                 ),
@@ -338,7 +338,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_TRAFFIC",
                     "🌐 Traffic discount",
                 ),
@@ -347,7 +347,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_SERVERS",
                     "🖥 Server discount",
                 ),
@@ -356,7 +356,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_DEVICES",
                     "📱 Device discount",
                 ),
@@ -365,7 +365,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_PERIODS",
                     "⏳ Period discounts",
                 ),
@@ -380,7 +380,7 @@ def _build_edit_menu_content(
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t(
+                text=texts.get_text(
                     "ADMIN_PROMO_GROUP_EDIT_FIELD_AUTO_ASSIGN",
                     "🤖 Auto-assign by spending",
                 ),
@@ -455,10 +455,10 @@ async def show_promo_groups_menu(
     groups = await get_promo_groups_with_counts(db)
 
     total_members = sum(count for _, count in groups)
-    header = texts.t("ADMIN_PROMO_GROUPS_TITLE", "💳 <b>Promo groups</b>")
+    header = texts.get_text("ADMIN_PROMO_GROUPS_TITLE", "💳 <b>Promo groups</b>")
 
     if groups:
-        summary = texts.t(
+        summary = texts.get_text(
             "ADMIN_PROMO_GROUPS_SUMMARY",
             "Total groups: {count}\nTotal members: {members}",
         ).format(count=len(groups), members=total_members)
@@ -467,7 +467,7 @@ async def show_promo_groups_menu(
         keyboard_rows = []
         for group, member_count in groups:
             default_suffix = (
-                texts.t("ADMIN_PROMO_GROUPS_DEFAULT_LABEL", " (default)")
+                texts.get_text("ADMIN_PROMO_GROUPS_DEFAULT_LABEL", " (default)")
                 if group.is_default
                 else ""
             )
@@ -477,7 +477,7 @@ async def show_promo_groups_menu(
             group_lines.extend(_format_discount_lines(texts, group))
             group_lines.append(_format_auto_assign_line(texts, group))
             group_lines.append(
-                texts.t(
+                texts.get_text(
                     "ADMIN_PROMO_GROUPS_MEMBERS_COUNT",
                     "Members: {count}",
                 ).format(count=member_count)
@@ -495,11 +495,11 @@ async def show_promo_groups_menu(
                 )
             ])
     else:
-        lines = [header, "", texts.t("ADMIN_PROMO_GROUPS_EMPTY", "No promo groups found.")]
+        lines = [header, "", texts.get_text("ADMIN_PROMO_GROUPS_EMPTY", "No promo groups found.")]
         keyboard_rows = []
 
     keyboard_rows.append(
-        [types.InlineKeyboardButton(text=texts.t("ADMIN_PROMO_GROUP_BTN_CREATE", "➕ Create"), callback_data="admin_promo_group_create")]
+        [types.InlineKeyboardButton(text=texts.get_text("ADMIN_PROMO_GROUP_BTN_CREATE", "➕ Create"), callback_data="admin_promo_group_create")]
     )
     keyboard_rows.append(
         [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_promo")]
@@ -521,7 +521,7 @@ async def _get_group_or_alert(
     group = await get_promo_group_by_id(db, group_id)
     if not group:
         texts = get_texts("en")
-        await callback.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
+        await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
         return None
     return group
 
@@ -541,13 +541,13 @@ async def show_promo_group_details(
     member_count = await count_promo_group_members(db, group.id)
 
     default_note = (
-        texts.t("ADMIN_PROMO_GROUP_DETAILS_DEFAULT", "This is the default group.")
+        texts.get_text("ADMIN_PROMO_GROUP_DETAILS_DEFAULT", "This is the default group.")
         if group.is_default
         else ""
     )
 
     lines = [
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DETAILS_TITLE",
             "💳 <b>Promo group:</b> {name}",
         ).format(name=group.name)
@@ -555,7 +555,7 @@ async def show_promo_group_details(
     lines.extend(_format_discount_lines(texts, group))
     lines.append(_format_auto_assign_line(texts, group))
     lines.append(
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_DETAILS_MEMBERS",
             "Members: {count}",
         ).format(count=member_count)
@@ -574,7 +574,7 @@ async def show_promo_group_details(
         keyboard_rows.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t("ADMIN_PROMO_GROUP_MEMBERS_BUTTON", "👥 Members"),
+                    text=texts.get_text("ADMIN_PROMO_GROUP_MEMBERS_BUTTON", "👥 Members"),
                     callback_data=f"promo_group_members_{group.id}_page_1",
                 )
             ]
@@ -583,7 +583,7 @@ async def show_promo_group_details(
     keyboard_rows.append(
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_PROMO_GROUP_EDIT_BUTTON", "✏️ Edit"),
+                text=texts.get_text("ADMIN_PROMO_GROUP_EDIT_BUTTON", "✏️ Edit"),
                 callback_data=f"promo_group_edit_{group.id}",
             )
         ]
@@ -593,7 +593,7 @@ async def show_promo_group_details(
         keyboard_rows.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t("ADMIN_PROMO_GROUP_DELETE_BUTTON", "🗑️ Delete"),
+                    text=texts.get_text("ADMIN_PROMO_GROUP_DELETE_BUTTON", "🗑️ Delete"),
                     callback_data=f"promo_group_delete_{group.id}",
                 )
             ]
@@ -626,7 +626,7 @@ async def _prompt_for_discount(
 ):
     data = await state.get_data()
     texts = get_texts(data.get("language", "en"))
-    await message.answer(texts.t(prompt_key, default_text))
+    await message.answer(texts.get_text(prompt_key, default_text))
 
 
 @admin_required
@@ -641,7 +641,7 @@ async def start_create_promo_group(
     await state.set_state(AdminStates.creating_promo_group_name)
     await state.update_data(language=db_user.language)
     await callback.message.edit_text(
-        texts.t("ADMIN_PROMO_GROUP_CREATE_NAME_PROMPT", "Enter name for new promo group:"),
+        texts.get_text("ADMIN_PROMO_GROUP_CREATE_NAME_PROMPT", "Enter name for new promo group:"),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_promo_groups")]
@@ -655,14 +655,14 @@ async def process_create_group_name(message: types.Message, state: FSMContext):
     name = message.text.strip()
     if not name:
         texts = get_texts((await state.get_data()).get("language", "en"))
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_NAME", "Name cannot be empty."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_NAME", "Name cannot be empty."))
         return
 
     await state.update_data(new_group_name=name)
     await state.set_state(AdminStates.creating_promo_group_priority)
     texts = get_texts((await state.get_data()).get("language", "en"))
     await message.answer(
-        texts.t(
+        texts.get_text(
             "ADMIN_PROMO_GROUP_CREATE_PRIORITY_PROMPT",
             "Enter group priority (0 = default, higher = higher priority):",
         )
@@ -677,7 +677,7 @@ async def process_create_group_priority(message: types.Message, state: FSMContex
             raise ValueError
     except (ValueError, TypeError):
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_PRIORITY",
                 "❌ Priority must be a non-negative integer",
             )
@@ -699,7 +699,7 @@ async def process_create_group_traffic(message: types.Message, state: FSMContext
     try:
         value = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     await state.update_data(new_group_traffic=value)
@@ -717,7 +717,7 @@ async def process_create_group_servers(message: types.Message, state: FSMContext
     try:
         value = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     await state.update_data(new_group_servers=value)
@@ -744,7 +744,7 @@ async def process_create_group_devices(
     try:
         devices_discount = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     await state.update_data(new_group_devices=devices_discount)
@@ -773,7 +773,7 @@ async def process_create_group_period_discounts(
         period_discounts = _parse_period_discounts_input(message.text)
     except ValueError:
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_PERIOD_DISCOUNTS",
                 "Enter period:discount pairs separated by comma, e.g. 30:10, 90:15, or 0.",
             )
@@ -806,7 +806,7 @@ async def process_create_group_auto_assign(
         auto_assign_kopeks = _parse_auto_assign_threshold_input(message.text)
     except ValueError:
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_AUTO_ASSIGN",
                 "Enter a non-negative number or 0 to disable.",
             )
@@ -832,14 +832,14 @@ async def process_create_group_auto_assign(
 
     await state.clear()
     await message.answer(
-        texts.t("ADMIN_PROMO_GROUP_CREATED", "Promo group «{name}» created.").format(
+        texts.get_text("ADMIN_PROMO_GROUP_CREATED", "Promo group «{name}» created.").format(
             name=group.name
         ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     types.InlineKeyboardButton(
-                        text=texts.t(
+                        text=texts.get_text(
                             "ADMIN_PROMO_GROUP_CREATED_BACK_BUTTON",
                             "↩️ To promo groups",
                         ),
@@ -887,7 +887,7 @@ async def prompt_edit_promo_group_field(
     parts = callback.data.split("_")
     if len(parts) < 6:
         texts = get_texts(db_user.language)
-        await callback.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_COMMAND", "❌ Invalid command"), show_alert=True)
+        await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_COMMAND", "❌ Invalid command"), show_alert=True)
         return
 
     group_id = int(parts[4])
@@ -896,7 +896,7 @@ async def prompt_edit_promo_group_field(
     group = await get_promo_group_by_id(db, group_id)
     if not group:
         texts = get_texts(db_user.language)
-        await callback.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
+        await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
         return
 
     await state.update_data(edit_group_id=group.id, language=db_user.language)
@@ -906,49 +906,49 @@ async def prompt_edit_promo_group_field(
 
     if field == "name":
         await state.set_state(AdminStates.editing_promo_group_name)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_NAME_PROMPT",
             "Enter new promo group name (current: {name}):",
         ).format(name=group.name)
     elif field == "priority":
         await state.set_state(AdminStates.editing_promo_group_priority)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_PRIORITY_PROMPT",
             "Enter new priority (current: {current}):",
         ).format(current=getattr(group, "priority", 0))
     elif field == "traffic":
         await state.set_state(AdminStates.editing_promo_group_traffic_discount)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_TRAFFIC_PROMPT",
             "Enter new traffic discount (current value: {current}%):",
         ).format(current=group.traffic_discount_percent)
     elif field == "servers":
         await state.set_state(AdminStates.editing_promo_group_server_discount)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_SERVERS_PROMPT",
             "Enter new server discount (current value: {current}%):",
         ).format(current=group.server_discount_percent)
     elif field == "devices":
         await state.set_state(AdminStates.editing_promo_group_device_discount)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_DEVICES_PROMPT",
             "Enter new device discount (current value: {current}%):",
         ).format(current=group.device_discount_percent)
     elif field == "periods":
         await state.set_state(AdminStates.editing_promo_group_period_discount)
         current_discounts = _normalize_periods_dict(getattr(group, "period_discounts", None))
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_PERIOD_PROMPT",
             "Enter new period discounts (current: {current}). Send 0 if no discounts.",
         ).format(current=_format_period_discounts_value(current_discounts))
     elif field == "auto":
         await state.set_state(AdminStates.editing_promo_group_auto_assign)
-        prompt = texts.t(
+        prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_AUTO_ASSIGN_PROMPT",
             "Enter total spending amount for auto-assign. Current value: {current}.",
         ).format(current=_format_auto_assign_value(group.auto_assign_total_spent_kopeks))
     else:
-        await callback.answer(texts.t("ADMIN_PROMO_GROUP_UNKNOWN_PARAM", "❌ Unknown parameter"), show_alert=True)
+        await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_UNKNOWN_PARAM", "❌ Unknown parameter"), show_alert=True)
         return
 
     await callback.message.edit_text(prompt, reply_markup=reply_markup)
@@ -968,12 +968,12 @@ async def process_edit_group_name(
 
     name = message.text.strip()
     if not name:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_NAME", "Name cannot be empty."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_NAME", "Name cannot be empty."))
         return
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -985,7 +985,7 @@ async def process_edit_group_name(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1006,7 +1006,7 @@ async def process_edit_group_priority(
             raise ValueError
     except (ValueError, TypeError):
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_PRIORITY",
                 "❌ Priority must be a non-negative integer",
             )
@@ -1015,7 +1015,7 @@ async def process_edit_group_priority(
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1027,7 +1027,7 @@ async def process_edit_group_priority(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1045,12 +1045,12 @@ async def process_edit_group_traffic(
     try:
         value = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1062,7 +1062,7 @@ async def process_edit_group_traffic(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1080,12 +1080,12 @@ async def process_edit_group_servers(
     try:
         value = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1097,7 +1097,7 @@ async def process_edit_group_servers(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1115,12 +1115,12 @@ async def process_edit_group_devices(
     try:
         devices_discount = _validate_percent(message.text)
     except (ValueError, TypeError):
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_INVALID_PERCENT", "Enter a number from 0 to 100."))
         return
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1132,7 +1132,7 @@ async def process_edit_group_devices(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1151,7 +1151,7 @@ async def process_edit_group_period_discounts(
         period_discounts = _parse_period_discounts_input(message.text)
     except ValueError:
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_PERIOD_DISCOUNTS",
                 "Enter period:discount pairs separated by comma, e.g. 30:10, 90:15, or 0.",
             )
@@ -1160,7 +1160,7 @@ async def process_edit_group_period_discounts(
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1172,7 +1172,7 @@ async def process_edit_group_period_discounts(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1191,7 +1191,7 @@ async def process_edit_group_auto_assign(
         auto_assign_kopeks = _parse_auto_assign_threshold_input(message.text)
     except ValueError:
         await message.answer(
-            texts.t(
+            texts.get_text(
                 "ADMIN_PROMO_GROUP_INVALID_AUTO_ASSIGN",
                 "Enter a non-negative number or 0 to disable.",
             )
@@ -1200,7 +1200,7 @@ async def process_edit_group_auto_assign(
 
     group = await get_promo_group_by_id(db, data.get("edit_group_id"))
     if not group:
-        await message.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
+        await message.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"))
         await state.clear()
         return
 
@@ -1216,7 +1216,7 @@ async def process_edit_group_auto_assign(
         texts,
         group,
         data.get("language", db_user.language),
-        texts.t("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_UPDATED", "Promo group «{name}» updated.").format(name=group.name),
     )
 
 
@@ -1236,7 +1236,7 @@ async def show_promo_group_members(
     group = await get_promo_group_by_id(db, group_id)
     if not group:
         texts = get_texts("en")
-        await callback.answer(texts.t("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
+        await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_NOT_FOUND", "❌ Promo group not found"), show_alert=True)
         return
 
     texts = get_texts(db_user.language)
@@ -1244,13 +1244,13 @@ async def show_promo_group_members(
     total_members = await count_promo_group_members(db, group_id)
     total_pages = max(1, (total_members + limit - 1) // limit)
 
-    title = texts.t(
+    title = texts.get_text(
         "ADMIN_PROMO_GROUP_MEMBERS_TITLE",
         "👥 Group members {name}",
     ).format(name=group.name)
 
     if not members:
-        body = texts.t("ADMIN_PROMO_GROUP_MEMBERS_EMPTY", "No members in this group yet.")
+        body = texts.get_text("ADMIN_PROMO_GROUP_MEMBERS_EMPTY", "No members in this group yet.")
     else:
         lines = []
         for index, user in enumerate(members, start=offset + 1):
@@ -1299,12 +1299,12 @@ async def request_delete_promo_group(
 
     if group.is_default:
         await callback.answer(
-            texts.t("ADMIN_PROMO_GROUP_DELETE_FORBIDDEN", "Default promo group cannot be deleted."),
+            texts.get_text("ADMIN_PROMO_GROUP_DELETE_FORBIDDEN", "Default promo group cannot be deleted."),
             show_alert=True,
         )
         return
 
-    confirm_text = texts.t(
+    confirm_text = texts.get_text(
         "ADMIN_PROMO_GROUP_DELETE_CONFIRM",
         "Delete promo group «{name}»? All users will be moved to the default group.",
     ).format(name=group.name)
@@ -1336,13 +1336,13 @@ async def delete_promo_group_confirmed(
     success = await delete_promo_group(db, group)
     if not success:
         await callback.answer(
-            texts.t("ADMIN_PROMO_GROUP_DELETE_FORBIDDEN", "Default promo group cannot be deleted."),
+            texts.get_text("ADMIN_PROMO_GROUP_DELETE_FORBIDDEN", "Default promo group cannot be deleted."),
             show_alert=True,
         )
         return
 
     await callback.message.edit_text(
-        texts.t("ADMIN_PROMO_GROUP_DELETED", "Promo group «{name}» deleted.").format(name=group.name),
+        texts.get_text("ADMIN_PROMO_GROUP_DELETED", "Promo group «{name}» deleted.").format(name=group.name),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_promo_groups")]
@@ -1373,7 +1373,7 @@ async def toggle_promo_group_addon_discounts(
         apply_discounts_to_addons=new_value,
     )
 
-    status_text = texts.t(
+    status_text = texts.get_text(
         "ADMIN_PROMO_GROUP_ADDON_DISCOUNT_UPDATED_ENABLED"
         if new_value
         else "ADMIN_PROMO_GROUP_ADDON_DISCOUNT_UPDATED_DISABLED",

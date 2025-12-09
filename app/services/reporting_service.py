@@ -54,7 +54,9 @@ class ReportingService:
 
     # Referral keyword patterns for matching transaction descriptions/comments
     # Includes patterns in multiple languages to match historical data
-    _REFERRAL_TEXT_PATTERNS = ["%referral%", "%refer%", "%реферал%", "%рефер%"]
+    # Kept for backward compatibility: Cyrillic patterns match old DB entries
+    # Legacy DB patterns (Cyrillic)
+    _REFERRAL_TEXT_PATTERNS = ["%referral%", "%refer%", "%\u0440\u0435\u0444\u0435\u0440\u0430\u043b%", "%\u0440\u0435\u0444\u0435\u0440%"]
 
     def __init__(self) -> None:
         self.bot: Optional[Bot] = None

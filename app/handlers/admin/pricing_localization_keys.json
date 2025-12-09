@@ -1,0 +1,427 @@
+{
+  "localization_keys_used_in_pricing_py": {
+    "description": "All localization keys used in app/handlers/admin/pricing.py. Add these to your locale JSON files (en.json, fa.json, etc.)",
+    "keys": {
+      "ADMIN_PRICING_CANCEL_KEYWORD": {
+        "description": "Localized cancel keyword for user input (e.g., 'cancel')",
+        "default_en": "cancel"
+      },
+      "ADMIN_PRICING_TRIAL_DURATION_LABEL": {
+        "description": "Label for trial duration setting",
+        "default_en": "⏳ Duration (days)"
+      },
+      "ADMIN_PRICING_TRIAL_TRAFFIC_LIMIT_LABEL": {
+        "description": "Label for trial traffic limit setting",
+        "default_en": "📦 Traffic limit (GB)"
+      },
+      "ADMIN_PRICING_TRIAL_DEVICE_LIMIT_LABEL": {
+        "description": "Label for trial device limit setting",
+        "default_en": "📱 Device limit"
+      },
+      "ADMIN_PRICING_TRIAL_PAYMENT_ENABLED_LABEL": {
+        "description": "Label for trial payment enabled toggle",
+        "default_en": "💳 Paid activation"
+      },
+      "ADMIN_PRICING_TRIAL_PAYMENT_ENABLED_DESCRIPTION": {
+        "description": "Description for trial payment enabled setting",
+        "default_en": "When enabled, the configured amount is charged during trial activation."
+      },
+      "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_LABEL": {
+        "description": "Label for trial activation price setting",
+        "default_en": "💰 Activation price"
+      },
+      "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_DESCRIPTION": {
+        "description": "Description for trial activation price setting",
+        "default_en": "Amount in kopeks. 0 — free activation."
+      },
+      "ADMIN_PRICING_TRIAL_ADD_REMAINING_LABEL": {
+        "description": "Label for add remaining trial days setting",
+        "default_en": "➕ Add remaining trial days to paid plan"
+      },
+      "ADMIN_PRICING_TRIAL_ADD_REMAINING_DESCRIPTION": {
+        "description": "Description for add remaining trial days setting",
+        "default_en": "When enabled, remaining trial days are added to paid subscription duration."
+      },
+      "ADMIN_PRICING_CORE_BASE_SUBSCRIPTION_PRICE_LABEL": {
+        "description": "Label for base subscription price setting",
+        "default_en": "💳 Base subscription price"
+      },
+      "ADMIN_PRICING_CORE_PROMO_DISCOUNTS_ENABLED_LABEL": {
+        "description": "Label for promo discounts enabled toggle",
+        "default_en": "🎟️ Base group discounts"
+      },
+      "ADMIN_PRICING_CORE_PROMO_DISCOUNTS_ENABLED_DESCRIPTION": {
+        "description": "Description for promo discounts enabled setting",
+        "default_en": "Enables base discounts for promo group periods."
+      },
+      "ADMIN_PRICING_CORE_PROMO_DISCOUNTS_LABEL": {
+        "description": "Label for period discounts setting",
+        "default_en": "🔖 Period discounts"
+      },
+      "ADMIN_PRICING_CORE_PROMO_DISCOUNTS_DESCRIPTION": {
+        "description": "Description for period discounts setting",
+        "default_en": "Format: comma-separated day/discount pairs (e.g. 30:10,60:20)."
+      },
+      "ADMIN_PRICING_CORE_DEFAULT_DEVICE_LIMIT_LABEL": {
+        "description": "Label for default device limit setting",
+        "default_en": "📱 Default device limit"
+      },
+      "ADMIN_PRICING_CORE_DEFAULT_TRAFFIC_LIMIT_LABEL": {
+        "description": "Label for default traffic limit setting",
+        "default_en": "📦 Default traffic (GB)"
+      },
+      "ADMIN_PRICING_CORE_MAX_DEVICES_LABEL": {
+        "description": "Label for maximum devices setting",
+        "default_en": "📈 Maximum devices"
+      },
+      "ADMIN_PRICING_CORE_RESET_TRAFFIC_LABEL": {
+        "description": "Label for reset traffic on payment toggle",
+        "default_en": "🔄 Reset traffic on payment"
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_RESET_STRATEGY_LABEL": {
+        "description": "Label for traffic reset strategy setting",
+        "default_en": "🗓 Traffic reset strategy"
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_RESET_STRATEGY_DESCRIPTION": {
+        "description": "Description for traffic reset strategy setting",
+        "default_en": "Available values: DAY, WEEK, MONTH, NEVER."
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_SELECTION_MODE_LABEL": {
+        "description": "Label for traffic selection mode setting",
+        "default_en": "⚙️ Traffic selection mode"
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_SELECTION_SELECTABLE": {
+        "description": "Label for selectable traffic mode option",
+        "default_en": "Selectable"
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_SELECTION_FIXED": {
+        "description": "Label for fixed traffic mode option",
+        "default_en": "Fixed limit"
+      },
+      "ADMIN_PRICING_CORE_TRAFFIC_SELECTION_MODE_DESCRIPTION": {
+        "description": "Description for traffic selection mode setting",
+        "default_en": "Defines whether users pick packages or use a fixed limit."
+      },
+      "ADMIN_PRICING_CORE_FIXED_TRAFFIC_LIMIT_LABEL": {
+        "description": "Label for fixed traffic limit setting",
+        "default_en": "📏 Fixed traffic limit (GB)"
+      },
+      "ADMIN_PRICING_CORE_FIXED_TRAFFIC_LIMIT_DESCRIPTION": {
+        "description": "Description for fixed traffic limit setting",
+        "default_en": "Used only in fixed traffic mode. 0 = unlimited."
+      },
+      "ADMIN_PRICING_PERIOD_SUFFIX_SHORT": {
+        "description": "Short suffix for period display (e.g., 'd' for days)",
+        "default_en": "d"
+      },
+      "ADMIN_PRICING_PERIOD_ONE_DAY": {
+        "description": "Label for one day period",
+        "default_en": "1 day"
+      },
+      "ADMIN_PRICING_PERIOD_DAYS": {
+        "description": "Label for multiple days period (use {days} placeholder)",
+        "default_en": "{days} days"
+      },
+      "ADMIN_PRICING_TRAFFIC_UNLIMITED": {
+        "description": "Label for unlimited traffic",
+        "default_en": "Unlimited"
+      },
+      "ADMIN_PRICING_TRAFFIC_UNIT": {
+        "description": "Unit for traffic display (e.g., 'GB')",
+        "default_en": "GB"
+      },
+      "ADMIN_PRICING_TRAFFIC_FORMAT": {
+        "description": "Format for traffic display (use {gb} and {unit} placeholders)",
+        "default_en": "{gb} {unit}"
+      },
+      "ADMIN_PRICING_DEVICES_FORMAT": {
+        "description": "Format for devices display (use {devices} placeholder)",
+        "default_en": "{devices}📱"
+      },
+      "ADMIN_PRICING_TRIAL_SUMMARY_FORMAT": {
+        "description": "Format for trial summary (use {duration}, {suffix}, {traffic}, {devices}, {price} placeholders)",
+        "default_en": "{duration}{suffix}, {traffic}, {devices}{price}"
+      },
+      "ADMIN_PRICING_TRAFFIC_MODE_FIXED": {
+        "description": "Label for fixed traffic mode",
+        "default_en": "⚙️ fixed"
+      },
+      "ADMIN_PRICING_TRAFFIC_MODE_SELECTABLE": {
+        "description": "Label for selectable traffic mode",
+        "default_en": "⚙️ selectable"
+      },
+      "ADMIN_PRICING_CORE_SUMMARY_FORMAT": {
+        "description": "Format for core summary (use {price}, {devices}, {traffic}, {mode} placeholders)",
+        "default_en": "{price}, {devices}, {traffic}, {mode}"
+      },
+      "ADMIN_PRICING_EXTRA_DEVICE": {
+        "description": "Label for extra device option",
+        "default_en": "Extra device"
+      },
+      "ADMIN_PRICING_SUMMARY_ITEM": {
+        "description": "Format for summary item (use {label} and {price} placeholders)",
+        "default_en": "{label}: {price}"
+      },
+      "ADMIN_PRICING_SUMMARY_EMPTY": {
+        "description": "Marker for empty summary",
+        "default_en": "—"
+      },
+      "ADMIN_PRICING_PERIOD_OPTIONS_SUMMARY": {
+        "description": "Format for period options summary (use {subs} and {renew} placeholders)",
+        "default_en": "Subscriptions: {subs} | Renewals: {renew}"
+      },
+      "ADMIN_PRICING_SECTION_TRIAL_TITLE": {
+        "description": "Title for trial section",
+        "default_en": "🎁 Trial period"
+      },
+      "ADMIN_PRICING_SECTION_CORE_TITLE": {
+        "description": "Title for core section",
+        "default_en": "⚙️ Core limits"
+      },
+      "ADMIN_PRICING_SECTION_SETTINGS_GENERIC": {
+        "description": "Generic title for settings section",
+        "default_en": "⚙️ Settings"
+      },
+      "ADMIN_PRICING_SECTION_CURRENT": {
+        "description": "Label for current values section",
+        "default_en": "Current values:"
+      },
+      "ADMIN_PRICING_SETTING_TOGGLE_STATEFUL": {
+        "description": "Format for toggle button with state (use {icon} and {label} placeholders)",
+        "default_en": "{icon} {label}"
+      },
+      "ADMIN_PRICING_SETTING_EDIT_WITH_VALUE": {
+        "description": "Format for edit button with value (use {label} and {value} placeholders)",
+        "default_en": "✏️ {label} • {value}"
+      },
+      "ADMIN_PRICING_SECTION_PROMPT": {
+        "description": "Prompt for selecting what to update",
+        "default_en": "Select what to update:"
+      },
+      "ADMIN_PRICING_SECTION_EMPTY": {
+        "description": "Message when no parameters are available",
+        "default_en": "No parameters available."
+      },
+      "ADMIN_PRICING_SECTION_TRAFFIC_OPTIONS_TITLE": {
+        "description": "Title for traffic options section",
+        "default_en": "🚦 Traffic package visibility"
+      },
+      "ADMIN_PRICING_SECTION_TRAFFIC_OPTIONS_ACTIVE": {
+        "description": "Format for active packages list (use {items} placeholder)",
+        "default_en": "Active packages: {items}"
+      },
+      "ADMIN_PRICING_SECTION_TRAFFIC_OPTIONS_NONE": {
+        "description": "Message when no active packages",
+        "default_en": "No active packages."
+      },
+      "ADMIN_PRICING_SECTION_TRAFFIC_OPTIONS_PROMPT": {
+        "description": "Prompt for traffic options section",
+        "default_en": "Tap a package to toggle its visibility."
+      },
+      "ADMIN_PRICING_SECTION_PERIOD_OPTIONS_TITLE": {
+        "description": "Title for period options section",
+        "default_en": "🗓 Available periods"
+      },
+      "ADMIN_PRICING_SECTION_PERIOD_OPTIONS_SUB": {
+        "description": "Format for active subscription periods (use {items} placeholder)",
+        "default_en": "Active subscription periods: {items}"
+      },
+      "ADMIN_PRICING_SECTION_PERIOD_OPTIONS_RENEW": {
+        "description": "Format for active renewal periods (use {items} placeholder)",
+        "default_en": "Active renewal periods: {items}"
+      },
+      "ADMIN_PRICING_SECTION_PERIOD_OPTIONS_PROMPT": {
+        "description": "Prompt for period options section",
+        "default_en": "Tap a period to toggle its visibility."
+      },
+      "ADMIN_PRICING_MENU_TITLE": {
+        "description": "Title for pricing menu",
+        "default_en": "Pricing management"
+      },
+      "ADMIN_PRICING_MENU_DESCRIPTION": {
+        "description": "Description for pricing menu",
+        "default_en": "Quick access to subscription plans, traffic bundles and extra services."
+      },
+      "ADMIN_PRICING_MENU_SUMMARY": {
+        "description": "Label for quick summary section",
+        "default_en": "Quick summary:"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_TRIAL": {
+        "description": "Format for trial summary in menu (use {summary} placeholder)",
+        "default_en": "Trial: {summary}"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_CORE": {
+        "description": "Format for core summary in menu (use {summary} placeholder)",
+        "default_en": "Core limits: {summary}"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_PERIOD_OPTIONS": {
+        "description": "Format for period options summary in menu (use {summary} placeholder)",
+        "default_en": "Available periods: {summary}"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_PERIODS": {
+        "description": "Format for periods summary in menu (use {summary} placeholder)",
+        "default_en": "Periods: {summary}"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_TRAFFIC": {
+        "description": "Format for traffic summary in menu (use {summary} placeholder)",
+        "default_en": "Traffic: {summary}"
+      },
+      "ADMIN_PRICING_MENU_SUMMARY_EXTRA": {
+        "description": "Format for extras summary in menu (use {summary} placeholder)",
+        "default_en": "Extras: {summary}"
+      },
+      "ADMIN_PRICING_MENU_PROMPT": {
+        "description": "Prompt for pricing menu",
+        "default_en": "Choose a section to edit:"
+      },
+      "ADMIN_PRICING_BUTTON_TRIAL": {
+        "description": "Button label for trial section",
+        "default_en": "🎁 Trial period"
+      },
+      "ADMIN_PRICING_BUTTON_CORE": {
+        "description": "Button label for core section",
+        "default_en": "⚙️ Core limits"
+      },
+      "ADMIN_PRICING_BUTTON_PERIOD_OPTIONS": {
+        "description": "Button label for period options section",
+        "default_en": "🗓 Available periods"
+      },
+      "ADMIN_PRICING_BUTTON_PERIODS": {
+        "description": "Button label for periods section",
+        "default_en": "🗓 Subscription periods"
+      },
+      "ADMIN_PRICING_BUTTON_TRAFFIC": {
+        "description": "Button label for traffic section",
+        "default_en": "📦 Traffic packages"
+      },
+      "ADMIN_PRICING_BUTTON_TRAFFIC_OPTIONS": {
+        "description": "Button label for traffic options section",
+        "default_en": "🚦 Package visibility"
+      },
+      "ADMIN_PRICING_BUTTON_EXTRA": {
+        "description": "Button label for extras section",
+        "default_en": "➕ Extras"
+      },
+      "ADMIN_PRICING_SECTION_PERIODS_TITLE": {
+        "description": "Title for periods section",
+        "default_en": "🗓 Subscription periods"
+      },
+      "ADMIN_PRICING_SECTION_TRAFFIC_TITLE": {
+        "description": "Title for traffic section",
+        "default_en": "📦 Traffic packages"
+      },
+      "ADMIN_PRICING_SECTION_EXTRA_TITLE": {
+        "description": "Title for extras section",
+        "default_en": "➕ Extra options"
+      },
+      "ADMIN_PRICING_EDIT_TITLE": {
+        "description": "Title for edit price dialog",
+        "default_en": "Update price"
+      },
+      "ADMIN_PRICING_EDIT_TARGET": {
+        "description": "Label for current item in edit dialog",
+        "default_en": "Current item"
+      },
+      "ADMIN_PRICING_EDIT_CURRENT": {
+        "description": "Label for current value in edit dialog",
+        "default_en": "Current value"
+      },
+      "ADMIN_PRICING_EDIT_PROMPT": {
+        "description": "Prompt for entering new price",
+        "default_en": "Enter a new price in RUB (e.g. 990 or 990.50). Use 0 for a free plan."
+      },
+      "ADMIN_PRICING_EDIT_CANCEL_HINT": {
+        "description": "Hint for canceling edit",
+        "default_en": "Send \"Cancel\" to return without changes."
+      },
+      "ADMIN_PRICING_EDIT_CANCEL": {
+        "description": "Button label for cancel edit",
+        "default_en": "❌ Cancel"
+      },
+      "ADMIN_PRICING_EDIT_EXPIRED": {
+        "description": "Message when editing session expired",
+        "default_en": "Editing session expired."
+      },
+      "ADMIN_PRICING_EDIT_CANCELLED": {
+        "description": "Message when changes are cancelled",
+        "default_en": "Changes cancelled."
+      },
+      "ADMIN_PRICING_EDIT_INVALID": {
+        "description": "Message when price input is invalid",
+        "default_en": "Could not parse the price. Please enter a number in RUB (e.g. 990 or 990.50)."
+      },
+      "ADMIN_PRICING_SETTING_EDIT_TITLE": {
+        "description": "Title for setting edit dialog",
+        "default_en": "Parameter configuration"
+      },
+      "ADMIN_PRICING_SETTING_PARAMETER": {
+        "description": "Label for parameter in setting edit dialog",
+        "default_en": "Parameter"
+      },
+      "ADMIN_PRICING_SETTING_CURRENT": {
+        "description": "Label for current value in setting edit dialog",
+        "default_en": "Current value"
+      },
+      "ADMIN_PRICING_SETTING_FORMAT": {
+        "description": "Label for input format in setting edit dialog",
+        "default_en": "Input format"
+      },
+      "ADMIN_PRICING_SETTING_EXAMPLE": {
+        "description": "Label for example in setting edit dialog",
+        "default_en": "Example"
+      },
+      "ADMIN_PRICING_SETTING_WARNING": {
+        "description": "Label for warning in setting edit dialog",
+        "default_en": "Important"
+      },
+      "ADMIN_PRICING_SETTING_PROMPT": {
+        "description": "Prompt for setting edit",
+        "default_en": "Send a new value or type \"Cancel\". Use none to clear."
+      },
+      "ADMIN_PRICING_SETTING_CANCEL_HINT": {
+        "description": "Hint for canceling setting edit",
+        "default_en": "Reply \"Cancel\" to go back without changes."
+      },
+      "ADMIN_PRICING_SETTING_INVALID": {
+        "description": "Message when setting value is invalid",
+        "default_en": "Could not update the parameter. Please check the value format."
+      },
+      "ADMIN_PRICING_SETTING_SUCCESS": {
+        "description": "Format for successful setting update (use {label} and {value} placeholders)",
+        "default_en": "Parameter {label} updated: {value}"
+      },
+      "ADMIN_PRICING_CHOICE_ALREADY": {
+        "description": "Message when choice option is already active",
+        "default_en": "This option is already active."
+      },
+      "ADMIN_PRICING_CHOICE_UPDATED": {
+        "description": "Format for choice update confirmation (use {label} placeholder)",
+        "default_en": "Selected: {label}"
+      },
+      "ADMIN_PRICING_TRAFFIC_PACKAGE_MIN": {
+        "description": "Message when trying to disable last traffic package",
+        "default_en": "At least one package must remain."
+      },
+      "ADMIN_PRICING_TRAFFIC_PACKAGE_ENABLED": {
+        "description": "Message when traffic package is enabled",
+        "default_en": "Package enabled."
+      },
+      "ADMIN_PRICING_TRAFFIC_PACKAGE_DISABLED": {
+        "description": "Message when traffic package is disabled",
+        "default_en": "Package disabled."
+      },
+      "ADMIN_PRICING_PERIOD_MIN": {
+        "description": "Message when trying to disable last period",
+        "default_en": "At least one period must remain."
+      },
+      "ADMIN_PRICING_PERIOD_DISABLED": {
+        "description": "Message when period is disabled",
+        "default_en": "Period disabled."
+      },
+      "ADMIN_PRICING_PERIOD_ENABLED": {
+        "description": "Message when period is enabled",
+        "default_en": "Period enabled."
+      }
+    }
+  }
+}

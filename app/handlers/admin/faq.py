@@ -305,7 +305,7 @@ async def process_new_faq_title(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_TITLE_EMPTY",
-                "❌ Заголовок не может быть пустым.",
+                "❌ Title cannot be empty.",
             )
         )
         return
@@ -314,7 +314,7 @@ async def process_new_faq_title(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_TITLE_TOO_LONG",
-                "❌ Заголовок слишком длинный. Максимум 255 символов.",
+                "❌ Title is too long. Maximum 255 characters.",
             )
         )
         return
@@ -345,7 +345,7 @@ async def process_new_faq_content(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_CONTENT_TOO_LONG",
-                "❌ Текст слишком длинный. Максимум 6000 символов.",
+                "❌ Content is too long. Maximum 6000 characters.",
             )
         )
         return
@@ -354,7 +354,7 @@ async def process_new_faq_content(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_CONTENT_EMPTY",
-                "❌ Текст не может быть пустым.",
+                "❌ Content cannot be empty.",
             )
         )
         return
@@ -390,7 +390,7 @@ async def process_new_faq_content(
 
     success_text = texts.t(
         "ADMIN_FAQ_PAGE_CREATED",
-        "✅ Страница FAQ создана.",
+        "✅ FAQ page created.",
     )
 
     reply_markup = types.InlineKeyboardMarkup(
@@ -438,7 +438,7 @@ async def show_faq_page_details(
         await callback.answer(
             texts.t(
                 "ADMIN_FAQ_PAGE_NOT_FOUND",
-                "⚠️ Страница не найдена.",
+                "⚠️ Page not found.",
             ),
             show_alert=True,
         )
@@ -448,12 +448,12 @@ async def show_faq_page_details(
     title = (page.title or "").strip() or texts.t("FAQ_PAGE_UNTITLED", "Untitled")
     status_label = texts.t(
         "ADMIN_FAQ_PAGE_STATUS_ACTIVE",
-        "✅ Активна",
+        "✅ Active",
     )
     if not page.is_active:
         status_label = texts.t(
             "ADMIN_FAQ_PAGE_STATUS_INACTIVE",
-            "🚫 Выключена",
+            "🚫 Disabled",
         )
 
     updated_at = _format_timestamp(getattr(page, "updated_at", None))
@@ -584,7 +584,7 @@ async def start_edit_faq_title(
         await callback.answer(
             texts.t(
                 "ADMIN_FAQ_PAGE_NOT_FOUND",
-                "⚠️ Страница не найдена.",
+                "⚠️ Page not found.",
             ),
             show_alert=True,
         )
@@ -630,7 +630,7 @@ async def process_edit_faq_title(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_TITLE_EMPTY",
-                "❌ Заголовок не может быть пустым.",
+                "❌ Title cannot be empty.",
             )
         )
         return
@@ -639,7 +639,7 @@ async def process_edit_faq_title(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_TITLE_TOO_LONG",
-                "❌ Заголовок слишком длинный. Максимум 255 символов.",
+                "❌ Title is too long. Maximum 255 characters.",
             )
         )
         return
@@ -674,7 +674,7 @@ async def process_edit_faq_title(
         texts.t("ADMIN_FAQ_TITLE_UPDATED", "✅ Title updated."),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(
-                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ К настройкам FAQ"),
+                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
                 callback_data="admin_faq",
             )]]
         ),
@@ -753,7 +753,7 @@ async def process_edit_faq_content(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_CONTENT_TOO_LONG",
-                "❌ Текст слишком длинный. Максимум 6000 символов.",
+                "❌ Content is too long. Maximum 6000 characters.",
             )
         )
         return
@@ -762,7 +762,7 @@ async def process_edit_faq_content(
         await message.answer(
             texts.t(
                 "ADMIN_FAQ_CONTENT_EMPTY",
-                "❌ Текст не может быть пустым.",
+                "❌ Content cannot be empty.",
             )
         )
         return
@@ -807,7 +807,7 @@ async def process_edit_faq_content(
         texts.t("ADMIN_FAQ_CONTENT_UPDATED", "✅ Page text updated."),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(
-                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ К настройкам FAQ"),
+                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
                 callback_data="admin_faq",
             )]]
         ),
@@ -988,7 +988,7 @@ async def show_faq_html_help(
 
     buttons = [[
         types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ К настройкам FAQ"),
+            text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
             callback_data="admin_faq",
         )
     ]]

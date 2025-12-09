@@ -25,7 +25,7 @@ async def show_trials_panel(
     texts = get_texts(db_user.language)
 
     stats = await get_trial_statistics(db)
-    message = texts.t("ADMIN_TRIALS_TITLE", "🧪 Trial management") + "\n\n" + texts.t(
+    message = texts.get_text("ADMIN_TRIALS_TITLE", "🧪 Trial management") + "\n\n" + texts.get_text(
         "ADMIN_TRIALS_STATS",
         "• Total trials used: {used}\n"
         "• Active now: {active}\n"
@@ -55,7 +55,7 @@ async def reset_trials(
     reset_count = await reset_trials_for_users_without_paid_subscription(db)
     stats = await get_trial_statistics(db)
 
-    message = texts.t(
+    message = texts.get_text(
         "ADMIN_TRIALS_RESET_RESULT",
         "♻️ Reset {reset_count} trials.\n\n"
         "• Total trials used: {used}\n"
@@ -72,7 +72,7 @@ async def reset_trials(
         message,
         reply_markup=get_admin_trials_keyboard(db_user.language),
     )
-    await callback.answer(texts.t("ADMIN_TRIALS_RESET_TOAST", "✅ Reset completed"))
+    await callback.answer(texts.get_text("ADMIN_TRIALS_RESET_TOAST", "✅ Reset completed"))
 
 
 def register_handlers(dp: Dispatcher) -> None:
