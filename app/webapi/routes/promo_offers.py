@@ -11,16 +11,20 @@ from app.database.crud.discount_offer import (
     list_discount_offers,
     upsert_discount_offer,
 )
+from app.handlers.admin.messages import get_custom_users, get_target_users
 from app.database.crud.promo_offer_log import list_promo_offer_logs
 from app.database.crud.promo_offer_template import (
     get_promo_offer_template_by_id,
     list_promo_offer_templates,
     update_promo_offer_template,
 )
+from app.database.crud.user import get_user_by_telegram_id
 from app.database.models import DiscountOffer, PromoOfferLog, PromoOfferTemplate, Subscription, User
 
 from ..dependencies import get_db_session, require_api_token
 from ..schemas.promo_offers import (
+    PromoOfferBroadcastRequest,
+    PromoOfferBroadcastResponse,
     PromoOfferCreateRequest,
     PromoOfferListResponse,
     PromoOfferLogListResponse,
@@ -137,6 +141,14 @@ def _build_log_response(entry: PromoOfferLog) -> PromoOfferLogResponse:
     )
 
 
+async def _resolve_target_users(db: AsyncSession, target: str) -> list[User]:
+    normalized = target.strip().lower()
+    if normalized.startswith("custom_"):
+        criteria = normalized[len("custom_"):]
+        return await get_custom_users(db, criteria)
+    return await get_target_users(db, normalized)
+
+
 @router.get("", response_model=PromoOfferListResponse)
 async def list_promo_offers(
     _: Any = Security(require_api_token),
@@ -144,20 +156,35 @@ async def list_promo_offers(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     user_id: Optional[int] = Query(None, ge=1),
+    telegram_id: Optional[int] = Query(None, ge=1),
     notification_type: Optional[str] = Query(None, min_length=1),
     is_active: Optional[bool] = Query(None),
 ) -> PromoOfferListResponse:
+    resolved_user_id = user_id
+    if telegram_id is not None:
+        user = await get_user_by_telegram_id(db, telegram_id)
+        if not user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        if resolved_user_id and resolved_user_id != user.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="telegram_id does not match the provided user_id",
+            )
+
+        resolved_user_id = user.id
+
     offers = await list_discount_offers(
         db,
         offset=offset,
         limit=limit,
-        user_id=user_id,
+        user_id=resolved_user_id,
         notification_type=notification_type,
         is_active=is_active,
     )
     total = await count_discount_offers(
         db,
-        user_id=user_id,
+        user_id=resolved_user_id,
         notification_type=notification_type,
         is_active=is_active,
     )
@@ -187,7 +214,26 @@ async def create_promo_offer(
     if not payload.effect_type.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "effect_type must not be empty")
 
-    user = await db.get(User, payload.user_id)
+    target_user_id = payload.user_id
+    user: Optional[User] = None
+    if payload.telegram_id is not None:
+        user = await get_user_by_telegram_id(db, payload.telegram_id)
+        if not user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+        if target_user_id and target_user_id != user.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Provided user_id does not match telegram_id",
+            )
+
+        target_user_id = user.id
+
+    if target_user_id is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "user_id or telegram_id is required")
+
+    if user is None:
+        user = await db.get(User, target_user_id)
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
@@ -195,12 +241,12 @@ async def create_promo_offer(
         subscription = await db.get(Subscription, payload.subscription_id)
         if not subscription:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Subscription not found")
-        if subscription.user_id != payload.user_id:
+        if subscription.user_id != target_user_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Subscription does not belong to the user")
 
     offer = await upsert_discount_offer(
         db,
-        user_id=payload.user_id,
+        user_id=target_user_id,
         subscription_id=payload.subscription_id,
         notification_type=payload.notification_type.strip(),
         discount_percent=payload.discount_percent,
@@ -213,6 +259,101 @@ async def create_promo_offer(
     await db.refresh(offer, attribute_names=["user", "subscription"])
 
     return _serialize_offer(offer)
+
+
+@router.post(
+    "/broadcast",
+    response_model=PromoOfferBroadcastResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def broadcast_promo_offers(
+    payload: PromoOfferBroadcastRequest,
+    _: Any = Security(require_api_token),
+    db: AsyncSession = Depends(get_db_session),
+) -> PromoOfferBroadcastResponse:
+    if payload.discount_percent < 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "discount_percent must be non-negative")
+    if payload.bonus_amount_kopeks < 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_kopeks must be non-negative")
+    if payload.valid_hours <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "valid_hours must be positive")
+    if not payload.notification_type.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "notification_type must not be empty")
+    if not payload.effect_type.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "effect_type must not be empty")
+
+    recipients: dict[int, User] = {}
+
+    target = payload.target
+    if target:
+        users = await _resolve_target_users(db, target)
+        recipients.update({user.id: user for user in users if user and user.id})
+
+    target_user_id = payload.user_id
+    user: Optional[User] = None
+    if payload.telegram_id is not None:
+        user = await get_user_by_telegram_id(db, payload.telegram_id)
+        if not user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+        if target_user_id and target_user_id != user.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Provided user_id does not match telegram_id",
+            )
+
+        target_user_id = user.id
+
+    if target_user_id is not None:
+        if user is None:
+            user = await db.get(User, target_user_id)
+        if not user:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+        recipients[target_user_id] = user
+
+    if not recipients:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Empty audience: provide target or a specific user",
+        )
+
+    if payload.subscription_id is not None:
+        if len(recipients) > 1:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "subscription_id can only be used when sending to a single user",
+            )
+        sole_user = next(iter(recipients.values()))
+        subscription = await db.get(Subscription, payload.subscription_id)
+        if not subscription:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Subscription not found")
+        if subscription.user_id != sole_user.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Subscription does not belong to the user",
+            )
+
+    created_offers = 0
+    for user in recipients.values():
+        offer = await upsert_discount_offer(
+            db,
+            user_id=user.id,
+            subscription_id=payload.subscription_id,
+            notification_type=payload.notification_type.strip(),
+            discount_percent=payload.discount_percent,
+            bonus_amount_kopeks=payload.bonus_amount_kopeks,
+            valid_hours=payload.valid_hours,
+            effect_type=payload.effect_type,
+            extra_data=payload.extra_data,
+        )
+        if offer:
+            created_offers += 1
+
+    return PromoOfferBroadcastResponse(
+        created_offers=created_offers,
+        user_ids=list(recipients.keys()),
+        target=payload.target,
+    )
 
 
 @router.get("/logs", response_model=PromoOfferLogListResponse)

@@ -1575,7 +1575,29 @@ async def show_node_statistics(
             if stats.get('nodeUuid') == node_uuid:
                 node_realtime = stats
                 break
-        
+
+        status_change = (
+            format_datetime(node["last_status_change"])
+            if node.get("last_status_change")
+            else "—"
+        )
+        created_at = (
+            format_datetime(node["created_at"])
+            if node.get("created_at")
+            else "—"
+        )
+        updated_at = (
+            format_datetime(node["updated_at"])
+            if node.get("updated_at")
+            else "—"
+        )
+        notify_percent = (
+            f"{node['notify_percent']}%" if node.get("notify_percent") is not None else "—"
+        )
+        cpu_info = node.get("cpu_model") or "—"
+        if node.get("cpu_count"):
+            cpu_info = f"{node['cpu_count']}x {cpu_info}"
+
         status_emoji = "🟢" if node["is_node_online"] else "🔴"
         xray_emoji = "✅" if node["is_xray_running"] else "❌"
         online_text = texts.get_text("ADMIN_RW_YES", "Yes") if node['is_node_online'] else texts.get_text("ADMIN_RW_NO", "No")
@@ -1793,17 +1815,11 @@ async def manage_squad_action(
             )
         return
     
-    await show_squad_details(
-        types.CallbackQuery(
-            id=callback.id,
-            from_user=callback.from_user,
-            chat_instance=callback.chat_instance,
-            data=f"admin_squad_manage_{squad_uuid}",
-            message=callback.message
-        ),
-        db_user,
-        db
-    )
+    refreshed_callback = callback.model_copy(
+        update={"data": f"admin_squad_manage_{squad_uuid}"}
+    ).as_(callback.bot)
+
+    await show_squad_details(refreshed_callback, db_user, db)
 
 @admin_required
 @error_handler
@@ -1982,15 +1998,11 @@ async def cancel_squad_rename(
     
     await state.clear()
     
-    new_callback = types.CallbackQuery(
-        id=callback.id,
-        from_user=callback.from_user,
-        chat_instance=callback.chat_instance,
-        data=f"squad_edit_{squad_uuid}",
-        message=callback.message
-    )
-    
-    await show_squad_edit_menu(new_callback, db_user, db)
+    refreshed_callback = callback.model_copy(
+        update={"data": f"squad_edit_{squad_uuid}"}
+    ).as_(callback.bot)
+
+    await show_squad_edit_menu(refreshed_callback, db_user, db)
 
 @admin_required
 @error_handler
@@ -2274,15 +2286,11 @@ async def show_squad_edit_menu_short(
         )
         return
     
-    new_callback = types.CallbackQuery(
-        id=callback.id,
-        from_user=callback.from_user,
-        chat_instance=callback.chat_instance,
-        data=f"squad_edit_{full_squad_uuid}",
-        message=callback.message
-    )
-    
-    await show_squad_edit_menu(new_callback, db_user, db)
+    refreshed_callback = callback.model_copy(
+        update={"data": f"squad_edit_{full_squad_uuid}"}
+    ).as_(callback.bot)
+
+    await show_squad_edit_menu(refreshed_callback, db_user, db)
 
 @admin_required
 @error_handler
@@ -2944,7 +2952,7 @@ async def save_auto_sync_schedule(
     data = await state.get_data()
 
     cancel_text = texts.CANCEL.lower()
-    if text.lower() in {cancel_text, "cancel", "отмена"}:
+    if text.lower() in {cancel_text, "cancel"}:
         await state.clear()
         status = remnawave_sync_service.get_status()
         view_text, keyboard = _build_auto_sync_view(status, db_user.language)

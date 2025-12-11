@@ -220,6 +220,7 @@ class BotConfigurationService:
         "PRICE_90_DAYS": "SUBSCRIPTION_PRICES",
         "PRICE_180_DAYS": "SUBSCRIPTION_PRICES",
         "PRICE_360_DAYS": "SUBSCRIPTION_PRICES",
+        "PAID_SUBSCRIPTION_USER_TAG": "SUBSCRIPTION_PRICES",
         "TRAFFIC_PACKAGES_CONFIG": "TRAFFIC_PACKAGES",
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS_ENABLED": "SUBSCRIPTIONS_CORE",
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS": "SUBSCRIPTIONS_CORE",
@@ -227,6 +228,7 @@ class BotConfigurationService:
         "DEFAULT_AUTOPAY_DAYS_BEFORE": "AUTOPAY",
         "MIN_BALANCE_FOR_AUTOPAY_KOPEKS": "AUTOPAY",
         "TRIAL_WARNING_HOURS": "TRIAL",
+        "TRIAL_USER_TAG": "TRIAL",
         "SUPPORT_USERNAME": "SUPPORT",
         "SUPPORT_MENU_ENABLED": "SUPPORT",
         "SUPPORT_SYSTEM_MODE": "SUPPORT",
@@ -642,6 +644,24 @@ class BotConfigurationService:
             "example": "123456789",
             "warning": "ID mismatch blocks token update, preventing substitution on another bot.",
             "dependencies": "Result of getMe() call in Telegram Bot API",
+        },
+        "TRIAL_USER_TAG": {
+            "description": (
+                "Tag the bot assigns to a user when a trial subscription is activated in the RemnaWave panel."
+            ),
+            "format": "Up to 16 characters: uppercase A-Z, digits, and underscore.",
+            "example": "TRIAL_USER",
+            "warning": "Invalid format is ignored when creating a user.",
+            "dependencies": "Trial activation and enabled RemnaWave integration",
+        },
+        "PAID_SUBSCRIPTION_USER_TAG": {
+            "description": (
+                "Tag the bot assigns to a user when a paid subscription is purchased in the RemnaWave panel."
+            ),
+            "format": "Up to 16 characters: uppercase A-Z, digits, and underscore.",
+            "example": "PAID_USER",
+            "warning": "If the tag is missing or invalid, the existing tag is not changed.",
+            "dependencies": "Subscription purchase and RemnaWave integration",
         },
     }
 
