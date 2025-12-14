@@ -8,6 +8,7 @@ from app.webapi.docs import add_redoc_endpoint
 
 from .middleware import RequestLoggingMiddleware
 from .routes import (
+    bots,
     broadcasts,
     backups,
     campaigns,
@@ -17,6 +18,7 @@ from .routes import (
     media,
     miniapp,
     partners,
+    payment_cards,
     polls,
     promocodes,
     promo_groups,
@@ -211,5 +213,7 @@ def create_web_api_app() -> FastAPI:
         prefix="/notifications/subscriptions",
         tags=["notifications"],
     )
+    app.include_router(bots.router, prefix="/bots", tags=["bots"])
+    app.include_router(payment_cards.router, tags=["payment-cards"])
 
     return app

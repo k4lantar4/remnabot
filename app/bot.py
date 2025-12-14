@@ -217,6 +217,8 @@ async def setup_bot(bot_config: Optional[BotModel] = None) -> tuple[Bot, Dispatc
     admin_faq.register_handlers(dp)
     admin_payments.register_handlers(dp)
     admin_trials.register_handlers(dp)
+    from app.handlers.admin import tenant_bots
+    tenant_bots.register_handlers(dp)
     common.register_handlers(dp)
     register_stars_handlers(dp)
     user_polls.register_handlers(dp)

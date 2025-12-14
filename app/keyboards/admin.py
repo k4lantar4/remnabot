@@ -55,6 +55,12 @@ def get_admin_main_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                text=_t(texts, "ADMIN_MAIN_TENANT_BOTS", "🤖 Tenant Bots"),
+                callback_data="admin_tenant_bots_menu",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 text=_t(texts, "ADMIN_MAIN_TRIALS", "🧪 Trials"),
                 callback_data="admin_trials",
             ),

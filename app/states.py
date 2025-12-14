@@ -98,6 +98,10 @@ class AdminStates(StatesGroup):
     editing_user_traffic = State()
     editing_user_referrals = State()
     editing_user_referral_percent = State()
+    
+    # Tenant bots management
+    waiting_for_bot_name = State()
+    waiting_for_bot_token = State()
 
     editing_rules_page = State()
     editing_privacy_policy = State()

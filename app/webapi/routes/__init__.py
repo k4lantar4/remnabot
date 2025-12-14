@@ -1,10 +1,12 @@
 from . import (
+    bots,
     config,
     health,
     main_menu_buttons,
     media,
     miniapp,
     partners,
+    payment_cards,
     polls,
     promo_offers,
     user_messages,
