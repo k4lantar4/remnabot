@@ -107,16 +107,18 @@ async def mark_user_as_had_paid_subscription(db: AsyncSession, user: User) -> bo
         return False
 
 
-async def get_user_referral_summary(db: AsyncSession, user_id: int) -> Dict:
+async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int = None) -> Dict:
     try:
-        invited_count_result = await db.execute(
-            select(func.count(User.id)).where(User.referred_by_id == user_id)
-        )
+        query = select(func.count(User.id)).where(User.referred_by_id == user_id)
+        if bot_id is not None:
+            query = query.where(User.bot_id == bot_id)
+        invited_count_result = await db.execute(query)
         invited_count = invited_count_result.scalar() or 0
         
-        referrals_result = await db.execute(
-            select(User).where(User.referred_by_id == user_id)
-        )
+        referrals_query = select(User).where(User.referred_by_id == user_id)
+        if bot_id is not None:
+            referrals_query = referrals_query.where(User.bot_id == bot_id)
+        referrals_result = await db.execute(referrals_query)
         referrals = referrals_result.scalars().all()
         
         paid_referrals_count = sum(1 for ref in referrals if ref.has_made_first_topup)
@@ -205,20 +207,19 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int) -> Dict:
         }
 
 
-async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0) -> Dict:
+async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0, bot_id: int = None) -> Dict:
     try:
-        referrals_result = await db.execute(
-            select(User)
-            .where(User.referred_by_id == user_id)
-            .order_by(User.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        referrals_query = select(User).where(User.referred_by_id == user_id)
+        if bot_id is not None:
+            referrals_query = referrals_query.where(User.bot_id == bot_id)
+        referrals_query = referrals_query.order_by(User.created_at.desc()).offset(offset).limit(limit)
+        referrals_result = await db.execute(referrals_query)
         referrals = referrals_result.scalars().all()
         
-        total_count_result = await db.execute(
-            select(func.count(User.id)).where(User.referred_by_id == user_id)
-        )
+        total_count_query = select(func.count(User.id)).where(User.referred_by_id == user_id)
+        if bot_id is not None:
+            total_count_query = total_count_query.where(User.bot_id == bot_id)
+        total_count_result = await db.execute(total_count_query)
         total_count = total_count_result.scalar() or 0
         
         detailed_referrals = []
@@ -289,7 +290,7 @@ async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int 
         }
 
 
-async def get_referral_analytics(db: AsyncSession, user_id: int) -> Dict:
+async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = None) -> Dict:
     try:
         now = datetime.utcnow()
         periods = {
@@ -301,34 +302,34 @@ async def get_referral_analytics(db: AsyncSession, user_id: int) -> Dict:
         
         earnings_by_period = {}
         for period_name, start_date in periods.items():
-            result = await db.execute(
-                select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
-                .where(
-                    and_(
-                        ReferralEarning.user_id == user_id,
-                        ReferralEarning.created_at >= start_date
-                    )
+            query = select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0)).where(
+                and_(
+                    ReferralEarning.user_id == user_id,
+                    ReferralEarning.created_at >= start_date
                 )
             )
+            if bot_id is not None:
+                # Filter by referral's bot_id through join
+                query = query.join(User, ReferralEarning.referral_id == User.id).where(User.bot_id == bot_id)
+            result = await db.execute(query)
             earnings_by_period[period_name] = result.scalar() or 0
         
-        top_referrals_result = await db.execute(
-            select(
-                ReferralEarning.referral_id,
-                func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0).label('total_earned'),
-                func.count(ReferralEarning.id).label('earnings_count')
-            )
-            .where(ReferralEarning.user_id == user_id)
-            .group_by(ReferralEarning.referral_id)
-            .order_by(func.sum(ReferralEarning.amount_kopeks).desc())
-            .limit(5)
-        )
+        top_referrals_query = select(
+            ReferralEarning.referral_id,
+            func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0).label('total_earned'),
+            func.count(ReferralEarning.id).label('earnings_count')
+        ).where(ReferralEarning.user_id == user_id)
+        if bot_id is not None:
+            top_referrals_query = top_referrals_query.join(User, ReferralEarning.referral_id == User.id).where(User.bot_id == bot_id)
+        top_referrals_query = top_referrals_query.group_by(ReferralEarning.referral_id).order_by(func.sum(ReferralEarning.amount_kopeks).desc()).limit(5)
+        top_referrals_result = await db.execute(top_referrals_query)
         
         top_referrals = []
         for row in top_referrals_result:
-            referral_result = await db.execute(
-                select(User).where(User.id == row.referral_id)
-            )
+            referral_query = select(User).where(User.id == row.referral_id)
+            if bot_id is not None:
+                referral_query = referral_query.where(User.bot_id == bot_id)
+            referral_result = await db.execute(referral_query)
             referral = referral_result.scalar_one_or_none()
             if referral:
                 top_referrals.append({

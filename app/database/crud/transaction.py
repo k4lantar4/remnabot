@@ -18,7 +18,8 @@ async def create_transaction(
     description: str,
     payment_method: Optional[PaymentMethod] = None,
     external_id: Optional[str] = None,
-    is_completed: bool = True
+    is_completed: bool = True,
+    bot_id: Optional[int] = None
 ) -> Transaction:
     
     transaction = Transaction(
@@ -29,7 +30,8 @@ async def create_transaction(
         payment_method=payment_method.value if payment_method else None,
         external_id=external_id,
         is_completed=is_completed,
-        completed_at=datetime.utcnow() if is_completed else None
+        completed_at=datetime.utcnow() if is_completed else None,
+        bot_id=bot_id
     )
     
     db.add(transaction)

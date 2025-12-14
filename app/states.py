@@ -29,6 +29,7 @@ class BalanceStates(StatesGroup):
     waiting_for_platega_method = State()
     waiting_for_stars_payment = State()
     waiting_for_support_request = State()
+    waiting_for_card_to_card_receipt = State()
 
 
 class PromoCodeStates(StatesGroup):

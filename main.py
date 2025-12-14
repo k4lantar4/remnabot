@@ -481,7 +481,6 @@ async def main():
         ) as stage:
             if polling_enabled:
                 # Start polling for all active bots
-                import asyncio
                 polling_tasks = []
                 for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
                     task = asyncio.create_task(

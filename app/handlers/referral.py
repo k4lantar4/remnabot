@@ -25,11 +25,16 @@ logger = logging.getLogger(__name__)
 async def show_referral_info(
     callback: types.CallbackQuery,
     db_user: User,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     texts = get_texts(db_user.language)
     
-    summary = await get_user_referral_summary(db, db_user.id)
+    # Get bot_id from user if not provided
+    if bot_id is None:
+        bot_id = getattr(db_user, 'bot_id', None)
+    
+    summary = await get_user_referral_summary(db, db_user.id, bot_id=bot_id)
     
     bot_username = (await callback.bot.get_me()).username
     referral_link = f"https://t.me/{bot_username}?start={db_user.referral_code}"
@@ -174,11 +179,16 @@ async def show_detailed_referral_list(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
-    page: int = 1
+    page: int = 1,
+    bot_id: int = None,
 ):
     texts = get_texts(db_user.language)
 
-    referrals_data = await get_detailed_referral_list(db, db_user.id, limit=10, offset=(page - 1) * 10)
+    # Get bot_id from user if not provided
+    if bot_id is None:
+        bot_id = getattr(db_user, 'bot_id', None)
+
+    referrals_data = await get_detailed_referral_list(db, db_user.id, limit=10, offset=(page - 1) * 10, bot_id=bot_id)
 
     if not referrals_data['referrals']:
         await edit_or_answer_photo(
@@ -248,11 +258,16 @@ async def show_detailed_referral_list(
 async def show_referral_analytics(
     callback: types.CallbackQuery,
     db_user: User,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     texts = get_texts(db_user.language)
 
-    analytics = await get_referral_analytics(db, db_user.id)
+    # Get bot_id from user if not provided
+    if bot_id is None:
+        bot_id = getattr(db_user, 'bot_id', None)
+
+    analytics = await get_referral_analytics(db, db_user.id, bot_id=bot_id)
 
     text = texts.t("REFERRAL_ANALYTICS_TITLE") + "\n\n"
 

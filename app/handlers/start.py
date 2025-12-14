@@ -99,7 +99,8 @@ async def _apply_campaign_bonus_if_needed(
 async def handle_potential_referral_code(
     message: types.Message,
     state: FSMContext,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     current_state = await state.get_state()
     logger.info(f"🔍 REFERRAL/PROMO CHECK: Checking message '{message.text}' in state {current_state}")
@@ -112,7 +113,7 @@ async def handle_potential_referral_code(
     ]:
         return False
 
-    user = await get_user_by_telegram_id(db, message.from_user.id)
+    user = await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
     if user and user.status == UserStatus.ACTIVE.value:
         return False
 
@@ -129,7 +130,7 @@ async def handle_potential_referral_code(
         return False
 
     # First check referral code
-    referrer = await get_user_by_referral_code(db, potential_code)
+    referrer = await get_user_by_referral_code(db, potential_code, bot_id=bot_id)
     if referrer:
         data['referral_code'] = potential_code
         data['referrer_id'] = referrer.id
@@ -150,7 +151,7 @@ async def handle_potential_referral_code(
             await state.set_state(RegistrationStates.waiting_for_rules_accept)
             logger.info("📋 Rules sent after referral code input")
         else:
-            await complete_registration(message, state, db)
+            await complete_registration(message, state, db, bot_id=bot_id)
 
         return True
 
@@ -181,7 +182,7 @@ async def handle_potential_referral_code(
             await state.set_state(RegistrationStates.waiting_for_rules_accept)
             logger.info("📋 Rules sent after promocode acceptance")
         else:
-            await complete_registration(message, state, db)
+            await complete_registration(message, state, db, bot_id=bot_id)
 
         return True
 
@@ -210,6 +211,7 @@ async def _continue_registration_after_language(
     callback: types.CallbackQuery | None,
     state: FSMContext,
     db: AsyncSession,
+    bot_id: int = None,
 ) -> None:
     data = await state.get_data() or {}
     language = data.get('language', DEFAULT_LANGUAGE)
@@ -222,15 +224,15 @@ async def _continue_registration_after_language(
 
     async def _complete_registration_wrapper():
         if callback:
-            await complete_registration_from_callback(callback, state, db)
+            await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
         else:
-            await complete_registration(message, state, db)
+            await complete_registration(message, state, db, bot_id=bot_id)
 
     if settings.SKIP_RULES_ACCEPT:
         logger.info("⚙️ LANGUAGE: SKIP_RULES_ACCEPT enabled - skipping rules")
 
         if data.get('referral_code'):
-            referrer = await get_user_by_referral_code(db, data['referral_code'])
+            referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
             if referrer:
                 data['referrer_id'] = referrer.id
                 await state.set_data(data)
@@ -260,7 +262,7 @@ async def _continue_registration_after_language(
     logger.info("📋 LANGUAGE: Rules sent after language selection")
 
 
-async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession, db_user=None):
+async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession, db_user=None, bot_id: int = None):
     logger.info(f"🚀 START: Processing /start from {message.from_user.id}")
 
     data = await state.get_data() or {}
@@ -308,7 +310,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
     if referral_code:
         await state.update_data(referral_code=referral_code)
     
-    user = db_user if db_user else await get_user_by_telegram_id(db, message.from_user.id)
+    user = db_user if db_user else await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
 
     if campaign and not campaign_notification_sent:
         try:
@@ -502,6 +504,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         callback=None,
         state=state,
         db=db,
+        bot_id=bot_id,
     )
 
 
@@ -509,6 +512,7 @@ async def process_language_selection(
     callback: types.CallbackQuery,
     state: FSMContext,
     db: AsyncSession,
+    bot_id: int = None,
 ):
     logger.info(
         f"🌐 LANGUAGE: User {callback.from_user.id} selected language ({callback.data})"
@@ -543,6 +547,7 @@ async def process_language_selection(
             callback=callback,
             state=state,
             db=db,
+            bot_id=bot_id,
         )
         return
 
@@ -588,6 +593,7 @@ async def process_language_selection(
         callback=callback,
         state=state,
         db=db,
+        bot_id=bot_id,
     )
 
 
@@ -645,6 +651,7 @@ async def _continue_registration_after_rules(
     state: FSMContext,
     db: AsyncSession,
     language: str,
+    bot_id: int = None,
 ) -> None:
     """
     Continues registration after rules acceptance (referral code or completion).
@@ -655,17 +662,17 @@ async def _continue_registration_after_rules(
     if data.get('referral_code'):
         logger.info(f"🎫 Referral code found from deep link: {data['referral_code']}")
 
-        referrer = await get_user_by_referral_code(db, data['referral_code'])
+        referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
         if referrer:
             data['referrer_id'] = referrer.id
             await state.set_data(data)
             logger.info(f"✅ Referrer found: {referrer.id}")
 
-        await complete_registration_from_callback(callback, state, db)
+        await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
     else:
         if settings.SKIP_REFERRAL_CODE:
             logger.info("⚙️ SKIP_REFERRAL_CODE enabled - skipping referral code request")
-            await complete_registration_from_callback(callback, state, db)
+            await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
         else:
             try:
                 await callback.message.edit_text(
@@ -676,13 +683,14 @@ async def _continue_registration_after_rules(
                 logger.info(f"🔍 Waiting for referral code input")
             except Exception as e:
                 logger.error(f"Error showing referral code question: {e}")
-                await complete_registration_from_callback(callback, state, db)
+                await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
 
 
 async def process_rules_accept(
     callback: types.CallbackQuery,
     state: FSMContext,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     """
     Handles user acceptance or rejection of rules.
@@ -715,7 +723,7 @@ async def process_rules_accept(
             # If policy was not shown, continue registration
             if not policy_shown:
                 await _continue_registration_after_rules(
-                    callback, state, db, language
+                    callback, state, db, language, bot_id=bot_id
                 )
                     
         else:
@@ -763,7 +771,8 @@ async def process_rules_accept(
 async def process_privacy_policy_accept(
     callback: types.CallbackQuery,
     state: FSMContext,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     
     logger.info(f"🔒 PRIVACY POLICY: Starting privacy policy processing")
@@ -802,17 +811,17 @@ async def process_privacy_policy_accept(
             if data.get('referral_code'):
                 logger.info(f"🎫 Referral code found from deep link: {data['referral_code']}")
 
-                referrer = await get_user_by_referral_code(db, data['referral_code'])
+                referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
                 if referrer:
                     data['referrer_id'] = referrer.id
                     await state.set_data(data)
                     logger.info(f"✅ Referrer found: {referrer.id}")
 
-                await complete_registration_from_callback(callback, state, db)
+                await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
             else:
                 if settings.SKIP_REFERRAL_CODE:
                     logger.info("⚙️ SKIP_REFERRAL_CODE enabled - skipping referral code request")
-                    await complete_registration_from_callback(callback, state, db)
+                    await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
                 else:
                     try:
                         await state.set_data(data)
@@ -826,7 +835,7 @@ async def process_privacy_policy_accept(
                         logger.info(f"🔍 Waiting for referral code input")
                     except Exception as e:
                         logger.error(f"Error showing referral code question: {e}")
-                        await complete_registration_from_callback(callback, state, db)
+                        await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
                     
         else:
             logger.info(f"❌ Privacy policy declined by user {callback.from_user.id}")
@@ -873,7 +882,8 @@ async def process_privacy_policy_accept(
 async def process_referral_code_input(
     message: types.Message,
     state: FSMContext,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
 
     logger.info(f"🎫 REFERRAL/PROMO: Processing code: {message.text}")
@@ -885,13 +895,13 @@ async def process_referral_code_input(
     code = message.text.strip()
 
     # First check if this is a referral code
-    referrer = await get_user_by_referral_code(db, code)
+    referrer = await get_user_by_referral_code(db, code, bot_id=bot_id)
     if referrer:
         data['referrer_id'] = referrer.id
         await state.set_data(data)
         await message.answer(texts.t("REFERRAL_CODE_ACCEPTED"))
         logger.info(f"✅ Referral code applied: {code}")
-        await complete_registration(message, state, db)
+        await complete_registration(message, state, db, bot_id=bot_id)
         return
 
     # If referral code not found, check promocode
@@ -907,7 +917,7 @@ async def process_referral_code_input(
             texts.t("PROMOCODE_ACCEPTED_WILL_ACTIVATE")
         )
         logger.info(f"✅ Promocode saved for activation: {code}")
-        await complete_registration(message, state, db)
+        await complete_registration(message, state, db, bot_id=bot_id)
         return
 
     # Neither referral code nor promocode found
@@ -921,7 +931,8 @@ async def process_referral_code_input(
 async def process_referral_code_skip(
     callback: types.CallbackQuery,
     state: FSMContext,
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
 
     logger.info(f"⭐️ SKIP: Skipping referral code from user {callback.from_user.id}")
@@ -943,21 +954,22 @@ async def process_referral_code_skip(
             )
         except:
             pass
-    
-    await complete_registration_from_callback(callback, state, db)
+
+    await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
 
 
 
 async def complete_registration_from_callback(
     callback: types.CallbackQuery,
     state: FSMContext, 
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     logger.info(f"🎯 COMPLETE: Completing registration for user {callback.from_user.id}")
     
     from sqlalchemy.orm import selectinload
     
-    existing_user = await get_user_by_telegram_id(db, callback.from_user.id)
+    existing_user = await get_user_by_telegram_id(db, callback.from_user.id, bot_id=bot_id)
     
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning(f"⚠️ User {callback.from_user.id} already active! Showing main menu.")
@@ -1071,7 +1083,8 @@ async def complete_registration_from_callback(
             last_name=callback.from_user.last_name,
             language=language,
             referred_by_id=referrer_id,
-            referral_code=referral_code 
+            referral_code=referral_code,
+            bot_id=bot_id,
         )
         await db.refresh(user, ['subscription'])
     else:
@@ -1198,11 +1211,12 @@ async def complete_registration_from_callback(
 async def complete_registration(
     message: types.Message, 
     state: FSMContext, 
-    db: AsyncSession
+    db: AsyncSession,
+    bot_id: int = None,
 ):
     logger.info(f"🎯 COMPLETE: Completing registration for user {message.from_user.id}")
     
-    existing_user = await get_user_by_telegram_id(db, message.from_user.id)
+    existing_user = await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
     
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning(f"⚠️ User {message.from_user.id} already active! Showing main menu.")
@@ -1277,7 +1291,7 @@ async def complete_registration(
 
     referrer_id = data.get('referrer_id')
     if not referrer_id and data.get('referral_code'):
-        referrer = await get_user_by_referral_code(db, data['referral_code'])
+        referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
         if referrer:
             referrer_id = referrer.id
     
@@ -1316,7 +1330,8 @@ async def complete_registration(
             last_name=message.from_user.last_name,
             language=language,
             referred_by_id=referrer_id,
-            referral_code=referral_code
+            referral_code=referral_code,
+            bot_id=bot_id,
         )
         await db.refresh(user, ['subscription'])
     else:
@@ -1613,7 +1628,8 @@ async def required_sub_channel_check(
     bot: Bot,
     state: FSMContext,
     db: AsyncSession,
-    db_user=None
+    db_user=None,
+    bot_id: int = None,
 ):
     language = DEFAULT_LANGUAGE
     texts = get_texts(language)
@@ -1658,7 +1674,7 @@ async def required_sub_channel_check(
 
         user = db_user
         if not user:
-            user = await get_user_by_telegram_id(db, query.from_user.id)
+            user = await get_user_by_telegram_id(db, query.from_user.id, bot_id=bot_id)
 
         if user and getattr(user, "language", None):
             language = user.language

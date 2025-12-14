@@ -916,6 +916,9 @@ def register_balance_handlers(dp: Dispatcher):
         F.data == "topup_wata"
     )
 
+    from .card_to_card import register_card_to_card_handlers
+    register_card_to_card_handlers(dp)
+
     from .pal24 import start_pal24_payment
     dp.callback_query.register(
         start_pal24_payment,
