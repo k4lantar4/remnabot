@@ -175,12 +175,28 @@ async def main():
                 stage.warning(f"Master bot initialization error: {error}")
                 logger.error(f"❌ Master bot initialization error: {error}", exc_info=True)
 
+        # Multi-bot initialization
+        from app.bot import initialize_all_bots, active_bots, active_dispatchers
+        
         bot = None
         dp = None
         async with timeline.stage("Bot Setup", "🤖", success_message="Bot configured") as stage:
-            bot, dp = await setup_bot()
+            initialized_bots = await initialize_all_bots()
+            
+            if not initialized_bots:
+                stage.warning("No bots initialized")
+                logger.error("❌ No bots initialized, cannot continue")
+                return
+            
+            # For backward compatibility, use first bot for services
+            # In multi-tenant mode, services should use bot from context
+            first_bot_id = list(initialized_bots.keys())[0]
+            bot, dp = initialized_bots[first_bot_id]
+            stage.log(f"Initialized {len(initialized_bots)} bot(s), using first bot (ID: {first_bot_id}) for services")
             stage.log("Cache and FSM prepared")
 
+        # Set first bot for services (backward compatibility)
+        # Services should ideally get bot from context in multi-tenant mode
         monitoring_service.bot = bot
         maintenance_service.set_bot(bot)
         broadcast_service.set_bot(bot)
@@ -464,10 +480,22 @@ async def main():
             success_message="Aiogram polling started",
         ) as stage:
             if polling_enabled:
-                polling_task = asyncio.create_task(dp.start_polling(bot, skip_updates=True))
-                stage.log("skip_updates=True")
+                # Start polling for all active bots
+                import asyncio
+                polling_tasks = []
+                for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
+                    task = asyncio.create_task(
+                        dp_instance.start_polling(bot_instance, skip_updates=True)
+                    )
+                    polling_tasks.append(task)
+                    stage.log(f"Started polling for bot ID: {bot_id}")
+                
+                # For backward compatibility, keep reference to first bot's polling task
+                polling_task = polling_tasks[0] if polling_tasks else None
+                stage.log(f"skip_updates=True for {len(polling_tasks)} bot(s)")
             else:
                 polling_task = None
+                polling_tasks = []
                 stage.skip("Polling disabled by run mode")
 
         webhook_lines: list[str] = []
@@ -556,7 +584,15 @@ async def main():
                     await auto_payment_verification_service.start()
                     auto_verification_active = auto_payment_verification_service.is_running()
 
-                if polling_task and polling_task.done():
+                # Check all polling tasks
+                if polling_enabled and 'polling_tasks' in locals():
+                    for i, task in enumerate(polling_tasks):
+                        if task.done():
+                            exception = task.exception()
+                            if exception:
+                                logger.error(f"Polling failed for bot {i}: {exception}")
+                                # Don't break - continue with other bots
+                elif polling_task and polling_task.done():
                     exception = polling_task.exception()
                     if exception:
                         logger.error(f"Polling failed: {exception}")
@@ -627,7 +663,17 @@ async def main():
         except Exception as e:
             logger.error(f"Error stopping backup service: {e}")
         
-        if polling_task and not polling_task.done():
+        # Stop all polling tasks
+        if polling_enabled and 'polling_tasks' in locals():
+            logger.info(f"ℹ️ Stopping polling for {len(polling_tasks)} bot(s)...")
+            for task in polling_tasks:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+        elif polling_task and not polling_task.done():
             logger.info("ℹ️ Stopping polling...")
             polling_task.cancel()
             try:

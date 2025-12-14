@@ -1,10 +1,12 @@
 import logging
+from typing import Dict, Optional
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 import redis.asyncio as redis
 
 from app.config import settings
+from app.database.models import Bot as BotModel
 from app.middlewares.global_error import GlobalErrorMiddleware 
 from app.middlewares.bot_context import BotContextMiddleware
 from app.middlewares.auth import AuthMiddleware
@@ -70,6 +72,10 @@ patch_message_methods()
 
 logger = logging.getLogger(__name__)
 
+# Global registry for active bots and dispatchers
+active_bots: Dict[int, Bot] = {}
+active_dispatchers: Dict[int, Dispatcher] = {}
+
 
 async def debug_callback_handler(callback: types.CallbackQuery):
     logger.info("🔍 DEBUG CALLBACK:")
@@ -78,24 +84,50 @@ async def debug_callback_handler(callback: types.CallbackQuery):
     logger.info("  - Username: %s", callback.from_user.username)
 
 
-async def setup_bot() -> tuple[Bot, Dispatcher]:
+async def setup_bot(bot_config: Optional[BotModel] = None) -> tuple[Bot, Dispatcher]:
+    """
+    Setup a single bot instance.
     
-    try:
-        await cache.connect()
-        logger.info("Cache initialized")
-    except Exception as e:
-        logger.warning("Cache initialization failed: %s", e)
+    Args:
+        bot_config: Bot configuration from database. If None, uses BOT_TOKEN from settings (backward compatibility).
+    
+    Returns:
+        Tuple of (Bot instance, Dispatcher instance)
+    """
+    # Initialize cache once (shared across all bots)
+    if not cache._connected:
+        try:
+            await cache.connect()
+            logger.info("Cache initialized")
+        except Exception as e:
+            logger.warning("Cache initialization failed: %s", e)
     
     from aiogram.client.default import DefaultBotProperties
     from aiogram.enums import ParseMode
 
+    # Use bot_config if provided, otherwise fall back to settings (backward compatibility)
+    if bot_config:
+        bot_token = bot_config.telegram_bot_token
+        bot_id = bot_config.id
+        bot_name = bot_config.name
+        logger.info(f"🤖 Setting up bot: {bot_name} (ID: {bot_id})")
+    else:
+        bot_token = settings.BOT_TOKEN
+        bot_id = None
+        bot_name = "Default Bot"
+        logger.info(f"🤖 Setting up default bot from settings")
+    
     bot = Bot(
-        token=settings.BOT_TOKEN, 
+        token=bot_token, 
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     
+    # Set bot in maintenance service (for backward compatibility, uses last bot)
     maintenance_service.set_bot(bot)
-    logger.info("Bot set in maintenance_service")
+    if bot_id:
+        logger.info(f"Bot {bot_name} (ID: {bot_id}) set in maintenance_service")
+    else:
+        logger.info("Bot set in maintenance_service")
     
     try:
         redis_client = redis.from_url(settings.REDIS_URL)
@@ -203,20 +235,97 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
         logger.info("Maintenance monitoring disabled by settings")
     
     logger.info("🛡️ GlobalErrorMiddleware enabled - bot protected from stale callback queries")
-    logger.info("Bot successfully configured")
+    if bot_id:
+        logger.info(f"✅ Bot {bot_name} (ID: {bot_id}) successfully configured")
+    else:
+        logger.info("Bot successfully configured")
     
     return bot, dp
 
 
-async def shutdown_bot():
-    try:
-        await maintenance_service.stop_monitoring()
-        logger.info("Maintenance monitoring stopped")
-    except Exception as e:
-        logger.error("Failed to stop maintenance monitoring: %s", e)
+async def initialize_all_bots() -> Dict[int, tuple[Bot, Dispatcher]]:
+    """
+    Initialize all active bots from database.
     
-    try:
-        await cache.close()
-        logger.info("Cache connections closed")
-    except Exception as e:
-        logger.error("Failed to close cache connections: %s", e)
+    Returns:
+        Dictionary mapping bot_id -> (Bot, Dispatcher) tuple
+    """
+    from app.database.database import AsyncSessionLocal
+    from app.database.crud.bot import get_active_bots
+    
+    logger.info("🚀 Initializing all active bots from database...")
+    
+    async with AsyncSessionLocal() as db:
+        bots = await get_active_bots(db)
+        
+        if not bots:
+            logger.warning("⚠️ No active bots found in database")
+            # Fallback to single bot from settings for backward compatibility
+            logger.info("📋 Falling back to single bot from BOT_TOKEN setting")
+            bot, dp = await setup_bot()
+            return {0: (bot, dp)}  # Use 0 as key for default bot
+        
+        initialized = {}
+        for bot_config in bots:
+            try:
+                bot, dp = await setup_bot(bot_config)
+                active_bots[bot_config.id] = bot
+                active_dispatchers[bot_config.id] = dp
+                initialized[bot_config.id] = (bot, dp)
+                logger.info(
+                    f"✅ Bot initialized: {bot_config.name} (ID: {bot_config.id}, "
+                    f"Master: {bot_config.is_master})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"❌ Failed to initialize bot {bot_config.id} ({bot_config.name}): {e}",
+                    exc_info=True
+                )
+        
+        logger.info(f"🎉 Successfully initialized {len(initialized)} bot(s)")
+        return initialized
+
+
+async def shutdown_bot(bot_id: Optional[int] = None):
+    """
+    Shutdown bot(s).
+    
+    Args:
+        bot_id: Specific bot ID to shutdown. If None, shuts down all bots.
+    """
+    if bot_id is not None:
+        # Shutdown specific bot
+        if bot_id in active_bots:
+            bot = active_bots[bot_id]
+            try:
+                await bot.session.close()
+                del active_bots[bot_id]
+                if bot_id in active_dispatchers:
+                    del active_dispatchers[bot_id]
+                logger.info(f"🛑 Bot {bot_id} shut down")
+            except Exception as e:
+                logger.error(f"Failed to shutdown bot {bot_id}: {e}")
+    else:
+        # Shutdown all bots
+        try:
+            await maintenance_service.stop_monitoring()
+            logger.info("Maintenance monitoring stopped")
+        except Exception as e:
+            logger.error("Failed to stop maintenance monitoring: %s", e)
+        
+        # Close all bot sessions
+        for bot_id, bot in list(active_bots.items()):
+            try:
+                await bot.session.close()
+                logger.info(f"🛑 Bot {bot_id} session closed")
+            except Exception as e:
+                logger.error(f"Failed to close bot {bot_id} session: {e}")
+        
+        active_bots.clear()
+        active_dispatchers.clear()
+        
+        try:
+            await cache.close()
+            logger.info("Cache connections closed")
+        except Exception as e:
+            logger.error("Failed to close cache connections: %s", e)

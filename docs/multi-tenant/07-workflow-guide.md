@@ -516,6 +516,7 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 ---
 
 #### Increment 2.4: Feature Flag Service
+**Status:** ✅ **COMPLETED**  
 **Priority:** 🟡 High  
 **Time:** 2 hours  
 **Dependencies:** Increment 1.4  
@@ -550,6 +551,17 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 - ✅ Cache invalidation works
 - ✅ Performance acceptable
 - ✅ All tests pass
+
+**Implementation Summary:**
+- Created `TenantFeatureService` class with full caching support
+- Implemented `is_feature_enabled()` with Redis caching (5 min TTL)
+- Implemented `get_feature_config()` with separate cache for configs
+- Implemented `set_feature()` with automatic cache invalidation
+- Implemented `get_all_features()` to get all flags for a bot
+- Implemented `invalidate_cache()` for manual cache invalidation
+- Graceful fallback to database if cache unavailable
+- Comprehensive logging for cache hits/misses
+- All methods tested and verified
 
 **Next:** Increment 2.4a
 
@@ -611,10 +623,11 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 ---
 
 #### Increment 2.5: Multi-Bot Support
-**Priority:** 🔴 Critical  
-**Time:** 4 hours  
-**Dependencies:** Increment 1.3, 1.5  
-**Risk:** High  
+**Status:** ✅ **COMPLETED**  
+**Priority:** 🔴 Critical
+**Time:** 4 hours
+**Dependencies:** Increment 1.3, 1.5
+**Risk:** High
 **Value:** High
 
 **Why Next:**
@@ -633,6 +646,16 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 - ✅ All bots initialize
 - ✅ All bots work independently
 - ✅ Clean shutdown works
+
+**Implementation Summary:**
+- Created global registry: `active_bots` and `active_dispatchers` dictionaries
+- Updated `setup_bot()` to accept optional `bot_config` parameter (backward compatible)
+- Implemented `initialize_all_bots()` to load all active bots from database
+- Updated `main.py` to use multi-bot initialization
+- Implemented multi-bot polling (all bots poll simultaneously)
+- Updated shutdown logic to handle all bots
+- Maintained backward compatibility (falls back to single bot from settings if no bots in DB)
+- All syntax checks passed
 
 **Next:** Increment 3.1
 
@@ -1497,8 +1520,8 @@ async def migrate_existing_data():
 - [x] 2.1 Add bot_id to Users Table - ✅ **COMPLETED**
 - [x] 2.2 Update User CRUD - ✅ **COMPLETED**
 - [x] 2.3 Update Subscription CRUD - ✅ **COMPLETED**
-- [ ] 2.4 Feature Flag Service
-- [ ] 2.5 Multi-Bot Support
+- [x] 2.4 Feature Flag Service - ✅ **COMPLETED**
+- [x] 2.5 Multi-Bot Support - ✅ **COMPLETED**
 
 ### Phase 3: Integration
 - [ ] 3.1 Update Start Handler
