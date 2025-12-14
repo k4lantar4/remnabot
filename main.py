@@ -154,6 +154,27 @@ async def main():
                 stage.warning(f"Failed to load configuration: {error}")
                 logger.error(f"❌ Failed to load configuration: {error}")
 
+        async with timeline.stage(
+            "Master Bot Initialization",
+            "👑",
+            success_message="Master bot ready",
+        ) as stage:
+            try:
+                from app.database.database import AsyncSessionLocal
+                from app.database.crud.init_master_bot import ensure_master_bot
+                
+                async with AsyncSessionLocal() as db:
+                    success, message = await ensure_master_bot(db)
+                    if success:
+                        stage.success(message)
+                        logger.info(f"✅ {message}")
+                    else:
+                        stage.warning(message)
+                        logger.error(f"❌ {message}")
+            except Exception as error:
+                stage.warning(f"Master bot initialization error: {error}")
+                logger.error(f"❌ Master bot initialization error: {error}", exc_info=True)
+
         bot = None
         dp = None
         async with timeline.stage("Bot Setup", "🤖", success_message="Bot configured") as stage:

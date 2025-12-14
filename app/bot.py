@@ -6,6 +6,7 @@ import redis.asyncio as redis
 
 from app.config import settings
 from app.middlewares.global_error import GlobalErrorMiddleware 
+from app.middlewares.bot_context import BotContextMiddleware
 from app.middlewares.auth import AuthMiddleware
 from app.middlewares.logging import LoggingMiddleware
 from app.middlewares.throttling import ThrottlingMiddleware
@@ -112,6 +113,14 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     dp.message.middleware(GlobalErrorMiddleware())
     dp.callback_query.middleware(GlobalErrorMiddleware())
     dp.pre_checkout_query.middleware(GlobalErrorMiddleware())
+    
+    # Bot Context Middleware - injects bot_id and bot_config
+    bot_context_middleware = BotContextMiddleware()
+    dp.message.middleware(bot_context_middleware)
+    dp.callback_query.middleware(bot_context_middleware)
+    dp.pre_checkout_query.middleware(bot_context_middleware)
+    logger.info("✅ BotContextMiddleware registered")
+    
     dp.message.middleware(LoggingMiddleware())
     dp.callback_query.middleware(LoggingMiddleware())
     dp.message.middleware(MaintenanceMiddleware())

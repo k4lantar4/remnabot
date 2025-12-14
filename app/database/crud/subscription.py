@@ -21,14 +21,21 @@ from app.utils.timezone import format_local_datetime
 logger = logging.getLogger(__name__)
 
 
-async def get_subscription_by_user_id(db: AsyncSession, user_id: int) -> Optional[Subscription]:
-    result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .where(Subscription.user_id == user_id)
-        .order_by(Subscription.created_at.desc())
-        .limit(1) 
+async def get_subscription_by_user_id(
+    db: AsyncSession, 
+    user_id: int, 
+    bot_id: Optional[int] = None
+) -> Optional[Subscription]:
+    query = select(Subscription).options(selectinload(Subscription.user)).where(
+        Subscription.user_id == user_id
     )
+    
+    if bot_id is not None:
+        query = query.where(Subscription.bot_id == bot_id)
+    
+    query = query.order_by(Subscription.created_at.desc()).limit(1)
+    
+    result = await db.execute(query)
     subscription = result.scalar_one_or_none()
     
     if subscription:
@@ -44,7 +51,8 @@ async def create_trial_subscription(
     duration_days: int = None,
     traffic_limit_gb: int = None,
     device_limit: Optional[int] = None,
-    squad_uuid: str = None
+    squad_uuid: str = None,
+    bot_id: Optional[int] = None
 ) -> Subscription:
     
     duration_days = duration_days or settings.TRIAL_DURATION_DAYS
@@ -74,6 +82,7 @@ async def create_trial_subscription(
 
     subscription = Subscription(
         user_id=user_id,
+        bot_id=bot_id,
         status=SubscriptionStatus.ACTIVE.value,
         is_trial=True,
         start_date=datetime.utcnow(),
@@ -128,6 +137,7 @@ async def create_paid_subscription(
     device_limit: Optional[int] = None,
     connected_squads: List[str] = None,
     update_server_counters: bool = False,
+    bot_id: Optional[int] = None,
 ) -> Subscription:
 
     end_date = datetime.utcnow() + timedelta(days=duration_days)
@@ -137,6 +147,7 @@ async def create_paid_subscription(
 
     subscription = Subscription(
         user_id=user_id,
+        bot_id=bot_id,
         status=SubscriptionStatus.ACTIVE.value,
         is_trial=False,
         start_date=datetime.utcnow(),
@@ -517,54 +528,64 @@ async def deactivate_subscription(
 
 async def get_expiring_subscriptions(
     db: AsyncSession,
-    days_before: int = 3
+    days_before: int = 3,
+    bot_id: Optional[int] = None
 ) -> List[Subscription]:
     
     threshold_date = datetime.utcnow() + timedelta(days=days_before)
     
-    result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .where(
-            and_(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.end_date <= threshold_date,
-                Subscription.end_date > datetime.utcnow()
-            )
+    query = select(Subscription).options(selectinload(Subscription.user)).where(
+        and_(
+            Subscription.status == SubscriptionStatus.ACTIVE.value,
+            Subscription.end_date <= threshold_date,
+            Subscription.end_date > datetime.utcnow()
         )
     )
-    return result.scalars().all()
-
-
-async def get_expired_subscriptions(db: AsyncSession) -> List[Subscription]:
     
-    result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .where(
-            and_(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.end_date <= datetime.utcnow()
-            )
-        )
-    )
+    if bot_id is not None:
+        query = query.where(Subscription.bot_id == bot_id)
+    
+    result = await db.execute(query)
     return result.scalars().all()
 
 
-async def get_subscriptions_for_autopay(db: AsyncSession) -> List[Subscription]:
+async def get_expired_subscriptions(
+    db: AsyncSession, 
+    bot_id: Optional[int] = None
+) -> List[Subscription]:
+    
+    query = select(Subscription).options(selectinload(Subscription.user)).where(
+        and_(
+            Subscription.status == SubscriptionStatus.ACTIVE.value,
+            Subscription.end_date <= datetime.utcnow()
+        )
+    )
+    
+    if bot_id is not None:
+        query = query.where(Subscription.bot_id == bot_id)
+    
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_subscriptions_for_autopay(
+    db: AsyncSession, 
+    bot_id: Optional[int] = None
+) -> List[Subscription]:
     current_time = datetime.utcnow()
     
-    result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .where(
-            and_(
-                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                Subscription.autopay_enabled == True,
-                Subscription.is_trial == False 
-            )
+    query = select(Subscription).options(selectinload(Subscription.user)).where(
+        and_(
+            Subscription.status == SubscriptionStatus.ACTIVE.value,
+            Subscription.autopay_enabled == True,
+            Subscription.is_trial == False 
         )
     )
+    
+    if bot_id is not None:
+        query = query.where(Subscription.bot_id == bot_id)
+    
+    result = await db.execute(query)
     all_autopay_subscriptions = result.scalars().all()
     
     ready_for_autopay = []
@@ -577,64 +598,75 @@ async def get_subscriptions_for_autopay(db: AsyncSession) -> List[Subscription]:
     return ready_for_autopay
 
 
-async def get_subscriptions_statistics(db: AsyncSession) -> dict:
+async def get_subscriptions_statistics(
+    db: AsyncSession, 
+    bot_id: Optional[int] = None
+) -> dict:
     
-    total_result = await db.execute(select(func.count(Subscription.id)))
+    base_query = select(func.count(Subscription.id))
+    if bot_id is not None:
+        base_query = base_query.where(Subscription.bot_id == bot_id)
+    
+    total_result = await db.execute(base_query)
     total_subscriptions = total_result.scalar()
     
-    active_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(Subscription.status == SubscriptionStatus.ACTIVE.value)
+    active_query = select(func.count(Subscription.id)).where(
+        Subscription.status == SubscriptionStatus.ACTIVE.value
     )
+    if bot_id is not None:
+        active_query = active_query.where(Subscription.bot_id == bot_id)
+    
+    active_result = await db.execute(active_query)
     active_subscriptions = active_result.scalar()
     
-    trial_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(
-            and_(
-                Subscription.is_trial == True,
-                Subscription.status == SubscriptionStatus.ACTIVE.value
-            )
+    trial_query = select(func.count(Subscription.id)).where(
+        and_(
+            Subscription.is_trial == True,
+            Subscription.status == SubscriptionStatus.ACTIVE.value
         )
     )
+    if bot_id is not None:
+        trial_query = trial_query.where(Subscription.bot_id == bot_id)
+    
+    trial_result = await db.execute(trial_query)
     trial_subscriptions = trial_result.scalar()
     
     paid_subscriptions = active_subscriptions - trial_subscriptions
     
     today = datetime.utcnow().date()
-    today_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(
-            and_(
-                Subscription.created_at >= today,
-                Subscription.is_trial == False
-            )
+    today_query = select(func.count(Subscription.id)).where(
+        and_(
+            Subscription.created_at >= today,
+            Subscription.is_trial == False
         )
     )
+    if bot_id is not None:
+        today_query = today_query.where(Subscription.bot_id == bot_id)
+    today_result = await db.execute(today_query)
     purchased_today = today_result.scalar()
     
     week_ago = datetime.utcnow() - timedelta(days=7)
-    week_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(
-            and_(
-                Subscription.created_at >= week_ago,
-                Subscription.is_trial == False
-            )
+    week_query = select(func.count(Subscription.id)).where(
+        and_(
+            Subscription.created_at >= week_ago,
+            Subscription.is_trial == False
         )
     )
+    if bot_id is not None:
+        week_query = week_query.where(Subscription.bot_id == bot_id)
+    week_result = await db.execute(week_query)
     purchased_week = week_result.scalar()
     
     month_ago = datetime.utcnow() - timedelta(days=30)
-    month_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(
-            and_(
-                Subscription.created_at >= month_ago,
-                Subscription.is_trial == False
-            )
+    month_query = select(func.count(Subscription.id)).where(
+        and_(
+            Subscription.created_at >= month_ago,
+            Subscription.is_trial == False
         )
     )
+    if bot_id is not None:
+        month_query = month_query.where(Subscription.bot_id == bot_id)
+    month_result = await db.execute(month_query)
     purchased_month = month_result.scalar()
     
     try:
@@ -681,34 +713,42 @@ async def get_subscriptions_statistics(db: AsyncSession) -> dict:
     }
 
 
-async def get_trial_statistics(db: AsyncSession) -> dict:
+async def get_trial_statistics(
+    db: AsyncSession, 
+    bot_id: Optional[int] = None
+) -> dict:
     now = datetime.utcnow()
 
-    total_trials_result = await db.execute(
-        select(func.count(Subscription.id)).where(Subscription.is_trial.is_(True))
+    total_trials_query = select(func.count(Subscription.id)).where(
+        Subscription.is_trial.is_(True)
     )
+    if bot_id is not None:
+        total_trials_query = total_trials_query.where(Subscription.bot_id == bot_id)
+    total_trials_result = await db.execute(total_trials_query)
     total_trials = total_trials_result.scalar() or 0
 
-    active_trials_result = await db.execute(
-        select(func.count(Subscription.id)).where(
-            Subscription.is_trial.is_(True),
-            Subscription.end_date > now,
-            Subscription.status.in_(
-                [SubscriptionStatus.TRIAL.value, SubscriptionStatus.ACTIVE.value]
-            ),
-        )
+    active_trials_query = select(func.count(Subscription.id)).where(
+        Subscription.is_trial.is_(True),
+        Subscription.end_date > now,
+        Subscription.status.in_(
+            [SubscriptionStatus.TRIAL.value, SubscriptionStatus.ACTIVE.value]
+        ),
     )
+    if bot_id is not None:
+        active_trials_query = active_trials_query.where(Subscription.bot_id == bot_id)
+    active_trials_result = await db.execute(active_trials_query)
     active_trials = active_trials_result.scalar() or 0
 
-    resettable_trials_result = await db.execute(
-        select(func.count(Subscription.id))
-        .join(User, Subscription.user_id == User.id)
-        .where(
-            Subscription.is_trial.is_(True),
-            Subscription.end_date <= now,
-            User.has_had_paid_subscription.is_(False),
-        )
+    resettable_trials_query = select(func.count(Subscription.id)).join(
+        User, Subscription.user_id == User.id
+    ).where(
+        Subscription.is_trial.is_(True),
+        Subscription.end_date <= now,
+        User.has_had_paid_subscription.is_(False),
     )
+    if bot_id is not None:
+        resettable_trials_query = resettable_trials_query.where(Subscription.bot_id == bot_id)
+    resettable_trials_result = await db.execute(resettable_trials_query)
     resettable_trials = resettable_trials_result.scalar() or 0
 
     return {
@@ -799,23 +839,28 @@ async def update_subscription_usage(
 async def get_all_subscriptions(
     db: AsyncSession, 
     page: int = 1, 
-    limit: int = 10
+    limit: int = 10,
+    bot_id: Optional[int] = None
 ) -> Tuple[List[Subscription], int]:
-    count_result = await db.execute(
-        select(func.count(Subscription.id))
-    )
+    count_query = select(func.count(Subscription.id))
+    if bot_id is not None:
+        count_query = count_query.where(Subscription.bot_id == bot_id)
+    
+    count_result = await db.execute(count_query)
     total_count = count_result.scalar()
     
     offset = (page - 1) * limit
     
-    result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .order_by(Subscription.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+    query = select(Subscription).options(selectinload(Subscription.user)).order_by(
+        Subscription.created_at.desc()
     )
     
+    if bot_id is not None:
+        query = query.where(Subscription.bot_id == bot_id)
+    
+    query = query.offset(offset).limit(limit)
+    
+    result = await db.execute(query)
     subscriptions = result.scalars().all()
     
     return subscriptions, total_count
@@ -1360,6 +1405,7 @@ async def create_subscription_no_commit(
     subscription_crypto_link: str = "",
     autopay_enabled: Optional[bool] = None,
     autopay_days_before: Optional[int] = None,
+    bot_id: Optional[int] = None,
 ) -> Subscription:
     """
     Creates subscription without immediate commit for batch processing
@@ -1373,6 +1419,7 @@ async def create_subscription_no_commit(
     
     subscription = Subscription(
         user_id=user_id,
+        bot_id=bot_id,
         status=status,
         is_trial=is_trial,
         end_date=end_date,
@@ -1417,6 +1464,7 @@ async def create_subscription(
     subscription_crypto_link: str = "",
     autopay_enabled: Optional[bool] = None,
     autopay_days_before: Optional[int] = None,
+    bot_id: Optional[int] = None,
 ) -> Subscription:
     
     if end_date is None:
@@ -1427,6 +1475,7 @@ async def create_subscription(
     
     subscription = Subscription(
         user_id=user_id,
+        bot_id=bot_id,
         status=status,
         is_trial=is_trial,
         end_date=end_date,

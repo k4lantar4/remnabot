@@ -1605,15 +1605,9 @@ class RemnaWaveService:
             
             if subscription.status != new_status:
                 subscription.status = new_status
-<<<<<<< HEAD
-                logger.debug(f"Updated subscription status: {new_status}")
-        
-            used_traffic_bytes = panel_user.get('usedTrafficBytes', 0)
-=======
                 logger.debug(f"Subscription status updated: {new_status}")
 
             used_traffic_bytes = _get_user_traffic_bytes(panel_user)
->>>>>>> upstream-main
             traffic_used_gb = used_traffic_bytes / (1024**3)
 
             if abs(subscription.traffic_used_gb - traffic_used_gb) > 0.01:

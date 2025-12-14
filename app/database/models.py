@@ -17,12 +17,189 @@ from sqlalchemy import (
     Index,
     Table,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
 
 
 Base = declarative_base()
+
+
+# ============================================================================
+# Multi-Tenant Models (Increment 1.2)
+# ============================================================================
+
+class Bot(Base):
+    __tablename__ = "bots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    telegram_bot_token = Column(String(255), unique=True, nullable=False, index=True)
+    api_token = Column(String(255), unique=True, nullable=False)
+    api_token_hash = Column(String(128), nullable=False, index=True)
+    is_master = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Card-to-card settings
+    card_to_card_enabled = Column(Boolean, default=False, nullable=False)
+    card_receipt_topic_id = Column(Integer, nullable=True)
+    
+    # Zarinpal settings
+    zarinpal_enabled = Column(Boolean, default=False, nullable=False)
+    zarinpal_merchant_id = Column(String(255), nullable=True)
+    zarinpal_sandbox = Column(Boolean, default=False, nullable=False)
+    
+    # General settings
+    default_language = Column(String(5), default='fa', nullable=False)
+    support_username = Column(String(255), nullable=True)
+    admin_chat_id = Column(BigInteger, nullable=True)
+    admin_topic_id = Column(Integer, nullable=True)
+    notification_group_id = Column(BigInteger, nullable=True)
+    notification_topic_id = Column(Integer, nullable=True)
+    
+    # Wallet & billing
+    wallet_balance_kopeks = Column(BigInteger, default=0, nullable=False)
+    traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
+    traffic_sold_bytes = Column(BigInteger, default=0, nullable=False)
+    
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    # Relationships
+    users = relationship("User", primaryjoin="Bot.id == User.bot_id", back_populates="bot", cascade="all, delete-orphan")
+    subscriptions = relationship("Subscription", primaryjoin="Bot.id == Subscription.bot_id", back_populates="bot", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", primaryjoin="Bot.id == Transaction.bot_id", back_populates="bot", cascade="all, delete-orphan")
+    feature_flags = relationship("BotFeatureFlag", back_populates="bot", cascade="all, delete-orphan")
+    configurations = relationship("BotConfiguration", back_populates="bot", cascade="all, delete-orphan")
+    payment_cards = relationship("TenantPaymentCard", back_populates="bot", cascade="all, delete-orphan")
+    plans = relationship("BotPlan", back_populates="bot", cascade="all, delete-orphan")
+    card_payments = relationship("CardToCardPayment", back_populates="bot", cascade="all, delete-orphan")
+    zarinpal_payments_rel = relationship("ZarinpalPayment", back_populates="bot", cascade="all, delete-orphan")
+
+
+class BotFeatureFlag(Base):
+    __tablename__ = "bot_feature_flags"
+    
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    feature_key = Column(String(100), primary_key=True, nullable=False)
+    enabled = Column(Boolean, default=False, nullable=False)
+    config = Column(JSONB, default={}, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="feature_flags")
+
+
+class BotConfiguration(Base):
+    __tablename__ = "bot_configurations"
+    
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    config_key = Column(String(100), primary_key=True, nullable=False)
+    config_value = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="configurations")
+
+
+class TenantPaymentCard(Base):
+    __tablename__ = "tenant_payment_cards"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
+    card_number = Column(String(50), nullable=False)
+    card_holder_name = Column(String(255), nullable=False)
+    rotation_strategy = Column(String(20), default='round_robin', nullable=False)
+    rotation_interval_minutes = Column(Integer, default=60, nullable=True)
+    weight = Column(Integer, default=1, nullable=False)
+    success_count = Column(Integer, default=0, nullable=False)
+    failure_count = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    last_used_at = Column(DateTime, nullable=True)
+    current_usage_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="payment_cards")
+
+
+class BotPlan(Base):
+    __tablename__ = "bot_plans"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    period_days = Column(Integer, nullable=False)
+    price_kopeks = Column(Integer, nullable=False)
+    traffic_limit_gb = Column(Integer, default=0, nullable=True)
+    device_limit = Column(Integer, default=1, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="plans")
+
+
+class CardToCardPayment(Base):
+    __tablename__ = "card_to_card_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    card_id = Column(Integer, ForeignKey("tenant_payment_cards.id", ondelete="SET NULL"), nullable=True)
+    amount_kopeks = Column(Integer, nullable=False)
+    tracking_number = Column(String(50), unique=True, nullable=False, index=True)
+    receipt_type = Column(String(20), nullable=True)  # 'image', 'text', 'both'
+    receipt_text = Column(Text, nullable=True)
+    receipt_image_file_id = Column(String(255), nullable=True)
+    status = Column(String(20), default='pending', nullable=False, index=True)  # pending, approved, rejected, cancelled
+    admin_reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    admin_reviewed_at = Column(DateTime, nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="card_payments")
+    user = relationship("User", primaryjoin="CardToCardPayment.user_id == User.id")
+    admin_reviewer = relationship("User", primaryjoin="CardToCardPayment.admin_reviewed_by == User.id")
+    transaction = relationship("Transaction")
+    card = relationship("TenantPaymentCard")
+
+
+class ZarinpalPayment(Base):
+    __tablename__ = "zarinpal_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    amount_kopeks = Column(Integer, nullable=False)
+    zarinpal_authority = Column(String(255), unique=True, nullable=True, index=True)
+    zarinpal_ref_id = Column(String(255), nullable=True)
+    status = Column(String(20), default='pending', nullable=False)  # pending, paid, failed, cancelled
+    callback_url = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", back_populates="zarinpal_payments_rel")
+    user = relationship("User")
+    transaction = relationship("Transaction")
+
+
+# ============================================================================
+# End Multi-Tenant Models
+# ============================================================================
 
 
 server_squad_promo_groups = Table(
@@ -469,7 +646,8 @@ class PromoGroup(Base):
     __tablename__ = "promo_groups"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)  # Removed unique=True for multi-tenant
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     priority = Column(Integer, nullable=False, default=0, index=True)
     server_discount_percent = Column(Integer, nullable=False, default=0)
     traffic_discount_percent = Column(Integer, nullable=False, default=0)
@@ -483,6 +661,11 @@ class PromoGroup(Base):
 
     users = relationship("User", back_populates="promo_group")
     user_promo_groups = relationship("UserPromoGroup", back_populates="promo_group", cascade="all, delete-orphan")
+    bot = relationship("Bot")
+    
+    __table_args__ = (
+        UniqueConstraint('bot_id', 'name', name='uq_promo_group_bot_name'),
+    )
     server_squads = relationship(
         "ServerSquad",
         secondary=server_squad_promo_groups,
@@ -570,7 +753,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
+    telegram_id = Column(BigInteger, index=True, nullable=False)  # Removed unique=True for multi-tenant
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
@@ -608,6 +792,11 @@ class User(Base):
     promo_group = relationship("PromoGroup", back_populates="users")
     user_promo_groups = relationship("UserPromoGroup", back_populates="user", cascade="all, delete-orphan")
     poll_responses = relationship("PollResponse", back_populates="user")
+    bot = relationship("Bot", primaryjoin="User.bot_id == Bot.id", back_populates="users")
+    
+    __table_args__ = (
+        UniqueConstraint('telegram_id', 'bot_id', name='uq_user_telegram_bot'),
+    )
 
     @property
     def balance_rubles(self) -> float:
@@ -661,6 +850,7 @@ class Subscription(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     
     status = Column(String(20), default=SubscriptionStatus.TRIAL.value)
     is_trial = Column(Boolean, default=True)
@@ -687,6 +877,7 @@ class Subscription(Base):
     remnawave_short_uuid = Column(String(255), nullable=True)
 
     user = relationship("User", back_populates="subscription")
+    bot = relationship("Bot", back_populates="subscriptions")
     discount_offers = relationship("DiscountOffer", back_populates="subscription")
     temporary_accesses = relationship("SubscriptionTemporaryAccess", back_populates="subscription")
     
@@ -827,6 +1018,7 @@ class Transaction(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     
     type = Column(String(50), nullable=False)
     amount_kopeks = Column(Integer, nullable=False)
@@ -841,6 +1033,7 @@ class Transaction(Base):
     completed_at = Column(DateTime, nullable=True)
     
     user = relationship("User", back_populates="transactions")
+    bot = relationship("Bot", back_populates="transactions")
     
     @property
     def amount_rubles(self) -> float:
@@ -879,7 +1072,8 @@ class PromoCode(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    code = Column(String(50), unique=True, nullable=False, index=True)
+    code = Column(String(50), nullable=False, index=True)  # Removed unique=True for multi-tenant
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     type = Column(String(50), nullable=False)
     
     balance_bonus_kopeks = Column(Integer, default=0)  
@@ -901,6 +1095,11 @@ class PromoCode(Base):
 
     uses = relationship("PromoCodeUse", back_populates="promocode")
     promo_group = relationship("PromoGroup")
+    bot = relationship("Bot")
+    
+    __table_args__ = (
+        UniqueConstraint('bot_id', 'code', name='uq_promocode_bot_code'),
+    )
     
     @property
     def is_valid(self) -> bool:
@@ -1488,6 +1687,7 @@ class Ticket(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     
     title = Column(String(255), nullable=False)
     status = Column(String(20), default=TicketStatus.OPEN.value, nullable=False)
@@ -1502,6 +1702,7 @@ class Ticket(Base):
     last_sla_reminder_at = Column(DateTime, nullable=True)
     
     user = relationship("User", backref="tickets")
+    bot = relationship("Bot")
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
     
     @property
