@@ -99,6 +99,7 @@ async def main():
     maintenance_task = None
     version_check_task = None
     polling_task = None
+    polling_tasks = []  # Initialize polling_tasks list for multi-bot support
     web_api_server = None
     telegram_webhook_enabled = False
     polling_enabled = True
@@ -387,6 +388,7 @@ async def main():
                     dp,
                     payment_service,
                     enable_telegram_webhook=telegram_webhook_enabled,
+                    initialized_bots=initialized_bots,
                 )
 
                 web_api_server = WebAPIServer(app=web_app)
@@ -417,20 +419,38 @@ async def main():
             success_message="Telegram webhook configured",
         ) as stage:
             if telegram_webhook_enabled:
-                webhook_url = settings.get_telegram_webhook_url()
-                if not webhook_url:
+                base_webhook_url = settings.get_telegram_webhook_url()
+                if not base_webhook_url:
                     stage.warning("WEBHOOK_URL not set, skipping webhook setup")
                 else:
+                    # Set webhooks for all active bots
+                    from urllib.parse import urljoin
+                    
                     allowed_updates = dp.resolve_used_update_types()
-                    await bot.set_webhook(
-                        url=webhook_url,
-                        secret_token=settings.WEBHOOK_SECRET_TOKEN,
-                        drop_pending_updates=settings.WEBHOOK_DROP_PENDING_UPDATES,
-                        allowed_updates=allowed_updates,
-                    )
-                    stage.log(f"Webhook set: {webhook_url}")
-                    stage.log(f"Allowed updates: {', '.join(sorted(allowed_updates)) if allowed_updates else 'all'}")
-                    stage.success("Telegram webhook active")
+                    webhooks_set = 0
+                    
+                    for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
+                        # Use bot-specific webhook URL: /webhook/{bot_id}
+                        bot_webhook_url = urljoin(base_webhook_url.rstrip('/') + '/', f'webhook/{bot_id}')
+                        
+                        try:
+                            await bot_instance.set_webhook(
+                                url=bot_webhook_url,
+                                secret_token=settings.WEBHOOK_SECRET_TOKEN,
+                                drop_pending_updates=settings.WEBHOOK_DROP_PENDING_UPDATES,
+                                allowed_updates=allowed_updates,
+                            )
+                            stage.log(f"✅ Webhook set for bot {bot_id}: {bot_webhook_url}")
+                            webhooks_set += 1
+                        except Exception as e:
+                            stage.warning(f"❌ Failed to set webhook for bot {bot_id}: {e}")
+                            logger.error(f"Failed to set webhook for bot {bot_id}: {e}", exc_info=True)
+                    
+                    if webhooks_set > 0:
+                        stage.log(f"Allowed updates: {', '.join(sorted(allowed_updates)) if allowed_updates else 'all'}")
+                        stage.success(f"Telegram webhooks active for {webhooks_set} bot(s)")
+                    else:
+                        stage.warning("No webhooks were set successfully")
             else:
                 stage.skip("Webhook mode disabled")
 
@@ -481,20 +501,34 @@ async def main():
         ) as stage:
             if polling_enabled:
                 # Start polling for all active bots
-                polling_tasks = []
+                from app.bot import polling_tasks as bot_polling_tasks
+                bot_polling_tasks.clear()  # Clear any existing tasks
+                polling_tasks.clear()  # Clear local list for backward compatibility
+                
                 for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
-                    task = asyncio.create_task(
-                        dp_instance.start_polling(bot_instance, skip_updates=True)
-                    )
-                    polling_tasks.append(task)
-                    stage.log(f"Started polling for bot ID: {bot_id}")
+                    try:
+                        task = asyncio.create_task(
+                            dp_instance.start_polling(bot_instance, skip_updates=True)
+                        )
+                        bot_polling_tasks[bot_id] = task  # Store in global dict
+                        polling_tasks.append(task)  # Also store in local list for backward compatibility
+                        stage.log(f"✅ Started polling for bot ID: {bot_id} ({bot_instance.token[:10]}...)")
+                        logger.info(f"✅ Polling started for bot {bot_id}")
+                    except Exception as e:
+                        stage.warning(f"❌ Failed to start polling for bot {bot_id}: {e}")
+                        logger.error(f"❌ Failed to start polling for bot {bot_id}: {e}", exc_info=True)
                 
                 # For backward compatibility, keep reference to first bot's polling task
                 polling_task = polling_tasks[0] if polling_tasks else None
-                stage.log(f"skip_updates=True for {len(polling_tasks)} bot(s)")
+                
+                if polling_tasks:
+                    stage.log(f"skip_updates=True for {len(polling_tasks)} bot(s)")
+                    stage.success(f"Polling active for {len(polling_tasks)} bot(s)")
+                else:
+                    stage.warning("No polling tasks started")
             else:
                 polling_task = None
-                polling_tasks = []
+                polling_tasks.clear()
                 stage.skip("Polling disabled by run mode")
 
         webhook_lines: list[str] = []
@@ -584,17 +618,18 @@ async def main():
                     auto_verification_active = auto_payment_verification_service.is_running()
 
                 # Check all polling tasks
-                if polling_enabled and 'polling_tasks' in locals():
+                if polling_enabled and polling_tasks:
                     for i, task in enumerate(polling_tasks):
                         if task.done():
                             exception = task.exception()
                             if exception:
-                                logger.error(f"Polling failed for bot {i}: {exception}")
+                                logger.error(f"❌ Polling failed for bot {i}: {exception}")
+                                logger.warning(f"⚠️ Polling task {i} has stopped, consider restarting the service")
                                 # Don't break - continue with other bots
                 elif polling_task and polling_task.done():
                     exception = polling_task.exception()
                     if exception:
-                        logger.error(f"Polling failed: {exception}")
+                        logger.error(f"❌ Polling failed: {exception}")
                         break
                         
         except Exception as e:
@@ -663,15 +698,18 @@ async def main():
             logger.error(f"Error stopping backup service: {e}")
         
         # Stop all polling tasks
-        if polling_enabled and 'polling_tasks' in locals():
+        if polling_enabled and polling_tasks:
             logger.info(f"ℹ️ Stopping polling for {len(polling_tasks)} bot(s)...")
-            for task in polling_tasks:
+            for i, task in enumerate(polling_tasks):
                 if not task.done():
                     task.cancel()
                     try:
                         await task
+                        logger.info(f"✅ Polling stopped for bot {i}")
                     except asyncio.CancelledError:
-                        pass
+                        logger.info(f"✅ Polling cancelled for bot {i}")
+                    except Exception as e:
+                        logger.error(f"❌ Error stopping polling for bot {i}: {e}")
         elif polling_task and not polling_task.done():
             logger.info("ℹ️ Stopping polling...")
             polling_task.cancel()

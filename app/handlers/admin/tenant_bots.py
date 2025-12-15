@@ -77,6 +77,12 @@ Select action:"""
         ],
         [
             types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOTS_UPDATE_WEBHOOKS", "🔄 Update All Webhooks"),
+                callback_data="admin_tenant_bots_update_webhooks"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
                 text=texts.BACK,
                 callback_data="admin_panel"
             )
@@ -272,6 +278,12 @@ async def show_bot_detail(
         ],
         [
             types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_TEST", "🧪 Test Bot Status"),
+                callback_data=f"admin_tenant_bot_test:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
                 text=texts.BACK,
                 callback_data="admin_tenant_bots_list:0"
             )
@@ -415,6 +427,34 @@ async def process_bot_token(
             is_active=True,
             created_by=db_user.id
         )
+        
+        # Initialize and start the new bot immediately
+        try:
+            from app.bot import initialize_single_bot, start_bot_polling, setup_bot_webhook
+            from app.database.crud.bot import get_bot_by_id
+            
+            # Get fresh bot config from database
+            bot_config = await get_bot_by_id(db, bot.id)
+            if bot_config:
+                # Initialize the bot
+                result = await initialize_single_bot(bot_config)
+                if result:
+                    bot_instance, dp_instance = result
+                    
+                    # Start polling if enabled
+                    await start_bot_polling(bot.id, bot_instance, dp_instance)
+                    
+                    # Setup webhook if enabled
+                    await setup_bot_webhook(bot.id, bot_instance)
+                    
+                    logger.info(f"✅ Bot {bot.id} ({bot.name}) initialized and started successfully")
+                else:
+                    logger.warning(f"⚠️ Bot {bot.id} created but initialization failed")
+            else:
+                logger.error(f"❌ Bot {bot.id} not found in database after creation")
+        except Exception as e:
+            logger.error(f"❌ Error initializing new bot {bot.id}: {e}", exc_info=True)
+            # Continue - bot is created in DB, can be initialized on restart
         
         text = texts.t(
             "ADMIN_TENANT_BOT_CREATED",
@@ -829,18 +869,303 @@ async def toggle_zarinpal(
             texts.t("ADMIN_TENANT_BOT_UPDATE_ERROR", "❌ Failed to update"),
             show_alert=True
         )
+
+
+@admin_required
+@error_handler
+async def test_bot_status(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Test bot status and connectivity."""
+    texts = get_texts(db_user.language)
     
-    # Back button
-    keyboard_buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data=f"admin_tenant_bot_detail:{bot_id}"
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
         )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    await callback.answer("⏳ Testing bot...")
+    
+    from app.bot import active_bots, active_dispatchers, polling_tasks
+    from app.config import settings
+    from app.webserver import telegram
+    
+    status_lines = []
+    status_lines.append(f"🤖 <b>Bot Status Test</b>\n")
+    status_lines.append(f"<b>Name:</b> {bot.name}")
+    status_lines.append(f"<b>ID:</b> {bot.id}")
+    status_lines.append(f"<b>Token:</b> {bot.telegram_bot_token[:20]}...\n")
+    
+    # Check if initialized
+    is_initialized = bot_id in active_bots
+    
+    # Try to initialize if not initialized
+    if not is_initialized:
+        status_lines.append(f"<b>Initialized:</b> ❌ No")
+        status_lines.append("\n🔄 <b>Attempting to initialize bot...</b>")
+        
+        try:
+            from app.bot import initialize_single_bot, start_bot_polling, setup_bot_webhook
+            
+            # Get fresh bot config (get_bot_by_id is already imported at top of file)
+            bot_config = await get_bot_by_id(db, bot_id)
+            if bot_config and bot_config.is_active:
+                result = await initialize_single_bot(bot_config)
+                if result:
+                    bot_instance, dp_instance = result
+                    status_lines.append("✅ <b>Bot initialized successfully!</b>\n")
+                    
+                    # Start polling if enabled
+                    bot_run_mode = settings.get_bot_run_mode()
+                    polling_enabled = bot_run_mode in {"polling", "both"}
+                    if polling_enabled:
+                        await start_bot_polling(bot_id, bot_instance, dp_instance)
+                        status_lines.append("✅ <b>Polling started</b>\n")
+                    
+                    # Setup webhook if enabled
+                    telegram_webhook_enabled = bot_run_mode in {"webhook", "both"}
+                    if telegram_webhook_enabled:
+                        await setup_bot_webhook(bot_id, bot_instance)
+                        status_lines.append("✅ <b>Webhook configured</b>\n")
+                    
+                    is_initialized = True
+                else:
+                    status_lines.append("❌ <b>Failed to initialize bot</b>\n")
+                    status_lines.append("Please check logs for details.\n")
+            elif not bot_config:
+                status_lines.append("❌ <b>Bot not found in database</b>\n")
+            elif not bot_config.is_active:
+                status_lines.append("❌ <b>Bot is not active</b>\n")
+                status_lines.append("Activate the bot first.\n")
+        except Exception as e:
+            status_lines.append(f"❌ <b>Error during initialization: {str(e)[:100]}</b>\n")
+            logger.error(f"Error initializing bot {bot_id} in test handler: {e}", exc_info=True)
+    
+    if is_initialized:
+        status_lines.append(f"<b>Initialized:</b> ✅ Yes\n")
+        bot_instance = active_bots[bot_id]
+        dp_instance = active_dispatchers.get(bot_id)
+        
+        # Test bot connectivity
+        try:
+            bot_info = await bot_instance.get_me()
+            status_lines.append(f"<b>Bot Username:</b> @{bot_info.username}")
+            status_lines.append(f"<b>Bot Name:</b> {bot_info.first_name}")
+            status_lines.append(f"<b>Connectivity:</b> ✅ Connected")
+        except Exception as e:
+            status_lines.append(f"<b>Connectivity:</b> ❌ Error: {str(e)[:50]}")
+        
+        # Check polling
+        bot_run_mode = settings.get_bot_run_mode()
+        polling_enabled = bot_run_mode in {"polling", "both"}
+        if polling_enabled:
+            is_polling = bot_id in polling_tasks and not polling_tasks[bot_id].done()
+            status_lines.append(f"<b>Polling:</b> {'✅ Running' if is_polling else '❌ Not running'}")
+        else:
+            status_lines.append(f"<b>Polling:</b> ⏸️ Disabled (mode: {bot_run_mode})")
+        
+        # Check webhook
+        telegram_webhook_enabled = bot_run_mode in {"webhook", "both"}
+        if telegram_webhook_enabled:
+            try:
+                webhook_info = await bot_instance.get_webhook_info()
+                if webhook_info.url:
+                    status_lines.append(f"<b>Webhook:</b> ✅ Set")
+                    status_lines.append(f"<b>Webhook URL:</b> {webhook_info.url}")
+                    status_lines.append(f"<b>Pending Updates:</b> {webhook_info.pending_update_count}")
+                else:
+                    status_lines.append(f"<b>Webhook:</b> ❌ Not set")
+            except Exception as e:
+                status_lines.append(f"<b>Webhook:</b> ❌ Error: {str(e)[:50]}")
+        else:
+            status_lines.append(f"<b>Webhook:</b> ⏸️ Disabled (mode: {bot_run_mode})")
+        
+        # Check webhook registry
+        if bot_id in telegram._bot_registry:
+            status_lines.append(f"<b>Webhook Registry:</b> ✅ Registered")
+        else:
+            status_lines.append(f"<b>Webhook Registry:</b> ⚠️ Not registered (may use fallback)")
+        
+        # Check dispatcher
+        if dp_instance:
+            status_lines.append(f"<b>Dispatcher:</b> ✅ Available")
+        else:
+            status_lines.append(f"<b>Dispatcher:</b> ❌ Missing")
+        
+        # Final status
+        status_lines.append("\n" + "="*30)
+        status_lines.append("✅ <b>Bot is ready and operational!</b>")
+        status_lines.append("="*30)
+    else:
+        status_lines.append("\n⚠️ <b>Bot initialization failed!</b>")
+        status_lines.append("The bot needs to be initialized to work.")
+        status_lines.append("Try:")
+        status_lines.append("• Restarting the server")
+        status_lines.append("• Using 'Update All Webhooks' button")
+        status_lines.append("• Checking bot is active in database")
+    
+    result_text = "\n".join(status_lines)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_VIEW", "👁️ View Bot"),
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOTS_MENU", "🏠 Bots Menu"),
+                callback_data="admin_tenant_bots_menu"
+            )
+        ]
     ])
     
-    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    await callback.message.edit_text(result_text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@admin_required
+@error_handler
+async def update_all_webhooks(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Update webhooks for all active bots."""
+    texts = get_texts(db_user.language)
     
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    from app.bot import active_bots, active_dispatchers
+    from app.config import settings
+    from urllib.parse import urljoin
+    
+    # Check if webhook mode is enabled
+    bot_run_mode = settings.get_bot_run_mode()
+    telegram_webhook_enabled = bot_run_mode in {"webhook", "both"}
+    
+    if not telegram_webhook_enabled:
+        await callback.answer(
+            texts.t(
+                "ADMIN_TENANT_BOTS_WEBHOOK_DISABLED",
+                "❌ Webhook mode is disabled. Set BOT_RUN_MODE=webhook or both"
+            ),
+            show_alert=True
+        )
+        return
+    
+    base_webhook_url = settings.get_telegram_webhook_url()
+    if not base_webhook_url:
+        await callback.answer(
+            texts.t(
+                "ADMIN_TENANT_BOTS_WEBHOOK_URL_NOT_SET",
+                "❌ WEBHOOK_URL is not set in configuration"
+            ),
+            show_alert=True
+        )
+        return
+    
+    await callback.answer("⏳ Updating webhooks...")
+    
+    # Get active bots from database
+    from app.database.crud.bot import get_active_bots
+    active_bot_configs = await get_active_bots(db)
+    
+    if not active_bot_configs:
+        await callback.message.edit_text(
+            texts.t(
+                "ADMIN_TENANT_BOTS_NO_ACTIVE_BOTS",
+                "❌ No active bots found"
+            ),
+            parse_mode="HTML"
+        )
+        return
+    
+    # Get dispatcher to resolve allowed updates
+    if active_dispatchers:
+        first_dp = list(active_dispatchers.values())[0]
+        allowed_updates = first_dp.resolve_used_update_types()
+    else:
+        allowed_updates = None
+    
+    results = []
+    success_count = 0
+    error_count = 0
+    
+    for bot_config in active_bot_configs:
+        bot_id = bot_config.id
+        
+        # Get bot instance from active_bots registry
+        if bot_id not in active_bots:
+            results.append(f"❌ Bot {bot_id} ({bot_config.name}): Not initialized")
+            error_count += 1
+            continue
+        
+        bot_instance = active_bots[bot_id]
+        
+        # Construct bot-specific webhook URL
+        bot_webhook_url = urljoin(base_webhook_url.rstrip('/') + '/', f'webhook/{bot_id}')
+        
+        try:
+            await bot_instance.set_webhook(
+                url=bot_webhook_url,
+                secret_token=settings.WEBHOOK_SECRET_TOKEN,
+                drop_pending_updates=settings.WEBHOOK_DROP_PENDING_UPDATES,
+                allowed_updates=allowed_updates,
+            )
+            results.append(f"✅ Bot {bot_id} ({bot_config.name}): {bot_webhook_url}")
+            success_count += 1
+            logger.info(f"✅ Webhook updated for bot {bot_id} ({bot_config.name}): {bot_webhook_url}")
+        except Exception as e:
+            error_msg = str(e)[:100]  # Limit error message length
+            results.append(f"❌ Bot {bot_id} ({bot_config.name}): {error_msg}")
+            error_count += 1
+            logger.error(f"❌ Failed to update webhook for bot {bot_id} ({bot_config.name}): {e}", exc_info=True)
+    
+    # Build result message
+    result_text = texts.t(
+        "ADMIN_TENANT_BOTS_WEBHOOK_UPDATE_RESULT",
+        """🔄 <b>Webhook Update Results</b>
+
+✅ Success: {success}
+❌ Errors: {errors}
+
+<b>Details:</b>
+{details}
+
+<a href="admin_tenant_bots_menu">🔙 Back to Menu</a>"""
+    ).format(
+        success=success_count,
+        errors=error_count,
+        details="\n".join(results[:20])  # Limit to 20 results
+    )
+    
+    if len(results) > 20:
+        result_text += f"\n\n... and {len(results) - 20} more"
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOTS_MENU", "🔙 Back to Menu"),
+                callback_data="admin_tenant_bots_menu"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(result_text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
 
@@ -904,6 +1229,16 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(
         toggle_zarinpal,
         F.data.startswith("admin_tenant_bot_toggle_zarinpal:")
+    )
+    
+    dp.callback_query.register(
+        update_all_webhooks,
+        F.data == "admin_tenant_bots_update_webhooks"
+    )
+    
+    dp.callback_query.register(
+        test_bot_status,
+        F.data.startswith("admin_tenant_bot_test:")
     )
     
     logger.info("✅ Tenant bots admin handlers registered")

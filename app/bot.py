@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Optional
 from aiogram import Bot, Dispatcher, types
@@ -75,6 +76,7 @@ logger = logging.getLogger(__name__)
 # Global registry for active bots and dispatchers
 active_bots: Dict[int, Bot] = {}
 active_dispatchers: Dict[int, Dispatcher] = {}
+polling_tasks: Dict[int, asyncio.Task] = {}  # Track polling tasks for each bot
 
 
 async def debug_callback_handler(callback: types.CallbackQuery):
@@ -286,6 +288,153 @@ async def initialize_all_bots() -> Dict[int, tuple[Bot, Dispatcher]]:
         
         logger.info(f"🎉 Successfully initialized {len(initialized)} bot(s)")
         return initialized
+
+
+async def initialize_single_bot(bot_config: BotModel) -> tuple[Bot, Dispatcher] | None:
+    """
+    Initialize a single bot dynamically (after server startup).
+    This is used when a new bot is added to the database.
+    
+    Args:
+        bot_config: Bot configuration from database
+        
+    Returns:
+        Tuple of (Bot, Dispatcher) if successful, None otherwise
+    """
+    if bot_config.id in active_bots:
+        logger.warning(f"Bot {bot_config.id} ({bot_config.name}) is already initialized")
+        return active_bots[bot_config.id], active_dispatchers[bot_config.id]
+    
+    if not bot_config.is_active:
+        logger.warning(f"Bot {bot_config.id} ({bot_config.name}) is not active, skipping initialization")
+        return None
+    
+    try:
+        bot, dp = await setup_bot(bot_config)
+        active_bots[bot_config.id] = bot
+        active_dispatchers[bot_config.id] = dp
+        
+        logger.info(
+            f"✅ Bot dynamically initialized: {bot_config.name} (ID: {bot_config.id}, "
+            f"Master: {bot_config.is_master})"
+        )
+        
+        return bot, dp
+    except Exception as e:
+        logger.error(
+            f"❌ Failed to initialize bot {bot_config.id} ({bot_config.name}): {e}",
+            exc_info=True
+        )
+        return None
+
+
+async def start_bot_polling(bot_id: int, bot: Bot, dispatcher: Dispatcher) -> asyncio.Task | None:
+    """
+    Start polling for a single bot.
+    
+    Args:
+        bot_id: Bot ID
+        bot: Bot instance
+        dispatcher: Dispatcher instance
+        
+    Returns:
+        Polling task if started, None otherwise
+    """
+    from app.config import settings
+    
+    bot_run_mode = settings.get_bot_run_mode()
+    polling_enabled = bot_run_mode in {"polling", "both"}
+    
+    if not polling_enabled:
+        logger.debug(f"Polling disabled for bot {bot_id}")
+        return None
+    
+    # Check if polling is already running for this bot
+    if bot_id in polling_tasks and not polling_tasks[bot_id].done():
+        logger.warning(f"Polling already running for bot {bot_id}")
+        return polling_tasks[bot_id]
+    
+    try:
+        task = asyncio.create_task(
+            dispatcher.start_polling(bot, skip_updates=True)
+        )
+        polling_tasks[bot_id] = task
+        logger.info(f"✅ Started polling for bot {bot_id}")
+        return task
+    except Exception as e:
+        logger.error(f"❌ Failed to start polling for bot {bot_id}: {e}", exc_info=True)
+        return None
+
+
+async def setup_bot_webhook(bot_id: int, bot: Bot) -> bool:
+    """
+    Setup webhook for a single bot.
+    
+    Args:
+        bot_id: Bot ID
+        bot: Bot instance
+        
+    Returns:
+        True if webhook was set successfully, False otherwise
+    """
+    from app.config import settings
+    from urllib.parse import urljoin
+    
+    bot_run_mode = settings.get_bot_run_mode()
+    telegram_webhook_enabled = bot_run_mode in {"webhook", "both"}
+    
+    if not telegram_webhook_enabled:
+        logger.debug(f"Webhook disabled for bot {bot_id}")
+        return False
+    
+    base_webhook_url = settings.get_telegram_webhook_url()
+    if not base_webhook_url:
+        logger.warning(f"WEBHOOK_URL not set, cannot setup webhook for bot {bot_id}")
+        return False
+    
+    try:
+        # Get dispatcher to resolve allowed updates
+        if bot_id in active_dispatchers:
+            dp = active_dispatchers[bot_id]
+            allowed_updates = dp.resolve_used_update_types()
+            
+            # Register bot in webhook registry for unified endpoint (lazy import to avoid circular dependency)
+            try:
+                from app.webserver import telegram
+                telegram_processor = telegram.TelegramWebhookProcessor(
+                    bot=bot,
+                    dispatcher=dp,
+                    queue_maxsize=settings.get_webhook_queue_maxsize(),
+                    worker_count=settings.get_webhook_worker_count(),
+                    enqueue_timeout=settings.get_webhook_enqueue_timeout(),
+                    shutdown_timeout=settings.get_webhook_shutdown_timeout(),
+                )
+                telegram.register_bot_for_webhook(bot_id, bot, dp, telegram_processor)
+                
+                # Start processor
+                await telegram_processor.start()
+                logger.info(f"✅ Webhook processor started for bot {bot_id}")
+            except ImportError:
+                logger.warning(f"Could not import telegram module, skipping processor setup for bot {bot_id}")
+        else:
+            allowed_updates = None
+            logger.warning(f"Dispatcher not found for bot {bot_id}, skipping webhook processor setup")
+        
+        # Construct bot-specific webhook URL
+        bot_webhook_url = urljoin(base_webhook_url.rstrip('/') + '/', f'webhook/{bot_id}')
+        
+        await bot.set_webhook(
+            url=bot_webhook_url,
+            secret_token=settings.WEBHOOK_SECRET_TOKEN,
+            drop_pending_updates=settings.WEBHOOK_DROP_PENDING_UPDATES,
+            allowed_updates=allowed_updates,
+        )
+        
+        logger.info(f"✅ Webhook set for bot {bot_id}: {bot_webhook_url}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to set webhook for bot {bot_id}: {e}", exc_info=True)
+        return False
 
 
 async def shutdown_bot(bot_id: Optional[int] = None):

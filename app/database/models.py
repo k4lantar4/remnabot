@@ -847,9 +847,12 @@ class User(Base):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'bot_id', name='uq_subscription_user_bot'),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     
     status = Column(String(20), default=SubscriptionStatus.TRIAL.value)

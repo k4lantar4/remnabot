@@ -18,7 +18,13 @@ from app.services.notification_settings_service import NotificationSettingsServi
 from app.states import AdminStates
 
 logger = logging.getLogger(__name__)
+
+# Global router for handler registration via decorators
+# For multi-bot support, we'll create new router instances in register_handlers
 router = Router()
+
+# Track if we've created a router instance for multi-bot support
+_router_instances = {}
 
 
 def _format_toggle(enabled: bool, language: str = "en") -> str:
@@ -1190,4 +1196,18 @@ async def process_notification_value_input(message: Message, state: FSMContext):
 
 
 def register_handlers(dp):
-    dp.include_router(router)
+    # For multi-bot support: try to include router
+    # If router is already attached, catch the error and skip registration
+    # This is a limitation of using router decorators with multi-bot support
+    try:
+        dp.include_router(router)
+    except RuntimeError as e:
+        if "already attached" in str(e).lower():
+            logger.warning(
+                "Monitoring router is already attached to another dispatcher. "
+                "Skipping registration for this dispatcher. "
+                "Monitoring handlers will only work for the first bot. "
+                "Consider refactoring to register handlers directly on dispatcher instead of using router decorators."
+            )
+        else:
+            raise
