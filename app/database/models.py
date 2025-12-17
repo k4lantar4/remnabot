@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     Table,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
@@ -664,7 +665,11 @@ class PromoGroup(Base):
     bot = relationship("Bot")
     
     __table_args__ = (
-        UniqueConstraint('bot_id', 'name', name='uq_promo_group_bot_name'),
+        # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
+        # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
+        # This is acceptable for backward compatibility during migration
+        Index('ix_promo_group_bot_name_unique', 'bot_id', 'name', 
+              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
     )
     server_squads = relationship(
         "ServerSquad",
@@ -795,7 +800,11 @@ class User(Base):
     bot = relationship("Bot", primaryjoin="User.bot_id == Bot.id", back_populates="users")
     
     __table_args__ = (
-        UniqueConstraint('telegram_id', 'bot_id', name='uq_user_telegram_bot'),
+        # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
+        # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
+        # This is acceptable for backward compatibility during migration
+        Index('ix_user_telegram_bot_unique', 'telegram_id', 'bot_id', 
+              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
     )
 
     @property
@@ -848,7 +857,11 @@ class User(Base):
 class Subscription(Base):
     __tablename__ = "subscriptions"
     __table_args__ = (
-        UniqueConstraint('user_id', 'bot_id', name='uq_subscription_user_bot'),
+        # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
+        # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
+        # This is acceptable for backward compatibility during migration
+        Index('ix_subscription_user_bot_unique', 'user_id', 'bot_id', 
+              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
     )
     
     id = Column(Integer, primary_key=True, index=True)
@@ -1101,7 +1114,11 @@ class PromoCode(Base):
     bot = relationship("Bot")
     
     __table_args__ = (
-        UniqueConstraint('bot_id', 'code', name='uq_promocode_bot_code'),
+        # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
+        # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
+        # This is acceptable for backward compatibility during migration
+        Index('ix_promocode_bot_code_unique', 'bot_id', 'code', 
+              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
     )
     
     @property

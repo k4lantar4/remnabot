@@ -449,6 +449,18 @@ async def shutdown_bot(bot_id: Optional[int] = None):
         if bot_id in active_bots:
             bot = active_bots[bot_id]
             try:
+                # Cancel polling task if it exists
+                if bot_id in polling_tasks:
+                    task = polling_tasks[bot_id]
+                    if not task.done():
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+                    del polling_tasks[bot_id]
+                    logger.info(f"🛑 Polling task cancelled for bot {bot_id}")
+                
                 await bot.session.close()
                 del active_bots[bot_id]
                 if bot_id in active_dispatchers:
@@ -472,6 +484,20 @@ async def shutdown_bot(bot_id: Optional[int] = None):
             except Exception as e:
                 logger.error(f"Failed to close bot {bot_id} session: {e}")
         
+        # Cancel all polling tasks
+        for bot_id, task in list(polling_tasks.items()):
+            try:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                logger.info(f"🛑 Polling task cancelled for bot {bot_id}")
+            except Exception as e:
+                logger.error(f"Failed to cancel polling task for bot {bot_id}: {e}")
+        
+        polling_tasks.clear()
         active_bots.clear()
         active_dispatchers.clear()
         
