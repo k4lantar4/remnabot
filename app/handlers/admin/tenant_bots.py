@@ -540,7 +540,7 @@ async def activate_tenant_bot(
     
     success = await activate_bot(db, bot_id)
     if success:
-        await callback.answer("✅ Bot activated")
+        await callback.answer(texts.t("BOT_ACTIVATED"), show_alert=True)
         # Refresh detail view
         await show_bot_detail(callback, db_user, db)
     else:
@@ -593,7 +593,7 @@ async def deactivate_tenant_bot(
     
     success = await deactivate_bot(db, bot_id)
     if success:
-        await callback.answer("⏸️ Bot deactivated")
+        await callback.answer(texts.t("BOT_DEACTIVATED"), show_alert=True)
         # Refresh detail view
         await show_bot_detail(callback, db_user, db)
     else:
@@ -898,7 +898,7 @@ async def test_bot_status(
         )
         return
     
-    await callback.answer("⏳ Testing bot...")
+    await callback.answer(texts.t("TESTING_BOT"), show_alert=True)
     
     from app.bot import active_bots, active_dispatchers, polling_tasks
     from app.config import settings
@@ -1078,7 +1078,7 @@ async def update_all_webhooks(
         )
         return
     
-    await callback.answer("⏳ Updating webhooks...")
+    await callback.answer(texts.t("UPDATING_WEBHOOKS"), show_alert=True)
     
     # Get active bots from database
     from app.database.crud.bot import get_active_bots

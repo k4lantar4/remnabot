@@ -5,6 +5,7 @@ from aiogram.types import Message, CallbackQuery, TelegramObject, User as TgUser
 
 from app.config import settings
 from app.services.maintenance_service import maintenance_service
+from app.localization.texts import get_texts
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,14 @@ class MaintenanceMiddleware(BaseMiddleware):
         if settings.is_admin(user.id):
             return await handler(event, data)
         
-        maintenance_message = maintenance_service.get_maintenance_message()
+        # Try to get user language from data, fallback to user's language_code or "en"
+        user_language = "en"
+        if "db_user" in data and data["db_user"]:
+            user_language = data["db_user"].language or "en"
+        elif user.language_code:
+            user_language = user.language_code.split('-')[0] if user.language_code else "en"
+        
+        maintenance_message = maintenance_service.get_maintenance_message(language=user_language)
         
         try:
             if isinstance(event, Message):

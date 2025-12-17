@@ -435,7 +435,7 @@ Your balance has been updated."""
         except Exception:
             pass
         
-        await callback.answer("✅ Payment approved")
+        await callback.answer(texts.t("PAYMENT_APPROVED"), show_alert=True)
         
     except Exception as e:
         logger.error(f"Error approving payment: {e}", exc_info=True)
@@ -537,7 +537,7 @@ Please contact support for more information."""
         except Exception:
             pass
         
-        await callback.answer("❌ Payment rejected")
+        await callback.answer(texts.t("PAYMENT_REJECTED"), show_alert=True)
         
     except Exception as e:
         logger.error(f"Error rejecting payment: {e}", exc_info=True)

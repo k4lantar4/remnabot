@@ -886,7 +886,7 @@ async def process_language_change(
     }
 
     if normalized_selected not in available_map:
-        await callback.answer("❌ Unsupported language", show_alert=True)
+        await callback.answer(texts.t("UNSUPPORTED_LANGUAGE"), show_alert=True)
         return
 
     resolved_language = available_map[normalized_selected].lower()

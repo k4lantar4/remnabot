@@ -564,7 +564,13 @@ async def process_language_selection(
         logger.warning(
             f"⚠️ LANGUAGE: Unavailable language '{normalized_selected}' selected by user {callback.from_user.id}"
         )
-        await callback.answer("❌ Unsupported language", show_alert=True)
+        default_language = (
+            (settings.DEFAULT_LANGUAGE or DEFAULT_LANGUAGE)
+            if isinstance(settings.DEFAULT_LANGUAGE, str)
+            else DEFAULT_LANGUAGE
+        )
+        texts = get_texts(default_language.split("-")[0].lower())
+        await callback.answer(texts.t("UNSUPPORTED_LANGUAGE"), show_alert=True)
         return
 
     resolved_language = available_map[normalized_selected].lower()

@@ -239,6 +239,18 @@ async def check_wata_payment_status(
     callback: types.CallbackQuery,
     db: AsyncSession,
 ):
+    # Get user language early for error messages
+    user_language = "ru"
+    try:
+        if callback.from_user:
+            user = await fetch_user_by_id(db, callback.from_user.id)
+            if user and getattr(user, "language", None):
+                user_language = user.language
+    except Exception:
+        pass
+    
+    texts = get_texts(user_language)
+    
     try:
         local_payment_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
@@ -266,15 +278,14 @@ async def check_wata_payment_status(
 
     payment = status_info["payment"]
 
-    user_language = "ru"
+    # Update user language if payment user is different
     try:
         user = await fetch_user_by_id(db, payment.user_id)
         if user and getattr(user, "language", None):
             user_language = user.language
+            texts = get_texts(user_language)
     except Exception as error:
         logger.debug("Failed to fetch user for WATA status: %s", error)
-
-    texts = get_texts(user_language)
 
     status_labels: Dict[str, Dict[str, str]] = {
         "Opened": {"emoji": "⏳", "label": texts.t("WATA_STATUS_OPENED", "Waiting for payment")},
@@ -288,13 +299,15 @@ async def check_wata_payment_status(
         {"emoji": "❓", "label": texts.t("WATA_STATUS_UNKNOWN", "Unknown")},
     )
 
+    created_date = payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
+    
     message_lines = [
         texts.t("WATA_STATUS_TITLE", "💳 <b>WATA payment status</b>"),
         "",
-        f"🆔 ID: {payment.payment_link_id}",
-        f"💰 Amount: {settings.format_price(payment.amount_kopeks)}",
-        f"📊 Status: {label_info['emoji']} {label_info['label']}",
-        f"📅 Created: {payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'}",
+        texts.t("WATA_STATUS_ID", "🆔 ID: {payment_id}").format(payment_id=payment.payment_link_id),
+        texts.t("WATA_STATUS_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+        texts.t("WATA_STATUS_STATUS", "📊 Status: {emoji} {label}").format(emoji=label_info['emoji'], label=label_info['label']),
+        texts.t("WATA_STATUS_CREATED", "📅 Created: {date}").format(date=created_date),
     ]
 
     if payment.is_paid:
@@ -312,5 +325,7 @@ async def check_wata_payment_status(
             )
         )
 
-    await callback.message.answer("\n".join(message_lines), parse_mode="HTML")
+    newline_separator = "\n"
+    message_text = newline_separator.join(message_lines)
+    await callback.message.answer(message_text, parse_mode="HTML")
     await callback.answer()

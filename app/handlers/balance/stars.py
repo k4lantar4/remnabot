@@ -23,15 +23,11 @@ async def start_stars_payment(
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
-        await callback.answer(texts.t("STARS_UNAVAILABLE", "❌ Stars top-up temporarily unavailable"), show_alert=True)
+        await callback.answer(texts.t("STARS_UNAVAILABLE"), show_alert=True)
         return
 
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
-        message_text = texts.t(
-            "STARS_PROMPT_WITH_BUTTONS",
-            "⭐ <b>Top-up via Telegram Stars</b>\n\n"
-            "Choose an amount or enter manually:"
-        )
+        message_text = texts.t("STARS_PROMPT_WITH_BUTTONS")
     else:
         message_text = texts.TOP_UP_AMOUNT
 
@@ -68,7 +64,7 @@ async def process_stars_payment_amount(
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
-        await message.answer(texts.t("STARS_UNAVAILABLE", "⚠️ Stars payment temporarily unavailable"))
+        await message.answer(texts.t("STARS_UNAVAILABLE"))
         return
 
     try:
@@ -84,7 +80,7 @@ async def process_stars_payment_amount(
         )
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.t("STARS_PAY_BUTTON", "⭐ Pay"), url=invoice_link)],
+            [types.InlineKeyboardButton(text=texts.t("STARS_PAY_BUTTON"), url=invoice_link)],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
         ])
 
@@ -108,14 +104,7 @@ async def process_stars_payment_amount(
                 )
 
         invoice_message = await message.answer(
-            texts.t(
-                "STARS_INVOICE_MESSAGE",
-                "⭐ <b>Payment via Telegram Stars</b>\n\n"
-                "💰 Amount: {amount}\n"
-                "⭐ To pay: {stars} stars\n"
-                "📊 Rate: {rate} per star\n\n"
-                "Click the button below to pay:"
-            ).format(
+            texts.t("STARS_INVOICE_MESSAGE").format(
                 amount=texts.format_price(amount_kopeks),
                 stars=stars_amount,
                 rate=f"{stars_rate}₽"
@@ -133,4 +122,4 @@ async def process_stars_payment_amount(
 
     except Exception as e:
         logger.error(f"Error creating Stars invoice: {e}")
-        await message.answer(texts.t("PAYMENT_CREATE_ERROR_SHORT", "⚠️ Payment creation error"))
+        await message.answer(texts.t("PAYMENT_CREATE_ERROR_SHORT"))

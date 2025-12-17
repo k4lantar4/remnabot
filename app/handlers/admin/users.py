@@ -2108,7 +2108,8 @@ async def process_edit_user_referrals(
                     "Skipped (same user): {values}",
                 ).format(values=", ".join(skipped_self))
             )
-        await message.answer("\n".join(error_lines))
+        error_message = "\n".join(error_lines)
+        await message.answer(error_message)
         return
 
     user_service = UserService()
@@ -2205,7 +2206,8 @@ async def process_edit_user_referrals(
     elif view:
         await message.answer(view[0], reply_markup=view[1])
 
-    await message.answer("\n".join(response_lines))
+    response_message = "\n".join(response_lines)
+    await message.answer(response_message)
     await state.clear()
 
 async def _render_user_promo_group(

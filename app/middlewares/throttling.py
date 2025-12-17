@@ -61,10 +61,7 @@ class ThrottlingMiddleware(BaseMiddleware):
                 if user and user.language_code:
                     language = user.language_code.split('-')[0]
                 texts = get_texts(language)
-                message = texts.get(
-                    "THROTTLING_MESSAGE",
-                    "⏳ Please don't send messages so frequently!"
-                )
+                message = texts.t("THROTTLING_MESSAGE")
                 await event.answer(message)
                 return
             # For callbacks, allow brief notification
@@ -74,10 +71,7 @@ class ThrottlingMiddleware(BaseMiddleware):
                 if user and user.language_code:
                     language = user.language_code.split('-')[0]
                 texts = get_texts(language)
-                message = texts.get(
-                    "THROTTLING_CALLBACK",
-                    "⏳ Too fast! Please wait a moment."
-                )
+                message = texts.t("THROTTLING_CALLBACK")
                 await event.answer(message, show_alert=True)
                 return
         

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from app.config import settings
 from app.external.remnawave_api import RemnaWaveAPI, test_api_connection
+from app.localization.texts import get_texts
 from app.utils.cache import cache
 from app.utils.timezone import format_local_datetime
 
@@ -44,22 +45,21 @@ class MaintenanceService:
     def is_maintenance_active(self) -> bool:
         return self._status.is_active
     
-    def get_maintenance_message(self) -> str:
+    def get_maintenance_message(self, language: str = "en") -> str:
+        texts = get_texts(language)
         if self._status.auto_enabled:
             last_check_display = format_local_datetime(
                 self._status.last_check, "%H:%M:%S", "unknown"
             )
-            return f"""
-🔧 Maintenance in progress!
-
-Service temporarily unavailable due to server connection issues.
-
-⏰ We are working on restoration. Please try again in a few minutes.
-
-🔄 Last check: {last_check_display}
-"""
+            return texts.t("MAINTENANCE_MESSAGE_AUTO", "🔧 Maintenance in progress!\n\nService temporarily unavailable due to server connection issues.\n\n⏰ We are working on restoration. Please try again in a few minutes.\n\n🔄 Last check: {last_check}").format(last_check=last_check_display)
         else:
-            return settings.get_maintenance_message()
+            # Use translation key with fallback to config value if customized
+            config_message = settings.get_maintenance_message()
+            default_message = texts.t("MAINTENANCE_MESSAGE", "🔧 Maintenance in progress. Service is temporarily unavailable. Please try again later.")
+            # If config has been customized (not the default), use it; otherwise use translation key
+            if config_message != "🔧 Maintenance in progress. Service is temporarily unavailable. Please try again later.":
+                return config_message
+            return default_message
     
     async def _send_admin_notification(self, message: str, alert_type: str = "info"):
         if not self._bot:

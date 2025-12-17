@@ -95,11 +95,7 @@ class DisplayNameRestrictionMiddleware(BaseMiddleware):
             suspicious_value = display_name if display_suspicious else username
             language = self._resolve_language(user, data)
             texts = get_texts(language)
-            warning = texts.get(
-                "SUSPICIOUS_DISPLAY_NAME_BLOCKED",
-                "🚫 Your display name looks like a link or service account. "
-                "Please change your name and try again.",
-            )
+            warning = texts.t("SUSPICIOUS_DISPLAY_NAME_BLOCKED")
 
             logger.warning(
                 "🚫 DisplayNameRestriction: user %s blocked due to suspicious name '%s'",

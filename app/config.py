@@ -1305,21 +1305,58 @@ class Settings(BaseSettings):
         except (ValueError, AttributeError):
             return [30, 90, 180]
 
-    def get_balance_payment_description(self, amount_kopeks: int) -> str:
-        return self.PAYMENT_BALANCE_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
-            description=f"{self.PAYMENT_BALANCE_DESCRIPTION} for {self.format_price(amount_kopeks)}"
+    def get_balance_payment_description(self, amount_kopeks: int, language: str = "en") -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            balance_desc = texts.t("PAYMENT_BALANCE_DESCRIPTION", self.PAYMENT_BALANCE_DESCRIPTION)
+            template = texts.t("PAYMENT_BALANCE_TEMPLATE", self.PAYMENT_BALANCE_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            balance_desc = self.PAYMENT_BALANCE_DESCRIPTION
+            template = self.PAYMENT_BALANCE_TEMPLATE
+        
+        return template.format(
+            service_name=service_name,
+            description=f"{balance_desc} for {self.format_price(amount_kopeks)}"
         )
     
-    def get_subscription_payment_description(self, period_days: int, amount_kopeks: int) -> str:
-        return self.PAYMENT_SUBSCRIPTION_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
-            description=f"{self.PAYMENT_SUBSCRIPTION_DESCRIPTION} for {period_days} days"
+    def get_subscription_payment_description(self, period_days: int, amount_kopeks: int, language: str = "en") -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            subscription_desc = texts.t("PAYMENT_SUBSCRIPTION_DESCRIPTION", self.PAYMENT_SUBSCRIPTION_DESCRIPTION)
+            template = texts.t("PAYMENT_SUBSCRIPTION_TEMPLATE", self.PAYMENT_SUBSCRIPTION_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            subscription_desc = self.PAYMENT_SUBSCRIPTION_DESCRIPTION
+            template = self.PAYMENT_SUBSCRIPTION_TEMPLATE
+        
+        return template.format(
+            service_name=service_name,
+            description=f"{subscription_desc} for {period_days} days"
         )
     
-    def get_custom_payment_description(self, description: str) -> str:
-        return self.PAYMENT_BALANCE_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
+    def get_custom_payment_description(self, description: str, language: str = "en") -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            template = texts.t("PAYMENT_BALANCE_TEMPLATE", self.PAYMENT_BALANCE_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            template = self.PAYMENT_BALANCE_TEMPLATE
+        
+        return template.format(
+            service_name=service_name,
             description=description
         )
 

@@ -246,7 +246,9 @@ async def show_support_audit(
     kb_rows.append([InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_support")])
     kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
 
-    await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+    newline_separator = "\n"
+    message_text = newline_separator.join(lines)
+    await callback.message.edit_text(message_text, parse_mode="HTML", reply_markup=kb)
     await callback.answer()
 
 

@@ -1114,19 +1114,27 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(send_admin_ticket_attachments, F.data.startswith("admin_ticket_attachments_"))
 
     async def admin_delete_message(
-        callback: types.CallbackQuery
+        callback: types.CallbackQuery,
+        db: AsyncSession
     ):
+        from app.database.crud.user import get_user_by_telegram_id
+        db_user = await get_user_by_telegram_id(db, callback.from_user.id)
+        if db_user:
+            texts = get_texts(db_user.language)
+        else:
+            texts = get_texts("en")
+        
         try:
             msg_id = int(callback.data.replace("admin_delete_message_", ""))
         except ValueError:
-            await callback.answer("❌")
+            await callback.answer(texts.t("TICKET_DELETE_ERROR", "❌"))
             return
         try:
             await callback.message.bot.delete_message(chat_id=callback.from_user.id, message_id=msg_id)
             await callback.message.delete()
         except Exception:
             pass
-        await callback.answer("✅")
+        await callback.answer(texts.t("TICKET_DELETE_SUCCESS", "✅"))
 
     dp.callback_query.register(admin_delete_message, F.data.startswith("admin_delete_message_"))
 

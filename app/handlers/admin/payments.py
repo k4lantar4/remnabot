@@ -533,9 +533,10 @@ async def show_payment_details(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     parsed = _parse_method_and_id(callback.data, prefix="admin_payment_")
     if not parsed:
-        await callback.answer("❌ Invalid payment reference", show_alert=True)
+        await callback.answer(texts.t("INVALID_PAYMENT_REFERENCE"), show_alert=True)
         return
 
     method, payment_id = parsed
@@ -556,9 +557,10 @@ async def manual_check_payment(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     parsed = _parse_method_and_id(callback.data, prefix="admin_payment_check_")
     if not parsed:
-        await callback.answer("❌ Invalid payment reference", show_alert=True)
+        await callback.answer(texts.t("INVALID_PAYMENT_REFERENCE"), show_alert=True)
         return
 
     method, payment_id = parsed
