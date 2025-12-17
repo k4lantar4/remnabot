@@ -239,7 +239,7 @@ async def _send_pal24_payment_message(
         await state.clear()
 
         logger.info(
-            "Created PayPalych invoice for user %s: %s₽, ID: %s, method: %s",
+            "Created PayPalych invoice for user %s: %s Toman, ID: %s, method: %s",
             db_user.telegram_id,
             amount_kopeks / 100,
             bill_id,
@@ -292,7 +292,7 @@ async def start_pal24_payment(
         "PAL24_TOPUP_PROMPT",
         (
             f"🏦 <b>PayPalych payment ({payment_methods_text})</b>\n\n"
-            "Enter a top-up amount from 100 to 1,000,000 ₽.\n"
+            "Enter a top-up amount from 100 to 1,000,000  Toman.\n"
             f"Payment is processed via PayPalych ({payment_methods_text})."
         ),
     )
@@ -344,7 +344,7 @@ async def process_pal24_payment_amount(
         await message.answer(
             texts.t(
                 "PAL24_MIN_AMOUNT",
-                "❌ Minimum amount for PayPalych payment: {amount:.0f} ₽",
+                "❌ Minimum amount for PayPalych payment: {amount:.0f}  Toman",
             ).format(amount=min_rubles)
         )
         return
@@ -354,7 +354,7 @@ async def process_pal24_payment_amount(
         await message.answer(
             texts.t(
                 "PAL24_MAX_AMOUNT",
-                "❌ Maximum amount for PayPalych payment: {amount:,.0f} ₽",
+                "❌ Maximum amount for PayPalych payment: {amount:,.0f}  Toman",
             ).format(amount=max_rubles).replace(',', ' ')
         )
         return

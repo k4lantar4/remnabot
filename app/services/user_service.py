@@ -411,7 +411,7 @@ class UserService:
 
             if amount_kopeks > 0:
                 await add_user_balance(db, user, amount_kopeks, description=description)
-                logger.info(f"Admin {admin_id} topped up balance for user {user_id} by {amount_kopeks/100}₽")
+                logger.info(f"Admin {admin_id} topped up balance for user {user_id} by {amount_kopeks/100} Toman")
                 success = True
             else:
                 success = await subtract_user_balance(
@@ -423,7 +423,7 @@ class UserService:
                     payment_method=PaymentMethod.MANUAL,
                 )
                 if success:
-                    logger.info(f"Admin {admin_id} deducted {abs(amount_kopeks)/100}₽ from user {user_id} balance")
+                    logger.info(f"Admin {admin_id} deducted {abs(amount_kopeks)/100} Toman from user {user_id} balance")
 
             # Send notification to user if operation succeeded
             if success and bot:

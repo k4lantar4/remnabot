@@ -44,7 +44,7 @@ def calculate_prorated_price(
     
     total_price = monthly_price * months_to_charge
     
-    logger.debug(f"Prorated price calculation: {monthly_price/100}₽/mo × {months_to_charge} mo = {total_price/100}₽")
+    logger.debug(f"Prorated price calculation: {monthly_price/100} Toman/mo × {months_to_charge} mo = {total_price/100} Toman")
     
     return total_price, months_to_charge
 
@@ -306,8 +306,8 @@ def validate_pricing_calculation(
     is_valid = expected_total == total_calculated
     
     if not is_valid:
-        logger.warning(f"Price calculation mismatch: expected {expected_total/100}₽, got {total_calculated/100}₽")
-        logger.warning(f"Details: base price {base_price/100}₽ + monthly additions {monthly_additions/100}₽ × {months} mo")
+        logger.warning(f"Price calculation mismatch: expected {expected_total/100} Toman, got {total_calculated/100} Toman")
+        logger.warning(f"Details: base price {base_price/100} Toman + monthly additions {monthly_additions/100} Toman × {months} mo")
     
     return is_valid
 

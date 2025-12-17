@@ -43,7 +43,7 @@ async def create_yookassa_payment(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"YooKassa payment created: {yookassa_payment_id} for {amount_kopeks/100}₽ for user {user_id}")
+    logger.info(f"YooKassa payment created: {yookassa_payment_id} for {amount_kopeks/100} Toman for user {user_id}")
     return payment
 
 

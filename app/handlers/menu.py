@@ -52,7 +52,7 @@ def _format_rubles(amount_kopeks: int) -> str:
     else:
         formatted = f"{rubles:,.2f}"
 
-    return f"{formatted.replace(',', ' ')} ₽"
+    return f"{formatted.replace(',', ' ')}  Toman"
 
 
 def _collect_period_discounts(group: PromoGroup) -> Dict[int, int]:

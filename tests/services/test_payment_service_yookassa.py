@@ -103,7 +103,7 @@ async def test_create_yookassa_payment_success(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(
         type(settings),
         "format_price",
-        lambda self, amount: f"{amount / 100:.0f}₽",
+        lambda self, amount: f"{amount / 100:.0f} Toman",
         raising=False,
     )
 

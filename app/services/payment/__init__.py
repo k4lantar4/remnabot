@@ -7,9 +7,11 @@ common helpers, CryptoBot, and Pal24.
 from .common import PaymentCommonMixin
 from .cryptobot import CryptoBotPaymentMixin
 from .pal24 import Pal24PaymentMixin
+from .wata import WataPaymentMixin
 
 __all__ = [
     "PaymentCommonMixin",
     "CryptoBotPaymentMixin",
     "Pal24PaymentMixin",
+    "WataPaymentMixin",
 ]

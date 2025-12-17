@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 # Currency symbols to strip from price input (including Cyrillic 'r' for backward compatibility)
 # Cyrillic 'r' and Ruble symbol for legacy input support
+# Note: Display currency is now Toman, but these symbols are kept for input parsing compatibility
 # Handling Cyrillic inputs via Unicode to avoid linter errors
-CURRENCY_SYMBOLS = ("\u20bd", "\u0440", "RUB")
+CURRENCY_SYMBOLS = ("\u20bd", "\u0440", "RUB", "Toman", "toman", "TOMAN")
 
 
 PriceItem = Tuple[str, str, int]

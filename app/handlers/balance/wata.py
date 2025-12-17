@@ -227,7 +227,7 @@ async def process_wata_payment_amount(
     await state.clear()
 
     logger.info(
-        "Created WATA payment for user %s: %s₽, link: %s",
+        "Created WATA payment for user %s: %s Toman, link: %s",
         db_user.telegram_id,
         amount_kopeks / 100,
         payment_link_id,

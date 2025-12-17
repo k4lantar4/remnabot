@@ -94,7 +94,7 @@ class AdvertisingCampaignService:
         )
 
         logger.info(
-            "💰 User %s received a %s₽ bonus for campaign %s",
+            "💰 User %s received a %s Toman bonus for campaign %s",
             user.telegram_id,
             amount / 100,
             campaign.id,

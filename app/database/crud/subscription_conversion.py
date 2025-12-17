@@ -31,7 +31,7 @@ async def create_subscription_conversion(
     await db.commit()
     await db.refresh(conversion)
     
-    logger.info(f"✅ Conversion record created for user {user_id}: {trial_duration_days} days → {first_paid_period_days} days for {first_payment_amount_kopeks/100}₽")
+    logger.info(f"✅ Conversion record created for user {user_id}: {trial_duration_days} days → {first_paid_period_days} days for {first_payment_amount_kopeks/100} Toman")
     
     return conversion
 

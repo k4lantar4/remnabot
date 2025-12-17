@@ -36,7 +36,7 @@ async def _notify_admins_about_auto_assignment(
         reason = (
             f"Auto-assignment for spending {settings.format_price(total_spent_kopeks)}"
             if hasattr(settings, "format_price")
-            else f"Auto-assignment for spending {total_spent_kopeks / 100:.2f}₽"
+            else f"Auto-assignment for spending {total_spent_kopeks / 100:.2f} Toman"
         )
         await notification_service.send_user_promo_group_change_notification(
             db,
@@ -158,7 +158,7 @@ async def maybe_assign_promo_group_by_total_spent(
             # Add new promo group to existing ones
             await add_user_to_promo_group(db, user_id, target_group.id, assigned_by="auto")
             logger.info(
-                "Promo group '%s' added to user %s for spending %s ₽",
+                "Promo group '%s' added to user %s for spending %s Toman",
                 target_group.name,
                 user.telegram_id,
                 total_spent / 100,

@@ -92,7 +92,7 @@ async def start_card_to_card_payment(
 <b>Card Number:</b> <code>{card_number}</code>
 <b>Card Holder:</b> {card_holder}
 
-<b>Amount:</b> {amount} ₽
+<b>Amount:</b> {amount}  Toman
 
 Please send the payment receipt.
 You can send an image, text, or both."""
@@ -238,7 +238,7 @@ async def send_admin_notification(
         message_text = f"""🔔 <b>Card-to-Card Payment Request</b>
 
 👤 <b>User:</b> @{user.username or 'N/A'} ({user.telegram_id})
-💰 <b>Amount:</b> {amount_rub:,.2f} ₽
+💰 <b>Amount:</b> {amount_rub:,.2f}  Toman
 🔢 <b>Tracking:</b> <code>{payment.tracking_number}</code>
 📅 <b>Date:</b> {payment.created_at.strftime('%Y-%m-%d %H:%M')}
 💳 <b>Card:</b> {payment.card.card_number if payment.card else 'N/A'}"""
@@ -413,7 +413,7 @@ async def handle_payment_approval(
                         """✅ Your payment has been approved.
 
 <b>Tracking Number:</b> <code>{tracking}</code>
-<b>Amount:</b> {amount} ₽
+<b>Amount:</b> {amount}  Toman
 
 Your balance has been updated."""
                     ).format(

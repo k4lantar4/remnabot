@@ -736,7 +736,7 @@ async def handle_edit_value(
             
             await update_promocode(db, promo, balance_bonus_kopeks=value * 100)
             await message.answer(
-                texts.t("ADMIN_PROMOCODE_AMOUNT_CHANGED", "✅ Bonus amount changed to {value}₽").format(value=value),
+                texts.t("ADMIN_PROMOCODE_AMOUNT_CHANGED", "✅ Bonus amount changed to {value} Toman").format(value=value),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text=texts.t("ADMIN_BTN_TO_PROMOCODE", "🎫 To promocode"), callback_data=f"promo_manage_{promo_id}")]
                 ])

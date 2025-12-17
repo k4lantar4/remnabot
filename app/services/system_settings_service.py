@@ -444,7 +444,7 @@ class BotConfigurationService:
         "SIMPLE_SUBSCRIPTION_PERIOD_DAYS": {
             "description": "Subscription period offered for quick purchase.",
             "format": "Select one of the available periods.",
-            "example": "30 days — 990 ₽",
+            "example": "30 days — 990  Toman",
             "warning": "Don't forget to configure the period price in the \"Plan pricing\" section.",
         },
         "SIMPLE_SUBSCRIPTION_DEVICE_LIMIT": {

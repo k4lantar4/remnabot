@@ -227,7 +227,7 @@ async def show_bot_detail(
 • Support: {support}
 
 <b>Statistics:</b>
-• Wallet: {wallet} ₽
+• Wallet: {wallet}  Toman
 • Traffic Consumed: {traffic_consumed} GB
 • Traffic Sold: {traffic_sold} GB"""
     ).format(

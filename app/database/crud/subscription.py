@@ -1034,35 +1034,35 @@ async def calculate_subscription_total_cost(
     }
 
     logger.debug(f"📊 Subscription cost calculation for {period_days} days ({months_in_period} months):")
-    logger.debug(f"   Base period: {base_price/100}₽")
+    logger.debug(f"   Base period: {base_price/100} Toman")
     if total_traffic_price > 0:
         message = (
-            f"   Traffic: {traffic_price_per_month/100}₽/month × {months_in_period} = {total_traffic_price/100}₽"
+            f"   Traffic: {traffic_price_per_month/100} Toman/month × {months_in_period} = {total_traffic_price/100} Toman"
         )
         if total_traffic_discount > 0:
             message += (
-                f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100}₽)"
+                f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100} Toman)"
             )
         logger.debug(message)
     if total_servers_price > 0:
         message = (
-            f"   Servers: {servers_price_per_month/100}₽/month × {months_in_period} = {total_servers_price/100}₽"
+            f"   Servers: {servers_price_per_month/100} Toman/month × {months_in_period} = {total_servers_price/100} Toman"
         )
         if total_servers_discount > 0:
             message += (
-                f" (discount {servers_discount_percent}%: -{total_servers_discount/100}₽)"
+                f" (discount {servers_discount_percent}%: -{total_servers_discount/100} Toman)"
             )
         logger.debug(message)
     if total_devices_price > 0:
         message = (
-            f"   Devices: {devices_price_per_month/100}₽/month × {months_in_period} = {total_devices_price/100}₽"
+            f"   Devices: {devices_price_per_month/100} Toman/month × {months_in_period} = {total_devices_price/100} Toman"
         )
         if total_devices_discount > 0:
             message += (
-                f" (discount {devices_discount_percent}%: -{total_devices_discount/100}₽)"
+                f" (discount {devices_discount_percent}%: -{total_devices_discount/100} Toman)"
             )
         logger.debug(message)
-    logger.debug(f"   TOTAL: {total_cost/100}₽")
+    logger.debug(f"   TOTAL: {total_cost/100} Toman")
     
     return total_cost, details
     
@@ -1212,35 +1212,35 @@ async def get_subscription_renewal_cost(
         total_cost = base_price + total_servers_cost + total_traffic_cost + total_devices_cost
 
         logger.info(f"💰 Subscription renewal cost calculation {subscription_id} for {period_days} days ({months_in_period} months):")
-        logger.info(f"   📅 Period: {base_price/100}₽")
+        logger.info(f"   📅 Period: {base_price/100} Toman")
         if total_servers_cost > 0:
             message = (
-                f"   🌍 Servers: {servers_price_per_month/100}₽/month × {months_in_period} = {total_servers_cost/100}₽"
+                f"   🌍 Servers: {servers_price_per_month/100} Toman/month × {months_in_period} = {total_servers_cost/100} Toman"
             )
             if total_servers_discount > 0:
                 message += (
-                    f" (discount {servers_discount_percent}%: -{total_servers_discount/100}₽)"
+                    f" (discount {servers_discount_percent}%: -{total_servers_discount/100} Toman)"
                 )
             logger.info(message)
         if total_traffic_cost > 0:
             message = (
-                f"   📊 Traffic: {traffic_price_per_month/100}₽/month × {months_in_period} = {total_traffic_cost/100}₽"
+                f"   📊 Traffic: {traffic_price_per_month/100} Toman/month × {months_in_period} = {total_traffic_cost/100} Toman"
             )
             if total_traffic_discount > 0:
                 message += (
-                    f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100}₽)"
+                    f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100} Toman)"
                 )
             logger.info(message)
         if total_devices_cost > 0:
             message = (
-                f"   📱 Devices: {devices_price_per_month/100}₽/month × {months_in_period} = {total_devices_cost/100}₽"
+                f"   📱 Devices: {devices_price_per_month/100} Toman/month × {months_in_period} = {total_devices_cost/100} Toman"
             )
             if total_devices_discount > 0:
                 message += (
-                    f" (discount {devices_discount_percent}%: -{total_devices_discount/100}₽)"
+                    f" (discount {devices_discount_percent}%: -{total_devices_discount/100} Toman)"
                 )
             logger.info(message)
-        logger.info(f"   💎 TOTAL: {total_cost/100}₽")
+        logger.info(f"   💎 TOTAL: {total_cost/100} Toman")
         
         return total_cost
         
@@ -1284,11 +1284,11 @@ async def calculate_addon_cost_for_remaining_period(
         traffic_total_cost = discounted_traffic_per_month * months_to_pay
         total_cost += traffic_total_cost
         message = (
-            f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month/100}₽/month × {months_to_pay} = {traffic_total_cost/100}₽"
+            f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month/100} Toman/month × {months_to_pay} = {traffic_total_cost/100} Toman"
         )
         if traffic_discount_per_month > 0:
             message += (
-                f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_to_pay/100}₽)"
+                f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_to_pay/100} Toman)"
             )
         logger.info(message)
 
@@ -1305,11 +1305,11 @@ async def calculate_addon_cost_for_remaining_period(
         devices_total_cost = discounted_devices_per_month * months_to_pay
         total_cost += devices_total_cost
         message = (
-            f"Devices +{additional_devices}: {devices_price_per_month/100}₽/month × {months_to_pay} = {devices_total_cost/100}₽"
+            f"Devices +{additional_devices}: {devices_price_per_month/100} Toman/month × {months_to_pay} = {devices_total_cost/100} Toman"
         )
         if devices_discount_per_month > 0:
             message += (
-                f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_to_pay/100}₽)"
+                f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_to_pay/100} Toman)"
             )
         logger.info(message)
 
@@ -1334,15 +1334,15 @@ async def calculate_addon_cost_for_remaining_period(
                 server_total_cost = discounted_server_per_month * months_to_pay
                 total_cost += server_total_cost
                 message = (
-                    f"Server {server_name}: {server_price_per_month/100}₽/month × {months_to_pay} = {server_total_cost/100}₽"
+                    f"Server {server_name}: {server_price_per_month/100} Toman/month × {months_to_pay} = {server_total_cost/100} Toman"
                 )
                 if server_discount_per_month > 0:
                     message += (
-                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_to_pay/100}₽)"
+                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_to_pay/100} Toman)"
                     )
                 logger.info(message)
     
-    logger.info(f"💰 Total addon cost for {months_to_pay} months: {total_cost/100}₽")
+    logger.info(f"💰 Total addon cost for {months_to_pay} months: {total_cost/100} Toman")
     return total_cost
 
 async def expire_subscription(

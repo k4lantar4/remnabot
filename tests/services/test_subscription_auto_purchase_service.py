@@ -22,7 +22,7 @@ class DummyTexts:
         return default
 
     def format_price(self, value: int) -> str:
-        return f"{value / 100:.0f} ₽"
+        return f"{value / 100:.0f}  Toman"
 
 
 async def test_auto_purchase_saved_cart_after_topup_success(monkeypatch):
@@ -63,7 +63,7 @@ async def test_auto_purchase_saved_cart_after_topup_success(monkeypatch):
         current=1,
         price_per_device=0,
         discounted_price_per_device=0,
-        price_label="0 ₽",
+        price_label="0  Toman",
     )
 
     period_config = PurchasePeriodConfig(
@@ -72,12 +72,12 @@ async def test_auto_purchase_saved_cart_after_topup_success(monkeypatch):
         months=1,
         label="30 дней",
         base_price=100_000,
-        base_price_label="1000 ₽",
+        base_price_label="1000  Toman",
         base_price_original=100_000,
         base_price_original_label=None,
         discount_percent=0,
         per_month_price=100_000,
-        per_month_price_label="1000 ₽",
+        per_month_price_label="1000  Toman",
         traffic=traffic_config,
         servers=servers_config,
         devices=devices_config,

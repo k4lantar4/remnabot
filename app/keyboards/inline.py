@@ -1573,13 +1573,13 @@ def get_add_traffic_keyboard(
         texts = get_texts(language)
         if gb == 0:
             unlimited_text = texts.t("TRAFFIC_UNLIMITED", "♾️ Unlimited traffic")
-            text = f"{unlimited_text} - {total_price//100} ₽{period_text}"
+            text = f"{unlimited_text} - {total_price//100}  Toman{period_text}"
         else:
             traffic_text = texts.t("TRAFFIC_GB_ADD", f"📊 +{gb} GB traffic").format(gb=gb)
-            text = f"{traffic_text} - {total_price//100} ₽{period_text}"
+            text = f"{traffic_text} - {total_price//100}  Toman{period_text}"
 
         if discount_percent > 0 and total_discount > 0:
-            text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{total_discount//100}₽)").format(percent=discount_percent, amount=total_discount//100)
+            text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{total_discount//100} Toman)").format(percent=discount_percent, amount=total_discount//100)
 
         buttons.append([
             InlineKeyboardButton(text=text, callback_data=f"add_traffic_{gb}")
@@ -1641,9 +1641,9 @@ def get_change_devices_keyboard(
                     discount_percent,
                 )
                 total_price = discounted_per_month * months_multiplier
-                price_text = f" (+{total_price//100}₽{period_text})"
+                price_text = f" (+{total_price//100} Toman{period_text})"
                 if discount_percent > 0 and discount_per_month * months_multiplier > 0:
-                    price_text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{(discount_per_month * months_multiplier)//100}₽)").format(percent=discount_percent, amount=(discount_per_month * months_multiplier)//100)
+                    price_text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{(discount_per_month * months_multiplier)//100} Toman)").format(percent=discount_percent, amount=(discount_per_month * months_multiplier)//100)
                 action_text = ""
             else:
                 price_text = texts.t("FREE", " (free)")
@@ -1764,10 +1764,10 @@ def get_manage_countries_keyboard(
             total_price = discounted_per_month * months_multiplier
             if months_multiplier > 1:
                 price_text = (
-                    f" ({discounted_per_month//100}₽/mo × {months_multiplier} = {total_price//100}₽)"
+                    f" ({discounted_per_month//100} Toman/mo × {months_multiplier} = {total_price//100} Toman)"
                 )
                 logger.info(
-                    "🔍 Server %s: %.2f₽/mo × %s months = %.2f₽ (discount %.2f₽)",
+                    "🔍 Server %s: %.2f Toman/mo × %s months = %.2f Toman (discount %.2f Toman)",
                     name,
                     discounted_per_month / 100,
                     months_multiplier,
@@ -1775,9 +1775,9 @@ def get_manage_countries_keyboard(
                     (discount_per_month * months_multiplier) / 100,
                 )
             else:
-                price_text = f" ({total_price//100}₽)"
+                price_text = f" ({total_price//100} Toman)"
             if discount_percent > 0 and discount_per_month * months_multiplier > 0:
-                price_text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{(discount_per_month * months_multiplier)//100}₽)").format(percent=discount_percent, amount=(discount_per_month * months_multiplier)//100)
+                price_text += texts.t("DISCOUNT_AMOUNT", f" (discount {discount_percent}%: -{(discount_per_month * months_multiplier)//100} Toman)").format(percent=discount_percent, amount=(discount_per_month * months_multiplier)//100)
             display_name = f"{icon} {name}{price_text}"
         else:
             display_name = f"{icon} {name}"
@@ -1790,8 +1790,8 @@ def get_manage_countries_keyboard(
         ])
     
     if total_cost > 0:
-        apply_text = texts.t("APPLY_CHANGES_WITH_PRICE", f"✅ Apply changes ({total_cost//100} ₽)").format(price=total_cost//100)
-        logger.info(f"🔍 Total cost of new servers: {total_cost/100}₽")
+        apply_text = texts.t("APPLY_CHANGES_WITH_PRICE", f"✅ Apply changes ({total_cost//100}  Toman)").format(price=total_cost//100)
+        logger.info(f"🔍 Total cost of new servers: {total_cost/100} Toman")
     else:
         apply_text = texts.t("APPLY_CHANGES", "✅ Apply changes")
     

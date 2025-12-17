@@ -419,7 +419,7 @@ await TenantFeatureService.is_feature_enabled(db, bot_id, 'referral')
 [Show Referral Info]
     ├── Your Code: XXXX
     ├── Invited: X users
-    ├── Earnings: X ₽
+    ├── Earnings: X  Toman
     └── Share Link
     
 [New User with Referral Code]

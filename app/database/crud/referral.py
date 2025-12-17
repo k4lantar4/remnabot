@@ -31,7 +31,7 @@ async def create_referral_earning(
     await db.commit()
     await db.refresh(earning)
     
-    logger.info(f"💰 Referral earning created: {amount_kopeks/100}₽ for user {user_id}")
+    logger.info(f"💰 Referral earning created: {amount_kopeks/100} Toman for user {user_id}")
     return earning
 
 

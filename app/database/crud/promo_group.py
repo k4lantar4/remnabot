@@ -135,7 +135,7 @@ async def create_promo_group(
     await db.refresh(promo_group)
 
     logger.info(
-        "Promo group created '%s' (default=%s) with discounts (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) and auto-assign threshold %s₽, addon discounts: %s",
+        "Promo group created '%s' (default=%s) with discounts (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) and auto-assign threshold %s Toman, addon discounts: %s",
         promo_group.name,
         promo_group.is_default,
         promo_group.server_discount_percent,

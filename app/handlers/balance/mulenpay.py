@@ -38,7 +38,7 @@ async def start_mulenpay_payment(
         "MULENPAY_TOPUP_PROMPT",
         (
             "💳 <b>Payment via {mulenpay_name_html}</b>\n\n"
-            "Enter a top-up amount from 100 to 100,000 ₽.\n"
+            "Enter a top-up amount from 100 to 100,000  Toman.\n"
             "Payment is processed via secure {mulenpay_name}."
         ),
     )
@@ -241,7 +241,7 @@ async def process_mulenpay_payment_amount(
         await state.clear()
 
         logger.info(
-            "Created %s payment for user %s: %s₽, ID: %s",
+            "Created %s payment for user %s: %s Toman, ID: %s",
             mulenpay_name,
             db_user.telegram_id,
             amount_rubles,

@@ -38,7 +38,7 @@ async def create_transaction(
     await db.commit()
     await db.refresh(transaction)
     
-    logger.info(f"💳 Transaction created: {type.value} for {amount_kopeks/100}₽ for user {user_id}")
+    logger.info(f"💳 Transaction created: {type.value} for {amount_kopeks/100} Toman for user {user_id}")
 
     try:
         from app.services.promo_group_assignment import (

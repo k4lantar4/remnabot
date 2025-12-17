@@ -16,6 +16,7 @@ from app.services.payment import (
     CryptoBotPaymentMixin,
     Pal24PaymentMixin,
     PaymentCommonMixin,
+    WataPaymentMixin,
 )
 from app.services.wata_service import WataService
 from app.services.nalogo_service import NaloGoService
@@ -126,10 +127,46 @@ async def link_cryptobot_payment_to_transaction(*args, **kwargs):
     return await crypto_crud.link_cryptobot_payment_to_transaction(*args, **kwargs)
 
 
+async def create_wata_payment(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.create_wata_payment(*args, **kwargs)
+
+
+async def get_wata_payment_by_id(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.get_wata_payment_by_id(*args, **kwargs)
+
+
+async def get_wata_payment_by_link_id(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.get_wata_payment_by_link_id(*args, **kwargs)
+
+
+async def get_wata_payment_by_order_id(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.get_wata_payment_by_order_id(*args, **kwargs)
+
+
+async def get_wata_payment_by_local_id(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.get_wata_payment_by_id(*args, **kwargs)
+
+
+async def update_wata_payment_status(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.update_wata_payment_status(*args, **kwargs)
+
+
+async def link_wata_payment_to_transaction(*args, **kwargs):
+    wata_crud = import_module("app.database.crud.wata")
+    return await wata_crud.link_wata_payment_to_transaction(*args, **kwargs)
+
+
 class PaymentService(
     PaymentCommonMixin,
     CryptoBotPaymentMixin,
     Pal24PaymentMixin,
+    WataPaymentMixin,
 ):
     """Main payment interface that delegates work to specialized mixins."""
 

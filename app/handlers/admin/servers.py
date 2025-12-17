@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def _build_server_edit_view(server, language: str = "en"):
     texts = get_texts(language)
     status_emoji = texts.t("ADMIN_SRV_STATUS_AVAILABLE", "✅ Available") if server.is_available else texts.t("ADMIN_SRV_STATUS_UNAVAILABLE", "❌ Unavailable")
-    price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
+    price_text = f"{int(server.price_rubles)}  Toman" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
     promo_groups_text = (
         ", ".join(sorted(pg.name for pg in server.allowed_promo_groups))
         if server.allowed_promo_groups
@@ -188,7 +188,7 @@ async def show_servers_menu(
 • With connections: {with_connections}
 
 💰 <b>Server revenue:</b>
-• Total: {revenue} ₽
+• Total: {revenue}  Toman
 
 Select an action:
 """
@@ -243,7 +243,7 @@ async def show_servers_list(
         
         for i, server in enumerate(servers, 1 + (page - 1) * 10):
             status_emoji = "✅" if server.is_available else "❌"
-            price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
+            price_text = f"{int(server.price_rubles)}  Toman" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
             
             text += f"{i}. {status_emoji} {server.display_name}\n"
             text += f"   💰 {texts.t('ADMIN_SRV_PRICE_LABEL', 'Price')}: {price_text}"
@@ -627,7 +627,7 @@ async def start_server_edit_price(
     await state.set_data({'server_id': server_id})
     await state.set_state(AdminStates.editing_server_price)
     
-    current_price = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
+    current_price = f"{int(server.price_rubles)}  Toman" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
     
     await callback.message.edit_text(
         texts.t(
@@ -662,7 +662,7 @@ async def process_server_price_edit(
             return
         
         if price_rubles > 10000:
-            await message.answer(texts.t("ADMIN_SRV_PRICE_TOO_HIGH", "❌ Price too high (max 10,000 ₽)"))
+            await message.answer(texts.t("ADMIN_SRV_PRICE_TOO_HIGH", "❌ Price too high (max 10,000  Toman)"))
             return
         
         price_kopeks = int(price_rubles * 100)
@@ -674,7 +674,7 @@ async def process_server_price_edit(
             
             await cache.delete_pattern("available_countries*")
             
-            price_text = f"{int(price_rubles)} ₽" if price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
+            price_text = f"{int(price_rubles)}  Toman" if price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
             await message.answer(
                 texts.t("ADMIN_SRV_PRICE_CHANGED", "✅ Server price changed to: <b>{price}</b>").format(price=price_text),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
@@ -872,8 +872,8 @@ async def show_server_detailed_stats(
 • With active connections: {with_connections}
 
 <b>💰 Financial statistics:</b>
-• Total revenue: {revenue} ₽
-• Average price per server: {avg_price} ₽
+• Total revenue: {revenue}  Toman
+• Average price per server: {avg_price}  Toman
 
 <b>🔥 Top servers by price:</b>
 """
@@ -889,7 +889,7 @@ async def show_server_detailed_stats(
     sorted_servers = sorted(available_servers, key=lambda x: x.price_kopeks, reverse=True)
     
     for i, server in enumerate(sorted_servers[:5], 1):
-        price_text = f"{int(server.price_rubles)} ₽" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
+        price_text = f"{int(server.price_rubles)}  Toman" if server.price_kopeks > 0 else texts.t("ADMIN_SRV_FREE", "Free")
         text += f"{i}. {server.display_name} - {price_text}\n"
     
     if not sorted_servers:

@@ -55,7 +55,7 @@ async def start_heleket_payment(
         "\n",
         texts.get_text(
             "balance.heleket.prompt.amount_hint",
-            "Enter an amount from 100 to 100,000 ₽:",
+            "Enter an amount from 100 to 100,000  Toman:",
         ),
         "",
         texts.get_text(
@@ -120,7 +120,7 @@ async def process_heleket_payment_amount(
         await message.answer(
             texts.get_text(
                 "balance.heleket.min_amount",
-                "Minimum top-up amount: 100 ₽",
+                "Minimum top-up amount: 100  Toman",
             )
         )
         return
@@ -129,7 +129,7 @@ async def process_heleket_payment_amount(
         await message.answer(
             texts.get_text(
                 "balance.heleket.max_amount",
-                "Maximum top-up amount: 100,000 ₽",
+                "Maximum top-up amount: 100,000  Toman",
             )
         )
         return
@@ -140,7 +140,7 @@ async def process_heleket_payment_amount(
         db=db,
         user_id=db_user.id,
         amount_kopeks=amount_kopeks,
-        description=f"Balance top-up {amount_rubles:.0f} ₽",
+        description=f"Balance top-up {amount_rubles:.0f}  Toman",
         language=db_user.language,
     )
 
@@ -178,7 +178,7 @@ async def process_heleket_payment_amount(
         "",
         texts.get_text(
             "balance.heleket.invoice.amount_credit",
-            "💰 Amount to credit: {amount} ₽",
+            "💰 Amount to credit: {amount}  Toman",
         ).format(amount=amount_rubles),
     ]
 
@@ -215,7 +215,7 @@ async def process_heleket_payment_amount(
                 details.append(
                     texts.get_text(
                         "balance.heleket.invoice.rate",
-                        "💱 Rate: 1 {currency} ≈ {rate:.2f} ₽",
+                        "💱 Rate: 1 {currency} ≈ {rate:.2f}  Toman",
                     ).format(currency=payer_currency, rate=rub_per_currency)
                 )
         except (TypeError, ValueError, ZeroDivisionError):

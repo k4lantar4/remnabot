@@ -534,11 +534,11 @@ async def process_topup_amount(
         amount_rubles = float(amount_text.replace(',', '.'))
 
         if amount_rubles < 1:
-            await message.answer(texts.t("BALANCE_MIN_TOPUP_AMOUNT", "Minimum top-up amount: 1 ₽"))
+            await message.answer(texts.t("BALANCE_MIN_TOPUP_AMOUNT", "Minimum top-up amount: 1  Toman"))
             return
         
         if amount_rubles > 50000:
-            await message.answer(texts.t("BALANCE_MAX_TOPUP_AMOUNT", "Maximum top-up amount: 50,000 ₽"))
+            await message.answer(texts.t("BALANCE_MAX_TOPUP_AMOUNT", "Maximum top-up amount: 50,000  Toman"))
             return
         
         amount_kopeks = int(amount_rubles * 100)
@@ -548,12 +548,12 @@ async def process_topup_amount(
         if payment_method in ["yookassa", "yookassa_sbp"]:
             if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
                 min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-                await message.answer(texts.t("BALANCE_MIN_YOOKASSA_AMOUNT", "❌ Minimum amount for YooKassa payment: {amount:.0f} ₽").format(amount=min_rubles))
+                await message.answer(texts.t("BALANCE_MIN_YOOKASSA_AMOUNT", "❌ Minimum amount for YooKassa payment: {amount:.0f}  Toman").format(amount=min_rubles))
                 return
             
             if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
                 max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
-                await message.answer(texts.t("BALANCE_MAX_YOOKASSA_AMOUNT", "❌ Maximum amount for YooKassa payment: {amount:,.0f} ₽").format(amount=max_rubles).replace(',', ' '))
+                await message.answer(texts.t("BALANCE_MAX_YOOKASSA_AMOUNT", "❌ Maximum amount for YooKassa payment: {amount:,.0f}  Toman").format(amount=max_rubles).replace(',', ' '))
                 return
         
         if payment_method == "stars":

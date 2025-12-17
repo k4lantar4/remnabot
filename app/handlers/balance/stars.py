@@ -126,7 +126,7 @@ async def process_stars_payment_amount(
             texts.t("STARS_INVOICE_MESSAGE").format(
                 amount=texts.format_price(amount_kopeks),
                 stars=stars_amount,
-                rate=f"{stars_rate}₽"
+                rate=f"{stars_rate} Toman"
             ),
             reply_markup=keyboard,
             parse_mode="HTML"

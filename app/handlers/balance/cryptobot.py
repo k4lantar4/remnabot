@@ -30,11 +30,11 @@ async def start_cryptobot_payment(
     from app.utils.currency_converter import currency_converter
     try:
         current_rate = await currency_converter.get_usd_to_rub_rate()
-        rate_text = texts.t("CRYPTOBOT_RATE_CURRENT", "💱 Current rate: 1 USD = {rate}").format(rate=f"{current_rate:.2f} ₽")
+        rate_text = texts.t("CRYPTOBOT_RATE_CURRENT", "💱 Current rate: 1 USD = {rate}").format(rate=f"{current_rate:.2f}  Toman")
     except Exception as e:
         logger.warning(f"Failed to get exchange rate: {e}")
         current_rate = 95.0
-        rate_text = texts.t("CRYPTOBOT_RATE_APPROX", "💱 Rate: 1 USD ≈ {rate}").format(rate=f"{current_rate:.0f} ₽")
+        rate_text = texts.t("CRYPTOBOT_RATE_APPROX", "💱 Rate: 1 USD ≈ {rate}").format(rate=f"{current_rate:.0f}  Toman")
     
     available_assets = settings.get_cryptobot_assets()
     assets_text = ", ".join(available_assets)
@@ -43,7 +43,7 @@ async def start_cryptobot_payment(
         message_text = texts.t(
             "CRYPTOBOT_PROMPT_WITH_BUTTONS",
             "🪙 <b>Cryptocurrency top-up</b>\n\n"
-            "Choose an amount or enter manually from 100 to 100,000 ₽:\n\n"
+            "Choose an amount or enter manually from 100 to 100,000  Toman:\n\n"
             "💰 Available assets: {assets}\n"
             "⚡ Instant balance credit\n"
             "🔒 Secure payment via CryptoBot\n\n"
@@ -54,7 +54,7 @@ async def start_cryptobot_payment(
         message_text = texts.t(
             "CRYPTOBOT_PROMPT",
             "🪙 <b>Cryptocurrency top-up</b>\n\n"
-            "Enter amount from 100 to 100,000 ₽:\n\n"
+            "Enter amount from 100 to 100,000  Toman:\n\n"
             "💰 Available assets: {assets}\n"
             "⚡ Instant balance credit\n"
             "🔒 Secure payment via CryptoBot\n\n"
@@ -121,11 +121,11 @@ async def process_cryptobot_payment_amount(
     amount_rubles = amount_kopeks / 100
     
     if amount_rubles < 100:
-        await message.answer(texts.t("MIN_AMOUNT_100", "Minimum top-up amount: 100 ₽"))
+        await message.answer(texts.t("MIN_AMOUNT_100", "Minimum top-up amount: 100  Toman"))
         return
     
     if amount_rubles > 100000:
-        await message.answer(texts.t("MAX_AMOUNT_100K", "Maximum top-up amount: 100,000 ₽"))
+        await message.answer(texts.t("MAX_AMOUNT_100K", "Maximum top-up amount: 100,000  Toman"))
         return
     
     try:
@@ -205,10 +205,10 @@ async def process_cryptobot_payment_amount(
             texts.t(
                 "CRYPTOBOT_INVOICE_MESSAGE",
                 "🪙 <b>Cryptocurrency payment</b>\n\n"
-                "💰 Amount to credit: {amount_rub} ₽\n"
+                "💰 Amount to credit: {amount_rub}  Toman\n"
                 "💵 To pay: {amount_usd} USD\n"
                 "🪙 Asset: {asset}\n"
-                "💱 Rate: 1 USD = {rate} ₽\n"
+                "💱 Rate: 1 USD = {rate}  Toman\n"
                 "🆔 Payment ID: {payment_id}...\n\n"
                 "📱 <b>Instructions:</b>\n"
                 "1. Click the 'Pay' button\n"

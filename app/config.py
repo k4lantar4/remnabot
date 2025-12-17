@@ -775,9 +775,9 @@ class Settings(BaseSettings):
 
         if kopeks:
             value = f"{sign}{rubles}.{kopeks:02d}".rstrip("0").rstrip(".")
-            return f"{value} ₽"
+            return f"{value} Toman"
 
-        return f"{sign}{rubles} ₽"
+        return f"{sign}{rubles} Toman"
 
     def get_reports_chat_id(self) -> Optional[str]:
         if self.ADMIN_REPORTS_CHAT_ID:

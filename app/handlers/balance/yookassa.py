@@ -156,12 +156,12 @@ async def process_yookassa_payment_amount(
     
     if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
         min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount} ₽").format(amount=f"{min_rubles:.0f}"))
+        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount}  Toman").format(amount=f"{min_rubles:.0f}"))
         return
     
     if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
         max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
-        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount} ₽").format(amount=f"{max_rubles:,.0f}".replace(',', ' ')))
+        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount}  Toman").format(amount=f"{max_rubles:,.0f}".replace(',', ' ')))
         return
     
     try:
@@ -264,7 +264,7 @@ async def process_yookassa_payment_amount(
 
         await state.clear()
         logger.info(
-            "Created YooKassa payment for user %s: %s₽, ID: %s",
+            "Created YooKassa payment for user %s: %s Toman, ID: %s",
             db_user.telegram_id,
             amount_kopeks // 100,
             payment_result["yookassa_payment_id"],
@@ -318,7 +318,7 @@ async def process_yookassa_sbp_payment_amount(
         await message.answer(
             texts.t(
                 "YOOKASSA_SBP_MIN",
-                "❌ Minimum SBP amount: {amount} ₽",
+                "❌ Minimum SBP amount: {amount}  Toman",
             ).format(amount=f"{min_rubles:.0f}")
         )
         return
@@ -328,7 +328,7 @@ async def process_yookassa_sbp_payment_amount(
         await message.answer(
             texts.t(
                 "YOOKASSA_SBP_MAX",
-                "❌ Maximum SBP amount: {amount} ₽",
+                "❌ Maximum SBP amount: {amount}  Toman",
             ).format(amount=f"{max_rubles:,.0f}".replace(",", " "))
         )
         return
@@ -561,7 +561,7 @@ async def process_yookassa_sbp_payment_amount(
 
         await state.clear()
         logger.info(
-            "Created YooKassa SBP payment for user %s: %s₽, ID: %s",
+            "Created YooKassa SBP payment for user %s: %s Toman, ID: %s",
             db_user.telegram_id,
             amount_kopeks // 100,
             payment_result["yookassa_payment_id"],

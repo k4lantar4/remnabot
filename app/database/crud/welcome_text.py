@@ -232,7 +232,7 @@ async def get_current_welcome_text_or_default() -> str:
         f"✅ Up to 1 Gbit/s speed "
         f"✅ Smart VPN — can stay on for most Russian services "
         f"✅ Modern protocols — maximum protection and anonymity "
-        f"💉 Only 99₽/month for 1 device "
+        f"💉 Only 99 Toman/month for 1 device "
         f"👇 Click the button and connect!"
     )
 

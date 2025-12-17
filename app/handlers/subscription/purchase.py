@@ -1509,53 +1509,53 @@ async def confirm_extend_subscription(
             return
 
         logger.info(f"💰 Extension price calculation for subscription {subscription.id} for {days} days ({months_in_period} months):")
-        base_log = f"   📅 Period {days} days: {base_price_original / 100}₽"
+        base_log = f"   📅 Period {days} days: {base_price_original / 100} Toman"
         if base_discount_total > 0:
             base_log += (
-                f" → {base_price / 100}₽"
-                f" (discount {period_discount_percent}%: -{base_discount_total / 100}₽)"
+                f" → {base_price / 100} Toman"
+                f" (discount {period_discount_percent}%: -{base_discount_total / 100} Toman)"
             )
         logger.info(base_log)
         if total_servers_price > 0:
             logger.info(
-                f"   🌐 Servers: {servers_price_per_month / 100}₽/month × {months_in_period}"
-                f" = {total_servers_price / 100}₽"
+                f"   🌐 Servers: {servers_price_per_month / 100} Toman/month × {months_in_period}"
+                f" = {total_servers_price / 100} Toman"
                 + (
                     f" (discount {servers_discount_percent}%:"
-                    f" -{total_servers_discount / 100}₽)"
+                    f" -{total_servers_discount / 100} Toman)"
                     if total_servers_discount > 0
                     else ""
                 )
             )
         if total_devices_price > 0:
             logger.info(
-                f"   📱 Devices: {devices_price_per_month / 100}₽/month × {months_in_period}"
-                f" = {total_devices_price / 100}₽"
+                f"   📱 Devices: {devices_price_per_month / 100} Toman/month × {months_in_period}"
+                f" = {total_devices_price / 100} Toman"
                 + (
                     f" (discount {devices_discount_percent}%:"
-                    f" -{devices_discount_per_month * months_in_period / 100}₽)"
+                    f" -{devices_discount_per_month * months_in_period / 100} Toman)"
                     if devices_discount_percent > 0 and devices_discount_per_month > 0
                     else ""
                 )
             )
         if total_traffic_price > 0:
             logger.info(
-                f"   📊 Traffic: {traffic_price_per_month / 100}₽/month × {months_in_period}"
-                f" = {total_traffic_price / 100}₽"
+                f"   📊 Traffic: {traffic_price_per_month / 100} Toman/month × {months_in_period}"
+                f" = {total_traffic_price / 100} Toman"
                 + (
                     f" (discount {traffic_discount_percent}%:"
-                    f" -{traffic_discount_per_month * months_in_period / 100}₽)"
+                    f" -{traffic_discount_per_month * months_in_period / 100} Toman)"
                     if traffic_discount_percent > 0 and traffic_discount_per_month > 0
                     else ""
                 )
             )
         if promo_component["discount"] > 0:
             logger.info(
-                "   🎯 Promo offer: -%s₽ (%s%%)",
+                "   🎯 Promo offer: -%s Toman (%s%%)",
                 promo_component["discount"] / 100,
                 promo_component["percent"],
             )
-        logger.info(f"   💎 TOTAL: {price / 100}₽")
+        logger.info(f"   💎 TOTAL: {price / 100} Toman")
 
     except Exception as e:
         logger.error(f"⚠ PRICE CALCULATION ERROR: {e}")
@@ -1724,7 +1724,7 @@ async def confirm_extend_subscription(
             reply_markup=get_back_keyboard(db_user.language)
         )
 
-        logger.info(f"✅ User {db_user.telegram_id} extended subscription for {days} days for {price / 100}₽")
+        logger.info(f"✅ User {db_user.telegram_id} extended subscription for {days} days for {price / 100} Toman")
 
     except Exception as e:
         logger.error(f"⚠ CRITICAL EXTENSION ERROR: {e}")
@@ -2130,53 +2130,53 @@ async def confirm_purchase(
         return
 
     logger.info(f"Subscription purchase calculation for {data['period_days']} days ({months_in_period} months):")
-    base_log = f"   Period: {base_price_original / 100}₽"
+    base_log = f"   Period: {base_price_original / 100} Toman"
     if base_discount_total and base_discount_total > 0:
         base_log += (
-            f" → {base_price / 100}₽"
-            f" (discount {base_discount_percent}%: -{base_discount_total / 100}₽)"
+            f" → {base_price / 100} Toman"
+            f" (discount {base_discount_percent}%: -{base_discount_total / 100} Toman)"
         )
     logger.info(base_log)
     if total_traffic_price > 0:
         message = (
-            f"   Traffic: {traffic_price_per_month / 100}₽/month × {months_in_period}"
-            f" = {total_traffic_price / 100}₽"
+            f"   Traffic: {traffic_price_per_month / 100} Toman/month × {months_in_period}"
+            f" = {total_traffic_price / 100} Toman"
         )
         if traffic_discount_total > 0:
             message += (
                 f" (discount {traffic_discount_percent}%:"
-                f" -{traffic_discount_total / 100}₽)"
+                f" -{traffic_discount_total / 100} Toman)"
             )
         logger.info(message)
     if total_servers_price > 0:
         message = (
-            f"   Servers: {countries_price_per_month / 100}₽/month × {months_in_period}"
-            f" = {total_servers_price / 100}₽"
+            f"   Servers: {countries_price_per_month / 100} Toman/month × {months_in_period}"
+            f" = {total_servers_price / 100} Toman"
         )
         if total_servers_discount > 0:
             message += (
                 f" (discount {servers_discount_percent}%:"
-                f" -{total_servers_discount / 100}₽)"
+                f" -{total_servers_discount / 100} Toman)"
             )
         logger.info(message)
     if total_devices_price > 0:
         message = (
-            f"   Devices: {devices_price_per_month / 100}₽/month × {months_in_period}"
-            f" = {total_devices_price / 100}₽"
+            f"   Devices: {devices_price_per_month / 100} Toman/month × {months_in_period}"
+            f" = {total_devices_price / 100} Toman"
         )
         if devices_discount_total > 0:
             message += (
                 f" (discount {devices_discount_percent}%:"
-                f" -{devices_discount_total / 100}₽)"
+                f" -{devices_discount_total / 100} Toman)"
             )
         logger.info(message)
     if promo_offer_discount_value > 0:
         logger.info(
-            "   🎯 Promo offer: -%s₽ (%s%%)",
+            "   🎯 Promo offer: -%s Toman (%s%%)",
             promo_offer_discount_value / 100,
             promo_offer_discount_percent,
         )
-    logger.info(f"   TOTAL: {final_price / 100}₽")
+    logger.info(f"   TOTAL: {final_price / 100} Toman")
 
     if db_user.balance_kopeks < final_price:
         missing_kopeks = final_price - db_user.balance_kopeks
@@ -2302,7 +2302,7 @@ async def confirm_purchase(
                         first_paid_period_days=period_days
                     )
                     logger.info(
-                        f"Conversion recorded: {trial_duration} days trial → {period_days} days paid for {final_price / 100}₽")
+                        f"Conversion recorded: {trial_duration} days trial → {period_days} days paid for {final_price / 100} Toman")
                 except Exception as conversion_error:
                     logger.error(f"Error recording conversion: {conversion_error}")
 
@@ -2595,7 +2595,7 @@ async def confirm_purchase(
 
         purchase_completed = True
         logger.info(
-            f"User {db_user.telegram_id} purchased subscription for {data['period_days']} days for {final_price / 100}₽")
+            f"User {db_user.telegram_id} purchased subscription for {data['period_days']} days for {final_price / 100} Toman")
 
     except Exception as e:
         logger.error(f"Subscription purchase error: {e}")
@@ -3088,10 +3088,6 @@ async def handle_simple_subscription_purchase(
         return
     
     # Determine device limit for current mode
-=======
-
-    # Определяем ограничение по устройствам для текущего режима
->>>>>>> upstream-main
     simple_device_limit = resolve_simple_subscription_device_limit()
 
     # Check if user has active subscription
@@ -3523,5 +3519,5 @@ async def _extend_existing_subscription(
         reply_markup=get_back_keyboard(db_user.language)
     )
     
-    logger.info(f"✅ User {db_user.telegram_id} extended subscription for {period_days} days for {price_kopeks / 100}₽")
+    logger.info(f"✅ User {db_user.telegram_id} extended subscription for {period_days} days for {price_kopeks / 100} Toman")
     await callback.answer()

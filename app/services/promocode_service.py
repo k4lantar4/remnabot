@@ -152,7 +152,7 @@ class PromoCodeService:
             balance_bonus_rubles = promocode.balance_bonus_kopeks / 100
             effects.append(texts.t(
                 "PROMOCODE_BALANCE_ADDED",
-                "💰 Balance topped up by {amount}₽"
+                "💰 Balance topped up by {amount} Toman"
             ).format(amount=balance_bonus_rubles))
         
         if promocode.subscription_days > 0:

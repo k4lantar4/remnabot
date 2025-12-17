@@ -134,7 +134,7 @@ async def process_referral_topup(
         if not user.has_made_first_topup:
             if not qualifies_for_first_bonus:
                 logger.info(
-                    "Top-up %s of %s₽ is below minimum for first bonus, but commission will be credited",
+                    "Top-up %s of %s Toman is below minimum for first bonus, but commission will be credited",
                     user_id,
                     topup_amount_kopeks / 100,
                 )
@@ -157,7 +157,7 @@ async def process_referral_topup(
                     )
 
                     logger.info(
-                        "Commission from top-up: %s received %s₽ (before first bonus)",
+                        "Commission from top-up: %s received %s Toman (before first bonus)",
                         referrer.telegram_id,
                         commission_amount / 100,
                     )
@@ -207,7 +207,7 @@ async def process_referral_topup(
                     f"First top-up bonus via referral program",
                     bot=bot
                 )
-                logger.info(f"Referral {user.id} received bonus {settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS/100}₽")
+                logger.info(f"Referral {user.id} received bonus {settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS/100} Toman")
                 
                 if bot:
                     from app.localization.texts import get_texts
@@ -242,7 +242,7 @@ async def process_referral_topup(
                     amount_kopeks=inviter_bonus,
                     reason="referral_first_topup"
                 )
-                logger.info(f"Referrer {referrer.telegram_id} received bonus {inviter_bonus/100}₽")
+                logger.info(f"Referrer {referrer.telegram_id} received bonus {inviter_bonus/100} Toman")
 
                 if bot:
                     from app.localization.texts import get_texts
@@ -278,7 +278,7 @@ async def process_referral_topup(
                     reason="referral_commission_topup"
                 )
 
-                logger.info(f"Commission from top-up: {referrer.telegram_id} received {commission_amount/100}₽")
+                logger.info(f"Commission from top-up: {referrer.telegram_id} received {commission_amount/100} Toman")
 
                 if bot:
                     from app.localization.texts import get_texts
@@ -345,7 +345,7 @@ async def process_referral_purchase(
                 referral_transaction_id=transaction_id
             )
             
-            logger.info(f"Commission from purchase: {referrer.telegram_id} received {commission_amount/100}₽")
+            logger.info(f"Commission from purchase: {referrer.telegram_id} received {commission_amount/100} Toman")
             
             if bot:
                 from app.localization.texts import get_texts

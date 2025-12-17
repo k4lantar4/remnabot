@@ -323,7 +323,7 @@ class YooKassaPayment(Base):
         return self.status == "waiting_for_capture"
     
     def __repr__(self):
-        return f"<YooKassaPayment(id={self.id}, yookassa_id={self.yookassa_payment_id}, amount={self.amount_rubles}₽, status={self.status})>"
+        return f"<YooKassaPayment(id={self.id}, yookassa_id={self.yookassa_payment_id}, amount={self.amount_rubles} Toman, status={self.status})>"
 
 class CryptoBotPayment(Base):
     __tablename__ = "cryptobot_payments"
@@ -475,7 +475,7 @@ class MulenPayPayment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            "<MulenPayPayment(id={0}, mulen_id={1}, amount={2}₽, status={3})>".format(
+            "<MulenPayPayment(id={0}, mulen_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.mulen_payment_id,
                 self.amount_rubles,
@@ -537,7 +537,7 @@ class Pal24Payment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            "<Pal24Payment(id={0}, bill_id={1}, amount={2}₽, status={3})>".format(
+            "<Pal24Payment(id={0}, bill_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.bill_id,
                 self.amount_rubles,
@@ -587,7 +587,7 @@ class WataPayment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            "<WataPayment(id={0}, link_id={1}, amount={2}₽, status={3})>".format(
+            "<WataPayment(id={0}, link_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.payment_link_id,
                 self.amount_rubles,
@@ -636,7 +636,7 @@ class PlategaPayment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
-            "<PlategaPayment(id={0}, transaction_id={1}, amount={2}₽, status={3}, method={4})>".format(
+            "<PlategaPayment(id={0}, transaction_id={1}, amount={2} Toman, status={3}, method={4})>".format(
                 self.id,
                 self.platega_transaction_id,
                 self.amount_rubles,
