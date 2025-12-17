@@ -155,12 +155,30 @@ class Settings(BaseSettings):
     REFERRAL_PROGRAM_ENABLED: bool = True
     REFERRAL_NOTIFICATIONS_ENABLED: bool = True
     REFERRAL_NOTIFICATION_RETRY_ATTEMPTS: int = 3
-    
+
+    # Конкурсы (глобальный флаг, будет расширяться под разные типы)
+    CONTESTS_ENABLED: bool = False
+    CONTESTS_BUTTON_VISIBLE: bool = False
+    # Для обратной совместимости со старыми конфигами
+    REFERRAL_CONTESTS_ENABLED: bool = False
+
+    BLACKLIST_CHECK_ENABLED: bool = False
+    BLACKLIST_GITHUB_URL: Optional[str] = None
+    BLACKLIST_UPDATE_INTERVAL_HOURS: int = 24
+    BLACKLIST_IGNORE_ADMINS: bool = True
+
+    # Настройки мониторинга трафика
+    TRAFFIC_MONITORING_ENABLED: bool = False
+    TRAFFIC_THRESHOLD_GB_PER_DAY: float = 10.0  # Порог трафика в ГБ за сутки
+    TRAFFIC_MONITORING_INTERVAL_HOURS: int = 24  # Интервал проверки в часах (по умолчанию - раз в сутки)
+    SUSPICIOUS_NOTIFICATIONS_TOPIC_ID: Optional[int] = None
+
     AUTOPAY_WARNING_DAYS: str = "3,1"
 
     DEFAULT_AUTOPAY_ENABLED: bool = False
     DEFAULT_AUTOPAY_DAYS_BEFORE: int = 3
     MIN_BALANCE_FOR_AUTOPAY_KOPEKS: int = 10000  
+    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS: int = 20000  
     
     MONITORING_INTERVAL: int = 60
     INACTIVE_USER_DELETE_MONTHS: int = 3
@@ -202,6 +220,12 @@ class Settings(BaseSettings):
     SUPPORT_TOPUP_ENABLED: bool = True
     PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED: bool = False
     PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES: int = 10
+
+    NALOGO_ENABLED: bool = False
+    NALOGO_INN: Optional[str] = None
+    NALOGO_PASSWORD: Optional[str] = None
+    NALOGO_DEVICE_ID: Optional[str] = None
+    NALOGO_STORAGE_PATH: str = "./nalogo_tokens.json"
 
     AUTO_PURCHASE_AFTER_TOPUP_ENABLED: bool = False
 
@@ -982,6 +1006,11 @@ class Settings(BaseSettings):
                 self.YOOKASSA_SHOP_ID is not None and
                 self.YOOKASSA_SECRET_KEY is not None)
 
+    def is_nalogo_enabled(self) -> bool:
+        return (self.NALOGO_ENABLED and
+                self.NALOGO_INN is not None and
+                self.NALOGO_PASSWORD is not None)
+
     def is_support_topup_enabled(self) -> bool:
         return bool(self.SUPPORT_TOPUP_ENABLED)
     
@@ -1184,6 +1213,16 @@ class Settings(BaseSettings):
             return False
         return self.HIDE_SUBSCRIPTION_LINK
 
+    def is_contests_enabled(self) -> bool:
+        if getattr(self, "CONTESTS_ENABLED", False):
+            return True
+        # legacy fallback
+        return bool(getattr(self, "REFERRAL_CONTESTS_ENABLED", False))
+
+    def is_referral_contests_enabled(self) -> bool:
+        # kept for backward compatibility
+        return self.is_contests_enabled()
+
     def get_happ_cryptolink_redirect_template(self) -> Optional[str]:
         template = (self.HAPP_CRYPTOLINK_REDIRECT_TEMPLATE or "").strip()
         return template or None
@@ -1305,7 +1344,7 @@ class Settings(BaseSettings):
         except (ValueError, AttributeError):
             return [30, 90, 180]
 
-    def get_balance_payment_description(self, amount_kopeks: int, language: str = "en") -> str:
+    def get_balance_payment_description(self, amount_kopeks: int, language: str = "en", telegram_user_id: Optional[int] = None) -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
@@ -1319,9 +1358,14 @@ class Settings(BaseSettings):
             balance_desc = self.PAYMENT_BALANCE_DESCRIPTION
             template = self.PAYMENT_BALANCE_TEMPLATE
         
+        # Build description with user ID if provided
+        description = f"{balance_desc} for {self.format_price(amount_kopeks)}"
+        if telegram_user_id is not None:
+            description += f" (ID {telegram_user_id})"
+        
         return template.format(
             service_name=service_name,
-            description=f"{balance_desc} for {self.format_price(amount_kopeks)}"
+            description=description
         )
     
     def get_subscription_payment_description(self, period_days: int, amount_kopeks: int, language: str = "en") -> str:

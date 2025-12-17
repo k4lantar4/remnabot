@@ -39,6 +39,7 @@ class PromoCodeStates(StatesGroup):
 class AdminStates(StatesGroup):
     
     waiting_for_user_search = State()
+    waiting_for_bulk_ban_list = State()
     sending_user_message = State()
     editing_user_balance = State()
     extending_subscription = State()
@@ -90,6 +91,17 @@ class AdminStates(StatesGroup):
     editing_promo_group_device_discount = State()
     editing_promo_group_period_discount = State()
     editing_promo_group_auto_assign = State()
+
+    creating_referral_contest_title = State()
+    creating_referral_contest_description = State()
+    creating_referral_contest_prize = State()
+    creating_referral_contest_mode = State()
+    creating_referral_contest_start = State()
+    creating_referral_contest_end = State()
+    creating_referral_contest_time = State()
+    editing_referral_contest_summary_times = State()
+    editing_daily_contest_field = State()
+    editing_daily_contest_value = State()
     
     editing_squad_price = State()
     editing_traffic_price = State()
@@ -146,6 +158,7 @@ class AdminStates(StatesGroup):
     viewing_user_from_spending_list = State()
     viewing_user_from_purchases_list = State()
     viewing_user_from_campaign_list = State()
+    viewing_user_from_ready_to_renew_list = State()
 
 class SupportStates(StatesGroup):
     waiting_for_message = State()
@@ -193,6 +206,9 @@ class SquadMigrationStates(StatesGroup):
 class RemnaWaveSyncStates(StatesGroup):
     waiting_for_schedule = State()
 
+class ContestStates(StatesGroup):
+    waiting_for_answer = State()
+
 
 class AdminSubmenuStates(StatesGroup):
     in_users_submenu = State()
@@ -200,3 +216,7 @@ class AdminSubmenuStates(StatesGroup):
     in_communications_submenu = State()
     in_settings_submenu = State()
     in_system_submenu = State()
+
+
+class BlacklistStates(StatesGroup):
+    waiting_for_blacklist_url = State()

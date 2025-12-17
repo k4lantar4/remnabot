@@ -42,6 +42,7 @@ from app.utils.promo_offer import (
 from app.utils.timezone import format_local_datetime
 from app.database.crud.user_message import get_random_active_message
 from app.database.crud.subscription import decrement_subscription_server_counts
+from app.services.blacklist_service import blacklist_service
 
 
 logger = logging.getLogger(__name__)
@@ -972,7 +973,32 @@ async def complete_registration_from_callback(
     bot_id: int = None,
 ):
     logger.info(f"🎯 COMPLETE: Completing registration for user {callback.from_user.id}")
-    
+
+    # Check if user is blacklisted
+    is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
+        callback.from_user.id,
+        callback.from_user.username
+    )
+
+    if is_blacklisted:
+        logger.warning(f"🚫 User {callback.from_user.id} is blacklisted: {blacklist_reason}")
+        try:
+            from app.localization.texts import get_texts
+            data = await state.get_data() or {}
+            language = data.get('language', DEFAULT_LANGUAGE)
+            texts = get_texts(language)
+            await callback.message.answer(
+                texts.t("BLACKLIST_REGISTRATION_BLOCKED", 
+                    f"🚫 Registration is not possible\n\n"
+                    f"Reason: {blacklist_reason}\n\n"
+                    f"If you believe this is an error, please contact support.")
+            )
+        except Exception as e:
+            logger.error(f"Error sending blacklist message: {e}")
+
+        await state.clear()
+        return
+
     from sqlalchemy.orm import selectinload
     
     existing_user = await get_user_by_telegram_id(db, callback.from_user.id, bot_id=bot_id)
@@ -1221,6 +1247,30 @@ async def complete_registration(
     bot_id: int = None,
 ):
     logger.info(f"🎯 COMPLETE: Completing registration for user {message.from_user.id}")
+
+    # Check if user is blacklisted
+    is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
+        message.from_user.id,
+        message.from_user.username
+    )
+
+    if is_blacklisted:
+        logger.warning(f"🚫 User {message.from_user.id} is blacklisted: {blacklist_reason}")
+        try:
+            data = await state.get_data() or {}
+            language = data.get('language', DEFAULT_LANGUAGE)
+            texts = get_texts(language)
+            await message.answer(
+                texts.t("BLACKLIST_REGISTRATION_BLOCKED", 
+                    f"🚫 Registration is not possible\n\n"
+                    f"Reason: {blacklist_reason}\n\n"
+                    f"If you believe this is an error, please contact support.")
+            )
+        except Exception as e:
+            logger.error(f"Error sending blacklist message: {e}")
+
+        await state.clear()
+        return
     
     existing_user = await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
     

@@ -1147,7 +1147,7 @@ class RemnaWaveService:
                 while True:
                     logger.info(f"📥 Loading users: start={start}, size={size}")
                     
-                    response = await api.get_all_users(start=start, size=size)
+                    response = await api.get_all_users(start=start, size=size, enrich_happ_links=True)
                     users_batch = response['users']
                     total_users = response['total']
                     
@@ -2607,5 +2607,3 @@ class RemnaWaveService:
             "api_url": settings.REMNAWAVE_API_URL,
             "attempts_used": attempts,
         }
-        
-

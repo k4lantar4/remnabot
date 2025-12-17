@@ -17,6 +17,8 @@ from app.services.payment import (
     Pal24PaymentMixin,
     PaymentCommonMixin,
 )
+from app.services.wata_service import WataService
+from app.services.nalogo_service import NaloGoService
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +143,13 @@ class PaymentService(
         self.pal24_service = (
             Pal24Service() if settings.is_pal24_enabled() else None
         )
+        self.wata_service = WataService() if settings.is_wata_enabled() else None
+        self.nalogo_service = NaloGoService() if settings.is_nalogo_enabled() else None
+        
         logger.debug(
-            "PaymentService initialized (CryptoBot=%s, Pal24=%s)",
+            "PaymentService initialized (CryptoBot=%s, Pal24=%s, Wata=%s, NaloGo=%s)",
             bool(self.cryptobot_service),
             bool(self.pal24_service),
+            bool(self.wata_service),
+            bool(self.nalogo_service),
         )

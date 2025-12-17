@@ -51,6 +51,7 @@ from app.services.user_cart_service import user_cart_service
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.remnawave_service import RemnaWaveConfigurationError, RemnaWaveService
+from app.services.blacklist_service import blacklist_service
 from app.services.subscription_checkout_service import (
     clear_subscription_checkout_draft,
     get_subscription_checkout_draft,
@@ -375,6 +376,15 @@ async def show_subscription_info(
             and actual_status in ["trial_active", "paid_active"]
             and not hide_subscription_link
     ):
+        subscription_link_display = subscription_link
+
+        if settings.is_happ_cryptolink_mode():
+            subscription_link_display = (
+                f"<blockquote expandable><code>{subscription_link}</code></blockquote>"
+            )
+        else:
+            subscription_link_display = f"<code>{subscription_link}</code>"
+
         message += "\n\n" + texts.t(
             "SUBSCRIPTION_CONNECT_LINK_SECTION",
             "🔗 <b>Connection link:</b>\n<code>{subscription_url}</code>",
@@ -996,7 +1006,7 @@ async def save_cart_and_redirect_to_topup(
         'return_to_cart': True,
         'user_id': db_user.id
     }
-    
+
     await user_cart_service.save_user_cart(db_user.id, cart_data)
 
     message_text = texts.t(
@@ -1029,7 +1039,7 @@ async def return_to_saved_cart(
 ):
     # Get cart data from Redis
     cart_data = await user_cart_service.get_user_cart(db_user.id)
-    
+
     if not cart_data:
         texts = get_texts(db_user.language)
         await callback.answer(
@@ -1377,6 +1387,25 @@ async def confirm_extend_subscription(
         db_user: User,
         db: AsyncSession
 ):
+    # Проверяем, находится ли пользователь в черном списке
+    is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
+        callback.from_user.id,
+        callback.from_user.username
+    )
+
+    if is_blacklisted:
+        logger.warning(f"🚫 Пользователь {callback.from_user.id} находится в черном списке: {blacklist_reason}")
+        try:
+            await callback.answer(
+                f"🚫 Продление подписки невозможно\n\n"
+                f"Причина: {blacklist_reason}\n\n"
+                f"Если вы считаете, что это ошибка, обратитесь в поддержку.",
+                show_alert=True
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при отправке сообщения о блокировке: {e}")
+        return
+
     from app.services.admin_notification_service import AdminNotificationService
 
     days = int(callback.data.split('_')[2])
@@ -1567,7 +1596,7 @@ async def confirm_extend_subscription(
             'description': texts.t("subscription.extend.description", "Extension for {days} days").format(days=days),
             'consume_promo_offer': bool(promo_component["discount"] > 0),
         }
-        
+
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
@@ -1862,6 +1891,25 @@ async def confirm_purchase(
 ):
     from app.services.admin_notification_service import AdminNotificationService
 
+    # Проверяем, находится ли пользователь в черном списке
+    is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
+        callback.from_user.id,
+        callback.from_user.username
+    )
+
+    if is_blacklisted:
+        logger.warning(f"🚫 Пользователь {callback.from_user.id} находится в черном списке: {blacklist_reason}")
+        try:
+            await callback.answer(
+                f"🚫 Покупка подписки невозможна\n\n"
+                f"Причина: {blacklist_reason}\n\n"
+                f"Если вы считаете, что это ошибка, обратитесь в поддержку.",
+                show_alert=True
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при отправке сообщения о блокировке: {e}")
+        return
+
     data = await state.get_data()
     texts = get_texts(db_user.language)
 
@@ -2155,7 +2203,7 @@ async def confirm_purchase(
             'return_to_cart': True,
             'user_id': db_user.id
         }
-        
+
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
@@ -2264,36 +2312,37 @@ async def confirm_purchase(
             if should_update_devices:
                 existing_subscription.device_limit = selected_devices
             # Check that when updating existing subscription there is at least one country
-            selected_countries = data.get('countries', [])
+            selected_countries = data.get('countries')
             if not selected_countries:
-                # If subscription already existed, don't allow disabling all countries
-                # If subscription is new, allow it, but usually through UI user should select at least one server
-                if existing_subscription and existing_subscription.connected_squads is not None:
-                    # Check that data contains information that this is an update of existing subscription
-                    # or something indicates that we shouldn't disable all countries
-                    pass  # For simplicity, just check that country list is not empty
-                else:
-                    # For new subscription allow empty list if it's not an update
-                    pass
+                # Sometimes after returning to checkout from saved cart, country list is not passed.
+                # In such case, reuse current connected countries from subscription.
+                selected_countries = existing_subscription.connected_squads or []
+                if selected_countries:
+                    data['countries'] = selected_countries  # Use actual country list for further processing
 
-                # But for safety - if country list is empty, check that it's allowed
-                # otherwise return error
-                if not selected_countries:
-                    texts = get_texts(db_user.language)
-                    await callback.message.edit_text(
-                        texts.t(
-                            "COUNTRIES_MINIMUM_REQUIRED",
-                            "❌ Cannot disconnect all countries. At least one country must remain connected."
-                        ),
-                        reply_markup=get_back_keyboard(db_user.language)
-                    )
-                    await callback.answer()
-                    return
+            if not selected_countries:
+                texts = get_texts(db_user.language)
+                await callback.message.edit_text(
+                    texts.t(
+                        "COUNTRIES_MINIMUM_REQUIRED",
+                        "❌ Cannot disconnect all countries. At least one country must remain connected."
+                    ),
+                    reply_markup=get_back_keyboard(db_user.language)
+                )
+                await callback.answer()
+                return
 
             existing_subscription.connected_squads = selected_countries
 
-            existing_subscription.start_date = current_time
-            existing_subscription.end_date = current_time + timedelta(days=period_days) + bonus_period
+            # Если подписка еще активна, продлеваем от текущей даты окончания,
+            # иначе начинаем новый период с текущего момента
+            extension_base_date = current_time
+            if existing_subscription.end_date and existing_subscription.end_date > current_time:
+                extension_base_date = existing_subscription.end_date
+            else:
+                existing_subscription.start_date = current_time
+
+            existing_subscription.end_date = extension_base_date + timedelta(days=period_days) + bonus_period
             existing_subscription.updated_at = current_time
 
             existing_subscription.traffic_used_gb = 0.0
@@ -2320,7 +2369,7 @@ async def confirm_purchase(
                 resolved_device_limit = default_device_limit
 
             # Check that for new subscription there is also at least one country, if user goes through countries interface
-            new_subscription_countries = data.get('countries', [])
+            new_subscription_countries = data.get('countries')
             if not new_subscription_countries:
                 # Check if this was a purchase through countries interface, and if yes, require at least one country
                 # If data explicitly indicates this is countries interface, or there are other signs - require country
@@ -2358,11 +2407,10 @@ async def confirm_purchase(
             await add_user_to_servers(db, server_ids)
 
             logger.info(f"Saved server prices for entire period: {server_prices}")
-    
         await db.refresh(db_user)
-    
+
         subscription_service = SubscriptionService()
-    
+
         if db_user.remnawave_uuid:
             remnawave_user = await subscription_service.update_remnawave_user(
                 db,
@@ -2377,7 +2425,7 @@ async def confirm_purchase(
                 reset_traffic=settings.RESET_TRAFFIC_ON_PAYMENT,
                 reset_reason="subscription_purchase",
             )
-    
+
         if not remnawave_user:
             logger.error(f"Failed to create/update RemnaWave user for {db_user.telegram_id}")
             remnawave_user = await subscription_service.create_remnawave_user(
@@ -2386,7 +2434,7 @@ async def confirm_purchase(
                 reset_traffic=settings.RESET_TRAFFIC_ON_PAYMENT,
                 reset_reason="subscription_purchase_retry",
             )
-    
+
         transaction = await create_transaction(
             db=db,
             user_id=db_user.id,
@@ -3009,8 +3057,29 @@ async def handle_simple_subscription_purchase(
     db: AsyncSession,
 ):
     """Handles simple subscription purchase."""
+    # Check if user is blacklisted
+    is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
+        callback.from_user.id,
+        callback.from_user.username
+    )
+
+    if is_blacklisted:
+        logger.warning(f"🚫 User {callback.from_user.id} is blacklisted: {blacklist_reason}")
+        try:
+            texts = get_texts(db_user.language)
+            await callback.answer(
+                texts.t("BLACKLIST_SIMPLE_PURCHASE_BLOCKED",
+                    f"🚫 Simple subscription purchase is not possible\n\n"
+                    f"Reason: {blacklist_reason}\n\n"
+                    f"If you believe this is an error, please contact support."),
+                show_alert=True
+            )
+        except Exception as e:
+            logger.error(f"Error sending blacklist message: {e}")
+        return
+
     texts = get_texts(db_user.language)
-    
+
     if not settings.SIMPLE_SUBSCRIPTION_ENABLED:
         await callback.answer(
             texts.t("SIMPLE_SUBSCRIPTION_UNAVAILABLE", "❌ Simple subscription purchase is temporarily unavailable"),
@@ -3019,6 +3088,10 @@ async def handle_simple_subscription_purchase(
         return
     
     # Determine device limit for current mode
+=======
+
+    # Определяем ограничение по устройствам для текущего режима
+>>>>>>> upstream-main
     simple_device_limit = resolve_simple_subscription_device_limit()
 
     # Check if user has active subscription
@@ -3075,7 +3148,7 @@ async def handle_simple_subscription_purchase(
         if subscription_params["traffic_limit_gb"] == 0
         else texts.t("TRAFFIC_GB_FORMAT", "{gb} GB").format(gb=subscription_params['traffic_limit_gb'])
     )
-    
+
     if user_balance_kopeks >= price_kopeks:
         # If balance is sufficient, offer to pay from balance
         simple_lines = [
@@ -3106,7 +3179,7 @@ async def handle_simple_subscription_purchase(
         ])
 
         message_text = "\n".join(simple_lines)
-        
+
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text=texts.t("PAY_WITH_BALANCE_BUTTON", "✅ Pay with balance"), callback_data="simple_subscription_pay_with_balance")],
             [types.InlineKeyboardButton(text=texts.t("OTHER_PAYMENT_METHODS_BUTTON", "💳 Other payment methods"), callback_data="simple_subscription_other_payment_methods")],
@@ -3142,19 +3215,19 @@ async def handle_simple_subscription_purchase(
         ])
 
         message_text = "\n".join(simple_lines)
-        
+
         keyboard = _get_simple_subscription_payment_keyboard(db_user.language)
-    
+
     await callback.message.edit_text(
         message_text,
         reply_markup=keyboard,
         parse_mode="HTML"
     )
-    
+
     await state.set_state(SubscriptionStates.waiting_for_simple_subscription_payment_method)
     await callback.answer()
 
-    
+
 
 
 async def _calculate_simple_subscription_price(
@@ -3186,7 +3259,7 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
             text="⭐ Telegram Stars",
             callback_data="simple_subscription_stars"
         )])
-    
+
     if settings.is_yookassa_enabled():
         yookassa_methods = []
         if settings.YOOKASSA_SBP_ENABLED:
@@ -3200,26 +3273,26 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
         ))
         if yookassa_methods:
             keyboard.append(yookassa_methods)
-    
+
     if settings.is_cryptobot_enabled():
         keyboard.append([types.InlineKeyboardButton(
             text="🪙 CryptoBot",
             callback_data="simple_subscription_cryptobot"
         )])
-    
+
     if settings.is_mulenpay_enabled():
         mulenpay_name = settings.get_mulenpay_display_name()
         keyboard.append([types.InlineKeyboardButton(
             text=f"💳 {mulenpay_name}",
             callback_data="simple_subscription_mulenpay"
         )])
-    
+
     if settings.is_pal24_enabled():
         keyboard.append([types.InlineKeyboardButton(
             text="💳 PayPalych",
             callback_data="simple_subscription_pal24"
         )])
-    
+
     if settings.is_wata_enabled():
         keyboard.append([types.InlineKeyboardButton(
             text="💳 WATA",
@@ -3231,7 +3304,7 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
         text=texts.BACK,
         callback_data="subscription_purchase"
     )])
-    
+
     return types.InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
@@ -3253,7 +3326,7 @@ async def _extend_existing_subscription(
     from app.services.subscription_service import SubscriptionService
     from app.utils.pricing_utils import calculate_months_from_days
     from datetime import datetime, timedelta
-    
+
     texts = get_texts(db_user.language)
     
     # Calculate subscription price
@@ -3315,9 +3388,9 @@ async def _extend_existing_subscription(
             'squad_uuid': squad_uuid,
             'consume_promo_offer': False,
         }
-        
+
         await user_cart_service.save_user_cart(db_user.id, cart_data)
-        
+
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
@@ -3339,7 +3412,7 @@ async def _extend_existing_subscription(
         texts.t("subscription.extend.transaction_description", "Subscription extension for {days} days ({months} months)").format(days=period_days, months=months),
         consume_promo_offer=False,  # Simple purchase does not use promo discounts
     )
-    
+
     if not success:
         await callback.answer(
             texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"),
@@ -3382,7 +3455,7 @@ async def _extend_existing_subscription(
     else:
         # If subscription has already expired, start from current time
         new_end_date = current_time + timedelta(days=period_days)
-    
+
     current_subscription.end_date = new_end_date
     current_subscription.updated_at = current_time
     

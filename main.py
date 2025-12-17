@@ -32,6 +32,8 @@ from app.localization.loader import ensure_locale_templates
 from app.services.system_settings_service import bot_configuration_service
 from app.services.external_admin_service import ensure_external_admin_token
 from app.services.broadcast_service import broadcast_service
+from app.services.referral_contest_service import referral_contest_service
+from app.services.contest_rotation_service import contest_rotation_service
 from app.utils.startup_timeline import StartupTimeline
 from app.utils.timezone import TimezoneAwareFormatter
 
@@ -212,6 +214,7 @@ async def main():
             admin_notification_service = AdminNotificationService(bot)
             version_service.bot = bot
             version_service.set_notification_service(admin_notification_service)
+            referral_contest_service.set_bot(bot)
             stage.log(f"Version Repo: {version_service.repo}")
             stage.log(f"Current Version: {version_service.current_version}")
             stage.success("Monitoring, notifications, and broadcasts connected")
@@ -248,6 +251,37 @@ async def main():
             except Exception as e:
                 stage.warning(f"Reporting service startup error: {e}")
                 logger.error(f"❌ Reporting service startup error: {e}")
+
+        async with timeline.stage(
+            "Referral Contests",
+            "🏆",
+            success_message="Contest service ready",
+        ) as stage:
+            try:
+                await referral_contest_service.start()
+                if referral_contest_service.is_running():
+                    stage.log("Auto summaries for contests started")
+                else:
+                    stage.skip("Contest service disabled by settings")
+            except Exception as e:
+                stage.warning(f"Contest service startup error: {e}")
+                logger.error(f"❌ Contest service startup error: {e}")
+
+        async with timeline.stage(
+            "Contest Rotation",
+            "🎲",
+            success_message="Mini-games ready",
+        ) as stage:
+            try:
+                contest_rotation_service.set_bot(bot)
+                await contest_rotation_service.start()
+                if contest_rotation_service.is_running():
+                    stage.log("Rotation games started")
+                else:
+                    stage.skip("Contest rotation disabled by settings")
+            except Exception as e:
+                stage.warning(f"Contest rotation startup error: {e}")
+                logger.error(f"❌ Contest rotation startup error: {e}")
 
         async with timeline.stage(
             "RemnaWave Auto-Sync",
@@ -684,6 +718,18 @@ async def main():
             await reporting_service.stop()
         except Exception as e:
             logger.error(f"Error stopping reporting service: {e}")
+
+        logger.info("ℹ️ Stopping contest service...")
+        try:
+            await referral_contest_service.stop()
+        except Exception as e:
+            logger.error(f"Error stopping contest service: {e}")
+
+        logger.info("ℹ️ Stopping contest rotation service...")
+        try:
+            await contest_rotation_service.stop()
+        except Exception as e:
+            logger.error(f"Error stopping contest rotation service: {e}")
 
         logger.info("ℹ️ Stopping RemnaWave auto-sync...")
         try:
