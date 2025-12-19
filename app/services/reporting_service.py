@@ -486,7 +486,7 @@ class ReportingService:
     def _txn_query_base(self, txn_type: str, start_utc: datetime, end_utc: datetime):
         return select(
             func.count(Transaction.id),
-            func.coalesce(func.sum(Transaction.amount_kopeks), 0),
+            func.coalesce(func.sum(Transaction.amount_toman), 0),
         ).where(
             Transaction.type == txn_type,
             Transaction.is_completed == true(),
@@ -497,7 +497,7 @@ class ReportingService:
     def _deposit_query_excluding_referrals(self, start_utc: datetime, end_utc: datetime):
         return select(
             func.count(Transaction.id),
-            func.coalesce(func.sum(Transaction.amount_kopeks), 0),
+            func.coalesce(func.sum(Transaction.amount_toman), 0),
         ).where(
             Transaction.type == TransactionType.DEPOSIT.value,
             Transaction.is_completed == true(),
@@ -590,9 +590,8 @@ class ReportingService:
 
         return f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
 
-    def _format_amount(self, amount_kopeks: int) -> str:
-        rubles = (amount_kopeks or 0) / 100
-        return f"{rubles:,.2f}  Toman".replace(",", " ")
+    def _format_amount(self, amount_toman: int) -> str:
+        return f"{amount_toman:,} Toman".replace(",", " ")
 
 
 reporting_service = ReportingService()

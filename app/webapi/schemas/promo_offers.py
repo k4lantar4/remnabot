@@ -30,7 +30,7 @@ class PromoOfferResponse(BaseModel):
     subscription_id: Optional[int] = None
     notification_type: str
     discount_percent: int
-    bonus_amount_kopeks: int
+    bonus_amount_toman: int
     expires_at: datetime
     claimed_at: Optional[datetime] = None
     is_active: bool
@@ -55,7 +55,7 @@ class PromoOfferCreateRequest(BaseModel):
     notification_type: str = Field(..., min_length=1)
     valid_hours: int = Field(..., ge=1, description="Offer validity period in hours")
     discount_percent: int = Field(0, ge=0)
-    bonus_amount_kopeks: int = Field(0, ge=0)
+    bonus_amount_toman: int = Field(0, ge=0)
     subscription_id: Optional[int] = None
     effect_type: str = Field("percent_discount", min_length=1)
     extra_data: Dict[str, Any] = Field(default_factory=dict)
@@ -128,7 +128,7 @@ class PromoOfferTemplateResponse(BaseModel):
     button_text: str
     valid_hours: int
     discount_percent: int
-    bonus_amount_kopeks: int
+    bonus_amount_toman: int
     active_discount_hours: Optional[int] = None
     test_duration_hours: Optional[int] = None
     test_squad_uuids: List[str]
@@ -148,7 +148,7 @@ class PromoOfferTemplateUpdateRequest(BaseModel):
     button_text: Optional[str] = None
     valid_hours: Optional[int] = Field(None, ge=1)
     discount_percent: Optional[int] = Field(None, ge=0)
-    bonus_amount_kopeks: Optional[int] = Field(None, ge=0)
+    bonus_amount_toman: Optional[int] = Field(None, ge=0)
     active_discount_hours: Optional[int] = Field(None, ge=1)
     test_duration_hours: Optional[int] = Field(None, ge=1)
     test_squad_uuids: Optional[List[str]] = None
@@ -159,7 +159,7 @@ class PromoOfferLogOfferInfo(BaseModel):
     id: int
     notification_type: Optional[str] = None
     discount_percent: Optional[int] = None
-    bonus_amount_kopeks: Optional[int] = None
+    bonus_amount_toman: Optional[int] = None
     effect_type: Optional[str] = None
     expires_at: Optional[datetime] = None
     claimed_at: Optional[datetime] = None

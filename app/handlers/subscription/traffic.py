@@ -179,7 +179,7 @@ async def handle_reset_traffic(
 
     reset_price = PERIOD_PRICES[30]
 
-    if db_user.balance_kopeks < reset_price:
+    if db_user.balance_toman < reset_price:
         await callback.answer(
             texts.t("subscription.traffic.reset.insufficient_balance", "⌛ Insufficient balance"),
             show_alert=True
@@ -227,8 +227,8 @@ async def confirm_reset_traffic(
 
     reset_price = PERIOD_PRICES[30]
 
-    if db_user.balance_kopeks < reset_price:
-        missing_kopeks = reset_price - db_user.balance_kopeks
+    if db_user.balance_toman < reset_price:
+        missing_toman = reset_price - db_user.balance_toman
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
@@ -240,15 +240,15 @@ async def confirm_reset_traffic(
             ),
         ).format(
             required=texts.format_price(reset_price),
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
             ),
             parse_mode="HTML",
         )
@@ -284,7 +284,7 @@ async def confirm_reset_traffic(
             db=db,
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=reset_price,
+            amount_toman=reset_price,
             description=texts.t("subscription.traffic.reset.transaction_desc", "Traffic reset")
         )
 
@@ -458,8 +458,8 @@ async def add_traffic(
 
     total_discount_value = discount_per_month * charged_months
 
-    if db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if db_user.balance_toman < price:
+        missing_toman = price - db_user.balance_toman
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
@@ -471,15 +471,15 @@ async def add_traffic(
             ),
         ).format(
             required=texts.format_price(price),
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
             ),
             parse_mode="HTML",
         )
@@ -513,7 +513,7 @@ async def add_traffic(
             db=db,
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=price,
+            amount_toman=price,
             description=texts.t("subscription.traffic.add_transaction_desc", "Adding {gb} GB traffic").format(gb=traffic_gb),
         )
 
@@ -682,8 +682,8 @@ async def confirm_switch_traffic(
     if price_difference_per_month > 0:
         total_price_difference = price_difference_per_month * months_remaining
 
-        if db_user.balance_kopeks < total_price_difference:
-            missing_kopeks = total_price_difference - db_user.balance_kopeks
+        if db_user.balance_toman < total_price_difference:
+            missing_toman = total_price_difference - db_user.balance_toman
             message_text = texts.t(
                 "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
                 (
@@ -698,15 +698,15 @@ async def confirm_switch_traffic(
                     amount=texts.format_price(total_price_difference),
                     months=months_remaining
                 ),
-                balance=texts.format_price(db_user.balance_kopeks),
-                missing=texts.format_price(missing_kopeks),
+                balance=texts.format_price(db_user.balance_toman),
+                missing=texts.format_price(missing_toman),
             )
 
             await callback.message.edit_text(
                 message_text,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_kopeks,
+                    amount_toman=missing_toman,
                 ),
                 parse_mode="HTML",
             )
@@ -796,7 +796,7 @@ async def execute_switch_traffic(
                 db=db,
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=price_difference,
+                amount_toman=price_difference,
                 description=texts.t("subscription.traffic.switch.transaction_desc_full", "Switching traffic from {old}GB to {new}GB for {months} months").format(
                     old=current_traffic,
                     new=new_traffic_gb,

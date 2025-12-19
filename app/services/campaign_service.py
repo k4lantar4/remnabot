@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class CampaignBonusResult:
     success: bool
     bonus_type: Optional[str] = None
-    balance_kopeks: int = 0
+    balance_toman: int = 0
     subscription_days: Optional[int] = None
     subscription_traffic_gb: Optional[int] = None
     subscription_device_limit: Optional[int] = None
@@ -65,7 +65,7 @@ class AdvertisingCampaignService:
         user: User,
         campaign: AdvertisingCampaign,
     ) -> CampaignBonusResult:
-        amount = campaign.balance_bonus_kopeks or 0
+        amount = campaign.balance_bonus_toman or 0
         if amount <= 0:
             logger.info("ℹ️ Campaign %s has no balance bonus", campaign.id)
             return CampaignBonusResult(success=False)
@@ -90,20 +90,20 @@ class AdvertisingCampaignService:
             campaign_id=campaign.id,
             user_id=user.id,
             bonus_type="balance",
-            balance_bonus_kopeks=amount,
+            balance_bonus_toman=amount,
         )
 
         logger.info(
             "💰 User %s received a %s Toman bonus for campaign %s",
             user.telegram_id,
-            amount / 100,
+            amount,
             campaign.id,
         )
 
         return CampaignBonusResult(
             success=True,
             bonus_type="balance",
-            balance_kopeks=amount,
+            balance_toman=amount,
         )
 
     async def _apply_subscription_bonus(

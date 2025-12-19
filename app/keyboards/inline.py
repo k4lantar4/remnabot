@@ -287,7 +287,7 @@ def get_main_menu_keyboard(
     has_had_paid_subscription: bool = False,
     has_active_subscription: bool = False,
     subscription_is_active: bool = False,
-    balance_kopeks: int = 0,
+    balance_toman: int = 0,
     subscription=None,
     show_resume_checkout: bool = False,
     has_saved_cart: bool = False,  # New parameter for displaying saved cart notification
@@ -306,15 +306,15 @@ def get_main_menu_keyboard(
         )
     
     if settings.DEBUG:
-        print(f"DEBUG KEYBOARD: language={language}, is_admin={is_admin}, has_had_paid={has_had_paid_subscription}, has_active={has_active_subscription}, sub_active={subscription_is_active}, balance={balance_kopeks}")
+        print(f"DEBUG KEYBOARD: language={language}, is_admin={is_admin}, has_had_paid={has_had_paid_subscription}, has_active={has_active_subscription}, sub_active={subscription_is_active}, balance={balance_toman}")
     
-    if hasattr(texts, 'BALANCE_BUTTON') and balance_kopeks > 0:
-        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_price(balance_kopeks))
+    if hasattr(texts, 'BALANCE_BUTTON') and balance_toman > 0:
+        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_price(balance_toman))
     else:
         balance_button_text = texts.t(
             "BALANCE_BUTTON_DEFAULT",
             "💰 Balance: {balance}",
-        ).format(balance=texts.format_price(balance_kopeks))
+        ).format(balance=texts.format_price(balance_toman))
     
     keyboard: list[list[InlineKeyboardButton]] = []
     paired_buttons: list[InlineKeyboardButton] = []
@@ -709,12 +709,12 @@ def get_server_status_keyboard(
 def get_insufficient_balance_keyboard(
     language: str = DEFAULT_LANGUAGE,
     resume_callback: str | None = None,
-    amount_kopeks: int | None = None,
+    amount_toman: int | None = None,
     has_saved_cart: bool = False,  # New parameter to indicate presence of saved cart
 ) -> InlineKeyboardMarkup:
 
     texts = get_texts(language)
-    keyboard = get_payment_methods_keyboard(amount_kopeks or 0, language)
+    keyboard = get_payment_methods_keyboard(amount_toman or 0, language)
 
     back_row_index: int | None = None
 
@@ -852,10 +852,10 @@ def get_subscription_keyboard(
 
 def get_payment_methods_keyboard_with_cart(
     language: str = DEFAULT_LANGUAGE,
-    amount_kopeks: int = 0,
+    amount_toman: int = 0,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    keyboard = get_payment_methods_keyboard(amount_kopeks, language)
+    keyboard = get_payment_methods_keyboard(amount_toman, language)
     
     # Add "Clear cart" button
     keyboard.inline_keyboard.append([
@@ -894,12 +894,12 @@ def get_subscription_confirm_keyboard_with_cart(language: str = "ru") -> InlineK
 
 def get_insufficient_balance_keyboard_with_cart(
     language: str = DEFAULT_LANGUAGE,
-    amount_kopeks: int = 0,
+    amount_toman: int = 0,
 ) -> InlineKeyboardMarkup:
     # Use updated version with has_saved_cart=True flag
     keyboard = get_insufficient_balance_keyboard(
         language,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         has_saved_cart=True,
     )
 
@@ -1004,7 +1004,7 @@ def get_traffic_packages_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKey
     logger.info(f"🔍 DISABLED: {len(disabled_packages)} packages")
     
     for pkg in disabled_packages:
-        logger.info(f"🔍 DISABLED PACKAGE: {pkg['gb']}GB = {pkg['price']} kopeks, enabled={pkg['enabled']}")
+        logger.info(f"🔍 DISABLED PACKAGE: {pkg['gb']}GB = {pkg['price']} toman, enabled={pkg['enabled']}")
     
     texts = get_texts(language)
     keyboard = []
@@ -1053,8 +1053,8 @@ def get_countries_keyboard(countries: List[dict], selected: List[str], language:
             
         emoji = "✅" if country['uuid'] in selected else "⚪"
         
-        if country['price_kopeks'] > 0:
-            price_text = f" (+{texts.format_price(country['price_kopeks'])})"
+        if country['price_toman'] > 0:
+            price_text = f" (+{texts.format_price(country['price_toman'])})"
         else:
             price_text = texts.t("FREE", " (Free)")
         
@@ -1153,16 +1153,16 @@ def get_balance_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMark
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_payment_methods_keyboard(amount_toman: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
     texts = get_texts(language)
     keyboard = []
     has_direct_payment_methods = False
 
-    amount_kopeks = max(0, int(amount_kopeks or 0))
+    amount_toman = max(0, int(amount_toman or 0))
 
     def _build_callback(method: str) -> str:
-        if amount_kopeks > 0:
-            return f"topup_amount|{method}|{amount_kopeks}"
+        if amount_toman > 0:
+            return f"topup_amount|{method}|{amount_toman}"
         return f"topup_{method}"
 
     if settings.TELEGRAM_STARS_ENABLED:
@@ -1290,7 +1290,7 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
 
 def get_yookassa_payment_keyboard(
     payment_id: str, 
-    amount_kopeks: int, 
+    amount_toman: int, 
     confirmation_url: str,
     language: str = DEFAULT_LANGUAGE
 ) -> InlineKeyboardMarkup:
@@ -1693,7 +1693,7 @@ def get_confirm_change_devices_keyboard(new_devices_count: int, price: int, lang
     ])
 
 
-def get_reset_traffic_confirm_keyboard(price_kopeks: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_reset_traffic_confirm_keyboard(price_toman: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
     from app.config import settings
     
     if settings.is_traffic_fixed():
@@ -1703,7 +1703,7 @@ def get_reset_traffic_confirm_keyboard(price_kopeks: int, language: str = DEFAUL
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text=texts.t("RESET_FOR_PRICE", f"✅ Reset for {settings.format_price(price_kopeks)}").format(price=settings.format_price(price_kopeks)), 
+                text=texts.t("RESET_FOR_PRICE", f"✅ Reset for {settings.format_price(price_toman)}").format(price=settings.format_price(price_toman)), 
                 callback_data="confirm_reset_traffic"
             )
         ],
@@ -1741,7 +1741,7 @@ def get_manage_countries_keyboard(
 
         uuid = country['uuid']
         name = country['name']
-        price_per_month = country['price_kopeks']
+        price_per_month = country['price_toman']
 
         discounted_per_month, discount_per_month = apply_percentage_discount(
             price_per_month,

@@ -133,7 +133,7 @@ async def _prepare_subscription_summary(
     selected_country_ids = set(summary_data.get('countries', []))
     for country in countries:
         if country['uuid'] in selected_country_ids:
-            server_price_per_month = country['price_kopeks']
+            server_price_per_month = country['price_toman']
             countries_price_per_month += server_price_per_month
             selected_countries_names.append(country['name'])
             server_monthly_prices.append(server_price_per_month)

@@ -514,15 +514,15 @@ class SubscriptionService:
         for server_id in server_squad_ids:
             server = await get_server_squad_by_id(db, server_id)
             if server and server.is_available and not server.is_full:
-                server_price = server.price_kopeks
+                server_price = server.price_toman
                 server_discount = server_price * servers_discount_percent // 100
                 discounted_server_price = server_price - server_discount
                 server_prices.append(discounted_server_price)
                 total_servers_price += discounted_server_price
-                log_message = f"Server {server.display_name}: {server_price/100} Toman"
+                log_message = f"Server {server.display_name}: {server_price} Toman"
                 if server_discount > 0:
                     log_message += (
-                        f" (discount {servers_discount_percent}%: -{server_discount/100} Toman → {discounted_server_price/100} Toman)"
+                        f" (discount {servers_discount_percent}%: -{server_discount} Toman → {discounted_server_price} Toman)"
                     )
                 logger.debug(log_message)
             else:
@@ -542,35 +542,35 @@ class SubscriptionService:
         total_price = base_price + discounted_traffic_price + total_servers_price + discounted_devices_price
 
         logger.debug("New subscription price calculation:")
-        base_log = f"   Period {period_days} days: {base_price_original/100} Toman"
+        base_log = f"   Period {period_days} days: {base_price_original} Toman"
         if base_discount_total > 0:
             base_log += (
-                f" → {base_price/100} Toman"
-                f" (discount {period_discount_percent}%: -{base_discount_total/100} Toman)"
+                f" → {base_price} Toman"
+                f" (discount {period_discount_percent}%: -{base_discount_total} Toman)"
             )
         logger.debug(base_log)
         if discounted_traffic_price > 0:
-            message = f"   Traffic {traffic_gb} GB: {traffic_price/100} Toman"
+            message = f"   Traffic {traffic_gb} GB: {traffic_price} Toman"
             if traffic_discount > 0:
                 message += (
-                    f" (discount {traffic_discount_percent}%: -{traffic_discount/100} Toman → {discounted_traffic_price/100} Toman)"
+                    f" (discount {traffic_discount_percent}%: -{traffic_discount} Toman → {discounted_traffic_price} Toman)"
                 )
             logger.debug(message)
         if total_servers_price > 0:
-            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price/100} Toman"
+            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price} Toman"
             if servers_discount_percent > 0:
                 message += (
                     f" (discount {servers_discount_percent}% applied to all servers)"
                 )
             logger.debug(message)
         if discounted_devices_price > 0:
-            message = f"   Devices ({devices}): {devices_price/100} Toman"
+            message = f"   Devices ({devices}): {devices_price} Toman"
             if devices_discount > 0:
                 message += (
-                    f" (discount {devices_discount_percent}%: -{devices_discount/100} Toman → {discounted_devices_price/100} Toman)"
+                    f" (discount {devices_discount_percent}%: -{devices_discount} Toman → {discounted_devices_price} Toman)"
                 )
             logger.debug(message)
-        logger.debug(f"   TOTAL: {total_price/100} Toman")
+        logger.debug(f"   TOTAL: {total_price} Toman")
 
         return total_price, server_prices
     
@@ -655,35 +655,35 @@ class SubscriptionService:
             )
 
             logger.debug(f"💰 Renewal price calculation for subscription {subscription.id} (at current prices):")
-            base_log = f"   📅 Period {period_days} days: {base_price_original/100} Toman"
+            base_log = f"   📅 Period {period_days} days: {base_price_original} Toman"
             if base_discount_total > 0:
                 base_log += (
-                    f" → {base_price/100} Toman"
-                    f" (discount {period_discount_percent}%: -{base_discount_total/100} Toman)"
+                    f" → {base_price} Toman"
+                    f" (discount {period_discount_percent}%: -{base_discount_total} Toman)"
                 )
             logger.debug(base_log)
             if servers_price > 0:
-                message = f"   🌍 Servers ({len(subscription.connected_squads)}) at current prices: {discounted_servers_price/100} Toman"
+                message = f"   🌍 Servers ({len(subscription.connected_squads)}) at current prices: {discounted_servers_price} Toman"
                 if servers_discount > 0:
                     message += (
-                        f" (discount {servers_discount_percent}%: -{servers_discount/100} Toman from {servers_price/100} Toman)"
+                        f" (discount {servers_discount_percent}%: -{servers_discount} Toman from {servers_price} Toman)"
                     )
                 logger.debug(message)
             if devices_price > 0:
-                message = f"   📱 Devices ({device_limit}): {discounted_devices_price/100} Toman"
+                message = f"   📱 Devices ({device_limit}): {discounted_devices_price} Toman"
                 if devices_discount > 0:
                     message += (
-                        f" (discount {devices_discount_percent}%: -{devices_discount/100} Toman from {devices_price/100} Toman)"
+                        f" (discount {devices_discount_percent}%: -{devices_discount} Toman from {devices_price} Toman)"
                     )
                 logger.debug(message)
             if traffic_price > 0:
-                message = f"   📊 Traffic ({subscription.traffic_limit_gb} GB): {discounted_traffic_price/100} Toman"
+                message = f"   📊 Traffic ({subscription.traffic_limit_gb} GB): {discounted_traffic_price} Toman"
                 if traffic_discount > 0:
                     message += (
-                        f" (discount {traffic_discount_percent}%: -{traffic_discount/100} Toman from {traffic_price/100} Toman)"
+                        f" (discount {traffic_discount_percent}%: -{traffic_discount} Toman from {traffic_price} Toman)"
                     )
                 logger.debug(message)
-            logger.debug(f"   💎 TOTAL: {total_price/100} Toman")
+            logger.debug(f"   💎 TOTAL: {total_price} Toman")
 
             return total_price
             
@@ -762,17 +762,17 @@ class SubscriptionService:
                     is_allowed = promo_group_id in allowed_ids
 
                 if server and server.is_available and not server.is_full and is_allowed:
-                    price = server.price_kopeks
+                    price = server.price_toman
                     total_price += price
                     prices_list.append(price)
-                    logger.debug(f"🏷️ Country {server.display_name}: {price/100} Toman")
+                    logger.debug(f"🏷️ Country {server.display_name}: {price} Toman")
                 else:
                     default_price = 0  
                     total_price += default_price
                     prices_list.append(default_price)
-                    logger.warning(f"⚠️ Server {country_uuid} unavailable, using base price: {default_price/100} Toman")
+                    logger.warning(f"⚠️ Server {country_uuid} unavailable, using base price: {default_price} Toman")
             
-            logger.info(f"💰 Total countries price: {total_price/100} Toman")
+            logger.info(f"💰 Total countries price: {total_price} Toman")
             return total_price, prices_list
             
         except Exception as e:
@@ -843,18 +843,18 @@ class SubscriptionService:
         for server_id in server_squad_ids:
             server = await get_server_squad_by_id(db, server_id)
             if server and server.is_available and not server.is_full:
-                server_price_per_month = server.price_kopeks
+                server_price_per_month = server.price_toman
                 server_discount_per_month = server_price_per_month * servers_discount_percent // 100
                 discounted_server_per_month = server_price_per_month - server_discount_per_month
                 server_price_total = discounted_server_per_month * months_in_period
                 server_prices.append(server_price_total)
                 total_servers_price += server_price_total
                 log_message = (
-                    f"Server {server.display_name}: {server_price_per_month/100} Toman/mo x {months_in_period} mo = {server_price_total/100} Toman"
+                    f"Server {server.display_name}: {server_price_per_month} Toman/mo x {months_in_period} mo = {server_price_total} Toman"
                 )
                 if server_discount_per_month > 0:
                     log_message += (
-                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_in_period/100} Toman)"
+                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_in_period} Toman)"
                     )
                 logger.debug(log_message)
             else:
@@ -876,24 +876,24 @@ class SubscriptionService:
         total_price = base_price + total_traffic_price + total_servers_price + total_devices_price
 
         logger.debug(f"New subscription price calculation for {period_days} days ({months_in_period} mo):")
-        base_log = f"   Period {period_days} days: {base_price_original/100} Toman"
+        base_log = f"   Period {period_days} days: {base_price_original} Toman"
         if base_discount_total > 0:
             base_log += (
-                f" → {base_price/100} Toman"
-                f" (discount {period_discount_percent}%: -{base_discount_total/100} Toman)"
+                f" → {base_price} Toman"
+                f" (discount {period_discount_percent}%: -{base_discount_total} Toman)"
             )
         logger.debug(base_log)
         if total_traffic_price > 0:
             message = (
-                f"   Traffic {traffic_gb} GB: {traffic_price_per_month/100} Toman/mo x {months_in_period} = {total_traffic_price/100} Toman"
+                f"   Traffic {traffic_gb} GB: {traffic_price_per_month} Toman/mo x {months_in_period} = {total_traffic_price} Toman"
             )
             if traffic_discount_per_month > 0:
                 message += (
-                    f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100} Toman)"
+                    f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period} Toman)"
                 )
             logger.debug(message)
         if total_servers_price > 0:
-            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price/100} Toman"
+            message = f"   Servers ({len(server_squad_ids)}): {total_servers_price} Toman"
             if servers_discount_percent > 0:
                 message += (
                     f" (discount {servers_discount_percent}% applied to all servers)"
@@ -901,14 +901,14 @@ class SubscriptionService:
             logger.debug(message)
         if total_devices_price > 0:
             message = (
-                f"   Devices ({additional_devices}): {devices_price_per_month/100} Toman/mo x {months_in_period} = {total_devices_price/100} Toman"
+                f"   Devices ({additional_devices}): {devices_price_per_month} Toman/mo x {months_in_period} = {total_devices_price} Toman"
             )
             if devices_discount_per_month > 0:
                 message += (
-                    f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100} Toman)"
+                    f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period} Toman)"
                 )
             logger.debug(message)
-        logger.debug(f"   TOTAL: {total_price/100} Toman")
+        logger.debug(f"   TOTAL: {total_price} Toman")
 
         return total_price, server_prices
     
@@ -993,41 +993,41 @@ class SubscriptionService:
             total_price = base_price + total_servers_price + total_devices_price + total_traffic_price
 
             logger.debug(f"💰 Renewal price calculation for subscription {subscription.id} for {period_days} days ({months_in_period} mo):")
-            base_log = f"   📅 Period {period_days} days: {base_price_original/100} Toman"
+            base_log = f"   📅 Period {period_days} days: {base_price_original} Toman"
             if base_discount_total > 0:
                 base_log += (
-                    f" → {base_price/100} Toman"
-                    f" (discount {period_discount_percent}%: -{base_discount_total/100} Toman)"
+                    f" → {base_price} Toman"
+                    f" (discount {period_discount_percent}%: -{base_discount_total} Toman)"
                 )
             logger.debug(base_log)
             if total_servers_price > 0:
                 message = (
-                    f"   🌍 Servers: {servers_price_per_month/100} Toman/mo x {months_in_period} = {total_servers_price/100} Toman"
+                    f"   🌍 Servers: {servers_price_per_month} Toman/mo x {months_in_period} = {total_servers_price} Toman"
                 )
                 if servers_discount_per_month > 0:
                     message += (
-                        f" (discount {servers_discount_percent}%: -{servers_discount_per_month * months_in_period/100} Toman)"
+                        f" (discount {servers_discount_percent}%: -{servers_discount_per_month * months_in_period} Toman)"
                     )
                 logger.debug(message)
             if total_devices_price > 0:
                 message = (
-                    f"   📱 Devices: {devices_price_per_month/100} Toman/mo x {months_in_period} = {total_devices_price/100} Toman"
+                    f"   📱 Devices: {devices_price_per_month} Toman/mo x {months_in_period} = {total_devices_price} Toman"
                 )
                 if devices_discount_per_month > 0:
                     message += (
-                        f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period/100} Toman)"
+                        f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_in_period} Toman)"
                     )
                 logger.debug(message)
             if total_traffic_price > 0:
                 message = (
-                    f"   📊 Traffic: {traffic_price_per_month/100} Toman/mo x {months_in_period} = {total_traffic_price/100} Toman"
+                    f"   📊 Traffic: {traffic_price_per_month} Toman/mo x {months_in_period} = {total_traffic_price} Toman"
                 )
                 if traffic_discount_per_month > 0:
                     message += (
-                        f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period/100} Toman)"
+                        f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_in_period} Toman)"
                     )
                 logger.debug(message)
-            logger.debug(f"   💎 TOTAL: {total_price/100} Toman")
+            logger.debug(f"   💎 TOTAL: {total_price} Toman")
 
             return total_price
             
@@ -1069,13 +1069,13 @@ class SubscriptionService:
             traffic_total_price = discounted_traffic_per_month * months_to_pay
             total_price += traffic_total_price
             message = (
-                f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month/100} Toman/mo x {months_to_pay}"
-                f" = {traffic_total_price/100} Toman"
+                f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month} Toman/mo x {months_to_pay}"
+                f" = {traffic_total_price} Toman"
             )
             if traffic_discount_per_month > 0:
                 message += (
                     f" (discount {traffic_discount_percent}%:"
-                    f" -{traffic_discount_per_month * months_to_pay/100} Toman)"
+                    f" -{traffic_discount_per_month * months_to_pay} Toman)"
                 )
             logger.info(message)
 
@@ -1092,13 +1092,13 @@ class SubscriptionService:
             devices_total_price = discounted_devices_per_month * months_to_pay
             total_price += devices_total_price
             message = (
-                f"Devices +{additional_devices}: {devices_price_per_month/100} Toman/mo x {months_to_pay}"
-                f" = {devices_total_price/100} Toman"
+                f"Devices +{additional_devices}: {devices_price_per_month} Toman/mo x {months_to_pay}"
+                f" = {devices_total_price} Toman"
             )
             if devices_discount_per_month > 0:
                 message += (
                     f" (discount {devices_discount_percent}%:"
-                    f" -{devices_discount_per_month * months_to_pay/100} Toman)"
+                    f" -{devices_discount_per_month * months_to_pay} Toman)"
                 )
             logger.info(message)
 
@@ -1107,7 +1107,7 @@ class SubscriptionService:
                 from app.database.crud.server_squad import get_server_squad_by_id
                 server = await get_server_squad_by_id(db, server_id)
                 if server and server.is_available:
-                    server_price_per_month = server.price_kopeks
+                    server_price_per_month = server.price_toman
                     servers_discount_percent = _resolve_addon_discount_percent(
                         user,
                         promo_group,
@@ -1123,17 +1123,17 @@ class SubscriptionService:
                     server_total_price = discounted_server_per_month * months_to_pay
                     total_price += server_total_price
                     message = (
-                        f"Server {server.display_name}: {server_price_per_month/100} Toman/mo x {months_to_pay}"
-                        f" = {server_total_price/100} Toman"
+                        f"Server {server.display_name}: {server_price_per_month} Toman/mo x {months_to_pay}"
+                        f" = {server_total_price} Toman"
                     )
                     if server_discount_per_month > 0:
                         message += (
                             f" (discount {servers_discount_percent}%:"
-                            f" -{server_discount_per_month * months_to_pay/100} Toman)"
+                            f" -{server_discount_per_month * months_to_pay} Toman)"
                         )
                     logger.info(message)
 
-        logger.info(f"Total addon payment for {months_to_pay} mo: {total_price/100} Toman")
+        logger.info(f"Total addon payment for {months_to_pay} mo: {total_price} Toman")
         return total_price
     
     def _gb_to_bytes(self, gb: int) -> int:

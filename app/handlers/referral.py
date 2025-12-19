@@ -52,18 +52,18 @@ async def show_referral_info(
         + "\n"
         + texts.t("REFERRAL_STATS_CONVERSION").format(rate=summary['conversion_rate'])
         + "\n"
-        + texts.t("REFERRAL_STATS_TOTAL_EARNED").format(amount=texts.format_price(summary['total_earned_kopeks']))
+        + texts.t("REFERRAL_STATS_TOTAL_EARNED").format(amount=texts.format_price(summary['total_earned_toman']))
         + "\n"
-        + texts.t("REFERRAL_STATS_MONTH_EARNED").format(amount=texts.format_price(summary['month_earned_kopeks']))
+        + texts.t("REFERRAL_STATS_MONTH_EARNED").format(amount=texts.format_price(summary['month_earned_toman']))
         + "\n\n"
         + texts.t("REFERRAL_REWARDS_HEADER")
         + "\n"
         + texts.t("REFERRAL_REWARD_NEW_USER").format(
-            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
-            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
+            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN),
+            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN),
         )
         + "\n"
-        + texts.t("REFERRAL_REWARD_INVITER").format(bonus=texts.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS))
+        + texts.t("REFERRAL_REWARD_INVITER").format(bonus=texts.format_price(settings.REFERRAL_INVITER_BONUS_TOMAN))
         + "\n"
         + texts.t("REFERRAL_REWARD_COMMISSION").format(percent=get_effective_referral_commission_percent(db_user))
         + "\n\n"
@@ -76,7 +76,7 @@ async def show_referral_info(
     if summary['recent_earnings']:
         meaningful_earnings = [
             earning for earning in summary['recent_earnings'][:5]
-            if earning['amount_kopeks'] > 0
+            if earning['amount_toman'] > 0
         ]
 
         if meaningful_earnings:
@@ -90,7 +90,7 @@ async def show_referral_info(
 
                 referral_text += texts.t("REFERRAL_RECENT_EARNINGS_ITEM").format(
                     reason=reason_text,
-                    amount=texts.format_price(earning['amount_kopeks']),
+                    amount=texts.format_price(earning['amount_toman']),
                     referral_name=earning['referral_name'],
                 ) + "\n"
             referral_text += "\n"
@@ -100,26 +100,26 @@ async def show_referral_info(
 
         if 'referral_first_topup' in summary['earnings_by_type']:
             data = summary['earnings_by_type']['referral_first_topup']
-            if data['total_amount_kopeks'] > 0:
+            if data['total_amount_toman'] > 0:
                 referral_text += texts.t("REFERRAL_EARNINGS_FIRST_TOPUPS").format(
                     count=data['count'],
-                    amount=texts.format_price(data['total_amount_kopeks']),
+                    amount=texts.format_price(data['total_amount_toman']),
                 ) + "\n"
 
         if 'referral_commission_topup' in summary['earnings_by_type']:
             data = summary['earnings_by_type']['referral_commission_topup']
-            if data['total_amount_kopeks'] > 0:
+            if data['total_amount_toman'] > 0:
                 referral_text += texts.t("REFERRAL_EARNINGS_TOPUPS").format(
                     count=data['count'],
-                    amount=texts.format_price(data['total_amount_kopeks']),
+                    amount=texts.format_price(data['total_amount_toman']),
                 ) + "\n"
 
         if 'referral_commission' in summary['earnings_by_type']:
             data = summary['earnings_by_type']['referral_commission']
-            if data['total_amount_kopeks'] > 0:
+            if data['total_amount_toman'] > 0:
                 referral_text += texts.t("REFERRAL_EARNINGS_PURCHASES").format(
                     count=data['count'],
-                    amount=texts.format_price(data['total_amount_kopeks']),
+                    amount=texts.format_price(data['total_amount_toman']),
                 ) + "\n"
 
         referral_text += "\n"
@@ -214,7 +214,7 @@ async def show_detailed_referral_list(
         
         text += texts.t("REFERRAL_LIST_ITEM_HEADER").format(index=i, status=status_emoji, name=referral['full_name']) + "\n"
         text += texts.t("REFERRAL_LIST_ITEM_TOPUPS").format(emoji=topup_emoji, count=referral['topups_count']) + "\n"
-        text += texts.t("REFERRAL_LIST_ITEM_EARNED").format(amount=texts.format_price(referral['total_earned_kopeks'])) + "\n"
+        text += texts.t("REFERRAL_LIST_ITEM_EARNED").format(amount=texts.format_price(referral['total_earned_toman'])) + "\n"
         text += texts.t("REFERRAL_LIST_ITEM_REGISTERED").format(days=referral['days_since_registration']) + "\n"
 
         if referral['days_since_activity'] is not None:
@@ -283,7 +283,7 @@ async def show_referral_analytics(
             text += texts.t("REFERRAL_ANALYTICS_TOP_ITEM").format(
                 index=i,
                 name=ref['referral_name'],
-                amount=texts.format_price(ref['total_earned_kopeks']),
+                amount=texts.format_price(ref['total_earned_toman']),
                 count=ref['earnings_count'],
             ) + "\n"
         text += "\n"
@@ -313,8 +313,8 @@ async def create_invite_message(
         texts.t("REFERRAL_INVITE_TITLE")
         + "\n\n"
         + texts.t("REFERRAL_INVITE_BONUS").format(
-            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
-            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
+            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN),
+            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN),
         )
         + "\n\n"
         + texts.t("REFERRAL_INVITE_FEATURE_FAST")

@@ -152,8 +152,8 @@ async def handle_successful_payment(
 
         if success:
             rubles_amount = TelegramStarsService.calculate_rubles_from_stars(payment.total_amount)
-            amount_kopeks = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
-            amount_text = settings.format_price(amount_kopeks).replace("  Toman", "")
+            amount_toman = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
+            amount_text = settings.format_price(amount_toman).replace(" Toman", "")
 
             keyboard = await payment_service.build_topup_success_keyboard(user)
 
@@ -164,7 +164,7 @@ async def handle_successful_payment(
                     "STARS_PAYMENT_SUCCESS",
                     "🎉 <b>Payment processed!</b>\n\n"
                     "⭐ Stars spent: {stars_spent}\n"
-                    "💰 Credited to balance: {amount}  Toman\n"
+                    "💰 Credited to balance: {amount} Toman\n"
                     "🆔 Transaction ID: {transaction_id}...\n\n"
                     "⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. "
                     "Activate your subscription separately!\n\n"
@@ -184,7 +184,7 @@ async def handle_successful_payment(
                 "✅ Stars payment processed: user %s, %s stars → %s",
                 user.id,
                 payment.total_amount,
-                settings.format_price(amount_kopeks),
+                settings.format_price(amount_toman),
             )
         else:
             logger.error("Stars payment processing failed for user %s", user.id)

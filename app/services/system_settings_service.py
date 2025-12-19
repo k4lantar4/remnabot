@@ -226,7 +226,7 @@ class BotConfigurationService:
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS": "SUBSCRIPTIONS_CORE",
         "DEFAULT_AUTOPAY_ENABLED": "AUTOPAY",
         "DEFAULT_AUTOPAY_DAYS_BEFORE": "AUTOPAY",
-        "MIN_BALANCE_FOR_AUTOPAY_KOPEKS": "AUTOPAY",
+        "MIN_BALANCE_FOR_AUTOPAY_TOMAN": "AUTOPAY",
         "TRIAL_WARNING_HOURS": "TRIAL",
         "TRIAL_USER_TAG": "TRIAL",
         "SUPPORT_USERNAME": "SUPPORT",
@@ -688,7 +688,7 @@ class BotConfigurationService:
         if isinstance(value, bool):
             return None
         upper_key = key.upper()
-        if any(suffix in upper_key for suffix in ("PRICE", "_KOPEKS", "AMOUNT")):
+        if any(suffix in upper_key for suffix in ("PRICE", "_TOMAN", "AMOUNT")):
             try:
                 return settings.format_price(int(value))
             except Exception:

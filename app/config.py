@@ -147,9 +147,9 @@ class Settings(BaseSettings):
     TRAFFIC_SELECTION_MODE: str = "selectable" 
     FIXED_TRAFFIC_LIMIT_GB: int = 100 
     
-    REFERRAL_MINIMUM_TOPUP_KOPEKS: int = 10000 
-    REFERRAL_FIRST_TOPUP_BONUS_KOPEKS: int = 10000 
-    REFERRAL_INVITER_BONUS_KOPEKS: int = 10000 
+    REFERRAL_MINIMUM_TOPUP_TOMAN: int = 1000000
+    REFERRAL_FIRST_TOPUP_BONUS_TOMAN: int = 1000000
+    REFERRAL_INVITER_BONUS_TOMAN: int = 1000000
     REFERRAL_COMMISSION_PERCENT: int = 25 
 
     REFERRAL_PROGRAM_ENABLED: bool = True
@@ -177,8 +177,8 @@ class Settings(BaseSettings):
 
     DEFAULT_AUTOPAY_ENABLED: bool = False
     DEFAULT_AUTOPAY_DAYS_BEFORE: int = 3
-    MIN_BALANCE_FOR_AUTOPAY_KOPEKS: int = 10000  
-    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS: int = 20000  
+    MIN_BALANCE_FOR_AUTOPAY_TOMAN: int = 1000000
+    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN: int = 2000000
     
     MONITORING_INTERVAL: int = 60
     INACTIVE_USER_DELETE_MONTHS: int = 3
@@ -213,8 +213,8 @@ class Settings(BaseSettings):
     YOOKASSA_WEBHOOK_HOST: str = "0.0.0.0"
     YOOKASSA_WEBHOOK_PORT: int = 8082
     YOOKASSA_TRUSTED_PROXY_NETWORKS: str = ""
-    YOOKASSA_MIN_AMOUNT_KOPEKS: int = 5000
-    YOOKASSA_MAX_AMOUNT_KOPEKS: int = 1000000
+    YOOKASSA_MIN_AMOUNT_TOMAN: int = 500000
+    YOOKASSA_MAX_AMOUNT_TOMAN: int = 100000000
     YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED: bool = False
     DISABLE_TOPUP_BUTTONS: bool = False
     SUPPORT_TOPUP_ENABLED: bool = True
@@ -283,8 +283,8 @@ class Settings(BaseSettings):
     )
     MULENPAY_PAYMENT_SUBJECT: int = 4
     MULENPAY_PAYMENT_MODE: int = 4
-    MULENPAY_MIN_AMOUNT_KOPEKS: int = 10000
-    MULENPAY_MAX_AMOUNT_KOPEKS: int = 10000000
+    MULENPAY_MIN_AMOUNT_TOMAN: int = 1000000
+    MULENPAY_MAX_AMOUNT_TOMAN: int = 1000000000
     MULENPAY_IFRAME_EXPECTED_ORIGIN: Optional[str] = None
 
     PAL24_ENABLED: bool = False
@@ -295,8 +295,8 @@ class Settings(BaseSettings):
     PAL24_WEBHOOK_PATH: str = "/pal24-webhook"
     PAL24_WEBHOOK_PORT: int = 8084
     PAL24_PAYMENT_DESCRIPTION: str = "Balance top-up"
-    PAL24_MIN_AMOUNT_KOPEKS: int = 10000
-    PAL24_MAX_AMOUNT_KOPEKS: int = 100000000
+    PAL24_MIN_AMOUNT_TOMAN: int = 1000000
+    PAL24_MAX_AMOUNT_TOMAN: int = 10000000000
     PAL24_REQUEST_TIMEOUT: int = 30
     PAL24_SBP_BUTTON_TEXT: Optional[str] = None
     PAL24_CARD_BUTTON_TEXT: Optional[str] = None
@@ -311,8 +311,8 @@ class Settings(BaseSettings):
     PLATEGA_FAILED_URL: Optional[str] = None
     PLATEGA_CURRENCY: str = "RUB"
     PLATEGA_ACTIVE_METHODS: str = "2,10,11,12,13"
-    PLATEGA_MIN_AMOUNT_KOPEKS: int = 10000
-    PLATEGA_MAX_AMOUNT_KOPEKS: int = 100000000
+    PLATEGA_MIN_AMOUNT_TOMAN: int = 1000000
+    PLATEGA_MAX_AMOUNT_TOMAN: int = 10000000000
     PLATEGA_WEBHOOK_PATH: str = "/platega-webhook"
     PLATEGA_WEBHOOK_HOST: str = "0.0.0.0"
     PLATEGA_WEBHOOK_PORT: int = 8086
@@ -326,8 +326,8 @@ class Settings(BaseSettings):
     WATA_SUCCESS_REDIRECT_URL: Optional[str] = None
     WATA_FAIL_REDIRECT_URL: Optional[str] = None
     WATA_LINK_TTL_MINUTES: Optional[int] = None
-    WATA_MIN_AMOUNT_KOPEKS: int = 10000
-    WATA_MAX_AMOUNT_KOPEKS: int = 100000000
+    WATA_MIN_AMOUNT_TOMAN: int = 1000000
+    WATA_MAX_AMOUNT_TOMAN: int = 10000000000
     WATA_REQUEST_TIMEOUT: int = 30
     WATA_WEBHOOK_PATH: str = "/wata-webhook"
     WATA_WEBHOOK_HOST: str = "0.0.0.0"
@@ -769,15 +769,9 @@ class Settings(BaseSettings):
     def is_language_selection_enabled(self) -> bool:
         return bool(getattr(self, "LANGUAGE_SELECTION_ENABLED", True))
 
-    def format_price(self, price_kopeks: int) -> str:
-        sign = "-" if price_kopeks < 0 else ""
-        rubles, kopeks = divmod(abs(price_kopeks), 100)
-
-        if kopeks:
-            value = f"{sign}{rubles}.{kopeks:02d}".rstrip("0").rstrip(".")
-            return f"{value} Toman"
-
-        return f"{sign}{rubles} Toman"
+    def format_price(self, price_toman: int) -> str:
+        sign = "-" if price_toman < 0 else ""
+        return f"{sign}{abs(price_toman):,} Toman"
 
     def get_reports_chat_id(self) -> Optional[str]:
         if self.ADMIN_REPORTS_CHAT_ID:
@@ -805,10 +799,12 @@ class Settings(BaseSettings):
             )
             return None
     
-    def kopeks_to_rubles(self, kopeks: int) -> float:
-        return kopeks / 100
+    def toman_to_rubles(self, toman: int) -> float:
+        """Convert toman to rubles for external APIs that expect rubles."""
+        return toman / 100
 
-    def rubles_to_kopeks(self, rubles: float) -> int:
+    def rubles_to_toman(self, rubles: float) -> int:
+        """Convert rubles to toman for external APIs that provide rubles."""
         return int(rubles * 100)
 
     @staticmethod
@@ -1344,7 +1340,7 @@ class Settings(BaseSettings):
         except (ValueError, AttributeError):
             return [30, 90, 180]
 
-    def get_balance_payment_description(self, amount_kopeks: int, language: str = "en", telegram_user_id: Optional[int] = None) -> str:
+    def get_balance_payment_description(self, amount_toman: int, language: str = "en", telegram_user_id: Optional[int] = None) -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
@@ -1359,7 +1355,7 @@ class Settings(BaseSettings):
             template = self.PAYMENT_BALANCE_TEMPLATE
         
         # Build description with user ID if provided
-        description = f"{balance_desc} for {self.format_price(amount_kopeks)}"
+        description = f"{balance_desc} for {self.format_price(amount_toman)}"
         if telegram_user_id is not None:
             description += f" (ID {telegram_user_id})"
         
@@ -1368,7 +1364,7 @@ class Settings(BaseSettings):
             description=description
         )
     
-    def get_subscription_payment_description(self, period_days: int, amount_kopeks: int, language: str = "en") -> str:
+    def get_subscription_payment_description(self, period_days: int, amount_toman: int, language: str = "en") -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
@@ -1442,9 +1438,9 @@ class Settings(BaseSettings):
     def get_referral_settings(self) -> Dict:
         return {
             "program_enabled": self.is_referral_program_enabled(),
-            "minimum_topup_kopeks": self.REFERRAL_MINIMUM_TOPUP_KOPEKS,
-            "first_topup_bonus_kopeks": self.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
-            "inviter_bonus_kopeks": self.REFERRAL_INVITER_BONUS_KOPEKS,
+            "minimum_topup_toman": self.REFERRAL_MINIMUM_TOPUP_TOMAN,
+            "first_topup_bonus_toman": self.REFERRAL_FIRST_TOPUP_BONUS_TOMAN,
+            "inviter_bonus_toman": self.REFERRAL_INVITER_BONUS_TOMAN,
             "commission_percent": self.REFERRAL_COMMISSION_PERCENT,
             "notifications_enabled": self.REFERRAL_NOTIFICATIONS_ENABLED,
         }

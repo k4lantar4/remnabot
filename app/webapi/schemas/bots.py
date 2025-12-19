@@ -30,8 +30,7 @@ class BotResponse(BaseModel):
     notification_topic_id: Optional[int] = None
     
     # Wallet & billing
-    wallet_balance_kopeks: int
-    wallet_balance_rubles: float
+    wallet_balance_toman: int
     traffic_consumed_bytes: int
     traffic_sold_bytes: int
     

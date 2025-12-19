@@ -21,7 +21,7 @@ def sample_promo_group():
         device_discount_percent=10,
         period_discounts={30: 10, 60: 15, 90: 20},
         is_default=False,
-        auto_assign_total_spent_kopeks=None,
+        auto_assign_total_spent_toman=None,
         auto_assign_enabled=False,
         addon_discount_enabled=True
     )
@@ -35,10 +35,10 @@ def sample_user():
         telegram_id=123456789,
         username="testuser",
         full_name="Test User",
-        balance_kopeks=0,
+        balance_toman=0,
         language="ru",
         has_had_paid_subscription=False,
-        total_spent_kopeks=0
+        total_spent_toman=0
     )
 
 
@@ -49,7 +49,7 @@ def sample_promocode_balance():
         id=1,
         code="BALANCE100",
         type=PromoCodeType.BALANCE.value,
-        balance_bonus_kopeks=10000,  # 100 rubles
+        balance_bonus_toman=1000000,  # 10000 toman (was 100 rubles = 10000 kopeks, now 10000 toman)
         subscription_days=0,
         max_uses=100,
         current_uses=10,
@@ -70,7 +70,7 @@ def sample_promocode_subscription():
         id=2,
         code="SUB30",
         type=PromoCodeType.SUBSCRIPTION_DAYS.value,
-        balance_bonus_kopeks=0,
+        balance_bonus_toman=0,
         subscription_days=30,
         max_uses=50,
         current_uses=5,
@@ -91,7 +91,7 @@ def sample_promocode_promo_group(sample_promo_group):
         id=3,
         code="VIPGROUP",
         type=PromoCodeType.PROMO_GROUP.value,
-        balance_bonus_kopeks=0,
+        balance_bonus_toman=0,
         subscription_days=0,
         max_uses=100,
         current_uses=20,
@@ -112,7 +112,7 @@ def sample_promocode_invalid():
         id=4,
         code="EXPIRED",
         type=PromoCodeType.BALANCE.value,
-        balance_bonus_kopeks=5000,
+        balance_bonus_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         subscription_days=0,
         max_uses=10,
         current_uses=10,  # Used up

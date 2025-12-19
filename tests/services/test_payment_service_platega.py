@@ -101,8 +101,8 @@ async def test_create_platega_payment_success(monkeypatch: pytest.MonkeyPatch) -
         fake_create_platega_payment,
         raising=False,
     )
-    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_KOPEKS", 10_000, raising=False)
-    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_KOPEKS", 500_000, raising=False)
+    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_TOMAN", 1_000_000, raising=False)  # 10000 toman (was 100 rubles = 10000 kopeks)
+    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_TOMAN", 50_000_000, raising=False)  # 500000 toman (was 5000 rubles = 500000 kopeks)
     monkeypatch.setattr(settings, "PLATEGA_CURRENCY", "RUB", raising=False)
     monkeypatch.setattr(settings, "PLATEGA_RETURN_URL", "https://return", raising=False)
     monkeypatch.setattr(settings, "PLATEGA_FAILED_URL", "https://failed", raising=False)
@@ -110,7 +110,7 @@ async def test_create_platega_payment_success(monkeypatch: pytest.MonkeyPatch) -
     result = await service.create_platega_payment(
         db=db,
         user_id=42,
-        amount_kopeks=50_000,
+        amount_toman=5_000_000,  # 50000 toman (was 500 rubles = 50000 kopeks)
         description="Пополнение счёта",
         language="ru",
         payment_method_code=10,
@@ -123,7 +123,7 @@ async def test_create_platega_payment_success(monkeypatch: pytest.MonkeyPatch) -
     assert result["status"] == "PENDING"
     assert "correlation_id" in result and len(result["correlation_id"]) == 32
     assert captured_args["user_id"] == 42
-    assert captured_args["amount_kopeks"] == 50_000
+    assert captured_args["amount_toman"] == 5_000_000
     assert captured_args["payment_method_code"] == 10
     assert captured_args["metadata"]["selected_method"] == 10
     assert stub.calls and stub.calls[0]["payment_method"] == 10
@@ -138,13 +138,13 @@ async def test_create_platega_payment_respects_limits_and_configuration(monkeypa
     service = _make_service(stub)
     db = DummySession()
 
-    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_KOPEKS", 20_000, raising=False)
-    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_KOPEKS", 40_000, raising=False)
+    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_TOMAN", 2_000_000, raising=False)  # 20000 toman (was 200 rubles = 20000 kopeks)
+    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_TOMAN", 4_000_000, raising=False)  # 40000 toman (was 400 rubles = 40000 kopeks)
 
     too_low = await service.create_platega_payment(
         db=db,
         user_id=1,
-        amount_kopeks=10_000,
+        amount_toman=1_000_000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         description="Пополнение",
         language="ru",
         payment_method_code=2,
@@ -154,7 +154,7 @@ async def test_create_platega_payment_respects_limits_and_configuration(monkeypa
     too_high = await service.create_platega_payment(
         db=db,
         user_id=1,
-        amount_kopeks=100_000,
+        amount_toman=10_000_000,  # 100000 toman (was 1000 rubles = 100000 kopeks)
         description="Пополнение",
         language="ru",
         payment_method_code=2,
@@ -165,7 +165,7 @@ async def test_create_platega_payment_respects_limits_and_configuration(monkeypa
     result = await not_configured_service.create_platega_payment(
         db=db,
         user_id=1,
-        amount_kopeks=30_000,
+        amount_toman=3_000_000,  # 30000 toman (was 300 rubles = 30000 kopeks)
         description="Пополнение",
         language="ru",
         payment_method_code=2,
@@ -189,13 +189,13 @@ async def test_create_platega_payment_handles_service_errors(monkeypatch: pytest
         fake_create_platega_payment,
         raising=False,
     )
-    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_KOPEKS", 1_000, raising=False)
-    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_KOPEKS", 1_000_000, raising=False)
+    monkeypatch.setattr(settings, "PLATEGA_MIN_AMOUNT_TOMAN", 100_000, raising=False)  # 1000 toman (was 10 rubles = 1000 kopeks)
+    monkeypatch.setattr(settings, "PLATEGA_MAX_AMOUNT_TOMAN", 100_000_000, raising=False)  # 1000000 toman (was 10000 rubles = 1000000 kopeks)
 
     result = await service.create_platega_payment(
         db=db,
         user_id=5,
-        amount_kopeks=25_000,
+        amount_toman=2_500_000,  # 25000 toman (was 250 rubles = 25000 kopeks)
         description="Пополнение",
         language="ru",
         payment_method_code=13,

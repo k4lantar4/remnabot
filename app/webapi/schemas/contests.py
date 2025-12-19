@@ -160,8 +160,7 @@ class ReferralContestLeaderboardItem(BaseModel):
     username: Optional[str] = None
     full_name: Optional[str] = None
     referrals_count: int
-    total_amount_kopeks: int
-    total_amount_rubles: float
+    total_amount_toman: int
 
 
 class ReferralContestDetailResponse(ReferralContestResponse):
@@ -182,8 +181,7 @@ class ReferralContestEventResponse(BaseModel):
     referrer: ReferralContestEventUser
     referral: ReferralContestEventUser
     event_type: str
-    amount_kopeks: int
-    amount_rubles: float
+    amount_toman: int
     occurred_at: datetime
 
 

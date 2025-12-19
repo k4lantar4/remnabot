@@ -18,7 +18,7 @@ class TributeService:
     async def create_payment_link(
         self,
         user_id: int,
-        amount_kopeks: int = 0,
+        amount_toman: int = 0,
         description: str = "Balance top-up"
     ) -> Optional[str]:
         
@@ -79,26 +79,26 @@ class TributeService:
             
             payment_id = None
             status = None
-            amount_kopeks = 0
+            amount_toman = 0
             telegram_user_id = None
             
             payment_id = webhook_data.get("id") or webhook_data.get("payment_id")
             status = webhook_data.get("status")
-            amount_kopeks = webhook_data.get("amount", 0) 
+            amount_toman = webhook_data.get("amount", 0) 
             telegram_user_id = webhook_data.get("telegram_user_id") or webhook_data.get("user_id")
             
             if not payment_id and "payload" in webhook_data:
                 data = webhook_data["payload"]
                 payment_id = data.get("id") or data.get("payment_id")
                 status = data.get("status")
-                amount_kopeks = data.get("amount", 0) 
+                amount_toman = data.get("amount", 0) 
                 telegram_user_id = data.get("telegram_user_id") or data.get("user_id")
             
             if not payment_id and "name" in webhook_data:
                 event_name = webhook_data.get("name")
                 data = webhook_data.get("payload", {})
                 payment_id = str(data.get("donation_request_id")) 
-                amount_kopeks = data.get("amount", 0) 
+                amount_toman = data.get("amount", 0) 
                 telegram_user_id = data.get("telegram_user_id")
                 
                 if event_name == "new_donation":
@@ -108,7 +108,7 @@ class TributeService:
                 else:
                     status = "unknown"
             
-            logger.info(f"Extracted data: payment_id={payment_id}, status={status}, amount_kopeks={amount_kopeks}, user_id={telegram_user_id}")
+            logger.info(f"Extracted data: payment_id={payment_id}, status={status}, amount_toman={amount_toman}, user_id={telegram_user_id}")
             
             if not telegram_user_id:
                 logger.error("telegram_user_id not found in webhook data")
@@ -123,9 +123,9 @@ class TributeService:
             
             result = {
                 "event_type": "payment",
-                "payment_id": payment_id or f"tribute_{telegram_user_id}_{amount_kopeks}",
+                "payment_id": payment_id or f"tribute_{telegram_user_id}_{amount_toman}",
                 "user_id": telegram_user_id,
-                "amount_kopeks": int(amount_kopeks) if amount_kopeks else 0,
+                "amount_toman": int(amount_toman) if amount_toman else 0,
                 "status": status or "paid",
                 "external_id": f"donation_{payment_id or 'unknown'}",
                 "payment_system": "tribute"
@@ -150,7 +150,7 @@ class TributeService:
     async def refund_payment(
         self,
         payment_id: str,
-        amount_kopeks: Optional[int] = None,
+        amount_toman: Optional[int] = None,
         reason: str = "Refund on request"
     ) -> Optional[Dict[str, Any]]:
         try:

@@ -31,11 +31,11 @@ def _build_poll_invitation_text(poll: Poll, language: str) -> str:
     if poll.description:
         lines.append(poll.description)
 
-    if poll.reward_enabled and poll.reward_amount_kopeks > 0:
+    if poll.reward_enabled and poll.reward_amount_toman > 0:
         reward_line = texts.t(
             "POLL_INVITATION_REWARD",
             "🎁 You will receive {amount} for participating.",
-        ).format(amount=settings.format_price(poll.reward_amount_kopeks))
+        ).format(amount=settings.format_price(poll.reward_amount_toman))
         lines.append(reward_line)
 
     lines.append(
@@ -194,22 +194,22 @@ async def reward_user_for_poll(
     await db.refresh(response, with_for_update=True)
 
     poll = response.poll
-    if not poll.reward_enabled or poll.reward_amount_kopeks <= 0:
+    if not poll.reward_enabled or poll.reward_amount_toman <= 0:
         return 0
 
     if response.reward_given:
-        return response.reward_amount_kopeks
+        return response.reward_amount_toman
 
     user = response.user
     description = f"Reward for participating in poll \"{poll.title}\""
 
     response.reward_given = True
-    response.reward_amount_kopeks = poll.reward_amount_kopeks
+    response.reward_amount_toman = poll.reward_amount_toman
 
     success = await add_user_balance(
         db,
         user,
-        poll.reward_amount_kopeks,
+        poll.reward_amount_toman,
         description,
         transaction_type=TransactionType.POLL_REWARD,
     )
@@ -219,10 +219,10 @@ async def reward_user_for_poll(
 
     await db.refresh(
         response,
-        attribute_names=["reward_given", "reward_amount_kopeks"],
+        attribute_names=["reward_given", "reward_amount_toman"],
     )
 
-    return poll.reward_amount_kopeks
+    return poll.reward_amount_toman
 
 
 async def get_next_question(response: PollResponse) -> tuple[int | None, PollQuestion | None]:

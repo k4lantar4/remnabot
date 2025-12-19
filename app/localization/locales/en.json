@@ -354,7 +354,7 @@
   "ADMIN_PRICING_TRIAL_PAYMENT_ENABLED_LABEL": "💳 Paid activation",
   "ADMIN_PRICING_TRIAL_PAYMENT_ENABLED_DESCRIPTION": "When enabled, the configured amount is charged during trial activation.",
   "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_LABEL": "💰 Activation price",
-  "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_DESCRIPTION": "Amount in kopeks. 0 — free activation.",
+  "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_DESCRIPTION": "Amount in toman. 0 — free activation.",
   "ADMIN_PRICING_TRIAL_ADD_REMAINING_LABEL": "➕ Add remaining trial days to paid plan",
   "ADMIN_PRICING_TRIAL_ADD_REMAINING_DESCRIPTION": "When enabled, remaining trial days are added to paid subscription duration.",
   "ADMIN_PRICING_CORE_BASE_SUBSCRIPTION_PRICE_LABEL": "💳 Base subscription price",

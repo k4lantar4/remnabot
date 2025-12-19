@@ -81,7 +81,7 @@ CREATE TABLE bots (
     notification_topic_id INTEGER,
     
     -- Wallet & Billing
-    wallet_balance_kopeks BIGINT DEFAULT 0 NOT NULL,
+    wallet_balance_toman BIGINT DEFAULT 0 NOT NULL,
     traffic_consumed_bytes BIGINT DEFAULT 0 NOT NULL,
     traffic_sold_bytes BIGINT DEFAULT 0 NOT NULL,
     
@@ -116,7 +116,7 @@ CREATE INDEX idx_bots_is_active ON bots(is_active);
 - `admin_topic_id`: Admin topic ID for notifications
 - `notification_group_id`: Group ID for tenant notifications
 - `notification_topic_id`: Topic ID for tenant notifications
-- `wallet_balance_kopeks`: Tenant wallet balance
+- `wallet_balance_toman`: Tenant wallet balance
 - `traffic_consumed_bytes`: Total traffic consumed by tenant users
 - `traffic_sold_bytes`: Total traffic sold to tenant users
 - `created_at`: Creation timestamp
@@ -171,8 +171,8 @@ CREATE INDEX idx_bot_feature_flags_enabled ON bot_feature_flags(bot_id, enabled)
 **Config JSONB Structure:**
 ```json
 {
-  "min_amount_kopeks": 10000,
-  "max_amount_kopeks": 10000000,
+  "min_amount_toman": 10000,
+  "max_amount_toman": 10000000,
   "enabled_methods": [2, 10, 11],
   "custom_settings": {}
 }
@@ -262,7 +262,7 @@ CREATE TABLE bot_plans (
     
     name VARCHAR(255) NOT NULL,
     period_days INTEGER NOT NULL,
-    price_kopeks INTEGER NOT NULL,
+    price_toman INTEGER NOT NULL,
     
     traffic_limit_gb INTEGER DEFAULT 0,  -- 0 = unlimited
     device_limit INTEGER DEFAULT 1,
@@ -290,7 +290,7 @@ CREATE TABLE card_to_card_payments (
     transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     
     -- Payment Details
-    amount_kopeks INTEGER NOT NULL,
+    amount_toman INTEGER NOT NULL,
     tracking_number VARCHAR(50) UNIQUE NOT NULL,
     
     -- Card Used
@@ -331,7 +331,7 @@ CREATE TABLE zarinpal_payments (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     
-    amount_kopeks INTEGER NOT NULL,
+    amount_toman INTEGER NOT NULL,
     zarinpal_authority VARCHAR(255) UNIQUE,
     zarinpal_ref_id VARCHAR(255),
     
@@ -547,7 +547,7 @@ class Bot(Base):
     notification_topic_id = Column(Integer, nullable=True)
     
     # Wallet & billing
-    wallet_balance_kopeks = Column(BigInteger, default=0, nullable=False)
+    wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
     traffic_sold_bytes = Column(BigInteger, default=0, nullable=False)
     
@@ -636,7 +636,7 @@ class BotPlan(Base):
     
     name = Column(String(255), nullable=False)
     period_days = Column(Integer, nullable=False)
-    price_kopeks = Column(Integer, nullable=False)
+    price_toman = Column(Integer, nullable=False)
     traffic_limit_gb = Column(Integer, default=0, nullable=False)
     device_limit = Column(Integer, default=1, nullable=False)
     
@@ -661,7 +661,7 @@ class CardToCardPayment(Base):
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     card_id = Column(Integer, ForeignKey("tenant_payment_cards.id", ondelete="SET NULL"), nullable=True)
     
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     tracking_number = Column(String(50), unique=True, nullable=False, index=True)
     
     receipt_type = Column(String(20), nullable=True)
@@ -693,7 +693,7 @@ class ZarinpalPayment(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     zarinpal_authority = Column(String(255), unique=True, nullable=True, index=True)
     zarinpal_ref_id = Column(String(255), nullable=True)
     

@@ -240,7 +240,7 @@ async def create_user_no_commit(
         language=language,
         referred_by_id=referred_by_id,
         referral_code=referral_code,
-        balance_kopeks=0,
+        balance_toman=0,
         has_had_paid_subscription=False,
         has_made_first_topup=False,
         promo_group_id=promo_group_id,
@@ -293,7 +293,7 @@ async def create_user(
             language=language,
             referred_by_id=referred_by_id,
             referral_code=referral_code,
-            balance_kopeks=0,
+            balance_toman=0,
             has_had_paid_subscription=False,
             has_made_first_topup=False,
             promo_group_id=promo_group_id,
@@ -358,15 +358,15 @@ async def update_user(
 async def add_user_balance(
     db: AsyncSession,
     user: User,
-    amount_kopeks: int,
+    amount_toman: int,
     description: str = "Balance top-up",
     create_transaction: bool = True,
     transaction_type: TransactionType = TransactionType.DEPOSIT,
     bot = None
 ) -> bool:
     try:
-        old_balance = user.balance_kopeks
-        user.balance_kopeks += amount_kopeks
+        old_balance = user.balance_toman
+        user.balance_toman += amount_toman
         user.updated_at = datetime.utcnow()
         
         if create_transaction:
@@ -376,7 +376,7 @@ async def add_user_balance(
                 db=db,
                 user_id=user.id,
                 type=transaction_type,
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 description=description
             )
         
@@ -384,7 +384,7 @@ async def add_user_balance(
         await db.refresh(user)
         
         
-        logger.info(f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_kopeks} (change: +{amount_kopeks})")
+        logger.info(f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_toman} (change: +{amount_toman})")
         return True
         
     except Exception as e:
@@ -396,7 +396,7 @@ async def add_user_balance(
 async def add_user_balance_by_id(
     db: AsyncSession,
     telegram_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     description: str = "Balance top-up",
     transaction_type: TransactionType = TransactionType.DEPOSIT,
 ) -> bool:
@@ -409,7 +409,7 @@ async def add_user_balance_by_id(
         return await add_user_balance(
             db,
             user,
-            amount_kopeks,
+            amount_toman,
             description,
             transaction_type=transaction_type,
         )
@@ -422,7 +422,7 @@ async def add_user_balance_by_id(
 async def subtract_user_balance(
     db: AsyncSession,
     user: User,
-    amount_kopeks: int,
+    amount_toman: int,
     description: str,
     create_transaction: bool = False,
     payment_method: Optional[PaymentMethod] = None,
@@ -431,8 +431,8 @@ async def subtract_user_balance(
 ) -> bool:
     logger.info(f"💸 DEBUG subtract_user_balance:")
     logger.info(f"   👤 User ID: {user.id} (TG: {user.telegram_id})")
-    logger.info(f"   💰 Balance before deduction: {user.balance_kopeks} kopeks")
-    logger.info(f"   💸 Amount to deduct: {amount_kopeks} kopeks")
+    logger.info(f"   💰 Balance before deduction: {user.balance_toman} toman")
+    logger.info(f"   💸 Amount to deduct: {amount_toman} toman")
     logger.info(f"   📝 Description: {description}")
     
     log_context: Optional[Dict[str, object]] = None
@@ -452,7 +452,7 @@ async def subtract_user_balance(
                 "details": {
                     "reason": "manual_charge",
                     "description": description,
-                    "amount_kopeks": amount_kopeks,
+                    "amount_toman": amount_toman,
                 },
             }
             try:
@@ -471,13 +471,13 @@ async def subtract_user_balance(
                 if not log_context["percent"] and offer.discount_percent:
                     log_context["percent"] = offer.discount_percent
 
-    if user.balance_kopeks < amount_kopeks:
+    if user.balance_toman < amount_toman:
         logger.error(f"   ❌ INSUFFICIENT FUNDS!")
         return False
 
     try:
-        old_balance = user.balance_kopeks
-        user.balance_kopeks -= amount_kopeks
+        old_balance = user.balance_toman
+        user.balance_toman -= amount_toman
 
         if consume_promo_offer and getattr(user, "promo_offer_discount_percent", 0):
             user.promo_offer_discount_percent = 0
@@ -498,7 +498,7 @@ async def subtract_user_balance(
                 db=db,
                 user_id=user.id,
                 type=TransactionType.WITHDRAWAL,
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 description=description,
                 payment_method=payment_method,
             )
@@ -529,7 +529,7 @@ async def subtract_user_balance(
                         rollback_error,
                     )
 
-        logger.error(f"   ✅ Funds deducted: {old_balance} → {user.balance_kopeks}")
+        logger.error(f"   ✅ Funds deducted: {old_balance} → {user.balance_toman}")
         return True
         
     except Exception as e:
@@ -699,7 +699,7 @@ async def get_users_list(
                         case(
                             (
                                 Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
-                                Transaction.amount_kopeks,
+                                Transaction.amount_toman,
                             ),
                             else_=0,
                         )
@@ -736,7 +736,7 @@ async def get_users_list(
         order_column = func.coalesce(transactions_stats.c.purchase_count, 0)
         query = query.order_by(order_column.desc(), User.created_at.desc())
     elif order_by_balance:
-        query = query.order_by(User.balance_kopeks.desc(), User.created_at.desc())
+        query = query.order_by(User.balance_toman.desc(), User.created_at.desc())
     elif order_by_last_activity:
         query = query.order_by(nullslast(User.last_activity.desc()), User.created_at.desc())
     else:
@@ -812,7 +812,7 @@ async def get_users_spending_stats(
                     case(
                         (
                             Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
-                            Transaction.amount_kopeks,
+                            Transaction.amount_toman,
                         ),
                         else_=0,
                     )

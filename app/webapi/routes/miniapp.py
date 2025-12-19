@@ -42,7 +42,7 @@ from app.database.crud.subscription import (
 )
 from app.database.crud.transaction import (
     create_transaction,
-    get_user_total_spent_kopeks,
+    get_user_total_spent_toman,
 )
 from app.database.crud.user import get_user_by_telegram_id, subtract_user_balance
 from app.database.models import (
@@ -386,11 +386,12 @@ async def _get_usd_to_rub_rate() -> float:
 
 
 def _compute_cryptobot_limits(rate: float) -> Tuple[int, int]:
-    min_kopeks = max(1, int(math.ceil(rate * _CRYPTOBOT_MIN_USD * 100)))
-    max_kopeks = int(math.floor(rate * _CRYPTOBOT_MAX_USD * 100))
-    if max_kopeks < min_kopeks:
-        max_kopeks = min_kopeks
-    return min_kopeks, max_kopeks
+    # Convert USD to toman (rate is USD to rubles, then rubles to toman = * 100)
+    min_toman = max(1, int(math.ceil(rate * _CRYPTOBOT_MIN_USD * 100)))
+    max_toman = int(math.floor(rate * _CRYPTOBOT_MAX_USD * 100))
+    if max_toman < min_toman:
+        max_toman = min_toman
+    return min_toman, max_toman
 
 
 def _current_request_timestamp() -> str:
@@ -409,7 +410,8 @@ def _compute_stars_min_amount() -> Optional[int]:
     return int((rate * _DECIMAL_ONE_HUNDRED).to_integral_value(rounding=ROUND_HALF_UP))
 
 
-def _normalize_stars_amount(amount_kopeks: int) -> Tuple[int, int]:
+def _normalize_stars_amount(amount_toman: int) -> Tuple[int, int]:
+    """Convert toman to Telegram Stars, handling API conversion to rubles."""
     try:
         rate = Decimal(str(settings.get_stars_rate()))
     except (InvalidOperation, TypeError):
@@ -418,7 +420,8 @@ def _normalize_stars_amount(amount_kopeks: int) -> Tuple[int, int]:
     if rate <= 0:
         raise ValueError("Stars rate must be positive")
 
-    amount_rubles = Decimal(amount_kopeks) / _DECIMAL_ONE_HUNDRED
+    # Convert toman to rubles for Telegram Stars API (which expects rubles)
+    amount_rubles = Decimal(amount_toman) / _DECIMAL_ONE_HUNDRED
     stars_amount = int((amount_rubles / rate).to_integral_value(rounding=ROUND_FLOOR))
     if stars_amount <= 0:
         stars_amount = 1
@@ -427,18 +430,19 @@ def _normalize_stars_amount(amount_kopeks: int) -> Tuple[int, int]:
         _DECIMAL_CENT,
         rounding=ROUND_HALF_UP,
     )
-    normalized_amount_kopeks = int(
+    # Convert back from rubles to toman
+    normalized_amount_toman = int(
         (normalized_rubles * _DECIMAL_ONE_HUNDRED).to_integral_value(
             rounding=ROUND_HALF_UP
         )
     )
 
-    return stars_amount, normalized_amount_kopeks
+    return stars_amount, normalized_amount_toman
 
 
-def _build_balance_invoice_payload(user_id: int, amount_kopeks: int) -> str:
+def _build_balance_invoice_payload(user_id: int, amount_toman: int) -> str:
     suffix = uuid4().hex[:8]
-    return f"balance_{user_id}_{amount_kopeks}_{suffix}"
+    return f"balance_{user_id}_{amount_toman}_{suffix}"
 
 
 def _merge_purchase_selection_from_request(
@@ -519,7 +523,7 @@ async def _find_recent_deposit(
     *,
     user_id: int,
     payment_method: PaymentMethod,
-    amount_kopeks: Optional[int],
+    amount_toman: Optional[int],
     started_at: Optional[datetime],
     tolerance: timedelta = timedelta(minutes=5),
 ) -> Optional[Transaction]:
@@ -547,8 +551,8 @@ async def _find_recent_deposit(
         .limit(1)
     )
 
-    if amount_kopeks is not None:
-        query = query.where(Transaction.amount_kopeks == amount_kopeks)
+    if amount_toman is not None:
+        query = query.where(Transaction.amount_toman == amount_toman)
     if started_at:
         query = query.where(Transaction.created_at >= started_at - tolerance)
 
@@ -643,13 +647,14 @@ async def _resolve_user_from_init_data(
     return user, webapp_data
 
 
-def _normalize_amount_kopeks(
+def _normalize_amount_toman(
     amount_rubles: Optional[float],
-    amount_kopeks: Optional[int],
+    amount_toman: Optional[int],
 ) -> Optional[int]:
-    if amount_kopeks is not None:
+    """Normalize amount from rubles or toman to toman."""
+    if amount_toman is not None:
         try:
-            normalized = int(amount_kopeks)
+            normalized = int(amount_toman)
         except (TypeError, ValueError):
             return None
         return normalized if normalized >= 0 else None
@@ -658,6 +663,7 @@ def _normalize_amount_kopeks(
         return None
 
     try:
+        # Convert rubles to toman (multiply by 100)
         decimal_amount = Decimal(str(amount_rubles)).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -717,8 +723,8 @@ async def get_payment_methods(
                 icon="⭐",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=stars_min_amount,
-                amount_step_kopeks=stars_min_amount,
+                min_amount_toman=stars_min_amount,
+                amount_step_toman=stars_min_amount,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -731,8 +737,8 @@ async def get_payment_methods(
                     icon="🏦",
                     requires_amount=True,
                     currency="RUB",
-                    min_amount_kopeks=settings.YOOKASSA_MIN_AMOUNT_KOPEKS,
-                    max_amount_kopeks=settings.YOOKASSA_MAX_AMOUNT_KOPEKS,
+                    min_amount_toman=settings.YOOKASSA_MIN_AMOUNT_TOMAN,
+                    max_amount_toman=settings.YOOKASSA_MAX_AMOUNT_TOMAN,
                     integration_type=MiniAppPaymentIntegrationType.REDIRECT,
                 )
             )
@@ -743,8 +749,8 @@ async def get_payment_methods(
                 icon="💳",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=settings.YOOKASSA_MIN_AMOUNT_KOPEKS,
-                max_amount_kopeks=settings.YOOKASSA_MAX_AMOUNT_KOPEKS,
+                min_amount_toman=settings.YOOKASSA_MIN_AMOUNT_TOMAN,
+                max_amount_toman=settings.YOOKASSA_MAX_AMOUNT_TOMAN,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -763,8 +769,8 @@ async def get_payment_methods(
                 icon="💳",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=settings.MULENPAY_MIN_AMOUNT_KOPEKS,
-                max_amount_kopeks=settings.MULENPAY_MAX_AMOUNT_KOPEKS,
+                min_amount_toman=settings.MULENPAY_MIN_AMOUNT_TOMAN,
+                max_amount_toman=settings.MULENPAY_MAX_AMOUNT_TOMAN,
                 integration_type=mulenpay_integration,
                 iframe_config=mulenpay_iframe_config,
             )
@@ -777,8 +783,8 @@ async def get_payment_methods(
                 icon="🏦",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=settings.PAL24_MIN_AMOUNT_KOPEKS,
-                max_amount_kopeks=settings.PAL24_MAX_AMOUNT_KOPEKS,
+                min_amount_toman=settings.PAL24_MIN_AMOUNT_TOMAN,
+                max_amount_toman=settings.PAL24_MAX_AMOUNT_TOMAN,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
                 options=[
                     MiniAppPaymentOption(
@@ -808,8 +814,8 @@ async def get_payment_methods(
                 icon="🌊",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=settings.WATA_MIN_AMOUNT_KOPEKS,
-                max_amount_kopeks=settings.WATA_MAX_AMOUNT_KOPEKS,
+                min_amount_toman=settings.WATA_MIN_AMOUNT_TOMAN,
+                max_amount_toman=settings.WATA_MAX_AMOUNT_TOMAN,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -838,8 +844,8 @@ async def get_payment_methods(
                 icon="💳",
                 requires_amount=True,
                 currency=settings.PLATEGA_CURRENCY,
-                min_amount_kopeks=settings.PLATEGA_MIN_AMOUNT_KOPEKS,
-                max_amount_kopeks=settings.PLATEGA_MAX_AMOUNT_KOPEKS,
+                min_amount_toman=settings.PLATEGA_MIN_AMOUNT_TOMAN,
+                max_amount_toman=settings.PLATEGA_MAX_AMOUNT_TOMAN,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
                 options=options,
             )
@@ -847,15 +853,15 @@ async def get_payment_methods(
 
     if settings.is_cryptobot_enabled():
         rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
+        min_amount_toman, max_amount_toman = _compute_cryptobot_limits(rate)
         methods.append(
             MiniAppPaymentMethod(
                 id="cryptobot",
                 icon="🪙",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=min_amount_kopeks,
-                max_amount_kopeks=max_amount_kopeks,
+                min_amount_toman=min_amount_toman,
+                max_amount_toman=max_amount_toman,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -867,8 +873,8 @@ async def get_payment_methods(
                 icon="🪙",
                 requires_amount=True,
                 currency="RUB",
-                min_amount_kopeks=100 * 100,
-                max_amount_kopeks=100_000 * 100,
+                min_amount_toman=100 * 100,
+                max_amount_toman=100_000 * 100,
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -918,22 +924,22 @@ async def create_payment_link(
             detail="Payment method is required",
         )
 
-    amount_kopeks = _normalize_amount_kopeks(
+    amount_toman = _normalize_amount_toman(
         payload.amount_rubles,
-        payload.amount_kopeks,
+        payload.amount_toman,
     )
 
     if method == "stars":
         if not settings.TELEGRAM_STARS_ENABLED:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
         if not settings.BOT_TOKEN:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Bot token is not configured")
 
-        requested_amount_kopeks = amount_kopeks
+        requested_amount_toman = amount_toman
         try:
-            stars_amount, amount_kopeks = _normalize_stars_amount(amount_kopeks)
+            stars_amount, amount_toman = _normalize_stars_amount(amount_toman)
         except ValueError as exc:
             logger.error("Failed to normalize Stars amount: %s", exc)
             raise HTTPException(
@@ -942,12 +948,12 @@ async def create_payment_link(
             ) from exc
 
         bot = Bot(token=settings.BOT_TOKEN)
-        invoice_payload = _build_balance_invoice_payload(user.id, amount_kopeks)
+        invoice_payload = _build_balance_invoice_payload(user.id, amount_toman)
         try:
             payment_service = PaymentService(bot)
             invoice_link = await payment_service.create_stars_invoice(
-                amount_kopeks=amount_kopeks,
-                description=settings.get_balance_payment_description(amount_kopeks),
+                amount_toman=amount_toman,
+                description=settings.get_balance_payment_description(amount_toman),
                 payload=invoice_payload,
                 stars_amount=stars_amount,
             )
@@ -960,31 +966,31 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=invoice_link,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "invoice_payload": invoice_payload,
                 "requested_at": _current_request_timestamp(),
                 "stars_amount": stars_amount,
-                "requested_amount_kopeks": requested_amount_kopeks,
+                "requested_amount_toman": requested_amount_toman,
             },
         )
 
     if method == "yookassa_sbp":
         if not settings.is_yookassa_enabled() or not getattr(settings, "YOOKASSA_SBP_ENABLED", False):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         payment_service = PaymentService()
         result = await payment_service.create_yookassa_sbp_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
         )
         confirmation_url = result.get("confirmation_url") if result else None
         if not result or not confirmation_url:
@@ -1003,26 +1009,26 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=confirmation_url,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra=extra,
         )
 
     if method == "yookassa":
         if not settings.is_yookassa_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         payment_service = PaymentService()
         result = await payment_service.create_yookassa_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
         )
         if not result or not result.get("confirmation_url"):
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to create payment")
@@ -1030,7 +1036,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=result["confirmation_url"],
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "payment_id": result.get("yookassa_payment_id"),
@@ -1042,19 +1048,19 @@ async def create_payment_link(
     if method == "mulenpay":
         if not settings.is_mulenpay_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.MULENPAY_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.MULENPAY_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.MULENPAY_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.MULENPAY_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         payment_service = PaymentService()
         result = await payment_service.create_mulenpay_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=user.language,
         )
         if not result or not result.get("payment_url"):
@@ -1063,7 +1069,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=result["payment_url"],
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "payment_id": result.get("mulen_payment_id"),
@@ -1074,11 +1080,11 @@ async def create_payment_link(
     if method == "platega":
         if not settings.is_platega_enabled() or not settings.get_platega_active_methods():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.PLATEGA_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.PLATEGA_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.PLATEGA_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.PLATEGA_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         active_methods = settings.get_platega_active_methods()
@@ -1095,8 +1101,8 @@ async def create_payment_link(
         result = await payment_service.create_platega_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=user.language or settings.DEFAULT_LANGUAGE,
             payment_method_code=method_code,
         )
@@ -1108,7 +1114,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=redirect_url,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "payment_id": result.get("transaction_id"),
@@ -1122,19 +1128,19 @@ async def create_payment_link(
     if method == "wata":
         if not settings.is_wata_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.WATA_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.WATA_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         payment_service = PaymentService()
         result = await payment_service.create_wata_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=user.language,
         )
         payment_url = result.get("payment_url") if result else None
@@ -1144,7 +1150,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=payment_url,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "payment_link_id": result.get("payment_link_id"),
@@ -1158,11 +1164,11 @@ async def create_payment_link(
     if method == "pal24":
         if not settings.is_pal24_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
-        if amount_kopeks < settings.PAL24_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.PAL24_MIN_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount is below minimum")
-        if amount_kopeks > settings.PAL24_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.PAL24_MAX_AMOUNT_TOMAN:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount exceeds maximum")
 
         option = (payload.payment_option or "").strip().lower()
@@ -1174,8 +1180,8 @@ async def create_payment_link(
         result = await payment_service.create_pal24_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=user.language or settings.DEFAULT_LANGUAGE,
             payment_method=provider_method,
         )
@@ -1202,7 +1208,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=payment_url,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "bill_id": result.get("bill_id"),
@@ -1221,24 +1227,24 @@ async def create_payment_link(
     if method == "cryptobot":
         if not settings.is_cryptobot_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
         rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
-        if amount_kopeks < min_amount_kopeks:
+        min_amount_toman, max_amount_toman = _compute_cryptobot_limits(rate)
+        if amount_toman < min_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f"Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)",
+                detail=f"Amount is below minimum ({min_amount_toman / 100:.2f} RUB)",
             )
-        if amount_kopeks > max_amount_kopeks:
+        if amount_toman > max_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f"Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)",
+                detail=f"Amount exceeds maximum ({max_amount_toman / 100:.2f} RUB)",
             )
 
         try:
             amount_usd = float(
-                (Decimal(amount_kopeks) / Decimal(100) / Decimal(str(rate)))
+                (Decimal(amount_toman) / Decimal(100) / Decimal(str(rate)))
                 .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             )
         except (InvalidOperation, ValueError):
@@ -1253,8 +1259,8 @@ async def create_payment_link(
             user_id=user.id,
             amount_usd=amount_usd,
             asset=settings.CRYPTOBOT_DEFAULT_ASSET,
-            description=settings.get_balance_payment_description(amount_kopeks),
-            payload=f"balance_{user.id}_{amount_kopeks}",
+            description=settings.get_balance_payment_description(amount_toman),
+            payload=f"balance_{user.id}_{amount_toman}",
         )
         if not result:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to create payment")
@@ -1270,7 +1276,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=payment_url,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "invoice_id": result.get("invoice_id"),
@@ -1283,28 +1289,28 @@ async def create_payment_link(
     if method == "heleket":
         if not settings.is_heleket_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
-        if amount_kopeks is None or amount_kopeks <= 0:
+        if amount_toman is None or amount_toman <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Amount must be positive")
 
-        min_amount_kopeks = 100 * 100
-        max_amount_kopeks = 100_000 * 100
-        if amount_kopeks < min_amount_kopeks:
+        min_amount_toman = 100 * 100
+        max_amount_toman = 100_000 * 100
+        if amount_toman < min_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f"Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)",
+                detail=f"Amount is below minimum ({min_amount_toman / 100:.2f} RUB)",
             )
-        if amount_kopeks > max_amount_kopeks:
+        if amount_toman > max_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f"Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)",
+                detail=f"Amount exceeds maximum ({max_amount_toman / 100:.2f} RUB)",
             )
 
         payment_service = PaymentService()
         result = await payment_service.create_heleket_payment(
             db=db,
             user_id=user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=user.language or settings.DEFAULT_LANGUAGE,
         )
 
@@ -1314,7 +1320,7 @@ async def create_payment_link(
         return MiniAppPaymentCreateResponse(
             method=method,
             payment_url=result["payment_url"],
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             extra={
                 "local_payment_id": result.get("local_payment_id"),
                 "uuid": result.get("uuid"),
@@ -1435,7 +1441,7 @@ async def _resolve_yookassa_payment_status(
             method=method,
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1454,7 +1460,7 @@ async def _resolve_yookassa_payment_status(
         method=method,
         status=status,
         is_paid=status == "paid",
-        amount_kopeks=payment.amount_kopeks,
+        amount_toman=payment.amount_toman,
         currency=payment.currency,
         completed_at=completed_at,
         transaction_id=payment.transaction_id,
@@ -1482,7 +1488,7 @@ async def _resolve_mulenpay_payment_status(
             method="mulenpay",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Missing payment identifier",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1501,7 +1507,7 @@ async def _resolve_mulenpay_payment_status(
             method="mulenpay",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1526,7 +1532,7 @@ async def _resolve_mulenpay_payment_status(
         method="mulenpay",
         status=status,
         is_paid=status == "paid",
-        amount_kopeks=payment.amount_kopeks,
+        amount_toman=payment.amount_toman,
         currency=payment.currency,
         completed_at=completed_at,
         transaction_id=payment.transaction_id,
@@ -1573,7 +1579,7 @@ async def _resolve_platega_payment_status(
             method="platega",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1613,7 +1619,7 @@ async def _resolve_platega_payment_status(
         method="platega",
         status=status_value,
         is_paid=status_value == "paid",
-        amount_kopeks=refreshed_payment.amount_kopeks,
+        amount_toman=refreshed_payment.amount_toman,
         currency=refreshed_payment.currency,
         completed_at=completed_at,
         transaction_id=refreshed_payment.transaction_id,
@@ -1636,7 +1642,7 @@ async def _resolve_wata_payment_status(
         method="wata",
         status="pending",
         is_paid=False,
-        amount_kopeks=query.amount_kopeks,
+        amount_toman=query.amount_toman,
         message="WATA payments are not available in this build",
         completed_at=None,
         transaction_id=None,
@@ -1671,7 +1677,7 @@ async def _resolve_pal24_payment_status(
             method="pal24",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Missing payment identifier",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1690,7 +1696,7 @@ async def _resolve_pal24_payment_status(
             method="pal24",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": local_id,
@@ -1717,7 +1723,7 @@ async def _resolve_pal24_payment_status(
         method="pal24",
         status=status,
         is_paid=status == "paid",
-        amount_kopeks=payment.amount_kopeks,
+        amount_toman=payment.amount_toman,
         currency=payment.currency,
         completed_at=completed_at,
         transaction_id=payment.transaction_id,
@@ -1765,7 +1771,7 @@ async def _resolve_cryptobot_payment_status(
             method="cryptobot",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1781,11 +1787,11 @@ async def _resolve_cryptobot_payment_status(
     status = _classify_status(status_raw, is_paid)
     completed_at = payment.paid_at or payment.updated_at or payment.created_at
 
-    amount_kopeks = None
+    amount_toman = None
     try:
-        amount_kopeks = int(Decimal(payment.amount) * Decimal(100))
+        amount_toman = int(Decimal(payment.amount) * Decimal(100))
     except (InvalidOperation, TypeError):
-        amount_kopeks = None
+        amount_toman = None
 
     descriptor = decode_payment_payload(getattr(payment, "payload", "") or "", expected_user_id=user.id)
     purpose = "subscription_renewal" if descriptor else "balance_topup"
@@ -1794,7 +1800,7 @@ async def _resolve_cryptobot_payment_status(
         method="cryptobot",
         status=status,
         is_paid=status == "paid",
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=payment.asset,
         completed_at=completed_at,
         transaction_id=payment.transaction_id,
@@ -1839,7 +1845,7 @@ async def _resolve_heleket_payment_status(
             method="heleket",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Payment not found",
             extra={
                 "local_payment_id": query.local_payment_id,
@@ -1859,7 +1865,7 @@ async def _resolve_heleket_payment_status(
         method="heleket",
         status=status,
         is_paid=status == "paid",
-        amount_kopeks=payment.amount_kopeks,
+        amount_toman=payment.amount_toman,
         currency=payment.currency,
         completed_at=completed_at,
         transaction_id=payment.transaction_id,
@@ -1891,7 +1897,7 @@ async def _resolve_stars_payment_status(
         db,
         user_id=user.id,
         payment_method=PaymentMethod.TELEGRAM_STARS,
-        amount_kopeks=query.amount_kopeks,
+        amount_toman=query.amount_toman,
         started_at=started_at,
     )
 
@@ -1900,7 +1906,7 @@ async def _resolve_stars_payment_status(
             method="stars",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Waiting for confirmation",
             extra={
                 "payload": query.payload,
@@ -1912,7 +1918,7 @@ async def _resolve_stars_payment_status(
         method="stars",
         status="paid",
         is_paid=True,
-        amount_kopeks=transaction.amount_kopeks,
+        amount_toman=transaction.amount_toman,
         currency="RUB",
         completed_at=transaction.completed_at or transaction.created_at,
         transaction_id=transaction.id,
@@ -1934,7 +1940,7 @@ async def _resolve_tribute_payment_status(
         db,
         user_id=user.id,
         payment_method=PaymentMethod.TRIBUTE,
-        amount_kopeks=query.amount_kopeks,
+        amount_toman=query.amount_toman,
         started_at=started_at,
     )
 
@@ -1943,7 +1949,7 @@ async def _resolve_tribute_payment_status(
             method="tribute",
             status="pending",
             is_paid=False,
-            amount_kopeks=query.amount_kopeks,
+            amount_toman=query.amount_toman,
             message="Waiting for confirmation",
             extra={
                 "payload": query.payload,
@@ -1955,7 +1961,7 @@ async def _resolve_tribute_payment_status(
         method="tribute",
         status="paid",
         is_paid=True,
-        amount_kopeks=transaction.amount_kopeks,
+        amount_toman=transaction.amount_toman,
         currency="RUB",
         completed_at=transaction.completed_at or transaction.created_at,
         transaction_id=transaction.id,
@@ -2130,13 +2136,13 @@ def _extract_offer_duration_hours(
         return None
 
 
-def _format_bonus_label(amount_kopeks: int) -> Optional[str]:
-    if amount_kopeks <= 0:
+def _format_bonus_label(amount_toman: int) -> Optional[str]:
+    if amount_toman <= 0:
         return None
     try:
-        return settings.format_price(amount_kopeks)
+        return settings.format_price(amount_toman)
     except Exception:  # pragma: no cover - defensive
-        return f"{amount_kopeks / 100:.2f}"
+        return f"{amount_toman / 100:.2f}"
 
 
 async def _find_active_test_access_offers(
@@ -2266,7 +2272,7 @@ async def _build_promo_offer_models(
         test_squads = build_test_squads(offer)
         server_name = test_squads[0].name if test_squads else None
         message_text = _format_offer_message(template, offer, server_name=server_name)
-        bonus_label = _format_bonus_label(int(getattr(offer, "bonus_amount_kopeks", 0) or 0))
+        bonus_label = _format_bonus_label(int(getattr(offer, "bonus_amount_toman", 0) or 0))
         discount_percent = getattr(offer, "discount_percent", 0)
         try:
             discount_percent = int(discount_percent)
@@ -2288,7 +2294,7 @@ async def _build_promo_offer_models(
                 offer_type=offer_type,
                 effect_type=effect_type,
                 discount_percent=max(0, discount_percent),
-                bonus_amount_kopeks=int(getattr(offer, "bonus_amount_kopeks", 0) or 0),
+                bonus_amount_toman=int(getattr(offer, "bonus_amount_toman", 0) or 0),
                 bonus_amount_label=bonus_label,
                 expires_at=getattr(offer, "expires_at", None),
                 claimed_at=getattr(offer, "claimed_at", None),
@@ -2333,7 +2339,7 @@ async def _build_promo_offer_models(
                 server_name=server_name,
             )
             bonus_label = _format_bonus_label(
-                int(getattr(active_offer_record, "bonus_amount_kopeks", 0) or 0)
+                int(getattr(active_offer_record, "bonus_amount_toman", 0) or 0)
             )
 
             started_at = getattr(active_offer_record, "claimed_at", None)
@@ -2372,7 +2378,7 @@ async def _build_promo_offer_models(
                     offer_type=offer_type,
                     effect_type=effect_type,
                     discount_percent=max(0, discount_value or 0),
-                    bonus_amount_kopeks=int(getattr(active_offer_record, "bonus_amount_kopeks", 0) or 0),
+                    bonus_amount_toman=int(getattr(active_offer_record, "bonus_amount_toman", 0) or 0),
                     bonus_amount_label=bonus_label,
                     expires_at=getattr(active_offer_record, "expires_at", None),
                     claimed_at=started_at,
@@ -2551,8 +2557,8 @@ def _serialize_transaction(transaction: Transaction) -> MiniAppTransaction:
     return MiniAppTransaction(
         id=transaction.id,
         type=transaction.type,
-        amount_kopeks=transaction.amount_kopeks,
-        amount_rubles=round(transaction.amount_kopeks / 100, 2),
+        amount_toman=transaction.amount_toman,
+        amount_rubles=round(transaction.amount_toman / 100, 2),
         description=transaction.description,
         payment_method=transaction.payment_method,
         external_id=transaction.external_id,
@@ -2602,9 +2608,9 @@ async def _build_referral_info(
     if referral_code and bot_username:
         referral_link = f"https://t.me/{bot_username}?start={referral_code}"
 
-    minimum_topup_kopeks = int(referral_settings.get("minimum_topup_kopeks") or 0)
-    first_topup_bonus_kopeks = int(referral_settings.get("first_topup_bonus_kopeks") or 0)
-    inviter_bonus_kopeks = int(referral_settings.get("inviter_bonus_kopeks") or 0)
+    minimum_topup_toman = int(referral_settings.get("minimum_topup_toman") or 0)
+    first_topup_bonus_toman = int(referral_settings.get("first_topup_bonus_toman") or 0)
+    inviter_bonus_toman = int(referral_settings.get("inviter_bonus_toman") or 0)
     commission_percent = float(
         get_effective_referral_commission_percent(user)
         if user
@@ -2613,12 +2619,12 @@ async def _build_referral_info(
     )
 
     terms = MiniAppReferralTerms(
-        minimum_topup_kopeks=minimum_topup_kopeks,
-        minimum_topup_label=settings.format_price(minimum_topup_kopeks),
-        first_topup_bonus_kopeks=first_topup_bonus_kopeks,
-        first_topup_bonus_label=settings.format_price(first_topup_bonus_kopeks),
-        inviter_bonus_kopeks=inviter_bonus_kopeks,
-        inviter_bonus_label=settings.format_price(inviter_bonus_kopeks),
+        minimum_topup_toman=minimum_topup_toman,
+        minimum_topup_label=settings.format_price(minimum_topup_toman),
+        first_topup_bonus_toman=first_topup_bonus_toman,
+        first_topup_bonus_label=settings.format_price(first_topup_bonus_toman),
+        inviter_bonus_toman=inviter_bonus_toman,
+        inviter_bonus_label=settings.format_price(inviter_bonus_toman),
         commission_percent=commission_percent,
     )
 
@@ -2627,25 +2633,25 @@ async def _build_referral_info(
     recent_earnings: List[MiniAppReferralRecentEarning] = []
 
     if summary:
-        total_earned_kopeks = int(summary.get("total_earned_kopeks") or 0)
-        month_earned_kopeks = int(summary.get("month_earned_kopeks") or 0)
+        total_earned_toman = int(summary.get("total_earned_toman") or 0)
+        month_earned_toman = int(summary.get("month_earned_toman") or 0)
 
         stats = MiniAppReferralStats(
             invited_count=int(summary.get("invited_count") or 0),
             paid_referrals_count=int(summary.get("paid_referrals_count") or 0),
             active_referrals_count=int(summary.get("active_referrals_count") or 0),
-            total_earned_kopeks=total_earned_kopeks,
-            total_earned_label=settings.format_price(total_earned_kopeks),
-            month_earned_kopeks=month_earned_kopeks,
-            month_earned_label=settings.format_price(month_earned_kopeks),
+            total_earned_toman=total_earned_toman,
+            total_earned_label=settings.format_price(total_earned_toman),
+            month_earned_toman=month_earned_toman,
+            month_earned_label=settings.format_price(month_earned_toman),
             conversion_rate=float(summary.get("conversion_rate") or 0.0),
         )
 
         for earning in summary.get("recent_earnings", []) or []:
-            amount = int(earning.get("amount_kopeks") or 0)
+            amount = int(earning.get("amount_toman") or 0)
             recent_earnings.append(
                 MiniAppReferralRecentEarning(
-                    amount_kopeks=amount,
+                    amount_toman=amount,
                     amount_label=settings.format_price(amount),
                     reason=earning.get("reason"),
                     referral_name=earning.get("referral_name"),
@@ -2657,8 +2663,8 @@ async def _build_referral_info(
     referral_items: List[MiniAppReferralItem] = []
     if detailed:
         for item in detailed.get("referrals", []) or []:
-            total_earned = int(item.get("total_earned_kopeks") or 0)
-            balance = int(item.get("balance_kopeks") or 0)
+            total_earned = int(item.get("total_earned_toman") or 0)
+            balance = int(item.get("balance_toman") or 0)
             referral_items.append(
                 MiniAppReferralItem(
                     id=int(item.get("id") or 0),
@@ -2668,9 +2674,9 @@ async def _build_referral_info(
                     created_at=item.get("created_at"),
                     last_activity=item.get("last_activity"),
                     has_made_first_topup=bool(item.get("has_made_first_topup")),
-                    balance_kopeks=balance,
+                    balance_toman=balance,
                     balance_label=settings.format_price(balance),
-                    total_earned_kopeks=total_earned,
+                    total_earned_toman=total_earned,
                     total_earned_label=settings.format_price(total_earned),
                     topups_count=int(item.get("topups_count") or 0),
                     days_since_registration=item.get("days_since_registration"),
@@ -2693,7 +2699,7 @@ async def _build_referral_info(
         and not referral_link
         and not referral_items
         and not recent_earnings
-        and (not stats or (stats.invited_count == 0 and stats.total_earned_kopeks == 0))
+        and (not stats or (stats.invited_count == 0 and stats.total_earned_toman == 0))
     ):
         return None
 
@@ -2814,12 +2820,12 @@ async def get_subscription_details(
         balance_currency = balance_currency.upper()
 
     promo_group = getattr(user, "promo_group", None)
-    total_spent_kopeks = await get_user_total_spent_kopeks(db, user.id)
+    total_spent_toman = await get_user_total_spent_toman(db, user.id)
     auto_assign_groups = await get_auto_assign_promo_groups(db)
 
     auto_promo_levels: List[MiniAppAutoPromoGroupLevel] = []
     for group in auto_assign_groups:
-        threshold = group.auto_assign_total_spent_kopeks or 0
+        threshold = group.auto_assign_total_spent_toman or 0
         if threshold <= 0:
             continue
 
@@ -2827,10 +2833,10 @@ async def get_subscription_details(
             MiniAppAutoPromoGroupLevel(
                 id=group.id,
                 name=group.name,
-                threshold_kopeks=threshold,
+                threshold_toman=threshold,
                 threshold_rubles=round(threshold / 100, 2),
                 threshold_label=settings.format_price(threshold),
-                is_reached=total_spent_kopeks >= threshold,
+                is_reached=total_spent_toman >= threshold,
                 is_current=bool(promo_group and promo_group.id == group.id),
                 **_extract_promo_discounts(group),
             )
@@ -3091,12 +3097,12 @@ async def get_subscription_details(
     trial_duration_days = (
         settings.TRIAL_DURATION_DAYS if settings.TRIAL_DURATION_DAYS > 0 else None
     )
-    trial_price_kopeks = settings.get_trial_activation_price()
+    trial_price_toman = settings.get_trial_activation_price()
     trial_payment_required = (
-        settings.is_trial_paid_activation_enabled() and trial_price_kopeks > 0
+        settings.is_trial_paid_activation_enabled() and trial_price_toman > 0
     )
     trial_price_label = (
-        settings.format_price(trial_price_kopeks) if trial_payment_required else None
+        settings.format_price(trial_price_toman) if trial_payment_required else None
     )
 
     subscription_missing_reason = None
@@ -3124,7 +3130,7 @@ async def get_subscription_details(
         happ_crypto_link=links_payload.get("happ_crypto_link") if subscription else None,
         happ_cryptolink_redirect_link=happ_redirect_link,
         happ_cryptolink_redirect_template=settings.get_happ_cryptolink_redirect_template(),
-        balance_kopeks=user.balance_kopeks,
+        balance_toman=user.balance_toman,
         balance_rubles=round(user.balance_rubles, 2),
         balance_currency=balance_currency,
         transactions=[_serialize_transaction(tx) for tx in transactions],
@@ -3139,9 +3145,9 @@ async def get_subscription_details(
             else None
         ),
         auto_assign_promo_groups=auto_promo_levels,
-        total_spent_kopeks=total_spent_kopeks,
-        total_spent_rubles=round(total_spent_kopeks / 100, 2),
-        total_spent_label=settings.format_price(total_spent_kopeks),
+        total_spent_toman=total_spent_toman,
+        total_spent_rubles=round(total_spent_toman / 100, 2),
+        total_spent_label=settings.format_price(total_spent_toman),
         subscription_type=(
             "trial"
             if subscription and subscription.is_trial
@@ -3162,7 +3168,7 @@ async def get_subscription_details(
         trial_duration_days=trial_duration_days,
         trial_status="available" if trial_available else "unavailable",
         trial_payment_required=trial_payment_required,
-        trial_price_kopeks=trial_price_kopeks if trial_payment_required else None,
+        trial_price_toman=trial_price_toman if trial_payment_required else None,
         trial_price_label=trial_price_label,
         **autopay_extras,
     )
@@ -3325,9 +3331,9 @@ async def activate_subscription_trial_endpoint(
             detail={
                 "code": "insufficient_funds",
                 "message": "Not enough funds to activate the trial",
-                "missing_amount_kopeks": missing,
-                "required_amount_kopeks": error.required_amount,
-                "balance_kopeks": error.balance_amount,
+                "missing_amount_toman": missing,
+                "required_amount_toman": error.required_amount,
+                "balance_toman": error.balance_amount,
             },
         ) from error
     forced_devices = None
@@ -3379,9 +3385,9 @@ async def activate_subscription_trial_endpoint(
             detail={
                 "code": "insufficient_funds",
                 "message": "Not enough funds to activate the trial",
-                "missing_amount_kopeks": error.missing_amount,
-                "required_amount_kopeks": error.required_amount,
-                "balance_kopeks": error.balance_amount,
+                "missing_amount_toman": error.missing_amount,
+                "required_amount_toman": error.required_amount,
+                "balance_toman": error.balance_amount,
             },
         ) from error
     except TrialPaymentChargeFailed as error:
@@ -3517,7 +3523,7 @@ async def activate_subscription_trial_endpoint(
             db,
             user,
             subscription,
-            charged_amount_kopeks=charged_amount,
+            charged_amount_toman=charged_amount,
         )
     )
 
@@ -3526,10 +3532,10 @@ async def activate_subscription_trial_endpoint(
         subscription_id=getattr(subscription, "id", None),
         trial_status="activated",
         trial_duration_days=duration_days,
-        charged_amount_kopeks=charged_amount if charged_amount > 0 else None,
+        charged_amount_toman=charged_amount if charged_amount > 0 else None,
         charged_amount_label=charged_amount_label,
-        balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_toman=user.balance_toman,
+        balance_label=settings.format_price(user.balance_toman),
     )
 
 
@@ -3583,7 +3589,7 @@ async def activate_promo_code(
         promocode_data = result.get("promocode") or {}
 
         try:
-            balance_bonus = int(promocode_data.get("balance_bonus_kopeks") or 0)
+            balance_bonus = int(promocode_data.get("balance_bonus_toman") or 0)
         except (TypeError, ValueError):
             balance_bonus = 0
 
@@ -3595,7 +3601,7 @@ async def activate_promo_code(
         promo_payload = MiniAppPromoCode(
             code=str(promocode_data.get("code") or code),
             type=promocode_data.get("type"),
-            balance_bonus_kopeks=balance_bonus,
+            balance_bonus_toman=balance_bonus,
             subscription_days=subscription_days,
             max_uses=promocode_data.get("max_uses"),
             current_uses=promocode_data.get("current_uses"),
@@ -4077,12 +4083,12 @@ async def _prepare_subscription_renewal_options(
             id=pricing["period_id"],
             days=period_days,
             months=pricing["months"],
-            price_kopeks=pricing["final_total"],
+            price_toman=pricing["final_total"],
             price_label=price_label,
-            original_price_kopeks=pricing["base_original_total"],
+            original_price_toman=pricing["base_original_total"],
             original_price_label=original_label,
             discount_percent=pricing["overall_discount_percent"],
-            price_per_month_kopeks=pricing["per_month"],
+            price_per_month_toman=pricing["per_month"],
             price_per_month_label=per_month_label,
             title=label,
         )
@@ -4307,7 +4313,7 @@ async def _prepare_server_catalog(
 
         uuid = server.squad_uuid
         discounted_per_month, discount_per_month = apply_percentage_discount(
-            int(getattr(server, "price_kopeks", 0) or 0),
+            int(getattr(server, "price_toman", 0) or 0),
             discount_percent,
         )
         available_for_new = bool(getattr(server, "is_available", True) and not server.is_full)
@@ -4318,7 +4324,7 @@ async def _prepare_server_catalog(
                 {
                     "name": getattr(server, "display_name", uuid),
                     "server_id": getattr(server, "id", None),
-                    "price_per_month": int(getattr(server, "price_kopeks", 0) or 0),
+                    "price_per_month": int(getattr(server, "price_toman", 0) or 0),
                     "discounted_per_month": discounted_per_month,
                     "discount_per_month": discount_per_month,
                     "available_for_new": available_for_new,
@@ -4331,7 +4337,7 @@ async def _prepare_server_catalog(
             "uuid": uuid,
             "name": getattr(server, "display_name", uuid),
             "server_id": getattr(server, "id", None),
-            "price_per_month": int(getattr(server, "price_kopeks", 0) or 0),
+            "price_per_month": int(getattr(server, "price_toman", 0) or 0),
             "discounted_per_month": discounted_per_month,
             "discount_per_month": discount_per_month,
             "available_for_new": available_for_new,
@@ -4393,7 +4399,7 @@ async def _prepare_server_catalog(
             MiniAppSubscriptionServerOption(
                 uuid=uuid,
                 name=entry.get("name", uuid),
-                price_kopeks=int(entry.get("discounted_per_month", 0)),
+                price_toman=int(entry.get("discounted_per_month", 0)),
                 price_label=None,
                 discount_percent=discount_value,
                 is_connected=is_connected,
@@ -4454,7 +4460,7 @@ async def _build_subscription_settings(
                 MiniAppSubscriptionTrafficOption(
                     value=gb_value,
                     label=None,
-                    price_kopeks=discounted_price,
+                    price_toman=discounted_price,
                     price_label=None,
                     is_current=(gb_value == subscription.traffic_limit_gb),
                     is_available=True,
@@ -4487,7 +4493,7 @@ async def _build_subscription_settings(
             MiniAppSubscriptionDeviceOption(
                 value=value,
                 label=None,
-                price_kopeks=discounted_per_month,
+                price_toman=discounted_per_month,
                 price_label=None,
             )
         )
@@ -4520,7 +4526,7 @@ async def _build_subscription_settings(
             max=max_devices_setting or 0,
             step=1,
             current=current_device_limit,
-            price_kopeks=discounted_single_device,
+            price_toman=discounted_single_device,
             price_label=None,
         ),
         billing=MiniAppSubscriptionBillingContext(
@@ -4554,7 +4560,7 @@ async def get_subscription_renewal_options_endpoint(
         subscription,
     )
 
-    balance_kopeks = getattr(user, "balance_kopeks", 0)
+    balance_toman = getattr(user, "balance_toman", 0)
     currency = (getattr(user, "balance_currency", None) or "RUB").upper()
 
     promo_group = getattr(user, "promo_group", None)
@@ -4574,8 +4580,8 @@ async def get_subscription_renewal_options_endpoint(
     if default_period_id and default_period_id in pricing_map:
         selected_pricing = pricing_map[default_period_id]
         final_total = selected_pricing.get("final_total")
-        if isinstance(final_total, int) and balance_kopeks < final_total:
-            missing_amount = final_total - balance_kopeks
+        if isinstance(final_total, int) and balance_toman < final_total:
+            missing_amount = final_total - balance_toman
 
     renewal_autopay_payload = _build_autopay_payload(subscription)
     renewal_autopay_days_before = (
@@ -4598,13 +4604,13 @@ async def get_subscription_renewal_options_endpoint(
     return MiniAppSubscriptionRenewalOptionsResponse(
         subscription_id=subscription.id,
         currency=currency,
-        balance_kopeks=balance_kopeks,
-        balance_label=settings.format_price(balance_kopeks),
+        balance_toman=balance_toman,
+        balance_label=settings.format_price(balance_toman),
         promo_group=promo_group_model,
         promo_offer=promo_offer_payload,
         periods=periods,
         default_period_id=default_period_id,
-        missing_amount_kopeks=missing_amount,
+        missing_amount_toman=missing_amount,
         status_message=_build_renewal_status_message(user),
         autopay_enabled=bool(subscription.autopay_enabled),
         autopay_days_before=renewal_autopay_days_before,
@@ -4683,8 +4689,8 @@ async def submit_subscription_renewal_endpoint(
 
     pricing = pricing_model.to_payload()
     final_total = int(pricing_model.final_total)
-    balance_kopeks = getattr(user, "balance_kopeks", 0)
-    missing_amount = calculate_missing_amount(balance_kopeks, final_total)
+    balance_toman = getattr(user, "balance_toman", 0)
+    missing_amount = calculate_missing_amount(balance_toman, final_total)
     description = f"Subscription renewal for {period_days} days"
 
     if missing_amount <= 0:
@@ -4711,27 +4717,27 @@ async def submit_subscription_renewal_endpoint(
         message = _build_renewal_success_message(
             user,
             updated_subscription,
-            result.total_amount_kopeks,
+            result.total_amount_toman,
             pricing_model.promo_discount_value,
         )
 
         return MiniAppSubscriptionRenewalResponse(
             message=message,
-            balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_price(user.balance_kopeks),
+            balance_toman=user.balance_toman,
+            balance_label=settings.format_price(user.balance_toman),
             subscription_id=updated_subscription.id,
             renewed_until=updated_subscription.end_date,
         )
 
     if not method:
-        if final_total > 0 and balance_kopeks < final_total:
-            missing = final_total - balance_kopeks
+        if final_total > 0 and balance_toman < final_total:
+            missing = final_total - balance_toman
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     "code": "insufficient_funds",
                     "message": "Not enough funds to renew the subscription",
-                    "missing_amount_kopeks": missing,
+                    "missing_amount_toman": missing,
                 },
             )
 
@@ -4755,21 +4761,21 @@ async def submit_subscription_renewal_endpoint(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Payment method is unavailable")
 
         rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
-        if missing_amount < min_amount_kopeks:
+        min_amount_toman, max_amount_toman = _compute_cryptobot_limits(rate)
+        if missing_amount < min_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "amount_below_minimum",
-                    "message": f"Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)",
+                    "message": f"Amount is below minimum ({min_amount_toman / 100:.2f} RUB)",
                 },
             )
-        if missing_amount > max_amount_kopeks:
+        if missing_amount > max_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "amount_above_maximum",
-                    "message": f"Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)",
+                    "message": f"Amount exceeds maximum ({max_amount_toman / 100:.2f} RUB)",
                 },
             )
 
@@ -4836,13 +4842,13 @@ async def submit_subscription_renewal_endpoint(
         return MiniAppSubscriptionRenewalResponse(
             success=False,
             message=message,
-            balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_price(user.balance_kopeks),
+            balance_toman=user.balance_toman,
+            balance_label=settings.format_price(user.balance_toman),
             subscription_id=subscription.id,
             requires_payment=True,
             payment_method=method,
             payment_url=payment_url,
-            payment_amount_kopeks=missing_amount,
+            payment_amount_toman=missing_amount,
             payment_id=result.get("local_payment_id"),
             invoice_id=result.get("invoice_id"),
             payment_payload=payload_value,
@@ -4868,15 +4874,15 @@ async def get_subscription_purchase_options_endpoint(
 
     data_payload = dict(context.payload)
     data_payload.setdefault("currency", context.currency)
-    data_payload.setdefault("balance_kopeks", context.balance_kopeks)
-    data_payload.setdefault("balanceKopeks", context.balance_kopeks)
-    data_payload.setdefault("balance_label", settings.format_price(context.balance_kopeks))
-    data_payload.setdefault("balanceLabel", settings.format_price(context.balance_kopeks))
+    data_payload.setdefault("balance_toman", context.balance_toman)
+    data_payload.setdefault("balanceToman", context.balance_toman)
+    data_payload.setdefault("balance_label", settings.format_price(context.balance_toman))
+    data_payload.setdefault("balanceLabel", settings.format_price(context.balance_toman))
 
     return MiniAppSubscriptionPurchaseOptionsResponse(
         currency=context.currency,
-        balance_kopeks=context.balance_kopeks,
-        balance_label=settings.format_price(context.balance_kopeks),
+        balance_toman=context.balance_toman,
+        balance_label=settings.format_price(context.balance_toman),
         subscription_id=data_payload.get("subscription_id") or data_payload.get("subscriptionId"),
         data=data_payload,
     )
@@ -4905,11 +4911,11 @@ async def subscription_purchase_preview_endpoint(
     pricing = await purchase_service.calculate_pricing(db, context, selection)
     preview_payload = purchase_service.build_preview_payload(context, pricing)
 
-    balance_label = settings.format_price(getattr(user, "balance_kopeks", 0))
+    balance_label = settings.format_price(getattr(user, "balance_toman", 0))
 
     return MiniAppSubscriptionPurchasePreviewResponse(
         preview=preview_payload,
-        balance_kopeks=user.balance_kopeks,
+        balance_toman=user.balance_toman,
         balance_label=balance_label,
     )
 
@@ -4975,11 +4981,11 @@ async def subscription_purchase_endpoint(
             )
         )
 
-    balance_label = settings.format_price(getattr(user, "balance_kopeks", 0))
+    balance_label = settings.format_price(getattr(user, "balance_toman", 0))
 
     return MiniAppSubscriptionPurchaseResponse(
         message=result.get("message"),
-        balance_kopeks=user.balance_kopeks,
+        balance_toman=user.balance_toman,
         balance_label=balance_label,
         subscription_id=getattr(subscription, "id", None),
     )
@@ -5121,8 +5127,8 @@ async def update_subscription_servers_endpoint(
         if catalog[uuid].get("server_id") is not None
     ]
 
-    if total_cost > 0 and getattr(user, "balance_kopeks", 0) < total_cost:
-        missing = total_cost - getattr(user, "balance_kopeks", 0)
+    if total_cost > 0 and getattr(user, "balance_toman", 0) < total_cost:
+        missing = total_cost - getattr(user, "balance_toman", 0)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -5161,7 +5167,7 @@ async def update_subscription_servers_endpoint(
             db=db,
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=total_cost,
+            amount_toman=total_cost,
             description=description,
         )
 
@@ -5313,8 +5319,8 @@ async def update_subscription_traffic_endpoint(
 
     if price_difference_per_month > 0:
         total_price_difference = price_difference_per_month * months_remaining
-        if getattr(user, "balance_kopeks", 0) < total_price_difference:
-            missing = total_price_difference - getattr(user, "balance_kopeks", 0)
+        if getattr(user, "balance_toman", 0) < total_price_difference:
+            missing = total_price_difference - getattr(user, "balance_toman", 0)
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -5350,7 +5356,7 @@ async def update_subscription_traffic_endpoint(
             db=db,
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=total_price_difference,
+            amount_toman=total_price_difference,
             description=f"{description} for {months_remaining} mo",
         )
 
@@ -5467,8 +5473,8 @@ async def update_subscription_devices_endpoint(
             subscription.end_date,
         )
 
-    if price_to_charge > 0 and getattr(user, "balance_kopeks", 0) < price_to_charge:
-        missing = price_to_charge - getattr(user, "balance_kopeks", 0)
+    if price_to_charge > 0 and getattr(user, "balance_toman", 0) < price_to_charge:
+        missing = price_to_charge - getattr(user, "balance_toman", 0)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -5504,7 +5510,7 @@ async def update_subscription_devices_endpoint(
             db=db,
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=price_to_charge,
+            amount_toman=price_to_charge,
             description=f"{description} for {charged_months or get_remaining_months(subscription.end_date)} mo",
         )
 

@@ -53,9 +53,9 @@ async def get_promo_groups_with_counts(
 async def get_auto_assign_promo_groups(db: AsyncSession) -> List[PromoGroup]:
     result = await db.execute(
         select(PromoGroup)
-        .where(PromoGroup.auto_assign_total_spent_kopeks.is_not(None))
-        .where(PromoGroup.auto_assign_total_spent_kopeks > 0)
-        .order_by(PromoGroup.auto_assign_total_spent_kopeks, PromoGroup.id)
+        .where(PromoGroup.auto_assign_total_spent_toman.is_not(None))
+        .where(PromoGroup.auto_assign_total_spent_toman > 0)
+        .order_by(PromoGroup.auto_assign_total_spent_toman, PromoGroup.id)
     )
     return result.scalars().all()
 
@@ -63,8 +63,8 @@ async def get_auto_assign_promo_groups(db: AsyncSession) -> List[PromoGroup]:
 async def has_auto_assign_promo_groups(db: AsyncSession) -> bool:
     result = await db.execute(
         select(func.count(PromoGroup.id))
-        .where(PromoGroup.auto_assign_total_spent_kopeks.is_not(None))
-        .where(PromoGroup.auto_assign_total_spent_kopeks > 0)
+        .where(PromoGroup.auto_assign_total_spent_toman.is_not(None))
+        .where(PromoGroup.auto_assign_total_spent_toman > 0)
     )
     return bool(result.scalar_one())
 
@@ -94,15 +94,15 @@ async def create_promo_group(
     traffic_discount_percent: int,
     device_discount_percent: int,
     period_discounts: Optional[Dict[int, int]] = None,
-    auto_assign_total_spent_kopeks: Optional[int] = None,
+    auto_assign_total_spent_toman: Optional[int] = None,
     apply_discounts_to_addons: bool = True,
     is_default: bool = False,
 ) -> PromoGroup:
     normalized_period_discounts = _normalize_period_discounts(period_discounts)
 
-    auto_assign_total_spent_kopeks = (
-        max(0, auto_assign_total_spent_kopeks)
-        if auto_assign_total_spent_kopeks is not None
+    auto_assign_total_spent_toman = (
+        max(0, auto_assign_total_spent_toman)
+        if auto_assign_total_spent_toman is not None
         else None
     )
 
@@ -116,7 +116,7 @@ async def create_promo_group(
         traffic_discount_percent=max(0, min(100, traffic_discount_percent)),
         device_discount_percent=max(0, min(100, device_discount_percent)),
         period_discounts=normalized_period_discounts or None,
-        auto_assign_total_spent_kopeks=auto_assign_total_spent_kopeks,
+        auto_assign_total_spent_toman=auto_assign_total_spent_toman,
         apply_discounts_to_addons=bool(apply_discounts_to_addons),
         is_default=should_be_default,
     )
@@ -142,7 +142,7 @@ async def create_promo_group(
         promo_group.traffic_discount_percent,
         promo_group.device_discount_percent,
         normalized_period_discounts,
-        (auto_assign_total_spent_kopeks or 0) / 100,
+        (auto_assign_total_spent_toman or 0) ,
         "on" if promo_group.apply_discounts_to_addons else "off",
     )
 
@@ -159,7 +159,7 @@ async def update_promo_group(
     traffic_discount_percent: Optional[int] = None,
     device_discount_percent: Optional[int] = None,
     period_discounts: Optional[Dict[int, int]] = None,
-    auto_assign_total_spent_kopeks: Optional[int] = None,
+    auto_assign_total_spent_toman: Optional[int] = None,
     apply_discounts_to_addons: Optional[bool] = None,
     is_default: Optional[bool] = None,
 ) -> PromoGroup:
@@ -176,8 +176,8 @@ async def update_promo_group(
     if period_discounts is not None:
         normalized_period_discounts = _normalize_period_discounts(period_discounts)
         group.period_discounts = normalized_period_discounts or None
-    if auto_assign_total_spent_kopeks is not None:
-        group.auto_assign_total_spent_kopeks = max(0, auto_assign_total_spent_kopeks)
+    if auto_assign_total_spent_toman is not None:
+        group.auto_assign_total_spent_toman = max(0, auto_assign_total_spent_toman)
     if apply_discounts_to_addons is not None:
         group.apply_discounts_to_addons = bool(apply_discounts_to_addons)
 

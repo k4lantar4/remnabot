@@ -153,8 +153,8 @@ class Texts:
         raise KeyError(item)
 
     @staticmethod
-    def format_price(kopeks: int) -> str:
-        return settings.format_price(kopeks)
+    def format_price(toman: int) -> str:
+        return settings.format_price(toman)
 
     @staticmethod
     def format_traffic(gb: float) -> str:

@@ -40,8 +40,7 @@ class UserResponse(BaseModel):
     last_name: Optional[str] = None
     status: str
     language: str
-    balance_kopeks: int
-    balance_rubles: float
+    balance_toman: int
     referral_code: Optional[str] = None
     referred_by_id: Optional[int] = None
     has_had_paid_subscription: bool
@@ -83,6 +82,6 @@ class UserUpdateRequest(BaseModel):
 
 
 class BalanceUpdateRequest(BaseModel):
-    amount_kopeks: int
+    amount_toman: int
     description: Optional[str] = Field(default="Adjustment via web API")
     create_transaction: bool = True

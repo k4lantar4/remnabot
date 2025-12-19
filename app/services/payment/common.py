@@ -134,7 +134,7 @@ class PaymentCommonMixin:
     async def _send_payment_success_notification(
         self,
         telegram_id: int,
-        amount_kopeks: int,
+        amount_toman: int,
         user: Any | None = None,
         *,
         db: AsyncSession | None = None,
@@ -157,7 +157,7 @@ class PaymentCommonMixin:
             payment_method = payment_method_title or "Bank card (YooKassa)"
             message = (
                 "✅ <b>Payment completed successfully!</b>\n\n"
-                f"💰 Amount: {settings.format_price(amount_kopeks)}\n"
+                f"💰 Amount: {settings.format_price(amount_toman)}\n"
                 f"💳 Method: {payment_method}\n\n"
                 "The funds have been credited to your balance!\n\n"
                 "⚠️ <b>Important:</b> Topping up your balance does not activate a subscription "
@@ -246,7 +246,7 @@ class PaymentCommonMixin:
     async def process_successful_payment(
         self,
         payment_id: str,
-        amount_kopeks: int,
+        amount_toman: int,
         user_id: int,
         payment_method: str,
     ) -> bool:
@@ -255,7 +255,7 @@ class PaymentCommonMixin:
             logger.info(
                 "Processed successful payment: %s, %s RUB, user %s, method %s",
                 payment_id,
-                amount_kopeks / 100,
+                amount_toman,
                 user_id,
                 payment_method,
             )

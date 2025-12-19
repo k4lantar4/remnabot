@@ -149,8 +149,8 @@ async def show_users_list(
         
         button_text = f"{status_emoji} {subscription_emoji} {user.full_name}"
         
-        if user.balance_kopeks > 0:
-            button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+        if user.balance_toman > 0:
+            button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
         
         button_text += f" | 📅 {format_time_ago(user.created_at, db_user.language)}"
         
@@ -160,8 +160,8 @@ async def show_users_list(
                 short_name = short_name[:17] + "..."
             
             button_text = f"{status_emoji} {subscription_emoji} {short_name}"
-            if user.balance_kopeks > 0:
-                button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+            if user.balance_toman > 0:
+                button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
         
         keyboard.append([
             types.InlineKeyboardButton(
@@ -248,8 +248,8 @@ async def show_users_list_by_balance(
         
         button_text = f"{status_emoji} {subscription_emoji} {user.full_name}"
         
-        if user.balance_kopeks > 0:
-            button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+        if user.balance_toman > 0:
+            button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
         
         # Add subscription end date if subscription exists
         if user.subscription and user.subscription.end_date:
@@ -262,8 +262,8 @@ async def show_users_list_by_balance(
                 short_name = short_name[:17] + "..."
             
             button_text = f"{status_emoji} {subscription_emoji} {short_name}"
-            if user.balance_kopeks > 0:
-                button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+            if user.balance_toman > 0:
+                button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
         
         keyboard.append([
             types.InlineKeyboardButton(
@@ -314,14 +314,14 @@ async def show_users_ready_to_renew(
     texts = get_texts(db_user.language)
     threshold = getattr(
         settings,
-        "SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS",
+        "SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN",
         20000,
     )
 
     user_service = UserService()
     users_data = await user_service.get_users_ready_to_renew(
         db,
-        min_balance_kopeks=threshold,
+        min_balance_toman=threshold,
         page=page,
         limit=10,
     )
@@ -374,7 +374,7 @@ async def show_users_ready_to_renew(
 
         button_text = (
             f"{status_emoji} {subscription_emoji} {user.full_name}"
-            f" | 💰 {settings.format_price(user.balance_kopeks)}"
+            f" | 💰 {settings.format_price(user.balance_toman)}"
             f" | ⏰ {expired_days}д ист."
         )
 
@@ -384,7 +384,7 @@ async def show_users_ready_to_renew(
                 short_name = short_name[:17] + "..."
             button_text = (
                 f"{status_emoji} {subscription_emoji} {short_name}"
-                f" | 💰 {settings.format_price(user.balance_kopeks)}"
+                f" | 💰 {settings.format_price(user.balance_toman)}"
             )
 
         keyboard.append([
@@ -490,8 +490,8 @@ async def show_users_list_by_traffic(
         button_text = f"{status_emoji} {subscription_emoji} {user.full_name}"
         button_text += f" | 📶 {traffic_display}"
 
-        if user.balance_kopeks > 0:
-            button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+        if user.balance_toman > 0:
+            button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
 
         if len(button_text) > 60:
             short_name = user.full_name
@@ -1100,7 +1100,7 @@ async def show_users_statistics(
     )
     
     avg_balance_result = await db.execute(
-        select(func.avg(User.balance_kopeks))
+        select(func.avg(User.balance_toman))
         .where(User.status == UserStatus.ACTIVE.value)
     )
     avg_balance = avg_balance_result.scalar() or 0
@@ -1339,14 +1339,14 @@ async def show_user_transactions(
     text = texts.t("ADMIN_USER_TRANSACTIONS_TITLE", "💳 <b>User Transactions</b>") + "\n\n"
     user_link = f'<a href="tg://user?id={user.telegram_id}">{user.full_name}</a>'
     text += f"👤 {user_link} (ID: <code>{user.telegram_id}</code>)\n"
-    text += texts.t("ADMIN_USER_CURRENT_BALANCE", "💰 Current balance: {balance}").format(balance=settings.format_price(user.balance_kopeks)) + "\n\n"
+    text += texts.t("ADMIN_USER_CURRENT_BALANCE", "💰 Current balance: {balance}").format(balance=settings.format_price(user.balance_toman)) + "\n\n"
     
     if transactions:
         text += texts.t("ADMIN_USER_RECENT_TRANSACTIONS", "<b>Recent transactions:</b>") + "\n\n"
         
         for transaction in transactions:
-            type_emoji = "📈" if transaction.amount_kopeks > 0 else "📉"
-            text += f"{type_emoji} {settings.format_price(abs(transaction.amount_kopeks))}\n"
+            type_emoji = "📈" if transaction.amount_toman > 0 else "📉"
+            text += f"{type_emoji} {settings.format_price(abs(transaction.amount_toman))}\n"
             text += f"📋 {transaction.description}\n"
             text += f"📅 {format_datetime(transaction.created_at)}\n\n"
     else:
@@ -1471,8 +1471,8 @@ async def process_user_search(
         
         button_text += f" | 🆔 {user.telegram_id}"
         
-        if user.balance_kopeks > 0:
-            button_text += f" | 💰 {settings.format_price(user.balance_kopeks)}"
+        if user.balance_toman > 0:
+            button_text += f" | 💰 {settings.format_price(user.balance_toman)}"
         
         if len(button_text) > 60:
             short_name = user.full_name
@@ -1576,7 +1576,7 @@ async def show_user_management(
             username=username_display,
             status=status_text,
             language=user.language,
-            balance=settings.format_price(user.balance_kopeks),
+            balance=settings.format_price(user.balance_toman),
             transactions=profile["transactions_count"],
             registration=format_datetime(user.created_at),
             last_activity=last_activity,
@@ -2667,29 +2667,29 @@ async def process_balance_edit(
     
     try:
         amount_rubles = float(message.text.replace(',', '.'))
-        amount_kopeks = int(amount_rubles * 100)
+        amount_toman = int(amount_rubles * 100)
         
-        if abs(amount_kopeks) > 10000000: 
+        if abs(amount_toman) > 10000000: 
             await message.answer(texts.t("ADMIN_BALANCE_TOO_LARGE", "❌ Amount too large (maximum 100,000)"))
             return
         
         user_service = UserService()
         
         description = f"Balance change by admin {db_user.full_name}"
-        if amount_kopeks > 0:
+        if amount_toman > 0:
             description = f"Top-up by admin: +{int(amount_rubles)}"
         else:
             description = f"Deduction by admin: {int(amount_rubles)}"
         
         success = await user_service.update_user_balance(
-            db, user_id, amount_kopeks, description, db_user.id,
+            db, user_id, amount_toman, description, db_user.id,
             bot=message.bot, admin_name=db_user.full_name
         )
         
         if success:
-            action = texts.t("ADMIN_BALANCE_TOPPED_UP", "topped up") if amount_kopeks > 0 else texts.t("ADMIN_BALANCE_DEDUCTED", "deducted")
+            action = texts.t("ADMIN_BALANCE_TOPPED_UP", "topped up") if amount_toman > 0 else texts.t("ADMIN_BALANCE_DEDUCTED", "deducted")
             await message.answer(
-                texts.t("ADMIN_BALANCE_CHANGED_SUCCESS", "✅ User balance {action} by {amount}").format(action=action, amount=settings.format_price(abs(amount_kopeks))),
+                texts.t("ADMIN_BALANCE_CHANGED_SUCCESS", "✅ User balance {action} by {amount}").format(action=action, amount=settings.format_price(abs(amount_toman))),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                     [types.InlineKeyboardButton(text=texts.t("ADMIN_BTN_BACK_TO_USER", "👤 Back to user"), callback_data=f"admin_user_manage_{user_id}")]
                 ])
@@ -2896,7 +2896,7 @@ async def show_user_statistics(
     
     text += f"<b>{texts.t('ADMIN_USER_STATS_BASIC', 'Basic Information')}:</b>\n"
     text += f"• {texts.t('ADMIN_USER_STATS_DAYS', 'Days since registration')}: {profile['registration_days']}\n"
-    text += f"• {texts.t('ADMIN_USER_STATS_BALANCE', 'Balance')}: {settings.format_price(user.balance_kopeks)}\n"
+    text += f"• {texts.t('ADMIN_USER_STATS_BALANCE', 'Balance')}: {settings.format_price(user.balance_toman)}\n"
     text += f"• {texts.t('ADMIN_USER_STATS_TRANSACTIONS', 'Transactions')}: {profile['transactions_count']}\n"
     text += f"• {texts.t('ADMIN_USER_STATS_LANGUAGE', 'Language')}: {user.language}\n\n"
     
@@ -2937,27 +2937,27 @@ async def show_user_statistics(
             text += f" ({texts.t('ADMIN_USER_STATS_PARAM', 'param')}: <code>{campaign_registration.campaign.start_parameter}</code>)"
         text += "\n"
         text += f"• {texts.t('ADMIN_USER_STATS_TOTAL_REG', 'Total registrations')}: {campaign_stats['registrations']}\n"
-        text += f"• {texts.t('ADMIN_USER_STATS_TOTAL_REV', 'Total revenue')}: {settings.format_price(campaign_stats['total_revenue_kopeks'])}\n"
+        text += f"• {texts.t('ADMIN_USER_STATS_TOTAL_REV', 'Total revenue')}: {settings.format_price(campaign_stats['total_revenue_toman'])}\n"
         text += f"• {texts.t('ADMIN_USER_STATS_TRIAL_USERS', 'Trial users')}: {campaign_stats['trial_users_count']} ({texts.t('ADMIN_USER_STATS_ACTIVE', 'active')}: {campaign_stats['active_trials_count']})\n"
         text += f"• {texts.t('ADMIN_USER_STATS_CONVERSIONS', 'Conversions')}: {campaign_stats['conversion_count']} ({texts.t('ADMIN_USER_STATS_PAID_USERS', 'paid users')}: {campaign_stats['paid_users_count']})\n"
         text += f"• {texts.t('ADMIN_USER_STATS_CONV_RATE', 'Conversion rate')}: {campaign_stats['conversion_rate']:.1f}%\n"
         text += f"• {texts.t('ADMIN_USER_STATS_TRIAL_CONV', 'Trial conversion')}: {campaign_stats['trial_conversion_rate']:.1f}%\n"
-        text += f"• {texts.t('ADMIN_USER_STATS_AVG_REV', 'Avg revenue per user')}: {settings.format_price(campaign_stats['avg_revenue_per_user_kopeks'])}\n"
-        text += f"• {texts.t('ADMIN_USER_STATS_AVG_FIRST', 'Avg first payment')}: {settings.format_price(campaign_stats['avg_first_payment_kopeks'])}\n"
+        text += f"• {texts.t('ADMIN_USER_STATS_AVG_REV', 'Avg revenue per user')}: {settings.format_price(campaign_stats['avg_revenue_per_user_toman'])}\n"
+        text += f"• {texts.t('ADMIN_USER_STATS_AVG_FIRST', 'Avg first payment')}: {settings.format_price(campaign_stats['avg_first_payment_toman'])}\n"
         text += "\n"
     
     if referral_stats['invited_count'] > 0:
         text += f"<b>{texts.t('ADMIN_USER_STATS_REF_EARNINGS', 'Referral Earnings')}:</b>\n"
         text += f"• {texts.t('ADMIN_USER_STATS_INVITED', 'Total invited')}: {referral_stats['invited_count']}\n"
         text += f"• {texts.t('ADMIN_USER_STATS_ACTIVE_REFS', 'Active referrals')}: {referral_stats['active_referrals']}\n"
-        text += f"• {texts.t('ADMIN_USER_STATS_TOTAL_EARNED', 'Total earned')}: {settings.format_price(referral_stats['total_earned_kopeks'])}\n"
-        text += f"• {texts.t('ADMIN_USER_STATS_MONTH_EARNED', 'Month earned')}: {settings.format_price(referral_stats['month_earned_kopeks'])}\n"
+        text += f"• {texts.t('ADMIN_USER_STATS_TOTAL_EARNED', 'Total earned')}: {settings.format_price(referral_stats['total_earned_toman'])}\n"
+        text += f"• {texts.t('ADMIN_USER_STATS_MONTH_EARNED', 'Month earned')}: {settings.format_price(referral_stats['month_earned_toman'])}\n"
         
         if referral_stats['referrals_detail']:
             text += f"\n<b>{texts.t('ADMIN_USER_STATS_REF_DETAILS', 'Referral Details')}:</b>\n"
             for detail in referral_stats['referrals_detail'][:5]: 
                 referral_name = detail['referral_name']
-                earned = settings.format_price(detail['total_earned_kopeks'])
+                earned = settings.format_price(detail['total_earned_toman'])
                 status = "🟢" if detail['is_active'] else "🔴"
                 text += f"• {status} {referral_name}: {earned}\n"
             
@@ -2998,7 +2998,7 @@ async def get_detailed_referral_stats(db: AsyncSession, user_id: int) -> dict:
         referral_id = earning.referral_id
         if referral_id not in earnings_by_referral:
             earnings_by_referral[referral_id] = 0
-        earnings_by_referral[referral_id] += earning.amount_kopeks
+        earnings_by_referral[referral_id] += earning.amount_toman
     
     referrals_detail = []
     current_time = datetime.utcnow()
@@ -3018,19 +3018,19 @@ async def get_detailed_referral_stats(db: AsyncSession, user_id: int) -> dict:
             'referral_id': referral.id,
             'referral_name': referral.full_name,
             'referral_telegram_id': referral.telegram_id,
-            'total_earned_kopeks': earned,
+            'total_earned_toman': earned,
             'is_active': is_active,
             'registration_date': referral.created_at,
             'has_subscription': bool(referral.subscription)
         })
     
-    referrals_detail.sort(key=lambda x: x['total_earned_kopeks'], reverse=True)
+    referrals_detail.sort(key=lambda x: x['total_earned_toman'], reverse=True)
     
     return {
         'invited_count': base_stats['invited_count'],
         'active_referrals': base_stats['active_referrals'], 
-        'total_earned_kopeks': base_stats['total_earned_kopeks'],
-        'month_earned_kopeks': base_stats['month_earned_kopeks'],
+        'total_earned_toman': base_stats['total_earned_toman'],
+        'month_earned_toman': base_stats['month_earned_toman'],
         'referrals_detail': referrals_detail
     }
     
@@ -4439,7 +4439,7 @@ async def admin_buy_subscription(
 
     for period in available_periods:
         try:
-            price_kopeks = await _calculate_subscription_period_price(
+            price_toman = await _calculate_subscription_period_price(
                 db,
                 target_user,
                 subscription,
@@ -4459,9 +4459,9 @@ async def admin_buy_subscription(
             types.InlineKeyboardButton(
                 text=texts.t("ADMIN_SUB_PERIOD_OPTION", "{days} days ({price})").format(
                     days=period,
-                    price=settings.format_price(price_kopeks),
+                    price=settings.format_price(price_toman),
                 ),
-                callback_data=f"admin_buy_sub_confirm_{user_id}_{period}_{price_kopeks}"
+                callback_data=f"admin_buy_sub_confirm_{user_id}_{period}_{price_toman}"
             )
         ])
 
@@ -4483,7 +4483,7 @@ async def admin_buy_subscription(
         id=target_user.telegram_id,
     )
     text += texts.t("ADMIN_SUB_PURCHASE_BALANCE", "💰 User balance: {balance}\n\n").format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_price(target_user.balance_toman)
     )
     traffic_text = texts.t("ADMIN_TRAFFIC_UNLIMITED", "Unlimited") if (subscription.traffic_limit_gb or 0) <= 0 else f"{subscription.traffic_limit_gb} GB"
     devices_limit = subscription.device_limit
@@ -4512,7 +4512,7 @@ async def admin_buy_subscription_confirm(
     parts = callback.data.split('_')
     user_id = int(parts[4])
     period_days = int(parts[5])
-    price_kopeks_from_callback = int(parts[6]) if len(parts) > 6 else None
+    price_toman_from_callback = int(parts[6]) if len(parts) > 6 else None
     
     user_service = UserService()
     profile = await user_service.get_user_profile(db, user_id)
@@ -4531,7 +4531,7 @@ async def admin_buy_subscription_confirm(
     subscription_service = SubscriptionService()
 
     try:
-        price_kopeks = await _calculate_subscription_period_price(
+        price_toman = await _calculate_subscription_period_price(
             db,
             target_user,
             subscription,
@@ -4547,16 +4547,16 @@ async def admin_buy_subscription_confirm(
         await callback.answer(texts.t("ADMIN_SUB_CALCULATION_ERROR", "❌ Failed to calculate subscription price"), show_alert=True)
         return
 
-    if price_kopeks_from_callback is not None and price_kopeks_from_callback != price_kopeks:
+    if price_toman_from_callback is not None and price_toman_from_callback != price_toman:
         logger.info(
             "Subscription price for user %s changed from %s to %s on confirm",
             target_user.telegram_id,
-            price_kopeks_from_callback,
-            price_kopeks,
+            price_toman_from_callback,
+            price_toman,
         )
 
-    if target_user.balance_kopeks < price_kopeks:
-        missing_kopeks = price_kopeks - target_user.balance_kopeks
+    if target_user.balance_toman < price_toman:
+        missing_toman = price_toman - target_user.balance_toman
         await callback.message.edit_text(
             texts.t(
                 "ADMIN_SUB_INSUFFICIENT_FUNDS",
@@ -4566,9 +4566,9 @@ async def admin_buy_subscription_confirm(
                 "📉 Missing: {missing}\n\n"
                 "Top up user balance before purchase."
             ).format(
-                balance=settings.format_price(target_user.balance_kopeks),
-                cost=settings.format_price(price_kopeks),
-                missing=settings.format_price(missing_kopeks),
+                balance=settings.format_price(target_user.balance_toman),
+                cost=settings.format_price(price_toman),
+                missing=settings.format_price(missing_toman),
             ),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(
@@ -4587,8 +4587,8 @@ async def admin_buy_subscription_confirm(
         id=target_user.telegram_id,
     )
     text += texts.t("ADMIN_SUB_CONFIRM_PERIOD", "📅 Subscription period: {days} days\n").format(period_days=period_days, days=period_days)
-    text += texts.t("ADMIN_SUB_CONFIRM_COST", "💰 Cost: {cost}\n").format(cost=settings.format_price(price_kopeks))
-    text += texts.t("ADMIN_SUB_CONFIRM_BALANCE", "💰 User balance: {balance}\n\n").format(balance=settings.format_price(target_user.balance_kopeks))
+    text += texts.t("ADMIN_SUB_CONFIRM_COST", "💰 Cost: {cost}\n").format(cost=settings.format_price(price_toman))
+    text += texts.t("ADMIN_SUB_CONFIRM_BALANCE", "💰 User balance: {balance}\n\n").format(balance=settings.format_price(target_user.balance_toman))
     traffic_text = texts.t("ADMIN_TRAFFIC_UNLIMITED", "Unlimited") if (subscription.traffic_limit_gb or 0) <= 0 else f"{subscription.traffic_limit_gb} GB"
     devices_limit = subscription.device_limit
     if devices_limit is None:
@@ -4603,7 +4603,7 @@ async def admin_buy_subscription_confirm(
         [
             types.InlineKeyboardButton(
                 text=texts.t("ADMIN_BTN_CONFIRM", "✅ Confirm"),
-                callback_data=f"admin_buy_sub_execute_{user_id}_{period_days}_{price_kopeks}"
+                callback_data=f"admin_buy_sub_execute_{user_id}_{period_days}_{price_toman}"
             )
         ],
         [
@@ -4631,7 +4631,7 @@ async def admin_buy_subscription_execute(
     parts = callback.data.split('_')
     user_id = int(parts[4])
     period_days = int(parts[5])
-    price_kopeks_from_callback = int(parts[6]) if len(parts) > 6 else None
+    price_toman_from_callback = int(parts[6]) if len(parts) > 6 else None
     
     user_service = UserService()
     profile = await user_service.get_user_profile(db, user_id)
@@ -4651,7 +4651,7 @@ async def admin_buy_subscription_execute(
     subscription_service = SubscriptionService()
 
     try:
-        price_kopeks = await _calculate_subscription_period_price(
+        price_toman = await _calculate_subscription_period_price(
             db,
             target_user,
             subscription,
@@ -4667,22 +4667,22 @@ async def admin_buy_subscription_execute(
         await callback.answer(texts.t("ADMIN_SUB_CALCULATION_ERROR", "❌ Failed to calculate subscription price"), show_alert=True)
         return
 
-    if price_kopeks_from_callback is not None and price_kopeks_from_callback != price_kopeks:
+    if price_toman_from_callback is not None and price_toman_from_callback != price_toman:
         logger.info(
             "Subscription price for user %s changed from %s to %s before charging",
             target_user.telegram_id,
-            price_kopeks_from_callback,
-            price_kopeks,
+            price_toman_from_callback,
+            price_toman,
         )
 
-    if target_user.balance_kopeks < price_kopeks:
+    if target_user.balance_toman < price_toman:
         await callback.answer(texts.t("ADMIN_SUB_INSUFFICIENT_FUNDS_SHORT", "❌ Not enough user balance"), show_alert=True)
         return
     
     try:
         from app.database.crud.user import subtract_user_balance
         success = await subtract_user_balance(
-            db, target_user, price_kopeks,
+            db, target_user, price_toman,
             texts.t("ADMIN_SUB_PURCHASE_DESC", "Subscription purchase for {days} days (admin)").format(days=period_days)
         )
         
@@ -4734,7 +4734,7 @@ async def admin_buy_subscription_execute(
                 db=db,
                 user_id=target_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
                 description=texts.t("ADMIN_SUB_RENEW_DESC", "Subscription renewal for {days} days (admin)").format(days=period_days)
             )
             
@@ -4811,7 +4811,7 @@ async def admin_buy_subscription_execute(
         await callback.message.edit_text(
             f"{message}\n\n"
             f"👤 {target_user_link} (ID: {target_user.telegram_id})\n"
-            f"💰 {texts.t('ADMIN_SUB_DEBITED', 'Debited')}: {settings.format_price(price_kopeks)}\n"
+            f"💰 {texts.t('ADMIN_SUB_DEBITED', 'Debited')}: {settings.format_price(price_toman)}\n"
             f"📅 {texts.t('ADMIN_SUB_VALID_UNTIL', 'Valid until')}: {format_datetime(subscription.end_date)}",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(
@@ -4834,7 +4834,7 @@ async def admin_buy_subscription_execute(
                         "📅 Valid until: {valid_until}"
                     ).format(
                         days=period_days,
-                        debited=settings.format_price(price_kopeks),
+                        debited=settings.format_price(price_toman),
                         valid_until=format_datetime(subscription.end_date),
                     ),
                     parse_mode="HTML"

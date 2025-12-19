@@ -880,7 +880,7 @@ async def add_subscription_servers(
         from app.database.models import ServerSquad
         for server_id in server_squad_ids:
             result = await db.execute(
-                select(ServerSquad.price_kopeks)
+                select(ServerSquad.price_toman)
                 .where(ServerSquad.id == server_id)
             )
             server_price_per_month = result.scalar() or 0
@@ -891,7 +891,7 @@ async def add_subscription_servers(
         subscription_server = SubscriptionServer(
             subscription_id=subscription.id,  
             server_squad_id=server_id,
-            paid_price_kopeks=paid_prices[i] if i < len(paid_prices) else 0
+            paid_price_toman=paid_prices[i] if i < len(paid_prices) else 0
         )
         db.add(subscription_server)
     
@@ -908,7 +908,7 @@ async def get_server_monthly_price(
     from app.database.models import ServerSquad
     
     result = await db.execute(
-        select(ServerSquad.price_kopeks)
+        select(ServerSquad.price_toman)
         .where(ServerSquad.id == server_squad_id)
     )
     return result.scalar() or 0
@@ -1034,35 +1034,35 @@ async def calculate_subscription_total_cost(
     }
 
     logger.debug(f"📊 Subscription cost calculation for {period_days} days ({months_in_period} months):")
-    logger.debug(f"   Base period: {base_price/100} Toman")
+    logger.debug(f"   Base period: {base_price} Toman")
     if total_traffic_price > 0:
         message = (
-            f"   Traffic: {traffic_price_per_month/100} Toman/month × {months_in_period} = {total_traffic_price/100} Toman"
+            f"   Traffic: {traffic_price_per_month} Toman/month × {months_in_period} = {total_traffic_price} Toman"
         )
         if total_traffic_discount > 0:
             message += (
-                f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100} Toman)"
+                f" (discount {traffic_discount_percent}%: -{total_traffic_discount} Toman)"
             )
         logger.debug(message)
     if total_servers_price > 0:
         message = (
-            f"   Servers: {servers_price_per_month/100} Toman/month × {months_in_period} = {total_servers_price/100} Toman"
+            f"   Servers: {servers_price_per_month} Toman/month × {months_in_period} = {total_servers_price} Toman"
         )
         if total_servers_discount > 0:
             message += (
-                f" (discount {servers_discount_percent}%: -{total_servers_discount/100} Toman)"
+                f" (discount {servers_discount_percent}%: -{total_servers_discount} Toman)"
             )
         logger.debug(message)
     if total_devices_price > 0:
         message = (
-            f"   Devices: {devices_price_per_month/100} Toman/month × {months_in_period} = {total_devices_price/100} Toman"
+            f"   Devices: {devices_price_per_month} Toman/month × {months_in_period} = {total_devices_price} Toman"
         )
         if total_devices_discount > 0:
             message += (
-                f" (discount {devices_discount_percent}%: -{total_devices_discount/100} Toman)"
+                f" (discount {devices_discount_percent}%: -{total_devices_discount} Toman)"
             )
         logger.debug(message)
-    logger.debug(f"   TOTAL: {total_cost/100} Toman")
+    logger.debug(f"   TOTAL: {total_cost} Toman")
     
     return total_cost, details
     
@@ -1098,7 +1098,7 @@ async def get_subscription_servers(
             'squad_uuid': server_squad.squad_uuid,
             'display_name': server_squad.display_name,
             'country_code': server_squad.country_code,
-            'paid_price_kopeks': sub_server.paid_price_kopeks,
+            'paid_price_toman': sub_server.paid_price_toman,
             'connected_at': sub_server.connected_at,
             'is_available': server_squad.is_available
         })
@@ -1167,7 +1167,7 @@ async def get_subscription_renewal_cost(
         for server_info in servers_info:
             from app.database.models import ServerSquad
             result = await db.execute(
-                select(ServerSquad.price_kopeks)
+                select(ServerSquad.price_toman)
                 .where(ServerSquad.id == server_info['server_id'])
             )
             current_server_price = result.scalar() or 0
@@ -1212,35 +1212,35 @@ async def get_subscription_renewal_cost(
         total_cost = base_price + total_servers_cost + total_traffic_cost + total_devices_cost
 
         logger.info(f"💰 Subscription renewal cost calculation {subscription_id} for {period_days} days ({months_in_period} months):")
-        logger.info(f"   📅 Period: {base_price/100} Toman")
+        logger.info(f"   📅 Period: {base_price} Toman")
         if total_servers_cost > 0:
             message = (
-                f"   🌍 Servers: {servers_price_per_month/100} Toman/month × {months_in_period} = {total_servers_cost/100} Toman"
+                f"   🌍 Servers: {servers_price_per_month} Toman/month × {months_in_period} = {total_servers_cost} Toman"
             )
             if total_servers_discount > 0:
                 message += (
-                    f" (discount {servers_discount_percent}%: -{total_servers_discount/100} Toman)"
+                    f" (discount {servers_discount_percent}%: -{total_servers_discount} Toman)"
                 )
             logger.info(message)
         if total_traffic_cost > 0:
             message = (
-                f"   📊 Traffic: {traffic_price_per_month/100} Toman/month × {months_in_period} = {total_traffic_cost/100} Toman"
+                f"   📊 Traffic: {traffic_price_per_month} Toman/month × {months_in_period} = {total_traffic_cost} Toman"
             )
             if total_traffic_discount > 0:
                 message += (
-                    f" (discount {traffic_discount_percent}%: -{total_traffic_discount/100} Toman)"
+                    f" (discount {traffic_discount_percent}%: -{total_traffic_discount} Toman)"
                 )
             logger.info(message)
         if total_devices_cost > 0:
             message = (
-                f"   📱 Devices: {devices_price_per_month/100} Toman/month × {months_in_period} = {total_devices_cost/100} Toman"
+                f"   📱 Devices: {devices_price_per_month} Toman/month × {months_in_period} = {total_devices_cost} Toman"
             )
             if total_devices_discount > 0:
                 message += (
-                    f" (discount {devices_discount_percent}%: -{total_devices_discount/100} Toman)"
+                    f" (discount {devices_discount_percent}%: -{total_devices_discount} Toman)"
                 )
             logger.info(message)
-        logger.info(f"   💎 TOTAL: {total_cost/100} Toman")
+        logger.info(f"   💎 TOTAL: {total_cost} Toman")
         
         return total_cost
         
@@ -1284,11 +1284,11 @@ async def calculate_addon_cost_for_remaining_period(
         traffic_total_cost = discounted_traffic_per_month * months_to_pay
         total_cost += traffic_total_cost
         message = (
-            f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month/100} Toman/month × {months_to_pay} = {traffic_total_cost/100} Toman"
+            f"Traffic +{additional_traffic_gb}GB: {traffic_price_per_month} Toman/month × {months_to_pay} = {traffic_total_cost} Toman"
         )
         if traffic_discount_per_month > 0:
             message += (
-                f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_to_pay/100} Toman)"
+                f" (discount {traffic_discount_percent}%: -{traffic_discount_per_month * months_to_pay} Toman)"
             )
         logger.info(message)
 
@@ -1305,11 +1305,11 @@ async def calculate_addon_cost_for_remaining_period(
         devices_total_cost = discounted_devices_per_month * months_to_pay
         total_cost += devices_total_cost
         message = (
-            f"Devices +{additional_devices}: {devices_price_per_month/100} Toman/month × {months_to_pay} = {devices_total_cost/100} Toman"
+            f"Devices +{additional_devices}: {devices_price_per_month} Toman/month × {months_to_pay} = {devices_total_cost} Toman"
         )
         if devices_discount_per_month > 0:
             message += (
-                f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_to_pay/100} Toman)"
+                f" (discount {devices_discount_percent}%: -{devices_discount_per_month * months_to_pay} Toman)"
             )
         logger.info(message)
 
@@ -1317,7 +1317,7 @@ async def calculate_addon_cost_for_remaining_period(
         from app.database.models import ServerSquad
         for server_id in additional_server_ids:
             result = await db.execute(
-                select(ServerSquad.price_kopeks, ServerSquad.display_name)
+                select(ServerSquad.price_toman, ServerSquad.display_name)
                 .where(ServerSquad.id == server_id)
             )
             server_data = result.first()
@@ -1334,15 +1334,15 @@ async def calculate_addon_cost_for_remaining_period(
                 server_total_cost = discounted_server_per_month * months_to_pay
                 total_cost += server_total_cost
                 message = (
-                    f"Server {server_name}: {server_price_per_month/100} Toman/month × {months_to_pay} = {server_total_cost/100} Toman"
+                    f"Server {server_name}: {server_price_per_month} Toman/month × {months_to_pay} = {server_total_cost} Toman"
                 )
                 if server_discount_per_month > 0:
                     message += (
-                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_to_pay/100} Toman)"
+                        f" (discount {servers_discount_percent}%: -{server_discount_per_month * months_to_pay} Toman)"
                     )
                 logger.info(message)
     
-    logger.info(f"💰 Total addon cost for {months_to_pay} months: {total_cost/100} Toman")
+    logger.info(f"💰 Total addon cost for {months_to_pay} months: {total_cost} Toman")
     return total_cost
 
 async def expire_subscription(
@@ -1514,7 +1514,7 @@ async def create_pending_subscription(
     device_limit: int = 1,
     connected_squads: List[str] = None,
     payment_method: str = "pending",
-    total_price_kopeks: int = 0
+    total_price_toman: int = 0
 ) -> Subscription:
     """Creates a pending subscription that will be activated after payment."""
     

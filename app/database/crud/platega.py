@@ -18,7 +18,7 @@ async def create_platega_payment(
     db: AsyncSession,
     *,
     user_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     currency: str,
     description: Optional[str],
     status: str,
@@ -34,7 +34,7 @@ async def create_platega_payment(
 ) -> PlategaPayment:
     payment = PlategaPayment(
         user_id=user_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -54,10 +54,10 @@ async def create_platega_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Platega payment created #%s (tx=%s) for amount %s kopeks for user %s",
+        "Platega payment created #%s (tx=%s) for amount %s toman for user %s",
         payment.id,
         platega_transaction_id,
-        amount_kopeks,
+        amount_toman,
         user_id,
     )
 

@@ -124,14 +124,14 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
         paid_referrals_count = sum(1 for ref in referrals if ref.has_made_first_topup)
         
         total_earnings_result = await db.execute(
-            select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
             .where(ReferralEarning.user_id == user_id)
         )
-        total_earned_kopeks = total_earnings_result.scalar() or 0
+        total_earned_toman = total_earnings_result.scalar() or 0
         
         month_ago = datetime.utcnow() - timedelta(days=30)
         month_earnings_result = await db.execute(
-            select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
             .where(
                 and_(
                     ReferralEarning.user_id == user_id,
@@ -139,7 +139,7 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
                 )
             )
         )
-        month_earned_kopeks = month_earnings_result.scalar() or 0
+        month_earned_toman = month_earnings_result.scalar() or 0
         
         recent_earnings_result = await db.execute(
             select(ReferralEarning)
@@ -154,7 +154,7 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
         for earning in recent_earnings_raw:
             if earning.referral:
                 recent_earnings.append({
-                    'amount_kopeks': earning.amount_kopeks,
+                    'amount_toman': earning.amount_toman,
                     'reason': earning.reason,
                     'referral_name': earning.referral.full_name,
                     'created_at': earning.created_at
@@ -165,7 +165,7 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
             select(
                 ReferralEarning.reason,
                 func.count(ReferralEarning.id).label('count'),
-                func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0).label('total_amount')
+                func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label('total_amount')
             )
             .where(ReferralEarning.user_id == user_id)
             .group_by(ReferralEarning.reason)
@@ -174,7 +174,7 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
         for row in earnings_by_type_result:
             earnings_by_type[row.reason] = {
                 'count': row.count,
-                'total_amount_kopeks': row.total_amount
+                'total_amount_toman': row.total_amount
             }
         
         active_referrals_count = 0
@@ -186,8 +186,8 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
             'invited_count': invited_count,
             'paid_referrals_count': paid_referrals_count,
             'active_referrals_count': active_referrals_count,
-            'total_earned_kopeks': total_earned_kopeks,
-            'month_earned_kopeks': month_earned_kopeks,
+            'total_earned_toman': total_earned_toman,
+            'month_earned_toman': month_earned_toman,
             'recent_earnings': recent_earnings,
             'earnings_by_type': earnings_by_type,
             'conversion_rate': round((paid_referrals_count / invited_count * 100) if invited_count > 0 else 0, 1)
@@ -199,8 +199,8 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
             'invited_count': 0,
             'paid_referrals_count': 0,
             'active_referrals_count': 0,
-            'total_earned_kopeks': 0,
-            'month_earned_kopeks': 0,
+            'total_earned_toman': 0,
+            'month_earned_toman': 0,
             'recent_earnings': [],
             'earnings_by_type': {},
             'conversion_rate': 0.0
@@ -225,7 +225,7 @@ async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int 
         detailed_referrals = []
         for referral in referrals:
             earnings_result = await db.execute(
-                select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+                select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
                 .where(
                     and_(
                         ReferralEarning.user_id == user_id,
@@ -261,8 +261,8 @@ async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int 
                 'created_at': referral.created_at,
                 'last_activity': referral.last_activity,
                 'has_made_first_topup': referral.has_made_first_topup,
-                'balance_kopeks': referral.balance_kopeks,
-                'total_earned_kopeks': total_earned_from_referral,
+                'balance_toman': referral.balance_toman,
+                'total_earned_toman': total_earned_from_referral,
                 'topups_count': topups_count,
                 'days_since_registration': days_since_registration,
                 'days_since_activity': days_since_activity,
@@ -302,7 +302,7 @@ async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = N
         
         earnings_by_period = {}
         for period_name, start_date in periods.items():
-            query = select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0)).where(
+            query = select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(
                 and_(
                     ReferralEarning.user_id == user_id,
                     ReferralEarning.created_at >= start_date
@@ -316,12 +316,12 @@ async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = N
         
         top_referrals_query = select(
             ReferralEarning.referral_id,
-            func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0).label('total_earned'),
+            func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label('total_earned'),
             func.count(ReferralEarning.id).label('earnings_count')
         ).where(ReferralEarning.user_id == user_id)
         if bot_id is not None:
             top_referrals_query = top_referrals_query.join(User, ReferralEarning.referral_id == User.id).where(User.bot_id == bot_id)
-        top_referrals_query = top_referrals_query.group_by(ReferralEarning.referral_id).order_by(func.sum(ReferralEarning.amount_kopeks).desc()).limit(5)
+        top_referrals_query = top_referrals_query.group_by(ReferralEarning.referral_id).order_by(func.sum(ReferralEarning.amount_toman).desc()).limit(5)
         top_referrals_result = await db.execute(top_referrals_query)
         
         top_referrals = []
@@ -334,7 +334,7 @@ async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = N
             if referral:
                 top_referrals.append({
                     'referral_name': referral.full_name,
-                    'total_earned_kopeks': row.total_earned,
+                    'total_earned_toman': row.total_earned,
                     'earnings_count': row.earnings_count
                 })
         

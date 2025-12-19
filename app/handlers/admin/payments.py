@@ -285,7 +285,7 @@ def _build_record_lines(
     texts,
     language: str,
 ) -> list[str]:
-    amount = settings.format_price(record.amount_kopeks)
+    amount = settings.format_price(record.amount_toman)
     if record.method == PaymentMethod.CRYPTOBOT:
         crypto_amount = getattr(record.payment, "amount", None)
         crypto_asset = getattr(record.payment, "asset", None)
@@ -318,7 +318,7 @@ def _build_record_lines(
 def _build_payment_details_text(record: PendingPayment, *, texts, language: str) -> str:
     method_name = _method_display(record.method)
     emoji, status_text = _status_info(record, texts=texts)
-    amount = settings.format_price(record.amount_kopeks)
+    amount = settings.format_price(record.amount_toman)
     if record.method == PaymentMethod.CRYPTOBOT:
         crypto_amount = getattr(record.payment, "amount", None)
         crypto_asset = getattr(record.payment, "asset", None)

@@ -83,10 +83,10 @@ User مصرف ترافیک → کسر از کیف پول Tenant
 ALTER TABLE bots ADD COLUMN IF NOT EXISTS billing_model VARCHAR(20) DEFAULT 'traffic_consumption';
 -- Values: 'subscription_sale', 'traffic_consumption', 'hybrid'
 
-ALTER TABLE bots ADD COLUMN IF NOT EXISTS traffic_rate_kopeks INTEGER DEFAULT 10000;
+ALTER TABLE bots ADD COLUMN IF NOT EXISTS traffic_rate_toman INTEGER DEFAULT 10000;
 -- نرخ هر GB به کوپک (10000 = 100 تومان)
 
-ALTER TABLE bots ADD COLUMN IF NOT EXISTS min_wallet_balance_kopeks BIGINT DEFAULT 0;
+ALTER TABLE bots ADD COLUMN IF NOT EXISTS min_wallet_balance_toman BIGINT DEFAULT 0;
 -- حداقل موجودی برای فعال ماندن
 
 ALTER TABLE bots ADD COLUMN IF NOT EXISTS auto_suspend_on_low_balance BOOLEAN DEFAULT true;
@@ -106,8 +106,8 @@ CREATE TABLE tenant_wallet_transactions (
     --         'refund', 'adjustment', 'bonus'
     
     -- مقادیر
-    amount_kopeks BIGINT NOT NULL,  -- مثبت یا منفی
-    balance_before_kopeks BIGINT NOT NULL,
+    amount_toman BIGINT NOT NULL,  -- مثبت یا منفی
+    balance_before_toman BIGINT NOT NULL,
     balance_after_kopeks BIGINT NOT NULL,
     
     -- اطلاعات مرتبط
@@ -177,10 +177,10 @@ Admin Master → Tenant Management → Select Tenant → Add Balance
     ▼
 [Create tenant_wallet_transaction]
     transaction_type = 'topup'
-    amount_kopeks = +X
+    amount_toman = +X
     │
     ▼
-[Update bot.wallet_balance_kopeks]
+[Update bot.wallet_balance_toman]
     │
     ▼
 [Notify Tenant Admin] (optional)
@@ -194,22 +194,22 @@ User خرید اشتراک در Tenant Bot
     ▼
 [Calculate Cost]
     traffic_gb = plan.traffic_limit_gb
-    cost = traffic_gb × bot.traffic_rate_kopeks
+    cost = traffic_gb × bot.traffic_rate_toman
     │
     ▼
 [Check Wallet Balance]
-    if bot.wallet_balance_kopeks < cost:
+    if bot.wallet_balance_toman < cost:
         → Error: "موجودی کیف پول Tenant کافی نیست"
     │
     ▼
 [Create tenant_wallet_transaction]
     transaction_type = 'subscription_sale_deduction'
-    amount_kopeks = -cost
+    amount_toman = -cost
     reference_type = 'subscription'
     reference_id = new_subscription.id
     │
     ▼
-[Update bot.wallet_balance_kopeks]
+[Update bot.wallet_balance_toman]
     │
     ▼
 [Update bot.traffic_sold_bytes]
@@ -237,7 +237,7 @@ User خرید اشتراک در Tenant Bot
     │
     ▼
 [Calculate Cost]
-    cost = (new_usage_bytes / 1024³) × bot.traffic_rate_kopeks
+    cost = (new_usage_bytes / 1024³) × bot.traffic_rate_toman
     │
     ▼
 [Create tenant_wallet_transaction]
@@ -248,7 +248,7 @@ User خرید اشتراک در Tenant Bot
     billed = true
     │
     ▼
-[Update bot.wallet_balance_kopeks]
+[Update bot.wallet_balance_toman]
     │
     ▼
 [Update bot.traffic_consumed_bytes]
@@ -269,7 +269,7 @@ User خرید اشتراک در Tenant Bot
 ```python
 # Master Bot Configurations (در bot_configurations)
 BILLING_CONFIGS = {
-    "default_traffic_rate_kopeks": 10000,      # نرخ پیش‌فرض هر GB
+    "default_traffic_rate_toman": 10000,      # نرخ پیش‌فرض هر GB
     "min_wallet_for_new_tenant": 100000,       # حداقل شارژ اولیه
     "low_balance_warning_threshold": 50000,    # آستانه هشدار کم بودن موجودی
     "billing_cycle_hours": 24,                 # دوره بیلینگ (ساعت)

@@ -38,16 +38,16 @@ class UserService:
         self,
         bot: Bot,
         user: User,
-        amount_kopeks: int,
+        amount_toman: int,
         admin_name: str
     ) -> bool:
         """Sends notification to user about balance top-up/deduction"""
         try:
             texts = get_texts(user.language)
-            if amount_kopeks > 0:
+            if amount_toman > 0:
                 # Top-up
                 emoji = "💰"
-                amount_text = f"+{settings.format_price(amount_kopeks)}"
+                amount_text = f"+{settings.format_price(amount_toman)}"
                 message = texts.t(
                     "service.notifications.user.balance_topup",
                     (
@@ -61,12 +61,12 @@ class UserService:
                     emoji=emoji,
                     amount=amount_text,
                     admin_name=admin_name,
-                    balance=settings.format_price(user.balance_kopeks)
+                    balance=settings.format_price(user.balance_toman)
                 )
             else:
                 # Deduction
                 emoji = "💸"
-                amount_text = f"-{settings.format_price(abs(amount_kopeks))}"
+                amount_text = f"-{settings.format_price(abs(amount_toman))}"
                 message = texts.t(
                     "service.notifications.user.balance_deduction",
                     (
@@ -80,7 +80,7 @@ class UserService:
                     emoji=emoji,
                     amount=amount_text,
                     admin_name=admin_name,
-                    balance=settings.format_price(user.balance_kopeks)
+                    balance=settings.format_price(user.balance_toman)
                 )
 
             keyboard_rows = []
@@ -237,7 +237,7 @@ class UserService:
     async def get_users_ready_to_renew(
         self,
         db: AsyncSession,
-        min_balance_kopeks: int,
+        min_balance_toman: int,
         page: int = 1,
         limit: int = 20,
     ) -> Dict[str, Any]:
@@ -247,7 +247,7 @@ class UserService:
             now = datetime.utcnow()
 
             base_filters = [
-                User.balance_kopeks >= min_balance_kopeks,
+                User.balance_toman >= min_balance_toman,
                 Subscription.end_date.isnot(None),
                 Subscription.end_date <= now,
             ]
@@ -257,7 +257,7 @@ class UserService:
                 .options(selectinload(User.subscription))
                 .join(Subscription, Subscription.user_id == User.id)
                 .where(*base_filters)
-                .order_by(User.balance_kopeks.desc(), Subscription.end_date.asc())
+                .order_by(User.balance_toman.desc(), Subscription.end_date.asc())
                 .offset(offset)
                 .limit(limit)
             )
@@ -395,7 +395,7 @@ class UserService:
         self,
         db: AsyncSession,
         user_id: int,
-        amount_kopeks: int,
+        amount_toman: int,
         description: str,
         admin_id: int,
         bot: Optional[Bot] = None,
@@ -407,23 +407,23 @@ class UserService:
                 return False
 
             # Save old balance for notification
-            old_balance = user.balance_kopeks
+            old_balance = user.balance_toman
 
-            if amount_kopeks > 0:
-                await add_user_balance(db, user, amount_kopeks, description=description)
-                logger.info(f"Admin {admin_id} topped up balance for user {user_id} by {amount_kopeks/100} Toman")
+            if amount_toman > 0:
+                await add_user_balance(db, user, amount_toman, description=description)
+                logger.info(f"Admin {admin_id} topped up balance for user {user_id} by {amount_toman} Toman")
                 success = True
             else:
                 success = await subtract_user_balance(
                     db,
                     user,
-                    abs(amount_kopeks),
+                    abs(amount_toman),
                     description,
                     create_transaction=True,
                     payment_method=PaymentMethod.MANUAL,
                 )
                 if success:
-                    logger.info(f"Admin {admin_id} deducted {abs(amount_kopeks)/100} Toman from user {user_id} balance")
+                    logger.info(f"Admin {admin_id} deducted {abs(amount_toman)} Toman from user {user_id} balance")
 
             # Send notification to user if operation succeeded
             if success and bot:
@@ -436,7 +436,7 @@ class UserService:
                     admin_name = admin_user.full_name if admin_user else f"Admin #{admin_id}"
 
                 # Send notification (don't block operation if sending fails)
-                await self._send_balance_notification(bot, user, amount_kopeks, admin_name)
+                await self._send_balance_notification(bot, user, amount_toman, admin_name)
 
             return success
 
@@ -1093,7 +1093,7 @@ class UserService:
                 "full_name": user.full_name,
                 "status": user.status,
                 "language": user.language,
-                "balance_kopeks": user.balance_kopeks,
+                "balance_toman": user.balance_toman,
                 "registration_date": user.created_at,
                 "last_activity": user.last_activity,
                 "days_since_registration": days_since_registration,
@@ -1130,9 +1130,9 @@ class UserService:
             
             filtered_users = []
             for user in users:
-                if user.balance_kopeks < min_balance:
+                if user.balance_toman < min_balance:
                     continue
-                if max_balance and user.balance_kopeks > max_balance:
+                if max_balance and user.balance_toman > max_balance:
                     continue
                 
                 if registered_after and user.created_at < registered_after:

@@ -14,7 +14,7 @@ from app.database.crud.promo_group import (
     get_auto_assign_promo_groups,
     has_auto_assign_promo_groups,
 )
-from app.database.crud.transaction import get_user_total_spent_kopeks
+from app.database.crud.transaction import get_user_total_spent_toman
 from app.keyboards.inline import (
     get_main_menu_keyboard,
     get_language_selection_keyboard,
@@ -44,15 +44,15 @@ from app.utils.pricing_utils import format_period_description
 logger = logging.getLogger(__name__)
 
 
-def _format_rubles(amount_kopeks: int) -> str:
-    rubles = Decimal(amount_kopeks) / Decimal(100)
+def _format_rubles(amount_toman: int) -> str:
+    rubles = Decimal(amount_toman) / Decimal(100)
 
     if rubles == rubles.to_integral_value():
         formatted = f"{rubles:,.0f}"
     else:
         formatted = f"{rubles:,.2f}"
 
-    return f"{formatted.replace(',', ' ')}  Toman"
+    return f"{formatted.replace(',', ' ')} Toman"
 
 
 def _collect_period_discounts(group: PromoGroup) -> Dict[int, int]:
@@ -202,7 +202,7 @@ async def show_main_menu(
             has_had_paid_subscription=db_user.has_had_paid_subscription,
             has_active_subscription=has_active_subscription,
             subscription_is_active=subscription_is_active,
-            balance_kopeks=db_user.balance_kopeks,
+            balance_toman=db_user.balance_toman,
             subscription=db_user.subscription,
             show_resume_checkout=show_resume_checkout,
             has_saved_cart=has_saved_cart,  # Add parameter for displaying saved cart notification
@@ -334,19 +334,19 @@ async def show_promo_groups_info(
         await callback.answer()
         return
 
-    total_spent_kopeks = await get_user_total_spent_kopeks(db, db_user.id)
-    total_spent_text = _format_rubles(total_spent_kopeks)
+    total_spent_toman = await get_user_total_spent_toman(db, db_user.id)
+    total_spent_text = _format_rubles(total_spent_toman)
 
     sorted_groups = sorted(
         promo_groups,
-        key=lambda group: (group.auto_assign_total_spent_kopeks or 0, group.id),
+        key=lambda group: (group.auto_assign_total_spent_toman or 0, group.id),
     )
 
     achieved_groups: List[PromoGroup] = [
         group
         for group in sorted_groups
-        if (group.auto_assign_total_spent_kopeks or 0) > 0
-        and total_spent_kopeks >= (group.auto_assign_total_spent_kopeks or 0)
+        if (group.auto_assign_total_spent_toman or 0) > 0
+        and total_spent_toman >= (group.auto_assign_total_spent_toman or 0)
     ]
 
     current_group = next(
@@ -361,7 +361,7 @@ async def show_promo_groups_info(
         (
             group
             for group in sorted_groups
-            if (group.auto_assign_total_spent_kopeks or 0) > total_spent_kopeks
+            if (group.auto_assign_total_spent_toman or 0) > total_spent_toman
         ),
         None,
     )
@@ -382,11 +382,11 @@ async def show_promo_groups_info(
         )
 
     if next_group:
-        remaining_kopeks = (next_group.auto_assign_total_spent_kopeks or 0) - total_spent_kopeks
+        remaining_toman = (next_group.auto_assign_total_spent_toman or 0) - total_spent_toman
         lines.append(
             texts.t("PROMO_GROUPS_INFO_NEXT_LEVEL").format(
                 name=html.escape(next_group.name),
-                amount=_format_rubles(max(remaining_kopeks, 0)),
+                amount=_format_rubles(max(remaining_toman, 0)),
             )
         )
     else:
@@ -397,8 +397,8 @@ async def show_promo_groups_info(
     lines.extend(["", texts.t("PROMO_GROUPS_INFO_LEVELS_HEADER")])
 
     for group in sorted_groups:
-        threshold = group.auto_assign_total_spent_kopeks or 0
-        status_icon = "✅" if total_spent_kopeks >= threshold else "🔒"
+        threshold = group.auto_assign_total_spent_toman or 0
+        status_icon = "✅" if total_spent_toman >= threshold else "🔒"
         lines.append(
             texts.t("PROMO_GROUPS_INFO_LEVEL_LINE").format(
                 status=status_icon,
@@ -974,7 +974,7 @@ async def handle_back_to_menu(
             has_had_paid_subscription=db_user.has_had_paid_subscription,
             has_active_subscription=has_active_subscription,
             subscription_is_active=subscription_is_active,
-            balance_kopeks=db_user.balance_kopeks,
+            balance_toman=db_user.balance_toman,
             subscription=db_user.subscription,
             show_resume_checkout=show_resume_checkout,
             has_saved_cart=has_saved_cart,  # Add parameter for displaying saved cart notification

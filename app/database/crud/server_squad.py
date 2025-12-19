@@ -42,7 +42,7 @@ async def create_server_squad(
     display_name: str,
     original_name: str = None,
     country_code: str = None,
-    price_kopeks: int = 0,
+    price_toman: int = 0,
     description: str = None,
     max_users: int = None,
     is_available: bool = True,
@@ -76,7 +76,7 @@ async def create_server_squad(
         display_name=display_name,
         original_name=original_name,
         country_code=country_code,
-        price_kopeks=price_kopeks,
+        price_toman=price_toman,
         description=description,
         max_users=max_users,
         is_available=is_available,
@@ -265,7 +265,7 @@ async def update_server_squad(
         "display_name",
         "original_name",
         "country_code",
-        "price_kopeks",
+        "price_toman",
         "description",
         "max_users",
         "is_available",
@@ -342,7 +342,7 @@ async def sync_with_remnawave(
                 display_name=_generate_display_name(original_name),
                 original_name=original_name,
                 country_code=_extract_country_code(original_name),
-                price_kopeks=1000, 
+                price_toman=1000, 
                 is_available=False 
             )
             created += 1
@@ -591,17 +591,16 @@ async def get_server_statistics(db: AsyncSession) -> dict:
             servers_with_connections += 1
     
     revenue_result = await db.execute(
-        select(func.coalesce(func.sum(SubscriptionServer.paid_price_kopeks), 0))
+        select(func.coalesce(func.sum(SubscriptionServer.paid_price_toman), 0))
     )
-    total_revenue_kopeks = revenue_result.scalar()
+    total_revenue_toman = revenue_result.scalar()
     
     return {
         'total_servers': total_servers,
         'available_servers': available_servers,
         'unavailable_servers': total_servers - available_servers,
         'servers_with_connections': servers_with_connections,
-        'total_revenue_kopeks': total_revenue_kopeks,
-        'total_revenue_rubles': total_revenue_kopeks / 100
+        'total_revenue_toman': total_revenue_toman
     }
 
 

@@ -17,7 +17,7 @@ async def create_wata_payment(
     *,
     user_id: int,
     payment_link_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     currency: str,
     description: Optional[str],
     status: str,
@@ -34,7 +34,7 @@ async def create_wata_payment(
         user_id=user_id,
         payment_link_id=payment_link_id,
         order_id=order_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -52,10 +52,10 @@ async def create_wata_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Wata payment created #%s for user %s: %s kopeks (status %s)",
+        "Wata payment created #%s for user %s: %s toman (status %s)",
         payment.id,
         user_id,
-        amount_kopeks,
+        amount_toman,
         status,
     )
 

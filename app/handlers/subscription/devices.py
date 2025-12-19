@@ -300,8 +300,8 @@ async def confirm_change_devices(
         )
         total_discount = discount_per_month * charged_months
 
-        if price > 0 and db_user.balance_kopeks < price:
-            missing_kopeks = price - db_user.balance_kopeks
+        if price > 0 and db_user.balance_toman < price:
+            missing_toman = price - db_user.balance_toman
             required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
                 amount=texts.format_price(price),
                 months=charged_months
@@ -317,15 +317,15 @@ async def confirm_change_devices(
                 ),
             ).format(
                 required=required_text,
-                balance=texts.format_price(db_user.balance_kopeks),
-                missing=texts.format_price(missing_kopeks),
+                balance=texts.format_price(db_user.balance_toman),
+                missing=texts.format_price(missing_toman),
             )
 
             await callback.message.answer(
                 message_text,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_kopeks,
+                    amount_toman=missing_toman,
                 ),
                 parse_mode="HTML",
             )
@@ -430,7 +430,7 @@ async def execute_change_devices(
                 db=db,
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=price,
+                amount_toman=price,
                 description=texts.t("subscription.devices.change_transaction_desc_full", "Changing devices from {old} to {new} for {months} months").format(
                     old=current_devices,
                     new=new_devices_count,
@@ -945,8 +945,8 @@ async def confirm_add_devices(
         total_discount / 100,
     )
 
-    if db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if db_user.balance_toman < price:
+        missing_toman = price - db_user.balance_toman
         required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
             amount=texts.format_price(price),
             months=charged_months
@@ -962,8 +962,8 @@ async def confirm_add_devices(
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         await callback.message.edit_text(
@@ -971,7 +971,7 @@ async def confirm_add_devices(
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
             ),
             parse_mode="HTML",
         )
@@ -1003,7 +1003,7 @@ async def confirm_add_devices(
             db=db,
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=price,
+            amount_toman=price,
             description=texts.t("subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months").format(
                 count=devices_count,
                 months=charged_months

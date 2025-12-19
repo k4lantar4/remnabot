@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database.crud.transaction import get_user_total_spent_kopeks
+from app.database.crud.transaction import get_user_total_spent_toman
 from app.database.models import PromoGroup, User
 from app.services.admin_notification_service import AdminNotificationService
 
@@ -20,7 +20,7 @@ async def _notify_admins_about_auto_assignment(
     user: User,
     old_group: Optional[PromoGroup],
     new_group: PromoGroup,
-    total_spent_kopeks: int,
+    total_spent_toman: int,
 ):
     if not getattr(settings, "ADMIN_NOTIFICATIONS_ENABLED", False):
         return
@@ -34,9 +34,9 @@ async def _notify_admins_about_auto_assignment(
     try:
         notification_service = AdminNotificationService(bot)
         reason = (
-            f"Auto-assignment for spending {settings.format_price(total_spent_kopeks)}"
+            f"Auto-assignment for spending {settings.format_price(total_spent_toman)}"
             if hasattr(settings, "format_price")
-            else f"Auto-assignment for spending {total_spent_kopeks / 100:.2f} Toman"
+            else f"Auto-assignment for spending {total_spent_toman :.2f} Toman"
         )
         await notification_service.send_user_promo_group_change_notification(
             db,
@@ -62,26 +62,26 @@ async def _notify_admins_about_auto_assignment(
 
 async def _get_best_group_for_spending(
     db: AsyncSession,
-    total_spent_kopeks: int,
-    min_threshold_kopeks: int = 0,
+    total_spent_toman: int,
+    min_threshold_toman: int = 0,
 ) -> Optional[PromoGroup]:
-    if total_spent_kopeks <= 0:
+    if total_spent_toman <= 0:
         return None
 
     result = await db.execute(
         select(PromoGroup)
-        .where(PromoGroup.auto_assign_total_spent_kopeks.is_not(None))
-        .where(PromoGroup.auto_assign_total_spent_kopeks > 0)
-        .order_by(PromoGroup.auto_assign_total_spent_kopeks.desc(), PromoGroup.id.desc())
+        .where(PromoGroup.auto_assign_total_spent_toman.is_not(None))
+        .where(PromoGroup.auto_assign_total_spent_toman > 0)
+        .order_by(PromoGroup.auto_assign_total_spent_toman.desc(), PromoGroup.id.desc())
     )
     groups = result.scalars().all()
 
     for group in groups:
-        threshold = group.auto_assign_total_spent_kopeks or 0
+        threshold = group.auto_assign_total_spent_toman or 0
         if (
             threshold
-            and total_spent_kopeks >= threshold
-            and threshold > min_threshold_kopeks
+            and total_spent_toman >= threshold
+            and threshold > min_threshold_toman
         ):
             return group
 
@@ -106,22 +106,22 @@ async def maybe_assign_promo_group_by_total_spent(
     # Get current primary promo group
     old_group = user.get_primary_promo_group()
 
-    total_spent = await get_user_total_spent_kopeks(db, user_id)
+    total_spent = await get_user_total_spent_toman(db, user_id)
     if total_spent <= 0:
         return None
 
-    previous_threshold = user.auto_promo_group_threshold_kopeks or 0
+    previous_threshold = user.auto_promo_group_threshold_toman or 0
 
     target_group = await _get_best_group_for_spending(
         db,
         total_spent,
-        min_threshold_kopeks=previous_threshold,
+        min_threshold_toman=previous_threshold,
     )
     if not target_group:
         return None
 
     try:
-        target_threshold = target_group.auto_assign_total_spent_kopeks or 0
+        target_threshold = target_group.auto_assign_total_spent_toman or 0
 
         if target_threshold <= previous_threshold:
             logger.debug(
@@ -144,14 +144,14 @@ async def maybe_assign_promo_group_by_total_spent(
             )
             await sync_user_primary_promo_group(db, user_id)
             if target_threshold > previous_threshold:
-                user.auto_promo_group_threshold_kopeks = target_threshold
+                user.auto_promo_group_threshold_toman = target_threshold
                 user.updated_at = datetime.utcnow()
                 await db.commit()
                 await db.refresh(user)
             return target_group
 
         user.auto_promo_group_assigned = True
-        user.auto_promo_group_threshold_kopeks = target_threshold
+        user.auto_promo_group_threshold_toman = target_threshold
         user.updated_at = datetime.utcnow()
 
         if not already_has_group:
@@ -161,7 +161,7 @@ async def maybe_assign_promo_group_by_total_spent(
                 "Promo group '%s' added to user %s for spending %s Toman",
                 target_group.name,
                 user.telegram_id,
-                total_spent / 100,
+                total_spent ,
             )
         else:
             logger.info(

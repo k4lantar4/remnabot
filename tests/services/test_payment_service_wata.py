@@ -54,7 +54,7 @@ class DummyWataPayment:
         self.user_id = 42
         self.payment_link_id = "link-123"
         self.order_id = "order-123"
-        self.amount_kopeks = 15_000
+        self.amount_toman = 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
         self.currency = "RUB"
         self.description = "Пополнение"
         self.status = "Opened"
@@ -117,13 +117,13 @@ async def test_create_wata_payment_success(monkeypatch: pytest.MonkeyPatch) -> N
         return DummyLocalPayment(payment_id=777)
 
     monkeypatch.setattr(payment_service_module, "create_wata_payment", fake_create_wata_payment, raising=False)
-    monkeypatch.setattr(settings, "WATA_MIN_AMOUNT_KOPEKS", 5000, raising=False)
-    monkeypatch.setattr(settings, "WATA_MAX_AMOUNT_KOPEKS", 500_000, raising=False)
+    monkeypatch.setattr(settings, "WATA_MIN_AMOUNT_TOMAN", 500000, raising=False)  # 5000 toman (was 50 rubles = 5000 kopeks)
+    monkeypatch.setattr(settings, "WATA_MAX_AMOUNT_TOMAN", 50_000_000, raising=False)  # 500000 toman (was 5000 rubles = 500000 kopeks)
 
     result = await service.create_wata_payment(
         db=db,
         user_id=101,
-        amount_kopeks=15000,
+        amount_toman=1_500_000,  # 15000 toman (was 150 rubles = 15000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -133,9 +133,9 @@ async def test_create_wata_payment_success(monkeypatch: pytest.MonkeyPatch) -> N
     assert result["payment_link_id"] == response["id"]
     assert result["payment_url"] == response["url"]
     assert captured_args["user_id"] == 101
-    assert captured_args["amount_kopeks"] == 15000
+    assert captured_args["amount_toman"] == 1_500_000
     assert captured_args["payment_link_id"] == response["id"]
-    assert stub.calls and stub.calls[0]["amount_kopeks"] == 15000
+    assert stub.calls and stub.calls[0]["amount_toman"] == 1_500_000
 
 
 @pytest.mark.anyio("asyncio")
@@ -144,13 +144,13 @@ async def test_create_wata_payment_respects_amount_limits(monkeypatch: pytest.Mo
     service = _make_service(stub)
     db = DummySession()
 
-    monkeypatch.setattr(settings, "WATA_MIN_AMOUNT_KOPEKS", 10_000, raising=False)
-    monkeypatch.setattr(settings, "WATA_MAX_AMOUNT_KOPEKS", 20_000, raising=False)
+    monkeypatch.setattr(settings, "WATA_MIN_AMOUNT_TOMAN", 1_000_000, raising=False)  # 10000 toman (was 100 rubles = 10000 kopeks)
+    monkeypatch.setattr(settings, "WATA_MAX_AMOUNT_TOMAN", 2_000_000, raising=False)  # 20000 toman (was 200 rubles = 20000 kopeks)
 
     too_low = await service.create_wata_payment(
         db=db,
         user_id=1,
-        amount_kopeks=5_000,
+        amount_toman=500_000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         description="Пополнение",
     )
     assert too_low is None
@@ -158,7 +158,7 @@ async def test_create_wata_payment_respects_amount_limits(monkeypatch: pytest.Mo
     too_high = await service.create_wata_payment(
         db=db,
         user_id=1,
-        amount_kopeks=25_000,
+        amount_toman=2_500_000,  # 25000 toman (was 250 rubles = 25000 kopeks)
         description="Пополнение",
     )
     assert too_high is None
@@ -173,7 +173,7 @@ async def test_create_wata_payment_returns_none_without_service() -> None:
     result = await service.create_wata_payment(
         db=db,
         user_id=5,
-        amount_kopeks=10_000,
+        amount_toman=1_000_000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         description="Пополнение",
     )
     assert result is None

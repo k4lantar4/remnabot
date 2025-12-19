@@ -221,7 +221,7 @@ class CryptoBotPaymentMixin:
                 try:
                     amount_rubles = await currency_converter.usd_to_rub(amount_usd)
                     amount_rubles_rounded = math.ceil(amount_rubles)
-                    amount_kopeks = int(amount_rubles_rounded * 100)
+                    amount_toman = int(amount_rubles_rounded * 100)
                     conversion_rate = (
                         amount_rubles / amount_usd if amount_usd > 0 else 0
                     )
@@ -240,13 +240,13 @@ class CryptoBotPaymentMixin:
                     )
                     amount_rubles = amount_usd
                     amount_rubles_rounded = math.ceil(amount_rubles)
-                    amount_kopeks = int(amount_rubles_rounded * 100)
+                    amount_toman = int(amount_rubles_rounded * 100)
                     conversion_rate = 1.0
 
-                if amount_kopeks <= 0:
+                if amount_toman <= 0:
                     logger.error(
-                        "Invalid amount after conversion: %s kopeks for payment %s",
-                        amount_kopeks,
+                        "Invalid amount after conversion: %s toman for payment %s",
+                        amount_toman,
                         invoice_id,
                     )
                     return False
@@ -256,7 +256,7 @@ class CryptoBotPaymentMixin:
                     db,
                     user_id=updated_payment.user_id,
                     type=TransactionType.DEPOSIT,
-                    amount_kopeks=amount_kopeks,
+                    amount_toman=amount_toman,
                     description=(
                         "Top-up via CryptoBot "
                         f"({updated_payment.amount} {updated_payment.asset} → {amount_rubles_rounded:.2f} RUB)"
@@ -279,10 +279,10 @@ class CryptoBotPaymentMixin:
                     )
                     return False
 
-                old_balance = user.balance_kopeks
+                old_balance = user.balance_toman
                 was_first_topup = not user.has_made_first_topup
 
-                user.balance_kopeks += amount_kopeks
+                user.balance_toman += amount_toman
                 user.updated_at = datetime.utcnow()
 
                 referrer_info = format_referrer_info(user)
@@ -298,7 +298,7 @@ class CryptoBotPaymentMixin:
                     await process_referral_topup(
                         db,
                         user.id,
-                        amount_kopeks,
+                        amount_toman,
                         getattr(self, "bot", None),
                     )
                 except Exception as error:
@@ -331,7 +331,7 @@ class CryptoBotPaymentMixin:
                         keyboard = await self.build_topup_success_keyboard(user)
                         message_text = (
                             "✅ <b>Top-up successful!</b>\n\n"
-                            f"💰 Amount: {settings.format_price(amount_kopeks)}\n"
+                            f"💰 Amount: {settings.format_price(amount_toman)}\n"
                             f"🪙 Payment: {updated_payment.amount} {updated_payment.asset}\n"
                             f"💱 Rate: 1 USD = {conversion_rate:.2f} RUB\n"
                             f"🆔 Transaction: {invoice_id[:8]}...\n\n"
@@ -381,7 +381,7 @@ class CryptoBotPaymentMixin:
 
                         texts = get_texts(user.language)
                         cart_message = texts.BALANCE_TOPUP_CART_REMINDER_DETAILED.format(
-                            total_amount=settings.format_price(amount_kopeks)
+                            total_amount=settings.format_price(amount_toman)
                         )
 
                         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -402,7 +402,7 @@ class CryptoBotPaymentMixin:
                         saved_cart_notification = _SavedCartNotificationPayload(
                             telegram_id=user.telegram_id,
                                 text=(
-                                    f"✅ Balance has been topped up by {settings.format_price(amount_kopeks)}!\n\n"
+                                    f"✅ Balance has been topped up by {settings.format_price(amount_toman)}!\n\n"
                                     f"⚠️ <b>Important:</b> Topping up your balance does not activate a subscription automatically. "
                                     f"Be sure to activate your subscription separately.\n\n"
                                     f"🔄 If you have a saved subscription cart and auto-purchase is enabled, "
@@ -499,18 +499,18 @@ class CryptoBotPaymentMixin:
                 )
                 return False
 
-            if pricing_model.final_total != descriptor.total_amount_kopeks:
+            if pricing_model.final_total != descriptor.total_amount_toman:
                 logger.warning(
                     "Renewal amount via CryptoBot %s has changed (expected %s, got %s)",
                     payment.invoice_id,
-                    descriptor.total_amount_kopeks,
+                    descriptor.total_amount_toman,
                     pricing_model.final_total,
                 )
-                pricing_model.final_total = descriptor.total_amount_kopeks
+                pricing_model.final_total = descriptor.total_amount_toman
                 pricing_model.per_month = (
-                    descriptor.total_amount_kopeks // pricing_model.months
+                    descriptor.total_amount_toman // pricing_model.months
                     if pricing_model.months
-                    else descriptor.total_amount_kopeks
+                    else descriptor.total_amount_toman
                 )
 
         pricing_model.period_days = descriptor.period_days
@@ -520,11 +520,11 @@ class CryptoBotPaymentMixin:
             0,
             min(
                 pricing_model.final_total,
-                descriptor.balance_component_kopeks,
+                descriptor.balance_component_toman,
             ),
         )
 
-        current_balance = getattr(user, "balance_kopeks", 0)
+        current_balance = getattr(user, "balance_toman", 0)
         if current_balance < required_balance:
             logger.warning(
                 "Insufficient user balance %s to complete renewal: required %s, available %s",
@@ -578,7 +578,7 @@ class CryptoBotPaymentMixin:
                     error,
                 )
 
-        external_amount_label = settings.format_price(descriptor.missing_amount_kopeks)
+        external_amount_label = settings.format_price(descriptor.missing_amount_toman)
         balance_amount_label = settings.format_price(required_balance)
 
         logger.info(

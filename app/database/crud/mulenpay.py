@@ -16,7 +16,7 @@ async def create_mulenpay_payment(
     db: AsyncSession,
     *,
     user_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     uuid: str,
     description: str,
     payment_url: Optional[str],
@@ -27,7 +27,7 @@ async def create_mulenpay_payment(
 ) -> MulenPayPayment:
     payment = MulenPayPayment(
         user_id=user_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         uuid=uuid,
         description=description,
         payment_url=payment_url,
@@ -42,11 +42,11 @@ async def create_mulenpay_payment(
     await db.refresh(payment)
 
     logger.info(
-        "%s payment created #%s (uuid=%s) for amount %s kopeks for user %s",
+        "%s payment created #%s (uuid=%s) for amount %s toman for user %s",
         settings.get_mulenpay_display_name(),
         payment.mulen_payment_id,
         uuid,
-        amount_kopeks,
+        amount_toman,
         user_id,
     )
 

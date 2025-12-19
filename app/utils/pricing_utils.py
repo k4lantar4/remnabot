@@ -57,8 +57,8 @@ def apply_percentage_discount(amount: int, percent: int) -> Tuple[int, int]:
     discount_value = amount * clamped_percent // 100
     discounted_amount = amount - discount_value
 
-    # Round the discounted price up to the nearest full ruble (100 kopeks)
-    # to avoid undercharging users because of fractional kopeks.
+    # Round the discounted price up to the nearest full ruble (100 toman)
+    # to avoid undercharging users because of fractional amounts.
     if discount_value >= 100 and discounted_amount % 100:
         discounted_amount += 100 - (discounted_amount % 100)
         discounted_amount = min(discounted_amount, amount)
@@ -229,7 +229,7 @@ async def compute_simple_subscription_price(
             )
             continue
 
-        original_price = server.price_kopeks
+        original_price = server.price_toman
         discount_value = original_price * servers_discount_percent // 100
         final_price = original_price - discount_value
 

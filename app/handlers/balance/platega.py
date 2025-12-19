@@ -55,11 +55,11 @@ async def _prompt_amount(
             )
         return
 
-    min_amount_label = settings.format_price(settings.PLATEGA_MIN_AMOUNT_KOPEKS)
-    max_amount_kopeks = settings.PLATEGA_MAX_AMOUNT_KOPEKS
+    min_amount_label = settings.format_price(settings.PLATEGA_MIN_AMOUNT_TOMAN)
+    max_amount_toman = settings.PLATEGA_MAX_AMOUNT_TOMAN
     max_amount_label = (
-        settings.format_price(max_amount_kopeks)
-        if max_amount_kopeks and max_amount_kopeks > 0
+        settings.format_price(max_amount_toman)
+        if max_amount_toman and max_amount_toman > 0
         else ""
     )
 
@@ -68,7 +68,7 @@ async def _prompt_amount(
             "PLATEGA_AMOUNT_PROMPT_WITH_MAX",
             "Enter a top-up amount from {min_amount} to {max_amount}.\n",
         )
-        if max_amount_kopeks and max_amount_kopeks > 0
+        if max_amount_toman and max_amount_toman > 0
         else texts.t(
             "PLATEGA_AMOUNT_PROMPT_WITHOUT_MAX",
             "Enter a top-up amount from {min_amount}.\n",
@@ -213,7 +213,7 @@ async def process_platega_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext,
 ):
     texts = get_texts(db_user.language)
@@ -239,21 +239,21 @@ async def process_platega_payment_amount(
         await state.set_state(BalanceStates.waiting_for_platega_method)
         return
 
-    if amount_kopeks < settings.PLATEGA_MIN_AMOUNT_KOPEKS:
+    if amount_toman < settings.PLATEGA_MIN_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "PLATEGA_AMOUNT_TOO_LOW",
                 "Minimum Platega amount: {amount}",
-            ).format(amount=settings.format_price(settings.PLATEGA_MIN_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.PLATEGA_MIN_AMOUNT_TOMAN))
         )
         return
 
-    if amount_kopeks > settings.PLATEGA_MAX_AMOUNT_KOPEKS:
+    if amount_toman > settings.PLATEGA_MAX_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "PLATEGA_AMOUNT_TOO_HIGH",
                 "Maximum Platega amount: {amount}",
-            ).format(amount=settings.format_price(settings.PLATEGA_MAX_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.PLATEGA_MAX_AMOUNT_TOMAN))
         )
         return
 
@@ -262,8 +262,8 @@ async def process_platega_payment_amount(
         payment_result = await payment_service.create_platega_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=db_user.language,
             payment_method_code=method_code,
         )
@@ -343,7 +343,7 @@ async def process_platega_payment_amount(
     invoice_message = await message.answer(
         instructions_template.format(
             method=method_title,
-            amount=settings.format_price(amount_kopeks),
+            amount=settings.format_price(amount_toman),
             transaction=transaction_id or local_payment_id,
             support=settings.get_support_contact_display_html(),
         ),

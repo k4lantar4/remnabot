@@ -21,7 +21,7 @@ async def upsert_discount_offer(
     subscription_id: Optional[int],
     notification_type: str,
     discount_percent: int,
-    bonus_amount_kopeks: int,
+    bonus_amount_toman: int,
     valid_hours: int,
     effect_type: str = "percent_discount",
     extra_data: Optional[dict] = None,
@@ -43,7 +43,7 @@ async def upsert_discount_offer(
 
     if offer and offer.claimed_at is None:
         offer.discount_percent = discount_percent
-        offer.bonus_amount_kopeks = bonus_amount_kopeks
+        offer.bonus_amount_toman = bonus_amount_toman
         offer.expires_at = expires_at
         offer.subscription_id = subscription_id
         offer.effect_type = effect_type
@@ -54,7 +54,7 @@ async def upsert_discount_offer(
             subscription_id=subscription_id,
             notification_type=notification_type,
             discount_percent=discount_percent,
-            bonus_amount_kopeks=bonus_amount_kopeks,
+            bonus_amount_toman=bonus_amount_toman,
             expires_at=expires_at,
             is_active=True,
             effect_type=effect_type,

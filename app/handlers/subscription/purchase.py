@@ -340,7 +340,7 @@ async def show_subscription_info(
 
     message = message_template.format(
         full_name=db_user.full_name,
-        balance=settings.format_price(db_user.balance_kopeks),
+        balance=settings.format_price(db_user.balance_toman),
         status_emoji=status_emoji,
         status_display=status_display,
         warning=warning_text,
@@ -515,7 +515,7 @@ async def activate_trial(
             message,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=error.required_amount,
+                amount_toman=error.required_amount,
             ),
         )
         await callback.answer()
@@ -580,7 +580,7 @@ async def activate_trial(
                 message,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=error.required_amount,
+                    amount_toman=error.required_amount,
                 ),
             )
             await callback.answer()
@@ -688,7 +688,7 @@ async def activate_trial(
                 db,
                 db_user,
                 subscription,
-                charged_amount_kopeks=charged_amount,
+                charged_amount_toman=charged_amount,
             )
         except Exception as e:
             logger.error(f"Error sending trial notification: {e}")
@@ -1019,7 +1019,7 @@ async def save_cart_and_redirect_to_topup(
         "Choose a top-up method:"
     ).format(
         required=texts.format_price(missing_amount),
-        balance=texts.format_price(db_user.balance_kopeks)
+        balance=texts.format_price(db_user.balance_toman)
     )
 
     await callback.message.edit_text(
@@ -1107,8 +1107,8 @@ async def return_to_saved_cart(
 
     total_price = prepared_cart_data.get('total_price', 0)
 
-    if db_user.balance_kopeks < total_price:
-        missing_amount = total_price - db_user.balance_kopeks
+    if db_user.balance_toman < total_price:
+        missing_amount = total_price - db_user.balance_toman
         insufficient_keyboard = get_insufficient_balance_keyboard_with_cart(
             db_user.language,
             missing_amount,
@@ -1121,7 +1121,7 @@ async def return_to_saved_cart(
             "Missing: {missing}"
         ).format(
             required=texts.format_price(total_price),
-            balance=texts.format_price(db_user.balance_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
             missing=texts.format_price(missing_amount)
         )
 
@@ -1509,42 +1509,42 @@ async def confirm_extend_subscription(
             return
 
         logger.info(f"💰 Extension price calculation for subscription {subscription.id} for {days} days ({months_in_period} months):")
-        base_log = f"   📅 Period {days} days: {base_price_original / 100} Toman"
+        base_log = f"   📅 Period {days} days: {base_price_original} Toman"
         if base_discount_total > 0:
             base_log += (
-                f" → {base_price / 100} Toman"
-                f" (discount {period_discount_percent}%: -{base_discount_total / 100} Toman)"
+                f" → {base_price} Toman"
+                f" (discount {period_discount_percent}%: -{base_discount_total} Toman)"
             )
         logger.info(base_log)
         if total_servers_price > 0:
             logger.info(
-                f"   🌐 Servers: {servers_price_per_month / 100} Toman/month × {months_in_period}"
-                f" = {total_servers_price / 100} Toman"
+                f"   🌐 Servers: {servers_price_per_month} Toman/month × {months_in_period}"
+                f" = {total_servers_price} Toman"
                 + (
                     f" (discount {servers_discount_percent}%:"
-                    f" -{total_servers_discount / 100} Toman)"
+                    f" -{total_servers_discount} Toman)"
                     if total_servers_discount > 0
                     else ""
                 )
             )
         if total_devices_price > 0:
             logger.info(
-                f"   📱 Devices: {devices_price_per_month / 100} Toman/month × {months_in_period}"
-                f" = {total_devices_price / 100} Toman"
+                f"   📱 Devices: {devices_price_per_month} Toman/month × {months_in_period}"
+                f" = {total_devices_price} Toman"
                 + (
                     f" (discount {devices_discount_percent}%:"
-                    f" -{devices_discount_per_month * months_in_period / 100} Toman)"
+                    f" -{devices_discount_per_month * months_in_period} Toman)"
                     if devices_discount_percent > 0 and devices_discount_per_month > 0
                     else ""
                 )
             )
         if total_traffic_price > 0:
             logger.info(
-                f"   📊 Traffic: {traffic_price_per_month / 100} Toman/month × {months_in_period}"
-                f" = {total_traffic_price / 100} Toman"
+                f"   📊 Traffic: {traffic_price_per_month} Toman/month × {months_in_period}"
+                f" = {total_traffic_price} Toman"
                 + (
                     f" (discount {traffic_discount_percent}%:"
-                    f" -{traffic_discount_per_month * months_in_period / 100} Toman)"
+                    f" -{traffic_discount_per_month * months_in_period} Toman)"
                     if traffic_discount_percent > 0 and traffic_discount_per_month > 0
                     else ""
                 )
@@ -1555,7 +1555,7 @@ async def confirm_extend_subscription(
                 promo_component["discount"] / 100,
                 promo_component["percent"],
             )
-        logger.info(f"   💎 TOTAL: {price / 100} Toman")
+        logger.info(f"   💎 TOTAL: {price} Toman")
 
     except Exception as e:
         logger.error(f"⚠ PRICE CALCULATION ERROR: {e}")
@@ -1565,8 +1565,8 @@ async def confirm_extend_subscription(
         )
         return
 
-    if db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if db_user.balance_toman < price:
+        missing_toman = price - db_user.balance_toman
         required_text = texts.format_price(price)
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
@@ -1579,8 +1579,8 @@ async def confirm_extend_subscription(
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         # Prepare data for saving to cart
@@ -1591,7 +1591,7 @@ async def confirm_extend_subscription(
             'total_price': price,
             'user_id': db_user.id,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'description': texts.t("subscription.extend.description", "Extension for {days} days").format(days=days),
             'consume_promo_offer': bool(promo_component["discount"] > 0),
@@ -1603,7 +1603,7 @@ async def confirm_extend_subscription(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
                 has_saved_cart=True  # Indicate that there is a saved cart
             ),
             parse_mode="HTML",
@@ -1646,7 +1646,7 @@ async def confirm_extend_subscription(
         # ensure freshly loaded values are available even if SQLAlchemy expires
         # attributes on subsequent access
         refreshed_end_date = subscription.end_date
-        refreshed_balance = db_user.balance_kopeks
+        refreshed_balance = db_user.balance_toman
 
         from app.database.crud.server_squad import get_server_ids_by_uuids
         from app.database.crud.subscription import add_subscription_servers
@@ -1685,7 +1685,7 @@ async def confirm_extend_subscription(
             db=db,
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=price,
+            amount_toman=price,
             description=texts.t("subscription.extend.transaction_description", "Extension for {days} days ({months} months)").format(days=days, months=months_in_period)
         )
 
@@ -1724,7 +1724,7 @@ async def confirm_extend_subscription(
             reply_markup=get_back_keyboard(db_user.language)
         )
 
-        logger.info(f"✅ User {db_user.telegram_id} extended subscription for {days} days for {price / 100} Toman")
+        logger.info(f"✅ User {db_user.telegram_id} extended subscription for {days} days for {price} Toman")
 
     except Exception as e:
         logger.error(f"⚠ CRITICAL EXTENSION ERROR: {e}")
@@ -1839,7 +1839,7 @@ async def select_devices(
     # Check that 'countries' key exists in data before accessing it
     selected_countries = data.get('countries', [])
     countries_price = sum(
-        c['price_kopeks'] for c in countries
+        c['price_toman'] for c in countries
         if c['uuid'] in selected_countries
     )
 
@@ -1969,7 +1969,7 @@ async def confirm_purchase(
             # Check that 'countries' key exists in data before accessing it
             selected_countries = data.get('countries', [])
             if country['uuid'] in selected_countries:
-                server_price_per_month = country['price_kopeks']
+                server_price_per_month = country['price_toman']
                 countries_price_per_month += server_price_per_month
                 per_month_prices.append(server_price_per_month)
 
@@ -2130,56 +2130,56 @@ async def confirm_purchase(
         return
 
     logger.info(f"Subscription purchase calculation for {data['period_days']} days ({months_in_period} months):")
-    base_log = f"   Period: {base_price_original / 100} Toman"
+    base_log = f"   Period: {base_price_original} Toman"
     if base_discount_total and base_discount_total > 0:
         base_log += (
-            f" → {base_price / 100} Toman"
-            f" (discount {base_discount_percent}%: -{base_discount_total / 100} Toman)"
+            f" → {base_price} Toman"
+            f" (discount {base_discount_percent}%: -{base_discount_total} Toman)"
         )
     logger.info(base_log)
     if total_traffic_price > 0:
         message = (
-            f"   Traffic: {traffic_price_per_month / 100} Toman/month × {months_in_period}"
-            f" = {total_traffic_price / 100} Toman"
+            f"   Traffic: {traffic_price_per_month} Toman/month × {months_in_period}"
+            f" = {total_traffic_price} Toman"
         )
         if traffic_discount_total > 0:
             message += (
                 f" (discount {traffic_discount_percent}%:"
-                f" -{traffic_discount_total / 100} Toman)"
+                f" -{traffic_discount_total} Toman)"
             )
         logger.info(message)
     if total_servers_price > 0:
         message = (
-            f"   Servers: {countries_price_per_month / 100} Toman/month × {months_in_period}"
-            f" = {total_servers_price / 100} Toman"
+            f"   Servers: {countries_price_per_month} Toman/month × {months_in_period}"
+            f" = {total_servers_price} Toman"
         )
         if total_servers_discount > 0:
             message += (
                 f" (discount {servers_discount_percent}%:"
-                f" -{total_servers_discount / 100} Toman)"
+                f" -{total_servers_discount} Toman)"
             )
         logger.info(message)
     if total_devices_price > 0:
         message = (
-            f"   Devices: {devices_price_per_month / 100} Toman/month × {months_in_period}"
-            f" = {total_devices_price / 100} Toman"
+            f"   Devices: {devices_price_per_month} Toman/month × {months_in_period}"
+            f" = {total_devices_price} Toman"
         )
         if devices_discount_total > 0:
             message += (
                 f" (discount {devices_discount_percent}%:"
-                f" -{devices_discount_total / 100} Toman)"
+                f" -{devices_discount_total} Toman)"
             )
         logger.info(message)
     if promo_offer_discount_value > 0:
         logger.info(
             "   🎯 Promo offer: -%s Toman (%s%%)",
-            promo_offer_discount_value / 100,
+            promo_offer_discount_value,
             promo_offer_discount_percent,
         )
-    logger.info(f"   TOTAL: {final_price / 100} Toman")
+    logger.info(f"   TOTAL: {final_price} Toman")
 
-    if db_user.balance_kopeks < final_price:
-        missing_kopeks = final_price - db_user.balance_kopeks
+    if db_user.balance_toman < final_price:
+        missing_toman = final_price - db_user.balance_toman
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
@@ -2191,15 +2191,15 @@ async def confirm_purchase(
             ),
         ).format(
             required=texts.format_price(final_price),
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         # Save cart data to Redis before proceeding to top-up
         cart_data = {
             **data,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'user_id': db_user.id
         }
@@ -2211,7 +2211,7 @@ async def confirm_purchase(
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
                 has_saved_cart=True  # Indicate that there is a saved cart
             ),
             parse_mode="HTML",
@@ -2231,7 +2231,7 @@ async def confirm_purchase(
         )
 
         if not success:
-            missing_kopeks = final_price - db_user.balance_kopeks
+            missing_toman = final_price - db_user.balance_toman
             message_text = texts.t(
                 "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
                 (
@@ -2243,8 +2243,8 @@ async def confirm_purchase(
                 ),
             ).format(
                 required=texts.format_price(final_price),
-                balance=texts.format_price(db_user.balance_kopeks),
-                missing=texts.format_price(missing_kopeks),
+                balance=texts.format_price(db_user.balance_toman),
+                missing=texts.format_price(missing_toman),
             )
 
             await callback.message.edit_text(
@@ -2252,7 +2252,7 @@ async def confirm_purchase(
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
                     resume_callback=resume_callback,
-                    amount_kopeks=missing_kopeks,
+                    amount_toman=missing_toman,
                 ),
                 parse_mode="HTML",
             )
@@ -2298,11 +2298,11 @@ async def confirm_purchase(
                         user_id=db_user.id,
                         trial_duration_days=trial_duration,
                         payment_method="balance",
-                        first_payment_amount_kopeks=final_price,
+                        first_payment_amount_toman=final_price,
                         first_paid_period_days=period_days
                     )
                     logger.info(
-                        f"Conversion recorded: {trial_duration} days trial → {period_days} days paid for {final_price / 100} Toman")
+                        f"Conversion recorded: {trial_duration} days trial → {period_days} days paid for {final_price} Toman")
                 except Exception as conversion_error:
                     logger.error(f"Error recording conversion: {conversion_error}")
 
@@ -2439,7 +2439,7 @@ async def confirm_purchase(
             db=db,
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=final_price,
+            amount_toman=final_price,
             description=texts.t("SUBSCRIPTION_TRANSACTION_DESCRIPTION", "Subscription for {days} days ({months} months)").format(days=period_days, months=months_in_period)
         )
 
@@ -2595,7 +2595,7 @@ async def confirm_purchase(
 
         purchase_completed = True
         logger.info(
-            f"User {db_user.telegram_id} purchased subscription for {data['period_days']} days for {final_price / 100} Toman")
+            f"User {db_user.telegram_id} purchased subscription for {data['period_days']} days for {final_price} Toman")
 
     except Exception as e:
         logger.error(f"Subscription purchase error: {e}")
@@ -3121,9 +3121,9 @@ async def handle_simple_subscription_purchase(
     await state.update_data(subscription_params=subscription_params)
     
     # Check user balance
-    user_balance_kopeks = getattr(db_user, "balance_kopeks", 0)
+    user_balance_toman = getattr(db_user, "balance_toman", 0)
     # Calculate subscription price
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
@@ -3132,7 +3132,7 @@ async def handle_simple_subscription_purchase(
     logger.debug(
         "SIMPLE_SUBSCRIPTION_PURCHASE_PRICE | user=%s | total=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s",
         db_user.id,
-        price_kopeks,
+        price_toman,
         price_breakdown.get("base_price", 0),
         price_breakdown.get("traffic_price", 0),
         price_breakdown.get("devices_price", 0),
@@ -3145,7 +3145,7 @@ async def handle_simple_subscription_purchase(
         else texts.t("TRAFFIC_GB_FORMAT", "{gb} GB").format(gb=subscription_params['traffic_limit_gb'])
     )
 
-    if user_balance_kopeks >= price_kopeks:
+    if user_balance_toman >= price_toman:
         # If balance is sufficient, offer to pay from balance
         simple_lines = [
             texts.t("SIMPLE_SUBSCRIPTION_TITLE", "⚡ <b>Simple subscription purchase</b>"),
@@ -3168,8 +3168,8 @@ async def handle_simple_subscription_purchase(
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=traffic_text),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_text),
             "",
-            texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {cost}").format(cost=settings.format_price(price_kopeks)),
-            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_kopeks)),
+            texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {cost}").format(cost=settings.format_price(price_toman)),
+            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_toman)),
             "",
             texts.t("SIMPLE_SUBSCRIPTION_PAYMENT_OPTIONS", "You can pay for the subscription from your balance or choose another payment method."),
         ])
@@ -3204,8 +3204,8 @@ async def handle_simple_subscription_purchase(
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=traffic_text),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_text),
             "",
-            texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {cost}").format(cost=settings.format_price(price_kopeks)),
-            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_kopeks)),
+            texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {cost}").format(cost=settings.format_price(price_toman)),
+            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_toman)),
             "",
             texts.t("SIMPLE_SUBSCRIPTION_CHOOSE_PAYMENT", "Choose payment method:"),
         ])
@@ -3332,7 +3332,7 @@ async def _extend_existing_subscription(
         "traffic_limit_gb": traffic_limit_gb,
         "squad_uuid": squad_uuid
     }
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
@@ -3341,7 +3341,7 @@ async def _extend_existing_subscription(
     logger.debug(
         "SIMPLE_SUBSCRIPTION_EXTEND_PRICE | user=%s | total=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s",
         db_user.id,
-        price_kopeks,
+        price_toman,
         price_breakdown.get("base_price", 0),
         price_breakdown.get("traffic_price", 0),
         price_breakdown.get("devices_price", 0),
@@ -3350,8 +3350,8 @@ async def _extend_existing_subscription(
     )
     
     # Check user balance
-    if db_user.balance_kopeks < price_kopeks:
-        missing_kopeks = price_kopeks - db_user.balance_kopeks
+    if db_user.balance_toman < price_toman:
+        missing_toman = price_toman - db_user.balance_toman
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
@@ -3362,9 +3362,9 @@ async def _extend_existing_subscription(
                 "Choose a top-up method. The amount will be filled in automatically."
             ),
         ).format(
-            required=texts.format_price(price_kopeks),
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            required=texts.format_price(price_toman),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
         
         # Prepare data for saving to cart
@@ -3373,10 +3373,10 @@ async def _extend_existing_subscription(
             'cart_mode': 'extend',
             'subscription_id': current_subscription.id,
             'period_days': period_days,
-            'total_price': price_kopeks,
+            'total_price': price_toman,
             'user_id': db_user.id,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'description': texts.t("subscription.extend.description", "Extension for {days} days").format(days=period_days),
             'device_limit': device_limit,
@@ -3391,7 +3391,7 @@ async def _extend_existing_subscription(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
                 has_saved_cart=True
             ),
             parse_mode="HTML",
@@ -3404,7 +3404,7 @@ async def _extend_existing_subscription(
     success = await subtract_user_balance(
         db,
         db_user,
-        price_kopeks,
+        price_toman,
         texts.t("subscription.extend.transaction_description", "Subscription extension for {days} days ({months} months)").format(days=period_days, months=months),
         consume_promo_offer=False,  # Simple purchase does not use promo discounts
     )
@@ -3482,7 +3482,7 @@ async def _extend_existing_subscription(
         db=db,
         user_id=db_user.id,
         type=TransactionType.SUBSCRIPTION_PAYMENT,
-        amount_kopeks=price_kopeks,
+        amount_toman=price_toman,
         description=texts.t("subscription.extend.transaction_description", "Subscription extension for {days} days ({months} months)").format(days=period_days, months=months)
     )
     
@@ -3497,7 +3497,7 @@ async def _extend_existing_subscription(
             period_days,
             old_end_date,
             new_end_date=new_end_date,
-            balance_after=db_user.balance_kopeks,
+            balance_after=db_user.balance_toman,
         )
     except Exception as e:
         logger.error(f"Error sending extension notification: {e}")
@@ -3507,7 +3507,7 @@ async def _extend_existing_subscription(
         texts.t("subscription.extend.success", "✅ Subscription successfully extended!\n\n")
         + texts.t("subscription.extend.added_days", "⏰ Added: {days} days\n").format(days=period_days)
         + texts.t("subscription.extend.valid_until", "Valid until: {date}\n\n").format(date=format_local_datetime(new_end_date, '%d.%m.%Y %H:%M'))
-        + texts.t("subscription.extend.charged", "💰 Charged: {price}").format(price=texts.format_price(price_kopeks))
+        + texts.t("subscription.extend.charged", "💰 Charged: {price}").format(price=texts.format_price(price_toman))
     )
     
     # If this was a trial subscription, add conversion information
@@ -3519,5 +3519,5 @@ async def _extend_existing_subscription(
         reply_markup=get_back_keyboard(db_user.language)
     )
     
-    logger.info(f"✅ User {db_user.telegram_id} extended subscription for {period_days} days for {price_kopeks / 100} Toman")
+    logger.info(f"✅ User {db_user.telegram_id} extended subscription for {period_days} days for {price_toman} Toman")
     await callback.answer()

@@ -113,7 +113,7 @@ async def test_create_payment_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(service, "_request", fake_request, raising=False)
 
     result = await service.create_payment(
-        amount_kopeks=25000,
+        amount_toman=2500000,  # 25000 toman (was 250 rubles = 25000 kopeks)
         description="Пополнение",
         uuid="uuid-1",
         items=[{"description": "item", "quantity": 1, "price": 250.0}],
@@ -139,7 +139,7 @@ async def test_create_payment_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(service, "_request", fake_request, raising=False)
 
     result = await service.create_payment(
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="desc",
         uuid="uuid",
         items=[],

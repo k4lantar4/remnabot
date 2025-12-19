@@ -79,7 +79,7 @@ async def _apply_campaign_bonus_if_needed(
         return None
 
     if result.bonus_type == "balance":
-        amount_text = texts.format_price(result.balance_kopeks)
+        amount_text = texts.format_price(result.balance_toman)
         return texts.CAMPAIGN_BONUS_BALANCE.format(
             amount=amount_text,
             name=campaign.name,
@@ -407,7 +407,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
                 has_had_paid_subscription=user.has_had_paid_subscription,
                 has_active_subscription=has_active_subscription,
                 subscription_is_active=subscription_is_active,
-                balance_kopeks=user.balance_kopeks,
+                balance_toman=user.balance_toman,
                 subscription=user.subscription,
                 is_moderator=is_moderator,
                 custom_buttons=custom_buttons,
@@ -457,7 +457,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
             )
             
             user.status = UserStatus.ACTIVE.value
-            user.balance_kopeks = 0
+            user.balance_toman = 0
             user.remnawave_uuid = None
             user.has_had_paid_subscription = False
             user.referred_by_id = None
@@ -1045,7 +1045,7 @@ async def complete_registration_from_callback(
                     has_had_paid_subscription=existing_user.has_had_paid_subscription,
                     has_active_subscription=has_active_subscription,
                     subscription_is_active=subscription_is_active,
-                    balance_kopeks=existing_user.balance_kopeks,
+                    balance_toman=existing_user.balance_toman,
                     subscription=existing_user.subscription,
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
@@ -1089,7 +1089,7 @@ async def complete_registration_from_callback(
         existing_user.language = language
         existing_user.referred_by_id = referrer_id
         existing_user.status = UserStatus.ACTIVE.value
-        existing_user.balance_kopeks = 0
+        existing_user.balance_toman = 0
         existing_user.has_had_paid_subscription = False
         
         from datetime import datetime
@@ -1223,7 +1223,7 @@ async def complete_registration_from_callback(
                     has_had_paid_subscription=user.has_had_paid_subscription,
                     has_active_subscription=has_active_subscription,
                     subscription_is_active=subscription_is_active,
-                    balance_kopeks=user.balance_kopeks,
+                    balance_toman=user.balance_toman,
                     subscription=user.subscription,
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
@@ -1316,7 +1316,7 @@ async def complete_registration(
                     has_had_paid_subscription=existing_user.has_had_paid_subscription,
                     has_active_subscription=has_active_subscription,
                     subscription_is_active=subscription_is_active,
-                    balance_kopeks=existing_user.balance_kopeks,
+                    balance_toman=existing_user.balance_toman,
                     subscription=existing_user.subscription,
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
@@ -1360,7 +1360,7 @@ async def complete_registration(
         existing_user.language = language
         existing_user.referred_by_id = referrer_id
         existing_user.status = UserStatus.ACTIVE.value
-        existing_user.balance_kopeks = 0
+        existing_user.balance_toman = 0
         existing_user.has_had_paid_subscription = False
         
         from datetime import datetime
@@ -1514,7 +1514,7 @@ async def complete_registration(
                     has_had_paid_subscription=user.has_had_paid_subscription,
                     has_active_subscription=has_active_subscription,
                     subscription_is_active=subscription_is_active,
-                    balance_kopeks=user.balance_kopeks,
+                    balance_toman=user.balance_toman,
                     subscription=user.subscription,
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
@@ -1817,7 +1817,7 @@ async def required_sub_channel_check(
                 has_had_paid_subscription=user.has_had_paid_subscription,
                 has_active_subscription=has_active_subscription,
                 subscription_is_active=subscription_is_active,
-                balance_kopeks=user.balance_kopeks,
+                balance_toman=user.balance_toman,
                 subscription=user.subscription,
                 is_moderator=is_moderator,
                 custom_buttons=custom_buttons,

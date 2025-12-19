@@ -11,7 +11,7 @@ async def create_plan(
     bot_id: int,
     name: str,
     period_days: int,
-    price_kopeks: int,
+    price_toman: int,
     traffic_limit_gb: int = 0,
     device_limit: int = 1,
     sort_order: int = 0,
@@ -22,7 +22,7 @@ async def create_plan(
         bot_id=bot_id,
         name=name,
         period_days=period_days,
-        price_kopeks=price_kopeks,
+        price_toman=price_toman,
         traffic_limit_gb=traffic_limit_gb,
         device_limit=device_limit,
         sort_order=sort_order,
@@ -60,7 +60,7 @@ async def get_plans(
         query = query.where(BotPlan.is_active == True)
     
     result = await db.execute(
-        query.order_by(BotPlan.sort_order, BotPlan.price_kopeks)
+        query.order_by(BotPlan.sort_order, BotPlan.price_toman)
     )
     return list(result.scalars().all())
 
@@ -126,8 +126,8 @@ async def deactivate_plan(
 async def get_plan_by_price_range(
     db: AsyncSession,
     bot_id: int,
-    min_price_kopeks: Optional[int] = None,
-    max_price_kopeks: Optional[int] = None,
+    min_price_toman: Optional[int] = None,
+    max_price_toman: Optional[int] = None,
     active_only: bool = True
 ) -> List[BotPlan]:
     """Get plans within a price range."""
@@ -136,14 +136,14 @@ async def get_plan_by_price_range(
     if active_only:
         query = query.where(BotPlan.is_active == True)
     
-    if min_price_kopeks is not None:
-        query = query.where(BotPlan.price_kopeks >= min_price_kopeks)
+    if min_price_toman is not None:
+        query = query.where(BotPlan.price_toman >= min_price_toman)
     
-    if max_price_kopeks is not None:
-        query = query.where(BotPlan.price_kopeks <= max_price_kopeks)
+    if max_price_toman is not None:
+        query = query.where(BotPlan.price_toman <= max_price_toman)
     
     result = await db.execute(
-        query.order_by(BotPlan.sort_order, BotPlan.price_kopeks)
+        query.order_by(BotPlan.sort_order, BotPlan.price_toman)
     )
     return list(result.scalars().all())
 

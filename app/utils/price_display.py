@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class PriceInfo:
     """Container for pricing information with discounts."""
 
-    base_price: int  # Original price without any discounts (kopeks)
-    final_price: int  # Final price after all discounts (kopeks)
+    base_price: int  # Original price without any discounts (toman)
+    final_price: int  # Final price after all discounts (toman)
     discount_percent: int  # Total discount percentage
 
     @property
@@ -32,7 +32,7 @@ class PriceInfo:
 
     @property
     def discount_value(self) -> int:
-        """Get the absolute discount value in kopeks."""
+        """Get the absolute discount value in toman."""
         return self.base_price - self.final_price
 
 
@@ -47,7 +47,7 @@ def calculate_user_price(
 
     Args:
         user: User object (None for base/default pricing from settings)
-        base_price: Base price without discounts (kopeks)
+        base_price: Base price without discounts (toman)
         period_days: Subscription period in days
         category: Discount category ("period", "servers", "devices", "traffic")
 

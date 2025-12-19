@@ -143,7 +143,7 @@ async def add_contest_event(
     contest_id: int,
     referrer_id: int,
     referral_id: int,
-    amount_kopeks: int = 0,
+    amount_toman: int = 0,
     event_type: str = "subscription_purchase",
 ) -> Optional[ReferralContestEvent]:
     existing = await db.execute(
@@ -161,7 +161,7 @@ async def add_contest_event(
         contest_id=contest_id,
         referrer_id=referrer_id,
         referral_id=referral_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         event_type=event_type,
         occurred_at=datetime.utcnow(),
     )
@@ -181,7 +181,7 @@ async def get_contest_leaderboard(
         select(
             User,
             func.count(ReferralContestEvent.id).label("referral_count"),
-            func.coalesce(func.sum(ReferralContestEvent.amount_kopeks), 0).label("total_amount"),
+            func.coalesce(func.sum(ReferralContestEvent.amount_toman), 0).label("total_amount"),
         )
         .join(User, User.id == ReferralContestEvent.referrer_id)
         .where(ReferralContestEvent.contest_id == contest_id)

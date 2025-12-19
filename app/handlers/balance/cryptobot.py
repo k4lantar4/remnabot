@@ -91,7 +91,7 @@ async def process_cryptobot_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
@@ -118,7 +118,7 @@ async def process_cryptobot_payment_amount(
         await message.answer(texts.t("CRYPTOBOT_UNAVAILABLE", "❌ Cryptocurrency payment temporarily unavailable"))
         return
     
-    amount_rubles = amount_kopeks / 100
+    amount_rubles = amount_toman / 100
     
     if amount_rubles < 100:
         await message.answer(texts.t("MIN_AMOUNT_100", "Minimum top-up amount: 100  Toman"))
@@ -156,7 +156,7 @@ async def process_cryptobot_payment_amount(
             amount_usd=amount_usd,
             asset=settings.CRYPTOBOT_DEFAULT_ASSET,
             description=f"Balance top-up {amount_rubles:.0f} RUB ({amount_usd:.2f} USD)",
-            payload=f"balance_{db_user.id}_{amount_kopeks}"
+            payload=f"balance_{db_user.id}_{amount_toman}"
         )
         
         if not payment_result:

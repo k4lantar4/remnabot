@@ -18,7 +18,7 @@ async def handle_successful_payment(message: types.Message):
         payload_parts = payment.invoice_payload.split('_')
         if len(payload_parts) >= 3 and payload_parts[0] == 'balance':
             user_id = int(payload_parts[1])
-            amount_kopeks = int(payload_parts[2])
+            amount_toman = int(payload_parts[2])
             
             async for db in get_db():
                 try:
@@ -36,7 +36,7 @@ async def handle_successful_payment(message: types.Message):
                     
                     if user:
                         await add_user_balance(
-                            db, user, amount_kopeks,
+                            db, user, amount_toman,
                             texts.t("STARS_TOPUP_DESCRIPTION", "Top up via Telegram Stars")
                         )
                         
@@ -44,7 +44,7 @@ async def handle_successful_payment(message: types.Message):
                             db=db,
                             user_id=user.id,
                             type=TransactionType.DEPOSIT,
-                            amount_kopeks=amount_kopeks,
+                            amount_toman=amount_toman,
                             description=texts.t("STARS_TOPUP_DESCRIPTION", "Top up via Telegram Stars"),
                             payment_method=PaymentMethod.TELEGRAM_STARS,
                             external_id=payment.telegram_payment_charge_id
@@ -54,7 +54,7 @@ async def handle_successful_payment(message: types.Message):
                             texts.t(
                                 "STARS_TOPUP_SUCCESS",
                                 "✅ Balance credited by {amount}!",
-                            ).format(amount=settings.format_price(amount_kopeks))
+                            ).format(amount=settings.format_price(amount_toman))
                             + "\n\n"
                             + texts.t(
                                 "STARS_TOPUP_IMPORTANT",

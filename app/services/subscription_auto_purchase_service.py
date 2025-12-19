@@ -50,7 +50,7 @@ class AutoExtendContext:
 
     subscription: Subscription
     period_days: int
-    price_kopeks: int
+    price_toman: int
     description: str
     device_limit: Optional[int] = None
     traffic_limit_gb: Optional[int] = None
@@ -151,7 +151,7 @@ async def _prepare_auto_extend_context(
             return None
 
     period_days = _safe_int(cart_data.get("period_days"))
-    price_kopeks = _safe_int(
+    price_toman = _safe_int(
         cart_data.get("total_price")
         or cart_data.get("price")
         or cart_data.get("final_price"),
@@ -165,10 +165,10 @@ async def _prepare_auto_extend_context(
         )
         return None
 
-    if price_kopeks <= 0:
+    if price_toman <= 0:
         logger.warning(
             "Auto-purchase: invalid extension price (%s) for user %s",
-            price_kopeks,
+            price_toman,
             user.telegram_id,
         )
         return None
@@ -189,7 +189,7 @@ async def _prepare_auto_extend_context(
     return AutoExtendContext(
         subscription=subscription,
         period_days=period_days,
-        price_kopeks=price_kopeks,
+        price_toman=price_toman,
         description=description,
         device_limit=device_limit,
         traffic_limit_gb=traffic_limit_gb,
@@ -245,12 +245,12 @@ async def _auto_extend_subscription(
     if prepared is None:
         return False
 
-    if user.balance_kopeks < prepared.price_kopeks:
+    if user.balance_toman < prepared.price_toman:
         logger.info(
             "Auto-purchase: user %s has insufficient funds for extension (%s < %s)",
             user.telegram_id,
-            user.balance_kopeks,
-            prepared.price_kopeks,
+            user.balance_toman,
+            prepared.price_toman,
         )
         return False
 
@@ -258,7 +258,7 @@ async def _auto_extend_subscription(
         deducted = await subtract_user_balance(
             db,
             user,
-            prepared.price_kopeks,
+            prepared.price_toman,
             prepared.description,
             consume_promo_offer=prepared.consume_promo_offer,
         )
@@ -318,7 +318,7 @@ async def _auto_extend_subscription(
             db=db,
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
-            amount_kopeks=prepared.price_kopeks,
+            amount_toman=prepared.price_toman,
             description=prepared.description,
         )
     except Exception as error:  # pragma: no cover - defensive logging
@@ -366,7 +366,7 @@ async def _auto_extend_subscription(
                 prepared.period_days,
                 old_end_date,
                 new_end_date=new_end_date,
-                balance_after=user.balance_kopeks,
+                balance_after=user.balance_toman,
             )
         except Exception as error:  # pragma: no cover - defensive logging
             logger.error(
@@ -492,11 +492,11 @@ async def auto_purchase_saved_cart_after_topup(
         )
         return False
 
-    if user.balance_kopeks < pricing.final_total:
+    if user.balance_toman < pricing.final_total:
         logger.info(
             "Auto-purchase: user %s has insufficient funds (%s < %s)",
             user.telegram_id,
-            user.balance_kopeks,
+            user.balance_toman,
             pricing.final_total,
         )
         return False

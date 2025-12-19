@@ -42,7 +42,7 @@ def _format_campaign_summary(campaign, texts) -> str:
     status = texts.t("ADMIN_CAMPAIGN_STATUS_ACTIVE", "🟢 Active") if campaign.is_active else texts.t("ADMIN_CAMPAIGN_STATUS_INACTIVE", "⚪️ Disabled")
 
     if campaign.is_balance_bonus:
-        bonus_text = texts.format_price(campaign.balance_bonus_kopeks)
+        bonus_text = texts.format_price(campaign.balance_bonus_toman)
         bonus_info = texts.t("ADMIN_CAMPAIGN_BALANCE_BONUS", "💰 Balance bonus: <b>{amount}</b>").format(amount=bonus_text)
     else:
         traffic_text = texts.format_traffic(campaign.subscription_traffic_gb or 0)
@@ -290,7 +290,7 @@ async def show_campaigns_list(
     for campaign in campaigns:
         registrations = len(campaign.registrations or [])
         total_balance = sum(
-            r.balance_bonus_kopeks or 0 for r in campaign.registrations or []
+            r.balance_bonus_toman or 0 for r in campaign.registrations or []
         )
         status = "🟢" if campaign.is_active else "⚪"
         line = (
@@ -365,7 +365,7 @@ async def show_campaign_detail(
         count=stats['subscription_issued']
     ))
     text.append(texts.t("ADMIN_CAMPAIGN_STATS_REVENUE", "• Revenue: <b>{amount}</b>").format(
-        amount=texts.format_price(stats['total_revenue_kopeks'])
+        amount=texts.format_price(stats['total_revenue_toman'])
     ))
     text.append(texts.t(
         "ADMIN_CAMPAIGN_STATS_TRIAL",
@@ -386,11 +386,11 @@ async def show_campaign_detail(
     text.append(texts.t(
         "ADMIN_CAMPAIGN_STATS_AVG_REVENUE",
         "• Avg revenue per user: <b>{amount}</b>"
-    ).format(amount=texts.format_price(stats['avg_revenue_per_user_kopeks'])))
+    ).format(amount=texts.format_price(stats['avg_revenue_per_user_toman'])))
     text.append(texts.t(
         "ADMIN_CAMPAIGN_STATS_AVG_FIRST_PAYMENT",
         "• Avg first payment: <b>{amount}</b>"
-    ).format(amount=texts.format_price(stats['avg_first_payment_kopeks'])))
+    ).format(amount=texts.format_price(stats['avg_first_payment_toman'])))
     if stats["last_registration"]:
         text.append(texts.t(
             "ADMIN_CAMPAIGN_STATS_LAST_REG",
@@ -661,7 +661,7 @@ async def start_edit_campaign_balance_bonus(
             "💰 <b>Change balance bonus</b>\n\n"
             "Current bonus: <b>{amount}</b>\n"
             "Enter new amount in rubles (e.g. 100 or 99.5):"
-        ).format(amount=texts.format_price(campaign.balance_bonus_kopeks)),
+        ).format(amount=texts.format_price(campaign.balance_bonus_toman)),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -702,7 +702,7 @@ async def process_edit_campaign_balance_bonus(
         await message.answer(texts.t("ADMIN_CAMPAIGN_AMOUNT_POSITIVE", "❌ Amount must be greater than zero"))
         return
 
-    amount_kopeks = int(round(amount_rubles * 100))
+    amount_toman = int(round(amount_rubles * 100))
 
     campaign = await get_campaign_by_id(db, campaign_id)
     if not campaign:
@@ -715,7 +715,7 @@ async def process_edit_campaign_balance_bonus(
         await state.clear()
         return
 
-    await update_campaign(db, campaign, balance_bonus_kopeks=amount_kopeks)
+    await update_campaign(db, campaign, balance_bonus_toman=amount_toman)
     await state.clear()
 
     await message.answer(texts.t("ADMIN_CAMPAIGN_BONUS_UPDATED", "✅ Bonus updated."))
@@ -1484,7 +1484,7 @@ async def process_campaign_balance_value(
         await message.answer(texts.t("ADMIN_CAMPAIGN_AMOUNT_POSITIVE", "❌ Amount must be greater than zero"))
         return
 
-    amount_kopeks = int(round(amount_rubles * 100))
+    amount_toman = int(round(amount_rubles * 100))
     data = await state.get_data()
 
     campaign = await create_campaign(
@@ -1492,7 +1492,7 @@ async def process_campaign_balance_value(
         name=data["campaign_name"],
         start_parameter=data["campaign_start_parameter"],
         bonus_type="balance",
-        balance_bonus_kopeks=amount_kopeks,
+        balance_bonus_toman=amount_toman,
         created_by=db_user.id,
     )
 

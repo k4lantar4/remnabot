@@ -17,10 +17,8 @@ class PartnerReferrerItem(BaseModel):
     effective_referral_commission_percent: int
     invited_count: int
     active_referrals: int
-    total_earned_kopeks: int
-    total_earned_rubles: float
-    month_earned_kopeks: int
-    month_earned_rubles: float
+    total_earned_toman: int
+    month_earned_toman: int
     created_at: datetime
     last_activity: Optional[datetime] = None
 
@@ -40,10 +38,8 @@ class PartnerReferralItem(BaseModel):
     created_at: datetime
     last_activity: Optional[datetime] = None
     has_made_first_topup: bool
-    balance_kopeks: int
-    balance_rubles: float
-    total_earned_kopeks: int
-    total_earned_rubles: float
+    balance_toman: int
+    total_earned_toman: int
     topups_count: int
     days_since_registration: int
     days_since_activity: Optional[int] = None

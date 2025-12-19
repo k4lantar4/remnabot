@@ -61,7 +61,7 @@ async def create_promocode(
     db: AsyncSession,
     code: str,
     type: PromoCodeType,
-    balance_bonus_kopeks: int = 0,
+    balance_bonus_toman: int = 0,
     subscription_days: int = 0,
     max_uses: int = 1,
     valid_until: Optional[datetime] = None,
@@ -72,7 +72,7 @@ async def create_promocode(
     promocode = PromoCode(
         code=code.upper(),
         type=type.value,
-        balance_bonus_kopeks=balance_bonus_kopeks,
+        balance_bonus_toman=balance_bonus_toman,
         subscription_days=subscription_days,
         max_uses=max_uses,
         valid_until=valid_until,

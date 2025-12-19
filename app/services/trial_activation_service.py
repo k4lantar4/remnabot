@@ -41,31 +41,31 @@ class TrialActivationReversionResult:
 
 
 def get_trial_activation_charge_amount() -> int:
-    """Returns the configured activation charge in kopeks if payment is enabled."""
+    """Returns the configured activation charge in toman if payment is enabled."""
 
     if not settings.is_trial_paid_activation_enabled():
         return 0
 
     try:
-        price_kopeks = int(settings.get_trial_activation_price() or 0)
+        price_toman = int(settings.get_trial_activation_price() or 0)
     except (TypeError, ValueError):  # pragma: no cover - defensive
-        price_kopeks = 0
+        price_toman = 0
 
-    return max(0, price_kopeks)
+    return max(0, price_toman)
 
 
 def preview_trial_activation_charge(user: User) -> int:
     """Validates that the user can afford the trial activation charge."""
 
-    price_kopeks = get_trial_activation_charge_amount()
-    if price_kopeks <= 0:
+    price_toman = get_trial_activation_charge_amount()
+    if price_toman <= 0:
         return 0
 
-    balance = int(getattr(user, "balance_kopeks", 0) or 0)
-    if balance < price_kopeks:
-        raise TrialPaymentInsufficientFunds(price_kopeks, balance)
+    balance = int(getattr(user, "balance_toman", 0) or 0)
+    if balance < price_toman:
+        raise TrialPaymentInsufficientFunds(price_toman, balance)
 
-    return price_kopeks
+    return price_toman
 
 
 async def charge_trial_activation_if_required(
@@ -76,12 +76,12 @@ async def charge_trial_activation_if_required(
 ) -> int:
     """Charges the user's balance if paid trial activation is enabled.
 
-    Returns the charged amount in kopeks. If payment is not required or the
+    Returns the charged amount in toman. If payment is not required or the
     configured price is zero, the function returns ``0``.
     """
 
-    price_kopeks = preview_trial_activation_charge(user)
-    if price_kopeks <= 0:
+    price_toman = preview_trial_activation_charge(user)
+    if price_toman <= 0:
         return 0
 
     charge_description = description
@@ -95,26 +95,26 @@ async def charge_trial_activation_if_required(
     success = await subtract_user_balance(
         db,
         user,
-        price_kopeks,
+        price_toman,
         charge_description,
     )
     if not success:
         raise TrialPaymentChargeFailed()
 
     # subtract_user_balance updates the user, but cast defensively to int
-    return int(price_kopeks)
+    return int(price_toman)
 
 
 async def refund_trial_activation_charge(
     db: AsyncSession,
     user: User,
-    amount_kopeks: int,
+    amount_toman: int,
     *,
     description: Optional[str] = None,
 ) -> bool:
     """Refunds a previously charged trial activation amount back to the user."""
 
-    if amount_kopeks <= 0:
+    if amount_toman <= 0:
         return True
 
     refund_description = description
@@ -128,15 +128,15 @@ async def refund_trial_activation_charge(
     success = await add_user_balance(
         db,
         user,
-        amount_kopeks,
+        amount_toman,
         refund_description,
         transaction_type=TransactionType.REFUND,
     )
 
     if not success:
         logger.error(
-            "Failed to refund %s kopeks for user %s during trial activation rollback",
-            amount_kopeks,
+            "Failed to refund %s toman for user %s during trial activation rollback",
+            amount_toman,
             getattr(user, "id", "<unknown>"),
         )
 

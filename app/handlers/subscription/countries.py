@@ -184,7 +184,7 @@ async def get_countries_price_by_uuids_fallback(
                     is_allowed = promo_group_id in allowed_ids
 
                 if server and server.is_available and not server.is_full and is_allowed:
-                    price = server.price_kopeks
+                    price = server.price_toman
                     total_price += price
                     prices_list.append(price)
                 else:
@@ -338,7 +338,7 @@ async def apply_countries_changes(
             continue
 
         if country['uuid'] in added:
-            server_price_per_month = country['price_kopeks']
+            server_price_per_month = country['price_toman']
             discounted_per_month, discount_per_month = apply_percentage_discount(
                 server_price_per_month,
                 servers_discount_percent,
@@ -376,8 +376,8 @@ async def apply_countries_changes(
             total_discount / 100,
         )
 
-    if total_cost > 0 and db_user.balance_kopeks < total_cost:
-        missing_kopeks = total_cost - db_user.balance_kopeks
+    if total_cost > 0 and db_user.balance_toman < total_cost:
+        missing_toman = total_cost - db_user.balance_toman
         required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
             amount=texts.format_price(total_cost),
             months=charged_months
@@ -393,8 +393,8 @@ async def apply_countries_changes(
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         await callback.message.answer(
@@ -402,7 +402,7 @@ async def apply_countries_changes(
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
             ),
             parse_mode="HTML",
         )
@@ -440,7 +440,7 @@ async def apply_countries_changes(
                 db=db,
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=total_cost,
+                amount_toman=total_cost,
                 description=texts.t("subscription.countries.add_transaction_desc", "Adding countries to subscription: {names} for {months} months").format(
                     names=', '.join(added_names),
                     months=charged_months
@@ -660,7 +660,7 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
             countries.append({
                 "uuid": server.squad_uuid,
                 "name": server.display_name,
-                "price_kopeks": server.price_kopeks,
+                "price_toman": server.price_toman,
                 "country_code": server.country_code,
                 "is_available": server.is_available and not server.is_full
             })
@@ -690,7 +690,7 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
                 countries.append({
                     "uuid": squad["uuid"],
                     "name": squad_name,
-                    "price_kopeks": 0,
+                    "price_toman": 0,
                     "is_available": True
                 })
 
@@ -700,7 +700,7 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
     except Exception as e:
         logger.error(f"Error fetching country list: {e}")
         fallback_countries = [
-            {"uuid": "default-free", "name": "🆓 Free server", "price_kopeks": 0, "is_available": True},
+            {"uuid": "default-free", "name": "🆓 Free server", "price_toman": 0, "is_available": True},
         ]
 
         await cache.set(cache_key_value, fallback_countries, 60)
@@ -762,7 +762,7 @@ async def handle_add_country_to_subscription(
                 country['uuid'] in selected_countries
                 and country['uuid'] not in subscription.connected_squads
         ):
-            server_price = country['price_kopeks']
+            server_price = country['price_toman']
             if servers_discount_percent > 0 and server_price > 0:
                 discounted_price, _ = apply_percentage_discount(
                     server_price,
@@ -881,7 +881,7 @@ async def confirm_add_countries_to_subscription(
             continue
 
         if country['uuid'] in new_countries:
-            server_price = country['price_kopeks']
+            server_price = country['price_toman']
             if servers_discount_percent > 0 and server_price > 0:
                 discounted_per_month, discount_per_month = apply_percentage_discount(
                     server_price,
@@ -902,8 +902,8 @@ async def confirm_add_countries_to_subscription(
         if country['uuid'] in removed_countries:
             removed_countries_names.append(country['name'])
 
-    if new_countries and db_user.balance_kopeks < total_price:
-        missing_kopeks = total_price - db_user.balance_kopeks
+    if new_countries and db_user.balance_toman < total_price:
+        missing_toman = total_price - db_user.balance_toman
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
             (
@@ -915,15 +915,15 @@ async def confirm_add_countries_to_subscription(
             ),
         ).format(
             required=texts.format_price(total_price),
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_price(db_user.balance_toman),
+            missing=texts.format_price(missing_toman),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_toman=missing_toman,
             ),
             parse_mode="HTML",
         )
@@ -962,7 +962,7 @@ async def confirm_add_countries_to_subscription(
                 db=db,
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=total_price,
+                amount_toman=total_price,
                 description=texts.t("subscription.countries.add_transaction_desc", "Adding countries to subscription: {names}").format(
                     names=', '.join(new_countries_names)
                 )

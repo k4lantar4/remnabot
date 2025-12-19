@@ -68,7 +68,7 @@ async def start_simple_subscription_purchase(
         state_data=data,
     )
 
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
@@ -76,7 +76,7 @@ async def start_simple_subscription_purchase(
     )
 
     period_days = subscription_params["period_days"]
-    user_balance_kopeks = getattr(db_user, "balance_kopeks", 0)
+    user_balance_toman = getattr(db_user, "balance_toman", 0)
 
     logger.warning(
         "SIMPLE_SUBSCRIPTION_DEBUG_START | user=%s | period=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s | total=%s | squads=%s",
@@ -87,18 +87,18 @@ async def start_simple_subscription_purchase(
         price_breakdown.get("devices_price", 0),
         price_breakdown.get("servers_price", 0),
         price_breakdown.get("total_discount", 0),
-        price_kopeks,
+        price_toman,
         ",".join(price_breakdown.get("resolved_squad_uuids", []))
         if price_breakdown.get("resolved_squad_uuids")
         else "none",
     )
 
-    can_pay_from_balance = user_balance_kopeks >= price_kopeks
+    can_pay_from_balance = user_balance_toman >= price_toman
     logger.warning(
         "SIMPLE_SUBSCRIPTION_DEBUG_START_BALANCE | user=%s | balance=%s | min_required=%s | can_pay=%s",
         db_user.id,
-        user_balance_kopeks,
-        price_kopeks,
+        user_balance_toman,
+        price_toman,
         can_pay_from_balance,
     )
 
@@ -149,8 +149,8 @@ async def start_simple_subscription_purchase(
         texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=traffic_label),
         texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_label),
         "",
-        texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {price}").format(price=settings.format_price(price_kopeks)),
-        texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_kopeks)),
+        texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {price}").format(price=settings.format_price(price_toman)),
+        texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(user_balance_toman)),
         "",
     ])
 
@@ -422,13 +422,13 @@ async def handle_simple_subscription_pay_with_balance(
     )
 
     # Calculate subscription price
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
         resolved_squad_uuid=resolved_squad_uuid,
     )
-    total_required = price_kopeks
+    total_required = price_toman
     logger.warning(
         "SIMPLE_SUBSCRIPTION_DEBUG_PAY_BALANCE | user=%s | period=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s | total_required=%s | balance=%s",
         db_user.id,
@@ -439,13 +439,13 @@ async def handle_simple_subscription_pay_with_balance(
         price_breakdown.get("servers_price", 0),
         price_breakdown.get("total_discount", 0),
         total_required,
-        getattr(db_user, "balance_kopeks", 0),
+        getattr(db_user, "balance_toman", 0),
     )
 
     # Check user balance
-    user_balance_kopeks = getattr(db_user, "balance_kopeks", 0)
+    user_balance_toman = getattr(db_user, "balance_toman", 0)
 
-    if user_balance_kopeks < total_required:
+    if user_balance_toman < total_required:
         await callback.answer(
             texts.t("SIMPLE_SUBSCRIPTION_INSUFFICIENT_BALANCE", "❌ Insufficient balance to pay for subscription"),
             show_alert=True
@@ -460,7 +460,7 @@ async def handle_simple_subscription_pay_with_balance(
         success = await subtract_user_balance(
             db,
             db_user,
-            price_kopeks,
+            price_toman,
             payment_description,
             consume_promo_offer=False,
         )
@@ -526,7 +526,7 @@ async def handle_simple_subscription_pay_with_balance(
             await add_user_balance(
                 db,
                 db_user.id,
-                price_kopeks,
+                price_toman,
                 refund_description,
             )
             await callback.answer(
@@ -582,8 +582,8 @@ async def handle_simple_subscription_pay_with_balance(
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=success_traffic_label),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_label),
             "",
-            texts.t("SIMPLE_SUBSCRIPTION_DEDUCTED", "💰 Deducted from balance: {amount}").format(amount=settings.format_price(price_kopeks)),
-            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(db_user.balance_kopeks)),
+            texts.t("SIMPLE_SUBSCRIPTION_DEDUCTED", "💰 Deducted from balance: {amount}").format(amount=settings.format_price(price_toman)),
+            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(db_user.balance_toman)),
             "",
             texts.t("SIMPLE_SUBSCRIPTION_CONNECT_HINT", "🔗 To connect, go to the 'Connect' section"),
         ])
@@ -673,7 +673,7 @@ async def handle_simple_subscription_pay_with_balance(
                 None,  # transaction
                 subscription_params["period_days"],
                 False,  # was_trial_conversion
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
             )
         except Exception as e:
             logger.error("Error sending purchase notification to admins: %s", e)
@@ -684,7 +684,7 @@ async def handle_simple_subscription_pay_with_balance(
         logger.info(
             "User %s successfully purchased subscription from balance for %s",
             db_user.telegram_id,
-            settings.format_price(price_kopeks)
+            settings.format_price(price_toman)
         )
 
     except Exception as error:
@@ -751,25 +751,25 @@ async def handle_simple_subscription_other_payment_methods(
     )
 
     # Calculate subscription price
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
         resolved_squad_uuid=resolved_squad_uuid,
     )
 
-    user_balance_kopeks = getattr(db_user, "balance_kopeks", 0)
-    can_pay_from_balance = user_balance_kopeks >= price_kopeks
+    user_balance_toman = getattr(db_user, "balance_toman", 0)
+    can_pay_from_balance = user_balance_toman >= price_toman
     logger.warning(
         "SIMPLE_SUBSCRIPTION_DEBUG_METHODS | user=%s | balance=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s | total_required=%s | can_pay=%s",
         db_user.id,
-        user_balance_kopeks,
+        user_balance_toman,
         price_breakdown.get("base_price", 0),
         price_breakdown.get("traffic_price", 0),
         price_breakdown.get("devices_price", 0),
         price_breakdown.get("servers_price", 0),
         price_breakdown.get("total_discount", 0),
-        price_kopeks,
+        price_toman,
         can_pay_from_balance,
     )
 
@@ -802,7 +802,7 @@ async def handle_simple_subscription_other_payment_methods(
         texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=payment_traffic_label),
         texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_label),
         "",
-        texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {price}").format(price=settings.format_price(price_kopeks)),
+        texts.t("SIMPLE_SUBSCRIPTION_COST", "💰 Cost: {price}").format(price=settings.format_price(price_toman)),
         "",
         (
             texts.t(
@@ -892,7 +892,7 @@ async def handle_simple_subscription_payment_method(
         )
 
         # Calculate subscription price
-        price_kopeks, _ = await _calculate_simple_subscription_price(
+        price_toman, _ = await _calculate_simple_subscription_price(
             db,
             subscription_params,
             user=db_user,
@@ -909,7 +909,7 @@ async def handle_simple_subscription_payment_method(
                 traffic_limit_gb=subscription_params["traffic_limit_gb"],
                 squad_uuid=resolved_squad_uuid,
                 payment_method="telegram_stars",
-                total_price_kopeks=price_kopeks,
+                total_price_toman=price_toman,
             )
 
             if not order:
@@ -919,7 +919,7 @@ async def handle_simple_subscription_payment_method(
                 )
                 return
 
-            stars_count = settings.rubles_to_stars(settings.kopeks_to_rubles(price_kopeks))
+            stars_count = settings.rubles_to_stars(settings.toman_to_rubles(price_toman))
 
             stars_traffic_gb = subscription_params["traffic_limit_gb"]
             if stars_traffic_gb == 0:
@@ -978,7 +978,7 @@ async def handle_simple_subscription_payment_method(
                 traffic_limit_gb=subscription_params["traffic_limit_gb"],
                 squad_uuid=resolved_squad_uuid,
                 payment_method="yookassa_sbp" if payment_method == "yookassa_sbp" else "yookassa",
-                total_price_kopeks=price_kopeks
+                total_price_toman=price_toman
             )
             
             if not order:
@@ -995,7 +995,7 @@ async def handle_simple_subscription_payment_method(
                 payment_result = await payment_service.create_yookassa_sbp_payment(
                     db=db,
                     user_id=db_user.id,
-                    amount_kopeks=price_kopeks,
+                    amount_toman=price_toman,
                     description=payment_description,
                     receipt_email=db_user.email if hasattr(db_user, 'email') and db_user.email else None,
                     receipt_phone=db_user.phone if hasattr(db_user, 'phone') and db_user.phone else None,
@@ -1011,7 +1011,7 @@ async def handle_simple_subscription_payment_method(
                 payment_result = await payment_service.create_yookassa_payment(
                     db=db,
                     user_id=db_user.id,
-                    amount_kopeks=price_kopeks,
+                    amount_toman=price_toman,
                     description=payment_description,
                     receipt_email=db_user.email if hasattr(db_user, 'email') and db_user.email else None,
                     receipt_phone=db_user.phone if hasattr(db_user, 'phone') and db_user.phone else None,
@@ -1111,7 +1111,7 @@ async def handle_simple_subscription_payment_method(
 
             message_lines.extend([
                 texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=yookassa_traffic_label),
-                texts.t("SIMPLE_SUBSCRIPTION_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(price_kopeks)),
+                texts.t("SIMPLE_SUBSCRIPTION_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(price_toman)),
                 texts.t("SIMPLE_SUBSCRIPTION_PAYMENT_ID", "🆔 Payment ID: {id}").format(id=payment_result['yookassa_payment_id'][:8] + "..."),
                 "",
             ])
@@ -1171,7 +1171,7 @@ async def handle_simple_subscription_payment_method(
                 )
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_toman / 100
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     texts.t(
@@ -1215,9 +1215,9 @@ async def handle_simple_subscription_payment_method(
                 asset=settings.CRYPTOBOT_DEFAULT_ASSET,
                 description=settings.get_subscription_payment_description(
                     subscription_params["period_days"],
-                    price_kopeks,
+                    price_toman,
                 ),
-                payload=f"simple_subscription_{db_user.id}_{price_kopeks}",
+                payload=f"simple_subscription_{db_user.id}_{price_toman}",
             )
 
             if not crypto_result:
@@ -1277,7 +1277,7 @@ async def handle_simple_subscription_payment_method(
                 "❓ If you have any problems, contact {support}"
             )
             message_text = message_template.format(
-                amount_rubles=settings.format_price(price_kopeks),
+                amount_rubles=settings.format_price(price_toman),
                 amount_usd=f"{amount_usd:.2f}",
                 asset=crypto_result['asset'],
                 rate=f"{usd_rate:.2f}",
@@ -1304,7 +1304,7 @@ async def handle_simple_subscription_payment_method(
                 )
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_toman / 100
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     texts.t(
@@ -1321,10 +1321,10 @@ async def handle_simple_subscription_payment_method(
             heleket_result = await payment_service.create_heleket_payment(
                 db=db,
                 user_id=db_user.id,
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
                 description=settings.get_subscription_payment_description(
                     subscription_params["period_days"],
-                    price_kopeks,
+                    price_toman,
                 ),
                 language=db_user.language,
             )
@@ -1380,7 +1380,7 @@ async def handle_simple_subscription_payment_method(
             message_lines = [
                 texts.t("SIMPLE_SUBSCRIPTION_HELEKET_TITLE", "🪙 <b>Payment via Heleket</b>"),
                 "",
-                texts.t("SIMPLE_SUBSCRIPTION_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(price_kopeks)),
+                texts.t("SIMPLE_SUBSCRIPTION_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(price_toman)),
             ]
 
             if payer_amount and payer_currency:
@@ -1448,14 +1448,14 @@ async def handle_simple_subscription_payment_method(
                 )
                 return
 
-            if price_kopeks < settings.MULENPAY_MIN_AMOUNT_KOPEKS or price_kopeks > settings.MULENPAY_MAX_AMOUNT_KOPEKS:
+            if price_toman < settings.MULENPAY_MIN_AMOUNT_TOMAN or price_toman > settings.MULENPAY_MAX_AMOUNT_TOMAN:
                 await callback.answer(
                     texts.t(
                         "MULENPAY_AMOUNT_RANGE_ERROR",
                         "❌ Amount for Mulen Pay must be between {min_amount} and {max_amount}"
                     ).format(
-                        min_amount=settings.format_price(settings.MULENPAY_MIN_AMOUNT_KOPEKS),
-                        max_amount=settings.format_price(settings.MULENPAY_MAX_AMOUNT_KOPEKS),
+                        min_amount=settings.format_price(settings.MULENPAY_MIN_AMOUNT_TOMAN),
+                        max_amount=settings.format_price(settings.MULENPAY_MAX_AMOUNT_TOMAN),
                     ),
                     show_alert=True,
                 )
@@ -1465,10 +1465,10 @@ async def handle_simple_subscription_payment_method(
             mulen_result = await payment_service.create_mulenpay_payment(
                 db=db,
                 user_id=db_user.id,
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
                 description=settings.get_subscription_payment_description(
                     subscription_params["period_days"],
-                    price_kopeks,
+                    price_toman,
                 ),
                 language=db_user.language,
             )
@@ -1524,7 +1524,7 @@ async def handle_simple_subscription_payment_method(
                 message_template.format(
                     mulenpay_name=mulenpay_name,
                     mulenpay_name_html=settings.get_mulenpay_display_name_html(),
-                    amount=settings.format_price(price_kopeks),
+                    amount=settings.format_price(price_toman),
                     payment_id=payment_id_display,
                     support=settings.get_support_contact_display_html(),
                 ),
@@ -1549,10 +1549,10 @@ async def handle_simple_subscription_payment_method(
             pal24_result = await payment_service.create_pal24_payment(
                 db=db,
                 user_id=db_user.id,
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
                 description=settings.get_subscription_payment_description(
                     subscription_params["period_days"],
-                    price_kopeks,
+                    price_toman,
                 ),
                 language=db_user.language,
             )
@@ -1698,7 +1698,7 @@ async def handle_simple_subscription_payment_method(
             keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
             message_text = message_template.format(
-                amount=settings.format_price(price_kopeks),
+                amount=settings.format_price(price_toman),
                 bill_id=bill_id,
                 steps="\n".join(steps),
                 support=settings.get_support_contact_display_html(),
@@ -1722,14 +1722,14 @@ async def handle_simple_subscription_payment_method(
                     show_alert=True
                 )
                 return
-            if price_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS or price_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
+            if price_toman < settings.WATA_MIN_AMOUNT_TOMAN or price_toman > settings.WATA_MAX_AMOUNT_TOMAN:
                 await callback.answer(
                     texts.t(
                         "WATA_AMOUNT_RANGE_ERROR",
                         "❌ Amount for WATA must be between {min_amount} and {max_amount}"
                     ).format(
-                        min_amount=settings.format_price(settings.WATA_MIN_AMOUNT_KOPEKS),
-                        max_amount=settings.format_price(settings.WATA_MAX_AMOUNT_KOPEKS),
+                        min_amount=settings.format_price(settings.WATA_MIN_AMOUNT_TOMAN),
+                        max_amount=settings.format_price(settings.WATA_MAX_AMOUNT_TOMAN),
                     ),
                     show_alert=True,
                 )
@@ -1740,10 +1740,10 @@ async def handle_simple_subscription_payment_method(
                 wata_result = await payment_service.create_wata_payment(
                     db=db,
                     user_id=db_user.id,
-                    amount_kopeks=price_kopeks,
+                    amount_toman=price_toman,
                     description=settings.get_subscription_payment_description(
                         subscription_params["period_days"],
-                        price_kopeks,
+                        price_toman,
                     ),
                     language=db_user.language,
                 )
@@ -1800,7 +1800,7 @@ async def handle_simple_subscription_payment_method(
 
             await callback.message.edit_text(
                 message_template.format(
-                    amount=settings.format_price(price_kopeks),
+                    amount=settings.format_price(price_toman),
                     payment_id=payment_link_id,
                     support=settings.get_support_contact_display_html(),
                 ),
@@ -1888,7 +1888,7 @@ async def check_simple_pal24_payment_status(
             texts.t("PAL24_PAYMENT_STATUS_TITLE", "🏦 PayPalych payment status:"),
             "",
             texts.t("PAL24_BILL_ID", "🆔 Bill ID: {id}").format(id=payment.bill_id),
-            texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+            texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
             texts.t("PAYMENT_STATUS", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_text),
             texts.t("PAYMENT_CREATED", "📅 Created: {date}").format(date=payment.created_at.strftime('%d.%m.%Y %H:%M')),
         ]
@@ -2039,7 +2039,7 @@ async def check_simple_mulenpay_payment_status(
         texts.t("MULENPAY_PAYMENT_STATUS_TITLE", "💳 Mulen Pay payment status:"),
         "",
         texts.t("PAYMENT_ID", "🆔 ID: {id}").format(id=payment.mulen_payment_id or payment.id),
-        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
         texts.t("PAYMENT_STATUS", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_text),
         texts.t("PAYMENT_CREATED", "📅 Created: {date}").format(date=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'),
     ]
@@ -2201,7 +2201,7 @@ async def check_simple_heleket_payment_status(
         texts.t("HELEKET_PAYMENT_STATUS_TITLE", "🪙 Heleket payment status:"),
         "",
         texts.t("PAYMENT_UUID", "🆔 UUID: {uuid}").format(uuid=payment.uuid[:8] + "..."),
-        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
         texts.t("PAYMENT_STATUS", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_text),
         texts.t("PAYMENT_CREATED", "📅 Created: {date}").format(date=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'),
     ]
@@ -2288,7 +2288,7 @@ async def check_simple_wata_payment_status(
         texts.t("WATA_STATUS_TITLE", "💳 <b>WATA payment status</b>"),
         "",
         texts.t("PAYMENT_ID", "🆔 ID: {id}").format(id=payment.payment_link_id),
-        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+        texts.t("PAYMENT_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
         texts.t("PAYMENT_STATUS", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_text),
         texts.t("PAYMENT_CREATED", "📅 Created: {date}").format(date=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'),
     ]
@@ -2347,13 +2347,13 @@ async def confirm_simple_subscription_purchase(
     )
 
     # Calculate subscription price
-    price_kopeks, price_breakdown = await _calculate_simple_subscription_price(
+    price_toman, price_breakdown = await _calculate_simple_subscription_price(
         db,
         subscription_params,
         user=db_user,
         resolved_squad_uuid=resolved_squad_uuid,
     )
-    total_required = price_kopeks
+    total_required = price_toman
     logger.warning(
         "SIMPLE_SUBSCRIPTION_DEBUG_CONFIRM | user=%s | period=%s | base=%s | traffic=%s | devices=%s | servers=%s | discount=%s | total_required=%s | balance=%s",
         db_user.id,
@@ -2364,13 +2364,13 @@ async def confirm_simple_subscription_purchase(
         price_breakdown.get("servers_price", 0),
         price_breakdown.get("total_discount", 0),
         total_required,
-        getattr(db_user, "balance_kopeks", 0),
+        getattr(db_user, "balance_toman", 0),
     )
 
     # Check user balance
-    user_balance_kopeks = getattr(db_user, "balance_kopeks", 0)
+    user_balance_toman = getattr(db_user, "balance_toman", 0)
 
-    if user_balance_kopeks < total_required:
+    if user_balance_toman < total_required:
         await callback.answer(
             texts.t("SIMPLE_SUBSCRIPTION_INSUFFICIENT_BALANCE", "❌ Insufficient balance to pay for subscription"),
             show_alert=True
@@ -2385,7 +2385,7 @@ async def confirm_simple_subscription_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            price_kopeks,
+            price_toman,
             payment_description,
             consume_promo_offer=False,
         )
@@ -2451,7 +2451,7 @@ async def confirm_simple_subscription_purchase(
             await add_user_balance(
                 db,
                 db_user.id,
-                price_kopeks,
+                price_toman,
                 refund_description,
             )
             await callback.answer(
@@ -2507,8 +2507,8 @@ async def confirm_simple_subscription_purchase(
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=success_traffic_label),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_label),
             "",
-            texts.t("SIMPLE_SUBSCRIPTION_DEDUCTED", "💰 Deducted from balance: {amount}").format(amount=settings.format_price(price_kopeks)),
-            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(db_user.balance_kopeks)),
+            texts.t("SIMPLE_SUBSCRIPTION_DEDUCTED", "💰 Deducted from balance: {amount}").format(amount=settings.format_price(price_toman)),
+            texts.t("SIMPLE_SUBSCRIPTION_BALANCE", "💳 Your balance: {balance}").format(balance=settings.format_price(db_user.balance_toman)),
             "",
             texts.t("SIMPLE_SUBSCRIPTION_CONNECT_HINT", "🔗 To connect, go to the 'Connect' section"),
         ])
@@ -2598,7 +2598,7 @@ async def confirm_simple_subscription_purchase(
                 None,  # transaction
                 subscription_params["period_days"],
                 False,  # was_trial_conversion
-                amount_kopeks=price_kopeks,
+                amount_toman=price_toman,
             )
         except Exception as e:
             logger.error("Error sending purchase notification to admins: %s", e)
@@ -2609,7 +2609,7 @@ async def confirm_simple_subscription_purchase(
         logger.info(
             "User %s successfully purchased subscription from balance for %s",
             db_user.telegram_id,
-            settings.format_price(price_kopeks)
+            settings.format_price(price_toman)
         )
 
     except Exception as error:

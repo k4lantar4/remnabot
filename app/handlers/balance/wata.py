@@ -44,8 +44,8 @@ async def start_wata_payment(
             "Payment is processed via the secure WATA form."
         ),
     ).format(
-        min_amount=settings.format_price(settings.WATA_MIN_AMOUNT_KOPEKS),
-        max_amount=settings.format_price(settings.WATA_MAX_AMOUNT_KOPEKS),
+        min_amount=settings.format_price(settings.WATA_MIN_AMOUNT_TOMAN),
+        max_amount=settings.format_price(settings.WATA_MAX_AMOUNT_TOMAN),
     )
 
     keyboard = get_back_keyboard(db_user.language)
@@ -77,7 +77,7 @@ async def process_wata_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext,
 ):
     texts = get_texts(db_user.language)
@@ -91,21 +91,21 @@ async def process_wata_payment_amount(
         )
         return
 
-    if amount_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS:
+    if amount_toman < settings.WATA_MIN_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "WATA_AMOUNT_TOO_LOW",
                 "Minimum top-up amount: {amount}",
-            ).format(amount=settings.format_price(settings.WATA_MIN_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.WATA_MIN_AMOUNT_TOMAN))
         )
         return
 
-    if amount_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
+    if amount_toman > settings.WATA_MAX_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "WATA_AMOUNT_TOO_HIGH",
                 "Maximum top-up amount: {amount}",
-            ).format(amount=settings.format_price(settings.WATA_MAX_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.WATA_MAX_AMOUNT_TOMAN))
         )
         return
 
@@ -115,8 +115,8 @@ async def process_wata_payment_amount(
         result = await payment_service.create_wata_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=db_user.language,
         )
     except Exception as error:  # pragma: no cover - handled by decorator logs
@@ -171,7 +171,7 @@ async def process_wata_payment_amount(
     )
 
     message_text = message_template.format(
-        amount=settings.format_price(amount_kopeks),
+        amount=settings.format_price(amount_toman),
         payment_id=payment_link_id,
         support=settings.get_support_contact_display_html(),
     )
@@ -229,7 +229,7 @@ async def process_wata_payment_amount(
     logger.info(
         "Created WATA payment for user %s: %s Toman, link: %s",
         db_user.telegram_id,
-        amount_kopeks / 100,
+        amount_toman / 100,
         payment_link_id,
     )
 
@@ -305,7 +305,7 @@ async def check_wata_payment_status(
         texts.t("WATA_STATUS_TITLE", "💳 <b>WATA payment status</b>"),
         "",
         texts.t("WATA_STATUS_ID", "🆔 ID: {payment_id}").format(payment_id=payment.payment_link_id),
-        texts.t("WATA_STATUS_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_kopeks)),
+        texts.t("WATA_STATUS_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
         texts.t("WATA_STATUS_STATUS", "📊 Status: {emoji} {label}").format(emoji=label_info['emoji'], label=label_info['label']),
         texts.t("WATA_STATUS_CREATED", "📅 Created: {date}").format(date=created_date),
     ]

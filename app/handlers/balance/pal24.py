@@ -36,7 +36,7 @@ async def _send_pal24_payment_message(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     payment_method: str,
     state: FSMContext,
 ) -> None:
@@ -47,8 +47,8 @@ async def _send_pal24_payment_message(
         payment_result = await payment_service.create_pal24_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=db_user.language,
             payment_method=payment_method,
         )
@@ -200,7 +200,7 @@ async def _send_pal24_payment_message(
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
         message_text = message_template.format(
-            amount=settings.format_price(amount_kopeks),
+            amount=settings.format_price(amount_toman),
             bill_id=bill_id,
             steps="\n".join(steps),
             support=settings.get_support_contact_display_html(),
@@ -241,7 +241,7 @@ async def _send_pal24_payment_message(
         logger.info(
             "Created PayPalych invoice for user %s: %s Toman, ID: %s, method: %s",
             db_user.telegram_id,
-            amount_kopeks / 100,
+            amount_toman ,
             bill_id,
             payment_method,
         )
@@ -325,7 +325,7 @@ async def process_pal24_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext,
 ):
     texts = get_texts(db_user.language)
@@ -339,23 +339,23 @@ async def process_pal24_payment_amount(
         )
         return
 
-    if amount_kopeks < settings.PAL24_MIN_AMOUNT_KOPEKS:
-        min_rubles = settings.PAL24_MIN_AMOUNT_KOPEKS / 100
+    if amount_toman < settings.PAL24_MIN_AMOUNT_TOMAN:
+        min_toman = settings.PAL24_MIN_AMOUNT_TOMAN
         await message.answer(
             texts.t(
                 "PAL24_MIN_AMOUNT",
                 "❌ Minimum amount for PayPalych payment: {amount:.0f}  Toman",
-            ).format(amount=min_rubles)
+            ).format(amount=min_toman)
         )
         return
 
-    if amount_kopeks > settings.PAL24_MAX_AMOUNT_KOPEKS:
-        max_rubles = settings.PAL24_MAX_AMOUNT_KOPEKS / 100
+    if amount_toman > settings.PAL24_MAX_AMOUNT_TOMAN:
+        max_toman = settings.PAL24_MAX_AMOUNT_TOMAN
         await message.answer(
             texts.t(
                 "PAL24_MAX_AMOUNT",
                 "❌ Maximum amount for PayPalych payment: {amount:,.0f}  Toman",
-            ).format(amount=max_rubles).replace(',', ' ')
+            ).format(amount=max_toman).replace(',', ' ')
         )
         return
 
@@ -387,13 +387,13 @@ async def process_pal24_payment_amount(
             message,
             db_user,
             db,
-            amount_kopeks,
+            amount_toman,
             available_methods[0],
             state,
         )
         return
 
-    await state.update_data(pal24_amount_kopeks=amount_kopeks)
+    await state.update_data(pal24_amount_toman=amount_toman)
     await state.set_state(BalanceStates.waiting_for_pal24_method)
 
     method_buttons: list[list[types.InlineKeyboardButton]] = []
@@ -438,8 +438,8 @@ async def handle_pal24_method_selection(
     state: FSMContext,
 ):
     data = await state.get_data()
-    amount_kopeks = data.get("pal24_amount_kopeks")
-    if not amount_kopeks:
+    amount_toman = data.get("pal24_amount_toman")
+    if not amount_toman:
         texts = get_texts(db_user.language)
         await callback.answer(
             texts.t(
@@ -460,7 +460,7 @@ async def handle_pal24_method_selection(
             callback.message,
             db_user,
             db,
-            int(amount_kopeks),
+            int(amount_toman),
             method,
             state,
         )
@@ -598,7 +598,7 @@ async def check_pal24_payment_status(
                 bill_id=payment.bill_id
             ),
             texts.t("PAL24_STATUS_AMOUNT", "💰 Amount: {amount}").format(
-                amount=settings.format_price(payment.amount_kopeks)
+                amount=settings.format_price(payment.amount_toman)
             ),
             texts.t("PAL24_STATUS_STATE", "📊 Status: {emoji} {status}").format(
                 emoji=emoji, status=status_text

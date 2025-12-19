@@ -226,7 +226,7 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 **Tasks:**
 1. Create `app/database/crud/bot_plan.py`
 2. Implement CRUD operations:
-   - `create_plan(db, bot_id, name, period_days, price_kopeks, ...)`
+   - `create_plan(db, bot_id, name, period_days, price_toman, ...)`
    - `get_plan(db, plan_id)`
    - `get_plans(db, bot_id, active_only=True)`
    - `update_plan(db, plan_id, ...)`
@@ -606,7 +606,7 @@ Increment یک واحد کاری کوچک و قابل تست است که:
 1. Create `app/services/wallet_service.py`
 2. Implement wallet operations:
    - `get_wallet_balance(db, bot_id)`
-   - `update_wallet_balance(db, bot_id, amount_kopeks, operation='add')`
+   - `update_wallet_balance(db, bot_id, amount_toman, operation='add')`
    - `record_traffic_consumption(db, bot_id, bytes_consumed)`
    - `record_traffic_sold(db, bot_id, bytes_sold)`
    - `get_traffic_stats(db, bot_id)`

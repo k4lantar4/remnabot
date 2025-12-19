@@ -29,7 +29,7 @@ class Pal24PaymentMixin:
         db: AsyncSession,
         *,
         user_id: int,
-        amount_kopeks: int,
+        amount_toman: int,
         description: str,
         language: str,
         ttl_seconds: Optional[int] = None,
@@ -42,19 +42,19 @@ class Pal24PaymentMixin:
             logger.error("Pal24 service is not initialized")
             return None
 
-        if amount_kopeks < settings.PAL24_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.PAL24_MIN_AMOUNT_TOMAN:
             logger.warning(
                 "Pal24 amount is less than minimum: %s < %s",
-                amount_kopeks,
-                settings.PAL24_MIN_AMOUNT_KOPEKS,
+                amount_toman,
+                settings.PAL24_MIN_AMOUNT_TOMAN,
             )
             return None
 
-        if amount_kopeks > settings.PAL24_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.PAL24_MAX_AMOUNT_TOMAN:
             logger.warning(
                 "Pal24 amount is greater than maximum: %s > %s",
-                amount_kopeks,
-                settings.PAL24_MAX_AMOUNT_KOPEKS,
+                amount_toman,
+                settings.PAL24_MAX_AMOUNT_TOMAN,
             )
             return None
 
@@ -62,7 +62,7 @@ class Pal24PaymentMixin:
 
         custom_payload = {
             "user_id": user_id,
-            "amount_kopeks": amount_kopeks,
+            "amount_toman": amount_toman,
             "language": language,
         }
 
@@ -73,7 +73,7 @@ class Pal24PaymentMixin:
 
         try:
             response = await service.create_bill(
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 user_id=user_id,
                 order_id=order_id,
                 description=description,
@@ -147,7 +147,7 @@ class Pal24PaymentMixin:
 
         metadata_payload = {
             "user_id": user_id,
-            "amount_kopeks": amount_kopeks,
+            "amount_toman": amount_toman,
             "description": description,
             "links": metadata_links,
             "raw_response": response,
@@ -158,7 +158,7 @@ class Pal24PaymentMixin:
             db,
             user_id=user_id,
             bill_id=bill_id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             description=description,
             status=response.get("status", "NEW"),
             type_=response.get("type", "normal"),
@@ -174,7 +174,7 @@ class Pal24PaymentMixin:
             "Created Pal24 bill %s for user %s (%s RUB)",
             bill_id,
             user_id,
-            amount_kopeks / 100,
+            amount_toman / 100,
         )
 
         payment_status = getattr(payment, "status", response.get("status", "NEW"))
@@ -183,7 +183,7 @@ class Pal24PaymentMixin:
             "local_payment_id": payment.id,
             "bill_id": bill_id,
             "order_id": order_id,
-            "amount_kopeks": amount_kopeks,
+            "amount_toman": amount_toman,
             "primary_url": primary_link,
             "secondary_url": secondary_link,
             "link_url": transfer_url,
@@ -390,7 +390,7 @@ class Pal24PaymentMixin:
             db,
             user_id=payment.user_id,
             type=TransactionType.DEPOSIT,
-            amount_kopeks=payment.amount_kopeks,
+            amount_toman=payment.amount_toman,
             description=f"Top-up via Pal24 ({payment_id or payment.bill_id})",
             payment_method=PaymentMethod.PAL24,
             external_id=str(payment_id) if payment_id else payment.bill_id,
@@ -399,10 +399,10 @@ class Pal24PaymentMixin:
 
         await payment_module.link_pal24_payment_to_transaction(db, payment, transaction.id)
 
-        old_balance = user.balance_kopeks
+        old_balance = user.balance_toman
         was_first_topup = not user.has_made_first_topup
 
-        user.balance_kopeks += payment.amount_kopeks
+        user.balance_toman += payment.amount_toman
         user.updated_at = datetime.utcnow()
 
         promo_group = user.get_primary_promo_group()
@@ -416,7 +416,7 @@ class Pal24PaymentMixin:
             from app.services.referral_service import process_referral_topup
 
             await process_referral_topup(
-                db, user.id, payment.amount_kopeks, getattr(self, "bot", None)
+                db, user.id, payment.amount_toman, getattr(self, "bot", None)
             )
         except Exception as error:
             logger.error(
@@ -468,7 +468,7 @@ class Pal24PaymentMixin:
                     "🆔 Transaction: {transaction_id}\n\n"
                     "Balance has been credited automatically!",
                 ).format(
-                    amount=settings.format_price(payment.amount_kopeks),
+                    amount=settings.format_price(payment.amount_toman),
                     transaction_id=transaction.id,
                 )
                 await self.bot.send_message(
@@ -544,7 +544,7 @@ class Pal24PaymentMixin:
                     "🔄 If you have a saved subscription cart and auto-purchase is enabled, "
                     "the subscription will be purchased automatically after the top-up.\n\n{cart_message}",
                 ).format(
-                    amount=settings.format_price(payment.amount_kopeks),
+                    amount=settings.format_price(payment.amount_toman),
                     cart_message=cart_message,
                 )
                 await self.bot.send_message(

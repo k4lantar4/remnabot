@@ -62,8 +62,7 @@ class MiniAppPromoGroup(BaseModel):
 class MiniAppAutoPromoGroupLevel(BaseModel):
     id: int
     name: str
-    threshold_kopeks: int
-    threshold_rubles: float
+    threshold_toman: int
     threshold_label: str
     is_reached: bool = False
     is_current: bool = False
@@ -101,8 +100,7 @@ class MiniAppDeviceRemovalResponse(BaseModel):
 class MiniAppTransaction(BaseModel):
     id: int
     type: str
-    amount_kopeks: int
-    amount_rubles: float
+    amount_toman: int
     description: Optional[str] = None
     payment_method: Optional[str] = None
     external_id: Optional[str] = None
@@ -118,7 +116,7 @@ class MiniAppPromoOffer(BaseModel):
     offer_type: Optional[str] = None
     effect_type: Optional[str] = None
     discount_percent: int = 0
-    bonus_amount_kopeks: int = 0
+    bonus_amount_toman: int = 0
     bonus_amount_label: Optional[str] = None
     expires_at: Optional[datetime] = None
     claimed_at: Optional[datetime] = None
@@ -162,12 +160,12 @@ class MiniAppSubscriptionRenewalPeriod(BaseModel):
     id: str
     days: Optional[int] = None
     months: Optional[int] = None
-    price_kopeks: Optional[int] = Field(default=None, alias="priceKopeks")
+    price_toman: Optional[int] = Field(default=None, alias="priceToman")
     price_label: Optional[str] = Field(default=None, alias="priceLabel")
-    original_price_kopeks: Optional[int] = Field(default=None, alias="originalPriceKopeks")
+    original_price_toman: Optional[int] = Field(default=None, alias="originalPriceToman")
     original_price_label: Optional[str] = Field(default=None, alias="originalPriceLabel")
     discount_percent: int = Field(default=0, alias="discountPercent")
-    price_per_month_kopeks: Optional[int] = Field(default=None, alias="pricePerMonthKopeks")
+    price_per_month_toman: Optional[int] = Field(default=None, alias="pricePerMonthToman")
     price_per_month_label: Optional[str] = Field(default=None, alias="pricePerMonthLabel")
     is_recommended: bool = Field(default=False, alias="isRecommended")
     description: Optional[str] = None
@@ -188,13 +186,13 @@ class MiniAppSubscriptionRenewalOptionsResponse(BaseModel):
     success: bool = True
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
     currency: str
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
     promo_group: Optional[MiniAppPromoGroup] = Field(default=None, alias="promoGroup")
     promo_offer: Optional[Dict[str, Any]] = Field(default=None, alias="promoOffer")
     periods: List[MiniAppSubscriptionRenewalPeriod] = Field(default_factory=list)
     default_period_id: Optional[str] = Field(default=None, alias="defaultPeriodId")
-    missing_amount_kopeks: Optional[int] = Field(default=None, alias="missingAmountKopeks")
+    missing_amount_toman: Optional[int] = Field(default=None, alias="missingAmountToman")
     status_message: Optional[str] = Field(default=None, alias="statusMessage")
     autopay_enabled: bool = False
     autopay_days_before: Optional[int] = None
@@ -218,14 +216,14 @@ class MiniAppSubscriptionRenewalRequest(BaseModel):
 class MiniAppSubscriptionRenewalResponse(BaseModel):
     success: bool = True
     message: Optional[str] = None
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
     renewed_until: Optional[datetime] = Field(default=None, alias="renewedUntil")
     requires_payment: bool = Field(default=False, alias="requiresPayment")
     payment_method: Optional[str] = Field(default=None, alias="paymentMethod")
     payment_url: Optional[str] = Field(default=None, alias="paymentUrl")
-    payment_amount_kopeks: Optional[int] = Field(default=None, alias="paymentAmountKopeks")
+    payment_amount_toman: Optional[int] = Field(default=None, alias="paymentAmountToman")
     payment_id: Optional[int] = Field(default=None, alias="paymentId")
     invoice_id: Optional[str] = Field(default=None, alias="invoiceId")
     payment_payload: Optional[str] = Field(default=None, alias="paymentPayload")
@@ -258,7 +256,7 @@ class MiniAppSubscriptionAutopayResponse(BaseModel):
 class MiniAppPromoCode(BaseModel):
     code: str
     type: Optional[str] = None
-    balance_bonus_kopeks: int = 0
+    balance_bonus_toman: int = 0
     subscription_days: int = 0
     max_uses: Optional[int] = None
     current_uses: Optional[int] = None
@@ -308,11 +306,11 @@ class MiniAppLegalDocuments(BaseModel):
 
 
 class MiniAppReferralTerms(BaseModel):
-    minimum_topup_kopeks: int = 0
+    minimum_topup_toman: int = 0
     minimum_topup_label: Optional[str] = None
-    first_topup_bonus_kopeks: int = 0
+    first_topup_bonus_toman: int = 0
     first_topup_bonus_label: Optional[str] = None
-    inviter_bonus_kopeks: int = 0
+    inviter_bonus_toman: int = 0
     inviter_bonus_label: Optional[str] = None
     commission_percent: float = 0.0
 
@@ -321,15 +319,15 @@ class MiniAppReferralStats(BaseModel):
     invited_count: int = 0
     paid_referrals_count: int = 0
     active_referrals_count: int = 0
-    total_earned_kopeks: int = 0
+    total_earned_toman: int = 0
     total_earned_label: Optional[str] = None
-    month_earned_kopeks: int = 0
+    month_earned_toman: int = 0
     month_earned_label: Optional[str] = None
     conversion_rate: float = 0.0
 
 
 class MiniAppReferralRecentEarning(BaseModel):
-    amount_kopeks: int = 0
+    amount_toman: int = 0
     amount_label: Optional[str] = None
     reason: Optional[str] = None
     referral_name: Optional[str] = None
@@ -344,9 +342,9 @@ class MiniAppReferralItem(BaseModel):
     created_at: Optional[datetime] = None
     last_activity: Optional[datetime] = None
     has_made_first_topup: bool = False
-    balance_kopeks: int = 0
+    balance_toman: int = 0
     balance_label: Optional[str] = None
-    total_earned_kopeks: int = 0
+    total_earned_toman: int = 0
     total_earned_label: Optional[str] = None
     topups_count: int = 0
     days_since_registration: Optional[int] = None
@@ -417,9 +415,9 @@ class MiniAppPaymentMethod(BaseModel):
     icon: Optional[str] = None
     requires_amount: bool = False
     currency: str = "RUB"
-    min_amount_kopeks: Optional[int] = None
-    max_amount_kopeks: Optional[int] = None
-    amount_step_kopeks: Optional[int] = None
+    min_amount_toman: Optional[int] = None
+    max_amount_toman: Optional[int] = None
+    amount_step_toman: Optional[int] = None
     integration_type: MiniAppPaymentIntegrationType
     options: List[MiniAppPaymentOption] = Field(default_factory=list)
     iframe_config: Optional[MiniAppPaymentIframeConfig] = None
@@ -441,8 +439,7 @@ class MiniAppPaymentMethodsResponse(BaseModel):
 class MiniAppPaymentCreateRequest(BaseModel):
     init_data: str = Field(..., alias="initData")
     method: str
-    amount_rubles: Optional[float] = Field(default=None, alias="amountRubles")
-    amount_kopeks: Optional[int] = Field(default=None, alias="amountKopeks")
+    amount_toman: Optional[int] = Field(default=None, alias="amountToman")
     payment_option: Optional[str] = Field(default=None, alias="option")
 
 
@@ -450,7 +447,7 @@ class MiniAppPaymentCreateResponse(BaseModel):
     success: bool = True
     method: str
     payment_url: Optional[str] = None
-    amount_kopeks: Optional[int] = None
+    amount_toman: Optional[int] = None
     extra: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -461,7 +458,7 @@ class MiniAppPaymentStatusQuery(BaseModel):
     invoice_id: Optional[str] = Field(default=None, alias="invoiceId")
     payment_id: Optional[str] = Field(default=None, alias="paymentId")
     payload: Optional[str] = None
-    amount_kopeks: Optional[int] = Field(default=None, alias="amountKopeks")
+    amount_toman: Optional[int] = Field(default=None, alias="amountToman")
     started_at: Optional[str] = Field(default=None, alias="startedAt")
 
 
@@ -474,7 +471,7 @@ class MiniAppPaymentStatusResult(BaseModel):
     method: str
     status: str
     is_paid: bool = False
-    amount_kopeks: Optional[int] = None
+    amount_toman: Optional[int] = None
     currency: Optional[str] = None
     completed_at: Optional[datetime] = None
     transaction_id: Optional[int] = None
@@ -506,15 +503,13 @@ class MiniAppSubscriptionResponse(BaseModel):
     happ_crypto_link: Optional[str] = None
     happ_cryptolink_redirect_link: Optional[str] = None
     happ_cryptolink_redirect_template: Optional[str] = None
-    balance_kopeks: int = 0
-    balance_rubles: float = 0.0
+    balance_toman: int = 0
     balance_currency: Optional[str] = None
     transactions: List[MiniAppTransaction] = Field(default_factory=list)
     promo_offers: List[MiniAppPromoOffer] = Field(default_factory=list)
     promo_group: Optional[MiniAppPromoGroup] = None
     auto_assign_promo_groups: List[MiniAppAutoPromoGroupLevel] = Field(default_factory=list)
-    total_spent_kopeks: int = 0
-    total_spent_rubles: float = 0.0
+    total_spent_toman: int = 0
     total_spent_label: Optional[str] = None
     subscription_type: str
     autopay_enabled: bool = False
@@ -532,7 +527,7 @@ class MiniAppSubscriptionResponse(BaseModel):
     trial_duration_days: Optional[int] = None
     trial_status: Optional[str] = None
     trial_payment_required: bool = Field(default=False, alias="trialPaymentRequired")
-    trial_price_kopeks: Optional[int] = Field(default=None, alias="trialPriceKopeks")
+    trial_price_toman: Optional[int] = Field(default=None, alias="trialPriceToman")
     trial_price_label: Optional[str] = Field(default=None, alias="trialPriceLabel")
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -541,7 +536,7 @@ class MiniAppSubscriptionResponse(BaseModel):
 class MiniAppSubscriptionServerOption(BaseModel):
     uuid: str
     name: Optional[str] = None
-    price_kopeks: Optional[int] = None
+    price_toman: Optional[int] = None
     price_label: Optional[str] = None
     discount_percent: Optional[int] = None
     is_connected: bool = False
@@ -552,7 +547,7 @@ class MiniAppSubscriptionServerOption(BaseModel):
 class MiniAppSubscriptionTrafficOption(BaseModel):
     value: Optional[int] = None
     label: Optional[str] = None
-    price_kopeks: Optional[int] = None
+    price_toman: Optional[int] = None
     price_label: Optional[str] = None
     is_current: bool = False
     is_available: bool = True
@@ -562,7 +557,7 @@ class MiniAppSubscriptionTrafficOption(BaseModel):
 class MiniAppSubscriptionDeviceOption(BaseModel):
     value: int
     label: Optional[str] = None
-    price_kopeks: Optional[int] = None
+    price_toman: Optional[int] = None
     price_label: Optional[str] = None
 
 
@@ -594,7 +589,7 @@ class MiniAppSubscriptionDevicesSettings(BaseModel):
     max: int = 0
     step: int = 1
     current: int = 0
-    price_kopeks: Optional[int] = None
+    price_toman: Optional[int] = None
     price_label: Optional[str] = None
 
 
@@ -717,7 +712,7 @@ class MiniAppSubscriptionPurchaseOptionsRequest(BaseModel):
 class MiniAppSubscriptionPurchaseOptionsResponse(BaseModel):
     success: bool = True
     currency: str
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
     data: Dict[str, Any] = Field(default_factory=dict)
@@ -773,7 +768,7 @@ class MiniAppSubscriptionPurchasePreviewRequest(BaseModel):
 class MiniAppSubscriptionPurchasePreviewResponse(BaseModel):
     success: bool = True
     preview: Dict[str, Any] = Field(default_factory=dict)
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -786,7 +781,7 @@ class MiniAppSubscriptionPurchaseRequest(MiniAppSubscriptionPurchasePreviewReque
 class MiniAppSubscriptionPurchaseResponse(BaseModel):
     success: bool = True
     message: Optional[str] = None
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
 
@@ -805,9 +800,9 @@ class MiniAppSubscriptionTrialResponse(BaseModel):
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
     trial_status: Optional[str] = Field(default=None, alias="trialStatus")
     trial_duration_days: Optional[int] = Field(default=None, alias="trialDurationDays")
-    charged_amount_kopeks: Optional[int] = Field(default=None, alias="chargedAmountKopeks")
+    charged_amount_toman: Optional[int] = Field(default=None, alias="chargedAmountToman")
     charged_amount_label: Optional[str] = Field(default=None, alias="chargedAmountLabel")
-    balance_kopeks: Optional[int] = Field(default=None, alias="balanceKopeks")
+    balance_toman: Optional[int] = Field(default=None, alias="balanceToman")
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
 
     model_config = ConfigDict(populate_by_name=True)

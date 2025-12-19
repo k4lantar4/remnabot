@@ -14,7 +14,7 @@ async def create_yookassa_payment(
     db: AsyncSession,
     user_id: int,
     yookassa_payment_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     currency: str,
     description: str,
     status: str,
@@ -28,7 +28,7 @@ async def create_yookassa_payment(
     payment = YooKassaPayment(
         user_id=user_id,
         yookassa_payment_id=yookassa_payment_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -43,7 +43,7 @@ async def create_yookassa_payment(
     await db.commit()
     await db.refresh(payment)
     
-    logger.info(f"YooKassa payment created: {yookassa_payment_id} for {amount_kopeks/100} Toman for user {user_id}")
+    logger.info(f"YooKassa payment created: {yookassa_payment_id} for {amount_toman} Toman for user {user_id}")
     return payment
 
 
@@ -230,13 +230,13 @@ async def get_yookassa_payments_stats(
     
     query = select(
         func.count(YooKassaPayment.id).label('total_payments'),
-        func.sum(YooKassaPayment.amount_kopeks).label('total_amount_kopeks'),
+        func.sum(YooKassaPayment.amount_toman).label('total_amount_toman'),
         func.sum(
             case(
-                (YooKassaPayment.status == 'succeeded', YooKassaPayment.amount_kopeks),
+                (YooKassaPayment.status == 'succeeded', YooKassaPayment.amount_toman),
                 else_=0
             )
-        ).label('succeeded_amount_kopeks'),
+        ).label('succeeded_amount_toman'),
         func.count(
             case(
                 (YooKassaPayment.status == 'succeeded', 1),
@@ -265,10 +265,8 @@ async def get_yookassa_payments_stats(
     
     return {
         'total_payments': stats.total_payments or 0,
-        'total_amount_kopeks': stats.total_amount_kopeks or 0,
-        'total_amount_rubles': (stats.total_amount_kopeks or 0) / 100,
-        'succeeded_amount_kopeks': stats.succeeded_amount_kopeks or 0,
-        'succeeded_amount_rubles': (stats.succeeded_amount_kopeks or 0) / 100,
+        'total_amount_toman': stats.total_amount_toman or 0,
+        'succeeded_amount_toman': stats.succeeded_amount_toman or 0,
         'succeeded_count': stats.succeeded_count or 0,
         'pending_count': stats.pending_count or 0,
         'failed_count': stats.failed_count or 0,

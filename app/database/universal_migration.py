@@ -707,7 +707,7 @@ async def create_mulenpay_payments_table():
                     user_id INTEGER NOT NULL,
                     mulen_payment_id INTEGER NULL,
                     uuid VARCHAR(255) NOT NULL UNIQUE,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     status VARCHAR(50) NOT NULL DEFAULT 'created',
@@ -734,7 +734,7 @@ async def create_mulenpay_payments_table():
                     user_id INTEGER NOT NULL REFERENCES users(id),
                     mulen_payment_id INTEGER NULL,
                     uuid VARCHAR(255) NOT NULL UNIQUE,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     status VARCHAR(50) NOT NULL DEFAULT 'created',
@@ -759,7 +759,7 @@ async def create_mulenpay_payments_table():
                     user_id INT NOT NULL,
                     mulen_payment_id INT NULL,
                     uuid VARCHAR(255) NOT NULL UNIQUE,
-                    amount_kopeks INT NOT NULL,
+                    amount_toman INT NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     status VARCHAR(50) NOT NULL DEFAULT 'created',
@@ -898,7 +898,7 @@ async def create_pal24_payments_table():
                     user_id INTEGER NOT NULL,
                     bill_id VARCHAR(255) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(20) NOT NULL DEFAULT 'normal',
@@ -939,7 +939,7 @@ async def create_pal24_payments_table():
                     user_id INTEGER NOT NULL REFERENCES users(id),
                     bill_id VARCHAR(255) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(20) NOT NULL DEFAULT 'normal',
@@ -978,7 +978,7 @@ async def create_pal24_payments_table():
                     user_id INT NOT NULL,
                     bill_id VARCHAR(255) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INT NOT NULL,
+                    amount_toman INT NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(20) NOT NULL DEFAULT 'normal',
@@ -1042,7 +1042,7 @@ async def create_wata_payments_table():
                     user_id INTEGER NOT NULL,
                     payment_link_id VARCHAR(64) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(50) NULL,
@@ -1075,7 +1075,7 @@ async def create_wata_payments_table():
                     user_id INTEGER NOT NULL REFERENCES users(id),
                     payment_link_id VARCHAR(64) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INTEGER NOT NULL,
+                    amount_toman INTEGER NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(50) NULL,
@@ -1106,7 +1106,7 @@ async def create_wata_payments_table():
                     user_id INT NOT NULL,
                     payment_link_id VARCHAR(64) NOT NULL UNIQUE,
                     order_id VARCHAR(255) NULL,
-                    amount_kopeks INT NOT NULL,
+                    amount_toman INT NOT NULL,
                     currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
                     description TEXT NULL,
                     type VARCHAR(50) NULL,
@@ -1307,7 +1307,7 @@ async def create_discount_offers_table():
                         subscription_id INTEGER NULL,
                         notification_type VARCHAR(50) NOT NULL,
                         discount_percent INTEGER NOT NULL DEFAULT 0,
-                        bonus_amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        bonus_amount_toman INTEGER NOT NULL DEFAULT 0,
                         expires_at DATETIME NOT NULL,
                         claimed_at DATETIME NULL,
                         is_active BOOLEAN NOT NULL DEFAULT 1,
@@ -1332,7 +1332,7 @@ async def create_discount_offers_table():
                         subscription_id INTEGER NULL REFERENCES subscriptions(id) ON DELETE SET NULL,
                         notification_type VARCHAR(50) NOT NULL,
                         discount_percent INTEGER NOT NULL DEFAULT 0,
-                        bonus_amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        bonus_amount_toman INTEGER NOT NULL DEFAULT 0,
                         expires_at TIMESTAMP NOT NULL,
                         claimed_at TIMESTAMP NULL,
                         is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1355,7 +1355,7 @@ async def create_discount_offers_table():
                         subscription_id INTEGER NULL,
                         notification_type VARCHAR(50) NOT NULL,
                         discount_percent INTEGER NOT NULL DEFAULT 0,
-                        bonus_amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        bonus_amount_toman INTEGER NOT NULL DEFAULT 0,
                         expires_at DATETIME NOT NULL,
                         claimed_at DATETIME NULL,
                         is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1488,7 +1488,7 @@ async def create_referral_contest_events_table() -> bool:
                         referrer_id INTEGER NOT NULL,
                         referral_id INTEGER NOT NULL,
                         event_type VARCHAR(50) NOT NULL,
-                        amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        amount_toman INTEGER NOT NULL DEFAULT 0,
                         occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY(contest_id) REFERENCES referral_contests(id) ON DELETE CASCADE,
                         FOREIGN KEY(referrer_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -1508,7 +1508,7 @@ async def create_referral_contest_events_table() -> bool:
                         referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         referral_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         event_type VARCHAR(50) NOT NULL,
-                        amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        amount_toman INTEGER NOT NULL DEFAULT 0,
                         occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         CONSTRAINT uq_referral_contest_referral UNIQUE (contest_id, referral_id)
                     )
@@ -1525,7 +1525,7 @@ async def create_referral_contest_events_table() -> bool:
                         referrer_id INTEGER NOT NULL,
                         referral_id INTEGER NOT NULL,
                         event_type VARCHAR(50) NOT NULL,
-                        amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                        amount_toman INTEGER NOT NULL DEFAULT 0,
                         occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         CONSTRAINT fk_referral_contest FOREIGN KEY(contest_id) REFERENCES referral_contests(id) ON DELETE CASCADE,
                         CONSTRAINT fk_referral_contest_referrer FOREIGN KEY(referrer_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -2000,10 +2000,10 @@ async def reset_discount_offer_bonuses():
     try:
         async with engine.begin() as conn:
             await conn.execute(text(
-                "UPDATE discount_offers SET bonus_amount_kopeks = 0 WHERE bonus_amount_kopeks <> 0"
+                "UPDATE discount_offers SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0"
             ))
             await conn.execute(text(
-                "UPDATE promo_offer_templates SET bonus_amount_kopeks = 0 WHERE bonus_amount_kopeks <> 0"
+                "UPDATE promo_offer_templates SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0"
             ))
         logger.info("✅ Promo offer bonuses reset to zero")
         return True
@@ -2032,7 +2032,7 @@ async def create_promo_offer_templates_table():
                     button_text VARCHAR(255) NOT NULL,
                     valid_hours INTEGER NOT NULL DEFAULT 24,
                     discount_percent INTEGER NOT NULL DEFAULT 0,
-                    bonus_amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                    bonus_amount_toman INTEGER NOT NULL DEFAULT 0,
                     active_discount_hours INTEGER NULL,
                     test_duration_hours INTEGER NULL,
                     test_squad_uuids TEXT NULL,
@@ -2055,7 +2055,7 @@ async def create_promo_offer_templates_table():
                     button_text VARCHAR(255) NOT NULL,
                     valid_hours INTEGER NOT NULL DEFAULT 24,
                     discount_percent INTEGER NOT NULL DEFAULT 0,
-                    bonus_amount_kopeks INTEGER NOT NULL DEFAULT 0,
+                    bonus_amount_toman INTEGER NOT NULL DEFAULT 0,
                     active_discount_hours INTEGER NULL,
                     test_duration_hours INTEGER NULL,
                     test_squad_uuids JSON NULL,
@@ -2077,7 +2077,7 @@ async def create_promo_offer_templates_table():
                     button_text VARCHAR(255) NOT NULL,
                     valid_hours INT NOT NULL DEFAULT 24,
                     discount_percent INT NOT NULL DEFAULT 0,
-                    bonus_amount_kopeks INT NOT NULL DEFAULT 0,
+                    bonus_amount_toman INT NOT NULL DEFAULT 0,
                     active_discount_hours INT NULL,
                     test_duration_hours INT NULL,
                     test_squad_uuids JSON NULL,
@@ -2530,36 +2530,36 @@ async def ensure_promo_groups_setup():
                 logger.info("Added column promo_groups.period_discounts")
 
             auto_assign_column_exists = await check_column_exists(
-                "promo_groups", "auto_assign_total_spent_kopeks"
+                "promo_groups", "auto_assign_total_spent_toman"
             )
 
             if not auto_assign_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
                         text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_kopeks INTEGER DEFAULT 0"
+                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0"
                         )
                     )
                 elif db_type == "postgresql":
                     await conn.execute(
                         text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_kopeks INTEGER DEFAULT 0"
+                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0"
                         )
                     )
                 elif db_type == "mysql":
                     await conn.execute(
                         text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_kopeks INT DEFAULT 0"
+                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INT DEFAULT 0"
                         )
                     )
                 else:
                     logger.error(
-                        f"Unsupported DB type for promo_groups.auto_assign_total_spent_kopeks: {db_type}"
+                        f"Unsupported DB type for promo_groups.auto_assign_total_spent_toman: {db_type}"
                     )
                     return False
 
                 logger.info(
-                    "Added column promo_groups.auto_assign_total_spent_kopeks"
+                    "Added column promo_groups.auto_assign_total_spent_toman"
                 )
 
             addon_discount_column_exists = await check_column_exists(
@@ -2661,36 +2661,36 @@ async def ensure_promo_groups_setup():
                 logger.info("Added column users.auto_promo_group_assigned")
 
             threshold_column_exists = await check_column_exists(
-                "users", "auto_promo_group_threshold_kopeks"
+                "users", "auto_promo_group_threshold_toman"
             )
 
             if not threshold_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
                         text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_kopeks INTEGER NOT NULL DEFAULT 0"
+                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman INTEGER NOT NULL DEFAULT 0"
                         )
                     )
                 elif db_type == "postgresql":
                     await conn.execute(
                         text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_kopeks BIGINT NOT NULL DEFAULT 0"
+                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0"
                         )
                     )
                 elif db_type == "mysql":
                     await conn.execute(
                         text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_kopeks BIGINT NOT NULL DEFAULT 0"
+                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0"
                         )
                     )
                 else:
                     logger.error(
-                        f"Unsupported DB type for users.auto_promo_group_threshold_kopeks: {db_type}"
+                        f"Unsupported DB type for users.auto_promo_group_threshold_toman: {db_type}"
                     )
                     return False
 
                 logger.info(
-                    "Added column users.auto_promo_group_threshold_kopeks"
+                    "Added column users.auto_promo_group_threshold_toman"
                 )
 
             index_exists = await check_index_exists("users", "ix_users_promo_group_id")
@@ -3255,13 +3255,13 @@ async def add_referral_system_columns():
                     update_sql = """
                         UPDATE users 
                         SET has_made_first_topup = 1 
-                        WHERE balance_kopeks > 0 OR has_had_paid_subscription = 1
+                        WHERE balance_toman > 0 OR has_had_paid_subscription = 1
                     """
                 else:
                     update_sql = """
                         UPDATE users 
                         SET has_made_first_topup = TRUE 
-                        WHERE balance_kopeks > 0 OR has_had_paid_subscription = TRUE
+                        WHERE balance_toman > 0 OR has_had_paid_subscription = TRUE
                     """
                 
                 result = await conn.execute(text(update_sql))
@@ -3297,7 +3297,7 @@ async def create_subscription_conversions_table():
                     converted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     trial_duration_days INTEGER NULL,
                     payment_method VARCHAR(50) NULL,
-                    first_payment_amount_kopeks INTEGER NULL,
+                    first_payment_amount_toman INTEGER NULL,
                     first_paid_period_days INTEGER NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -3315,7 +3315,7 @@ async def create_subscription_conversions_table():
                     converted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     trial_duration_days INTEGER NULL,
                     payment_method VARCHAR(50) NULL,
-                    first_payment_amount_kopeks INTEGER NULL,
+                    first_payment_amount_toman INTEGER NULL,
                     first_paid_period_days INTEGER NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -3333,7 +3333,7 @@ async def create_subscription_conversions_table():
                     converted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     trial_duration_days INT NULL,
                     payment_method VARCHAR(50) NULL,
-                    first_payment_amount_kopeks INT NULL,
+                    first_payment_amount_toman INT NULL,
                     first_paid_period_days INT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -3373,7 +3373,7 @@ async def create_subscription_events_table():
                     user_id INTEGER NOT NULL,
                     subscription_id INTEGER NULL,
                     transaction_id INTEGER NULL,
-                    amount_kopeks INTEGER NULL,
+                    amount_toman INTEGER NULL,
                     currency VARCHAR(16) NULL,
                     message TEXT NULL,
                     occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -3396,7 +3396,7 @@ async def create_subscription_events_table():
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     subscription_id INTEGER NULL REFERENCES subscriptions(id) ON DELETE SET NULL,
                     transaction_id INTEGER NULL REFERENCES transactions(id) ON DELETE SET NULL,
-                    amount_kopeks INTEGER NULL,
+                    amount_toman INTEGER NULL,
                     currency VARCHAR(16) NULL,
                     message TEXT NULL,
                     occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -3416,7 +3416,7 @@ async def create_subscription_events_table():
                     user_id INT NOT NULL,
                     subscription_id INT NULL,
                     transaction_id INT NULL,
-                    amount_kopeks INT NULL,
+                    amount_toman INT NULL,
                     currency VARCHAR(16) NULL,
                     message TEXT NULL,
                     occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -4811,10 +4811,10 @@ async def check_migration_status():
         status["welcome_texts_is_enabled_column"] = await check_column_exists('welcome_texts', 'is_enabled')
         status["users_promo_group_column"] = await check_column_exists('users', 'promo_group_id')
         status["promo_groups_period_discounts_column"] = await check_column_exists('promo_groups', 'period_discounts')
-        status["promo_groups_auto_assign_column"] = await check_column_exists('promo_groups', 'auto_assign_total_spent_kopeks')
+        status["promo_groups_auto_assign_column"] = await check_column_exists('promo_groups', 'auto_assign_total_spent_toman')
         status["promo_groups_addon_discount_column"] = await check_column_exists('promo_groups', 'apply_discounts_to_addons')
         status["users_auto_promo_group_assigned_column"] = await check_column_exists('users', 'auto_promo_group_assigned')
-        status["users_auto_promo_group_threshold_column"] = await check_column_exists('users', 'auto_promo_group_threshold_kopeks')
+        status["users_auto_promo_group_threshold_column"] = await check_column_exists('users', 'auto_promo_group_threshold_toman')
         status["users_promo_offer_discount_percent_column"] = await check_column_exists('users', 'promo_offer_discount_percent')
         status["users_promo_offer_discount_source_column"] = await check_column_exists('users', 'promo_offer_discount_source')
         status["users_promo_offer_discount_expires_column"] = await check_column_exists('users', 'promo_offer_discount_expires_at')
@@ -4859,7 +4859,7 @@ async def check_migration_status():
             "server_squads_trial_column": "Trial eligibility column for servers",
             "users_promo_group_column": "promo_group_id column for users",
             "promo_groups_period_discounts_column": "period_discounts column for promo groups",
-            "promo_groups_auto_assign_column": "auto_assign_total_spent_kopeks column for promo groups",
+            "promo_groups_auto_assign_column": "auto_assign_total_spent_toman column for promo groups",
             "promo_groups_addon_discount_column": "apply_discounts_to_addons column for promo groups",
             "users_auto_promo_group_assigned_column": "Auto promo group assignment flag for users",
             "users_auto_promo_group_threshold_column": "Last auto promo group threshold for users",

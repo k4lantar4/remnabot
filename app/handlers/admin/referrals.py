@@ -25,7 +25,7 @@ async def show_referral_statistics(
         
         avg_per_referrer = 0
         if stats.get('active_referrers', 0) > 0:
-            avg_per_referrer = stats.get('total_paid_kopeks', 0) / stats['active_referrers']
+            avg_per_referrer = stats.get('total_paid_toman', 0) / stats['active_referrers']
         
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         texts = get_texts(db_user.language)
@@ -34,11 +34,11 @@ async def show_referral_statistics(
         text += texts.t("ADMIN_REFERRAL_GENERAL_METRICS", "<b>General metrics:</b>") + "\n"
         text += texts.t("ADMIN_REFERRAL_USERS_WITH_REFERRALS", "- Users with referrals: {count}").format(count=stats.get('users_with_referrals', 0)) + "\n"
         text += texts.t("ADMIN_REFERRAL_ACTIVE_REFERRERS", "- Active referrers: {count}").format(count=stats.get('active_referrers', 0)) + "\n"
-        text += texts.t("ADMIN_REFERRAL_TOTAL_PAID", "- Total paid: {amount}").format(amount=settings.format_price(stats.get('total_paid_kopeks', 0))) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_TOTAL_PAID", "- Total paid: {amount}").format(amount=settings.format_price(stats.get('total_paid_toman', 0))) + "\n\n"
         text += texts.t("ADMIN_REFERRAL_PERIOD_TITLE", "<b>Period earnings:</b>") + "\n"
-        text += texts.t("ADMIN_REFERRAL_TODAY", "- Today: {amount}").format(amount=settings.format_price(stats.get('today_earnings_kopeks', 0))) + "\n"
-        text += texts.t("ADMIN_REFERRAL_WEEK", "- This week: {amount}").format(amount=settings.format_price(stats.get('week_earnings_kopeks', 0))) + "\n"
-        text += texts.t("ADMIN_REFERRAL_MONTH", "- This month: {amount}").format(amount=settings.format_price(stats.get('month_earnings_kopeks', 0))) + "\n\n"
+        text += texts.t("ADMIN_REFERRAL_TODAY", "- Today: {amount}").format(amount=settings.format_price(stats.get('today_earnings_toman', 0))) + "\n"
+        text += texts.t("ADMIN_REFERRAL_WEEK", "- This week: {amount}").format(amount=settings.format_price(stats.get('week_earnings_toman', 0))) + "\n"
+        text += texts.t("ADMIN_REFERRAL_MONTH", "- This month: {amount}").format(amount=settings.format_price(stats.get('month_earnings_toman', 0))) + "\n\n"
         text += texts.t("ADMIN_REFERRAL_AVERAGES", "<b>Averages:</b>") + "\n"
         text += texts.t("ADMIN_REFERRAL_PER_REFERRER", "- Per referrer: {amount}").format(amount=settings.format_price(int(avg_per_referrer))) + "\n\n"
         text += texts.t("ADMIN_REFERRAL_TOP_5", "<b>Top 5 referrers:</b>") + "\n"
@@ -46,7 +46,7 @@ async def show_referral_statistics(
         top_referrers = stats.get('top_referrers', [])
         if top_referrers:
             for i, referrer in enumerate(top_referrers[:5], 1):
-                earned = referrer.get('total_earned_kopeks', 0)
+                earned = referrer.get('total_earned_toman', 0)
                 count = referrer.get('referrals_count', 0)
                 user_id = referrer.get('user_id', 'N/A')
                 
@@ -60,9 +60,9 @@ async def show_referral_statistics(
             text += texts.t("ADMIN_REFERRAL_NO_DATA", "No data") + "\n"
         
         text += "\n" + texts.t("ADMIN_REFERRAL_SETTINGS_TITLE", "<b>Referral system settings:</b>") + "\n"
-        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
-        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
-        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_TOMAN)) + "\n"
         text += texts.t("ADMIN_REFERRAL_COMMISSION", "- Purchase commission: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n"
         notifications_status = texts.t("ADMIN_REFERRAL_NOTIFICATIONS_ENABLED", "✅ Enabled") if settings.REFERRAL_NOTIFICATIONS_ENABLED else texts.t("ADMIN_REFERRAL_NOTIFICATIONS_DISABLED", "❌ Disabled")
         text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS", "- Notifications: {status}").format(status=notifications_status) + "\n\n"
@@ -93,9 +93,9 @@ async def show_referral_statistics(
         text = texts.t("ADMIN_REFERRAL_TITLE", "🤝 <b>Referral statistics</b>") + "\n\n"
         text += texts.t("ADMIN_REFERRAL_ERROR_TITLE", "❌ <b>Data loading error</b>") + "\n\n"
         text += texts.t("ADMIN_REFERRAL_CURRENT_SETTINGS", "<b>Current settings:</b>") + "\n"
-        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
-        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
-        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_MIN_TOPUP", "- Minimum top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_FIRST_TOPUP_BONUS", "- First top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN)) + "\n"
+        text += texts.t("ADMIN_REFERRAL_INVITER_BONUS", "- Inviter bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_TOMAN)) + "\n"
         text += texts.t("ADMIN_REFERRAL_COMMISSION", "- Purchase commission: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n\n"
         text += texts.t("ADMIN_REFERRAL_UPDATED_AT", "<i>🕐 Updated: {time}</i>").format(time=current_time)
         
@@ -127,7 +127,7 @@ async def show_top_referrers(
         
         if top_referrers:
             for i, referrer in enumerate(top_referrers[:20], 1): 
-                earned = referrer.get('total_earned_kopeks', 0)
+                earned = referrer.get('total_earned_toman', 0)
                 count = referrer.get('referrals_count', 0)
                 display_name = referrer.get('display_name', 'N/A')
                 username = referrer.get('username', '')
@@ -177,9 +177,9 @@ async def show_referral_settings(
     texts = get_texts(db_user.language)
     text = texts.t("ADMIN_REFERRAL_SETTINGS_HEADER", "⚙️ <b>Referral system settings</b>") + "\n\n"
     text += texts.t("ADMIN_REFERRAL_BONUSES_TITLE", "<b>Bonuses and rewards:</b>") + "\n"
-    text += texts.t("ADMIN_REFERRAL_BONUSES_MIN_TOPUP", "• Minimum top-up for participation: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)) + "\n"
-    text += texts.t("ADMIN_REFERRAL_BONUSES_FIRST_TOPUP", "• Referral first top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)) + "\n"
-    text += texts.t("ADMIN_REFERRAL_BONUSES_INVITER", "• Inviter bonus for first top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)) + "\n\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_MIN_TOPUP", "• Minimum top-up for participation: {amount}").format(amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN)) + "\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_FIRST_TOPUP", "• Referral first top-up bonus: {amount}").format(amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN)) + "\n"
+    text += texts.t("ADMIN_REFERRAL_BONUSES_INVITER", "• Inviter bonus for first top-up: {amount}").format(amount=settings.format_price(settings.REFERRAL_INVITER_BONUS_TOMAN)) + "\n\n"
     text += texts.t("ADMIN_REFERRAL_COMMISSIONS_TITLE", "<b>Commissions:</b>") + "\n"
     text += texts.t("ADMIN_REFERRAL_COMMISSIONS_PERCENT", "• Percent from each referral purchase: {percent}%").format(percent=settings.REFERRAL_COMMISSION_PERCENT) + "\n\n"
     text += texts.t("ADMIN_REFERRAL_NOTIFICATIONS_TITLE", "<b>Notifications:</b>") + "\n"

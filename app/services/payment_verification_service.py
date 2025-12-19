@@ -38,7 +38,7 @@ class PendingPayment:
     method: PaymentMethod
     local_id: int
     identifier: str
-    amount_kopeks: int
+    amount_toman: int
     status: str
     is_paid: bool
     created_at: datetime
@@ -270,7 +270,7 @@ def _is_cryptobot_pending(payment: CryptoBotPayment) -> bool:
     return status == "active"
 
 
-def _parse_cryptobot_amount_kopeks(payment: CryptoBotPayment) -> int:
+def _parse_cryptobot_amount_toman(payment: CryptoBotPayment) -> int:
     payload = payment.payload or ""
     match = re.search(r"_(\d+)$", payload)
     if match:
@@ -286,7 +286,7 @@ def _metadata_is_balance(_payment: Any) -> bool:
     return False
 
 
-def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amount_kopeks: int,
+def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amount_toman: int,
                   status: str, is_paid: bool, expires_at: Optional[datetime] = None) -> Optional[PendingPayment]:
     user = getattr(payment, "user", None)
     if user is None:
@@ -307,7 +307,7 @@ def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amoun
         method=method,
         local_id=int(local_id),
         identifier=identifier,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         status=status,
         is_paid=is_paid,
         created_at=created_at,
@@ -333,7 +333,7 @@ async def _fetch_pal24_payments(db: AsyncSession, cutoff: datetime) -> List[Pend
             PaymentMethod.PAL24,
             payment,
             identifier=payment.bill_id,
-            amount_kopeks=payment.amount_kopeks,
+            amount_toman=payment.amount_toman,
             status=payment.status or "",
             is_paid=bool(payment.is_paid),
             expires_at=getattr(payment, "expires_at", None),
@@ -381,12 +381,12 @@ async def _fetch_cryptobot_payments(db: AsyncSession, cutoff: datetime) -> List[
         status = (payment.status or "").lower()
         if not _is_cryptobot_pending(payment) and status != "paid":
             continue
-        amount_kopeks = _parse_cryptobot_amount_kopeks(payment)
+        amount_toman = _parse_cryptobot_amount_toman(payment)
         record = _build_record(
             PaymentMethod.CRYPTOBOT,
             payment,
             identifier=payment.invoice_id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             status=payment.status or "",
             is_paid=bool(payment.is_paid),
         )
@@ -413,7 +413,7 @@ async def _fetch_stars_transactions(db: AsyncSession, cutoff: datetime) -> List[
             PaymentMethod.TELEGRAM_STARS,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            amount_kopeks=transaction.amount_kopeks,
+            amount_toman=transaction.amount_toman,
             status="paid" if transaction.is_completed else "pending",
             is_paid=bool(transaction.is_completed),
         )
@@ -462,7 +462,7 @@ async def get_payment_record(
             method,
             payment,
             identifier=payment.bill_id,
-            amount_kopeks=payment.amount_kopeks,
+            amount_toman=payment.amount_toman,
             status=payment.status or "",
             is_paid=bool(payment.is_paid),
             expires_at=getattr(payment, "expires_at", None),
@@ -473,12 +473,12 @@ async def get_payment_record(
         if not payment:
             return None
         await db.refresh(payment, attribute_names=["user"])
-        amount_kopeks = _parse_cryptobot_amount_kopeks(payment)
+        amount_toman = _parse_cryptobot_amount_toman(payment)
         return _build_record(
             method,
             payment,
             identifier=payment.invoice_id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             status=payment.status or "",
             is_paid=bool(payment.is_paid),
         )
@@ -494,7 +494,7 @@ async def get_payment_record(
             method,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            amount_kopeks=transaction.amount_kopeks,
+            amount_toman=transaction.amount_toman,
             status="paid" if transaction.is_completed else "pending",
             is_paid=bool(transaction.is_completed),
         )

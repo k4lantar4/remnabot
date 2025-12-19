@@ -224,7 +224,7 @@ PRESET_CONFIGS: Dict[str, Dict[str, object]] = {
         "MAINTENANCE_AUTO_ENABLE": True,
         "ADMIN_NOTIFICATIONS_ENABLED": True,
         "ADMIN_REPORTS_ENABLED": True,
-        "REFERRAL_MINIMUM_TOPUP_KOPEKS": 100000,
+        "REFERRAL_MINIMUM_TOPUP_TOMAN": 100000,
         "SERVER_STATUS_MODE": "disabled",
     },
     "testing": {
@@ -355,8 +355,8 @@ def _get_group_status(group_key: str, language: str = "en") -> Tuple[str, str]:
     if key == "referral":
         active = (
             settings.REFERRAL_COMMISSION_PERCENT
-            or settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS
-            or settings.REFERRAL_INVITER_BONUS_KOPEKS
+            or settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN
+            or settings.REFERRAL_INVITER_BONUS_TOMAN
         )
         if active:
             return "🟢", texts.t("ADMIN_CFG_STATUS_REFERRAL_ACTIVE", "Program active")
@@ -1844,9 +1844,9 @@ async def show_simple_subscription_squad_selector(
         label_parts = [status_icon, server.display_name]
         if server.country_code:
             label_parts.append(f"({server.country_code.upper()})")
-        if isinstance(server.price_kopeks, int) and server.price_kopeks > 0:
+        if isinstance(server.price_toman, int) and server.price_toman > 0:
             try:
-                label_parts.append(f"— {settings.format_price(server.price_kopeks)}")
+                label_parts.append(f"— {settings.format_price(server.price_toman)}")
             except Exception:
                 pass
         label = " ".join(label_parts)
@@ -2070,12 +2070,12 @@ async def test_payment_provider(
             await callback.answer(texts.t("ADMIN_CFG_YOOKASSA_DISABLED", "❌ YooKassa is disabled"), show_alert=True)
             return
 
-        amount_kopeks = 10 * 100
-        description = settings.get_balance_payment_description(amount_kopeks, telegram_user_id=db_user.telegram_id),
+        amount_toman = 10 * 100
+        description = settings.get_balance_payment_description(amount_toman, telegram_user_id=db_user.telegram_id),
         payment_result = await payment_service.create_yookassa_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             description=f"Test payment (admin): {description}",
             metadata={
                 "user_telegram_id": str(db_user.telegram_id),
@@ -2093,7 +2093,7 @@ async def test_payment_provider(
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_YOOKASSA",
             "🧪 <b>YooKassa Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}"
-        ).format(amount=texts.format_price(amount_kopeks), payment_id=payment_result['yookassa_payment_id'])
+        ).format(amount=texts.format_price(amount_toman), payment_id=payment_result['yookassa_payment_id'])
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2133,11 +2133,11 @@ async def test_payment_provider(
             )
             return
 
-        amount_kopeks = 1 * 100
+        amount_toman = 1 * 100
         payment_result = await payment_service.create_mulenpay_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             description=f"Test payment {mulenpay_name} (admin)",
             language=language,
         )
@@ -2154,7 +2154,7 @@ async def test_payment_provider(
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_GENERIC",
             "🧪 <b>{provider} Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}"
-        ).format(provider=mulenpay_name_html, amount=texts.format_price(amount_kopeks), payment_id=payment_result['mulen_payment_id'])
+        ).format(provider=mulenpay_name_html, amount=texts.format_price(amount_toman), payment_id=payment_result['mulen_payment_id'])
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2181,11 +2181,11 @@ async def test_payment_provider(
             await callback.answer(texts.t("ADMIN_CFG_PAL24_DISABLED", "❌ PayPalych is disabled"), show_alert=True)
             return
 
-        amount_kopeks = 10 * 100
+        amount_toman = 10 * 100
         payment_result = await payment_service.create_pal24_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             description="Test payment PayPalych (admin)",
             language=language or "ru",
         )
@@ -2251,7 +2251,7 @@ async def test_payment_provider(
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_PAL24",
             "🧪 <b>PayPalych Test Payment</b>\n\n💰 Amount: {amount}\n🆔 Bill ID: {bill_id}"
-        ).format(amount=texts.format_price(amount_kopeks), bill_id=payment_result['bill_id'])
+        ).format(amount=texts.format_price(amount_toman), bill_id=payment_result['bill_id'])
         keyboard_rows = pay_rows + [
             [
                 types.InlineKeyboardButton(
@@ -2273,11 +2273,11 @@ async def test_payment_provider(
             return
 
         stars_rate = settings.get_stars_rate()
-        amount_kopeks = max(1, int(round(stars_rate * 100)))
+        amount_toman = max(1, int(round(stars_rate * 100)))
         payload = f"admin_stars_test_{db_user.id}_{int(time.time())}"
         try:
             invoice_link = await payment_service.create_stars_invoice(
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 description="Test payment Telegram Stars (admin)",
                 payload=payload,
             )
@@ -2289,11 +2289,11 @@ async def test_payment_provider(
             await _refresh_markup()
             return
 
-        stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_kopeks / 100)
+        stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_toman / 100)
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_STARS",
             "🧪 <b>Telegram Stars Test Payment</b>\n\n💰 Amount: {amount}\n⭐ To pay: {stars}"
-        ).format(amount=texts.format_price(amount_kopeks), stars=stars_amount)
+        ).format(amount=texts.format_price(amount_toman), stars=stars_amount)
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2352,11 +2352,11 @@ async def test_payment_provider(
             await _refresh_markup()
             return
 
-        amount_kopeks = int(amount_rubles * 100)
+        amount_toman = int(amount_rubles * 100)
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_CRYPTOBOT",
             "🧪 <b>CryptoBot Test Payment</b>\n\n💰 Amount to credit: {amount}\n💵 To pay: {usd} USD\n🪙 Asset: {asset}"
-        ).format(amount=texts.format_price(amount_kopeks), usd=f"{amount_usd:.2f}", asset=payment_result['asset'])
+        ).format(amount=texts.format_price(amount_toman), usd=f"{amount_usd:.2f}", asset=payment_result['asset'])
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [

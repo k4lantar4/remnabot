@@ -96,8 +96,8 @@ class SubscriptionRenewalPricing:
 class SubscriptionRenewalResult:
     subscription: Subscription
     transaction: Optional[Transaction]
-    total_amount_kopeks: int
-    charged_from_balance_kopeks: int
+    total_amount_toman: int
+    charged_from_balance_toman: int
     old_end_date: Optional[datetime]
 
 
@@ -106,14 +106,14 @@ class RenewalPaymentDescriptor:
     user_id: int
     subscription_id: int
     period_days: int
-    total_amount_kopeks: int
-    missing_amount_kopeks: int
+    total_amount_toman: int
+    missing_amount_toman: int
     payload_id: str
     pricing_snapshot: Optional[Dict[str, Any]] = None
 
     @property
-    def balance_component_kopeks(self) -> int:
-        remaining = self.total_amount_kopeks - self.missing_amount_kopeks
+    def balance_component_toman(self) -> int:
+        remaining = self.total_amount_toman - self.missing_amount_toman
         return max(0, remaining)
 
 
@@ -128,8 +128,8 @@ def build_payment_descriptor(
     user_id: int,
     subscription_id: int,
     period_days: int,
-    total_amount_kopeks: int,
-    missing_amount_kopeks: int,
+    total_amount_toman: int,
+    missing_amount_toman: int,
     *,
     pricing_snapshot: Optional[Dict[str, Any]] = None,
 ) -> RenewalPaymentDescriptor:
@@ -137,8 +137,8 @@ def build_payment_descriptor(
         user_id=user_id,
         subscription_id=subscription_id,
         period_days=period_days,
-        total_amount_kopeks=max(0, int(total_amount_kopeks)),
-        missing_amount_kopeks=max(0, int(missing_amount_kopeks)),
+        total_amount_toman=max(0, int(total_amount_toman)),
+        missing_amount_toman=max(0, int(missing_amount_toman)),
         payload_id=uuid4().hex[:8],
         pricing_snapshot=pricing_snapshot or None,
     )
@@ -159,8 +159,8 @@ def encode_payment_payload(descriptor: RenewalPaymentDescriptor) -> str:
 
     payload = (
         f"{_PAYLOAD_PREFIX}|{descriptor.user_id}|{descriptor.subscription_id}|"
-        f"{descriptor.period_days}|{descriptor.total_amount_kopeks}|"
-        f"{descriptor.missing_amount_kopeks}|{descriptor.payload_id}"
+        f"{descriptor.period_days}|{descriptor.total_amount_toman}|"
+        f"{descriptor.missing_amount_toman}|{descriptor.payload_id}"
     )
 
     if snapshot_segment:
@@ -216,8 +216,8 @@ def decode_payment_payload(payload: str, expected_user_id: Optional[int] = None)
         user_id=user_id,
         subscription_id=subscription_id,
         period_days=period_days,
-        total_amount_kopeks=max(0, total_amount),
-        missing_amount_kopeks=max(0, missing_amount),
+        total_amount_toman=max(0, total_amount),
+        missing_amount_toman=max(0, missing_amount),
         payload_id=payload_id,
         pricing_snapshot=pricing_snapshot,
     )
@@ -228,8 +228,8 @@ def build_payment_metadata(descriptor: RenewalPaymentDescriptor) -> Dict[str, An
         "payment_purpose": _PAYLOAD_PREFIX,
         "subscription_id": str(descriptor.subscription_id),
         "period_days": str(descriptor.period_days),
-        "total_amount_kopeks": str(descriptor.total_amount_kopeks),
-        "missing_amount_kopeks": str(descriptor.missing_amount_kopeks),
+        "total_amount_toman": str(descriptor.total_amount_toman),
+        "missing_amount_toman": str(descriptor.missing_amount_toman),
         "payload_id": descriptor.payload_id,
         "pricing_snapshot": descriptor.pricing_snapshot or {},
     }
@@ -249,8 +249,8 @@ def parse_payment_metadata(
     try:
         subscription_id = int(metadata.get("subscription_id"))
         period_days = int(metadata.get("period_days"))
-        total_amount = int(metadata.get("total_amount_kopeks"))
-        missing_amount = int(metadata.get("missing_amount_kopeks"))
+        total_amount = int(metadata.get("total_amount_toman"))
+        missing_amount = int(metadata.get("missing_amount_toman"))
     except (TypeError, ValueError):
         return None
 
@@ -277,8 +277,8 @@ def parse_payment_metadata(
         user_id=user_id_int or expected_user_id or 0,
         subscription_id=subscription_id,
         period_days=period_days,
-        total_amount_kopeks=max(0, total_amount),
-        missing_amount_kopeks=max(0, missing_amount),
+        total_amount_toman=max(0, total_amount),
+        missing_amount_toman=max(0, missing_amount),
         payload_id=payload_id,
         pricing_snapshot=snapshot_dict,
     )
@@ -492,7 +492,7 @@ class SubscriptionRenewalService:
                 db=db,
                 user_id=user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                amount_kopeks=final_total,
+                amount_toman=final_total,
                 description=description_text,
                 payment_method=payment_method,
             )
@@ -516,15 +516,15 @@ class SubscriptionRenewalService:
                     period_days,
                     old_end_date,
                     new_end_date=subscription_after.end_date,
-                    balance_after=user.balance_kopeks,
+                    balance_after=user.balance_toman,
                 )
             )
 
         return SubscriptionRenewalResult(
             subscription=subscription_after,
             transaction=transaction,
-            total_amount_kopeks=final_total,
-            charged_from_balance_kopeks=charge_from_balance,
+            total_amount_toman=final_total,
+            charged_from_balance_toman=charge_from_balance,
             old_end_date=old_end_date,
         )
 
@@ -549,12 +549,12 @@ class SubscriptionRenewalService:
             "id": pricing.period_id,
             "days": pricing.period_days,
             "months": pricing.months,
-            "price_kopeks": pricing.final_total,
+            "price_toman": pricing.final_total,
             "price_label": price_label,
-            "original_price_kopeks": pricing.base_original_total,
+            "original_price_toman": pricing.base_original_total,
             "original_price_label": original_label,
             "discount_percent": pricing.overall_discount_percent,
-            "price_per_month_kopeks": pricing.per_month,
+            "price_per_month_toman": pricing.per_month,
             "price_per_month_label": per_month_label,
             "title": label,
         }
@@ -562,10 +562,10 @@ class SubscriptionRenewalService:
         return payload
 
 
-def calculate_missing_amount(balance_kopeks: int, total_kopeks: int) -> int:
-    if total_kopeks <= 0:
+def calculate_missing_amount(balance_toman: int, total_toman: int) -> int:
+    if total_toman <= 0:
         return 0
-    if balance_kopeks <= 0:
-        return total_kopeks
-    return max(0, total_kopeks - min(balance_kopeks, total_kopeks))
+    if balance_toman <= 0:
+        return total_toman
+    return max(0, total_toman - min(balance_toman, total_toman))
 

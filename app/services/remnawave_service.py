@@ -1067,7 +1067,7 @@ class RemnaWaveService:
                         SubscriptionServer(
                             subscription_id=subscription.id,
                             server_squad_id=target_server.id,
-                            paid_price_kopeks=0,
+                            paid_price_toman=0,
                         )
                     )
 
@@ -2060,7 +2060,7 @@ class RemnaWaveService:
             
             try:
                 
-                user.balance_kopeks = 0
+                user.balance_toman = 0
                 user.remnawave_uuid = None
                 user.has_had_paid_subscription = False
                 user.used_promocodes = 0

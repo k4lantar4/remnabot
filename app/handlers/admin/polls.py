@@ -34,12 +34,12 @@ from app.utils.validators import get_html_help_text, validate_html_tags
 logger = logging.getLogger(__name__)
 
 
-def _safe_format_price(amount_kopeks: int) -> str:
+def _safe_format_price(amount_toman: int) -> str:
     try:
-        return settings.format_price(amount_kopeks)
+        return settings.format_price(amount_toman)
     except Exception as error:  # pragma: no cover - defensive logging
-        logger.error("Failed to format amount %s: %s", amount_kopeks, error)
-        return f"{amount_kopeks / 100:.2f}  Toman"
+        logger.error("Failed to format amount %s: %s", amount_toman, error)
+        return f"{amount_toman / 100:.2f} Toman"
 
 
 async def _safe_delete_message(message: types.Message) -> None:
@@ -214,7 +214,7 @@ def _render_creation_progress(
 
     if "reward_enabled" in data:
         if data.get("reward_enabled"):
-            amount = data.get("reward_amount_kopeks", 0)
+            amount = data.get("reward_amount_toman", 0)
             lines.append(f"• {_safe_format_price(amount)}")
         else:
             lines.append(texts.t("ADMIN_POLLS_REWARD_DISABLED", "Reward disabled"))
@@ -300,11 +300,11 @@ def _build_polls_keyboard(polls: list[Poll], language: str) -> types.InlineKeybo
 
 def _format_reward_text(poll: Poll, language: str) -> str:
     texts = get_texts(language)
-    if poll.reward_enabled and poll.reward_amount_kopeks > 0:
+    if poll.reward_enabled and poll.reward_amount_toman > 0:
         return texts.t(
             "ADMIN_POLLS_REWARD_ENABLED",
             "Reward: {amount}",
-        ).format(amount=settings.format_price(poll.reward_amount_kopeks))
+        ).format(amount=settings.format_price(poll.reward_amount_toman))
     return texts.t("ADMIN_POLLS_REWARD_DISABLED", "Reward disabled")
 
 
@@ -675,8 +675,8 @@ def _parse_reward_amount(message_text: str) -> int | None:
     if value < 0:
         value = Decimal(0)
 
-    kopeks = int((value * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return max(0, kopeks)
+    toman = int((value * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return max(0, toman)
 
 
 @admin_required
@@ -715,9 +715,9 @@ async def process_poll_reward(
         await state.clear()
         return
 
-    reward_kopeks = _parse_reward_amount(message.text or "")
+    reward_toman = _parse_reward_amount(message.text or "")
     await _safe_delete_message(message)
-    if reward_kopeks is None:
+    if reward_toman is None:
         error_text = texts.t(
             "ADMIN_POLLS_CREATION_REWARD_INVALID",
             "❌ Invalid amount. Please try again.",
@@ -733,10 +733,10 @@ async def process_poll_reward(
             )
         return
 
-    reward_enabled = reward_kopeks > 0
+    reward_enabled = reward_toman > 0
     await state.update_data(
         reward_enabled=reward_enabled,
-        reward_amount_kopeks=reward_kopeks,
+        reward_amount_toman=reward_toman,
     )
     await state.set_state(PollCreationStates.waiting_for_questions)
 
@@ -811,7 +811,7 @@ async def process_poll_question(
         title = data.get("title")
         description = data.get("description")
         reward_enabled = data.get("reward_enabled", False)
-        reward_amount = data.get("reward_amount_kopeks", 0)
+        reward_amount = data.get("reward_amount_toman", 0)
 
         form_data = data.copy()
 
@@ -820,7 +820,7 @@ async def process_poll_question(
             title=title,
             description=description,
             reward_enabled=reward_enabled,
-            reward_amount_kopeks=reward_amount,
+            reward_amount_toman=reward_amount,
             created_by=db_user.id,
             questions=questions,
         )
@@ -1134,7 +1134,7 @@ async def show_poll_stats(
 
     stats = await get_poll_statistics(db, poll_id)
 
-    reward_sum = settings.format_price(stats["reward_sum_kopeks"])
+    reward_sum = settings.format_price(stats["reward_sum_toman"])
     lines = [texts.t("ADMIN_POLLS_STATS_HEADER", "📊 <b>Poll statistics</b>"), ""]
     lines.append(
         texts.t(

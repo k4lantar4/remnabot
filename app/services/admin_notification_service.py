@@ -108,7 +108,7 @@ class AdminNotificationService:
         user: User,
         subscription: Subscription | None,
         transaction: Transaction | None = None,
-        amount_kopeks: int | None = None,
+        amount_toman: int | None = None,
         message: str | None = None,
         extra: Dict[str, Any] | None = None,
         occurred_at: datetime | None = None,
@@ -122,7 +122,7 @@ class AdminNotificationService:
                 event_type=event_type,
                 subscription_id=subscription.id if subscription else None,
                 transaction_id=transaction.id if transaction else None,
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 currency=None,
                 message=message,
                 occurred_at=occurred_at,
@@ -279,7 +279,7 @@ class AdminNotificationService:
                 self.texts.t(
                     "service.notifications.admin.campaign_bonus.balance",
                     "💰 Balance: {amount}"
-                ).format(amount=settings.format_price(campaign.balance_bonus_kopeks or 0)),
+                ).format(amount=settings.format_price(campaign.balance_bonus_toman or 0)),
             ]
 
         if campaign.is_subscription_bonus:
@@ -320,7 +320,7 @@ class AdminNotificationService:
         user: User,
         subscription: Subscription,
         *,
-        charged_amount_kopeks: Optional[int] = None,
+        charged_amount_toman: Optional[int] = None,
     ) -> bool:
         try:
             await self._record_subscription_event(
@@ -329,11 +329,11 @@ class AdminNotificationService:
                 user=user,
                 subscription=subscription,
                 transaction=None,
-                amount_kopeks=charged_amount_kopeks,
+                amount_toman=charged_amount_toman,
                 message="Trial activation",
                 occurred_at=datetime.utcnow(),
                 extra={
-                    "charged_amount_kopeks": charged_amount_kopeks,
+                    "charged_amount_toman": charged_amount_toman,
                     "trial_duration_days": settings.TRIAL_DURATION_DAYS,
                     "traffic_limit_gb": settings.TRIAL_TRAFFIC_LIMIT_GB,
                     "device_limit": subscription.device_limit,
@@ -362,9 +362,9 @@ class AdminNotificationService:
                     trial_device_limit = settings.TRIAL_DEVICE_LIMIT
 
             payment_block = ""
-            if charged_amount_kopeks and charged_amount_kopeks > 0:
+            if charged_amount_toman and charged_amount_toman > 0:
                 payment_block = (
-                    f"\n💳 <b>Activation payment:</b> {settings.format_price(charged_amount_kopeks)}"
+                    f"\n💳 <b>Activation payment:</b> {settings.format_price(charged_amount_toman)}"
                 )
             username = getattr(user, "username", None) or self.texts.t(
                 "service.notifications.admin.username_missing",
@@ -433,10 +433,10 @@ class AdminNotificationService:
         transaction: Optional[Transaction],
         period_days: int,
         was_trial_conversion: bool = False,
-        amount_kopeks: Optional[int] = None,
+        amount_toman: Optional[int] = None,
     ) -> bool:
         try:
-            total_amount = amount_kopeks if amount_kopeks is not None else (transaction.amount_kopeks if transaction else 0)
+            total_amount = amount_toman if amount_toman is not None else (transaction.amount_toman if transaction else 0)
 
             await self._record_subscription_event(
                 db,
@@ -444,7 +444,7 @@ class AdminNotificationService:
                 user=user,
                 subscription=subscription,
                 transaction=transaction,
-                amount_kopeks=total_amount,
+                amount_toman=total_amount,
                 message="Subscription purchase",
                 occurred_at=(transaction.completed_at or transaction.created_at) if transaction else datetime.utcnow(),
                 extra={
@@ -524,7 +524,7 @@ class AdminNotificationService:
                 valid_until=format_local_datetime(
                     subscription.end_date, "%d.%m.%Y %H:%M"
                 ),
-                balance_after=settings.format_price(user.balance_kopeks),
+                balance_after=settings.format_price(user.balance_toman),
                 referrer_info=referrer_info,
                 timestamp=format_local_datetime(
                     datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
@@ -645,7 +645,7 @@ class AdminNotificationService:
         promo_group: PromoGroup | None,
     ) -> str:
         payment_method = self._get_payment_method_display(transaction.payment_method)
-        balance_change = user.balance_kopeks - old_balance
+        balance_change = user.balance_toman - old_balance
         subscription_status = self._get_subscription_status(subscription)
         promo_block = self._format_promo_group_block(promo_group)
         timestamp = format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')
@@ -685,11 +685,11 @@ class AdminNotificationService:
             username=username,
             topup_status=topup_status,
             promo_block=promo_block,
-            amount=settings.format_price(transaction.amount_kopeks),
+            amount=settings.format_price(transaction.amount_toman),
             payment_method=payment_method,
             transaction_id=transaction.id,
             balance_before=settings.format_price(old_balance),
-            balance_after=settings.format_price(user.balance_kopeks),
+            balance_after=settings.format_price(user.balance_toman),
             balance_change=settings.format_price(balance_change),
             referrer_info=referrer_info,
             subscription_status=subscription_status,
@@ -751,13 +751,13 @@ class AdminNotificationService:
                     user=user,
                     subscription=subscription,
                     transaction=transaction,
-                    amount_kopeks=transaction.amount_kopeks,
+                    amount_toman=transaction.amount_toman,
                     message="Balance top-up",
                     occurred_at=transaction.completed_at or transaction.created_at,
                     extra={
                         "status": topup_status,
                         "balance_before": old_balance,
-                        "balance_after": user.balance_kopeks,
+                        "balance_after": user.balance_toman,
                         "referrer_info": referrer_info,
                         "promo_group_id": getattr(promo_group, "id", None),
                         "promo_group_name": getattr(promo_group, "name", None),
@@ -868,7 +868,7 @@ class AdminNotificationService:
     ) -> bool:
         try:
             current_end_date = new_end_date or subscription.end_date
-            current_balance = balance_after if balance_after is not None else user.balance_kopeks
+            current_balance = balance_after if balance_after is not None else user.balance_toman
 
             await self._record_subscription_event(
                 db,
@@ -876,7 +876,7 @@ class AdminNotificationService:
                 user=user,
                 subscription=subscription,
                 transaction=transaction,
-                amount_kopeks=transaction.amount_kopeks,
+                amount_toman=transaction.amount_toman,
                 message="Subscription renewed",
                 occurred_at=transaction.completed_at or transaction.created_at,
                 extra={
@@ -932,7 +932,7 @@ class AdminNotificationService:
                 telegram_id=user.telegram_id,
                 username=username,
                 promo_block=promo_block,
-                amount=settings.format_price(transaction.amount_kopeks),
+                amount=settings.format_price(transaction.amount_toman),
                 payment_method=payment_method,
                 transaction_id=transaction.id,
                 extended_days=extended_days,
@@ -959,8 +959,8 @@ class AdminNotificationService:
         user: User,
         promocode_data: Dict[str, Any],
         effect_description: str,
-        balance_before_kopeks: int | None = None,
-        balance_after_kopeks: int | None = None,
+        balance_before_toman: int | None = None,
+        balance_after_toman: int | None = None,
     ) -> bool:
         try:
             await self._record_subscription_event(
@@ -969,22 +969,22 @@ class AdminNotificationService:
                 user=user,
                 subscription=None,
                 transaction=None,
-                amount_kopeks=promocode_data.get("balance_bonus_kopeks"),
+                amount_toman=promocode_data.get("balance_bonus_toman"),
                 message="Promocode activation",
                 occurred_at=datetime.utcnow(),
                 extra={
                     "code": promocode_data.get("code"),
                     "type": promocode_data.get("type"),
                     "subscription_days": promocode_data.get("subscription_days"),
-                    "balance_bonus_kopeks": promocode_data.get("balance_bonus_kopeks"),
+                    "balance_bonus_toman": promocode_data.get("balance_bonus_toman"),
                     "description": effect_description,
                     "valid_until": (
                         promocode_data.get("valid_until").isoformat()
                         if isinstance(promocode_data.get("valid_until"), datetime)
                         else promocode_data.get("valid_until")
                     ),
-                    "balance_before_kopeks": balance_before_kopeks,
-                    "balance_after_kopeks": balance_after_kopeks,
+                    "balance_before_toman": balance_before_toman,
+                    "balance_after_toman": balance_after_toman,
                 },
             )
         except Exception:
@@ -1048,7 +1048,7 @@ class AdminNotificationService:
                 ).format(usage_info=usage_info),
             ]
 
-            balance_bonus = promocode_data.get("balance_bonus_kopeks", 0)
+            balance_bonus = promocode_data.get("balance_bonus_toman", 0)
             if balance_bonus:
                 message_lines.append(
                     self.texts.t(
@@ -1096,10 +1096,10 @@ class AdminNotificationService:
                             "service.notifications.admin.promocode_activation.balance_change",
                             "{before} → {after}",
                         ).format(
-                            before=settings.format_price(balance_before_kopeks),
-                            after=settings.format_price(balance_after_kopeks),
+                            before=settings.format_price(balance_before_toman),
+                            after=settings.format_price(balance_after_toman),
                         )
-                        if balance_before_kopeks is not None and balance_after_kopeks is not None
+                        if balance_before_toman is not None and balance_after_toman is not None
                         else self.texts.t(
                             "service.notifications.admin.promocode_activation.balance_unchanged",
                             "ℹ️ Balance has not changed",
@@ -1148,7 +1148,7 @@ class AdminNotificationService:
                     user=user,
                     subscription=None,
                     transaction=None,
-                    amount_kopeks=None,
+                    amount_toman=None,
                     message="Referral link visit",
                     occurred_at=datetime.utcnow(),
                     extra={
@@ -1345,7 +1345,7 @@ class AdminNotificationService:
                 old_group_block=old_group_block,
                 initiator_line=("\n" + initiator_line) if initiator_line else "",
                 reason_line=reason_line,
-                balance=settings.format_price(user.balance_kopeks),
+                balance=settings.format_price(user.balance_toman),
                 timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
 
@@ -1846,7 +1846,7 @@ class AdminNotificationService:
                 old_new_values=old_new_values,
                 price_line=price_line,
                 valid_until=format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M"),
-                balance_after=settings.format_price(user.balance_kopeks),
+                balance_after=settings.format_price(user.balance_toman),
                 referrer_info=referrer_info,
                 timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )

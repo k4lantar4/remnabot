@@ -32,7 +32,7 @@
       },
       "ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_DESCRIPTION": {
         "description": "Description for trial activation price setting",
-        "default_en": "Amount in kopeks. 0 — free activation."
+        "default_en": "Amount in toman. 0 — free activation."
       },
       "ADMIN_PRICING_TRIAL_ADD_REMAINING_LABEL": {
         "description": "Label for add remaining trial days setting",

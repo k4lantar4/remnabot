@@ -198,11 +198,11 @@ async def _prompt_for_period_discounts(
     await message.answer(prompt_text)
 
 
-def _format_rubles(amount_kopeks: int) -> str:
-    if amount_kopeks <= 0:
+def _format_rubles(amount_toman: int) -> str:
+    if amount_toman <= 0:
         return "0"
 
-    rubles = Decimal(amount_kopeks) / Decimal(100)
+    rubles = Decimal(amount_toman) / Decimal(100)
     if rubles == rubles.to_integral_value():
         formatted = f"{rubles:,.0f}"
     else:
@@ -220,7 +220,7 @@ def _format_priority_line(texts, group: PromoGroup) -> str:
 
 
 def _format_auto_assign_line(texts, group: PromoGroup) -> str:
-    threshold = getattr(group, "auto_assign_total_spent_kopeks", 0) or 0
+    threshold = getattr(group, "auto_assign_total_spent_toman", 0) or 0
 
     if threshold <= 0:
         return texts.get_text(
@@ -235,11 +235,11 @@ def _format_auto_assign_line(texts, group: PromoGroup) -> str:
     ).format(amount=amount)
 
 
-def _format_auto_assign_value(value_kopeks: Optional[int]) -> str:
-    if not value_kopeks or value_kopeks <= 0:
+def _format_auto_assign_value(value_toman: Optional[int]) -> str:
+    if not value_toman or value_toman <= 0:
         return "0"
 
-    rubles = Decimal(value_kopeks) / Decimal(100)
+    rubles = Decimal(value_toman) / Decimal(100)
     quantized = (
         rubles.quantize(Decimal("1"))
         if rubles == rubles.to_integral_value()
@@ -264,8 +264,8 @@ def _parse_auto_assign_threshold_input(value: str) -> int:
     if amount < 0:
         raise ValueError
 
-    kopeks = int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return max(0, kopeks)
+    toman = int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return max(0, toman)
 
 
 async def _prompt_for_auto_assign_threshold(
@@ -803,7 +803,7 @@ async def process_create_group_auto_assign(
     texts = get_texts(data.get("language", db_user.language))
 
     try:
-        auto_assign_kopeks = _parse_auto_assign_threshold_input(message.text)
+        auto_assign_toman = _parse_auto_assign_threshold_input(message.text)
     except ValueError:
         await message.answer(
             texts.get_text(
@@ -822,7 +822,7 @@ async def process_create_group_auto_assign(
             server_discount_percent=data["new_group_servers"],
             device_discount_percent=data["new_group_devices"],
             period_discounts=data.get("new_group_period_discounts"),
-            auto_assign_total_spent_kopeks=auto_assign_kopeks,
+            auto_assign_total_spent_toman=auto_assign_toman,
         )
     except Exception as e:
         logger.error(f"Failed to create promo group: {e}")
@@ -946,7 +946,7 @@ async def prompt_edit_promo_group_field(
         prompt = texts.get_text(
             "ADMIN_PROMO_GROUP_EDIT_AUTO_ASSIGN_PROMPT",
             "Enter total spending amount for auto-assign. Current value: {current}.",
-        ).format(current=_format_auto_assign_value(group.auto_assign_total_spent_kopeks))
+        ).format(current=_format_auto_assign_value(group.auto_assign_total_spent_toman))
     else:
         await callback.answer(texts.get_text("ADMIN_PROMO_GROUP_UNKNOWN_PARAM", "❌ Unknown parameter"), show_alert=True)
         return
@@ -1188,7 +1188,7 @@ async def process_edit_group_auto_assign(
     texts = get_texts(data.get("language", db_user.language))
 
     try:
-        auto_assign_kopeks = _parse_auto_assign_threshold_input(message.text)
+        auto_assign_toman = _parse_auto_assign_threshold_input(message.text)
     except ValueError:
         await message.answer(
             texts.get_text(
@@ -1207,7 +1207,7 @@ async def process_edit_group_auto_assign(
     group = await update_promo_group(
         db,
         group,
-        auto_assign_total_spent_kopeks=auto_assign_kopeks,
+        auto_assign_total_spent_toman=auto_assign_toman,
     )
     await state.set_state(AdminStates.editing_promo_group_menu)
 

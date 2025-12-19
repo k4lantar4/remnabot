@@ -734,7 +734,7 @@ class MonitoringService:
                             subscription_id=subscription.id,
                             notification_type="expired_discount_wave2",
                             discount_percent=percent,
-                            bonus_amount_kopeks=0,
+                            bonus_amount_toman=0,
                             valid_hours=valid_hours,
                             effect_type="percent_discount",
                         )
@@ -763,7 +763,7 @@ class MonitoringService:
                                 subscription_id=subscription.id,
                                 notification_type="expired_discount_wave3",
                                 discount_percent=percent,
-                                bonus_amount_kopeks=0,
+                                bonus_amount_toman=0,
                                 valid_hours=valid_hours,
                                 effect_type="percent_discount",
                             )
@@ -960,7 +960,7 @@ class MonitoringService:
                 if autopay_key in self._notified_users:
                     continue
 
-                if user.balance_kopeks >= charge_amount:
+                if user.balance_toman >= charge_amount:
                     success = await subtract_user_balance(
                         db, user, charge_amount,
                         "Subscription auto-renewal"
@@ -992,12 +992,12 @@ class MonitoringService:
                     else:
                         failed_count += 1
                         if self.bot:
-                            await self._send_autopay_failed_notification(user, user.balance_kopeks, charge_amount)
+                            await self._send_autopay_failed_notification(user, user.balance_toman, charge_amount)
                         logger.warning(f"💳 Error charging funds for auto-renewal for user {user.telegram_id}")
                 else:
                     failed_count += 1
                     if self.bot:
-                        await self._send_autopay_failed_notification(user, user.balance_kopeks, charge_amount)
+                        await self._send_autopay_failed_notification(user, user.balance_toman, charge_amount)
                     logger.warning(f"💳 Insufficient funds for auto-renewal for user {user.telegram_id}")
             
             if processed_count > 0 or failed_count > 0:
@@ -1070,7 +1070,7 @@ Your subscription has expired. To restore access, renew your subscription.
             
             if subscription.autopay_enabled:
                 autopay_status = "✅ Enabled - subscription will renew automatically"
-                action_text = f"💰 Make sure you have sufficient balance: {texts.format_price(user.balance_kopeks)}"
+                action_text = f"💰 Make sure you have sufficient balance: {texts.format_price(user.balance_toman)}"
             else:
                 autopay_status = "❌ Disabled - don't forget to renew manually!"
                 action_text = "💡 Enable auto-payment or renew subscription manually"
@@ -1830,7 +1830,7 @@ Switch to a full subscription!
             
             for subscription in autopay_subscriptions:
                 user = await get_user_by_id(db, subscription.user_id)
-                if user and user.balance_kopeks >= settings.PRICE_30_DAYS:
+                if user and user.balance_toman >= settings.PRICE_30_DAYS:
                     autopay_processed += 1
             
             await self._log_monitoring_event(

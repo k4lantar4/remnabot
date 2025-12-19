@@ -351,7 +351,7 @@ def _format_promo_offer_log_entry(
             )
         )
 
-    amount = details.get("amount_kopeks")
+    amount = details.get("amount_toman")
     if isinstance(amount, int):
         lines.append(
             texts.get_text("ADMIN_PROMO_OFFER_LOGS_AMOUNT", "💰 Amount: {amount}").format(
@@ -480,7 +480,7 @@ def _build_user_button_label(user: User) -> str:
 
     parts = [status_emoji, subscription_emoji, name, f"🆔 {user.telegram_id}" if user.telegram_id else f"#{user.id}"]
 
-    balance = getattr(user, "balance_kopeks", 0)
+    balance = getattr(user, "balance_toman", 0)
     if balance:
         parts.append(f"💰 {settings.format_price(balance)}")
 
@@ -1445,7 +1445,7 @@ async def show_selected_user_details(
 
     name = html.escape(user.full_name or user.username or str(user.telegram_id or user.id))
     username = html.escape(user.username) if user.username else None
-    balance = getattr(user, "balance_kopeks", 0)
+    balance = getattr(user, "balance_toman", 0)
 
     lines = [
         texts.get_text("ADMIN_PROMO_OFFER_SEND_USER_PROFILE", "👤 <b>{name}</b>").format(name=name),
@@ -1635,12 +1635,12 @@ async def show_selected_user_details(
                         "Discount {percent}%",
                     ).format(percent=offer.discount_percent)
                 )
-            if offer.bonus_amount_kopeks:
+            if offer.bonus_amount_toman:
                 parts.append(
                     texts.get_text(
                         "ADMIN_PROMO_OFFER_SEND_USER_OFFER_BONUS",
                         "Bonus {amount}",
-                    ).format(amount=settings.format_price(offer.bonus_amount_kopeks))
+                    ).format(amount=settings.format_price(offer.bonus_amount_toman))
                 )
             description = ", ".join(parts) or offer.effect_type
             lines.append(
@@ -1936,7 +1936,7 @@ async def _send_offer_to_users(
                         subscription_id=getattr(user, "subscription", None).id if getattr(user, "subscription", None) else None,
                         notification_type=f"promo_template_{template.id}",
                         discount_percent=template.discount_percent,
-                        bonus_amount_kopeks=0,
+                        bonus_amount_toman=0,
                         valid_hours=template.valid_hours,
                         effect_type=effect_type,
                         extra_data={

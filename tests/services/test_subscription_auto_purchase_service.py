@@ -31,7 +31,7 @@ async def test_auto_purchase_saved_cart_after_topup_success(monkeypatch):
     user = MagicMock(spec=User)
     user.id = 42
     user.telegram_id = 4242
-    user.balance_kopeks = 200_000
+    user.balance_toman = 20_000_000  # 200000 toman (was 2000 rubles = 200000 kopeks)
     user.language = "ru"
     user.subscription = None
     user.get_primary_promo_group = MagicMock(return_value=None)
@@ -87,7 +87,7 @@ async def test_auto_purchase_saved_cart_after_topup_success(monkeypatch):
         user=user,
         subscription=None,
         currency="RUB",
-        balance_kopeks=user.balance_kopeks,
+        balance_toman=user.balance_toman,
         periods=[period_config],
         default_period=period_config,
         period_map={"days:30": period_config},
@@ -200,7 +200,7 @@ async def test_auto_purchase_saved_cart_after_topup_extension(monkeypatch):
     user = MagicMock(spec=User)
     user.id = 7
     user.telegram_id = 7007
-    user.balance_kopeks = 200_000
+    user.balance_toman = 20_000_000  # 200000 toman (was 2000 rubles = 200000 kopeks)
     user.language = "ru"
     user.subscription = subscription
     user.get_primary_promo_group = MagicMock(return_value=None)
@@ -318,7 +318,7 @@ async def test_auto_purchase_trial_preserved_on_insufficient_balance(monkeypatch
     user.telegram_id = 9999
     # ИСПРАВЛЕНО: Баланс достаточный для первой проверки (строка 243),
     # но subtract_user_balance вернёт False (симуляция неудачи списания)
-    user.balance_kopeks = 60_000
+    user.balance_toman = 6_000_000  # 60000 toman (was 600 rubles = 60000 kopeks)
     user.language = "ru"
     user.subscription = subscription
     user.get_primary_promo_group = MagicMock(return_value=None)
@@ -394,7 +394,7 @@ async def test_auto_purchase_trial_converted_after_successful_extension(monkeypa
     user = MagicMock(spec=User)
     user.id = 88
     user.telegram_id = 8888
-    user.balance_kopeks = 200_000  # Достаточно денег
+    user.balance_toman = 20_000_000  # 200000 toman (was 2000 rubles = 200000 kopeks)  # Достаточно денег
     user.language = "ru"
     user.subscription = subscription
     user.get_primary_promo_group = MagicMock(return_value=None)
@@ -504,7 +504,7 @@ async def test_auto_purchase_trial_preserved_on_extension_failure(monkeypatch):
     user = MagicMock(spec=User)
     user.id = 77
     user.telegram_id = 7777
-    user.balance_kopeks = 200_000  # Достаточно денег
+    user.balance_toman = 20_000_000  # 200000 toman (was 2000 rubles = 200000 kopeks)  # Достаточно денег
     user.language = "ru"
     user.subscription = subscription
     user.get_primary_promo_group = MagicMock(return_value=None)
@@ -597,7 +597,7 @@ async def test_auto_purchase_trial_remaining_days_transferred(monkeypatch):
     user = MagicMock(spec=User)
     user.id = 66
     user.telegram_id = 6666
-    user.balance_kopeks = 200_000
+    user.balance_toman = 20_000_000  # 200000 toman (was 2000 rubles = 200000 kopeks)
     user.language = "ru"
     user.subscription = subscription
     user.get_primary_promo_group = MagicMock(return_value=None)

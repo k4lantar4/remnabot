@@ -239,7 +239,7 @@ async def show_bot_detail(
         zarinpal_enabled="✅ Enabled" if bot.zarinpal_enabled else "❌ Disabled",
         language=bot.default_language,
         support=bot.support_username or "N/A",
-        wallet=f"{bot.wallet_balance_kopeks / 100:,.2f}".replace(',', ' '),
+        wallet=f"{bot.wallet_balance_toman / 100:,.2f}".replace(',', ' '),
         traffic_consumed=f"{bot.traffic_consumed_bytes / (1024**3):.2f}",
         traffic_sold=f"{bot.traffic_sold_bytes / (1024**3):.2f}",
     )

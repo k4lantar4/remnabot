@@ -27,7 +27,7 @@ Primary user entity representing Telegram bot users.
 - `first_name`, `last_name` (String) - User's name
 - `status` (String) - User status: `active`, `blocked`, `deleted`
 - `language` (String) - Interface language (default: "ru")
-- `balance_kopeks` (Integer) - User balance in kopecks
+- `balance_toman` (Integer) - User balance in toman
 - `referral_code` (String, Unique) - Referral code for this user
 - `referred_by_id` (Integer, FK to users.id) - Referrer user ID
 - `promo_group_id` (Integer, FK) - Primary promo group
@@ -92,7 +92,7 @@ Financial transaction records for all user operations.
 - `id` (Integer, PK)
 - `user_id` (Integer, FK to users.id)
 - `type` (String) - Transaction type: `deposit`, `withdrawal`, `subscription_payment`, `refund`, `referral_reward`, `poll_reward`
-- `amount_kopeks` (Integer) - Transaction amount in kopecks
+- `amount_toman` (Integer) - Transaction amount in toman
 - `description` (Text) - Transaction description
 - `payment_method` (String) - Payment method used
 - `external_id` (String) - External payment system ID
@@ -112,7 +112,7 @@ Promotional codes for discounts and bonuses.
 - `id` (Integer, PK)
 - `code` (String, Unique, Indexed) - Promo code string
 - `type` (String) - Type: `balance`, `subscription_days`, `trial_subscription`, `promo_group`
-- `balance_bonus_kopeks` (Integer) - Balance bonus amount
+- `balance_bonus_toman` (Integer) - Balance bonus amount in toman
 - `subscription_days` (Integer) - Days to add to subscription
 - `max_uses` (Integer) - Maximum usage count
 - `current_uses` (Integer) - Current usage count
@@ -139,7 +139,7 @@ Discount groups with configurable discounts for servers, traffic, devices, and p
 - `traffic_discount_percent` (Integer) - Traffic discount percentage
 - `device_discount_percent` (Integer) - Device discount percentage
 - `period_discounts` (JSON) - Period-based discounts (e.g., {60: 10, 90: 20})
-- `auto_assign_total_spent_kopeks` (Integer) - Auto-assign threshold
+- `auto_assign_total_spent_toman` (Integer) - Auto-assign threshold in toman
 - `apply_discounts_to_addons` (Boolean) - Apply discounts to addons
 - `is_default` (Boolean) - Default group flag
 
@@ -238,7 +238,7 @@ VPN server squads (groups of servers).
 - `country_code` (String) - Country code
 - `is_available` (Boolean) - Availability status
 - `is_trial_eligible` (Boolean) - Eligible for trial
-- `price_kopeks` (Integer) - Squad price
+- `price_toman` (Integer) - Squad price in toman
 - `max_users`, `current_users` (Integer) - User limits
 - `sort_order` (Integer) - Display order
 

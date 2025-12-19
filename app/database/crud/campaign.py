@@ -27,7 +27,7 @@ async def create_campaign(
     start_parameter: str,
     bonus_type: str,
     created_by: Optional[int] = None,
-    balance_bonus_kopeks: int = 0,
+    balance_bonus_toman: int = 0,
     subscription_duration_days: Optional[int] = None,
     subscription_traffic_gb: Optional[int] = None,
     subscription_device_limit: Optional[int] = None,
@@ -38,7 +38,7 @@ async def create_campaign(
         name=name,
         start_parameter=start_parameter,
         bonus_type=bonus_type,
-        balance_bonus_kopeks=balance_bonus_kopeks or 0,
+        balance_bonus_toman=balance_bonus_toman or 0,
         subscription_duration_days=subscription_duration_days,
         subscription_traffic_gb=subscription_traffic_gb,
         subscription_device_limit=subscription_device_limit,
@@ -128,7 +128,7 @@ async def update_campaign(
         "name",
         "start_parameter",
         "bonus_type",
-        "balance_bonus_kopeks",
+        "balance_bonus_toman",
         "subscription_duration_days",
         "subscription_traffic_gb",
         "subscription_device_limit",
@@ -186,7 +186,7 @@ async def record_campaign_registration(
     campaign_id: int,
     user_id: int,
     bonus_type: str,
-    balance_bonus_kopeks: int = 0,
+    balance_bonus_toman: int = 0,
     subscription_duration_days: Optional[int] = None,
 ) -> AdvertisingCampaignRegistration:
     existing = await db.execute(
@@ -205,7 +205,7 @@ async def record_campaign_registration(
         campaign_id=campaign_id,
         user_id=user_id,
         bonus_type=bonus_type,
-        balance_bonus_kopeks=balance_bonus_kopeks or 0,
+        balance_bonus_toman=balance_bonus_toman or 0,
         subscription_duration_days=subscription_duration_days,
     )
     db.add(registration)
@@ -229,7 +229,7 @@ async def get_campaign_statistics(
         select(
             func.count(AdvertisingCampaignRegistration.id),
             func.coalesce(
-                func.sum(AdvertisingCampaignRegistration.balance_bonus_kopeks), 0
+                func.sum(AdvertisingCampaignRegistration.balance_bonus_toman), 0
             ),
             func.max(AdvertisingCampaignRegistration.created_at),
         ).where(AdvertisingCampaignRegistration.campaign_id == campaign_id)
@@ -249,7 +249,7 @@ async def get_campaign_statistics(
     subscription_bonuses_issued = subscription_count_result.scalar() or 0
 
     deposits_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0)).where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             Transaction.user_id.in_(select(registrations_subquery.c.user_id)),
             Transaction.type == TransactionType.DEPOSIT.value,
             Transaction.is_completed.is_(True),
@@ -292,7 +292,7 @@ async def get_campaign_statistics(
     conversions_rows = await db.execute(
         select(
             SubscriptionConversion.user_id,
-            SubscriptionConversion.first_payment_amount_kopeks,
+            SubscriptionConversion.first_payment_amount_toman,
             SubscriptionConversion.converted_at,
         )
         .where(
@@ -307,7 +307,7 @@ async def get_campaign_statistics(
     subscription_payments_rows = await db.execute(
         select(
             Transaction.user_id,
-            Transaction.amount_kopeks,
+            Transaction.amount_toman,
             Transaction.created_at,
         )
         .where(
@@ -325,14 +325,14 @@ async def get_campaign_statistics(
     first_payment_amount_by_user: Dict[int, int] = {}
     first_payment_time_by_user: Dict[int, Optional[datetime]] = {}
 
-    for user_id, amount_kopeks, converted_at in conversion_entries:
+    for user_id, amount_toman, converted_at in conversion_entries:
         conversion_user_ids.add(user_id)
-        amount_value = int(amount_kopeks or 0)
+        amount_value = int(amount_toman or 0)
         first_payment_amount_by_user[user_id] = amount_value
         first_payment_time_by_user[user_id] = converted_at
 
-    for user_id, amount_kopeks, created_at in subscription_payments:
-        amount_value = int(amount_kopeks or 0)
+    for user_id, amount_toman, created_at in subscription_payments:
+        amount_value = int(amount_toman or 0)
         subscription_payments_total += amount_value
         paid_users_from_transactions.add(user_id)
 
@@ -382,7 +382,7 @@ async def get_campaign_statistics(
         avg_revenue_per_user = int(total_revenue / count)
 
     deposits_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0)).where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             Transaction.user_id.in_(select(registrations_subquery.c.user_id)),
             Transaction.type == TransactionType.DEPOSIT.value,
             Transaction.is_completed.is_(True),
@@ -423,7 +423,7 @@ async def get_campaign_statistics(
     paid_users_count = paid_users_result.scalar() or 0
 
     avg_first_payment_result = await db.execute(
-        select(func.coalesce(func.avg(SubscriptionConversion.first_payment_amount_kopeks), 0)).where(
+        select(func.coalesce(func.avg(SubscriptionConversion.first_payment_amount_toman), 0)).where(
             SubscriptionConversion.user_id.in_(select(registrations_subquery.c.user_id))
         )
     )
@@ -446,15 +446,15 @@ async def get_campaign_statistics(
         "balance_issued": total_balance,
         "subscription_issued": subscription_bonuses_issued,
         "last_registration": last_registration,
-        "total_revenue_kopeks": total_revenue,
+        "total_revenue_toman": total_revenue,
         "trial_users_count": trial_users_count,
         "active_trials_count": active_trials_count,
         "conversion_count": conversion_count,
         "paid_users_count": paid_users_count,
         "conversion_rate": conversion_rate,
         "trial_conversion_rate": trial_conversion_rate,
-        "avg_revenue_per_user_kopeks": avg_revenue_per_user,
-        "avg_first_payment_kopeks": avg_first_payment,
+        "avg_revenue_per_user_toman": avg_revenue_per_user,
+        "avg_first_payment_toman": avg_first_payment,
     }
 
 
@@ -470,7 +470,7 @@ async def get_campaigns_overview(db: AsyncSession) -> Dict[str, int]:
     balance_result = await db.execute(
         select(
             func.coalesce(
-                func.sum(AdvertisingCampaignRegistration.balance_bonus_kopeks), 0
+                func.sum(AdvertisingCampaignRegistration.balance_bonus_toman), 0
             )
         )
     )

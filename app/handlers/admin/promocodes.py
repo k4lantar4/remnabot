@@ -104,7 +104,7 @@ async def show_promocodes_list(
 
         if promo.type == PromoCodeType.BALANCE.value:
             text += texts.t("ADMIN_PROMOCODES_BONUS", "💰 Bonus: {amount}").format(
-                amount=settings.format_price(promo.balance_bonus_kopeks)
+                amount=settings.format_price(promo.balance_bonus_toman)
             ) + "\n"
         elif promo.type == PromoCodeType.SUBSCRIPTION_DAYS.value:
             text += texts.t("ADMIN_PROMOCODES_DAYS", "📅 Days: {days}").format(
@@ -190,7 +190,7 @@ async def show_promocode_management(
 
     if promo.type == PromoCodeType.BALANCE.value:
         text += texts.t("ADMIN_PROMOCODE_BONUS_LABEL", "💰 <b>Bonus:</b> {amount}").format(
-            amount=settings.format_price(promo.balance_bonus_kopeks)
+            amount=settings.format_price(promo.balance_bonus_toman)
         ) + "\n"
     elif promo.type == PromoCodeType.SUBSCRIPTION_DAYS.value:
         text += texts.t("ADMIN_PROMOCODE_DAYS_LABEL", "📅 <b>Days:</b> {days}").format(
@@ -273,7 +273,7 @@ async def show_promocode_edit_menu(
     
     if promo.type == PromoCodeType.BALANCE.value:
         text += texts.t("ADMIN_PROMOCODE_EDIT_BONUS", "• Bonus: {amount}").format(
-            amount=settings.format_price(promo.balance_bonus_kopeks)
+            amount=settings.format_price(promo.balance_bonus_toman)
         ) + "\n"
     elif promo.type in [PromoCodeType.SUBSCRIPTION_DAYS.value, PromoCodeType.TRIAL_SUBSCRIPTION.value]:
         text += texts.t("ADMIN_PROMOCODE_EDIT_DAYS", "• Days: {days}").format(
@@ -734,7 +734,7 @@ async def handle_edit_value(
                 await message.answer(texts.t("ADMIN_PROMOCODE_INVALID_AMOUNT", "❌ Amount must be from 1 to 10,000 rubles"))
                 return
             
-            await update_promocode(db, promo, balance_bonus_kopeks=value * 100)
+            await update_promocode(db, promo, balance_bonus_toman=value * 100)
             await message.answer(
                 texts.t("ADMIN_PROMOCODE_AMOUNT_CHANGED", "✅ Bonus amount changed to {value} Toman").format(value=value),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
@@ -894,7 +894,7 @@ async def process_promocode_expiry(
             db=db,
             code=code,
             type=type_map[promo_type],
-            balance_bonus_kopeks=value * 100 if promo_type == "balance" else 0,
+            balance_bonus_toman=value * 100 if promo_type == "balance" else 0,
             subscription_days=value if promo_type in ["days", "trial"] else 0,
             max_uses=max_uses,
             valid_until=valid_until,
@@ -918,7 +918,7 @@ async def process_promocode_expiry(
 
         if promo_type == "balance":
             summary_text += texts.t("ADMIN_PROMOCODE_SUMMARY_AMOUNT", "💰 <b>Amount:</b> {amount}").format(
-                amount=settings.format_price(promocode.balance_bonus_kopeks)
+                amount=settings.format_price(promocode.balance_bonus_toman)
             ) + "\n"
         elif promo_type in ["days", "trial"]:
             summary_text += texts.t("ADMIN_PROMOCODE_SUMMARY_DAYS", "📅 <b>Days:</b> {days}").format(

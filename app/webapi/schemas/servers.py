@@ -22,8 +22,7 @@ class ServerResponse(BaseModel):
     country_code: Optional[str] = Field(default=None, alias="countryCode")
     is_available: bool = Field(alias="isAvailable")
     is_trial_eligible: bool = Field(default=False, alias="isTrialEligible")
-    price_kopeks: int = Field(alias="priceKopeks")
-    price_rubles: float = Field(alias="priceRubles")
+    price_toman: int = Field(alias="priceToman")
     description: Optional[str] = None
     sort_order: int = Field(default=0, alias="sortOrder")
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
@@ -51,7 +50,7 @@ class ServerCreateRequest(BaseModel):
     display_name: str = Field(alias="displayName")
     original_name: Optional[str] = Field(default=None, alias="originalName")
     country_code: Optional[str] = Field(default=None, alias="countryCode")
-    price_kopeks: int = Field(default=0, alias="priceKopeks")
+    price_toman: int = Field(default=0, alias="priceToman")
     description: Optional[str] = None
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     is_available: bool = Field(default=True, alias="isAvailable")
@@ -70,7 +69,7 @@ class ServerUpdateRequest(BaseModel):
     display_name: Optional[str] = Field(default=None, alias="displayName")
     original_name: Optional[str] = Field(default=None, alias="originalName")
     country_code: Optional[str] = Field(default=None, alias="countryCode")
-    price_kopeks: Optional[int] = Field(default=None, alias="priceKopeks")
+    price_toman: Optional[int] = Field(default=None, alias="priceToman")
     description: Optional[str] = None
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     is_available: Optional[bool] = Field(default=None, alias="isAvailable")
@@ -105,8 +104,7 @@ class ServerStatisticsResponse(BaseModel):
     available_servers: int = Field(alias="availableServers")
     unavailable_servers: int = Field(alias="unavailableServers")
     servers_with_connections: int = Field(alias="serversWithConnections")
-    total_revenue_kopeks: int = Field(alias="totalRevenueKopeks")
-    total_revenue_rubles: float = Field(alias="totalRevenueRubles")
+    total_revenue_toman: int = Field(alias="totalRevenueToman")
 
 
 class ServerCountsSyncResponse(BaseModel):
@@ -128,8 +126,7 @@ class ServerConnectedUser(BaseModel):
     first_name: Optional[str] = Field(default=None, alias="firstName")
     last_name: Optional[str] = Field(default=None, alias="lastName")
     status: str
-    balance_kopeks: int = Field(alias="balanceKopeks")
-    balance_rubles: float = Field(alias="balanceRubles")
+    balance_toman: int = Field(alias="balanceToman")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
     subscription_status: Optional[str] = Field(
         default=None, alias="subscriptionStatus"

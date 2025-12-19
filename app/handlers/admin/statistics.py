@@ -147,16 +147,16 @@ async def show_revenue_statistics(
     
     text = texts.t("ADMIN_STATS_REVENUE_TITLE", "💰 <b>Revenue statistics</b>") + "\n\n"
     text += texts.t("ADMIN_STATS_REVENUE_MONTH", "<b>Current month:</b>") + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(month_stats['totals']['income_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_EXPENSES", "- Expenses: {amount}").format(amount=settings.format_price(month_stats['totals']['expenses_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_PROFIT", "- Profit: {amount}").format(amount=settings.format_price(month_stats['totals']['profit_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_SUBS_INCOME", "- From subscriptions: {amount}").format(amount=settings.format_price(month_stats['totals']['subscription_income_kopeks'])) + "\n\n"
+    text += texts.t("ADMIN_STATS_REVENUE_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(month_stats['totals']['income_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REVENUE_EXPENSES", "- Expenses: {amount}").format(amount=settings.format_price(month_stats['totals']['expenses_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REVENUE_PROFIT", "- Profit: {amount}").format(amount=settings.format_price(month_stats['totals']['profit_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REVENUE_SUBS_INCOME", "- From subscriptions: {amount}").format(amount=settings.format_price(month_stats['totals']['subscription_income_toman'])) + "\n\n"
     text += texts.t("ADMIN_STATS_REVENUE_TODAY", "<b>Today:</b>") + "\n"
     text += texts.t("ADMIN_STATS_REVENUE_TODAY_TXS", "- Transactions: {count}").format(count=month_stats['today']['transactions_count']) + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_TODAY_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(month_stats['today']['income_kopeks'])) + "\n\n"
+    text += texts.t("ADMIN_STATS_REVENUE_TODAY_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(month_stats['today']['income_toman'])) + "\n\n"
     text += texts.t("ADMIN_STATS_REVENUE_ALL_TIME", "<b>All time:</b>") + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_TOTAL_INCOME", "- Total revenue: {amount}").format(amount=settings.format_price(all_time_stats['totals']['income_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REVENUE_TOTAL_PROFIT", "- Total profit: {amount}").format(amount=settings.format_price(all_time_stats['totals']['profit_kopeks'])) + "\n\n"
+    text += texts.t("ADMIN_STATS_REVENUE_TOTAL_INCOME", "- Total revenue: {amount}").format(amount=settings.format_price(all_time_stats['totals']['income_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REVENUE_TOTAL_PROFIT", "- Total profit: {amount}").format(amount=settings.format_price(all_time_stats['totals']['profit_toman'])) + "\n\n"
     text += texts.t("ADMIN_STATS_REVENUE_PAYMENT_METHODS", "<b>Payment methods:</b>") + "\n"
     
     for method, data in month_stats['by_payment_method'].items():
@@ -195,17 +195,17 @@ async def show_referral_statistics(
     
     avg_per_referrer = 0
     if stats['active_referrers'] > 0:
-        avg_per_referrer = stats['total_paid_kopeks'] / stats['active_referrers']
+        avg_per_referrer = stats['total_paid_toman'] / stats['active_referrers']
     
     text = texts.t("ADMIN_STATS_REF_TITLE", "🤝 <b>Referral statistics</b>") + "\n\n"
     text += texts.t("ADMIN_STATS_REF_GENERAL", "<b>General metrics:</b>") + "\n"
     text += texts.t("ADMIN_STATS_REF_USERS_WITH_REFS", "- Users with referrals: {count}").format(count=stats['users_with_referrals']) + "\n"
     text += texts.t("ADMIN_STATS_REF_ACTIVE_REFERRERS", "- Active referrers: {count}").format(count=stats['active_referrers']) + "\n"
-    text += texts.t("ADMIN_STATS_REF_TOTAL_PAID", "- Total paid: {amount}").format(amount=settings.format_price(stats['total_paid_kopeks'])) + "\n\n"
+    text += texts.t("ADMIN_STATS_REF_TOTAL_PAID", "- Total paid: {amount}").format(amount=settings.format_price(stats['total_paid_toman'])) + "\n\n"
     text += texts.t("ADMIN_STATS_REF_PERIOD", "<b>Period earnings:</b>") + "\n"
-    text += texts.t("ADMIN_STATS_REF_TODAY", "- Today: {amount}").format(amount=settings.format_price(stats['today_earnings_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REF_WEEK", "- This week: {amount}").format(amount=settings.format_price(stats['week_earnings_kopeks'])) + "\n"
-    text += texts.t("ADMIN_STATS_REF_MONTH", "- This month: {amount}").format(amount=settings.format_price(stats['month_earnings_kopeks'])) + "\n\n"
+    text += texts.t("ADMIN_STATS_REF_TODAY", "- Today: {amount}").format(amount=settings.format_price(stats['today_earnings_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REF_WEEK", "- This week: {amount}").format(amount=settings.format_price(stats['week_earnings_toman'])) + "\n"
+    text += texts.t("ADMIN_STATS_REF_MONTH", "- This month: {amount}").format(amount=settings.format_price(stats['month_earnings_toman'])) + "\n\n"
     text += texts.t("ADMIN_STATS_REF_AVERAGES", "<b>Averages:</b>") + "\n"
     text += texts.t("ADMIN_STATS_REF_PER_REFERRER", "- Per referrer: {amount}").format(amount=settings.format_price(int(avg_per_referrer))) + "\n\n"
     text += texts.t("ADMIN_STATS_REF_TOP_TITLE", "<b>Top referrers:</b>") + "\n"
@@ -213,7 +213,7 @@ async def show_referral_statistics(
     if stats['top_referrers']:
         for i, referrer in enumerate(stats['top_referrers'][:5], 1):
             name = referrer['display_name']
-            earned = settings.format_price(referrer['total_earned_kopeks'])
+            earned = settings.format_price(referrer['total_earned_toman'])
             count = referrer['referrals_count']
             text += texts.t("ADMIN_STATS_REF_TOP_ITEM", "{i}. {name}: {amount} ({count} ref.)").format(
                 i=i, name=name, amount=earned, count=count
@@ -262,7 +262,7 @@ async def show_summary_statistics(
     
     arpu = 0
     if user_stats['active_users'] > 0:
-        arpu = revenue_stats['totals']['income_kopeks'] / user_stats['active_users']
+        arpu = revenue_stats['totals']['income_toman'] / user_stats['active_users']
     
     text = texts.t("ADMIN_STATS_SUMMARY_TITLE", "📊 <b>System summary</b>") + "\n\n"
     text += texts.t("ADMIN_STATS_SUMMARY_USERS", "<b>Users:</b>") + "\n"
@@ -274,7 +274,7 @@ async def show_summary_statistics(
     text += texts.t("ADMIN_STATS_SUMMARY_SUBS_PAID", "- Paid: {count}").format(count=sub_stats['paid_subscriptions']) + "\n"
     text += texts.t("ADMIN_STATS_SUMMARY_SUBS_CONVERSION", "- Conversion: {rate}").format(rate=format_percentage(conversion_rate)) + "\n\n"
     text += texts.t("ADMIN_STATS_SUMMARY_FINANCE", "<b>Finances (month):</b>") + "\n"
-    text += texts.t("ADMIN_STATS_SUMMARY_FINANCE_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(revenue_stats['totals']['income_kopeks'])) + "\n"
+    text += texts.t("ADMIN_STATS_SUMMARY_FINANCE_INCOME", "- Revenue: {amount}").format(amount=settings.format_price(revenue_stats['totals']['income_toman'])) + "\n"
     text += texts.t("ADMIN_STATS_SUMMARY_FINANCE_ARPU", "- ARPU: {amount}").format(amount=settings.format_price(int(arpu))) + "\n"
     text += texts.t("ADMIN_STATS_SUMMARY_FINANCE_TXS", "- Transactions: {count}").format(count=sum(data['count'] for data in revenue_stats['by_type'].values())) + "\n\n"
     text += texts.t("ADMIN_STATS_SUMMARY_GROWTH", "<b>Growth:</b>") + "\n"
@@ -324,7 +324,7 @@ async def show_revenue_by_period(
         today = datetime.utcnow().date()
         revenue_data = [r for r in revenue_data if r['date'] == today]
     
-    total_revenue = sum(r['amount_kopeks'] for r in revenue_data)
+    total_revenue = sum(r['amount_toman'] for r in revenue_data)
     avg_daily = total_revenue / len(revenue_data) if revenue_data else 0
     texts = get_texts(db_user.language)
     
@@ -336,7 +336,7 @@ async def show_revenue_by_period(
     text += texts.t("ADMIN_STATS_PERIOD_BY_DAYS", "<b>By days:</b>") + "\n"
     
     for revenue in revenue_data[-10:]:
-        text += f"• {revenue['date'].strftime('%d.%m')}: {settings.format_price(revenue['amount_kopeks'])}\n"
+        text += f"• {revenue['date'].strftime('%d.%m')}: {settings.format_price(revenue['amount_toman'])}\n"
     
     if len(revenue_data) > 10:
         text += texts.t("ADMIN_STATS_PERIOD_MORE_DAYS", "... and {count} more days").format(count=len(revenue_data) - 10)

@@ -46,7 +46,7 @@ async def process_referral_registration(
             db=db,
             user_id=referrer_id,
             referral_id=new_user_id,
-            amount_kopeks=0,
+            amount_toman=0,
             reason="referral_registration_pending"
         )
 
@@ -72,8 +72,8 @@ async def process_referral_registration(
                 )
             ).format(
                 referrer_name=referrer.full_name,
-                min_amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
-                bonus_amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)
+                min_amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN),
+                bonus_amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN)
             )
             await send_referral_notification(bot, new_user.telegram_id, referral_notification)
             
@@ -90,8 +90,8 @@ async def process_referral_registration(
                 )
             ).format(
                 new_user_name=new_user.full_name,
-                min_amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
-                min_bonus=settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS),
+                min_amount=settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_TOMAN),
+                min_bonus=settings.format_price(settings.REFERRAL_INVITER_BONUS_TOMAN),
                 commission=commission_percent
             )
             await send_referral_notification(bot, referrer.telegram_id, inviter_notification)
@@ -107,7 +107,7 @@ async def process_referral_registration(
 async def process_referral_topup(
     db: AsyncSession,
     user_id: int, 
-    topup_amount_kopeks: int,
+    topup_amount_toman: int,
     bot: Bot = None
 ):
     try:
@@ -123,12 +123,12 @@ async def process_referral_topup(
 
         commission_percent = get_effective_referral_commission_percent(referrer)
         qualifies_for_first_bonus = (
-            topup_amount_kopeks >= settings.REFERRAL_MINIMUM_TOPUP_KOPEKS
+            topup_amount_toman >= settings.REFERRAL_MINIMUM_TOPUP_TOMAN
         )
         commission_amount = 0
         if commission_percent > 0:
             commission_amount = int(
-                topup_amount_kopeks * commission_percent / 100
+                topup_amount_toman * commission_percent / 100
             )
 
         if not user.has_made_first_topup:
@@ -136,7 +136,7 @@ async def process_referral_topup(
                 logger.info(
                     "Top-up %s of %s Toman is below minimum for first bonus, but commission will be credited",
                     user_id,
-                    topup_amount_kopeks / 100,
+                    topup_amount_toman ,
                 )
 
                 if commission_amount > 0:
@@ -152,14 +152,14 @@ async def process_referral_topup(
                         db=db,
                         user_id=referrer.id,
                         referral_id=user.id,
-                        amount_kopeks=commission_amount,
+                        amount_toman=commission_amount,
                         reason="referral_commission_topup",
                     )
 
                     logger.info(
                         "Commission from top-up: %s received %s Toman (before first bonus)",
                         referrer.telegram_id,
-                        commission_amount / 100,
+                        commission_amount ,
                     )
 
                     if bot:
@@ -177,7 +177,7 @@ async def process_referral_topup(
                             )
                         ).format(
                             user_name=user.full_name,
-                            amount=settings.format_price(topup_amount_kopeks),
+                            amount=settings.format_price(topup_amount_toman),
                             commission=commission_percent,
                             commission_amount=settings.format_price(commission_amount)
                         )
@@ -201,13 +201,13 @@ async def process_referral_topup(
             except Exception as e:
                 logger.error(f"Error deleting pending record: {e}")
             
-            if settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS > 0:
+            if settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN > 0:
                 await add_user_balance(
-                    db, user, settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
+                    db, user, settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN,
                     f"First top-up bonus via referral program",
                     bot=bot
                 )
-                logger.info(f"Referral {user.id} received bonus {settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS/100} Toman")
+                logger.info(f"Referral {user.id} received bonus {settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN/100} Toman")
                 
                 if bot:
                     from app.localization.texts import get_texts
@@ -221,12 +221,12 @@ async def process_referral_topup(
                             "💎 Funds credited to your balance."
                         )
                     ).format(
-                        bonus_amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)
+                        bonus_amount=settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_TOMAN)
                     )
                     await send_referral_notification(bot, user.telegram_id, bonus_notification)
             
-            commission_amount = int(topup_amount_kopeks * commission_percent / 100)
-            inviter_bonus = max(settings.REFERRAL_INVITER_BONUS_KOPEKS, commission_amount)
+            commission_amount = int(topup_amount_toman * commission_percent )
+            inviter_bonus = max(settings.REFERRAL_INVITER_BONUS_TOMAN, commission_amount)
 
             if inviter_bonus > 0:
                 await add_user_balance(
@@ -239,7 +239,7 @@ async def process_referral_topup(
                     db=db,
                     user_id=referrer.id,
                     referral_id=user.id,
-                    amount_kopeks=inviter_bonus,
+                    amount_toman=inviter_bonus,
                     reason="referral_first_topup"
                 )
                 logger.info(f"Referrer {referrer.telegram_id} received bonus {inviter_bonus/100} Toman")
@@ -274,7 +274,7 @@ async def process_referral_topup(
                     db=db,
                     user_id=referrer.id,
                     referral_id=user.id,
-                    amount_kopeks=commission_amount,
+                    amount_toman=commission_amount,
                     reason="referral_commission_topup"
                 )
 
@@ -295,7 +295,7 @@ async def process_referral_topup(
                         )
                     ).format(
                         user_name=user.full_name,
-                        amount=settings.format_price(topup_amount_kopeks),
+                        amount=settings.format_price(topup_amount_toman),
                         commission=commission_percent,
                         commission_amount=settings.format_price(commission_amount)
                     )
@@ -311,7 +311,7 @@ async def process_referral_topup(
 async def process_referral_purchase(
     db: AsyncSession,
     user_id: int,
-    purchase_amount_kopeks: int,
+    purchase_amount_toman: int,
     transaction_id: int = None,
     bot: Bot = None
 ):
@@ -327,7 +327,7 @@ async def process_referral_purchase(
         
         commission_percent = get_effective_referral_commission_percent(referrer)
             
-        commission_amount = int(purchase_amount_kopeks * commission_percent / 100)
+        commission_amount = int(purchase_amount_toman * commission_percent / 100)
         
         if commission_amount > 0:
             await add_user_balance(
@@ -340,7 +340,7 @@ async def process_referral_purchase(
                 db=db,
                 user_id=referrer.id,
                 referral_id=user.id, 
-                amount_kopeks=commission_amount,
+                amount_toman=commission_amount,
                 reason="referral_commission",
                 referral_transaction_id=transaction_id
             )
@@ -362,7 +362,7 @@ async def process_referral_purchase(
                     )
                 ).format(
                     user_name=user.full_name,
-                    amount=settings.format_price(purchase_amount_kopeks),
+                    amount=settings.format_price(purchase_amount_toman),
                     commission=commission_percent,
                     commission_amount=settings.format_price(commission_amount)
                 )

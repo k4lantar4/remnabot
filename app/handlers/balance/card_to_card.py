@@ -72,9 +72,9 @@ async def start_card_to_card_payment(
     
     # Get amount from state data
     state_data = await state.get_data()
-    amount_kopeks = state_data.get('amount_kopeks', 0)
+    amount_toman = state_data.get('amount_toman', 0)
     
-    if not amount_kopeks or amount_kopeks <= 0:
+    if not amount_toman or amount_toman <= 0:
         await callback.answer(
             texts.t("CARD_TO_CARD_NO_AMOUNT", "❌ Please select an amount first"),
             show_alert=True
@@ -82,7 +82,7 @@ async def start_card_to_card_payment(
         return
     
     # Format amount
-    amount_rub = amount_kopeks / 100
+    amount_rub = amount_toman / 100
     
     # Build card info message
     card_info = texts.t(
@@ -111,7 +111,7 @@ You can send an image, text, or both."""
     # Save card_id and amount in state
     await state.update_data(
         card_id=card.id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         payment_method="card_to_card"
     )
     await state.set_state(BalanceStates.waiting_for_card_to_card_receipt)
@@ -140,9 +140,9 @@ async def handle_card_to_card_receipt(
     
     data = await state.get_data()
     card_id = data.get('card_id')
-    amount_kopeks = data.get('amount_kopeks', 0)
+    amount_toman = data.get('amount_toman', 0)
     
-    if not card_id or not amount_kopeks:
+    if not card_id or not amount_toman:
         await message.answer(
             texts.t("CARD_TO_CARD_SESSION_EXPIRED", "❌ Session expired. Please start over.")
         )
@@ -178,7 +178,7 @@ async def handle_card_to_card_receipt(
             db=db,
             bot_id=bot_id,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             card_id=card_id,
             receipt_type=receipt_type,
             receipt_text=receipt_text,
@@ -234,7 +234,7 @@ async def send_admin_notification(
             return
         
         # Build notification message
-        amount_rub = payment.amount_kopeks / 100
+        amount_rub = payment.amount_toman / 100
         message_text = f"""🔔 <b>Card-to-Card Payment Request</b>
 
 👤 <b>User:</b> @{user.username or 'N/A'} ({user.telegram_id})
@@ -372,7 +372,7 @@ async def handle_payment_approval(
             db=db,
             user_id=payment.user_id,
             type=TransactionType.DEPOSIT,
-            amount_kopeks=payment.amount_kopeks,
+            amount_toman=payment.amount_toman,
             description=f"Card-to-card payment {payment.tracking_number}",
             payment_method=None,  # card_to_card not in PaymentMethod enum yet
             bot_id=bot_id
@@ -394,7 +394,7 @@ async def handle_payment_approval(
             await add_user_balance(
                 db=db,
                 user=user,
-                amount_kopeks=payment.amount_kopeks,
+                amount_toman=payment.amount_toman,
                 description=f"Card-to-card payment approved: {payment.tracking_number}",
                 create_transaction=False  # Already created above
             )
@@ -418,7 +418,7 @@ async def handle_payment_approval(
 Your balance has been updated."""
                     ).format(
                         tracking=payment.tracking_number,
-                        amount=f"{payment.amount_kopeks / 100:,.2f}".replace(',', ' ')
+                        amount=f"{payment.amount_toman / 100:,.2f}".replace(',', ' ')
                     ),
                     parse_mode="HTML"
                 )

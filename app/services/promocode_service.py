@@ -53,10 +53,10 @@ class PromoCodeService:
             if existing_use:
                 return {"success": False, "error": "already_used_by_user"}
             
-            balance_before_kopeks = user.balance_kopeks
+            balance_before_toman = user.balance_toman
 
             result_description = await self._apply_promocode_effects(db, user, promocode)
-            balance_after_kopeks = user.balance_kopeks
+            balance_after_toman = user.balance_toman
 
             if promocode.type == PromoCodeType.SUBSCRIPTION_DAYS.value and promocode.subscription_days > 0:
                 from app.utils.user_utils import mark_user_as_had_paid_subscription
@@ -118,7 +118,7 @@ class PromoCodeService:
             promocode_data = {
                 "code": promocode.code,
                 "type": promocode.type,
-                "balance_bonus_kopeks": promocode.balance_bonus_kopeks,
+                "balance_bonus_toman": promocode.balance_bonus_toman,
                 "subscription_days": promocode.subscription_days,
                 "max_uses": promocode.max_uses,
                 "current_uses": promocode.current_uses,
@@ -130,8 +130,8 @@ class PromoCodeService:
                 "success": True,
                 "description": result_description,
                 "promocode": promocode_data,
-                "balance_before_kopeks": balance_before_kopeks,
-                "balance_after_kopeks": balance_after_kopeks,
+                "balance_before_toman": balance_before_toman,
+                "balance_after_toman": balance_after_toman,
             }
             
         except Exception as e:
@@ -143,17 +143,17 @@ class PromoCodeService:
         effects = []
         texts = get_texts(getattr(user, "language", "en"))
         
-        if promocode.balance_bonus_kopeks > 0:
+        if promocode.balance_bonus_toman > 0:
             await add_user_balance(
-                db, user, promocode.balance_bonus_kopeks,
+                db, user, promocode.balance_bonus_toman,
                 f"Bonus from promocode {promocode.code}"
             )
             
-            balance_bonus_rubles = promocode.balance_bonus_kopeks / 100
+            balance_bonus_toman = promocode.balance_bonus_toman
             effects.append(texts.t(
                 "PROMOCODE_BALANCE_ADDED",
                 "💰 Balance topped up by {amount} Toman"
-            ).format(amount=balance_bonus_rubles))
+            ).format(amount=balance_bonus_toman))
         
         if promocode.subscription_days > 0:
             from app.config import settings

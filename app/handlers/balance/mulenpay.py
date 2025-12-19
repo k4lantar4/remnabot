@@ -75,7 +75,7 @@ async def process_mulenpay_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext,
 ):
     texts = get_texts(db_user.language)
@@ -91,25 +91,23 @@ async def process_mulenpay_payment_amount(
         )
         return
 
-    if amount_kopeks < settings.MULENPAY_MIN_AMOUNT_KOPEKS:
+    if amount_toman < settings.MULENPAY_MIN_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "MULENPAY_MIN_AMOUNT",
                 "Minimum top-up amount: {amount}",
-            ).format(amount=settings.format_price(settings.MULENPAY_MIN_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.MULENPAY_MIN_AMOUNT_TOMAN))
         )
         return
 
-    if amount_kopeks > settings.MULENPAY_MAX_AMOUNT_KOPEKS:
+    if amount_toman > settings.MULENPAY_MAX_AMOUNT_TOMAN:
         await message.answer(
             texts.t(
                 "MULENPAY_MAX_AMOUNT",
                 "Maximum top-up amount: {amount}",
-            ).format(amount=settings.format_price(settings.MULENPAY_MAX_AMOUNT_KOPEKS))
+            ).format(amount=settings.format_price(settings.MULENPAY_MAX_AMOUNT_TOMAN))
         )
         return
-
-    amount_rubles = amount_kopeks / 100
 
     state_data = await state.get_data()
     prompt_message_id = state_data.get("mulenpay_prompt_message_id")
@@ -137,8 +135,8 @@ async def process_mulenpay_payment_amount(
         payment_result = await payment_service.create_mulenpay_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman),
             language=db_user.language,
         )
 
@@ -195,7 +193,7 @@ async def process_mulenpay_payment_amount(
         )
 
         message_text = message_template.format(
-            amount=settings.format_price(amount_kopeks),
+            amount=settings.format_price(amount_toman),
             payment_id=payment_id_display,
             support=settings.get_support_contact_display_html(),
             mulenpay_name=mulenpay_name,
@@ -314,7 +312,7 @@ async def check_mulenpay_payment_status(
                 pid=payment.mulen_payment_id or payment.id
             ),
             texts.t("MULENPAY_STATUS_AMOUNT", "💰 Amount: {amount}").format(
-                amount=settings.format_price(payment.amount_kopeks)
+                amount=settings.format_price(payment.amount_toman)
             ),
             texts.t("MULENPAY_STATUS_STATE", "📊 Status: {emoji} {status}").format(
                 emoji=emoji, status=status_label

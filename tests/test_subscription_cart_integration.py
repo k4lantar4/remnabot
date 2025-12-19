@@ -28,7 +28,7 @@ def mock_user():
     user.id = 12345
     user.telegram_id = 12345
     user.language = "ru"
-    user.balance_kopeks = 10000
+    user.balance_toman = 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
     user.subscription = None
     user.has_had_paid_subscription = False
     user.promo_group_id = None
@@ -144,7 +144,7 @@ async def test_return_to_saved_cart_success(mock_callback_query, mock_state, moc
         mock_get_texts.return_value = mock_texts
 
         # Увеличиваем баланс пользователя, чтобы его хватило
-        mock_user.balance_kopeks = 50000
+        mock_user.balance_toman = 5_000_000  # 50000 toman (was 500 rubles = 50000 kopeks)
 
         # Вызываем функцию
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)
@@ -205,7 +205,7 @@ async def test_return_to_saved_cart_skips_edit_when_message_matches(
         mock_settings.is_devices_selection_enabled.return_value = True
         mock_settings.is_traffic_fixed.return_value = False
 
-        mock_user.balance_kopeks = 50000
+        mock_user.balance_toman = 5_000_000  # 50000 toman (was 500 rubles = 50000 kopeks)
 
         summary_text = (
             "🛒 Восстановленная корзина\n\n"
@@ -282,7 +282,7 @@ async def test_return_to_saved_cart_normalizes_devices_when_disabled(
         mock_settings.is_traffic_fixed.return_value = False
         mock_settings.get_fixed_traffic_limit.return_value = 0
 
-        mock_user.balance_kopeks = 60000
+        mock_user.balance_toman = 60000
 
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)
 
@@ -336,7 +336,7 @@ async def test_return_to_saved_cart_insufficient_funds(mock_callback_query, mock
         mock_get_texts.return_value = mock_texts
 
         # Баланс пользователя меньше стоимости подписки
-        mock_user.balance_kopeks = 10000
+        mock_user.balance_toman = 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
 
         # Вызываем функцию
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)

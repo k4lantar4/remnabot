@@ -371,7 +371,7 @@ async def claim_discount_offer(
                 amount_text = raw_amount.strip()
 
         if not amount_text:
-            for key in ("discount_amount_kopeks", "amount_kopeks", "bonus_amount_kopeks"):
+            for key in ("discount_amount_toman", "amount_toman", "bonus_amount_toman"):
                 maybe_amount = extra_data.get(key)
                 try:
                     amount_value = int(maybe_amount)
@@ -392,7 +392,7 @@ async def claim_discount_offer(
 
     if not amount_text:
         try:
-            bonus_amount = int(getattr(offer, "bonus_amount_kopeks", 0))
+            bonus_amount = int(getattr(offer, "bonus_amount_toman", 0))
         except (TypeError, ValueError):
             bonus_amount = 0
         if bonus_amount > 0:

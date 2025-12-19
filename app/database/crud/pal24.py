@@ -19,7 +19,7 @@ async def create_pal24_payment(
     *,
     user_id: int,
     bill_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     description: Optional[str],
     status: str,
     type_: str,
@@ -34,7 +34,7 @@ async def create_pal24_payment(
         user_id=user_id,
         bill_id=bill_id,
         order_id=order_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -50,10 +50,10 @@ async def create_pal24_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Pal24 payment created #%s for user %s: %s kopeks (status %s)",
+        "Pal24 payment created #%s for user %s: %s toman (status %s)",
         payment.id,
         user_id,
-        amount_kopeks,
+        amount_toman,
         status,
     )
 

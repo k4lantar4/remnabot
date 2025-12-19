@@ -20,7 +20,7 @@ async def create_card_payment(
     db: AsyncSession,
     bot_id: int,
     user_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     tracking_number: Optional[str] = None,
     card_id: Optional[int] = None,
     receipt_type: Optional[str] = None,
@@ -35,7 +35,7 @@ async def create_card_payment(
     payment = CardToCardPayment(
         bot_id=bot_id,
         user_id=user_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         tracking_number=tracking_number,
         card_id=card_id,
         receipt_type=receipt_type,

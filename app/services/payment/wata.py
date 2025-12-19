@@ -29,7 +29,7 @@ class WataPaymentMixin:
         db: AsyncSession,
         *,
         user_id: int,
-        amount_kopeks: int,
+        amount_toman: int,
         description: str,
         language: str,
     ) -> Optional[Dict[str, Any]]:
@@ -39,19 +39,19 @@ class WataPaymentMixin:
             logger.error("WATA service is not initialized")
             return None
 
-        if amount_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS:
+        if amount_toman < settings.WATA_MIN_AMOUNT_TOMAN:
             logger.warning(
                 "WATA amount is less than minimum: %s < %s",
-                amount_kopeks,
-                settings.WATA_MIN_AMOUNT_KOPEKS,
+                amount_toman,
+                settings.WATA_MIN_AMOUNT_TOMAN,
             )
             return None
 
-        if amount_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
+        if amount_toman > settings.WATA_MAX_AMOUNT_TOMAN:
             logger.warning(
                 "WATA amount is greater than maximum: %s > %s",
-                amount_kopeks,
-                settings.WATA_MAX_AMOUNT_KOPEKS,
+                amount_toman,
+                settings.WATA_MAX_AMOUNT_TOMAN,
             )
             return None
 
@@ -61,7 +61,7 @@ class WataPaymentMixin:
 
         try:
             response = await service.create_payment_link(
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 order_id=order_id,
                 description=description,
             )
@@ -97,7 +97,7 @@ class WataPaymentMixin:
 
         metadata_payload = {
             "user_id": user_id,
-            "amount_kopeks": amount_kopeks,
+            "amount_toman": amount_toman,
             "description": description,
             "language": language,
             "raw_response": response,
@@ -107,7 +107,7 @@ class WataPaymentMixin:
             db,
             user_id=user_id,
             payment_link_id=payment_link_id,
-            amount_kopeks=amount_kopeks,
+            amount_toman=amount_toman,
             currency="RUB",
             description=description,
             status=status,
@@ -125,14 +125,14 @@ class WataPaymentMixin:
             "Created WATA payment link %s for user %s (%s RUB)",
             payment_link_id,
             user_id,
-            amount_kopeks / 100,
+            amount_toman / 100,
         )
 
         return {
             "local_payment_id": payment.id,
             "payment_link_id": payment_link_id,
             "order_id": order_id,
-            "amount_kopeks": amount_kopeks,
+            "amount_toman": amount_toman,
             "payment_url": payment_url,
             "status": status,
         }
@@ -281,7 +281,7 @@ class WataPaymentMixin:
             db,
             user_id=payment.user_id,
             type=TransactionType.DEPOSIT,
-            amount_kopeks=payment.amount_kopeks,
+            amount_toman=payment.amount_toman,
             description=f"Top-up via WATA ({payment.payment_link_id})",
             payment_method=PaymentMethod.WATA,
             external_id=payment.payment_link_id,
@@ -292,10 +292,10 @@ class WataPaymentMixin:
             db, payment, transaction.id
         )
 
-        old_balance = user.balance_kopeks
+        old_balance = user.balance_toman
         was_first_topup = not user.has_made_first_topup
 
-        user.balance_kopeks += payment.amount_kopeks
+        user.balance_toman += payment.amount_toman
         user.updated_at = datetime.utcnow()
 
         promo_group = user.get_primary_promo_group()
@@ -309,7 +309,7 @@ class WataPaymentMixin:
             from app.services.referral_service import process_referral_topup
 
             await process_referral_topup(
-                db, user.id, payment.amount_kopeks, getattr(self, "bot", None)
+                db, user.id, payment.amount_toman, getattr(self, "bot", None)
             )
         except Exception as error:
             logger.error(
@@ -361,7 +361,7 @@ class WataPaymentMixin:
                     "🆔 Transaction: {transaction_id}\n\n"
                     "Balance has been credited automatically!",
                 ).format(
-                    amount=settings.format_price(payment.amount_kopeks),
+                    amount=settings.format_price(payment.amount_toman),
                     transaction_id=transaction.id,
                 )
                 await self.bot.send_message(
@@ -437,7 +437,7 @@ class WataPaymentMixin:
                     "🔄 If you have a saved subscription cart and auto-purchase is enabled, "
                     "the subscription will be purchased automatically after the top-up.\n\n{cart_message}",
                 ).format(
-                    amount=settings.format_price(payment.amount_kopeks),
+                    amount=settings.format_price(payment.amount_toman),
                     cart_message=cart_message,
                 )
                 await self.bot.send_message(

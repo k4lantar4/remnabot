@@ -41,7 +41,7 @@ class TelegramStarsMixin:
 
     async def create_stars_invoice(
         self,
-        amount_kopeks: int,
+        amount_toman: int,
         description: str,
         payload: Optional[str] = None,
         *,
@@ -52,7 +52,8 @@ class TelegramStarsMixin:
             raise ValueError("Bot instance required for Stars payments")
 
         try:
-            amount_rubles = Decimal(amount_kopeks) / Decimal(100)
+            # Convert toman to rubles for Telegram Stars API (which expects rubles)
+            amount_rubles = Decimal(amount_toman) / Decimal(100)
 
             # If stars_count is not provided, calculate it from the exchange rate.
             if stars_amount is None:
@@ -64,7 +65,7 @@ class TelegramStarsMixin:
             invoice_link = await self.bot.create_invoice_link(
                 title="VPN balance top-up",
                 description=f"{description} (≈{stars_amount} ⭐)",
-                payload=payload or f"balance_topup_{amount_kopeks}",
+                payload=payload or f"balance_topup_{amount_toman}",
                 provider_token="",
                 currency="XTR",
                 prices=[LabeledPrice(label="Top-up", amount=stars_amount)],
@@ -73,7 +74,7 @@ class TelegramStarsMixin:
             logger.info(
                 "Created Stars invoice for %s stars (~%s)",
                 stars_amount,
-                settings.format_price(amount_kopeks),
+                settings.format_price(amount_toman),
             )
             return invoice_link
 
@@ -94,7 +95,8 @@ class TelegramStarsMixin:
             rubles_amount = TelegramStarsService.calculate_rubles_from_stars(
                 stars_amount
             )
-            amount_kopeks = int(
+            # Convert rubles from Telegram Stars API to toman
+            amount_toman = int(
                 (rubles_amount * Decimal(100)).to_integral_value(
                     rounding=ROUND_HALF_UP
                 )
@@ -120,7 +122,7 @@ class TelegramStarsMixin:
                 db=db,
                 user_id=user_id,
                 type=transaction_type,
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 description=transaction_description,
                 payment_method=PaymentMethod.TELEGRAM_STARS,
                 external_id=telegram_payment_charge_id,
@@ -140,7 +142,7 @@ class TelegramStarsMixin:
                     db=db,
                     user=user,
                     transaction=transaction,
-                    amount_kopeks=amount_kopeks,
+                    amount_toman=amount_toman,
                     stars_amount=stars_amount,
                     payload_data=simple_payload,
                     telegram_payment_charge_id=telegram_payment_charge_id,
@@ -150,7 +152,7 @@ class TelegramStarsMixin:
                 db=db,
                 user=user,
                 transaction=transaction,
-                amount_kopeks=amount_kopeks,
+                amount_toman=amount_toman,
                 stars_amount=stars_amount,
                 telegram_payment_charge_id=telegram_payment_charge_id,
             )
@@ -226,7 +228,7 @@ class TelegramStarsMixin:
         db: AsyncSession,
         user,
         transaction,
-        amount_kopeks: int,
+        amount_toman: int,
         stars_amount: int,
         payload_data: _SimpleSubscriptionPayload,
         telegram_payment_charge_id: str,
@@ -338,7 +340,7 @@ class TelegramStarsMixin:
                     f"📅 Duration: {period_display} days\n"
                     f"📱 Devices: {getattr(subscription, 'device_limit', 1)}\n"
                     f"📊 Traffic: {traffic_label}\n"
-                    f"⭐ Payment: {stars_amount} ⭐ ({settings.format_price(amount_kopeks)})\n\n"
+                    f"⭐ Payment: {stars_amount} ⭐ ({settings.format_price(amount_toman)})\n\n"
                     "🔗 Open 'My subscription' to connect"
                 )
 
@@ -400,7 +402,7 @@ class TelegramStarsMixin:
             "✅ Stars payment processed as subscription purchase: user %s, %s stars → %s",
             user.id,
             stars_amount,
-            settings.format_price(amount_kopeks),
+            settings.format_price(amount_toman),
         )
         return True
 
@@ -409,18 +411,18 @@ class TelegramStarsMixin:
         db: AsyncSession,
         user,
         transaction,
-        amount_kopeks: int,
+        amount_toman: int,
         stars_amount: int,
         telegram_payment_charge_id: str,
     ) -> bool:
         """Credits balance after a Stars payment and triggers auto-purchase."""
 
         # Remember previous values to build notifications correctly.
-        old_balance = user.balance_kopeks
+        old_balance = user.balance_toman
         was_first_topup = not user.has_made_first_topup
 
         # Update balance in DB.
-        user.balance_kopeks += amount_kopeks
+        user.balance_toman += amount_toman
         user.updated_at = datetime.utcnow()
 
         promo_group = user.get_primary_promo_group()
@@ -431,7 +433,7 @@ class TelegramStarsMixin:
         await db.commit()
 
         description_for_referral = (
-            f"Stars top-up: {settings.format_price(amount_kopeks)} ({stars_amount} ⭐)"
+            f"Stars top-up: {settings.format_price(amount_toman)} ({stars_amount} ⭐)"
         )
         logger.info(
             "🔍 Checking referral logic for description: '%s'",
@@ -458,7 +460,7 @@ class TelegramStarsMixin:
                 await process_referral_topup(
                     db,
                     user.id,
-                    amount_kopeks,
+                    amount_toman,
                     getattr(self, "bot", None),
                 )
             except Exception as error:  # pragma: no cover - diagnostic log
@@ -482,8 +484,8 @@ class TelegramStarsMixin:
             "💰 User %s balance changed: %s → %s (Δ +%s)",
             user.telegram_id,
             old_balance,
-            user.balance_kopeks,
-            amount_kopeks,
+            user.balance_toman,
+            amount_toman,
         )
 
         if getattr(self, "bot", None):
@@ -567,7 +569,7 @@ class TelegramStarsMixin:
 
                 await self.bot.send_message(
                     chat_id=user.telegram_id,
-                    text=f"✅ Balance topped up by {settings.format_price(amount_kopeks)}!\n\n"
+                    text=f"✅ Balance topped up by {settings.format_price(amount_toman)}!\n\n"
                          f"⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. "
                          f"Please activate the subscription separately.\n\n"
                          f"🔄 If a saved subscription cart exists and auto-purchase is enabled, "
@@ -590,6 +592,6 @@ class TelegramStarsMixin:
             "✅ Stars payment processed: user %s, %s stars → %s",
             user.id,
             stars_amount,
-            settings.format_price(amount_kopeks),
+            settings.format_price(amount_toman),
         )
         return True

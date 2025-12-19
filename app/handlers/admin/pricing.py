@@ -115,7 +115,7 @@ TRIAL_ENTRIES: Tuple[SettingEntry, ...] = (
         default_label="💰 Activation price",
         action="price",
         description="ADMIN_PRICING_TRIAL_ACTIVATION_PRICE_DESCRIPTION",
-        default_description="Amount in kopeks. 0 — free activation.",
+        default_description="Amount in toman. 0 — free activation.",
     ),
     SettingEntry(
         key="TRIAL_ADD_REMAINING_DAYS_TO_PAID",
@@ -900,8 +900,8 @@ def _parse_price_input(text: str) -> int:
     if value < 0:
         raise ValueError("negative")
 
-    kopeks = int((value * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return kopeks
+    toman = int((value * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return toman
 
 
 def _resolve_label(section: str, key: str, language: str) -> str:

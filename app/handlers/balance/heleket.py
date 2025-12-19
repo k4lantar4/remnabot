@@ -100,7 +100,7 @@ async def process_heleket_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext,
 ) -> None:
     texts = get_texts(db_user.language)
@@ -114,7 +114,7 @@ async def process_heleket_payment_amount(
         )
         return
 
-    amount_rubles = amount_kopeks / 100
+    amount_rubles = amount_toman / 100
 
     if amount_rubles < 100:
         await message.answer(
@@ -139,7 +139,7 @@ async def process_heleket_payment_amount(
     result = await payment_service.create_heleket_payment(
         db=db,
         user_id=db_user.id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         description=f"Balance top-up {amount_rubles:.0f}  Toman",
         language=db_user.language,
     )

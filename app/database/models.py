@@ -63,7 +63,7 @@ class Bot(Base):
     notification_topic_id = Column(Integer, nullable=True)
     
     # Wallet & billing
-    wallet_balance_kopeks = Column(BigInteger, default=0, nullable=False)
+    wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
     traffic_sold_bytes = Column(BigInteger, default=0, nullable=False)
     
@@ -140,7 +140,7 @@ class BotPlan(Base):
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     period_days = Column(Integer, nullable=False)
-    price_kopeks = Column(Integer, nullable=False)
+    price_toman = Column(Integer, nullable=False)
     traffic_limit_gb = Column(Integer, default=0, nullable=True)
     device_limit = Column(Integer, default=1, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -160,7 +160,7 @@ class CardToCardPayment(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     card_id = Column(Integer, ForeignKey("tenant_payment_cards.id", ondelete="SET NULL"), nullable=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     tracking_number = Column(String(50), unique=True, nullable=False, index=True)
     receipt_type = Column(String(20), nullable=True)  # 'image', 'text', 'both'
     receipt_text = Column(Text, nullable=True)
@@ -187,7 +187,7 @@ class ZarinpalPayment(Base):
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     zarinpal_authority = Column(String(255), unique=True, nullable=True, index=True)
     zarinpal_ref_id = Column(String(255), nullable=True)
     status = Column(String(20), default='pending', nullable=False)  # pending, paid, failed, cancelled
@@ -283,7 +283,7 @@ class YooKassaPayment(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     yookassa_payment_id = Column(String(255), unique=True, nullable=False, index=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     currency = Column(String(3), default="RUB", nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(50), nullable=False)  
@@ -303,10 +303,6 @@ class YooKassaPayment(Base):
     transaction = relationship("Transaction", backref="yookassa_payment")
     
     @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-    
-    @property
     def is_pending(self) -> bool:
         return self.status == "pending"
     
@@ -323,7 +319,7 @@ class YooKassaPayment(Base):
         return self.status == "waiting_for_capture"
     
     def __repr__(self):
-        return f"<YooKassaPayment(id={self.id}, yookassa_id={self.yookassa_payment_id}, amount={self.amount_rubles} Toman, status={self.status})>"
+        return f"<YooKassaPayment(id={self.id}, yookassa_id={self.yookassa_payment_id}, amount={self.amount_toman} Toman, status={self.status})>"
 
 class CryptoBotPayment(Base):
     __tablename__ = "cryptobot_payments"
@@ -413,8 +409,8 @@ class HeleketPayment(Base):
             return 0.0
 
     @property
-    def amount_kopeks(self) -> int:
-        return int(round(self.amount_float * 100))
+    def amount_toman(self) -> int:
+        return int(round(self.amount_float))
 
     @property
     def payer_amount_float(self) -> float:
@@ -449,7 +445,7 @@ class MulenPayPayment(Base):
 
     mulen_payment_id = Column(Integer, nullable=True, index=True)
     uuid = Column(String(255), unique=True, nullable=False, index=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     currency = Column(String(10), nullable=False, default="RUB")
     description = Column(Text, nullable=True)
 
@@ -469,16 +465,12 @@ class MulenPayPayment(Base):
     user = relationship("User", backref="mulenpay_payments")
     transaction = relationship("Transaction", backref="mulenpay_payment")
 
-    @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
             "<MulenPayPayment(id={0}, mulen_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.mulen_payment_id,
-                self.amount_rubles,
+                self.amount_toman,
                 self.status,
             )
         )
@@ -492,7 +484,7 @@ class Pal24Payment(Base):
 
     bill_id = Column(String(255), unique=True, nullable=False, index=True)
     order_id = Column(String(255), nullable=True, index=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     currency = Column(String(10), nullable=False, default="RUB")
     description = Column(Text, nullable=True)
     type = Column(String(20), nullable=False, default="normal")
@@ -528,10 +520,6 @@ class Pal24Payment(Base):
     transaction = relationship("Transaction", backref="pal24_payment")
 
     @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-
-    @property
     def is_pending(self) -> bool:
         return self.status in {"NEW", "PROCESS"}
 
@@ -540,7 +528,7 @@ class Pal24Payment(Base):
             "<Pal24Payment(id={0}, bill_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.bill_id,
-                self.amount_rubles,
+                self.amount_toman,
                 self.status,
             )
         )
@@ -554,7 +542,7 @@ class WataPayment(Base):
 
     payment_link_id = Column(String(64), unique=True, nullable=False, index=True)
     order_id = Column(String(255), nullable=True, index=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     currency = Column(String(10), nullable=False, default="RUB")
     description = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)
@@ -581,16 +569,12 @@ class WataPayment(Base):
     user = relationship("User", backref="wata_payments")
     transaction = relationship("Transaction", backref="wata_payment")
 
-    @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
             "<WataPayment(id={0}, link_id={1}, amount={2} Toman, status={3})>".format(
                 self.id,
                 self.payment_link_id,
-                self.amount_rubles,
+                self.amount_toman,
                 self.status,
             )
         )
@@ -604,7 +588,7 @@ class PlategaPayment(Base):
 
     platega_transaction_id = Column(String(255), unique=True, nullable=True, index=True)
     correlation_id = Column(String(64), unique=True, nullable=False, index=True)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     currency = Column(String(10), nullable=False, default="RUB")
     description = Column(Text, nullable=True)
 
@@ -630,16 +614,12 @@ class PlategaPayment(Base):
     user = relationship("User", backref="platega_payments")
     transaction = relationship("Transaction", backref="platega_payment")
 
-    @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return (
             "<PlategaPayment(id={0}, transaction_id={1}, amount={2} Toman, status={3}, method={4})>".format(
                 self.id,
                 self.platega_transaction_id,
-                self.amount_rubles,
+                self.amount_toman,
                 self.status,
                 self.payment_method_code,
             )
@@ -657,7 +637,7 @@ class PromoGroup(Base):
     traffic_discount_percent = Column(Integer, nullable=False, default=0)
     device_discount_percent = Column(Integer, nullable=False, default=0)
     period_discounts = Column(JSON, nullable=True, default=dict)
-    auto_assign_total_spent_kopeks = Column(Integer, nullable=True, default=None)
+    auto_assign_total_spent_toman = Column(Integer, nullable=True, default=None)
     apply_discounts_to_addons = Column(Boolean, nullable=False, default=True)
     is_default = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=func.now())
@@ -768,7 +748,7 @@ class User(Base):
     last_name = Column(String(255), nullable=True)
     status = Column(String(20), default=UserStatus.ACTIVE.value)
     language = Column(String(5), default="ru")
-    balance_kopeks = Column(Integer, default=0)
+    balance_toman = Column(Integer, default=0)
     used_promocodes = Column(Integer, default=0) 
     has_had_paid_subscription = Column(Boolean, default=False, nullable=False)
     referred_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -786,7 +766,7 @@ class User(Base):
     promo_offer_logs = relationship("PromoOfferLog", back_populates="user")
     lifetime_used_traffic_bytes = Column(BigInteger, default=0)
     auto_promo_group_assigned = Column(Boolean, nullable=False, default=False)
-    auto_promo_group_threshold_kopeks = Column(BigInteger, nullable=False, default=0)
+    auto_promo_group_threshold_toman = Column(BigInteger, nullable=False, default=0)
     referral_commission_percent = Column(Integer, nullable=True)
     promo_offer_discount_percent = Column(Integer, nullable=False, default=0)
     promo_offer_discount_source = Column(String(100), nullable=True)
@@ -810,9 +790,6 @@ class User(Base):
               unique=True, postgresql_where=text('bot_id IS NOT NULL')),
     )
 
-    @property
-    def balance_rubles(self) -> float:
-        return self.balance_kopeks / 100
 
     @property
     def full_name(self) -> str:
@@ -847,12 +824,12 @@ class User(Base):
             return 0
         return primary_group.get_discount_percent(category, period_days)
     
-    def add_balance(self, kopeks: int) -> None:
-        self.balance_kopeks += kopeks
+    def add_balance(self, toman: int) -> None:
+        self.balance_toman += toman
     
-    def subtract_balance(self, kopeks: int) -> bool:
-        if self.balance_kopeks >= kopeks:
-            self.balance_kopeks -= kopeks
+    def subtract_balance(self, toman: int) -> bool:
+        if self.balance_toman >= toman:
+            self.balance_toman -= toman
             return True
         return False
 
@@ -1040,7 +1017,7 @@ class Transaction(Base):
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     
     type = Column(String(50), nullable=False)
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
     
     payment_method = Column(String(50), nullable=True)
@@ -1054,10 +1031,6 @@ class Transaction(Base):
     user = relationship("User", back_populates="transactions")
     bot = relationship("Bot", back_populates="transactions")
     
-    @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
-
 class SubscriptionConversion(Base):
     __tablename__ = "subscription_conversions"
     
@@ -1070,7 +1043,7 @@ class SubscriptionConversion(Base):
     
     payment_method = Column(String(50), nullable=True)
     
-    first_payment_amount_kopeks = Column(Integer, nullable=True)
+    first_payment_amount_toman = Column(Integer, nullable=True)
     
     first_paid_period_days = Column(Integer, nullable=True)
     
@@ -1079,8 +1052,8 @@ class SubscriptionConversion(Base):
     user = relationship("User", backref="subscription_conversions")
     
     @property
-    def first_payment_amount_rubles(self) -> float:
-        return (self.first_payment_amount_kopeks or 0) / 100
+    def first_payment_amount_toman(self) -> int:
+        return self.first_payment_amount_toman or 0
     
     def __repr__(self):
         return f"<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>"
@@ -1095,7 +1068,7 @@ class PromoCode(Base):
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     type = Column(String(50), nullable=False)
     
-    balance_bonus_kopeks = Column(Integer, default=0)  
+    balance_bonus_toman = Column(Integer, default=0)  
     subscription_days = Column(Integer, default=0) 
     
     max_uses = Column(Integer, default=1)  
@@ -1159,7 +1132,7 @@ class ReferralEarning(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  
     referral_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    amount_kopeks = Column(Integer, nullable=False)
+    amount_toman = Column(Integer, nullable=False)
     reason = Column(String(100), nullable=False) 
     
     referral_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
@@ -1171,8 +1144,8 @@ class ReferralEarning(Base):
     referral_transaction = relationship("Transaction")
     
     @property
-    def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
+    def amount_toman(self) -> int:
+        return self.amount_toman
 
 
 class ReferralContest(Base):
@@ -1223,7 +1196,7 @@ class ReferralContestEvent(Base):
     referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     referral_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     event_type = Column(String(50), nullable=False)
-    amount_kopeks = Column(Integer, nullable=False, default=0)
+    amount_toman = Column(Integer, nullable=False, default=0)
     occurred_at = Column(DateTime, nullable=False, default=func.now())
 
     contest = relationship("ReferralContest", back_populates="events")
@@ -1311,16 +1284,12 @@ class Squad(Base):
     country_code = Column(String(5), nullable=True)
     
     is_available = Column(Boolean, default=True)
-    price_kopeks = Column(Integer, default=0) 
+    price_toman = Column(Integer, default=0) 
     
     description = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
-    @property
-    def price_rubles(self) -> float:
-        return self.price_kopeks / 100
 
 
 class ServiceRule(Base):
@@ -1439,7 +1408,7 @@ class SubscriptionEvent(Base):
     transaction_id = Column(
         Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
     )
-    amount_kopeks = Column(Integer, nullable=True)
+    amount_toman = Column(Integer, nullable=True)
     currency = Column(String(16), nullable=True)
     message = Column(Text, nullable=True)
     occurred_at = Column(DateTime, nullable=False, default=func.now())
@@ -1462,7 +1431,7 @@ class DiscountOffer(Base):
     subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True)
     notification_type = Column(String(50), nullable=False)
     discount_percent = Column(Integer, nullable=False, default=0)
-    bonus_amount_kopeks = Column(Integer, nullable=False, default=0)
+    bonus_amount_toman = Column(Integer, nullable=False, default=0)
     expires_at = Column(DateTime, nullable=False)
     claimed_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -1489,7 +1458,7 @@ class PromoOfferTemplate(Base):
     button_text = Column(String(255), nullable=False)
     valid_hours = Column(Integer, nullable=False, default=24)
     discount_percent = Column(Integer, nullable=False, default=0)
-    bonus_amount_kopeks = Column(Integer, nullable=False, default=0)
+    bonus_amount_toman = Column(Integer, nullable=False, default=0)
     active_discount_hours = Column(Integer, nullable=True)
     test_duration_hours = Column(Integer, nullable=True)
     test_squad_uuids = Column(JSON, default=list)
@@ -1562,7 +1531,7 @@ class Poll(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     reward_enabled = Column(Boolean, nullable=False, default=False)
-    reward_amount_kopeks = Column(Integer, nullable=False, default=0)
+    reward_amount_toman = Column(Integer, nullable=False, default=0)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
@@ -1621,7 +1590,7 @@ class PollResponse(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     reward_given = Column(Boolean, nullable=False, default=False)
-    reward_amount_kopeks = Column(Integer, nullable=False, default=0)
+    reward_amount_toman = Column(Integer, nullable=False, default=0)
 
     poll = relationship("Poll", back_populates="responses")
     user = relationship("User", back_populates="poll_responses")
@@ -1670,7 +1639,7 @@ class ServerSquad(Base):
     is_available = Column(Boolean, default=True)
     is_trial_eligible = Column(Boolean, default=False, nullable=False)
     
-    price_kopeks = Column(Integer, default=0)
+    price_toman = Column(Integer, default=0)
     
     description = Column(Text, nullable=True)
     
@@ -1688,10 +1657,6 @@ class ServerSquad(Base):
         back_populates="server_squads",
         lazy="selectin",
     )
-    
-    @property
-    def price_rubles(self) -> float:
-        return self.price_kopeks / 100
     
     @property
     def is_full(self) -> bool:
@@ -1718,7 +1683,7 @@ class SubscriptionServer(Base):
     
     connected_at = Column(DateTime, default=func.now())
     
-    paid_price_kopeks = Column(Integer, default=0)
+    paid_price_toman = Column(Integer, default=0)
     
     subscription = relationship("Subscription", backref="subscription_servers")
     server_squad = relationship("ServerSquad", backref="subscription_servers")
@@ -1776,7 +1741,7 @@ class AdvertisingCampaign(Base):
     start_parameter = Column(String(64), nullable=False, unique=True, index=True)
     bonus_type = Column(String(20), nullable=False)
 
-    balance_bonus_kopeks = Column(Integer, default=0)
+    balance_bonus_toman = Column(Integer, default=0)
 
     subscription_duration_days = Column(Integer, nullable=True)
     subscription_traffic_gb = Column(Integer, nullable=True)
@@ -1811,7 +1776,7 @@ class AdvertisingCampaignRegistration(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     bonus_type = Column(String(20), nullable=False)
-    balance_bonus_kopeks = Column(Integer, default=0)
+    balance_bonus_toman = Column(Integer, default=0)
     subscription_duration_days = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=func.now())
@@ -1819,9 +1784,6 @@ class AdvertisingCampaignRegistration(Base):
     campaign = relationship("AdvertisingCampaign", back_populates="registrations")
     user = relationship("User")
 
-    @property
-    def balance_bonus_rubles(self) -> float:
-        return (self.balance_bonus_kopeks or 0) / 100
 
 
 class TicketStatus(Enum):

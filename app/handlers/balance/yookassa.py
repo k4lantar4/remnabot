@@ -30,19 +30,19 @@ async def start_yookassa_payment(
         await callback.answer(texts.t("YOOKASSA_CARD_UNAVAILABLE", "❌ Card payment via YooKassa temporarily unavailable"), show_alert=True)
         return
     
-    min_amount_rub = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-    max_amount_rub = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
+    min_amount_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
+    max_amount_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
     
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         message_text = texts.t(
             "YOOKASSA_CARD_PROMPT_QUICK",
             "💳 <b>Card payment</b>\n\nChoose a top-up amount or enter manually from {min} to {max} RUB:"
-        ).format(min=f"{min_amount_rub:.0f}", max=f"{max_amount_rub:,.0f}")
+        ).format(min=f"{min_amount_toman:.0f}", max=f"{max_amount_toman:,.0f}")
     else:
         message_text = texts.t(
             "YOOKASSA_CARD_PROMPT",
             "💳 <b>Card payment</b>\n\nEnter a top-up amount from {min} to {max} RUB:"
-        ).format(min=f"{min_amount_rub:.0f}", max=f"{max_amount_rub:,.0f}")
+        ).format(min=f"{min_amount_toman:.0f}", max=f"{max_amount_toman:,.0f}")
     
     keyboard = get_back_keyboard(db_user.language)
     
@@ -85,8 +85,8 @@ async def start_yookassa_sbp_payment(
         )
         return
     
-    min_amount_rub = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-    max_amount_rub = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
+    min_amount_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
+    max_amount_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
     
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         message_text = texts.t(
@@ -127,7 +127,7 @@ async def process_yookassa_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
@@ -154,14 +154,14 @@ async def process_yookassa_payment_amount(
         await message.answer(texts.t("YOOKASSA_UNAVAILABLE", "❌ YooKassa payments temporarily unavailable"))
         return
     
-    if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
-        min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount}  Toman").format(amount=f"{min_rubles:.0f}"))
+    if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
+        min_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
+        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount}  Toman").format(amount=f"{min_toman:.0f}"))
         return
     
-    if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
-        max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
-        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount}  Toman").format(amount=f"{max_rubles:,.0f}".replace(',', ' ')))
+    if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
+        max_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
+        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount}  Toman").format(amount=f"{max_toman:,.0f}".replace(',', ' ')))
         return
     
     try:
@@ -170,8 +170,8 @@ async def process_yookassa_payment_amount(
         payment_result = await payment_service.create_yookassa_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks, telegram_user_id=db_user.telegram_id),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman, telegram_user_id=db_user.telegram_id),
             receipt_email=None,
             receipt_phone=None,
             metadata={
@@ -228,7 +228,7 @@ async def process_yookassa_payment_amount(
                 "✅ Cards accepted: Visa, MasterCard, MIR\n\n"
                 "❓ If you have issues, contact {support}"
             ).format(
-                amount=settings.format_price(amount_kopeks),
+                amount=settings.format_price(amount_toman),
                 pid=payment_result['yookassa_payment_id'][:8],
                 support=settings.get_support_contact_display_html(),
             ),
@@ -266,7 +266,7 @@ async def process_yookassa_payment_amount(
         logger.info(
             "Created YooKassa payment for user %s: %s Toman, ID: %s",
             db_user.telegram_id,
-            amount_kopeks // 100,
+            amount_toman,
             payment_result["yookassa_payment_id"],
         )
         
@@ -281,7 +281,7 @@ async def process_yookassa_sbp_payment_amount(
     message: types.Message,
     db_user: User,
     db: AsyncSession,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
@@ -313,23 +313,23 @@ async def process_yookassa_sbp_payment_amount(
         )
         return
     
-    if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
-        min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
+    if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
+        min_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
         await message.answer(
             texts.t(
                 "YOOKASSA_SBP_MIN",
                 "❌ Minimum SBP amount: {amount}  Toman",
-            ).format(amount=f"{min_rubles:.0f}")
+            ).format(amount=f"{min_toman:.0f}")
         )
         return
     
-    if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
-        max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
+    if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
+        max_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
         await message.answer(
             texts.t(
                 "YOOKASSA_SBP_MAX",
                 "❌ Maximum SBP amount: {amount}  Toman",
-            ).format(amount=f"{max_rubles:,.0f}".replace(",", " "))
+            ).format(amount=f"{max_toman:,.0f}".replace(",", " "))
         )
         return
     
@@ -339,8 +339,8 @@ async def process_yookassa_sbp_payment_amount(
         payment_result = await payment_service.create_yookassa_sbp_payment(
             db=db,
             user_id=db_user.id,
-            amount_kopeks=amount_kopeks,
-            description=settings.get_balance_payment_description(amount_kopeks, telegram_user_id=db_user.telegram_id),
+            amount_toman=amount_toman,
+            description=settings.get_balance_payment_description(amount_toman, telegram_user_id=db_user.telegram_id),
             receipt_email=None,
             receipt_phone=None,
             metadata={
@@ -493,7 +493,7 @@ async def process_yookassa_sbp_payment_amount(
             "💰 Amount: {amount}\n"
             "🆔 Payment ID: {payment_id}...\n\n",
         ).format(
-            amount=settings.format_price(amount_kopeks),
+            amount=settings.format_price(amount_toman),
             payment_id=payment_result["yookassa_payment_id"][:8],
         )
 
@@ -563,7 +563,7 @@ async def process_yookassa_sbp_payment_amount(
         logger.info(
             "Created YooKassa SBP payment for user %s: %s Toman, ID: %s",
             db_user.telegram_id,
-            amount_kopeks // 100,
+            amount_toman,
             payment_result["yookassa_payment_id"],
         )
         
@@ -630,7 +630,7 @@ async def check_yookassa_payment_status(
             "📅 Created: {created}\n",
         ).format(
             pid=payment.yookassa_payment_id[:8],
-            amount=settings.format_price(payment.amount_kopeks),
+            amount=settings.format_price(payment.amount_toman),
             emoji=emoji,
             status=status,
             created=payment.created_at.strftime('%d.%m.%Y %H:%M'),

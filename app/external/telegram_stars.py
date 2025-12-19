@@ -28,12 +28,12 @@ class TelegramStarsService:
         chat_id: int,
         title: str,
         description: str,
-        amount_kopeks: int,
+        amount_toman: int,
         payload: str,
         start_parameter: Optional[str] = None
     ) -> Optional[str]:
         try:
-            amount_rubles = Decimal(amount_kopeks) / Decimal(100)
+            amount_rubles = Decimal(amount_toman) / Decimal(100)
             stars_amount = self.calculate_stars_from_rubles(float(amount_rubles))
             stars_rate = settings.get_stars_rate()
 
@@ -48,7 +48,7 @@ class TelegramStarsService:
             )
             
             logger.info(
-                f"Created Stars invoice for {stars_amount} stars (~{settings.format_price(amount_kopeks)}) "
+                f"Created Stars invoice for {stars_amount} stars (~{settings.format_price(amount_toman)}) "
                 f"for {chat_id}, rate: {stars_rate}/⭐"
             )
             return invoice_link
@@ -62,12 +62,12 @@ class TelegramStarsService:
         chat_id: int,
         title: str,
         description: str,
-        amount_kopeks: int,
+        amount_toman: int,
         payload: str,
         keyboard: Optional[InlineKeyboardMarkup] = None
     ) -> Optional[Dict[str, Any]]:
         try:
-            amount_rubles = Decimal(amount_kopeks) / Decimal(100)
+            amount_rubles = Decimal(amount_toman) / Decimal(100)
             stars_amount = self.calculate_stars_from_rubles(float(amount_rubles))
             stars_rate = settings.get_stars_rate()
             
@@ -84,7 +84,7 @@ class TelegramStarsService:
             
             logger.info(
                 f"Sent Stars invoice {message.message_id} for {stars_amount} stars "
-                f"(~{settings.format_price(amount_kopeks)}), rate: {stars_rate}/⭐"
+                f"(~{settings.format_price(amount_toman)}), rate: {stars_rate}/⭐"
             )
             return {
                 "message_id": message.message_id,

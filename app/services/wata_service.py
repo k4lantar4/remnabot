@@ -45,7 +45,7 @@ class WataService:
     async def create_payment_link(
         self,
         *,
-        amount_kopeks: int,
+        amount_toman: int,
         order_id: str,
         description: Optional[str] = None,
         success_redirect_url: Optional[str] = None,
@@ -57,7 +57,7 @@ class WataService:
             logger.error("WataService is not configured")
             return None
 
-        amount_rubles = amount_kopeks / 100.0
+        amount_rubles = amount_toman / 100.0
 
         payload: Dict[str, Any] = {
             "amount": amount_rubles,

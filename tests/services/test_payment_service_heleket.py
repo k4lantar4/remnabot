@@ -128,7 +128,7 @@ async def test_create_heleket_payment_success(monkeypatch: pytest.MonkeyPatch) -
     result = await service.create_heleket_payment(
         db=db,
         user_id=42,
-        amount_kopeks=15000,
+        amount_toman=1500000,  # 15000 toman (was 150 rubles = 15000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -151,7 +151,7 @@ async def test_create_heleket_payment_returns_none_without_service() -> None:
     result = await service.create_heleket_payment(
         db=db,
         user_id=1,
-        amount_kopeks=10000,
+        amount_toman=1000000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         description="Пополнение",
     )
 
@@ -181,7 +181,7 @@ async def test_create_heleket_payment_handles_empty_response(monkeypatch: pytest
     result = await service.create_heleket_payment(
         db=db,
         user_id=1,
-        amount_kopeks=20000,
+        amount_toman=2000000,  # 20000 toman (was 200 rubles = 20000 kopeks)
         description="Пополнение",
     )
 

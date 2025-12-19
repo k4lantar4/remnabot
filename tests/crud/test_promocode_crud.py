@@ -37,7 +37,7 @@ async def test_create_promocode_with_promo_group_id(
         db=mock_db_session,
         code="TESTGROUP",
         type=PromoCodeType.PROMO_GROUP,
-        balance_bonus_kopeks=0,
+        balance_bonus_toman=0,
         subscription_days=0,
         max_uses=100,
         valid_until=None,
@@ -69,7 +69,7 @@ async def test_create_promocode_without_promo_group_id(mock_db_session):
         db=mock_db_session,
         code="BALANCE100",
         type=PromoCodeType.BALANCE,
-        balance_bonus_kopeks=10000,
+        balance_bonus_toman=1000000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         subscription_days=0,
         max_uses=50,
         valid_until=None,

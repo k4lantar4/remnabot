@@ -208,9 +208,10 @@ class Pal24Client:
         return expected == signature.upper()
 
     @staticmethod
-    def normalize_amount(amount_kopeks: int) -> Decimal:
+    def normalize_amount(amount_toman: int) -> Decimal:
+        """Convert toman to rubles for Pal24 API (which expects rubles)."""
         try:
-            return (Decimal(amount_kopeks) / Decimal("100")).quantize(Decimal("0.01"))
+            return (Decimal(amount_toman) / Decimal("100")).quantize(Decimal("0.01"))
         except (InvalidOperation, TypeError) as error:
-            raise Pal24APIError(f"Invalid amount: {amount_kopeks}") from error
+            raise Pal24APIError(f"Invalid amount: {amount_toman}") from error
 

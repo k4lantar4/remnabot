@@ -46,7 +46,7 @@ class PollCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(default=None, max_length=4000)
     reward_enabled: bool = False
-    reward_amount_kopeks: int = Field(default=0, ge=0, le=1_000_000_000)
+    reward_amount_toman: int = Field(default=0, ge=0, le=1_000_000_000)
     questions: list[PollQuestionCreate] = Field(..., min_length=1)
 
     @field_validator("title")
@@ -67,10 +67,10 @@ class PollCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_reward(self) -> "PollCreateRequest":
-        if self.reward_enabled and self.reward_amount_kopeks <= 0:
+        if self.reward_enabled and self.reward_amount_toman <= 0:
             raise ValueError("Reward amount must be positive when rewards are enabled")
         if not self.reward_enabled:
-            self.reward_amount_kopeks = 0
+            self.reward_amount_toman = 0
         return self
 
 
@@ -92,8 +92,7 @@ class PollSummaryResponse(BaseModel):
     title: str
     description: Optional[str]
     reward_enabled: bool
-    reward_amount_kopeks: int
-    reward_amount_rubles: float
+    reward_amount_toman: int
     questions_count: int
     responses_count: int
     created_at: datetime
@@ -105,8 +104,7 @@ class PollDetailResponse(BaseModel):
     title: str
     description: Optional[str]
     reward_enabled: bool
-    reward_amount_kopeks: int
-    reward_amount_rubles: float
+    reward_amount_toman: int
     questions: list[PollQuestionResponse]
     created_at: datetime
     updated_at: datetime
@@ -137,8 +135,7 @@ class PollStatisticsResponse(BaseModel):
     poll_title: str
     total_responses: int
     completed_responses: int
-    reward_sum_kopeks: int
-    reward_sum_rubles: float
+    reward_sum_toman: int
     questions: list[PollQuestionStats]
 
 
@@ -159,8 +156,7 @@ class PollUserResponse(BaseModel):
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
     reward_given: bool
-    reward_amount_kopeks: int
-    reward_amount_rubles: float
+    reward_amount_toman: int
     answers: list[PollAnswerResponse]
 
 

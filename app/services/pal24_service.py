@@ -30,7 +30,7 @@ class Pal24Service:
     async def create_bill(
         self,
         *,
-        amount_kopeks: int,
+        amount_toman: int,
         user_id: int,
         order_id: str,
         description: str,
@@ -42,7 +42,8 @@ class Pal24Service:
         if not self.is_configured:
             raise Pal24APIError("Pal24 service is not configured")
 
-        amount_decimal = Pal24Client.normalize_amount(amount_kopeks)
+        # Convert toman to rubles for Pal24 API (which expects rubles)
+        amount_decimal = Pal24Client.normalize_amount(amount_toman)
         extra_payload: Dict[str, Any] = {
             "custom": custom_payload or {},
             "ttl": ttl_seconds,
@@ -113,7 +114,8 @@ class Pal24Service:
         return payload
 
     @staticmethod
-    def convert_to_kopeks(amount: str) -> int:
+    def convert_to_toman(amount: str) -> int:
+        """Convert rubles string (e.g., '10.50') to toman integer (1050)."""
         decimal_amount = Decimal(str(amount))
         return int((decimal_amount * Decimal("100")).quantize(Decimal("1")))
 

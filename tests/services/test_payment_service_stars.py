@@ -99,7 +99,7 @@ class DummyUser:
         self.id = user_id
         self.telegram_id = telegram_id
         self.language = "ru"
-        self.balance_kopeks = 0
+        self.balance_toman = 0
         self.has_made_first_topup = False
         self.promo_group = None
         self.subscription = None
@@ -142,7 +142,7 @@ async def test_create_stars_invoice_calculates_stars(monkeypatch: pytest.MonkeyP
     )
 
     result = await service.create_stars_invoice(
-        amount_kopeks=14000,
+        amount_toman=1_400_000,  # 14000 toman (was 140 rubles = 14000 kopeks)
         description="Пополнение",
         payload="custom_payload",
     )
@@ -168,7 +168,7 @@ async def test_create_stars_invoice_enforces_minimum_star(monkeypatch: pytest.Mo
     monkeypatch.setattr(type(settings), "format_price", lambda self, amount: amount, raising=False)
 
     await service.create_stars_invoice(
-        amount_kopeks=50,  # 0.5  Toman при курсе 500 => <1 звезды
+        amount_toman=5000,  # 50 toman (was 0.5 rubles = 50 kopeks) при курсе 500 => <1 звезды
         description="Микроплатёж",
     )
 
@@ -186,7 +186,7 @@ async def test_create_stars_invoice_uses_explicit_stars(monkeypatch: pytest.Monk
     monkeypatch.setattr(type(settings), "format_price", lambda self, amount: amount, raising=False)
 
     await service.create_stars_invoice(
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="Оплата подписки",
         stars_amount=5,
     )
@@ -206,7 +206,7 @@ async def test_create_stars_invoice_rejects_invalid_rate(monkeypatch: pytest.Mon
 
     with pytest.raises(ValueError, match="Stars rate must be positive"):
         await service.create_stars_invoice(
-            amount_kopeks=1000,
+            amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
             description="Пополнение",
         )
 
@@ -218,7 +218,7 @@ async def test_create_stars_invoice_requires_bot() -> None:
 
     with pytest.raises(ValueError, match="Bot instance required"):
         await service.create_stars_invoice(
-            amount_kopeks=1000,
+            amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
             description="Пополнение",
         )
 
@@ -337,7 +337,7 @@ async def test_process_stars_payment_simple_subscription_success(
     )
 
     assert result is True
-    assert user.balance_kopeks == 0, "Баланс не должен меняться при оплате подписки"
+    assert user.balance_toman == 0, "Баланс не должен меняться при оплате подписки"
     assert subscription_service_stub.calls == [(db, activated_subscription)]
     assert len(admin_calls) == 1
     assert admin_calls[0]["subscription"] is activated_subscription
