@@ -590,8 +590,11 @@ class ReportingService:
 
         return f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
 
-    def _format_amount(self, amount_toman: int) -> str:
-        return f"{amount_toman:,} Toman".replace(",", " ")
+    def _format_amount(self, amount_toman: int, language: str = "en") -> str:
+        from app.localization.texts import get_texts
+        texts = get_texts(language)
+        currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
+        return f"{amount_toman:,} {currency_unit}".replace(",", " ")
 
 
 reporting_service = ReportingService()

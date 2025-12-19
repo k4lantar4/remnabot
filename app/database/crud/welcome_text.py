@@ -236,17 +236,22 @@ async def get_current_welcome_text_or_default() -> str:
         f"👇 Click the button and connect!"
     )
 
-def replace_placeholders(text: str, user) -> str:
+def replace_placeholders(text: str, user, language: str = "en") -> str:
+    from app.localization.texts import get_texts
+    
+    texts = get_texts(language)
+    friend_fallback = texts.t("FRIEND_FALLBACK", "friend")
+    
     first_name = getattr(user, 'first_name', None)
     username = getattr(user, 'username', None)
     
     first_name = first_name.strip() if first_name else None
     username = username.strip() if username else None
     
-    user_name = first_name or username or "friend"
-    display_first_name = first_name or "friend"
-    display_username = f"@{username}" if username else (first_name or "friend")
-    clean_username = username or first_name or "friend"
+    user_name = first_name or username or friend_fallback
+    display_first_name = first_name or friend_fallback
+    display_username = f"@{username}" if username else (first_name or friend_fallback)
+    clean_username = username or first_name or friend_fallback
     
     replacements = {
         '{user_name}': user_name,
@@ -262,7 +267,7 @@ def replace_placeholders(text: str, user) -> str:
     
     return result
 
-async def get_welcome_text_for_user(db: AsyncSession, user) -> str:
+async def get_welcome_text_for_user(db: AsyncSession, user, language: str = None) -> str:
     welcome_text = await get_active_welcome_text(db)
     
     if not welcome_text:
@@ -275,12 +280,22 @@ async def get_welcome_text_for_user(db: AsyncSession, user) -> str:
                 self.username = None
         user = SimpleUser(user)
     
-    return replace_placeholders(welcome_text, user)
+    # Get language from user if not provided
+    if language is None:
+        language = getattr(user, 'language', 'en')
+    
+    return replace_placeholders(welcome_text, user, language)
 
-def get_available_placeholders() -> dict:
+def get_available_placeholders(language: str = "en") -> dict:
+    from app.localization.texts import get_texts
+    
+    texts = get_texts(language)
+    friend_fallback = texts.t("FRIEND_FALLBACK", "friend")
+    friend_help = texts.t("WELCOME_TEXT_FRIEND_HELP", "If user data is missing, the word 'friend' is used.")
+    
     return {
-        '{user_name}': 'User name or username (priority: name → username → "friend")',
-        '{first_name}': 'Only user first name (or "friend" if not specified)',
+        '{user_name}': f'User name or username (priority: name → username → "{friend_fallback}")',
+        '{first_name}': f'Only user first name (or "{friend_fallback}" if not specified)',
         '{username}': 'Username with @ symbol (or name if username not specified)',
         '{username_clean}': 'Username without @ symbol (or name if username not specified)'
     }

@@ -677,10 +677,16 @@ class SubscriptionService:
                     )
                 logger.debug(message)
             if traffic_price > 0:
-                message = f"   📊 Traffic ({subscription.traffic_limit_gb} GB): {discounted_traffic_price} Toman"
+                # Get user language for localization, default to English for debug logs
+                user_language = getattr(user, 'language', 'en') if user else 'en'
+                from app.localization.texts import get_texts
+                texts = get_texts(user_language)
+                traffic_format = texts.t("TRAFFIC_DETAIL_FORMAT", "📊 Traffic ({gb} GB): {price} Toman")
+                message = f"   {traffic_format.format(gb=subscription.traffic_limit_gb, price=discounted_traffic_price)}"
                 if traffic_discount > 0:
+                    currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
                     message += (
-                        f" (discount {traffic_discount_percent}%: -{traffic_discount} Toman from {traffic_price} Toman)"
+                        f" (discount {traffic_discount_percent}%: -{traffic_discount} {currency_unit} from {traffic_price} {currency_unit})"
                     )
                 logger.debug(message)
             logger.debug(f"   💎 TOTAL: {total_price} Toman")

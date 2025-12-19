@@ -152,17 +152,17 @@ class Texts:
         # _logger.warning("Missing localization key '%s' for language '%s'", item, self.language)
         raise KeyError(item)
 
-    @staticmethod
-    def format_price(toman: int) -> str:
-        return settings.format_price(toman)
+    def format_price(self, toman: int) -> str:
+        return settings.format_price(toman, self.language)
 
-    @staticmethod
-    def format_traffic(gb: float) -> str:
+    def format_traffic(self, gb: float) -> str:
         if gb == 0:
-            return "∞ (Unlimited)"
+            return self.t("TRAFFIC_UNLIMITED_TEXT", "∞ (Unlimited)")
         if gb >= 1024:
-            return f"{gb / 1024:.1f} TB"
-        return f"{gb:.0f} GB"
+            unit = self.t("TRAFFIC_UNIT_TB", "TB")
+            return f"{gb / 1024:.1f} {unit}"
+        unit = self.t("TRAFFIC_UNIT_GB", "GB")
+        return f"{gb:.0f} {unit}"
 
 
 def get_texts(language: str = DEFAULT_LANGUAGE) -> Texts:

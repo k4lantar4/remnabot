@@ -245,7 +245,7 @@ async def show_current_welcome_text(
     status_emoji = "🟢" if is_enabled else "🔴"
     status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if is_enabled else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
     
-    placeholders = get_available_placeholders()
+    placeholders = get_available_placeholders(db_user.language)
     placeholders_text = "\n".join([f"• <code>{key}</code> - {desc}" for key, desc in placeholders.items()])
     
     await callback.message.edit_text(
@@ -276,8 +276,9 @@ async def show_placeholders_help(
 ):
     texts = get_texts(db_user.language)
     welcome_settings = await get_current_welcome_text_settings(db)
-    placeholders = get_available_placeholders()
+    placeholders = get_available_placeholders(db_user.language)
     placeholders_text = "\n".join([f"• <code>{key}</code>\n  {desc}" for key, desc in placeholders.items()])
+    friend_help = texts.t("WELCOME_TEXT_FRIEND_HELP", "If user data is missing, the word 'friend' is used.")
     
     help_text = texts.t(
         "ADMIN_WELCOME_TEXT_PLACEHOLDERS_HELP",
@@ -287,8 +288,8 @@ async def show_placeholders_help(
         "• <code>Hello, {user_name}! Welcome!</code>\n"
         "• <code>Hi, {first_name}! Glad to see you!</code>\n"
         "• <code>Hello, {username}! Thanks for registering!</code>\n\n"
-        "If user data is missing, the word 'friend' is used."
-    ).format(placeholders=placeholders_text)
+        "{friend_help}"
+    ).format(placeholders=placeholders_text, friend_help=friend_help)
     
     await callback.message.edit_text(
         help_text,
@@ -327,7 +328,7 @@ async def start_edit_welcome_text(
     welcome_settings = await get_current_welcome_text_settings(db)
     current_text = welcome_settings['text']
     
-    placeholders = get_available_placeholders()
+    placeholders = get_available_placeholders(db_user.language)
     placeholders_text = "\n".join([f"• <code>{key}</code> - {desc}" for key, desc in placeholders.items()])
     
     await callback.message.edit_text(
@@ -376,7 +377,7 @@ async def process_welcome_text_edit(
         status_emoji = "🟢" if welcome_settings['is_enabled'] else "🔴"
         status_text = texts.t("ADMIN_WELCOME_TEXT_ENABLED", "enabled") if welcome_settings['is_enabled'] else texts.t("ADMIN_WELCOME_TEXT_DISABLED", "disabled")
         
-        placeholders = get_available_placeholders()
+        placeholders = get_available_placeholders(db_user.language)
         placeholders_text = "\n".join([f"• <code>{key}</code>" for key in placeholders.keys()])
         
         await message.answer(

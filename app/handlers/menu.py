@@ -44,7 +44,9 @@ from app.utils.pricing_utils import format_period_description
 logger = logging.getLogger(__name__)
 
 
-def _format_rubles(amount_toman: int) -> str:
+def _format_rubles(amount_toman: int, language: str = "en") -> str:
+    from app.localization.texts import get_texts
+    
     rubles = Decimal(amount_toman) / Decimal(100)
 
     if rubles == rubles.to_integral_value():
@@ -52,7 +54,9 @@ def _format_rubles(amount_toman: int) -> str:
     else:
         formatted = f"{rubles:,.2f}"
 
-    return f"{formatted.replace(',', ' ')} Toman"
+    texts = get_texts(language)
+    currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
+    return f"{formatted.replace(',', ' ')} {currency_unit}"
 
 
 def _collect_period_discounts(group: PromoGroup) -> Dict[int, int]:
@@ -335,7 +339,7 @@ async def show_promo_groups_info(
         return
 
     total_spent_toman = await get_user_total_spent_toman(db, db_user.id)
-    total_spent_text = _format_rubles(total_spent_toman)
+    total_spent_text = _format_rubles(total_spent_toman, db_user.language)
 
     sorted_groups = sorted(
         promo_groups,
@@ -386,7 +390,7 @@ async def show_promo_groups_info(
         lines.append(
             texts.t("PROMO_GROUPS_INFO_NEXT_LEVEL").format(
                 name=html.escape(next_group.name),
-                amount=_format_rubles(max(remaining_toman, 0)),
+                amount=_format_rubles(max(remaining_toman, 0), db_user.language),
             )
         )
     else:
@@ -403,7 +407,7 @@ async def show_promo_groups_info(
             texts.t("PROMO_GROUPS_INFO_LEVEL_LINE").format(
                 status=status_icon,
                 name=html.escape(group.name),
-                amount=_format_rubles(threshold),
+                amount=_format_rubles(threshold, db_user.language),
             )
         )
 

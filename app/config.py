@@ -769,9 +769,15 @@ class Settings(BaseSettings):
     def is_language_selection_enabled(self) -> bool:
         return bool(getattr(self, "LANGUAGE_SELECTION_ENABLED", True))
 
-    def format_price(self, price_toman: int) -> str:
+    def format_price(self, price_toman: int, language: str = "en") -> str:
         sign = "-" if price_toman < 0 else ""
-        return f"{sign}{abs(price_toman):,} Toman"
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
+        except Exception:
+            currency_unit = "Toman"
+        return f"{sign}{abs(price_toman):,} {currency_unit}"
 
     def get_reports_chat_id(self) -> Optional[str]:
         if self.ADMIN_REPORTS_CHAT_ID:
@@ -885,12 +891,27 @@ class Settings(BaseSettings):
             value_str = str(value).strip()
             return value_str or None
 
-        name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
-        name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
-        name_fa = _clean(self.MINIAPP_SERVICE_NAME_FA)
-        desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
-        desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
-        desc_fa = _clean(self.MINIAPP_SERVICE_DESCRIPTION_FA)
+        # Try to get from localization for FA, fallback to config values
+        try:
+            from app.localization.texts import get_texts
+            
+            texts_fa = get_texts("fa")
+            
+            # Get from localization for FA, use config for EN and RU
+            name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
+            name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
+            name_fa = _clean(texts_fa.t("MINIAPP_SERVICE_NAME_FA", self.MINIAPP_SERVICE_NAME_FA))
+            desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
+            desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
+            desc_fa = _clean(texts_fa.t("MINIAPP_SERVICE_DESCRIPTION_FA", self.MINIAPP_SERVICE_DESCRIPTION_FA))
+        except Exception:
+            # Fallback to config values if localization fails
+            name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
+            name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
+            name_fa = _clean(self.MINIAPP_SERVICE_NAME_FA)
+            desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
+            desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
+            desc_fa = _clean(self.MINIAPP_SERVICE_DESCRIPTION_FA)
 
         default_name = name_en or name_ru or "Capitan VPN"
         default_description = desc_en or desc_ru or "Secure & Fast Connection"
