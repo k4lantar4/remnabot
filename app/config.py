@@ -148,9 +148,9 @@ class Settings(BaseSettings):
     TRAFFIC_SELECTION_MODE: str = "selectable" 
     FIXED_TRAFFIC_LIMIT_GB: int = 100 
     
-    REFERRAL_MINIMUM_TOPUP_TOMAN: int = 1000000
-    REFERRAL_FIRST_TOPUP_BONUS_TOMAN: int = 1000000
-    REFERRAL_INVITER_BONUS_TOMAN: int = 1000000
+    REFERRAL_MINIMUM_TOPUP_TOMAN: int = Field(default=1000000, validation_alias="REFERRAL_MINIMUM_TOPUP_KOPEKS")
+    REFERRAL_FIRST_TOPUP_BONUS_TOMAN: int = Field(default=1000000, validation_alias="REFERRAL_FIRST_TOPUP_BONUS_KOPEKS")
+    REFERRAL_INVITER_BONUS_TOMAN: int = Field(default=1000000, validation_alias="REFERRAL_INVITER_BONUS_KOPEKS")
     REFERRAL_COMMISSION_PERCENT: int = 25 
 
     REFERRAL_PROGRAM_ENABLED: bool = True
@@ -162,6 +162,10 @@ class Settings(BaseSettings):
     CONTESTS_BUTTON_VISIBLE: bool = False
     # Для обратной совместимости со старыми конфигами
     REFERRAL_CONTESTS_ENABLED: bool = False
+
+    # Кнопка активации
+    ACTIVATE_BUTTON_VISIBLE: bool = False
+    ACTIVATE_BUTTON_TEXT: str = "Активировать"
 
     BLACKLIST_CHECK_ENABLED: bool = False
     BLACKLIST_GITHUB_URL: Optional[str] = None
@@ -185,8 +189,8 @@ class Settings(BaseSettings):
 
     DEFAULT_AUTOPAY_ENABLED: bool = False
     DEFAULT_AUTOPAY_DAYS_BEFORE: int = 3
-    MIN_BALANCE_FOR_AUTOPAY_TOMAN: int = 1000000
-    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN: int = 2000000
+    MIN_BALANCE_FOR_AUTOPAY_TOMAN: int = Field(default=1000000, validation_alias="MIN_BALANCE_FOR_AUTOPAY_KOPEKS")
+    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN: int = Field(default=2000000, validation_alias="SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS")
     
     MONITORING_INTERVAL: int = 60
     INACTIVE_USER_DELETE_MONTHS: int = 3
@@ -238,12 +242,6 @@ class Settings(BaseSettings):
 
     AUTO_PURCHASE_AFTER_TOPUP_ENABLED: bool = False
 
-    # Simple purchase settings
-    SIMPLE_SUBSCRIPTION_ENABLED: bool = False
-    SIMPLE_SUBSCRIPTION_PERIOD_DAYS: int = 30
-    SIMPLE_SUBSCRIPTION_DEVICE_LIMIT: int = 1
-    SIMPLE_SUBSCRIPTION_TRAFFIC_GB: int = 0  # 0 means unlimited
-    SIMPLE_SUBSCRIPTION_SQUAD_UUID: Optional[str] = None
     PAYMENT_BALANCE_DESCRIPTION: str = "Balance top-up"
     PAYMENT_SUBSCRIPTION_DESCRIPTION: str = "Subscription payment"
     PAYMENT_SERVICE_NAME: str = "Internet service"
@@ -292,8 +290,8 @@ class Settings(BaseSettings):
     )
     MULENPAY_PAYMENT_SUBJECT: int = 4
     MULENPAY_PAYMENT_MODE: int = 4
-    MULENPAY_MIN_AMOUNT_TOMAN: int = 1000000
-    MULENPAY_MAX_AMOUNT_TOMAN: int = 1000000000
+    MULENPAY_MIN_AMOUNT_TOMAN: int = Field(default=1000000, validation_alias="MULENPAY_MIN_AMOUNT_KOPEKS")
+    MULENPAY_MAX_AMOUNT_TOMAN: int = Field(default=1000000000, validation_alias="MULENPAY_MAX_AMOUNT_KOPEKS")
     MULENPAY_IFRAME_EXPECTED_ORIGIN: Optional[str] = None
 
     PAL24_ENABLED: bool = False
@@ -304,8 +302,8 @@ class Settings(BaseSettings):
     PAL24_WEBHOOK_PATH: str = "/pal24-webhook"
     PAL24_WEBHOOK_PORT: int = 8084
     PAL24_PAYMENT_DESCRIPTION: str = "Balance top-up"
-    PAL24_MIN_AMOUNT_TOMAN: int = 1000000
-    PAL24_MAX_AMOUNT_TOMAN: int = 10000000000
+    PAL24_MIN_AMOUNT_TOMAN: int = Field(default=1000000, validation_alias="PAL24_MIN_AMOUNT_KOPEKS")
+    PAL24_MAX_AMOUNT_TOMAN: int = Field(default=10000000000, validation_alias="PAL24_MAX_AMOUNT_KOPEKS")
     PAL24_REQUEST_TIMEOUT: int = 30
     PAL24_SBP_BUTTON_TEXT: Optional[str] = None
     PAL24_CARD_BUTTON_TEXT: Optional[str] = None
@@ -320,8 +318,8 @@ class Settings(BaseSettings):
     PLATEGA_FAILED_URL: Optional[str] = None
     PLATEGA_CURRENCY: str = "RUB"
     PLATEGA_ACTIVE_METHODS: str = "2,10,11,12,13"
-    PLATEGA_MIN_AMOUNT_TOMAN: int = 1000000
-    PLATEGA_MAX_AMOUNT_TOMAN: int = 10000000000
+    PLATEGA_MIN_AMOUNT_TOMAN: int = Field(default=1000000, validation_alias="PLATEGA_MIN_AMOUNT_KOPEKS")
+    PLATEGA_MAX_AMOUNT_TOMAN: int = Field(default=10000000000, validation_alias="PLATEGA_MAX_AMOUNT_KOPEKS")
     PLATEGA_WEBHOOK_PATH: str = "/platega-webhook"
     PLATEGA_WEBHOOK_HOST: str = "0.0.0.0"
     PLATEGA_WEBHOOK_PORT: int = 8086
@@ -780,12 +778,9 @@ class Settings(BaseSettings):
 
     def format_price(self, price_toman: int, language: str = "en") -> str:
         sign = "-" if price_toman < 0 else ""
-        try:
-            from app.localization.texts import get_texts
-            texts = get_texts(language)
-            currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
-        except Exception:
-            currency_unit = "Toman"
+        # Use default currency unit to avoid circular dependency during module import
+        # If localization is needed, it should be called after all modules are loaded
+        currency_unit = "Toman"
         return f"{sign}{abs(price_toman):,} {currency_unit}"
 
     def get_reports_chat_id(self) -> Optional[str]:
@@ -1385,7 +1380,7 @@ class Settings(BaseSettings):
             template = self.PAYMENT_BALANCE_TEMPLATE
         
         # Build description with user ID if provided
-        description = f"{balance_desc} for {self.format_price(amount_toman)}"
+        description = f"{balance_desc} for {self.format_price(amount_toman, language)}"
         if telegram_user_id is not None:
             description += f" (ID {telegram_user_id})"
         
@@ -1805,6 +1800,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
 ENV_OVERRIDE_KEYS = set(settings.model_fields_set)
 
 _PERIOD_PRICE_FIELDS: Dict[int, str] = {
@@ -1830,6 +1826,7 @@ def refresh_period_prices() -> None:
 
 
 PERIOD_PRICES: Dict[int, int] = {}
+
 refresh_period_prices()
 
 def get_traffic_prices() -> Dict[int, int]:

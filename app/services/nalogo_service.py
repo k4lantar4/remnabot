@@ -28,8 +28,8 @@ class NaloGoService:
 
         if not inn or not password:
             logger.warning(
-                "NaloGO INN или PASSWORD не настроены в settings. "
-                "Функционал чеков будет ОТКЛЮЧЕН.")
+                "NaloGO INN or PASSWORD not configured in settings. "
+                "Receipt functionality will be DISABLED.")
         else:
             try:
                 self.client = Client(
@@ -40,10 +40,10 @@ class NaloGoService:
                 self.inn = inn
                 self.password = password
                 self.configured = True
-                logger.info(f"NaloGO клиент инициализирован для ИНН: {inn[:5]}...")
+                logger.info(f"NaloGO client initialized for INN: {inn[:5]}...")
             except Exception as error:
                 logger.error(
-                    "Ошибка инициализации NaloGO клиента: %s",
+                    "Error initializing NaloGO client: %s",
                     error,
                     exc_info=True,
                 )
@@ -64,23 +64,23 @@ class NaloGoService:
             return False
 
     async def create_receipt(self, name: str, amount: float, quantity: int = 1, client_info: Optional[Dict[str, Any]] = None) -> Optional[str]:
-        """Создание чека о доходе.
+        """Create income receipt.
 
         Args:
-            name: Название услуги
-            amount: Сумма в рублях
-            quantity: Количество
-            client_info: Информация о клиенте (опционально)
+            name: Service name
+            amount: Amount in Toman
+            quantity: Quantity
+            client_info: Client information (optional)
 
         Returns:
-            UUID чека или None при ошибке
+            Receipt UUID or None on error
         """
         if not self.configured:
-            logger.warning("NaloGO не настроен, чек не создан")
+            logger.warning("NaloGO not configured, receipt not created")
             return None
 
         try:
-            # Аутентифицируемся, если нужно
+            # Authenticate if needed
             if not hasattr(self.client, '_access_token') or not self.client._access_token:
                 auth_success = await self.authenticate()
                 if not auth_success:
@@ -88,7 +88,7 @@ class NaloGoService:
 
             income_api = self.client.income()
 
-            # Создаем клиента, если передана информация
+            # Create client if information provided
             income_client = None
             if client_info:
                 income_client = IncomeClient(
@@ -107,12 +107,12 @@ class NaloGoService:
 
             receipt_uuid = result.get("approvedReceiptUuid")
             if receipt_uuid:
-                logger.info(f"Чек создан успешно: {receipt_uuid} на сумму {amount} Toman")
+                logger.info(f"Receipt created successfully: {receipt_uuid} for amount {amount} Toman")
                 return receipt_uuid
             else:
-                logger.error(f"Ошибка создания чека: {result}")
+                logger.error(f"Error creating receipt: {result}")
                 return None
 
         except Exception as error:
-            logger.error("Ошибка создания чека в NaloGO: %s", error, exc_info=True)
+            logger.error("Error creating receipt in NaloGO: %s", error, exc_info=True)
             return None

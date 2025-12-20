@@ -1053,7 +1053,9 @@ class SubscriptionConversion(Base):
     
     @property
     def first_payment_amount_toman(self) -> int:
-        return self.first_payment_amount_toman or 0
+        # Access column value directly via instance state to avoid recursion
+        state = object.__getattribute__(self, '_sa_instance_state')
+        return state.dict.get('first_payment_amount_toman') or 0
     
     def __repr__(self):
         return f"<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>"
@@ -1145,7 +1147,9 @@ class ReferralEarning(Base):
     
     @property
     def amount_toman(self) -> int:
-        return self.amount_toman
+        # Access column value directly via instance state to avoid recursion
+        state = object.__getattribute__(self, '_sa_instance_state')
+        return state.dict.get('amount_toman', 0)
 
 
 class ReferralContest(Base):

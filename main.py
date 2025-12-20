@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from app.bot import setup_bot
 from app.config import settings
+
 from app.database.database import init_db
 from app.services.monitoring_service import monitoring_service
 from app.services.maintenance_service import maintenance_service
@@ -49,10 +50,13 @@ class GracefulExit:
 
 
 async def main():
-    formatter = TimezoneAwareFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        timezone_name=settings.TIMEZONE,
-    )
+    try:
+        formatter = TimezoneAwareFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            timezone_name=settings.TIMEZONE,
+        )
+    except Exception as e:
+        raise
 
     file_handler = logging.FileHandler(settings.LOG_FILE, encoding='utf-8')
     file_handler.setFormatter(formatter)
@@ -796,4 +800,6 @@ if __name__ == "__main__":
         print("\n🛑 Bot stopped by user")
     except Exception as e:
         print(f"❌ Critical error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)

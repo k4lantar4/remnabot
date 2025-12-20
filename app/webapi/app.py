@@ -140,7 +140,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "contests",
-        "description": "Управление конкурсами: реферальными и ежедневными играми/раундами.",
+        "description": "Contest management: referral and daily games/rounds.",
     },
 ]
 

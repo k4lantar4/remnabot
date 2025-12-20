@@ -8,7 +8,9 @@ from aiogram import Dispatcher, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.config import settings, PERIOD_PRICES, get_traffic_prices
+from app.config import settings
+# Lazy import to avoid hang during module import
+# PERIOD_PRICES and get_traffic_prices will be imported when needed
 from app.database.crud.discount_offer import (
     get_offer_by_id,
     mark_offer_claimed,
@@ -25,27 +27,29 @@ from app.database.models import (
     User, TransactionType, SubscriptionStatus,
     Subscription
 )
-from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
-    get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
-    get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
-    get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
-    get_happ_download_button_row,
-    get_payment_methods_keyboard_with_cart,
-    get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
-)
+# Lazy imports to avoid circular dependency with app.keyboards.inline
+# These functions are imported where needed, not at module level
+# from app.keyboards.inline import (
+#     get_subscription_keyboard, get_trial_keyboard,
+#     get_subscription_period_keyboard, get_traffic_packages_keyboard,
+#     get_countries_keyboard, get_devices_keyboard,
+#     get_subscription_confirm_keyboard, get_autopay_keyboard,
+#     get_autopay_days_keyboard, get_back_keyboard,
+#     get_add_traffic_keyboard,
+#     get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+#     get_manage_countries_keyboard,
+#     get_device_selection_keyboard, get_connection_guide_keyboard,
+#     get_app_selection_keyboard, get_specific_app_keyboard,
+#     get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
+#     get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
+#     get_devices_management_keyboard, get_device_management_help_keyboard,
+#     get_happ_cryptolink_keyboard,
+#     get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+#     get_happ_download_button_row,
+#     get_payment_methods_keyboard_with_cart,
+#     get_subscription_confirm_keyboard_with_cart,
+#     get_insufficient_balance_keyboard_with_cart
+# )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.remnawave_service import RemnaWaveService
@@ -56,8 +60,9 @@ from app.services.subscription_checkout_service import (
     should_offer_checkout_resume,
 )
 from app.services.subscription_service import SubscriptionService
-from app.utils.miniapp_buttons import build_miniapp_or_callback_button
-from app.services.promo_offer_service import promo_offer_service
+# Lazy imports to avoid circular dependency
+# from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+# from app.services.promo_offer_service import promo_offer_service
 from app.states import SubscriptionStates
 from app.utils.pagination import paginate_list
 from app.utils.pricing_utils import (
@@ -68,11 +73,12 @@ from app.utils.pricing_utils import (
     format_period_description,
     apply_percentage_discount,
 )
-from app.utils.subscription_utils import (
-    get_display_subscription_link,
-    get_happ_cryptolink_redirect_link,
-    convert_subscription_link_to_happ_scheme,
-)
+# Lazy import to avoid circular dependency
+# from app.utils.subscription_utils import (
+#     get_display_subscription_link,
+#     get_happ_cryptolink_redirect_link,
+#     convert_subscription_link_to_happ_scheme,
+# )
 from app.utils.promo_offer import (
     build_promo_offer_hint,
     get_user_active_promo_discount_percent,
@@ -80,7 +86,8 @@ from app.utils.promo_offer import (
 
 logger = logging.getLogger(__name__)
 
-TRAFFIC_PRICES = get_traffic_prices()
+# Lazy initialization - TRAFFIC_PRICES will be computed when needed
+# TRAFFIC_PRICES = get_traffic_prices()
 
 class _SafeFormatDict(dict):
     def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback

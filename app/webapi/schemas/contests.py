@@ -130,7 +130,7 @@ class ReferralContestCreateRequest(BaseModel):
     end_at: datetime
     daily_summary_time: time = Field(default=time(hour=12))
     daily_summary_times: Optional[str] = Field(
-        default=None, description="Список времён ЧЧ:ММ через запятую (например, 12:00,18:00)"
+        default=None, description="Comma-separated list of times in HH:MM format (e.g., 12:00,18:00)"
     )
     timezone: str = Field(default="UTC")
     is_active: bool = True
@@ -146,7 +146,7 @@ class ReferralContestUpdateRequest(BaseModel):
     end_at: Optional[datetime] = None
     daily_summary_time: Optional[time] = None
     daily_summary_times: Optional[str] = Field(
-        default=None, description="Список времён ЧЧ:ММ через запятую"
+        default=None, description="Comma-separated list of times in HH:MM format"
     )
     timezone: Optional[str] = None
     is_active: Optional[bool] = None

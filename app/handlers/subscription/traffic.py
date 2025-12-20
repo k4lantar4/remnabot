@@ -8,7 +8,7 @@ from aiogram import Dispatcher, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.config import settings, PERIOD_PRICES, get_traffic_prices
+from app.config import settings, PERIOD_PRICES
 from app.database.crud.discount_offer import (
     get_offer_by_id,
     mark_offer_claimed,
@@ -177,6 +177,7 @@ async def handle_reset_traffic(
         )
         return
 
+    from app.config import PERIOD_PRICES
     reset_price = PERIOD_PRICES[30]
 
     if db_user.balance_toman < reset_price:
@@ -225,6 +226,7 @@ async def confirm_reset_traffic(
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
+    from app.config import PERIOD_PRICES
     reset_price = PERIOD_PRICES[30]
 
     if db_user.balance_toman < reset_price:

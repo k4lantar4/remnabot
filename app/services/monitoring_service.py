@@ -509,7 +509,7 @@ class MonitoringService:
 
         if not settings.CHANNEL_DISABLE_TRIAL_ON_UNSUBSCRIBE:
             logger.debug(
-                "ℹ️ Проверка отписок от канала отключена — деактивация триальных подписок не требуется"
+                "ℹ️ Channel unsubscription check disabled — trial subscription deactivation not required"
             )
             return
 
