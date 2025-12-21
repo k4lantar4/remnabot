@@ -30,8 +30,9 @@ from app.utils.permissions import master_admin_required
 from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
 from app.services.bot_config_service import BotConfigService
-from app.database.models import Transaction, TransactionType, User, Subscription, SubscriptionStatus
+from app.database.models import Transaction, TransactionType, User, Subscription, SubscriptionStatus, Bot
 from sqlalchemy import select, func, and_, text
+from app.keyboards.admin import get_admin_pagination_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -133,131 +134,186 @@ async def list_tenant_bots(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
+    page: int = 1
 ):
     """List all tenant bots with pagination, showing user count, revenue, and plan."""
     texts = get_texts(db_user.language)
     
-    # Parse page number from callback data
-    page = 0
-    if ":" in callback.data:
+    # Parse page from callback if not provided
+    if page == 1 and ":" in callback.data:
         try:
-            page = int(callback.data.split(":")[1])
+            page = int(callback.data.split(":")[1]) + 1  # Convert 0-based to 1-based
         except (ValueError, IndexError):
-            page = 0
+            page = 1
+    elif page == 1 and "_page_" in callback.data:
+        # Support standard pagination pattern: admin_tenant_bots_list_page_{page}
+        try:
+            page = int(callback.data.split("_page_")[1])
+        except (ValueError, IndexError):
+            page = 1
     
-    # Get only tenant bots (exclude master)
-    all_bots = await get_all_bots(db)
-    tenant_bots = [b for b in all_bots if not b.is_master]
+    # Ensure page is valid
+    if page < 1:
+        page = 1
     
     page_size = 5
-    total_pages = (len(tenant_bots) + page_size - 1) // page_size if tenant_bots else 1
-    start_idx = page * page_size
-    end_idx = start_idx + page_size
-    page_bots = tenant_bots[start_idx:end_idx]
+    offset = (page - 1) * page_size
     
+    # Optimized query with JOINs (matches story spec)
+    # Use raw SQL with text() for tenant_subscriptions since models don't exist yet
+    try:
+        # First, try optimized query with tenant_subscriptions
+        query_text = text("""
+            SELECT 
+                b.id, b.name, b.is_active, b.created_at,
+                COUNT(DISTINCT u.id) as user_count,
+                COALESCE(SUM(t.amount_toman), 0) as revenue,
+                tsp.display_name as plan_name
+            FROM bots b
+            LEFT JOIN users u ON u.bot_id = b.id
+            LEFT JOIN transactions t ON t.bot_id = b.id 
+                AND t.type = 'deposit' 
+                AND t.is_completed = TRUE
+            LEFT JOIN tenant_subscriptions ts ON ts.bot_id = b.id 
+                AND ts.status = 'active'
+            LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
+            WHERE b.is_master = FALSE
+            GROUP BY b.id, b.name, b.is_active, b.created_at, tsp.display_name
+            ORDER BY b.created_at DESC
+            LIMIT :limit OFFSET :offset
+        """)
+        
+        result = await db.execute(query_text, {"limit": page_size, "offset": offset})
+        raw_rows = result.fetchall()
+        
+        # Convert to Bot objects and format
+        rows = []
+        for row in raw_rows:
+            bot = await get_bot_by_id(db, row[0])
+            if bot:
+                rows.append((bot, row[4] or 0, row[5] or 0, row[6] or None))
+        
+    except Exception as e:
+        # Fallback: if tables don't exist, use simplified query
+        logger.warning(f"Failed to use optimized query with tenant_subscriptions: {e}. Using fallback.")
+        query = (
+            select(
+                Bot,
+                func.count(func.distinct(User.id)).label('user_count'),
+                func.coalesce(func.sum(Transaction.amount_toman), 0).label('revenue')
+            )
+            .select_from(Bot)
+            .outerjoin(User, User.bot_id == Bot.id)
+            .outerjoin(
+                Transaction,
+                and_(
+                    Transaction.bot_id == Bot.id,
+                    Transaction.type == TransactionType.DEPOSIT.value,
+                    Transaction.is_completed == True
+                )
+            )
+            .where(Bot.is_master == False)
+            .group_by(Bot.id)
+            .order_by(Bot.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        
+        result = await db.execute(query)
+        query_rows = result.all()
+        # Add None for plan_name
+        rows = [(row[0], row[1], row[2], None) for row in query_rows]
+    
+    # Get total count for pagination
+    count_query = select(func.count(Bot.id)).where(Bot.is_master == False)
+    total_count_result = await db.execute(count_query)
+    total_count = total_count_result.scalar() or 0
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+    
+    # Format text (match other admin lists pattern)
     text = texts.t(
         "ADMIN_TENANT_BOTS_LIST_TITLE",
-        """🤖 <b>Tenant Bots</b>
-
-Page {page} of {total_pages}
-"""
-    ).format(page=page + 1, total_pages=max(1, total_pages))
+        "🤖 <b>Tenant Bots</b> (page {page}/{total})"
+    ).format(page=page, total=total_pages) + "\n\n"
     
-    if not page_bots:
+    if not rows:
         text += texts.t("ADMIN_TENANT_BOTS_EMPTY", "No tenant bots found.")
     else:
-        # Fetch statistics for each bot
-        for bot in page_bots:
+        text += texts.t("ADMIN_TENANT_BOTS_LIST_HINT", "Click on a bot to manage:") + "\n\n"
+        
+        keyboard = []
+        for row in rows:
+            bot = row[0]  # Bot object
+            user_count = row[1] or 0
+            revenue = (row[2] or 0) / 100  # Convert from kopeks to toman
+            plan_name = row[3] if len(row) > 3 and row[3] else "N/A"
+            
             status_icon = "✅" if bot.is_active else "⏸️"
             
-            # Get user count
-            user_count_result = await db.execute(
-                select(func.count(User.id))
-                .where(User.bot_id == bot.id)
-            )
-            user_count = user_count_result.scalar() or 0
+            # Format bot info (match users list pattern)
+            button_text = f"{status_icon} {bot.name} (ID: {bot.id})"
+            if len(button_text) > 50:
+                button_text = f"{status_icon} {bot.name[:20]}... (ID: {bot.id})"
             
-            # Get revenue (all time, completed deposits)
-            revenue_result = await db.execute(
-                select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-                .where(
-                    and_(
-                        Transaction.bot_id == bot.id,
-                        Transaction.type == TransactionType.DEPOSIT.value,
-                        Transaction.is_completed == True
-                    )
+            # Add stats to text (not button - matches users pattern)
+            text += f"{status_icon} <b>{bot.name}</b> (ID: {bot.id})\n"
+            text += f"   • Users: {user_count} | Revenue: {revenue:,.0f} Toman | Plan: {plan_name}\n\n"
+            
+            keyboard.append([
+                types.InlineKeyboardButton(
+                    text=button_text,
+                    callback_data=f"admin_tenant_bot_detail:{bot.id}"
                 )
-            )
-            revenue = revenue_result.scalar() or 0
-            
-            # Get plan info (if tenant_subscriptions table exists)
-            plan_name = "N/A"
-            try:
-                from sqlalchemy import text
-                plan_result = await db.execute(
-                    text("""
-                        SELECT tsp.display_name
-                        FROM tenant_subscriptions ts
-                        LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
-                        WHERE ts.bot_id = :bot_id AND ts.status = 'active'
-                        LIMIT 1
-                    """),
-                    {"bot_id": bot.id}
-                )
-                plan_row = plan_result.fetchone()
-                if plan_row and plan_row[0]:
-                    plan_name = plan_row[0]
-            except Exception:
-                # Table doesn't exist or query failed, use default
-                pass
-            
-            text += f"\n{status_icon} <b>{bot.name}</b> (ID: {bot.id})\n"
-            text += f"   • Users: {user_count}\n"
-            text += f"   • Revenue: {revenue / 100:,.0f} Toman\n"
-            text += f"   • Plan: {plan_name}\n"
+            ])
     
-    keyboard_buttons = []
+    # Use standard pagination keyboard (matches other handlers)
+    pagination_keyboard = get_admin_pagination_keyboard(
+        current_page=page,
+        total_pages=total_pages,
+        callback_prefix="admin_tenant_bots_list",
+        back_callback="admin_tenant_bots_menu",
+        language=db_user.language
+    )
     
-    # Bot buttons
-    for bot in page_bots:
-        keyboard_buttons.append([
-            types.InlineKeyboardButton(
-                text=f"{'✅' if bot.is_active else '⏸️'} {bot.name}",
-                callback_data=f"admin_tenant_bot_detail:{bot.id}"
-            )
-        ])
+    # Combine keyboard with pagination
+    final_keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=keyboard + pagination_keyboard.inline_keyboard
+    )
     
-    # Pagination
-    nav_buttons = []
-    if page > 0:
-        nav_buttons.append(
-            types.InlineKeyboardButton(
-                text="⬅️ Previous",
-                callback_data=f"admin_tenant_bots_list:{page - 1}"
-            )
-        )
-    if end_idx < len(bots):
-        nav_buttons.append(
-            types.InlineKeyboardButton(
-                text="Next ➡️",
-                callback_data=f"admin_tenant_bots_list:{page + 1}"
-            )
-        )
-    if nav_buttons:
-        keyboard_buttons.append(nav_buttons)
-    
-    # Back button
-    keyboard_buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="admin_tenant_bots_menu"
-        )
-    ])
-    
-    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-    
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=final_keyboard, parse_mode="HTML")
     await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def handle_tenant_bots_list_pagination(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession
+):
+    """Handle pagination for tenant bots list."""
+    try:
+        page = int(callback.data.split("_page_")[1])
+        await list_tenant_bots(callback, db_user, db, page=page)
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing page number: {e}")
+        await list_tenant_bots(callback, db_user, db, page=1)
+
+
+@master_admin_required
+@error_handler
+async def handle_tenant_bots_list_pagination(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession
+):
+    """Handle pagination for tenant bots list."""
+    try:
+        page = int(callback.data.split("_page_")[1])
+        await list_tenant_bots(callback, db_user, db, page=page)
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing page number: {e}")
+        await list_tenant_bots(callback, db_user, db, page=1)
 
 
 @master_admin_required
@@ -464,6 +520,7 @@ async def show_bot_detail(
 async def start_create_bot(
     callback: types.CallbackQuery,
     db_user: User,
+    db: AsyncSession,
     state: FSMContext,
 ):
     """Start bot creation flow."""
@@ -2163,10 +2220,10 @@ Select a category to view features:"""
     
     # Back button
     keyboard_buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data=f"admin_tenant_bot_detail:{bot_id}"
-        )
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
     ])
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -2734,9 +2791,22 @@ def register_handlers(dp: Dispatcher) -> None:
         F.data == "admin_tenant_bots_menu"
     )
     
+    # Main list handler (page 1 or no page specified)
     dp.callback_query.register(
         list_tenant_bots,
-        F.data.startswith("admin_tenant_bots_list")
+        F.data == "admin_tenant_bots_list"
+    )
+    
+    # Old pattern support (backward compatible): admin_tenant_bots_list:{page}
+    dp.callback_query.register(
+        list_tenant_bots,
+        F.data.startswith("admin_tenant_bots_list:") & ~F.data.contains("_page_")
+    )
+    
+    # Pagination handler (standard pattern)
+    dp.callback_query.register(
+        handle_tenant_bots_list_pagination,
+        F.data.startswith("admin_tenant_bots_list_page_")
     )
     
     dp.callback_query.register(
