@@ -47,33 +47,31 @@ async def show_tenant_bots_menu(
     """Show tenant bots management menu with overview statistics."""
     texts = get_texts(db_user.language)
     
-    # Get all bots (excluding master)
-    bots = await get_all_bots(db)
-    tenant_bots = [b for b in bots if not b.is_master]
-    active_count = sum(1 for b in tenant_bots if b.is_active)
+    # Query matches AC1 specification exactly
+    # Using FILTER for efficient aggregation
+    stats_query = text("""
+        SELECT 
+            COUNT(*) FILTER (WHERE is_master = FALSE) as total_bots,
+            COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = TRUE) as active_bots,
+            COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = FALSE) as inactive_bots,
+            (SELECT COUNT(*) FROM users WHERE bot_id IN (SELECT id FROM bots WHERE is_master = FALSE)) as total_users,
+            (SELECT COALESCE(SUM(amount_toman), 0) FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE is_master = FALSE) AND type = 'deposit' AND is_completed = TRUE) as total_revenue
+        FROM bots
+    """)
     
-    # Calculate total users across all tenant bots
-    if tenant_bots:
-        bot_ids = [b.id for b in tenant_bots]
-        user_count_result = await db.execute(
-            select(func.count(User.id))
-            .where(User.bot_id.in_(bot_ids))
-        )
-        total_users = user_count_result.scalar() or 0
-        
-        # Calculate total revenue (all time, completed deposits only)
-        revenue_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-            .where(
-                and_(
-                    Transaction.bot_id.in_(bot_ids),
-                    Transaction.type == TransactionType.DEPOSIT.value,
-                    Transaction.is_completed == True
-                )
-            )
-        )
-        total_revenue = revenue_result.scalar() or 0
+    stats_result = await db.execute(stats_query)
+    stats_row = stats_result.fetchone()
+    
+    if stats_row:
+        total_bots = stats_row[0] or 0
+        active_bots = stats_row[1] or 0
+        inactive_bots = stats_row[2] or 0
+        total_users = stats_row[3] or 0
+        total_revenue = stats_row[4] or 0
     else:
+        total_bots = 0
+        active_bots = 0
+        inactive_bots = 0
         total_users = 0
         total_revenue = 0
     
@@ -90,13 +88,14 @@ async def show_tenant_bots_menu(
 
 Select action:"""
     ).format(
-        total=len(tenant_bots),
-        active=active_count,
-        inactive=len(tenant_bots) - active_count,
+        total=total_bots,
+        active=active_bots,
+        inactive=inactive_bots,
         users=total_users,
         revenue=f"{total_revenue / 100:,.0f}".replace(',', ' ')
     )
     
+    # AC1: Navigation buttons - List Bots, Create Bot, Statistics, Settings
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [
             types.InlineKeyboardButton(
@@ -106,14 +105,20 @@ Select action:"""
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOTS_CREATE", "➕ Create New Bot"),
+                text=texts.t("ADMIN_TENANT_BOTS_CREATE", "➕ Create Bot"),
                 callback_data="admin_tenant_bots_create"
             )
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOTS_UPDATE_WEBHOOKS", "🔄 Update All Webhooks"),
-                callback_data="admin_tenant_bots_update_webhooks"
+                text=texts.t("ADMIN_TENANT_BOTS_STATISTICS", "📊 Statistics"),
+                callback_data="admin_tenant_bots_stats"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOTS_SETTINGS", "⚙️ Settings"),
+                callback_data="admin_tenant_bots_settings"
             )
         ],
         [
@@ -159,15 +164,18 @@ async def list_tenant_bots(
     page_size = 5
     offset = (page - 1) * page_size
     
-    # Optimized query with JOINs (matches story spec)
+    # Optimized query with JOINs (matches story spec exactly)
     # Use raw SQL with text() for tenant_subscriptions since models don't exist yet
     try:
-        # First, try optimized query with tenant_subscriptions
+        # Query matches story specification: AC2 Database Query
+        # Note: b.* in spec is represented by selecting needed Bot columns
+        # GROUP BY matches spec: b.id, ts.plan_tier_id, tsp.display_name
         query_text = text("""
             SELECT 
                 b.id, b.name, b.is_active, b.created_at,
                 COUNT(DISTINCT u.id) as user_count,
                 COALESCE(SUM(t.amount_toman), 0) as revenue,
+                ts.plan_tier_id,
                 tsp.display_name as plan_name
             FROM bots b
             LEFT JOIN users u ON u.bot_id = b.id
@@ -178,7 +186,7 @@ async def list_tenant_bots(
                 AND ts.status = 'active'
             LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
             WHERE b.is_master = FALSE
-            GROUP BY b.id, b.name, b.is_active, b.created_at, tsp.display_name
+            GROUP BY b.id, ts.plan_tier_id, tsp.display_name
             ORDER BY b.created_at DESC
             LIMIT :limit OFFSET :offset
         """)
@@ -187,11 +195,12 @@ async def list_tenant_bots(
         raw_rows = result.fetchall()
         
         # Convert to Bot objects and format
+        # Row structure: (b.id, b.name, b.is_active, b.created_at, user_count, revenue, plan_tier_id, plan_name)
         rows = []
         for row in raw_rows:
             bot = await get_bot_by_id(db, row[0])
             if bot:
-                rows.append((bot, row[4] or 0, row[5] or 0, row[6] or None))
+                rows.append((bot, row[4] or 0, row[5] or 0, row[7] or None))
         
     except Exception as e:
         # Fallback: if tables don't exist, use simplified query
@@ -247,7 +256,7 @@ async def list_tenant_bots(
             bot = row[0]  # Bot object
             user_count = row[1] or 0
             revenue = (row[2] or 0) / 100  # Convert from kopeks to toman
-            plan_name = row[3] if len(row) > 3 and row[3] else "N/A"
+            plan_name = row[3] if len(row) > 3 and row[3] else "N/A"  # plan_name from query
             
             status_icon = "✅" if bot.is_active else "⏸️"
             
@@ -357,20 +366,16 @@ async def show_bot_detail(
     )
     active_subscriptions = active_subs_result.scalar() or 0
     
-    # Monthly revenue (current month)
-    from datetime import datetime
-    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    monthly_revenue_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
-            and_(
-                Transaction.bot_id == bot_id,
-                Transaction.type == TransactionType.DEPOSIT.value,
-                Transaction.is_completed == True,
-                Transaction.created_at >= month_start
-            )
-        )
-    )
+    # Monthly revenue (current month) - matches AC3 spec: date_trunc('month', CURRENT_DATE)
+    monthly_revenue_query = text("""
+        SELECT COALESCE(SUM(amount_toman), 0) 
+        FROM transactions 
+        WHERE bot_id = :bot_id 
+          AND type = 'deposit' 
+          AND is_completed = TRUE
+          AND created_at >= date_trunc('month', CURRENT_DATE)
+    """)
+    monthly_revenue_result = await db.execute(monthly_revenue_query, {"bot_id": bot_id})
     monthly_revenue = monthly_revenue_result.scalar() or 0
     
     text = texts.t(
@@ -2770,6 +2775,111 @@ Are you sure you want to delete this bot?"""
     await callback.answer()
 
 
+@admin_required
+@error_handler
+async def show_tenant_bots_statistics(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show aggregate statistics for all tenant bots (AC1 - Statistics button)."""
+    texts = get_texts(db_user.language)
+    
+    # Use same query as main menu for consistency
+    stats_query = text("""
+        SELECT 
+            COUNT(*) FILTER (WHERE is_master = FALSE) as total_bots,
+            COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = TRUE) as active_bots,
+            COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = FALSE) as inactive_bots,
+            (SELECT COUNT(*) FROM users WHERE bot_id IN (SELECT id FROM bots WHERE is_master = FALSE)) as total_users,
+            (SELECT COALESCE(SUM(amount_toman), 0) FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE is_master = FALSE) AND type = 'deposit' AND is_completed = TRUE) as total_revenue
+        FROM bots
+    """)
+    
+    stats_result = await db.execute(stats_query)
+    stats_row = stats_result.fetchone()
+    
+    if stats_row:
+        total_bots = stats_row[0] or 0
+        active_bots = stats_row[1] or 0
+        inactive_bots = stats_row[2] or 0
+        total_users = stats_row[3] or 0
+        total_revenue = stats_row[4] or 0
+    else:
+        total_bots = 0
+        active_bots = 0
+        inactive_bots = 0
+        total_users = 0
+        total_revenue = 0
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOTS_STATISTICS",
+        """📊 <b>Tenant Bots Statistics</b>
+
+<b>Overview:</b>
+• Total bots: {total}
+• Active: {active}
+• Inactive: {inactive}
+• Total users: {users}
+• Total revenue: {revenue} Toman
+
+<b>Note:</b> Detailed statistics for individual bots are available from the bot detail menu."""
+    ).format(
+        total=total_bots,
+        active=active_bots,
+        inactive=inactive_bots,
+        users=total_users,
+        revenue=f"{total_revenue / 100:,.0f}".replace(',', ' ')
+    )
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data="admin_tenant_bots_menu"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@admin_required
+@error_handler
+async def show_tenant_bots_settings(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show tenant bots settings menu (AC1 - Settings button)."""
+    texts = get_texts(db_user.language)
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOTS_SETTINGS",
+        """⚙️ <b>Tenant Bots Settings</b>
+
+<b>Global Settings:</b>
+• Default configurations
+• Feature flags defaults
+• Payment methods defaults
+
+<b>Note:</b> Individual bot settings are available from the bot detail menu."""
+    )
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data="admin_tenant_bots_menu"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
 def register_handlers(dp: Dispatcher) -> None:
     """Register tenant bots handlers."""
     dp.callback_query.register(
@@ -2890,6 +3000,17 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(
         update_all_webhooks,
         F.data == "admin_tenant_bots_update_webhooks"
+    )
+    
+    # AC1: Statistics and Settings buttons
+    dp.callback_query.register(
+        show_tenant_bots_statistics,
+        F.data == "admin_tenant_bots_stats"
+    )
+    
+    dp.callback_query.register(
+        show_tenant_bots_settings,
+        F.data == "admin_tenant_bots_settings"
     )
     
     dp.callback_query.register(

@@ -82,11 +82,11 @@ FROM bots;
 ### AC2: List Bots with Pagination
 - [x] Handler exists: `app/handlers/admin/tenant_bots.py::list_tenant_bots` ✅ **IMPLEMENTED**
 - [x] Displays paginated list of tenant bots (5 per page) ✅
-- [ ] Each bot shows: Name, ID, Status, User Count, Revenue, Plan - **ADD PLAN COLUMN**
+- [x] Each bot shows: Name, ID, Status, User Count, Revenue, Plan ✅ **COMPLETE**
 - [x] Clicking a bot navigates to bot detail menu ✅
 - [x] Pagination controls (Previous/Next) work correctly ✅
-- [ ] Callback: `admin_tenant_bots_list` or `admin_tenant_bots_list:{page}`
-- [ ] **UPDATE QUERY** - Current implementation uses simpler query, update to match spec below (includes tenant_subscriptions join)
+- [x] Callback: `admin_tenant_bots_list` or `admin_tenant_bots_list:{page}` ✅ **COMPLETE**
+- [x] **UPDATE QUERY** - Query updated to match spec below (includes tenant_subscriptions join) ✅ **COMPLETE**
 
 **Database Query:**
 ```sql
