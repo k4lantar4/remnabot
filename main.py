@@ -656,13 +656,14 @@ async def main():
                     auto_verification_active = auto_payment_verification_service.is_running()
 
                 # Check all polling tasks
-                if polling_enabled and polling_tasks:
-                    for i, task in enumerate(polling_tasks):
+                if polling_enabled:
+                    from app.bot import polling_tasks as bot_polling_tasks
+                    for bot_id, task in bot_polling_tasks.items():
                         if task.done():
                             exception = task.exception()
                             if exception:
-                                logger.error(f"❌ Polling failed for bot {i}: {exception}")
-                                logger.warning(f"⚠️ Polling task {i} has stopped, consider restarting the service")
+                                logger.error(f"❌ Polling failed for bot {bot_id}: {exception}")
+                                logger.warning(f"⚠️ Polling task {bot_id} has stopped, consider restarting the service")
                                 # Don't break - continue with other bots
                 elif polling_task and polling_task.done():
                     exception = polling_task.exception()
@@ -748,18 +749,20 @@ async def main():
             logger.error(f"Error stopping backup service: {e}")
         
         # Stop all polling tasks
-        if polling_enabled and polling_tasks:
-            logger.info(f"ℹ️ Stopping polling for {len(polling_tasks)} bot(s)...")
-            for i, task in enumerate(polling_tasks):
-                if not task.done():
-                    task.cancel()
-                    try:
-                        await task
-                        logger.info(f"✅ Polling stopped for bot {i}")
-                    except asyncio.CancelledError:
-                        logger.info(f"✅ Polling cancelled for bot {i}")
-                    except Exception as e:
-                        logger.error(f"❌ Error stopping polling for bot {i}: {e}")
+        if polling_enabled:
+            from app.bot import polling_tasks as bot_polling_tasks
+            if bot_polling_tasks:
+                logger.info(f"ℹ️ Stopping polling for {len(bot_polling_tasks)} bot(s)...")
+                for bot_id, task in bot_polling_tasks.items():
+                    if not task.done():
+                        task.cancel()
+                        try:
+                            await task
+                            logger.info(f"✅ Polling stopped for bot {bot_id}")
+                        except asyncio.CancelledError:
+                            logger.info(f"✅ Polling cancelled for bot {bot_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Error stopping polling for bot {bot_id}: {e}")
         elif polling_task and not polling_task.done():
             logger.info("ℹ️ Stopping polling...")
             polling_task.cancel()

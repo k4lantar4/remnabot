@@ -28,6 +28,7 @@ from app.localization.texts import get_texts
 from app.utils.decorators import admin_required, error_handler
 from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
+from app.services.bot_config_service import BotConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +126,12 @@ Page {page} of {total_pages}
         for bot in page_bots:
             status_icon = "✅" if bot.is_active else "⏸️"
             master_icon = "👑" if bot.is_master else ""
+            # Fetch feature flags using BotConfigService
+            card_to_card_enabled = await BotConfigService.is_feature_enabled(db, bot.id, 'card_to_card')
+            zarinpal_enabled = await BotConfigService.is_feature_enabled(db, bot.id, 'zarinpal')
             text += f"\n{status_icon} {master_icon} <b>{bot.name}</b> (ID: {bot.id})\n"
-            text += f"   • Card-to-Card: {'✅' if bot.card_to_card_enabled else '❌'}\n"
-            text += f"   • Zarinpal: {'✅' if bot.zarinpal_enabled else '❌'}\n"
+            text += f"   • Card-to-Card: {'✅' if card_to_card_enabled else '❌'}\n"
+            text += f"   • Zarinpal: {'✅' if zarinpal_enabled else '❌'}\n"
     
     keyboard_buttons = []
     
@@ -211,6 +215,12 @@ async def show_bot_detail(
     status_text = "✅ Active" if bot.is_active else "⏸️ Inactive"
     master_text = "👑 Master Bot" if bot.is_master else ""
     
+    # Fetch configs using BotConfigService
+    card_to_card_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'card_to_card')
+    zarinpal_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'zarinpal')
+    default_language = await BotConfigService.get_config(db, bot_id, 'DEFAULT_LANGUAGE', 'fa')
+    support_username = await BotConfigService.get_config(db, bot_id, 'SUPPORT_USERNAME')
+    
     text = texts.t(
         "ADMIN_TENANT_BOT_DETAIL",
         """🤖 <b>Bot Details</b>
@@ -235,10 +245,10 @@ async def show_bot_detail(
         id=bot.id,
         status=status_text,
         master=master_text,
-        card_enabled="✅ Enabled" if bot.card_to_card_enabled else "❌ Disabled",
-        zarinpal_enabled="✅ Enabled" if bot.zarinpal_enabled else "❌ Disabled",
-        language=bot.default_language,
-        support=bot.support_username or "N/A",
+        card_enabled="✅ Enabled" if card_to_card_enabled else "❌ Disabled",
+        zarinpal_enabled="✅ Enabled" if zarinpal_enabled else "❌ Disabled",
+        language=default_language,
+        support=support_username or "N/A",
         wallet=f"{bot.wallet_balance_toman / 100:,.2f}".replace(',', ' '),
         traffic_consumed=f"{bot.traffic_consumed_bytes / (1024**3):.2f}",
         traffic_sold=f"{bot.traffic_sold_bytes / (1024**3):.2f}",
@@ -742,6 +752,12 @@ async def show_bot_settings(
         )
         return
     
+    # Fetch configs using BotConfigService
+    card_to_card_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'card_to_card')
+    zarinpal_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'zarinpal')
+    default_language = await BotConfigService.get_config(db, bot_id, 'DEFAULT_LANGUAGE', 'fa')
+    support_username = await BotConfigService.get_config(db, bot_id, 'SUPPORT_USERNAME')
+    
     text = texts.t(
         "ADMIN_TENANT_BOT_SETTINGS",
         """⚙️ <b>Bot Settings</b>
@@ -758,10 +774,10 @@ Select setting to change:"""
     ).format(
         name=bot.name,
         id=bot.id,
-        card_status="✅ Enabled" if bot.card_to_card_enabled else "❌ Disabled",
-        zarinpal_status="✅ Enabled" if bot.zarinpal_enabled else "❌ Disabled",
-        language=bot.default_language,
-        support=bot.support_username or "Not set"
+        card_status="✅ Enabled" if card_to_card_enabled else "❌ Disabled",
+        zarinpal_status="✅ Enabled" if zarinpal_enabled else "❌ Disabled",
+        language=default_language,
+        support=support_username or "Not set"
     )
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -816,18 +832,14 @@ async def toggle_card_to_card(
         )
         return
     
-    new_value = not bot.card_to_card_enabled
-    updated_bot = await update_bot(db, bot_id, card_to_card_enabled=new_value)
+    # Get current value and toggle using BotConfigService
+    current_value = await BotConfigService.is_feature_enabled(db, bot_id, 'card_to_card')
+    new_value = not current_value
+    await BotConfigService.set_feature_enabled(db, bot_id, 'card_to_card', new_value)
     
-    if updated_bot:
-        status_text = "enabled" if new_value else "disabled"
-        await callback.answer(f"✅ Card-to-card {status_text}")
-        await show_bot_settings(callback, db_user, db)
-    else:
-        await callback.answer(
-            texts.t("ADMIN_TENANT_BOT_UPDATE_ERROR", "❌ Failed to update"),
-            show_alert=True
-        )
+    status_text = "enabled" if new_value else "disabled"
+    await callback.answer(f"✅ Card-to-card {status_text}")
+    await show_bot_settings(callback, db_user, db)
 
 
 @admin_required
@@ -857,18 +869,14 @@ async def toggle_zarinpal(
         )
         return
     
-    new_value = not bot.zarinpal_enabled
-    updated_bot = await update_bot(db, bot_id, zarinpal_enabled=new_value)
+    # Get current value and toggle using BotConfigService
+    current_value = await BotConfigService.is_feature_enabled(db, bot_id, 'zarinpal')
+    new_value = not current_value
+    await BotConfigService.set_feature_enabled(db, bot_id, 'zarinpal', new_value)
     
-    if updated_bot:
-        status_text = "enabled" if new_value else "disabled"
-        await callback.answer(f"✅ Zarinpal {status_text}")
-        await show_bot_settings(callback, db_user, db)
-    else:
-        await callback.answer(
-            texts.t("ADMIN_TENANT_BOT_UPDATE_ERROR", "❌ Failed to update"),
-            show_alert=True
-        )
+    status_text = "enabled" if new_value else "disabled"
+    await callback.answer(f"✅ Zarinpal {status_text}")
+    await show_bot_settings(callback, db_user, db)
 
 
 @admin_required

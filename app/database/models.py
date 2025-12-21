@@ -45,23 +45,6 @@ class Bot(Base):
     is_master = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     
-    # Card-to-card settings
-    card_to_card_enabled = Column(Boolean, default=False, nullable=False)
-    card_receipt_topic_id = Column(Integer, nullable=True)
-    
-    # Zarinpal settings
-    zarinpal_enabled = Column(Boolean, default=False, nullable=False)
-    zarinpal_merchant_id = Column(String(255), nullable=True)
-    zarinpal_sandbox = Column(Boolean, default=False, nullable=False)
-    
-    # General settings
-    default_language = Column(String(5), default='fa', nullable=False)
-    support_username = Column(String(255), nullable=True)
-    admin_chat_id = Column(BigInteger, nullable=True)
-    admin_topic_id = Column(Integer, nullable=True)
-    notification_group_id = Column(BigInteger, nullable=True)
-    notification_topic_id = Column(Integer, nullable=True)
-    
     # Wallet & billing
     wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
