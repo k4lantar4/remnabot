@@ -76,7 +76,7 @@ async def is_master_admin(
         return False
 
 
-def master_admin_required(func: Callable) -> Callable:
+def admin_required(func: Callable) -> Callable:
     """
     Decorator to require master admin access.
     
@@ -85,7 +85,7 @@ def master_admin_required(func: Callable) -> Callable:
     message and returns early.
     
     Usage:
-        @master_admin_required
+        @admin_required
         async def handler(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
             ...
     """
@@ -134,6 +134,7 @@ def master_admin_required(func: Callable) -> Callable:
             try:
                 if isinstance(event, types.Message):
                     await event.answer(texts.t("ADMIN_ACCESS_DENIED", "❌ Access denied"))
+                    logger.warning(f"Access denied to {func.__name__} for user {user.telegram_id}")
                 elif isinstance(event, types.CallbackQuery):
                     await event.answer(
                         texts.t("ADMIN_ACCESS_DENIED", "❌ Access denied"),
@@ -172,11 +173,11 @@ def master_admin_required(func: Callable) -> Callable:
             try:
                 if isinstance(event, types.Message):
                     await event.answer(
-                        texts.t("ADMIN_MASTER_ADMIN_REQUIRED", "❌ Master admin access required")
+                        texts.t("ADMIN_admin_required", "❌ Master admin access required")
                     )
                 elif isinstance(event, types.CallbackQuery):
                     await event.answer(
-                        texts.t("ADMIN_MASTER_ADMIN_REQUIRED", "❌ Master admin access required"),
+                        texts.t("ADMIN_admin_required", "❌ Master admin access required"),
                         show_alert=True
                     )
             except TelegramBadRequest as e:

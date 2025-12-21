@@ -95,7 +95,7 @@ tenant_bots = [b for b in all_bots if not b.is_master]
 
 **OLD:**
 ```python
-@master_admin_required
+@admin_required
 @error_handler
 async def list_tenant_bots(
     callback: types.CallbackQuery,
@@ -134,7 +134,7 @@ async def list_tenant_bots(
 
 **NEW:**
 ```python
-@master_admin_required
+@admin_required
 @error_handler
 async def list_tenant_bots(
     callback: types.CallbackQuery,
@@ -297,7 +297,7 @@ dp.callback_query.register(
 )
 
 # Add pagination handler function:
-@master_admin_required
+@admin_required
 @error_handler
 async def handle_tenant_bots_list_pagination(
     callback: types.CallbackQuery,

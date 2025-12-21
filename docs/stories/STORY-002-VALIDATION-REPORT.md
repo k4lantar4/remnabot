@@ -320,7 +320,7 @@ This story is **comprehensive and well-structured** but has a **CRITICAL BLOCKER
 5. **Permission Checks Status:** ⚠️ **UNKNOWN**
    - ✅ `@admin_required` decorator exists
    - ❓ `is_master_admin` function - Status unknown
-   - ❓ `master_admin_required` decorator - Status unknown
+   - ❓ `admin_required` decorator - Status unknown
 
 ---
 

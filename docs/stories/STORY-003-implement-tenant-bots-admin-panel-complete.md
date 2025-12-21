@@ -224,7 +224,7 @@ LIMIT 5 OFFSET {page * 5};
 - [x] Only master admins can access tenant bots menu
 - [x] Permission check implemented using `is_master_admin()` utility
 - [x] Error messages for unauthorized access
-- [x] All handlers decorated with `@master_admin_required`
+- [x] All handlers decorated with `@admin_required`
 
 ---
 
@@ -314,7 +314,7 @@ async def is_master_admin(
     
     return user.telegram_id in admin_ids
 
-def master_admin_required(func):
+def admin_required(func):
     """Decorator to require master admin access"""
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -585,7 +585,7 @@ async def test_configuration_changes_reflect_in_bot()
 ### Implementation Plan
 
 **Phase 1: Foundation (Completed)**
-- ✅ Created `app/utils/permissions.py` with `is_master_admin()` and `@master_admin_required` decorator
+- ✅ Created `app/utils/permissions.py` with `is_master_admin()` and `@admin_required` decorator
 - ✅ Enhanced main menu integration with statistics (AC1)
 - ✅ Enhanced list bots with user count, revenue, and plan info (AC2)
 - ✅ Enhanced bot detail menu with all sub-menu navigation (AC3)
@@ -612,7 +612,7 @@ async def test_configuration_changes_reflect_in_bot()
 
 **Permission System:**
 - Created `app/utils/permissions.py` with master admin utilities
-- All tenant bot handlers now use `@master_admin_required` decorator
+- All tenant bot handlers now use `@admin_required` decorator
 - Permission check reads `ADMIN_IDS` from master bot's configuration via `BotConfigService`
 
 **Statistics Implementation:**
@@ -646,7 +646,7 @@ async def test_configuration_changes_reflect_in_bot()
 - Enhanced AC3: Bot detail menu with all navigation options
 - Implemented AC4: Comprehensive statistics view
 - Added all FSM states to `app/states.py`
-- Updated all handlers to use `@master_admin_required`
+- Updated all handlers to use `@admin_required`
 - Created placeholder handlers for remaining features
 
 **Issues Encountered:**
@@ -664,7 +664,7 @@ async def test_configuration_changes_reflect_in_bot()
 - ✅ All edit handlers registered in `register_handlers()`
 - ✅ All settings saved using `BotConfigService` as required
 - ✅ FSM states already existed in `app/states.py` (from previous implementation)
-- ✅ All handlers use `@master_admin_required` decorator
+- ✅ All handlers use `@admin_required` decorator
 
 **2025-12-21: AC6 Implementation - Feature Flags Management**
 - ✅ Implemented categorized feature flags view with 5 categories:
@@ -737,7 +737,7 @@ async def test_configuration_changes_reflect_in_bot()
 - Enhanced bot detail menu with all sub-menu navigation (AC3)
 - Implemented comprehensive statistics view (AC4)
 - Added all required FSM states to `app/states.py`
-- Updated all handlers to use `@master_admin_required` decorator
+- Updated all handlers to use `@admin_required` decorator
 - Created placeholder handlers for remaining features (AC6, AC7, AC8, AC9, AC10, AC12)
 - Fixed duplicate back button in list handler
 

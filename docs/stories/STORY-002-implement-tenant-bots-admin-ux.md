@@ -654,7 +654,7 @@ async def is_master_admin(
     
     return user.telegram_id in admin_ids
 
-def master_admin_required(func):
+def admin_required(func):
     """Decorator to require master admin access"""
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -666,7 +666,7 @@ def master_admin_required(func):
     return wrapper
 ```
 
-**Note:** Current implementation uses `@admin_required` decorator. Verify if this is sufficient or if `master_admin_required` needs to be implemented.
+**Note:** Current implementation uses `@admin_required` decorator. Verify if this is sufficient or if `admin_required` needs to be implemented.
 
 ---
 
@@ -884,7 +884,7 @@ Before starting development, verify:
 **Dependencies:** 
 - 🔴 **CRITICAL:** STORY-001 (BotConfigService must be implemented and tested first)
 - ⚠️ **HIGH:** Database schema verification (tenant_subscriptions, tenant_subscription_plans, plan_feature_grants)
-- ⚠️ **MEDIUM:** Permission system verification (master_admin_required)
+- ⚠️ **MEDIUM:** Permission system verification (admin_required)
 
 **Blocks:** Future stories requiring admin panel access
 

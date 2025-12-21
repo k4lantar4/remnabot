@@ -387,7 +387,7 @@ def is_master_admin(user: User) -> bool:
         admin_ids = master_bot.admin_ids.split(',') if master_bot.admin_ids else []
         return str(user.telegram_id) in admin_ids
 
-@master_admin_required
+@admin_required
 async def handler_function(...):
     """Handler that requires master admin"""
     pass

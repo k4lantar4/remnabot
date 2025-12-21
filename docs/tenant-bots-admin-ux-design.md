@@ -1316,7 +1316,7 @@ def is_master_admin(user: User, bot_id: Optional[int] = None) -> bool:
     admin_ids = master_bot.admin_ids.split(',')
     return str(user.telegram_id) in admin_ids
 
-@master_admin_required
+@admin_required
 async def access_tenant_bot_admin(
     callback: types.CallbackQuery,
     db_user: User,

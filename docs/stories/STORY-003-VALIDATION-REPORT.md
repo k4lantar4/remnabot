@@ -77,7 +77,7 @@
 
 **Issue:** Story references permission utilities that don't exist:
 - ❌ `app/utils/permissions.py` - `is_master_admin()` function not found
-- ❌ `@master_admin_required` decorator not found
+- ❌ `@admin_required` decorator not found
 - ❌ Current code uses `@admin_required` which may not be sufficient
 
 **Impact:** **HIGH** - Security risk if implemented without proper permission checks
@@ -92,7 +92,7 @@
    - Is it based on `ADMIN_IDS` config in master bot?
    - Or a separate flag in users table?
 2. Implement `is_master_admin()` utility
-3. Implement `@master_admin_required` decorator
+3. Implement `@admin_required` decorator
 4. Update story with exact permission check logic
 
 **Recommendation:** Add AC15 for permission implementation, or move to separate story if complex.
@@ -473,7 +473,7 @@ Expand testing section with specific test cases:
 2. **HIGH PRIORITY:** Implement permission utilities
    - Define master admin criteria
    - Implement `is_master_admin()`
-   - Implement `@master_admin_required` decorator
+   - Implement `@admin_required` decorator
    - Add to story or separate task
 
 3. **MEDIUM PRIORITY:** Resolve FSM state conflicts

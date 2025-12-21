@@ -25,8 +25,8 @@ from app.database.crud.tenant_payment_card import (
     get_card_statistics,
 )
 from app.localization.texts import get_texts
-from app.utils.decorators import admin_required, error_handler
-from app.utils.permissions import master_admin_required
+from app.utils.decorators import error_handler
+from app.utils.permissions import admin_required
 from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
 from app.services.bot_config_service import BotConfigService
@@ -37,7 +37,7 @@ from app.keyboards.admin import get_admin_pagination_keyboard
 logger = logging.getLogger(__name__)
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_tenant_bots_menu(
     callback: types.CallbackQuery,
@@ -128,7 +128,7 @@ Select action:"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def list_tenant_bots(
     callback: types.CallbackQuery,
@@ -236,12 +236,13 @@ async def list_tenant_bots(
         "🤖 <b>Tenant Bots</b> (page {page}/{total})"
     ).format(page=page, total=total_pages) + "\n\n"
     
+    # Initialize keyboard to avoid UnboundLocalError when rows is empty
+    keyboard = []
+    
     if not rows:
         text += texts.t("ADMIN_TENANT_BOTS_EMPTY", "No tenant bots found.")
     else:
         text += texts.t("ADMIN_TENANT_BOTS_LIST_HINT", "Click on a bot to manage:") + "\n\n"
-        
-        keyboard = []
         for row in rows:
             bot = row[0]  # Bot object
             user_count = row[1] or 0
@@ -284,7 +285,7 @@ async def list_tenant_bots(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def handle_tenant_bots_list_pagination(
     callback: types.CallbackQuery,
@@ -300,23 +301,7 @@ async def handle_tenant_bots_list_pagination(
         await list_tenant_bots(callback, db_user, db, page=1)
 
 
-@master_admin_required
-@error_handler
-async def handle_tenant_bots_list_pagination(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession
-):
-    """Handle pagination for tenant bots list."""
-    try:
-        page = int(callback.data.split("_page_")[1])
-        await list_tenant_bots(callback, db_user, db, page=page)
-    except (ValueError, IndexError) as e:
-        logger.error(f"Error parsing page number: {e}")
-        await list_tenant_bots(callback, db_user, db, page=1)
-
-
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_detail(
     callback: types.CallbackQuery,
@@ -505,7 +490,7 @@ async def show_bot_detail(
     keyboard_buttons.append([
         types.InlineKeyboardButton(
             text=texts.BACK,
-            callback_data="admin_tenant_bots_list:0"
+            callback_data="admin_tenant_bots_list"
         )
     ])
     
@@ -515,7 +500,7 @@ async def show_bot_detail(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_create_bot(
     callback: types.CallbackQuery,
@@ -548,11 +533,12 @@ Please enter the bot name:
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_bot_name(
     message: types.Message,
     db_user: User,
+    db: AsyncSession,
     state: FSMContext,
 ):
     """Process bot name input."""
@@ -591,7 +577,7 @@ Now please enter the Telegram Bot Token:
     await state.set_state(AdminStates.creating_tenant_bot_token)
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_bot_token(
     message: types.Message,
@@ -724,7 +710,7 @@ async def process_bot_token(
         await state.clear()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def activate_tenant_bot(
     callback: types.CallbackQuery,
@@ -770,7 +756,7 @@ async def activate_tenant_bot(
         )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def deactivate_tenant_bot(
     callback: types.CallbackQuery,
@@ -823,7 +809,7 @@ async def deactivate_tenant_bot(
         )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_payment_cards(
     callback: types.CallbackQuery,
@@ -935,7 +921,7 @@ Page {page} of {total_pages}
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_settings(
     callback: types.CallbackQuery,
@@ -1048,7 +1034,7 @@ Select setting to edit:"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def toggle_card_to_card(
     callback: types.CallbackQuery,
@@ -1085,7 +1071,7 @@ async def toggle_card_to_card(
     await show_bot_settings(callback, db_user, db)
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def toggle_zarinpal(
     callback: types.CallbackQuery,
@@ -1122,7 +1108,7 @@ async def toggle_zarinpal(
     await show_bot_settings(callback, db_user, db)
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_edit_bot_name(
     callback: types.CallbackQuery,
@@ -1178,7 +1164,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_edit_bot_name(
     message: types.Message,
@@ -1239,7 +1225,7 @@ async def process_edit_bot_name(
     )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_edit_bot_language(
     callback: types.CallbackQuery,
@@ -1297,7 +1283,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_edit_bot_language(
     message: types.Message,
@@ -1353,7 +1339,7 @@ async def process_edit_bot_language(
     )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_edit_bot_support(
     callback: types.CallbackQuery,
@@ -1411,7 +1397,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_edit_bot_support(
     message: types.Message,
@@ -1472,7 +1458,7 @@ async def process_edit_bot_support(
     )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_edit_bot_notifications(
     callback: types.CallbackQuery,
@@ -1531,7 +1517,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def process_edit_bot_notifications(
     message: types.Message,
@@ -1600,7 +1586,7 @@ async def process_edit_bot_notifications(
     )
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def test_bot_status(
     callback: types.CallbackQuery,
@@ -1768,7 +1754,7 @@ async def test_bot_status(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def update_all_webhooks(
     callback: types.CallbackQuery,
@@ -1898,7 +1884,7 @@ async def update_all_webhooks(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_statistics(
     callback: types.CallbackQuery,
@@ -2108,7 +2094,7 @@ async def show_bot_statistics(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_feature_flags(
     callback: types.CallbackQuery,
@@ -2232,7 +2218,7 @@ Select a category to view features:"""
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_feature_flags_category(
     callback: types.CallbackQuery,
@@ -2386,7 +2372,7 @@ async def show_bot_feature_flags_category(
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def toggle_feature_flag(
     callback: types.CallbackQuery,
@@ -2522,7 +2508,7 @@ async def toggle_feature_flag(
         await show_bot_feature_flags(callback, db_user, db)
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_payment_methods(
     callback: types.CallbackQuery,
@@ -2571,7 +2557,7 @@ Payment methods management will be implemented in AC7.
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_plans(
     callback: types.CallbackQuery,
@@ -2620,7 +2606,7 @@ Subscription plans management will be implemented in AC8.
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_configuration_menu(
     callback: types.CallbackQuery,
@@ -2669,7 +2655,7 @@ Configuration management will be implemented in AC9.
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def show_bot_analytics(
     callback: types.CallbackQuery,
@@ -2718,7 +2704,7 @@ Analytics view will be implemented in AC10.
     await callback.answer()
 
 
-@master_admin_required
+@admin_required
 @error_handler
 async def start_delete_bot(
     callback: types.CallbackQuery,
