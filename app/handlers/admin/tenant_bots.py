@@ -31,7 +31,8 @@ from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
 from app.services.bot_config_service import BotConfigService
 from app.database.models import Transaction, TransactionType, User, Subscription, SubscriptionStatus, Bot
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import select, func, and_
+from sqlalchemy import text as sql_text
 from app.keyboards.admin import get_admin_pagination_keyboard
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ async def show_tenant_bots_menu(
     
     # Query matches AC1 specification exactly
     # Using FILTER for efficient aggregation
-    stats_query = text("""
+    stats_query = sql_text("""
         SELECT 
             COUNT(*) FILTER (WHERE is_master = FALSE) as total_bots,
             COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = TRUE) as active_bots,
@@ -142,7 +143,9 @@ async def list_tenant_bots(
     page: int = 1
 ):
     """List all tenant bots with pagination, showing user count, revenue, and plan."""
-    texts = get_texts(db_user.language)
+    # Cache language value before any potential rollback to avoid lazy loading issues
+    user_language = db_user.language
+    texts = get_texts(user_language)
     
     # Parse page from callback if not provided
     if page == 1 and ":" in callback.data:
@@ -165,12 +168,12 @@ async def list_tenant_bots(
     offset = (page - 1) * page_size
     
     # Optimized query with JOINs (matches story spec exactly)
-    # Use raw SQL with text() for tenant_subscriptions since models don't exist yet
+    # Use raw SQL with sql_text() for tenant_subscriptions since models don't exist yet
     try:
         # Query matches story specification: AC2 Database Query
         # Note: b.* in spec is represented by selecting needed Bot columns
         # GROUP BY matches spec: b.id, ts.plan_tier_id, tsp.display_name
-        query_text = text("""
+        query_text = sql_text("""
             SELECT 
                 b.id, b.name, b.is_active, b.created_at,
                 COUNT(DISTINCT u.id) as user_count,
@@ -204,6 +207,8 @@ async def list_tenant_bots(
         
     except Exception as e:
         # Fallback: if tables don't exist, use simplified query
+        # Rollback the failed transaction before trying fallback
+        await db.rollback()
         logger.warning(f"Failed to use optimized query with tenant_subscriptions: {e}. Using fallback.")
         query = (
             select(
@@ -282,7 +287,7 @@ async def list_tenant_bots(
         total_pages=total_pages,
         callback_prefix="admin_tenant_bots_list",
         back_callback="admin_tenant_bots_menu",
-        language=db_user.language
+        language=user_language
     )
     
     # Combine keyboard with pagination
@@ -367,7 +372,7 @@ async def show_bot_detail(
     active_subscriptions = active_subs_result.scalar() or 0
     
     # Monthly revenue (current month) - matches AC3 spec: date_trunc('month', CURRENT_DATE)
-    monthly_revenue_query = text("""
+    monthly_revenue_query = sql_text("""
         SELECT COALESCE(SUM(amount_toman), 0) 
         FROM transactions 
         WHERE bot_id = :bot_id 
@@ -1916,120 +1921,85 @@ async def show_bot_statistics(
         )
         return
     
-    from datetime import datetime, timedelta
-    
-    # Calculate date ranges
-    now = datetime.utcnow()
-    thirty_days_ago = now - timedelta(days=30)
-    seven_days_ago = now - timedelta(days=7)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    # Overview (30 days)
-    # New users (30 days)
-    new_users_30d_result = await db.execute(
-        select(func.count(User.id))
-        .where(
-            and_(
-                User.bot_id == bot_id,
-                User.created_at >= thirty_days_ago
-            )
-        )
-    )
+    # AC4: Use SQL queries matching spec exactly
+    # New users (30 days) - matches AC4 spec
+    new_users_30d_query = sql_text("""
+        SELECT COUNT(*) FROM users 
+        WHERE bot_id = :bot_id 
+          AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+    """)
+    new_users_30d_result = await db.execute(new_users_30d_query, {"bot_id": bot_id})
     new_users_30d = new_users_30d_result.scalar() or 0
     
-    # Active users (users with active subscriptions)
-    active_users_result = await db.execute(
-        select(func.count(func.distinct(Subscription.user_id)))
-        .where(
-            and_(
-                Subscription.bot_id == bot_id,
-                Subscription.status == SubscriptionStatus.ACTIVE.value
-            )
-        )
-    )
+    # Active users - matches AC4 spec
+    active_users_query = sql_text("""
+        SELECT COUNT(DISTINCT user_id) FROM subscriptions
+        WHERE bot_id = :bot_id AND status = 'active'
+    """)
+    active_users_result = await db.execute(active_users_query, {"bot_id": bot_id})
     active_users = active_users_result.scalar() or 0
     
     # New subscriptions (30 days)
-    new_subs_30d_result = await db.execute(
-        select(func.count(Subscription.id))
-        .where(
-            and_(
-                Subscription.bot_id == bot_id,
-                Subscription.created_at >= thirty_days_ago
-            )
-        )
-    )
+    new_subs_30d_query = sql_text("""
+        SELECT COUNT(*) FROM subscriptions
+        WHERE bot_id = :bot_id 
+          AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+    """)
+    new_subs_30d_result = await db.execute(new_subs_30d_query, {"bot_id": bot_id})
     new_subs_30d = new_subs_30d_result.scalar() or 0
     
     # Revenue (30 days)
-    revenue_30d_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
-            and_(
-                Transaction.bot_id == bot_id,
-                Transaction.type == TransactionType.DEPOSIT.value,
-                Transaction.is_completed == True,
-                Transaction.created_at >= thirty_days_ago
-            )
-        )
-    )
+    revenue_30d_query = sql_text("""
+        SELECT COALESCE(SUM(amount_toman), 0) 
+        FROM transactions 
+        WHERE bot_id = :bot_id 
+          AND type = 'deposit' 
+          AND is_completed = TRUE
+          AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+    """)
+    revenue_30d_result = await db.execute(revenue_30d_query, {"bot_id": bot_id})
     revenue_30d = revenue_30d_result.scalar() or 0
     
-    # Revenue breakdown by payment method (30 days)
-    revenue_by_method_result = await db.execute(
-        select(
-            Transaction.payment_method,
-            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total')
-        )
-        .where(
-            and_(
-                Transaction.bot_id == bot_id,
-                Transaction.type == TransactionType.DEPOSIT.value,
-                Transaction.is_completed == True,
-                Transaction.created_at >= thirty_days_ago,
-                Transaction.payment_method.isnot(None)
-            )
-        )
-        .group_by(Transaction.payment_method)
-    )
+    # Revenue breakdown by payment method (30 days) - matches AC4 spec
+    revenue_by_method_query = sql_text("""
+        SELECT payment_method, SUM(amount_toman) as total
+        FROM transactions
+        WHERE bot_id = :bot_id 
+          AND type = 'deposit'
+          AND is_completed = TRUE
+          AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+          AND payment_method IS NOT NULL
+        GROUP BY payment_method
+    """)
+    revenue_by_method_result = await db.execute(revenue_by_method_query, {"bot_id": bot_id})
     revenue_by_method = {row[0]: row[1] for row in revenue_by_method_result.fetchall()}
     
     # User growth metrics
     # Today
-    new_users_today_result = await db.execute(
-        select(func.count(User.id))
-        .where(
-            and_(
-                User.bot_id == bot_id,
-                User.created_at >= today_start
-            )
-        )
-    )
+    new_users_today_query = sql_text("""
+        SELECT COUNT(*) FROM users 
+        WHERE bot_id = :bot_id 
+          AND created_at >= date_trunc('day', CURRENT_DATE)
+    """)
+    new_users_today_result = await db.execute(new_users_today_query, {"bot_id": bot_id})
     new_users_today = new_users_today_result.scalar() or 0
     
     # This week
-    new_users_week_result = await db.execute(
-        select(func.count(User.id))
-        .where(
-            and_(
-                User.bot_id == bot_id,
-                User.created_at >= seven_days_ago
-            )
-        )
-    )
+    new_users_week_query = sql_text("""
+        SELECT COUNT(*) FROM users 
+        WHERE bot_id = :bot_id 
+          AND created_at >= date_trunc('week', CURRENT_DATE)
+    """)
+    new_users_week_result = await db.execute(new_users_week_query, {"bot_id": bot_id})
     new_users_week = new_users_week_result.scalar() or 0
     
     # This month
-    new_users_month_result = await db.execute(
-        select(func.count(User.id))
-        .where(
-            and_(
-                User.bot_id == bot_id,
-                User.created_at >= month_start
-            )
-        )
-    )
+    new_users_month_query = sql_text("""
+        SELECT COUNT(*) FROM users 
+        WHERE bot_id = :bot_id 
+          AND created_at >= date_trunc('month', CURRENT_DATE)
+    """)
+    new_users_month_result = await db.execute(new_users_month_query, {"bot_id": bot_id})
     new_users_month = new_users_month_result.scalar() or 0
     
     # Build statistics text
@@ -2162,7 +2132,7 @@ async def show_bot_feature_flags(
     plan_name = None
     try:
         plan_result = await db.execute(
-            text("""
+            sql_text("""
                 SELECT tsp.display_name
                 FROM tenant_subscriptions ts
                 LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
@@ -2297,7 +2267,7 @@ async def show_bot_feature_flags_category(
     plan_restrictions = {}  # feature_key -> required_plan
     try:
         plan_result = await db.execute(
-            text("""
+            sql_text("""
                 SELECT tsp.id, tsp.name, tsp.display_name
                 FROM tenant_subscriptions ts
                 LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
@@ -2312,7 +2282,7 @@ async def show_bot_feature_flags_category(
             
             # Check which features are granted by this plan
             grants_result = await db.execute(
-                text("""
+                sql_text("""
                     SELECT feature_key, enabled
                     FROM plan_feature_grants
                     WHERE plan_tier_id = :plan_id
@@ -2411,7 +2381,7 @@ async def toggle_feature_flag(
     feature_allowed = True
     try:
         plan_result = await db.execute(
-            text("""
+            sql_text("""
                 SELECT tsp.id, tsp.name, tsp.display_name
                 FROM tenant_subscriptions ts
                 LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
@@ -2426,7 +2396,7 @@ async def toggle_feature_flag(
             
             # Check if feature is granted by plan
             grant_result = await db.execute(
-                text("""
+                sql_text("""
                     SELECT enabled
                     FROM plan_feature_grants
                     WHERE plan_tier_id = :plan_id AND feature_key = :feature_key
@@ -2786,7 +2756,7 @@ async def show_tenant_bots_statistics(
     texts = get_texts(db_user.language)
     
     # Use same query as main menu for consistency
-    stats_query = text("""
+    stats_query = sql_text("""
         SELECT 
             COUNT(*) FILTER (WHERE is_master = FALSE) as total_bots,
             COUNT(*) FILTER (WHERE is_master = FALSE AND is_active = TRUE) as active_bots,

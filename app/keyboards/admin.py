@@ -73,7 +73,7 @@ def get_admin_main_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     ])
 
 
-def get_admin_users_submenu_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+def get_admin_users_submenu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     texts = get_texts(language)
     
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -89,8 +89,7 @@ def get_admin_users_submenu_keyboard(language: str = "en") -> InlineKeyboardMark
         ]
     ])
 
-
-def get_admin_promo_submenu_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+def get_admin_promo_submenu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     texts = get_texts(language)
 
     return InlineKeyboardMarkup(inline_keyboard=[

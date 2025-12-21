@@ -134,7 +134,8 @@ def admin_required(func: Callable) -> Callable:
             try:
                 if isinstance(event, types.Message):
                     await event.answer(texts.t("ADMIN_ACCESS_DENIED", "❌ Access denied"))
-                    logger.warning(f"Access denied to {func.__name__} for user {user.telegram_id}")
+                    user_id = getattr(user, 'telegram_id', 'unknown') if user else 'unknown'
+                    logger.warning(f"Access denied to {func.__name__} for user {user_id}")
                 elif isinstance(event, types.CallbackQuery):
                     await event.answer(
                         texts.t("ADMIN_ACCESS_DENIED", "❌ Access denied"),
