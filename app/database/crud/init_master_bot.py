@@ -37,6 +37,7 @@ async def _sync_master_bot_configs_from_env(db: AsyncSession, bot_id: int) -> No
     # Configurations from .env
     default_language = _get_env_config('DEFAULT_LANGUAGE', 'fa')
     support_username = _get_env_config('SUPPORT_USERNAME')
+    admin_ids = _get_env_config('ADMIN_IDS', '')
     admin_chat_id = _get_env_config('ADMIN_NOTIFICATIONS_CHAT_ID')
     admin_topic_id = _get_env_config('ADMIN_NOTIFICATIONS_TOPIC_ID')
     notification_group_id = _get_env_config('NOTIFICATION_GROUP_ID')
@@ -47,6 +48,10 @@ async def _sync_master_bot_configs_from_env(db: AsyncSession, bot_id: int) -> No
     
     await BotConfigService.set_config(db, bot_id, 'DEFAULT_LANGUAGE', default_language)
     logger.debug(f"  ✓ DEFAULT_LANGUAGE={default_language}")
+    
+    if admin_ids:
+        await BotConfigService.set_config(db, bot_id, 'ADMIN_IDS', admin_ids)
+        logger.debug(f"  ✓ ADMIN_IDS={admin_ids}")
     
     if support_username:
         await BotConfigService.set_config(db, bot_id, 'SUPPORT_USERNAME', support_username)

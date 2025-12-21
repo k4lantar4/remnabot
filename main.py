@@ -655,16 +655,30 @@ async def main():
                     await auto_payment_verification_service.start()
                     auto_verification_active = auto_payment_verification_service.is_running()
 
-                # Check all polling tasks
+                # Check all polling tasks and restart if failed
                 if polling_enabled:
                     from app.bot import polling_tasks as bot_polling_tasks
-                    for bot_id, task in bot_polling_tasks.items():
+                    for bot_id, task in list(bot_polling_tasks.items()):
                         if task.done():
                             exception = task.exception()
                             if exception:
                                 logger.error(f"❌ Polling failed for bot {bot_id}: {exception}")
-                                logger.warning(f"⚠️ Polling task {bot_id} has stopped, consider restarting the service")
-                                # Don't break - continue with other bots
+                                # Try to restart polling with a delay to avoid rapid restart loops
+                                if bot_id in initialized_bots:
+                                    bot_instance, dp_instance = initialized_bots[bot_id]
+                                    try:
+                                        # Wait a bit before restarting to avoid rapid restart loops
+                                        await asyncio.sleep(5)
+                                        logger.info(f"🔄 Restarting polling for bot {bot_id}...")
+                                        new_task = asyncio.create_task(
+                                            dp_instance.start_polling(bot_instance, skip_updates=True)
+                                        )
+                                        bot_polling_tasks[bot_id] = new_task
+                                        logger.info(f"✅ Polling restarted for bot {bot_id}")
+                                    except Exception as restart_error:
+                                        logger.error(f"❌ Failed to restart polling for bot {bot_id}: {restart_error}")
+                                else:
+                                    logger.warning(f"⚠️ Bot {bot_id} not found in initialized_bots, cannot restart polling")
                 elif polling_task and polling_task.done():
                     exception = polling_task.exception()
                     if exception:

@@ -26,26 +26,55 @@ from app.database.crud.tenant_payment_card import (
 )
 from app.localization.texts import get_texts
 from app.utils.decorators import admin_required, error_handler
+from app.utils.permissions import master_admin_required
 from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
 from app.services.bot_config_service import BotConfigService
+from app.database.models import Transaction, TransactionType, User, Subscription, SubscriptionStatus
+from sqlalchemy import select, func, and_, text
 
 logger = logging.getLogger(__name__)
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def show_tenant_bots_menu(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
 ):
-    """Show tenant bots management menu."""
+    """Show tenant bots management menu with overview statistics."""
     texts = get_texts(db_user.language)
     
-    # Get all bots
+    # Get all bots (excluding master)
     bots = await get_all_bots(db)
-    active_count = sum(1 for b in bots if b.is_active)
+    tenant_bots = [b for b in bots if not b.is_master]
+    active_count = sum(1 for b in tenant_bots if b.is_active)
+    
+    # Calculate total users across all tenant bots
+    if tenant_bots:
+        bot_ids = [b.id for b in tenant_bots]
+        user_count_result = await db.execute(
+            select(func.count(User.id))
+            .where(User.bot_id.in_(bot_ids))
+        )
+        total_users = user_count_result.scalar() or 0
+        
+        # Calculate total revenue (all time, completed deposits only)
+        revenue_result = await db.execute(
+            select(func.coalesce(func.sum(Transaction.amount_toman), 0))
+            .where(
+                and_(
+                    Transaction.bot_id.in_(bot_ids),
+                    Transaction.type == TransactionType.DEPOSIT.value,
+                    Transaction.is_completed == True
+                )
+            )
+        )
+        total_revenue = revenue_result.scalar() or 0
+    else:
+        total_users = 0
+        total_revenue = 0
     
     text = texts.t(
         "ADMIN_TENANT_BOTS_MENU",
@@ -55,12 +84,16 @@ async def show_tenant_bots_menu(
 • Total bots: {total}
 • Active: {active}
 • Inactive: {inactive}
+• Total users: {users}
+• Total revenue: {revenue} Toman
 
 Select action:"""
     ).format(
-        total=len(bots),
+        total=len(tenant_bots),
         active=active_count,
-        inactive=len(bots) - active_count
+        inactive=len(tenant_bots) - active_count,
+        users=total_users,
+        revenue=f"{total_revenue / 100:,.0f}".replace(',', ' ')
     )
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
@@ -94,23 +127,33 @@ Select action:"""
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def list_tenant_bots(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
-    page: int = 0,
 ):
-    """List all tenant bots with pagination."""
+    """List all tenant bots with pagination, showing user count, revenue, and plan."""
     texts = get_texts(db_user.language)
     
-    bots = await get_all_bots(db)
+    # Parse page number from callback data
+    page = 0
+    if ":" in callback.data:
+        try:
+            page = int(callback.data.split(":")[1])
+        except (ValueError, IndexError):
+            page = 0
+    
+    # Get only tenant bots (exclude master)
+    all_bots = await get_all_bots(db)
+    tenant_bots = [b for b in all_bots if not b.is_master]
+    
     page_size = 5
-    total_pages = (len(bots) + page_size - 1) // page_size
+    total_pages = (len(tenant_bots) + page_size - 1) // page_size if tenant_bots else 1
     start_idx = page * page_size
     end_idx = start_idx + page_size
-    page_bots = bots[start_idx:end_idx]
+    page_bots = tenant_bots[start_idx:end_idx]
     
     text = texts.t(
         "ADMIN_TENANT_BOTS_LIST_TITLE",
@@ -121,17 +164,57 @@ Page {page} of {total_pages}
     ).format(page=page + 1, total_pages=max(1, total_pages))
     
     if not page_bots:
-        text += texts.t("ADMIN_TENANT_BOTS_EMPTY", "No bots found.")
+        text += texts.t("ADMIN_TENANT_BOTS_EMPTY", "No tenant bots found.")
     else:
+        # Fetch statistics for each bot
         for bot in page_bots:
             status_icon = "✅" if bot.is_active else "⏸️"
-            master_icon = "👑" if bot.is_master else ""
-            # Fetch feature flags using BotConfigService
-            card_to_card_enabled = await BotConfigService.is_feature_enabled(db, bot.id, 'card_to_card')
-            zarinpal_enabled = await BotConfigService.is_feature_enabled(db, bot.id, 'zarinpal')
-            text += f"\n{status_icon} {master_icon} <b>{bot.name}</b> (ID: {bot.id})\n"
-            text += f"   • Card-to-Card: {'✅' if card_to_card_enabled else '❌'}\n"
-            text += f"   • Zarinpal: {'✅' if zarinpal_enabled else '❌'}\n"
+            
+            # Get user count
+            user_count_result = await db.execute(
+                select(func.count(User.id))
+                .where(User.bot_id == bot.id)
+            )
+            user_count = user_count_result.scalar() or 0
+            
+            # Get revenue (all time, completed deposits)
+            revenue_result = await db.execute(
+                select(func.coalesce(func.sum(Transaction.amount_toman), 0))
+                .where(
+                    and_(
+                        Transaction.bot_id == bot.id,
+                        Transaction.type == TransactionType.DEPOSIT.value,
+                        Transaction.is_completed == True
+                    )
+                )
+            )
+            revenue = revenue_result.scalar() or 0
+            
+            # Get plan info (if tenant_subscriptions table exists)
+            plan_name = "N/A"
+            try:
+                from sqlalchemy import text
+                plan_result = await db.execute(
+                    text("""
+                        SELECT tsp.display_name
+                        FROM tenant_subscriptions ts
+                        LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
+                        WHERE ts.bot_id = :bot_id AND ts.status = 'active'
+                        LIMIT 1
+                    """),
+                    {"bot_id": bot.id}
+                )
+                plan_row = plan_result.fetchone()
+                if plan_row and plan_row[0]:
+                    plan_name = plan_row[0]
+            except Exception:
+                # Table doesn't exist or query failed, use default
+                pass
+            
+            text += f"\n{status_icon} <b>{bot.name}</b> (ID: {bot.id})\n"
+            text += f"   • Users: {user_count}\n"
+            text += f"   • Revenue: {revenue / 100:,.0f} Toman\n"
+            text += f"   • Plan: {plan_name}\n"
     
     keyboard_buttons = []
     
@@ -171,21 +254,13 @@ Page {page} of {total_pages}
         )
     ])
     
-    # Back button
-    keyboard_buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="admin_tenant_bots_menu"
-        )
-    ])
-    
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def show_bot_detail(
     callback: types.CallbackQuery,
@@ -221,6 +296,42 @@ async def show_bot_detail(
     default_language = await BotConfigService.get_config(db, bot_id, 'DEFAULT_LANGUAGE', 'fa')
     support_username = await BotConfigService.get_config(db, bot_id, 'SUPPORT_USERNAME')
     
+    # Calculate statistics
+    # User count
+    user_count_result = await db.execute(
+        select(func.count(User.id))
+        .where(User.bot_id == bot_id)
+    )
+    user_count = user_count_result.scalar() or 0
+    
+    # Active subscriptions count
+    active_subs_result = await db.execute(
+        select(func.count(Subscription.id))
+        .where(
+            and_(
+                Subscription.bot_id == bot_id,
+                Subscription.status == SubscriptionStatus.ACTIVE.value
+            )
+        )
+    )
+    active_subscriptions = active_subs_result.scalar() or 0
+    
+    # Monthly revenue (current month)
+    from datetime import datetime
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_revenue_result = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
+        .where(
+            and_(
+                Transaction.bot_id == bot_id,
+                Transaction.type == TransactionType.DEPOSIT.value,
+                Transaction.is_completed == True,
+                Transaction.created_at >= month_start
+            )
+        )
+    )
+    monthly_revenue = monthly_revenue_result.scalar() or 0
+    
     text = texts.t(
         "ADMIN_TENANT_BOT_DETAIL",
         """🤖 <b>Bot Details</b>
@@ -230,28 +341,36 @@ async def show_bot_detail(
 <b>Status:</b> {status}
 {master}
 
-<b>Settings:</b>
+<b>Quick Stats:</b>
+• Users: {user_count}
+• Active Subscriptions: {active_subs}
+• Monthly Revenue: {monthly_revenue} Toman
+• Traffic Sold: {traffic_sold} GB
+
+<b>Current Settings:</b>
 • Card-to-Card: {card_enabled}
 • Zarinpal: {zarinpal_enabled}
 • Language: {language}
 • Support: {support}
 
-<b>Statistics:</b>
-• Wallet: {wallet}  Toman
-• Traffic Consumed: {traffic_consumed} GB
-• Traffic Sold: {traffic_sold} GB"""
+<b>Wallet & Traffic:</b>
+• Wallet: {wallet} Toman
+• Traffic Consumed: {traffic_consumed} GB"""
     ).format(
         name=bot.name,
         id=bot.id,
         status=status_text,
         master=master_text,
+        user_count=user_count,
+        active_subs=active_subscriptions,
+        monthly_revenue=f"{monthly_revenue / 100:,.0f}".replace(',', ' '),
+        traffic_sold=f"{bot.traffic_sold_bytes / (1024**3):.2f}",
         card_enabled="✅ Enabled" if card_to_card_enabled else "❌ Disabled",
         zarinpal_enabled="✅ Enabled" if zarinpal_enabled else "❌ Disabled",
         language=default_language,
         support=support_username or "N/A",
         wallet=f"{bot.wallet_balance_toman / 100:,.2f}".replace(',', ' '),
         traffic_consumed=f"{bot.traffic_consumed_bytes / (1024**3):.2f}",
-        traffic_sold=f"{bot.traffic_sold_bytes / (1024**3):.2f}",
     )
     
     keyboard_buttons = []
@@ -273,31 +392,65 @@ async def show_bot_detail(
                 )
             ])
     
+    # Add all sub-menu navigation options (AC3)
     keyboard_buttons.extend([
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOT_SETTINGS", "⚙️ Settings"),
+                text=texts.t("ADMIN_TENANT_BOT_STATISTICS", "📊 Statistics"),
+                callback_data=f"admin_tenant_bot_stats:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_SETTINGS", "⚙️ General Settings"),
                 callback_data=f"admin_tenant_bot_settings:{bot_id}"
             )
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOT_PAYMENT_CARDS", "💳 Payment Cards"),
-                callback_data=f"admin_tenant_bot_cards:{bot_id}"
+                text=texts.t("ADMIN_TENANT_BOT_FEATURES", "🎛️ Feature Flags"),
+                callback_data=f"admin_tenant_bot_features:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_PAYMENTS", "💳 Payment Methods"),
+                callback_data=f"admin_tenant_bot_payments:{bot_id}"
             )
         ],
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOT_TEST", "🧪 Test Bot Status"),
+                text=texts.t("ADMIN_TENANT_BOT_PLANS", "📦 Subscription Plans"),
+                callback_data=f"admin_tenant_bot_plans:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_CONFIG", "🔧 Configuration"),
+                callback_data=f"admin_tenant_bot_config:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_ANALYTICS", "📈 Analytics"),
+                callback_data=f"admin_tenant_bot_analytics:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_TEST", "🧪 Test Bot"),
                 callback_data=f"admin_tenant_bot_test:{bot_id}"
             )
-        ],
-        [
-            types.InlineKeyboardButton(
-                text=texts.BACK,
-                callback_data="admin_tenant_bots_list:0"
-            )
         ]
+    ])
+    
+    # Delete bot button (only for tenant bots)
+    if not bot.is_master:
+        keyboard_buttons.append([
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_DELETE", "🗑️ Delete Bot"),
+                callback_data=f"admin_tenant_bot_delete:{bot_id}"
+            )
+        ])
+    
+    # Back button
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text=texts.BACK,
+            callback_data="admin_tenant_bots_list:0"
+        )
     ])
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -306,7 +459,7 @@ async def show_bot_detail(
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def start_create_bot(
     callback: types.CallbackQuery,
@@ -334,11 +487,11 @@ Please enter the bot name:
     ])
     
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    await state.set_state(AdminStates.waiting_for_bot_name)
+    await state.set_state(AdminStates.creating_tenant_bot_name)
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def process_bot_name(
     message: types.Message,
@@ -378,10 +531,10 @@ Now please enter the Telegram Bot Token:
     ])
     
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-    await state.set_state(AdminStates.waiting_for_bot_token)
+    await state.set_state(AdminStates.creating_tenant_bot_token)
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def process_bot_token(
     message: types.Message,
@@ -514,7 +667,7 @@ async def process_bot_token(
         await state.clear()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def activate_tenant_bot(
     callback: types.CallbackQuery,
@@ -560,7 +713,7 @@ async def activate_tenant_bot(
         )
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def deactivate_tenant_bot(
     callback: types.CallbackQuery,
@@ -613,7 +766,7 @@ async def deactivate_tenant_bot(
         )
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def show_bot_payment_cards(
     callback: types.CallbackQuery,
@@ -725,7 +878,7 @@ Page {page} of {total_pages}
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def show_bot_settings(
     callback: types.CallbackQuery,
@@ -757,6 +910,10 @@ async def show_bot_settings(
     zarinpal_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'zarinpal')
     default_language = await BotConfigService.get_config(db, bot_id, 'DEFAULT_LANGUAGE', 'fa')
     support_username = await BotConfigService.get_config(db, bot_id, 'SUPPORT_USERNAME')
+    admin_notifications_chat_id = await BotConfigService.get_config(db, bot_id, 'ADMIN_NOTIFICATIONS_CHAT_ID')
+    
+    # Format notifications display
+    notifications_display = "✅ Configured" if admin_notifications_chat_id else "❌ Not set"
     
     text = texts.t(
         "ADMIN_TENANT_BOT_SETTINGS",
@@ -765,29 +922,58 @@ async def show_bot_settings(
 Bot: <b>{name}</b> (ID: {id})
 
 <b>Current Settings:</b>
+• Name: {name}
+• Bot Token: {token_preview}
+• Default Language: {language}
+• Support Username: {support}
+• Notifications: {notifications}
+
+<b>Feature Flags:</b>
 • Card-to-Card: {card_status}
 • Zarinpal: {zarinpal_status}
-• Default Language: {language}
-• Support: {support}
 
-Select setting to change:"""
+Select setting to edit:"""
     ).format(
         name=bot.name,
         id=bot.id,
-        card_status="✅ Enabled" if card_to_card_enabled else "❌ Disabled",
-        zarinpal_status="✅ Enabled" if zarinpal_enabled else "❌ Disabled",
+        token_preview=f"{bot.telegram_bot_token[:20]}..." if bot.telegram_bot_token else "Not set",
         language=default_language,
-        support=support_username or "Not set"
+        support=support_username or "Not set",
+        notifications=notifications_display,
+        card_status="✅ Enabled" if card_to_card_enabled else "❌ Disabled",
+        zarinpal_status="✅ Enabled" if zarinpal_enabled else "❌ Disabled"
     )
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [
             types.InlineKeyboardButton(
-                text=texts.t("ADMIN_TENANT_BOT_TOGGLE_CARD", "💳 Toggle Card-to-Card"),
-                callback_data=f"admin_tenant_bot_toggle_card:{bot_id}"
+                text=texts.t("ADMIN_TENANT_BOT_EDIT_NAME", "✏️ Edit Name"),
+                callback_data=f"admin_tenant_bot_edit_name:{bot_id}"
             )
         ],
         [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_EDIT_LANGUAGE", "🌐 Edit Language"),
+                callback_data=f"admin_tenant_bot_edit_language:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_EDIT_SUPPORT", "💬 Edit Support"),
+                callback_data=f"admin_tenant_bot_edit_support:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_EDIT_NOTIFICATIONS", "🔔 Edit Notifications"),
+                callback_data=f"admin_tenant_bot_edit_notifications:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_TOGGLE_CARD", "💳 Toggle Card-to-Card"),
+                callback_data=f"admin_tenant_bot_toggle_card:{bot_id}"
+            ),
             types.InlineKeyboardButton(
                 text=texts.t("ADMIN_TENANT_BOT_TOGGLE_ZARINPAL", "💳 Toggle Zarinpal"),
                 callback_data=f"admin_tenant_bot_toggle_zarinpal:{bot_id}"
@@ -805,7 +991,7 @@ Select setting to change:"""
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def toggle_card_to_card(
     callback: types.CallbackQuery,
@@ -842,7 +1028,7 @@ async def toggle_card_to_card(
     await show_bot_settings(callback, db_user, db)
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def toggle_zarinpal(
     callback: types.CallbackQuery,
@@ -879,7 +1065,485 @@ async def toggle_zarinpal(
     await show_bot_settings(callback, db_user, db)
 
 
-@admin_required
+@master_admin_required
+@error_handler
+async def start_edit_bot_name(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Start editing bot name."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    await state.update_data(bot_id=bot_id)
+    await state.set_state(AdminStates.editing_tenant_bot_name)
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_EDIT_NAME_PROMPT",
+        """✏️ <b>Edit Bot Name</b>
+
+Current name: <b>{current_name}</b>
+
+Please enter the new bot name:
+(Maximum 255 characters)
+
+To cancel, send /cancel"""
+    ).format(current_name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def process_edit_bot_name(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Process bot name edit."""
+    texts = get_texts(db_user.language)
+    
+    data = await state.get_data()
+    bot_id = data.get("bot_id")
+    
+    if not bot_id:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_ERROR", "❌ Error: Bot ID not found. Please start over."),
+            reply_markup=get_back_keyboard(db_user.language)
+        )
+        await state.clear()
+        return
+    
+    bot_name = message.text.strip()
+    if not bot_name or len(bot_name) > 255:
+        await message.answer(
+            texts.t(
+                "ADMIN_TENANT_BOT_NAME_INVALID",
+                "❌ Invalid bot name. Please enter a name (max 255 characters)."
+            )
+        )
+        return
+    
+    # Update bot name
+    success = await update_bot(db, bot_id, name=bot_name)
+    if success:
+        await db.commit()
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_NAME_UPDATED", "✅ Bot name updated successfully!")
+        )
+    else:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_UPDATE_ERROR", "❌ Failed to update bot name.")
+        )
+    
+    await state.clear()
+    
+    # Send success message with button to return to settings
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_VIEW_SETTINGS", "⚙️ View Settings"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    await message.answer(
+        texts.t("ADMIN_TENANT_BOT_RETURN_TO_SETTINGS", "Click below to return to settings:"),
+        reply_markup=keyboard
+    )
+
+
+@master_admin_required
+@error_handler
+async def start_edit_bot_language(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Start editing bot default language."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    current_language = await BotConfigService.get_config(db, bot_id, 'DEFAULT_LANGUAGE', 'fa')
+    
+    await state.update_data(bot_id=bot_id)
+    await state.set_state(AdminStates.editing_tenant_bot_language)
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_EDIT_LANGUAGE_PROMPT",
+        """🌐 <b>Edit Default Language</b>
+
+Current language: <b>{current_language}</b>
+
+Please enter the new language code (e.g., 'fa', 'en', 'ru'):
+(Common codes: fa, en, ru, ar)
+
+To cancel, send /cancel"""
+    ).format(current_language=current_language)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def process_edit_bot_language(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Process bot language edit."""
+    texts = get_texts(db_user.language)
+    
+    data = await state.get_data()
+    bot_id = data.get("bot_id")
+    
+    if not bot_id:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_ERROR", "❌ Error: Bot ID not found. Please start over."),
+            reply_markup=get_back_keyboard(db_user.language)
+        )
+        await state.clear()
+        return
+    
+    language = message.text.strip().lower()
+    if not language or len(language) > 5:
+        await message.answer(
+            texts.t(
+                "ADMIN_TENANT_BOT_LANGUAGE_INVALID",
+                "❌ Invalid language code. Please enter a valid language code (e.g., 'fa', 'en', 'ru')."
+            )
+        )
+        return
+    
+    # Update language using BotConfigService
+    await BotConfigService.set_config(db, bot_id, 'DEFAULT_LANGUAGE', language)
+    await db.commit()
+    
+    await message.answer(
+        texts.t("ADMIN_TENANT_BOT_LANGUAGE_UPDATED", "✅ Default language updated successfully!")
+    )
+    await state.clear()
+    
+    # Send success message with button to return to settings
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_VIEW_SETTINGS", "⚙️ View Settings"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    await message.answer(
+        texts.t("ADMIN_TENANT_BOT_RETURN_TO_SETTINGS", "Click below to return to settings:"),
+        reply_markup=keyboard
+    )
+
+
+@master_admin_required
+@error_handler
+async def start_edit_bot_support(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Start editing bot support username."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    current_support = await BotConfigService.get_config(db, bot_id, 'SUPPORT_USERNAME')
+    
+    await state.update_data(bot_id=bot_id)
+    await state.set_state(AdminStates.editing_tenant_bot_support)
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_EDIT_SUPPORT_PROMPT",
+        """💬 <b>Edit Support Username</b>
+
+Current support: <b>{current_support}</b>
+
+Please enter the new support username (without @):
+(Leave empty to remove support username)
+
+To cancel, send /cancel"""
+    ).format(current_support=current_support or "Not set")
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def process_edit_bot_support(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Process bot support username edit."""
+    texts = get_texts(db_user.language)
+    
+    data = await state.get_data()
+    bot_id = data.get("bot_id")
+    
+    if not bot_id:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_ERROR", "❌ Error: Bot ID not found. Please start over."),
+            reply_markup=get_back_keyboard(db_user.language)
+        )
+        await state.clear()
+        return
+    
+    support_username = message.text.strip()
+    # Remove @ if present
+    if support_username.startswith('@'):
+        support_username = support_username[1:]
+    
+    # If empty, set to None to remove
+    if not support_username:
+        support_username = None
+    
+    # Update support username using BotConfigService
+    await BotConfigService.set_config(db, bot_id, 'SUPPORT_USERNAME', support_username)
+    await db.commit()
+    
+    if support_username:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_SUPPORT_UPDATED", "✅ Support username updated successfully!")
+        )
+    else:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_SUPPORT_REMOVED", "✅ Support username removed.")
+        )
+    
+    await state.clear()
+    
+    # Send success message with button to return to settings
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_VIEW_SETTINGS", "⚙️ View Settings"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    await message.answer(
+        texts.t("ADMIN_TENANT_BOT_RETURN_TO_SETTINGS", "Click below to return to settings:"),
+        reply_markup=keyboard
+    )
+
+
+@master_admin_required
+@error_handler
+async def start_edit_bot_notifications(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Start editing bot notifications chat ID."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    current_chat_id = await BotConfigService.get_config(db, bot_id, 'ADMIN_NOTIFICATIONS_CHAT_ID')
+    
+    await state.update_data(bot_id=bot_id)
+    await state.set_state(AdminStates.editing_tenant_bot_notifications)
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_EDIT_NOTIFICATIONS_PROMPT",
+        """🔔 <b>Edit Notifications Chat ID</b>
+
+Current chat ID: <b>{current_chat_id}</b>
+
+Please enter the new Telegram chat ID for admin notifications:
+(Enter a negative number for groups, positive for channels)
+
+To remove, send 'none' or '0'
+To cancel, send /cancel"""
+    ).format(current_chat_id=current_chat_id or "Not set")
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def process_edit_bot_notifications(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Process bot notifications chat ID edit."""
+    texts = get_texts(db_user.language)
+    
+    data = await state.get_data()
+    bot_id = data.get("bot_id")
+    
+    if not bot_id:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_ERROR", "❌ Error: Bot ID not found. Please start over."),
+            reply_markup=get_back_keyboard(db_user.language)
+        )
+        await state.clear()
+        return
+    
+    chat_id_input = message.text.strip().lower()
+    
+    # Handle removal
+    if chat_id_input in ('none', '0', ''):
+        chat_id = None
+    else:
+        try:
+            chat_id = int(chat_id_input)
+        except ValueError:
+            await message.answer(
+                texts.t(
+                    "ADMIN_TENANT_BOT_NOTIFICATIONS_INVALID",
+                    "❌ Invalid chat ID. Please enter a valid number, or 'none' to remove."
+                )
+            )
+            return
+    
+    # Update notifications chat ID using BotConfigService
+    await BotConfigService.set_config(db, bot_id, 'ADMIN_NOTIFICATIONS_CHAT_ID', chat_id)
+    await db.commit()
+    
+    if chat_id:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_NOTIFICATIONS_UPDATED", "✅ Notifications chat ID updated successfully!")
+        )
+    else:
+        await message.answer(
+            texts.t("ADMIN_TENANT_BOT_NOTIFICATIONS_REMOVED", "✅ Notifications chat ID removed.")
+        )
+    
+    await state.clear()
+    
+    # Send success message with button to return to settings
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_VIEW_SETTINGS", "⚙️ View Settings"),
+                callback_data=f"admin_tenant_bot_settings:{bot_id}"
+            )
+        ]
+    ])
+    await message.answer(
+        texts.t("ADMIN_TENANT_BOT_RETURN_TO_SETTINGS", "Click below to return to settings:"),
+        reply_markup=keyboard
+    )
+
+
+@master_admin_required
 @error_handler
 async def test_bot_status(
     callback: types.CallbackQuery,
@@ -1047,7 +1711,7 @@ async def test_bot_status(
     await callback.answer()
 
 
-@admin_required
+@master_admin_required
 @error_handler
 async def update_all_webhooks(
     callback: types.CallbackQuery,
@@ -1177,6 +1841,892 @@ async def update_all_webhooks(
     await callback.answer()
 
 
+@master_admin_required
+@error_handler
+async def show_bot_statistics(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show comprehensive statistics for a bot."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    from datetime import datetime, timedelta
+    
+    # Calculate date ranges
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+    seven_days_ago = now - timedelta(days=7)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Overview (30 days)
+    # New users (30 days)
+    new_users_30d_result = await db.execute(
+        select(func.count(User.id))
+        .where(
+            and_(
+                User.bot_id == bot_id,
+                User.created_at >= thirty_days_ago
+            )
+        )
+    )
+    new_users_30d = new_users_30d_result.scalar() or 0
+    
+    # Active users (users with active subscriptions)
+    active_users_result = await db.execute(
+        select(func.count(func.distinct(Subscription.user_id)))
+        .where(
+            and_(
+                Subscription.bot_id == bot_id,
+                Subscription.status == SubscriptionStatus.ACTIVE.value
+            )
+        )
+    )
+    active_users = active_users_result.scalar() or 0
+    
+    # New subscriptions (30 days)
+    new_subs_30d_result = await db.execute(
+        select(func.count(Subscription.id))
+        .where(
+            and_(
+                Subscription.bot_id == bot_id,
+                Subscription.created_at >= thirty_days_ago
+            )
+        )
+    )
+    new_subs_30d = new_subs_30d_result.scalar() or 0
+    
+    # Revenue (30 days)
+    revenue_30d_result = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
+        .where(
+            and_(
+                Transaction.bot_id == bot_id,
+                Transaction.type == TransactionType.DEPOSIT.value,
+                Transaction.is_completed == True,
+                Transaction.created_at >= thirty_days_ago
+            )
+        )
+    )
+    revenue_30d = revenue_30d_result.scalar() or 0
+    
+    # Revenue breakdown by payment method (30 days)
+    revenue_by_method_result = await db.execute(
+        select(
+            Transaction.payment_method,
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total')
+        )
+        .where(
+            and_(
+                Transaction.bot_id == bot_id,
+                Transaction.type == TransactionType.DEPOSIT.value,
+                Transaction.is_completed == True,
+                Transaction.created_at >= thirty_days_ago,
+                Transaction.payment_method.isnot(None)
+            )
+        )
+        .group_by(Transaction.payment_method)
+    )
+    revenue_by_method = {row[0]: row[1] for row in revenue_by_method_result.fetchall()}
+    
+    # User growth metrics
+    # Today
+    new_users_today_result = await db.execute(
+        select(func.count(User.id))
+        .where(
+            and_(
+                User.bot_id == bot_id,
+                User.created_at >= today_start
+            )
+        )
+    )
+    new_users_today = new_users_today_result.scalar() or 0
+    
+    # This week
+    new_users_week_result = await db.execute(
+        select(func.count(User.id))
+        .where(
+            and_(
+                User.bot_id == bot_id,
+                User.created_at >= seven_days_ago
+            )
+        )
+    )
+    new_users_week = new_users_week_result.scalar() or 0
+    
+    # This month
+    new_users_month_result = await db.execute(
+        select(func.count(User.id))
+        .where(
+            and_(
+                User.bot_id == bot_id,
+                User.created_at >= month_start
+            )
+        )
+    )
+    new_users_month = new_users_month_result.scalar() or 0
+    
+    # Build statistics text
+    text = texts.t(
+        "ADMIN_TENANT_BOT_STATISTICS",
+        """📊 <b>Bot Statistics: {name}</b>
+
+📈 <b>Overview (Last 30 days):</b>
+• New Users: {new_users_30d}
+• Active Users: {active_users}
+• New Subscriptions: {new_subs_30d}
+• Revenue: {revenue_30d} Toman
+• Traffic Sold: {traffic_sold} GB"""
+    ).format(
+        name=bot.name,
+        new_users_30d=new_users_30d,
+        active_users=active_users,
+        new_subs_30d=new_subs_30d,
+        revenue_30d=f"{revenue_30d / 100:,.0f}".replace(',', ' '),
+        traffic_sold=f"{bot.traffic_sold_bytes / (1024**3):.2f}"
+    )
+    
+    # Revenue breakdown
+    if revenue_by_method:
+        text += "\n\n💰 <b>Revenue Breakdown:</b>\n"
+        total_revenue = sum(revenue_by_method.values())
+        for method, amount in revenue_by_method.items():
+            percentage = (amount / total_revenue * 100) if total_revenue > 0 else 0
+            text += f"• {method}: {amount / 100:,.0f} Toman ({percentage:.0f}%)\n"
+    
+    # User growth
+    text += "\n👥 <b>User Growth:</b>\n"
+    text += f"• Today: +{new_users_today}\n"
+    text += f"• This Week: +{new_users_week}\n"
+    text += f"• This Month: +{new_users_month}\n"
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_STATS_DETAILED", "📊 Detailed Stats"),
+                callback_data=f"admin_tenant_bot_stats_detailed:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_STATS_REVENUE_CHART", "📈 Revenue Chart"),
+                callback_data=f"admin_tenant_bot_stats_revenue:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_STATS_USERS_LIST", "👥 Users List"),
+                callback_data=f"admin_tenant_bot_stats_users:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_TENANT_BOT_STATS_SUBSCRIPTIONS", "📦 Subscriptions"),
+                callback_data=f"admin_tenant_bot_stats_subs:{bot_id}"
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def show_bot_feature_flags(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show feature flags management for a bot (AC6)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    # Define feature categories as per AC6
+    feature_categories = {
+        "Payment Gateways": [
+            ("yookassa", "YooKassa"),
+            ("cryptobot", "CryptoBot"),
+            ("pal24", "Pal24"),
+            ("card_to_card", "Card-to-Card"),
+            ("zarinpal", "Zarinpal"),
+            ("telegram_stars", "Telegram Stars"),
+            ("heleket", "Heleket"),
+            ("mulenpay", "MulenPay"),
+            ("wata", "WATA"),
+            ("tribute", "Tribute"),
+        ],
+        "Subscription Features": [
+            ("trial", "Trial"),
+            ("auto_renewal", "Auto Renewal"),
+            ("simple_purchase", "Simple Purchase"),
+        ],
+        "Marketing Features": [
+            ("referral_program", "Referral Program"),
+            ("polls", "Polls"),
+        ],
+        "Support Features": [
+            ("support_tickets", "Support Tickets"),
+        ],
+        "Integrations": [
+            ("server_status", "Server Status"),
+            ("monitoring", "Monitoring"),
+        ],
+    }
+    
+    # Get current plan info (if tenant_subscriptions table exists)
+    plan_name = None
+    try:
+        plan_result = await db.execute(
+            text("""
+                SELECT tsp.display_name
+                FROM tenant_subscriptions ts
+                LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
+                WHERE ts.bot_id = :bot_id AND ts.status = 'active'
+                LIMIT 1
+            """),
+            {"bot_id": bot_id}
+        )
+        plan_row = plan_result.fetchone()
+        if plan_row and plan_row[0]:
+            plan_name = plan_row[0]
+    except Exception:
+        # Table doesn't exist yet, skip plan check
+        pass
+    
+    # Build feature flags display
+    text = texts.t(
+        "ADMIN_TENANT_BOT_FEATURES",
+        """🎛️ <b>Feature Flags: {name}</b>
+
+<b>Current Plan:</b> {plan_name}
+
+Select a category to view features:"""
+    ).format(
+        name=bot.name,
+        plan_name=plan_name or "Not assigned"
+    )
+    
+    keyboard_buttons = []
+    
+    # Add category buttons
+    for category_name, features in feature_categories.items():
+        # Count enabled features in this category
+        enabled_count = 0
+        for feature_key, _ in features:
+            is_enabled = await BotConfigService.is_feature_enabled(db, bot_id, feature_key)
+            if is_enabled:
+                enabled_count += 1
+        
+        keyboard_buttons.append([
+            types.InlineKeyboardButton(
+                text=f"{category_name} ({enabled_count}/{len(features)})",
+                callback_data=f"admin_tenant_bot_features_category:{bot_id}:{category_name}"
+            )
+        ])
+    
+    # Back button
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text=texts.BACK,
+            callback_data=f"admin_tenant_bot_detail:{bot_id}"
+        )
+    ])
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def show_bot_feature_flags_category(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show feature flags for a specific category."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        parts = callback.data.split(":")
+        bot_id = int(parts[1])
+        category_name = ":".join(parts[2:])  # Handle category names with colons
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    # Define feature categories
+    feature_categories = {
+        "Payment Gateways": [
+            ("yookassa", "YooKassa"),
+            ("cryptobot", "CryptoBot"),
+            ("pal24", "Pal24"),
+            ("card_to_card", "Card-to-Card"),
+            ("zarinpal", "Zarinpal"),
+            ("telegram_stars", "Telegram Stars"),
+            ("heleket", "Heleket"),
+            ("mulenpay", "MulenPay"),
+            ("wata", "WATA"),
+            ("tribute", "Tribute"),
+        ],
+        "Subscription Features": [
+            ("trial", "Trial"),
+            ("auto_renewal", "Auto Renewal"),
+            ("simple_purchase", "Simple Purchase"),
+        ],
+        "Marketing Features": [
+            ("referral_program", "Referral Program"),
+            ("polls", "Polls"),
+        ],
+        "Support Features": [
+            ("support_tickets", "Support Tickets"),
+        ],
+        "Integrations": [
+            ("server_status", "Server Status"),
+            ("monitoring", "Monitoring"),
+        ],
+    }
+    
+    features = feature_categories.get(category_name, [])
+    if not features:
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid category"),
+            show_alert=True
+        )
+        return
+    
+    # Get current plan and check restrictions
+    plan_name = None
+    plan_restrictions = {}  # feature_key -> required_plan
+    try:
+        plan_result = await db.execute(
+            text("""
+                SELECT tsp.id, tsp.name, tsp.display_name
+                FROM tenant_subscriptions ts
+                LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
+                WHERE ts.bot_id = :bot_id AND ts.status = 'active'
+                LIMIT 1
+            """),
+            {"bot_id": bot_id}
+        )
+        plan_row = plan_result.fetchone()
+        if plan_row and plan_row[0]:
+            plan_id, plan_key, plan_name = plan_row
+            
+            # Check which features are granted by this plan
+            grants_result = await db.execute(
+                text("""
+                    SELECT feature_key, enabled
+                    FROM plan_feature_grants
+                    WHERE plan_tier_id = :plan_id
+                """),
+                {"plan_id": plan_id}
+            )
+            for row in grants_result.fetchall():
+                feature_key, enabled = row
+                if not enabled:
+                    plan_restrictions[feature_key] = plan_name or "Higher Plan"
+    except Exception:
+        # Tables don't exist yet, skip plan restrictions
+        pass
+    
+    # Build feature list
+    text = texts.t(
+        "ADMIN_TENANT_BOT_FEATURES_CATEGORY",
+        """🎛️ <b>{category}: {name}</b>
+
+<b>Current Plan:</b> {plan_name}
+
+<b>Features:</b>"""
+    ).format(
+        category=category_name,
+        name=bot.name,
+        plan_name=plan_name or "Not assigned"
+    )
+    
+    keyboard_buttons = []
+    
+    for feature_key, feature_display in features:
+        is_enabled = await BotConfigService.is_feature_enabled(db, bot_id, feature_key)
+        status_icon = "✅" if is_enabled else "❌"
+        
+        # Check if feature requires a higher plan
+        requires_plan = plan_restrictions.get(feature_key)
+        restriction_text = ""
+        if requires_plan and not is_enabled:
+            restriction_text = f" (Requires {requires_plan})"
+        
+        text += f"\n{status_icon} <b>{feature_display}</b>{restriction_text}"
+        
+        # Add toggle button (master admin can always override)
+        keyboard_buttons.append([
+            types.InlineKeyboardButton(
+                text=f"{'🔴 Disable' if is_enabled else '🟢 Enable'} {feature_display}",
+                callback_data=f"admin_tenant_bot_toggle_feature:{bot_id}:{feature_key}"
+            )
+        ])
+    
+    # Back button
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text=texts.BACK,
+            callback_data=f"admin_tenant_bot_features:{bot_id}"
+        )
+    ])
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def toggle_feature_flag(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Toggle a feature flag for a bot (AC6)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        parts = callback.data.split(":")
+        bot_id = int(parts[1])
+        feature_key = parts[2]
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    # Check plan restrictions (master admin can override)
+    plan_name = None
+    feature_allowed = True
+    try:
+        plan_result = await db.execute(
+            text("""
+                SELECT tsp.id, tsp.name, tsp.display_name
+                FROM tenant_subscriptions ts
+                LEFT JOIN tenant_subscription_plans tsp ON tsp.id = ts.plan_tier_id
+                WHERE ts.bot_id = :bot_id AND ts.status = 'active'
+                LIMIT 1
+            """),
+            {"bot_id": bot_id}
+        )
+        plan_row = plan_result.fetchone()
+        if plan_row and plan_row[0]:
+            plan_id, plan_key, plan_name = plan_row
+            
+            # Check if feature is granted by plan
+            grant_result = await db.execute(
+                text("""
+                    SELECT enabled
+                    FROM plan_feature_grants
+                    WHERE plan_tier_id = :plan_id AND feature_key = :feature_key
+                """),
+                {"plan_id": plan_id, "feature_key": feature_key}
+            )
+            grant_row = grant_result.fetchone()
+            if grant_row:
+                feature_allowed = grant_row[0]
+            # If no grant record exists, feature is not allowed by plan
+            # But master admin can override
+    except Exception:
+        # Tables don't exist, allow toggle (master admin override)
+        feature_allowed = True
+    
+    # Get current value
+    current_value = await BotConfigService.is_feature_enabled(db, bot_id, feature_key)
+    new_value = not current_value
+    
+    # If enabling and plan doesn't allow it, warn but allow (master admin override)
+    if new_value and not feature_allowed and plan_name:
+        # Master admin can override, but show warning
+        await callback.answer(
+            texts.t(
+                "ADMIN_TENANT_BOT_FEATURE_PLAN_RESTRICTION",
+                f"⚠️ This feature requires a higher plan. Overriding as master admin."
+            ),
+            show_alert=True
+        )
+    
+    # Toggle feature using BotConfigService
+    await BotConfigService.set_feature_enabled(db, bot_id, feature_key, new_value)
+    await db.commit()
+    
+    status_text = "enabled" if new_value else "disabled"
+    await callback.answer(f"✅ Feature {status_text}")
+    
+    # Refresh the category view
+    # Find which category this feature belongs to
+    feature_categories = {
+        "Payment Gateways": [
+            ("yookassa", "YooKassa"),
+            ("cryptobot", "CryptoBot"),
+            ("pal24", "Pal24"),
+            ("card_to_card", "Card-to-Card"),
+            ("zarinpal", "Zarinpal"),
+            ("telegram_stars", "Telegram Stars"),
+            ("heleket", "Heleket"),
+            ("mulenpay", "MulenPay"),
+            ("wata", "WATA"),
+            ("tribute", "Tribute"),
+        ],
+        "Subscription Features": [
+            ("trial", "Trial"),
+            ("auto_renewal", "Auto Renewal"),
+            ("simple_purchase", "Simple Purchase"),
+        ],
+        "Marketing Features": [
+            ("referral_program", "Referral Program"),
+            ("polls", "Polls"),
+        ],
+        "Support Features": [
+            ("support_tickets", "Support Tickets"),
+        ],
+        "Integrations": [
+            ("server_status", "Server Status"),
+            ("monitoring", "Monitoring"),
+        ],
+    }
+    
+    # Find category for this feature
+    category_name = None
+    for cat_name, features in feature_categories.items():
+        if any(fk == feature_key for fk, _ in features):
+            category_name = cat_name
+            break
+    
+    if category_name:
+        # Update callback data to show category
+        callback.data = f"admin_tenant_bot_features_category:{bot_id}:{category_name}"
+        await show_bot_feature_flags_category(callback, db_user, db)
+    else:
+        # Fallback to main features view
+        await show_bot_feature_flags(callback, db_user, db)
+
+
+@master_admin_required
+@error_handler
+async def show_bot_payment_methods(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show payment methods management for a bot (AC7 placeholder)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_PAYMENTS",
+        """💳 <b>Payment Methods: {name}</b>
+
+Payment methods management will be implemented in AC7.
+
+[Placeholder - To be implemented]"""
+    ).format(name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def show_bot_plans(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show subscription plans management for a bot (AC8 placeholder)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_PLANS",
+        """📦 <b>Subscription Plans: {name}</b>
+
+Subscription plans management will be implemented in AC8.
+
+[Placeholder - To be implemented]"""
+    ).format(name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def show_bot_configuration_menu(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show configuration management menu for a bot (AC9 placeholder)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_CONFIG",
+        """🔧 <b>Configuration: {name}</b>
+
+Configuration management will be implemented in AC9.
+
+[Placeholder - To be implemented]"""
+    ).format(name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def show_bot_analytics(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Show analytics for a bot (AC10 placeholder)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_ANALYTICS",
+        """📈 <b>Analytics: {name}</b>
+
+Analytics view will be implemented in AC10.
+
+[Placeholder - To be implemented]"""
+    ).format(name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@master_admin_required
+@error_handler
+async def start_delete_bot(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    """Start bot deletion flow with confirmation (AC12 placeholder)."""
+    texts = get_texts(db_user.language)
+    
+    try:
+        bot_id = int(callback.data.split(":")[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
+        return
+    
+    bot = await get_bot_by_id(db, bot_id)
+    if not bot:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
+        return
+    
+    if bot.is_master:
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_CANNOT_DELETE_MASTER", "❌ Cannot delete master bot"),
+            show_alert=True
+        )
+        return
+    
+    text = texts.t(
+        "ADMIN_TENANT_BOT_DELETE_CONFIRM",
+        """🗑️ <b>Delete Bot: {name}</b>
+
+⚠️ <b>WARNING:</b> This action cannot be undone!
+
+This will delete:
+• All users associated with this bot
+• All subscriptions
+• All transactions
+• All configurations and feature flags
+
+Are you sure you want to delete this bot?"""
+    ).format(name=bot.name)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_DELETE_CONFIRM", "✅ Yes, Delete"),
+                callback_data=f"admin_tenant_bot_delete_confirm:{bot_id}"
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_detail:{bot_id}"
+            )
+        ]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
 def register_handlers(dp: Dispatcher) -> None:
     """Register tenant bots handlers."""
     dp.callback_query.register(
@@ -1201,12 +2751,12 @@ def register_handlers(dp: Dispatcher) -> None:
     
     dp.message.register(
         process_bot_name,
-        StateFilter(AdminStates.waiting_for_bot_name)
+        StateFilter(AdminStates.creating_tenant_bot_name)
     )
     
     dp.message.register(
         process_bot_token,
-        StateFilter(AdminStates.waiting_for_bot_token)
+        StateFilter(AdminStates.creating_tenant_bot_token)
     )
     
     dp.callback_query.register(
@@ -1239,6 +2789,48 @@ def register_handlers(dp: Dispatcher) -> None:
         F.data.startswith("admin_tenant_bot_toggle_zarinpal:")
     )
     
+    # Settings edit handlers
+    dp.callback_query.register(
+        start_edit_bot_name,
+        F.data.startswith("admin_tenant_bot_edit_name:")
+    )
+    
+    dp.callback_query.register(
+        start_edit_bot_language,
+        F.data.startswith("admin_tenant_bot_edit_language:")
+    )
+    
+    dp.callback_query.register(
+        start_edit_bot_support,
+        F.data.startswith("admin_tenant_bot_edit_support:")
+    )
+    
+    dp.callback_query.register(
+        start_edit_bot_notifications,
+        F.data.startswith("admin_tenant_bot_edit_notifications:")
+    )
+    
+    # FSM handlers for settings editing
+    dp.message.register(
+        process_edit_bot_name,
+        StateFilter(AdminStates.editing_tenant_bot_name)
+    )
+    
+    dp.message.register(
+        process_edit_bot_language,
+        StateFilter(AdminStates.editing_tenant_bot_language)
+    )
+    
+    dp.message.register(
+        process_edit_bot_support,
+        StateFilter(AdminStates.editing_tenant_bot_support)
+    )
+    
+    dp.message.register(
+        process_edit_bot_notifications,
+        StateFilter(AdminStates.editing_tenant_bot_notifications)
+    )
+    
     dp.callback_query.register(
         update_all_webhooks,
         F.data == "admin_tenant_bots_update_webhooks"
@@ -1247,6 +2839,59 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(
         test_bot_status,
         F.data.startswith("admin_tenant_bot_test:")
+    )
+    
+    # Statistics
+    dp.callback_query.register(
+        show_bot_statistics,
+        F.data.startswith("admin_tenant_bot_stats:")
+    )
+    
+    # Feature flags - register specific handlers first (more specific patterns)
+    dp.callback_query.register(
+        toggle_feature_flag,
+        F.data.startswith("admin_tenant_bot_toggle_feature:")
+    )
+    
+    dp.callback_query.register(
+        show_bot_feature_flags_category,
+        F.data.startswith("admin_tenant_bot_features_category:")
+    )
+    
+    # Main feature flags handler (less specific, must be last)
+    dp.callback_query.register(
+        show_bot_feature_flags,
+        F.data.startswith("admin_tenant_bot_features:")
+    )
+    
+    # Payment methods
+    dp.callback_query.register(
+        show_bot_payment_methods,
+        F.data.startswith("admin_tenant_bot_payments:")
+    )
+    
+    # Subscription plans
+    dp.callback_query.register(
+        show_bot_plans,
+        F.data.startswith("admin_tenant_bot_plans:")
+    )
+    
+    # Configuration
+    dp.callback_query.register(
+        show_bot_configuration_menu,
+        F.data.startswith("admin_tenant_bot_config:")
+    )
+    
+    # Analytics
+    dp.callback_query.register(
+        show_bot_analytics,
+        F.data.startswith("admin_tenant_bot_analytics:")
+    )
+    
+    # Delete bot
+    dp.callback_query.register(
+        start_delete_bot,
+        F.data.startswith("admin_tenant_bot_delete:")
     )
     
     logger.info("✅ Tenant bots admin handlers registered")
