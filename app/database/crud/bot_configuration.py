@@ -39,30 +39,43 @@ async def set_configuration(
     db: AsyncSession,
     bot_id: int,
     config_key: str,
-    config_value: Dict[str, Any]
+    config_value: Dict[str, Any],
+    commit: bool = True,
 ) -> BotConfiguration:
     """
     Set or update a configuration for a bot.
+
     Creates if doesn't exist, updates if exists.
+
+    Args:
+        db: Database session
+        bot_id: Bot ID
+        config_key: Configuration key
+        config_value: Configuration value (JSON-serializable)
+        commit: If True, commit the transaction and refresh the instance.
+                If False, the caller is responsible for committing.
+                Defaults to True for backward compatibility.
     """
     existing = await get_configuration(db, bot_id, config_key)
     
     if existing:
         # Update existing
         existing.config_value = config_value
-        await db.commit()
-        await db.refresh(existing)
+        if commit:
+            await db.commit()
+            await db.refresh(existing)
         return existing
     else:
         # Create new
         configuration = BotConfiguration(
             bot_id=bot_id,
             config_key=config_key,
-            config_value=config_value
+            config_value=config_value,
         )
         db.add(configuration)
-        await db.commit()
-        await db.refresh(configuration)
+        if commit:
+            await db.commit()
+            await db.refresh(configuration)
         return configuration
 
 
@@ -96,22 +109,32 @@ async def get_all_configurations_dict(
 async def delete_configuration(
     db: AsyncSession,
     bot_id: int,
-    config_key: str
+    config_key: str,
+    commit: bool = True,
 ) -> bool:
-    """Delete a configuration."""
+    """Delete a configuration.
+
+    Args:
+        db: Database session
+        bot_id: Bot ID
+        config_key: Configuration key
+        commit: If True, commit the transaction. Caller commits otherwise.
+    """
     result = await db.execute(
         delete(BotConfiguration).where(
             BotConfiguration.bot_id == bot_id,
             BotConfiguration.config_key == config_key
         )
     )
-    await db.commit()
+    if commit:
+        await db.commit()
     return result.rowcount > 0
 
 
 async def delete_all_configurations(
     db: AsyncSession,
-    bot_id: int
+    bot_id: int,
+    commit: bool = True,
 ) -> int:
     """Delete all configurations for a bot."""
     result = await db.execute(
@@ -119,7 +142,8 @@ async def delete_all_configurations(
             BotConfiguration.bot_id == bot_id
         )
     )
-    await db.commit()
+    if commit:
+        await db.commit()
     return result.rowcount
 
 
@@ -127,22 +151,41 @@ async def update_configuration_partial(
     db: AsyncSession,
     bot_id: int,
     config_key: str,
-    partial_value: Dict[str, Any]
+    partial_value: Dict[str, Any],
+    commit: bool = True,
 ) -> Optional[BotConfiguration]:
     """
     Update configuration by merging partial value with existing.
+
     Creates new config if doesn't exist.
+
+    Args:
+        db: Database session
+        bot_id: Bot ID
+        config_key: Configuration key
+        partial_value: Partial value to merge into existing JSON
+        commit: If True, commit the transaction and refresh the instance.
+                If False, the caller is responsible for committing.
     """
     existing = await get_configuration(db, bot_id, config_key)
     
     if existing:
         # Merge with existing
-        current_value = existing.config_value if isinstance(existing.config_value, dict) else {}
+        current_value = (
+            existing.config_value if isinstance(existing.config_value, dict) else {}
+        )
         merged_value = {**current_value, **partial_value}
         existing.config_value = merged_value
-        await db.commit()
-        await db.refresh(existing)
+        if commit:
+            await db.commit()
+            await db.refresh(existing)
         return existing
     else:
         # Create new with partial value
-        return await set_configuration(db, bot_id, config_key, partial_value)
+        return await set_configuration(
+            db,
+            bot_id,
+            config_key,
+            partial_value,
+            commit=commit,
+        )
