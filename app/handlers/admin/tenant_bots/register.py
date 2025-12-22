@@ -50,8 +50,21 @@ from .payments import (
 )
 from .test import test_bot_status
 from .webhook import update_all_webhooks
-from .plans import show_bot_plans
-from .configuration import show_bot_configuration_menu
+from .plans import (
+    show_bot_plans,
+    start_create_plan,
+    process_plan_creation_step,
+    show_plan_detail,
+    toggle_plan_status,
+    start_delete_plan,
+    confirm_delete_plan,
+)
+from .configuration import (
+    show_bot_configuration_menu,
+    show_config_category,
+    start_edit_config,
+    save_config_value,
+)
 from .analytics import show_bot_analytics
 from .common import logger
 
@@ -257,13 +270,70 @@ def register_handlers(dp: Dispatcher) -> None:
     # Plans handlers
     dp.callback_query.register(
         show_bot_plans,
-        F.data.startswith("admin_tenant_bot_plans:")
+        F.data.startswith("admin_tenant_bot_plans:") & ~F.data.contains("_create:") & ~F.data.contains("_delete:") & ~F.data.contains("_detail:") & ~F.data.contains("_toggle:")
+    )
+    
+    dp.callback_query.register(
+        show_plan_detail,
+        F.data.startswith("admin_tenant_bot_plan_detail:")
+    )
+    
+    dp.callback_query.register(
+        toggle_plan_status,
+        F.data.startswith("admin_tenant_bot_plan_toggle:")
+    )
+    
+    dp.callback_query.register(
+        start_create_plan,
+        F.data.startswith("admin_tenant_bot_plans_create:")
+    )
+    
+    dp.callback_query.register(
+        start_delete_plan,
+        F.data.startswith("admin_tenant_bot_plan_delete:") & ~F.data.contains("_confirm:")
+    )
+    
+    dp.callback_query.register(
+        confirm_delete_plan,
+        F.data.startswith("admin_tenant_bot_plan_delete_confirm:")
+    )
+    
+    # Plan creation FSM handlers
+    dp.message.register(
+        process_plan_creation_step,
+        StateFilter(AdminStates.creating_tenant_plan)
     )
     
     # Configuration handlers
+    # Category handlers (must come before main menu to avoid conflicts)
+    dp.callback_query.register(
+        show_config_category,
+        F.data.startswith("admin_tenant_bot_config_basic:") |
+        F.data.startswith("admin_tenant_bot_config_support:") |
+        F.data.startswith("admin_tenant_bot_config_notifications:") |
+        F.data.startswith("admin_tenant_bot_config_subscription:") |
+        F.data.startswith("admin_tenant_bot_config_pricing:") |
+        F.data.startswith("admin_tenant_bot_config_ui:") |
+        F.data.startswith("admin_tenant_bot_config_integrations:") |
+        F.data.startswith("admin_tenant_bot_config_advanced:")
+    )
+    
+    # Edit config handlers (must come before main menu)
+    dp.callback_query.register(
+        start_edit_config,
+        F.data.startswith("admin_tenant_bot_config_edit:")
+    )
+    
+    # Main config menu (matches admin_tenant_bot_config:{bot_id})
     dp.callback_query.register(
         show_bot_configuration_menu,
         F.data.startswith("admin_tenant_bot_config:")
+    )
+    
+    # FSM handler for saving config values
+    dp.message.register(
+        save_config_value,
+        StateFilter(AdminStates.editing_tenant_config_value)
     )
     
     # Analytics handlers

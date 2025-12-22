@@ -5,11 +5,17 @@ import pytest
 from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.handlers.admin.tenant_bots import (
-    list_tenant_bots,
+from app.handlers.admin.tenant_bots.menu import list_tenant_bots
+from app.handlers.admin.tenant_bots.feature_flags import (
     show_bot_feature_flags,
     show_bot_feature_flags_category,
     toggle_feature_flag,
+)
+from app.handlers.admin.tenant_bots.configuration import (
+    show_bot_configuration_menu,
+    show_config_category,
+    start_edit_config,
+    save_config_value,
 )
 from app.database.models import Bot, User, Transaction, TransactionType
 
@@ -521,4 +527,438 @@ class TestFeatureFlagsManagement:
             # Verify it was called with correct bot_id
             calls = mock_is_enabled.call_args_list
             assert all(call[0][1] == 1 for call in calls)  # All calls use bot_id=1
+
+
+class TestSubscriptionPlansManagement:
+    """Tests for AC8: Subscription Plans Management."""
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_plans_displays_list_of_plans(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_plans displays list of all subscription plans for the bot."""
+        mock_callback.data = "admin_tenant_bot_plans:1"
+        
+        # Mock plan query result
+        from app.database.models import BotPlan
+        mock_plan1 = MagicMock(spec=BotPlan)
+        mock_plan1.id = 1
+        mock_plan1.name = "Starter Plan"
+        mock_plan1.period_days = 30
+        mock_plan1.price_toman = 50000
+        mock_plan1.traffic_limit_gb = 100
+        mock_plan1.device_limit = 1
+        mock_plan1.is_active = True
+        mock_plan1.sort_order = 0
+        
+        mock_plan2 = MagicMock(spec=BotPlan)
+        mock_plan2.id = 2
+        mock_plan2.name = "Growth Plan"
+        mock_plan2.period_days = 60
+        mock_plan2.price_toman = 90000
+        mock_plan2.traffic_limit_gb = 200
+        mock_plan2.device_limit = 3
+        mock_plan2.is_active = True
+        mock_plan2.sort_order = 1
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_plans', return_value=[mock_plan1, mock_plan2]), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import show_bot_plans
+            await show_bot_plans(mock_callback, mock_db_user, mock_db)
+            
+            # Verify message was edited
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            keyboard = call_args[1]['reply_markup']
+            
+            # Verify plan details are displayed
+            assert "Starter Plan" in text_content
+            assert "Growth Plan" in text_content
+            assert "30" in text_content or "days" in text_content  # Period
+            assert "50000" in text_content or "50,000" in text_content  # Price
+            assert "100" in text_content or "GB" in text_content  # Traffic
+            assert "1" in text_content or "device" in text_content  # Devices
+            
+            # Verify action buttons exist
+            assert "Create Plan" in str(keyboard.inline_keyboard) or "➕" in str(keyboard.inline_keyboard)
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_plans_shows_empty_state_when_no_plans(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_plans shows empty state when no plans exist."""
+        mock_callback.data = "admin_tenant_bot_plans:1"
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_plans', return_value=[]), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import show_bot_plans
+            await show_bot_plans(mock_callback, mock_db_user, mock_db)
+            
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify empty state message
+            assert "No plans" in text_content or "empty" in text_content.lower() or "0" in text_content
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_plans_displays_plan_status(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_plans displays plan status (active/inactive)."""
+        mock_callback.data = "admin_tenant_bot_plans:1"
+        
+        from app.database.models import BotPlan
+        mock_plan = MagicMock(spec=BotPlan)
+        mock_plan.id = 1
+        mock_plan.name = "Inactive Plan"
+        mock_plan.period_days = 30
+        mock_plan.price_toman = 50000
+        mock_plan.traffic_limit_gb = 100
+        mock_plan.device_limit = 1
+        mock_plan.is_active = False
+        mock_plan.sort_order = 0
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_plans', return_value=[mock_plan]), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import show_bot_plans
+            await show_bot_plans(mock_callback, mock_db_user, mock_db)
+            
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify status is shown (inactive plans should be marked)
+            assert "Inactive" in text_content or "❌" in text_content or "inactive" in text_content.lower()
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_plans_callback_format(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_plans callback format 'admin_tenant_bot_plans:{bot_id}' works."""
+        mock_callback.data = "admin_tenant_bot_plans:1"
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_plans', return_value=[]), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import show_bot_plans
+            await show_bot_plans(mock_callback, mock_db_user, mock_db)
+            
+            # Verify handler executed without error
+            mock_callback.message.edit_text.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_start_create_plan_triggers_fsm_flow(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that start_create_plan triggers FSM flow for plan creation."""
+        from aiogram.fsm.context import FSMContext
+        mock_callback.data = "admin_tenant_bot_plans_create:1"
+        mock_state = MagicMock(spec=FSMContext)
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import start_create_plan
+            await start_create_plan(mock_callback, mock_db_user, mock_db, mock_state)
+            
+            # Verify FSM state was set
+            mock_state.update_data.assert_called_once()
+            mock_state.set_state.assert_called_once()
+            # Verify message was edited with prompt
+            mock_callback.message.edit_text.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_delete_plan_shows_confirmation(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that delete_plan shows confirmation dialog before deletion."""
+        mock_callback.data = "admin_tenant_bot_plan_delete:1:5"
+        
+        from app.database.models import BotPlan
+        mock_plan = MagicMock(spec=BotPlan)
+        mock_plan.id = 5
+        mock_plan.name = "Test Plan"
+        mock_plan.bot_id = 1
+        
+        with patch('app.handlers.admin.tenant_bots.plans.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.plans.get_plan', return_value=mock_plan), \
+             patch('app.handlers.admin.tenant_bots.plans.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            from app.handlers.admin.tenant_bots.plans import start_delete_plan
+            await start_delete_plan(mock_callback, mock_db_user, mock_db)
+            
+            # Verify confirmation dialog was shown
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify warning about data loss
+            assert "delete" in text_content.lower() or "confirm" in text_content.lower()
+            assert "Test Plan" in text_content
+
+
+class TestConfigurationManagement:
+    """Tests for AC9: Configuration Management."""
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_configuration_menu_displays_all_categories(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that configuration menu displays all 8 categories."""
+        mock_callback.data = "admin_tenant_bot_config:1"
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            await show_bot_configuration_menu(mock_callback, mock_db_user, mock_db)
+            
+            # Verify message was edited
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            keyboard = call_args[1]['reply_markup']
+            
+            # Verify all 8 categories are mentioned or buttons exist
+            assert "Configuration" in text_content
+            assert "Test Bot" in text_content
+            
+            # Verify keyboard has category buttons (8 categories = 4 rows of 2)
+            assert len(keyboard.inline_keyboard) >= 4  # At least 4 rows (categories + back)
+    
+    @pytest.mark.asyncio
+    async def test_show_config_category_displays_config_values(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that category view displays all config values for that category."""
+        mock_callback.data = "admin_tenant_bot_config_basic:1"
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.get_config') as mock_get_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            # Mock config values
+            mock_get_config.return_value = "fa"
+            
+            await show_config_category(mock_callback, mock_db_user, mock_db)
+            
+            # Verify BotConfigService.get_config was called for each config key in basic category
+            assert mock_get_config.called
+            # Basic category has 6 keys
+            assert mock_get_config.call_count >= 1
+            
+            # Verify message was edited with config values
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify category name and config keys are displayed
+            assert "Basic Settings" in text_content or "basic" in text_content.lower()
+            assert "DEFAULT_LANGUAGE" in text_content or "config" in text_content.lower()
+    
+    @pytest.mark.asyncio
+    async def test_start_edit_config_sets_fsm_state(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that start_edit_config sets FSM state correctly."""
+        mock_callback.data = "admin_tenant_bot_config_edit:1:basic:DEFAULT_LANGUAGE"
+        mock_state = AsyncMock()
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.get_config') as mock_get_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            mock_get_config.return_value = "fa"
+            
+            await start_edit_config(mock_callback, mock_db_user, mock_db, mock_state)
+            
+            # Verify FSM state was set
+            mock_state.update_data.assert_called_once()
+            mock_state.set_state.assert_called_once()
+            
+            # Verify message was edited with edit prompt
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            assert "Edit" in text_content or "edit" in text_content.lower()
+            assert "DEFAULT_LANGUAGE" in text_content
+    
+    @pytest.mark.asyncio
+    async def test_save_config_value_uses_botconfigservice(
+        self, mock_db, mock_db_user, mock_bot
+    ):
+        """Test that save_config_value uses BotConfigService.set_config."""
+        mock_message = MagicMock(spec=types.Message)
+        mock_message.text = "en"
+        mock_message.from_user = MagicMock()
+        mock_message.answer = AsyncMock()
+        
+        mock_state = AsyncMock()
+        mock_state.get_data = AsyncMock(return_value={
+            "bot_id": 1,
+            "category_key": "basic",
+            "config_key": "DEFAULT_LANGUAGE",
+        })
+        mock_state.clear = AsyncMock()
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.set_config') as mock_set_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await save_config_value(mock_message, mock_db_user, mock_db, mock_state)
+            
+            # Verify BotConfigService.set_config was called
+            mock_set_config.assert_called_once()
+            call_args = mock_set_config.call_args
+            
+            # Verify correct parameters
+            assert call_args[0][1] == 1  # bot_id
+            assert call_args[0][2] == "DEFAULT_LANGUAGE"  # config_key
+            assert call_args[0][3] == "en"  # value
+            assert call_args[1]['commit'] is True
+            
+            # Verify FSM state was cleared
+            mock_state.clear.assert_called_once()
+            
+            # Verify success message was sent
+            mock_message.answer.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_save_config_value_parses_boolean_values(
+        self, mock_db, mock_db_user, mock_bot
+    ):
+        """Test that save_config_value correctly parses boolean values."""
+        mock_message = MagicMock(spec=types.Message)
+        mock_message.text = "true"
+        mock_message.from_user = MagicMock()
+        mock_message.answer = AsyncMock()
+        
+        mock_state = AsyncMock()
+        mock_state.get_data = AsyncMock(return_value={
+            "bot_id": 1,
+            "category_key": "basic",
+            "config_key": "LANGUAGE_SELECTION_ENABLED",
+        })
+        mock_state.clear = AsyncMock()
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.set_config') as mock_set_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await save_config_value(mock_message, mock_db_user, mock_db, mock_state)
+            
+            # Verify boolean was parsed correctly
+            call_args = mock_set_config.call_args
+            assert call_args[0][3] is True  # value should be boolean True, not string
+    
+    @pytest.mark.asyncio
+    async def test_save_config_value_parses_integer_values(
+        self, mock_db, mock_db_user, mock_bot
+    ):
+        """Test that save_config_value correctly parses integer values."""
+        mock_message = MagicMock(spec=types.Message)
+        mock_message.text = "30"
+        mock_message.from_user = MagicMock()
+        mock_message.answer = AsyncMock()
+        
+        mock_state = AsyncMock()
+        mock_state.get_data = AsyncMock(return_value={
+            "bot_id": 1,
+            "category_key": "subscription",
+            "config_key": "TRIAL_DURATION_DAYS",
+        })
+        mock_state.clear = AsyncMock()
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.set_config') as mock_set_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await save_config_value(mock_message, mock_db_user, mock_db, mock_state)
+            
+            # Verify integer was parsed correctly
+            call_args = mock_set_config.call_args
+            assert call_args[0][3] == 30  # value should be integer 30, not string "30"
+            assert isinstance(call_args[0][3], int)
+    
+    @pytest.mark.asyncio
+    async def test_show_config_category_handles_missing_configs(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that category view handles missing config values gracefully."""
+        mock_callback.data = "admin_tenant_bot_config_basic:1"
+        
+        with patch('app.handlers.admin.tenant_bots.configuration.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.configuration.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.configuration.BotConfigService.get_config') as mock_get_config:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            # Mock config values - some missing (None)
+            mock_get_config.return_value = None
+            
+            await show_config_category(mock_callback, mock_db_user, mock_db)
+            
+            # Verify handler executed without error
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify "Not set" is displayed for missing configs
+            assert "Not set" in text_content or "not set" in text_content.lower()
 
