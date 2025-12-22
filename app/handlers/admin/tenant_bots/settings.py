@@ -7,14 +7,13 @@ from app.database.models import User
 from app.database.crud.bot import get_bot_by_id, update_bot
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler, admin_required
-from app.utils.permissions import admin_required as admin_required_decorator
 from app.keyboards.inline import get_back_keyboard
 from app.states import AdminStates
 from app.services.bot_config_service import BotConfigService
 from .common import logger
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def show_bot_settings(
     callback: types.CallbackQuery,
@@ -127,7 +126,7 @@ Select setting to edit:"""
     await callback.answer()
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def toggle_card_to_card(
     callback: types.CallbackQuery,
@@ -164,7 +163,7 @@ async def toggle_card_to_card(
     await show_bot_settings(callback, db_user, db)
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def toggle_zarinpal(
     callback: types.CallbackQuery,
@@ -203,7 +202,7 @@ async def toggle_zarinpal(
     await show_bot_settings(callback, db_user, db)
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def start_edit_bot_name(
     callback: types.CallbackQuery,
@@ -259,7 +258,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def process_edit_bot_name(
     message: types.Message,
@@ -319,7 +318,7 @@ async def process_edit_bot_name(
     )
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def start_edit_bot_language(
     callback: types.CallbackQuery,
@@ -377,7 +376,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def process_edit_bot_language(
     message: types.Message,
@@ -432,7 +431,7 @@ async def process_edit_bot_language(
     )
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def start_edit_bot_support(
     callback: types.CallbackQuery,
@@ -490,7 +489,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def process_edit_bot_support(
     message: types.Message,
@@ -550,7 +549,7 @@ async def process_edit_bot_support(
     )
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def start_edit_bot_notifications(
     callback: types.CallbackQuery,
@@ -609,7 +608,7 @@ To cancel, send /cancel"""
     await callback.answer()
 
 
-@admin_required_decorator
+@admin_required
 @error_handler
 async def process_edit_bot_notifications(
     message: types.Message,

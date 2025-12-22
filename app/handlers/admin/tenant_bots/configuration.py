@@ -247,12 +247,30 @@ async def show_config_category(
     text = "\n".join(lines)
     
     # Build keyboard with edit buttons
+    # Use shorter callback format to avoid Telegram's 64-byte limit
     keyboard_buttons = []
     for config_key in category_info["keys"]:
+        # Shortened format: cfg_edit:{bot_id}:{category}:{key}
+        # This saves ~22 chars compared to admin_tenant_bot_config_edit:
+        callback_data = f"cfg_edit:{bot_id}:{category_key}:{config_key}"
+        
+        # Telegram limit is 64 bytes - verify we're under
+        callback_bytes = len(callback_data.encode('utf-8'))
+        if callback_bytes > 64:
+            # This shouldn't happen with current config keys, but handle gracefully
+            logger.error(
+                f"Callback data too long ({callback_bytes} bytes) for config_key '{config_key}' "
+                f"in category '{category_key}'. Telegram limit is 64 bytes. "
+                f"Consider using a shorter config_key or index-based approach."
+            )
+            # Don't truncate - it would break parsing. Instead, skip this button
+            # or use an alternative approach. For now, we'll skip to avoid invalid callback_data
+            continue
+        
         keyboard_buttons.append([
             types.InlineKeyboardButton(
                 text=f"✏️ Edit {config_key}",
-                callback_data=f"admin_tenant_bot_config_edit:{bot_id}:{category_key}:{config_key}"
+                callback_data=callback_data
             )
         ])
     
@@ -282,14 +300,23 @@ async def start_edit_config(
     texts = get_texts(db_user.language)
     
     try:
-        # Parse: admin_tenant_bot_config_edit:{bot_id}:{category}:{config_key}
-        parts = callback.data.split(":")
-        if len(parts) != 4:
+        # Parse: cfg_edit:{bot_id}:{category}:{config_key}
+        # Support both old and new format for backward compatibility
+        if callback.data.startswith("admin_tenant_bot_config_edit:"):
+            # Old format
+            parts = callback.data.replace("admin_tenant_bot_config_edit:", "").split(":")
+        elif callback.data.startswith("cfg_edit:"):
+            # New shortened format
+            parts = callback.data.replace("cfg_edit:", "").split(":")
+        else:
             raise ValueError("Invalid callback format")
         
-        bot_id = int(parts[1])
-        category_key = parts[2]
-        config_key = parts[3]
+        if len(parts) != 3:
+            raise ValueError("Invalid callback format")
+        
+        bot_id = int(parts[0])
+        category_key = parts[1]
+        config_key = parts[2]
     except (ValueError, IndexError):
         await callback.answer(
             texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),

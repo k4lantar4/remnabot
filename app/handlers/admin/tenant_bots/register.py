@@ -319,9 +319,11 @@ def register_handlers(dp: Dispatcher) -> None:
     )
     
     # Edit config handlers (must come before main menu)
+    # Support both old and new shortened format
     dp.callback_query.register(
         start_edit_config,
-        F.data.startswith("admin_tenant_bot_config_edit:")
+        F.data.startswith("admin_tenant_bot_config_edit:") |
+        F.data.startswith("cfg_edit:")
     )
     
     # Main config menu (matches admin_tenant_bot_config:{bot_id})
