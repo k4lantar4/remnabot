@@ -110,6 +110,10 @@ async def create_bot(
     if commit:
         await db.commit()
         await db.refresh(bot)
+    else:
+        # Flush to ensure the database assigns the ID before returning
+        # This allows callers to use bot.id even when commit=False
+        await db.flush()
     
     return bot, api_token
 
