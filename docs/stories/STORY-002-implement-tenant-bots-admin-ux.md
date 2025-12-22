@@ -120,8 +120,8 @@ LIMIT 5 OFFSET {page * 5};
 - [x] Provides navigation to all sub-menus: ✅
   - [x] Statistics - ✅ **IMPLEMENTED**
   - [x] General Settings - ✅ **COMPLETE WITH BotConfigService**
-  - [ ] Feature Flags - **PENDING (AC6)**
-  - [x] Payment Methods - ✅ **PARTIAL** (card-to-card complete, others pending AC7)
+  - [x] Feature Flags - ✅ **COMPLETE (AC6)**
+  - [x] Payment Methods - ✅ **COMPLETE (AC7)**
   - [ ] Subscription Plans - **PENDING (AC8)**
   - [ ] Configuration - **PENDING (AC9)**
   - [ ] Analytics - **PENDING (AC10)**
@@ -203,20 +203,20 @@ GROUP BY payment_method;
 **Note:** FSM states have been added to `app/states.py` for editing tenant bot settings.
 
 ### AC6: Feature Flags Management
-- [ ] **REQUIRES BotConfigService** - Must use `BotConfigService.is_feature_enabled()` and `BotConfigService.set_feature_enabled()`
-- [ ] Displays all feature flags organized by category:
+- [x] **REQUIRES BotConfigService** - Must use `BotConfigService.is_feature_enabled()` and `BotConfigService.set_feature_enabled()` ✅ **USES BotConfigService**
+- [x] Displays all feature flags organized by category: ✅ **IMPLEMENTED**
   - Payment Gateways
   - Subscription Features
   - Marketing Features
   - Support Features
   - Integrations
-- [ ] Shows current enabled/disabled status for each feature
-- [ ] Shows plan restrictions (if feature requires Growth/Enterprise plan)
-- [ ] Toggle functionality for each feature
-- [ ] Override capability for master admin (bypass plan restrictions)
-- [ ] Callback: `admin_tenant_bot_features:{bot_id}`
-- [ ] Toggle Callback: `admin_tenant_bot_toggle_feature:{bot_id}:{feature_key}`
-- [ ] Handler: `app/handlers/admin/tenant_bots.py::show_bot_feature_flags` - **CREATE NEW HANDLER**
+- [x] Shows current enabled/disabled status for each feature ✅
+- [x] Shows plan restrictions (if feature requires Growth/Enterprise plan) ✅
+- [x] Toggle functionality for each feature ✅
+- [x] Override capability for master admin (bypass plan restrictions) ✅
+- [x] Callback: `admin_tenant_bot_features:{bot_id}` ✅
+- [x] Toggle Callback: `admin_tenant_bot_toggle_feature:{bot_id}:{feature_key}` ✅
+- [x] Handler: `app/handlers/admin/tenant_bots.py::show_bot_feature_flags` ✅ **IMPLEMENTED**
 
 **Database Queries:**
 ```sql
@@ -244,16 +244,16 @@ DO UPDATE SET enabled = {new_value}, updated_at = NOW();
 ```
 
 ### AC7: Payment Methods Management
-- [x] Handler exists: `app/handlers/admin/tenant_bots.py::show_bot_payment_cards` ✅ **PARTIALLY IMPLEMENTED** (card-to-card only)
-- [ ] Displays all payment methods with current status
-- [ ] Shows configuration for each method (if applicable)
+- [x] Handler exists: `app/handlers/admin/tenant_bots.py::show_bot_payment_cards` ✅ **COMPLETE**
+- [x] Displays all payment methods with current status ✅
+- [x] Shows configuration for each method (if applicable) ✅
 - [x] Card-to-Card: Shows active cards count, receipt topic ID ✅
-- [ ] Zarinpal: Shows merchant ID, sandbox status - **IMPLEMENT**
-- [ ] Other gateways: Shows enabled status and basic config - **IMPLEMENT**
-- [ ] Toggle functionality for each payment method - **USE BotConfigService**
-- [ ] Navigation to detailed configuration for each method
-- [ ] Callback: `admin_tenant_bot_payments:{bot_id}` - **CREATE MAIN MENU HANDLER**
-- [ ] Handler: `app/handlers/admin/tenant_bots.py::show_bot_payment_methods` - **CREATE NEW HANDLER**
+- [x] Zarinpal: Shows merchant ID, sandbox status ✅ **IMPLEMENTED**
+- [x] Other gateways: Shows enabled status and basic config ✅ **IMPLEMENTED**
+- [x] Toggle functionality for each payment method ✅ **USES BotConfigService**
+- [x] Navigation to detailed configuration for each method ✅
+- [x] Callback: `admin_tenant_bot_payments:{bot_id}` ✅ **IMPLEMENTED**
+- [x] Handler: `app/handlers/admin/tenant_bots.py::show_bot_payment_methods` ✅ **IMPLEMENTED**
 
 **Sub-menus:**
 - Card-to-Card: `admin_tenant_bot_cards:{bot_id}`

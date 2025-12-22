@@ -232,20 +232,26 @@ LIMIT 5 OFFSET {page * 5};
 
 ### File Structure
 
+The implementation should continue using the modular package created for tenant bots:
+
 ```
 app/handlers/admin/
-├── tenant_bots.py              # Main handler file (already exists, needs expansion)
+├── tenant_bots.py              # Legacy monolithic handlers (being refactored)
 ├── tenant_bots/
-│   ├── __init__.py
-│   ├── menu.py                  # Menu display functions
-│   ├── statistics.py             # Statistics handlers
-│   ├── settings.py              # Settings management
-│   ├── feature_flags.py         # Feature flags management
-│   ├── payments.py              # Payment methods management
-│   ├── plans.py                 # Subscription plans management
-│   ├── configuration.py         # Configuration management
-│   ├── analytics.py             # Analytics handlers
-│   └── create_bot.py            # Bot creation flow
+│   ├── __init__.py             # Re-exports register_handlers
+│   ├── register.py             # Central handler registration
+│   ├── common.py               # Shared imports and utilities
+│   ├── menu.py                 # Main menu, list, pagination, global statistics
+│   ├── create.py               # Bot creation flow (FSM)
+│   ├── detail.py               # Bot detail view and navigation
+│   ├── management.py           # Activate/Deactivate/Delete, webhooks, test helpers
+│   ├── settings.py             # General settings + FSM edits (AC5)
+│   ├── feature_flags.py        # Feature flags management (AC6)
+│   ├── payments.py             # Payment methods management (AC7)
+│   ├── plans.py                # Subscription plans management (AC8)
+│   ├── configuration.py        # Configuration management, categorized (AC9)
+│   ├── statistics.py           # Per-bot statistics view (AC4)
+│   └── analytics.py            # Analytics view (AC10)
 ```
 
 ### Key Implementation Points
@@ -470,24 +476,30 @@ def register_handlers(dp: Dispatcher) -> None:
 
 ## 📁 Files to Create/Modify
 
-### New Files:
-- `app/handlers/admin/tenant_bots/menu.py` - Menu display functions
-- `app/handlers/admin/tenant_bots/statistics.py` - Statistics handlers
-- `app/handlers/admin/tenant_bots/settings.py` - Settings management
-- `app/handlers/admin/tenant_bots/feature_flags.py` - Feature flags management
-- `app/handlers/admin/tenant_bots/payments.py` - Payment methods management
-- `app/handlers/admin/tenant_bots/plans.py` - Subscription plans management
-- `app/handlers/admin/tenant_bots/configuration.py` - Configuration management
-- `app/handlers/admin/tenant_bots/analytics.py` - Analytics handlers
-- `app/handlers/admin/tenant_bots/create_bot.py` - Bot creation flow
+### New / Updated Files (tenant bots package):
+- `app/handlers/admin/tenant_bots/__init__.py`        - Re-export `register_handlers`
+- `app/handlers/admin/tenant_bots/register.py`        - Central handler registration
+- `app/handlers/admin/tenant_bots/common.py`          - Shared imports/utilities
+- `app/handlers/admin/tenant_bots/menu.py`            - Menu display functions (AC1, AC2)
+- `app/handlers/admin/tenant_bots/statistics.py`      - Statistics handlers (AC4)
+- `app/handlers/admin/tenant_bots/settings.py`        - Settings management (AC5)
+- `app/handlers/admin/tenant_bots/feature_flags.py`   - Feature flags management (AC6)
+- `app/handlers/admin/tenant_bots/payments.py`        - Payment methods management (AC7)
+- `app/handlers/admin/tenant_bots/plans.py`           - Subscription plans management (AC8)
+- `app/handlers/admin/tenant_bots/configuration.py`   - Configuration management (AC9)
+- `app/handlers/admin/tenant_bots/analytics.py`       - Analytics handlers (AC10)
+- `app/handlers/admin/tenant_bots/create.py`          - Bot creation flow (AC11)
+- `app/handlers/admin/tenant_bots/detail.py`          - Bot detail menu (AC3)
+- `app/handlers/admin/tenant_bots/management.py`      - Activate/Deactivate/Delete/Test (AC3, AC12, AC13)
 - `tests/handlers/admin/test_tenant_bots.py` - Unit tests
 
 ### Files to Modify:
-- `app/handlers/admin/tenant_bots.py` - Expand existing file with new handlers
-- `app/handlers/admin/main.py` - Add tenant bots menu item
-- `app/states.py` - Add FSM states
-- `app/utils/permissions.py` - Add master admin permission checks
-- `app/keyboards/admin.py` - Add keyboard builders (if needed)
+- `app/handlers/admin/tenant_bots.py`  - Gradually migrate logic into the package and keep only thin glue (or deprecate)
+- `app/handlers/admin/main.py`         - Add/verify tenant bots menu item
+- `app/states.py`                      - Add FSM states
+- `app/utils/permissions.py`           - Add master admin permission checks
+- `app/keyboards/admin.py`             - Add keyboard builders (if needed)
+- `app/bot.py`                         - Wire dispatcher via `app.handlers.admin.tenant_bots.register.register_handlers`
 
 ---
 
@@ -580,33 +592,192 @@ async def test_configuration_changes_reflect_in_bot()
 
 ---
 
+## 🔄 Migration Plan: Legacy → Modular Structure
+
+### Overview
+
+**Current State:** Most handlers are in the legacy monolithic file `app/handlers/admin/tenant_bots.py` (3183 lines).  
+**Target State:** All handlers migrated to modular package `app/handlers/admin/tenant_bots/` with clear separation of concerns.
+
+### Migration Phases
+
+#### Phase 1: Foundation (✅ COMPLETE)
+- [x] Create package structure `app/handlers/admin/tenant_bots/`
+- [x] Create `__init__.py`, `register.py`, `common.py`
+- [x] Migrate menu handlers → `menu.py`
+- [x] Migrate create handlers → `create.py`
+- [x] Migrate detail handler → `detail.py`
+- [x] Migrate management handlers → `management.py`
+
+#### Phase 2: Statistics & Settings (⏳ IN PROGRESS)
+**Goal:** Migrate AC4 and AC5 handlers
+
+**Tasks:**
+- [ ] Extract `show_bot_statistics` from `tenant_bots.py` → `statistics.py`
+- [ ] Extract `show_tenant_bots_statistics` from `tenant_bots.py` → `menu.py` (verify location)
+- [ ] Extract settings handlers from `tenant_bots.py` → `settings.py`:
+  - [ ] `show_bot_settings`
+  - [ ] `toggle_card_to_card`
+  - [ ] `toggle_zarinpal`
+  - [ ] `start_edit_bot_name` / `process_edit_bot_name`
+  - [ ] `start_edit_bot_language` / `process_edit_bot_language`
+  - [ ] `start_edit_bot_support` / `process_edit_bot_support`
+  - [ ] `start_edit_bot_notifications` / `process_edit_bot_notifications`
+- [ ] Update `register.py` imports
+- [ ] Test migrated handlers
+- [ ] Remove from legacy file after verification
+
+#### Phase 3: Feature Flags & Payments (⏳ PENDING)
+**Goal:** Migrate AC6 and AC7 handlers
+
+**Tasks:**
+- [ ] Extract feature flags handlers → `feature_flags.py`:
+  - [ ] `show_bot_feature_flags`
+  - [ ] `show_bot_feature_flags_category`
+  - [ ] `toggle_feature_flag`
+- [ ] Extract payment handlers → `payments.py`:
+  - [ ] `show_bot_payment_cards`
+  - [ ] `show_bot_payment_methods` (placeholder)
+- [ ] Update `register.py` imports
+- [ ] Test migrated handlers
+- [ ] Remove from legacy file after verification
+
+#### Phase 4: Webhook & Test (⏳ PENDING)
+**Goal:** Migrate webhook and test handlers
+
+**Tasks:**
+- [ ] Extract `update_all_webhooks` → `management.py` or `webhook.py`
+- [ ] Extract `test_bot_status` → `management.py`
+- [ ] Update `register.py` imports
+- [ ] Test migrated handlers
+- [ ] Remove from legacy file after verification
+
+#### Phase 5: New Features (⏳ PENDING)
+**Goal:** Implement remaining ACs in new structure
+
+**Tasks:**
+- [ ] Implement AC8 (Subscription Plans) → `plans.py`
+- [ ] Implement AC9 (Configuration) → `configuration.py`
+- [ ] Implement AC10 (Analytics) → `analytics.py`
+- [ ] Complete AC7 (Payment Methods) → `payments.py`
+- [ ] Enhance AC11 (Create Bot) → `create.py`
+
+#### Phase 6: Cleanup (⏳ PENDING)
+**Goal:** Finalize migration and remove legacy code
+
+**Tasks:**
+- [ ] Verify all handlers registered in `register.py`
+- [ ] Update `app/handlers/admin/__init__.py` to import from package
+- [ ] Update `app/bot.py` to use `tenant_bots.register.register_handlers`
+- [ ] Remove or deprecate legacy `tenant_bots.py` file
+- [ ] Run full test suite
+- [ ] Update documentation
+
+### Migration Guidelines
+
+**For each handler migration:**
+
+1. **Extract handler function** from `tenant_bots.py`
+2. **Move to appropriate module** in `tenant_bots/` package
+3. **Update imports:**
+   ```python
+   # Use relative imports for package modules
+   from .common import logger, admin_required, error_handler
+   from app.database.crud.bot import get_bot_by_id
+   from app.services.bot_config_service import BotConfigService
+   ```
+4. **Update `register.py`:**
+   ```python
+   from .statistics import show_bot_statistics
+   from .settings import show_bot_settings, toggle_card_to_card
+   
+   def register_handlers(dp: Dispatcher) -> None:
+       # ... existing registrations ...
+       dp.callback_query.register(
+           show_bot_statistics,
+           F.data.startswith("admin_tenant_bot_stats:")
+       )
+   ```
+5. **Test handler** - Verify callback routing works
+6. **Remove from legacy file** - Delete handler from `tenant_bots.py` after verification
+
+**Import Pattern:**
+- Use `from .common import ...` for shared utilities
+- Use absolute imports for app-level modules
+- Keep imports organized by category (standard library, third-party, local)
+
+**Testing Strategy:**
+- Test each migrated handler individually
+- Verify callback routing works
+- Test FSM handlers with state transitions
+- Run integration tests after each phase
+
+---
+
 ## 📝 Dev Agent Record
+
+### Migration Status: Legacy → Modular Structure
+
+**⚠️ IMPORTANT:** Most implementation is currently in the legacy monolithic file `app/handlers/admin/tenant_bots.py` (3183 lines). The code needs to be migrated to the modular package structure `app/handlers/admin/tenant_bots/` as part of completing this story.
+
+**Migration Progress:**
+- ✅ **Phase 1: Foundation** - Package structure created, core modules migrated
+  - ✅ `menu.py` - Menu, list, pagination handlers
+  - ✅ `create.py` - Bot creation flow
+  - ✅ `detail.py` - Bot detail view
+  - ✅ `management.py` - Activate/deactivate/delete handlers
+  - ✅ `register.py` - Central registration (partial)
+  - ✅ `common.py` - Shared utilities
+
+- ⏳ **Phase 2: Statistics & Settings** - Pending migration
+  - ⏳ `statistics.py` - Statistics handlers (AC4)
+  - ⏳ `settings.py` - Settings management (AC5)
+
+- ⏳ **Phase 3: Feature Flags & Payments** - Pending migration
+  - ⏳ `feature_flags.py` - Feature flags management (AC6)
+  - ⏳ `payments.py` - Payment methods (AC7)
+
+- ⏳ **Phase 4: Remaining Features** - Pending implementation/migration
+  - ⏳ `plans.py` - Subscription plans (AC8)
+  - ⏳ `configuration.py` - Configuration management (AC9)
+  - ⏳ `analytics.py` - Analytics view (AC10)
+  - ⏳ Webhook handlers → `management.py` or separate module
+  - ⏳ Test bot handler → `management.py`
 
 ### Implementation Plan
 
-**Phase 1: Foundation (Completed)**
+**Phase 1: Foundation (✅ COMPLETE)**
+- ✅ Created modular package structure `app/handlers/admin/tenant_bots/`
 - ✅ Created `app/utils/permissions.py` with `is_master_admin()` and `@admin_required` decorator
+- ✅ Migrated menu handlers to `menu.py` (AC1, AC2)
+- ✅ Migrated create handlers to `create.py` (AC11)
+- ✅ Migrated detail handler to `detail.py` (AC3)
+- ✅ Migrated management handlers to `management.py` (AC12)
 - ✅ Enhanced main menu integration with statistics (AC1)
 - ✅ Enhanced list bots with user count, revenue, and plan info (AC2)
 - ✅ Enhanced bot detail menu with all sub-menu navigation (AC3)
-- ✅ Implemented comprehensive statistics view (AC4)
 - ✅ Added all required FSM states to `app/states.py`
 
-**Phase 2: Navigation Structure (Completed)**
-- ✅ All menu navigation handlers registered
-- ✅ Placeholder handlers created for remaining features (AC6, AC7, AC8, AC9, AC10, AC12)
-- ✅ Delete bot confirmation dialog implemented
+**Phase 2: Migration - Statistics & Settings (⏳ IN PROGRESS)**
+- ⏳ Migrate statistics handlers from `tenant_bots.py` → `statistics.py` (AC4)
+- ⏳ Migrate settings handlers from `tenant_bots.py` → `settings.py` (AC5)
+- ⏳ Update `register.py` with new imports
+- ⏳ Test migrated handlers
 
-**Phase 3: Remaining Features (Pending)**
-- ⏳ General Settings Management (AC5) - FSM edit functionality
-- ⏳ Feature Flags Management (AC6) - Full implementation with categories
-- ⏳ Payment Methods Management (AC7) - Full implementation
-- ⏳ Subscription Plans Management (AC8) - Full CRUD operations
-- ⏳ Configuration Management (AC9) - 8 category views
-- ⏳ Analytics View (AC10) - Full implementation
-- ⏳ Create Bot Flow (AC11) - Enhance with language, support, plan selection
-- ⏳ Delete Bot (AC12) - Complete deletion logic
-- ⏳ Test Bot (AC13) - Verify completeness
+**Phase 3: Migration - Feature Flags & Payments (⏳ PENDING)**
+- ⏳ Migrate feature flags handlers from `tenant_bots.py` → `feature_flags.py` (AC6)
+- ⏳ Migrate payment handlers from `tenant_bots.py` → `payments.py` (AC7 - partial)
+- ⏳ Update `register.py` with new imports
+- ⏳ Test migrated handlers
+
+**Phase 4: Remaining Features (⏳ PENDING)**
+- ⏳ Implement Subscription Plans Management (AC8) - Create `plans.py`
+- ⏳ Implement Configuration Management (AC9) - Create `configuration.py`
+- ⏳ Implement Analytics View (AC10) - Create `analytics.py`
+- ⏳ Migrate webhook handlers → `management.py` or separate module
+- ⏳ Migrate test bot handler → `management.py` (AC13)
+- ⏳ Complete payment methods implementation (AC7)
+- ⏳ Enhance Create Bot Flow (AC11) - Add language, support, plan selection
 
 ### Implementation Notes
 
@@ -684,31 +855,40 @@ async def test_configuration_changes_reflect_in_bot()
 
 ### Completion Notes
 
-**Completed Features:**
-1. **AC1: Main Menu Integration** - Fully functional with statistics display
-2. **AC2: List Bots with Pagination** - Enhanced with user count, revenue, and plan info
-3. **AC3: Bot Detail Menu** - Complete with all sub-menu navigation options
-4. **AC4: Statistics View** - Comprehensive statistics with revenue breakdown and user growth
-5. **AC5: General Settings Management** - Complete edit functionality for Name, Language, Support, Notifications with FSM handlers
-6. **AC6: Feature Flags Management** - Categorized view with plan restrictions and master admin override
-7. **AC14: Permission Checks** - Master admin utilities and decorator implemented
+**⚠️ Migration Required:** All completed features are currently in the legacy `tenant_bots.py` file and need to be migrated to the modular package structure.
 
-**Placeholder Handlers Created:**
-- AC7: Payment Methods (placeholder)
-- AC8: Subscription Plans (placeholder)
-- AC9: Configuration (placeholder)
-- AC10: Analytics (placeholder)
-- AC12: Delete Bot (confirmation dialog implemented, deletion logic pending)
+**Completed Features (in Legacy File - Need Migration):**
+1. **AC1: Main Menu Integration** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/menu.py` ✅ **MIGRATED**
+2. **AC2: List Bots with Pagination** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/menu.py` ✅ **MIGRATED**
+3. **AC3: Bot Detail Menu** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/detail.py` ✅ **MIGRATED**
+4. **AC4: Statistics View** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/statistics.py` ⏳ **PENDING MIGRATION**
+5. **AC5: General Settings Management** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/settings.py` ⏳ **PENDING MIGRATION**
+6. **AC6: Feature Flags Management** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/feature_flags.py` ⏳ **PENDING MIGRATION**
+7. **AC11: Create Bot Flow** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/create.py` ✅ **MIGRATED**
+8. **AC12: Delete Bot** - ✅ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/management.py` ✅ **MIGRATED**
+9. **AC14: Permission Checks** - ✅ Implemented in `app/utils/permissions.py` (no migration needed)
 
-**Next Steps:**
-1. Implement AC7: Payment Methods Management
-2. Implement AC8: Subscription Plans Management (CRUD operations)
-3. Implement AC9: Configuration Management (8 categories)
-4. Implement AC10: Analytics View
-5. Enhance AC11: Create Bot Flow (add language, support, plan selection)
-6. Complete AC12: Delete Bot (implement actual deletion)
-7. Verify AC13: Test Bot functionality (already implemented, verify completeness)
-8. Write comprehensive unit and integration tests
+**Placeholder Handlers (in Legacy File - Need Implementation/Migration):**
+- AC7: Payment Methods - ⏳ Partial implementation in `tenant_bots.py` → **Target:** `tenant_bots/payments.py`
+- AC8: Subscription Plans - ⏳ Placeholder in `tenant_bots.py` → **Target:** `tenant_bots/plans.py`
+- AC9: Configuration - ⏳ Placeholder in `tenant_bots.py` → **Target:** `tenant_bots/configuration.py`
+- AC10: Analytics - ⏳ Placeholder in `tenant_bots.py` → **Target:** `tenant_bots/analytics.py`
+- AC13: Test Bot - ⏳ Implemented in `tenant_bots.py` → **Target:** `tenant_bots/management.py` ⏳ **PENDING MIGRATION**
+
+**Next Steps (Migration & Completion):**
+1. **Migrate Statistics** - Extract AC4 handlers from `tenant_bots.py` → `statistics.py`
+2. **Migrate Settings** - Extract AC5 handlers from `tenant_bots.py` → `settings.py`
+3. **Migrate Feature Flags** - Extract AC6 handlers from `tenant_bots.py` → `feature_flags.py`
+4. **Migrate Test Bot** - Extract AC13 handler from `tenant_bots.py` → `management.py`
+5. **Migrate Webhook** - Extract webhook handlers from `tenant_bots.py` → `management.py` or separate module
+6. **Complete Payment Methods** - Implement AC7 in `payments.py`
+7. **Implement Subscription Plans** - Create AC8 in `plans.py`
+8. **Implement Configuration** - Create AC9 in `configuration.py` (8 categories)
+9. **Implement Analytics** - Create AC10 in `analytics.py`
+10. **Enhance Create Bot** - Add language, support, plan selection to AC11
+11. **Update Registration** - Complete `register.py` with all handlers
+12. **Cleanup Legacy File** - Remove migrated handlers from `tenant_bots.py`
+13. **Write Tests** - Comprehensive unit and integration tests
 
 ---
 

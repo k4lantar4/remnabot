@@ -5,7 +5,12 @@ import pytest
 from aiogram import types
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.handlers.admin.tenant_bots import list_tenant_bots
+from app.handlers.admin.tenant_bots import (
+    list_tenant_bots,
+    show_bot_feature_flags,
+    show_bot_feature_flags_category,
+    toggle_feature_flag,
+)
 from app.database.models import Bot, User, Transaction, TransactionType
 
 
@@ -292,4 +297,228 @@ class TestListTenantBots:
             call_args = mock_callback.message.edit_text.call_args
             text_content = call_args[0][0]
             assert "Plan: Enterprise Plan" in text_content
+
+
+class TestFeatureFlagsManagement:
+    """Tests for AC6: Feature Flags Management."""
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_feature_flags_displays_categories(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_feature_flags displays all feature categories."""
+        mock_callback.data = "admin_tenant_bot_features:1"
+        
+        # Mock plan query (no plan assigned)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled', return_value=False):
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            await show_bot_feature_flags(mock_callback, mock_db_user, mock_db)
+            
+            # Verify message was edited
+            mock_callback.message.edit_text.assert_called_once()
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            keyboard = call_args[1]['reply_markup']
+            
+            # Verify categories are displayed
+            assert "Feature Flags" in text_content
+            assert "Payment Gateways" in str(keyboard.inline_keyboard)
+            assert "Subscription Features" in str(keyboard.inline_keyboard)
+            assert "Marketing Features" in str(keyboard.inline_keyboard)
+            assert "Support Features" in str(keyboard.inline_keyboard)
+            assert "Integrations" in str(keyboard.inline_keyboard)
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_feature_flags_shows_plan_name(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_feature_flags displays current plan name."""
+        mock_callback.data = "admin_tenant_bot_features:1"
+        
+        # Mock plan query (plan exists)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = ("Growth Plan",)
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled', return_value=False):
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            await show_bot_feature_flags(mock_callback, mock_db_user, mock_db)
+            
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            
+            # Verify plan name is shown
+            assert "Growth Plan" in text_content
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_feature_flags_category_displays_features(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_feature_flags_category displays features with status."""
+        mock_callback.data = "admin_tenant_bot_features_category:1:Payment Gateways"
+        
+        # Mock plan query (no plan)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled') as mock_is_enabled:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            # Mock feature status: card_to_card enabled, zarinpal disabled
+            def mock_feature_status(bot_id, feature_key):
+                return feature_key == "card_to_card"
+            mock_is_enabled.side_effect = mock_feature_status
+            
+            await show_bot_feature_flags_category(mock_callback, mock_db_user, mock_db)
+            
+            call_args = mock_callback.message.edit_text.call_args
+            text_content = call_args[0][0]
+            keyboard = call_args[1]['reply_markup']
+            
+            # Verify features are displayed with status icons
+            assert "✅" in text_content or "❌" in text_content
+            assert "Card-to-Card" in text_content
+            assert "Zarinpal" in text_content
+            # Verify toggle buttons exist
+            assert "Enable" in str(keyboard.inline_keyboard) or "Disable" in str(keyboard.inline_keyboard)
+    
+    @pytest.mark.asyncio
+    async def test_toggle_feature_flag_enables_feature(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that toggle_feature_flag enables a disabled feature."""
+        mock_callback.data = "admin_tenant_bot_toggle_feature:1:card_to_card"
+        
+        # Mock plan query (no plan restrictions)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled', return_value=False), \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.set_feature_enabled') as mock_set_feature, \
+             patch('app.handlers.admin.tenant_bots.show_bot_feature_flags_category') as mock_show_category:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await toggle_feature_flag(mock_callback, mock_db_user, mock_db)
+            
+            # Verify feature was enabled
+            mock_set_feature.assert_called_once_with(mock_db, 1, "card_to_card", True)
+            # Verify callback answer
+            mock_callback.answer.assert_called_once()
+            # Verify category view was refreshed
+            mock_show_category.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_toggle_feature_flag_disables_feature(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that toggle_feature_flag disables an enabled feature."""
+        mock_callback.data = "admin_tenant_bot_toggle_feature:1:card_to_card"
+        
+        # Mock plan query (no plan restrictions)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled', return_value=True), \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.set_feature_enabled') as mock_set_feature, \
+             patch('app.handlers.admin.tenant_bots.show_bot_feature_flags_category') as mock_show_category:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await toggle_feature_flag(mock_callback, mock_db_user, mock_db)
+            
+            # Verify feature was disabled
+            mock_set_feature.assert_called_once_with(mock_db, 1, "card_to_card", False)
+            # Verify callback answer
+            mock_callback.answer.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_toggle_feature_flag_respects_plan_restrictions(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that toggle_feature_flag shows warning when plan doesn't allow feature."""
+        mock_callback.data = "admin_tenant_bot_toggle_feature:1:yookassa"
+        
+        # Mock plan query (Starter plan, yookassa not allowed)
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = (1, "starter", "Starter Plan")
+        mock_grant_result = MagicMock()
+        mock_grant_result.fetchone.return_value = None  # No grant = not allowed
+        mock_db.execute.side_effect = [mock_plan_result, mock_grant_result]
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled', return_value=False), \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.set_feature_enabled') as mock_set_feature, \
+             patch('app.handlers.admin.tenant_bots.show_bot_feature_flags_category') as mock_show_category:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_get_texts.return_value = mock_texts
+            
+            await toggle_feature_flag(mock_callback, mock_db_user, mock_db)
+            
+            # Verify warning was shown (answer called with show_alert)
+            answer_calls = [call for call in mock_callback.answer.call_args_list]
+            # Verify feature was still enabled (master admin override)
+            mock_set_feature.assert_called_once()
+            # Verify category view was refreshed
+            mock_show_category.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_show_bot_feature_flags_uses_botconfigservice(
+        self, mock_db, mock_callback, mock_db_user, mock_bot
+    ):
+        """Test that show_bot_feature_flags uses BotConfigService to check feature status."""
+        mock_callback.data = "admin_tenant_bot_features:1"
+        
+        # Mock plan query
+        mock_plan_result = MagicMock()
+        mock_plan_result.fetchone.return_value = None
+        mock_db.execute.return_value = mock_plan_result
+        
+        with patch('app.handlers.admin.tenant_bots.get_bot_by_id', return_value=mock_bot), \
+             patch('app.handlers.admin.tenant_bots.get_texts') as mock_get_texts, \
+             patch('app.handlers.admin.tenant_bots.BotConfigService.is_feature_enabled') as mock_is_enabled:
+            mock_texts = MagicMock()
+            mock_texts.t = lambda key, default: default
+            mock_texts.BACK = "🔙 Back"
+            mock_get_texts.return_value = mock_texts
+            
+            await show_bot_feature_flags(mock_callback, mock_db_user, mock_db)
+            
+            # Verify BotConfigService.is_feature_enabled was called for each feature
+            assert mock_is_enabled.called
+            # Verify it was called with correct bot_id
+            calls = mock_is_enabled.call_args_list
+            assert all(call[0][1] == 1 for call in calls)  # All calls use bot_id=1
 

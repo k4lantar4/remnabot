@@ -55,19 +55,30 @@ class BotConfigService:
         bot_id: int,
         feature_key: str,
         enabled: bool,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
+        commit: bool = True,
     ) -> None:
         """
         Set or update a feature flag for a bot.
-        
+
         Args:
             db: Database session
             bot_id: Bot ID
             feature_key: Feature key
             enabled: True/False
             config: Optional config dict for the feature
+            commit: If True, commit the transaction. If False, the caller is
+                    responsible for committing. Defaults to True for backward
+                    compatibility.
         """
-        await set_feature_flag(db, bot_id, feature_key, enabled, config)
+        await set_feature_flag(
+            db=db,
+            bot_id=bot_id,
+            feature_key=feature_key,
+            enabled=enabled,
+            config=config,
+            commit=commit,
+        )
     
     @staticmethod
     async def get_config(
@@ -111,19 +122,23 @@ class BotConfigService:
         db: AsyncSession,
         bot_id: int,
         config_key: str,
-        value: Any
+        value: Any,
+        commit: bool = True,
     ) -> None:
         """
         Set or update a configuration value for a bot.
         
         JSONB Normalization: When storing simple values (string, int, bool), wraps in
         {'value': ...} dict. When storing complex objects, stores as-is.
-        
+
         Args:
             db: Database session
             bot_id: Bot ID
             config_key: Config key
             value: Config value (can be string, int, bool, dict, etc.)
+            commit: If True, commit the transaction. If False, the caller is
+                    responsible for committing. Defaults to True for backward
+                    compatibility.
         """
         # Normalize value for JSONB storage
         if isinstance(value, (str, int, bool, float, type(None))):
@@ -133,5 +148,11 @@ class BotConfigService:
             # Complex objects: store as-is
             normalized_value = value
         
-        await set_configuration(db, bot_id, config_key, normalized_value)
+        await set_configuration(
+            db=db,
+            bot_id=bot_id,
+            config_key=config_key,
+            config_value=normalized_value,
+            commit=commit,
+        )
 

@@ -73,11 +73,24 @@ async def create_bot(
     telegram_bot_token: str,
     is_master: bool = False,
     is_active: bool = True,
+    commit: bool = True,
     **kwargs
 ) -> tuple[Bot, str]:
     """
     Create a new bot.
-    Returns: (Bot instance, plain API token)
+    
+    Args:
+        db: Database session
+        name: Bot name
+        telegram_bot_token: Telegram bot token
+        is_master: Whether this is the master bot
+        is_active: Whether the bot is active
+        commit: If True, commit the transaction. If False, caller must commit.
+                Default True for backward compatibility.
+        **kwargs: Additional bot fields
+    
+    Returns:
+        Tuple of (Bot instance, plain API token)
     """
     # Generate API token
     api_token = generate_api_token()
@@ -94,8 +107,9 @@ async def create_bot(
     )
     
     db.add(bot)
-    await db.commit()
-    await db.refresh(bot)
+    if commit:
+        await db.commit()
+        await db.refresh(bot)
     
     return bot, api_token
 
@@ -103,16 +117,30 @@ async def create_bot(
 async def update_bot(
     db: AsyncSession,
     bot_id: int,
+    commit: bool = True,
     **kwargs
 ) -> Optional[Bot]:
-    """Update bot fields."""
+    """
+    Update bot fields.
+    
+    Args:
+        db: Database session
+        bot_id: Bot ID
+        commit: If True, commit the transaction. If False, caller must commit.
+                Default True for backward compatibility.
+        **kwargs: Fields to update
+    
+    Returns:
+        Updated Bot instance or None if not found
+    """
     result = await db.execute(
         update(Bot)
         .where(Bot.id == bot_id)
         .values(**kwargs)
         .returning(Bot)
     )
-    await db.commit()
+    if commit:
+        await db.commit()
     return result.scalar_one_or_none()
 
 

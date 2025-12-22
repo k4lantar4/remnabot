@@ -228,7 +228,7 @@ ALTER TABLE bots
 
 ### Files to Modify:
 - `app/database/models.py` - Remove redundant columns from `Bot` model
-- All handler files that access redundant columns (to be identified via grep)
+- All handler files that access redundant columns (to be identified via grep), including the modular tenant bots package under `app/handlers/admin/tenant_bots/`
 - All service files that access redundant columns
 
 ---
