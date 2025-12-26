@@ -106,14 +106,12 @@ class MainMenuButtonService:
             if item.visibility == MainMenuButtonVisibility.SUBSCRIBERS and not has_subscription:
                 continue
 
-            # Проверка реферальной программы: скрыть кнопки, связанные с рефералами, если программа отключена
+            # Referral program check: hide buttons related to referrals if program is disabled
             if (
                 not settings.is_referral_program_enabled()
                 and (
                     "partner" in item.text.lower()
                     or "referr" in item.text.lower()
-                    or "партнер" in item.text.lower()
-                    or "реферал" in item.text.lower()
                     or "referral" in item.action_value.lower()
                 )
             ):

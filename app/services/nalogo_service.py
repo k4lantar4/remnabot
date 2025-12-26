@@ -107,7 +107,7 @@ class NaloGoService:
 
             receipt_uuid = result.get("approvedReceiptUuid")
             if receipt_uuid:
-                logger.info(f"Чек создан успешно: {receipt_uuid} на сумму {amount}₽")
+                logger.info(f"Чек создан успешно: {receipt_uuid} на сумму {amount} Toman")
                 return receipt_uuid
             else:
                 logger.error(f"Ошибка создания чека: {result}")

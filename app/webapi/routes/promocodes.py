@@ -50,8 +50,7 @@ def _serialize_promocode(promocode: PromoCode) -> PromoCodeResponse:
         id=promocode.id,
         code=promocode.code,
         type=promo_type,
-        balance_bonus_kopeks=promocode.balance_bonus_kopeks,
-        balance_bonus_rubles=round(promocode.balance_bonus_kopeks / 100, 2),
+        balance_bonus_toman=promocode.balance_bonus_toman,
         subscription_days=promocode.subscription_days,
         max_uses=promocode.max_uses,
         current_uses=promocode.current_uses,
@@ -85,7 +84,7 @@ def _validate_create_payload(payload: PromoCodeCreateRequest) -> None:
     normalized_valid_from = _normalize_datetime(payload.valid_from)
     normalized_valid_until = _normalize_datetime(payload.valid_until)
 
-    if payload.type == PromoCodeType.BALANCE and payload.balance_bonus_kopeks <= 0:
+    if payload.type == PromoCodeType.BALANCE and payload.balance_bonus_toman <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Balance bonus must be positive for balance promo codes")
 
     if payload.type in {PromoCodeType.SUBSCRIPTION_DAYS, PromoCodeType.TRIAL_SUBSCRIPTION} and payload.subscription_days <= 0:
@@ -105,9 +104,9 @@ def _validate_update_payload(payload: PromoCodeUpdateRequest, promocode: PromoCo
         new_type = PromoCodeType(promocode.type)
 
     balance_bonus = (
-        payload.balance_bonus_kopeks
-        if payload.balance_bonus_kopeks is not None
-        else promocode.balance_bonus_kopeks
+        payload.balance_bonus_toman
+        if payload.balance_bonus_toman is not None
+        else promocode.balance_bonus_toman
     )
     subscription_days = (
         payload.subscription_days
@@ -209,7 +208,7 @@ async def create_promocode_endpoint(
         db,
         code=normalized_code,
         type=payload.type,
-        balance_bonus_kopeks=payload.balance_bonus_kopeks,
+        balance_bonus_toman=payload.balance_bonus_toman,
         subscription_days=payload.subscription_days,
         max_uses=payload.max_uses,
         valid_until=normalized_valid_until,
@@ -256,8 +255,8 @@ async def update_promocode_endpoint(
     if payload.type is not None:
         updates["type"] = payload.type.value
 
-    if payload.balance_bonus_kopeks is not None:
-        updates["balance_bonus_kopeks"] = payload.balance_bonus_kopeks
+    if payload.balance_bonus_toman is not None:
+        updates["balance_bonus_toman"] = payload.balance_bonus_toman
 
     if payload.subscription_days is not None:
         updates["subscription_days"] = payload.subscription_days

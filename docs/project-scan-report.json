@@ -1,62 +1,86 @@
 {
   "workflow_version": "1.2.0",
   "timestamps": {
-    "started": "2025-12-25T12:00:00Z",
-    "last_updated": "2025-12-25T12:30:00Z",
-    "completed": "2025-12-25T12:30:00Z"
+    "started": "2025-12-11T23:33:39Z",
+    "last_updated": "2025-12-12T14:48:14Z",
+    "completed": "2025-12-12T14:48:14Z"
   },
   "mode": "initial_scan",
   "scan_level": "exhaustive",
-  "project_root": "/home/k4lantar4/dev/remnabot.worktrees/dev5-from-upstream",
-  "output_folder": "/home/k4lantar4/dev/remnabot.worktrees/dev5-from-upstream/docs",
+  "project_root": "/home/k4lantar4/dev/remnabot",
+  "output_folder": "/home/k4lantar4/dev/remnabot/docs",
   "completed_steps": [
     {
       "step": "step_1",
       "status": "completed",
-      "timestamp": "2025-12-25T12:05:00Z",
-      "summary": "Classified as monolith with 1 part: backend (Python/aiogram/FastAPI)"
+      "timestamp": "2025-12-11T23:33:39Z",
+      "summary": "Classified as monolith backend project (Python/FastAPI/aiogram)"
     },
     {
       "step": "step_2",
       "status": "completed",
-      "timestamp": "2025-12-25T12:08:00Z",
-      "summary": "Found 10 existing documentation files"
+      "timestamp": "2025-12-12T14:32:21Z",
+      "summary": "Found 7 existing documentation files (README.md, CONTRIBUTING.md, 5 docs/*.md from upstream)"
     },
     {
       "step": "step_3",
       "status": "completed",
-      "timestamp": "2025-12-25T12:12:00Z",
-      "summary": "Tech stack: Python 3.13+, aiogram 3, FastAPI, SQLAlchemy, PostgreSQL, Redis"
+      "timestamp": "2025-12-12T14:34:29Z",
+      "summary": "Tech stack analyzed: Python 3.13, aiogram 3.22, FastAPI 0.115, SQLAlchemy 2.0, PostgreSQL/SQLite, Redis"
     },
     {
       "step": "step_4",
       "status": "completed",
-      "timestamp": "2025-12-25T12:18:00Z",
-      "summary": "API contracts (150+ endpoints) and data models (35+ tables) documented"
+      "timestamp": "2025-12-12T14:38:47Z",
+      "summary": "Conditional analysis complete: API contracts (27 routes), Data models (40+ tables), deployment config analyzed"
     },
     {
       "step": "step_5",
       "status": "completed",
-      "timestamp": "2025-12-25T12:20:00Z",
-      "summary": "Source tree documented in project-structure.md"
+      "timestamp": " "2025-12-12T14:42:53Z",
+      "summary": "Source tree analysis complete: documented complete directory structure with annotations"
     },
     {
       "step": "step_6",
       "status": "completed",
-      "timestamp": "2025-12-25T12:25:00Z",
-      "summary": "Development guide created with setup, testing, and best practices"
+      "timestamp": "2025-12-12T14:44:15Z",
+      "summary": "Development and operational information extracted: setup, build, test, deployment documented"
+    },
+    {
+      "step": "step_7",
+      "status": "skipped",
+      "timestamp": "2025-12-12T14:44:15Z",
+      "summary": "Skipped - monolith project, no multi-part integration"
+    },
+    {
+      "step": "step_8",
+      "status": "completed",
+      "timestamp": "2025-12-12T14:46:03Z",
+      "summary": "Architecture documentation generated: comprehensive architecture doc with all components"
+    },
+    {
+      "step": "step_9",
+      "status": "completed",
+      "timestamp": "2025-12-12T14:46:59Z",
+      "summary": "Supporting documentation generated: project-overview.md"
     },
     {
       "step": "step_10",
       "status": "completed",
-      "timestamp": "2025-12-25T12:28:00Z",
-      "summary": "Master index (index.md) generated"
+      "timestamp": "2025-12-12T14:47:30Z",
+      "summary": "Master index generated: index.md with navigation to all documentation"
+    },
+    {
+      "step": "step_11",
+      "status": "completed",
+      "timestamp": "2025-12-12T14:48:14Z",
+      "summary": "Validation complete: no incomplete documentation found, all files generated successfully"
     },
     {
       "step": "step_12",
       "status": "completed",
-      "timestamp": "2025-12-25T12:30:00Z",
-      "summary": "Workflow complete"
+      "timestamp": "2025-12-12T14:48:14Z",
+      "summary": "Workflow finalized: documentation complete and ready for brownfield PRD"
     }
   ],
   "current_step": "completed",
@@ -64,41 +88,103 @@
     "project_classification": {
       "repository_type": "monolith",
       "parts_count": 1,
-      "primary_tech": "Python 3.13+ with aiogram 3, FastAPI, SQLAlchemy"
+      "primary_tech": "Python 3.13+ with FastAPI and aiogram 3",
+      "project_types": [
+        {
+          "part_id": "main",
+          "project_type_id": "backend",
+          "display_name": "Backend (Python)"
+        }
+      ]
+    },
+    "existing_documentation": {
+      "count": 7,
+      "files": [
+        {"path": "README.md", "type": "readme", "language": "Russian"},
+        {"path": "CONTRIBUTING.md", "type": "contributing", "language": "Russian"},
+        {"path": "docs/miniapp-setup.md", "type": "setup", "language": "Russian"},
+        {"path": "docs/project_structure_reference.md", "type": "architecture", "language": "Russian"},
+        {"path": "docs/web-admin-integration.md", "type": "api", "language": "Russian"},
+        {"path": "docs/persistent_cart_system.md", "type": "feature", "language": "Russian"},
+        {"path": "docs/referral_program_setting.md", "type": "feature", "language": "Russian"}
+      ]
     },
     "technology_stack": {
-      "language": "Python 3.13+",
-      "bot_framework": "aiogram 3.22.0",
-      "api_framework": "FastAPI 0.115.6",
-      "orm": "SQLAlchemy 2.0.43",
-      "database": "PostgreSQL 15+ / SQLite",
-      "cache": "Redis 5.0.1"
+      "primary_language": "Python 3.13+",
+      "architecture_pattern": "Service-Oriented Architecture (Layered: Handlers -> Services -> Database)",
+      "frameworks": [
+        {"name": "aiogram", "version": "3.22.0", "purpose": "Telegram Bot Framework"},
+        {"name": "FastAPI", "version": "0.115.6", "purpose": "REST API Framework"},
+        {"name": "Flask", "version": "3.1.0", "purpose": "Webhook Server (PayPalych)"}
+      ],
+      "database": [
+        {"name": "PostgreSQL", "version": "15+", "driver": "asyncpg 0.30.0", "purpose": "Primary database"},
+        {"name": "SQLite", "driver": "aiosqlite 0.21.0", "purpose": "Development/fallback database"},
+        {"name": "SQLAlchemy", "version": "2.0.43", "purpose": "ORM"},
+        {"name": "Alembic", "version": "1.16.5", "purpose": "Database migrations"}
+      ],
+      "cache": [
+        {"name": "Redis", "version": "5.0.1", "purpose": "Session storage, cart persistence"}
+      ],
+      "http_servers": [
+        {"name": "uvicorn", "version": "0.32.1", "purpose": "ASGI server for FastAPI"},
+        {"name": "aiohttp", "version": "3.12.15", "purpose": "Async HTTP client"}
+      ],
+      "validation": [
+        {"name": "Pydantic", "version": "2.11.9", "purpose": "Data validation"},
+        {"name": "pydantic-settings", "version": "2.10.1", "purpose": "Settings management"}
+      ],
+      "payment_sdks": [
+        {"name": "yookassa", "version": "3.7.0", "purpose": "YooKassa payment integration"}
+      ],
+      "utilities": [
+        {"name": "python-dotenv", "version": "1.1.1", "purpose": "Environment variables"},
+        {"name": "structlog", "version": "23.2.0", "purpose": "Structured logging"},
+        {"name": "APScheduler", "version": "3.11.0", "purpose": "Task scheduling"},
+        {"name": "cryptography", "version": ">=41.0.0", "purpose": "Cryptographic operations"},
+        {"name": "qrcode[pil]", "version": "7.4.2", "purpose": "QR code generation"}
+      ],
+      "containerization": [
+        {"name": "Docker", "purpose": "Containerization"},
+        {"name": "docker-compose", "purpose": "Multi-container orchestration"}
+      ]
     },
-    "api_summary": {
-      "modules": 32,
-      "estimated_endpoints": "150+"
+    "api_analysis": {
+      "total_routes": 27,
+      "route_modules": [
+        "health", "stats", "config", "users", "subscriptions", "tickets", "transactions",
+        "promo-groups", "promo-offers", "servers", "main-menu", "welcome-texts", "pages",
+        "promo-codes", "broadcasts", "backups", "campaigns", "tokens", "remnawave", "media",
+        "miniapp", "partners", "polls", "logs", "subscription-events"
+      ],
+      "authentication": "Token-based (X-API-Key or Bearer)",
+      "base_path": "/",
+      "documentation_available": true
     },
-    "data_models_summary": {
-      "tables": "35+",
-      "migrations": 12
+    "data_models_analysis": {
+      "total_tables": 40,
+      "core_models": ["User", "Subscription", "Transaction", "PromoCode", "PromoGroup"],
+      "payment_models": 7,
+      "support_models": 2,
+      "content_models": 7,
+      "system_models": 5,
+      "campaign_models": 2,
+      "poll_models": 5
     }
   },
-  "project_types": [
-    {
-      "part_id": "main",
-      "project_type_id": "backend",
-      "display_name": "Backend (Telegram Bot + REST API)"
-    }
-  ],
   "outputs_generated": [
     "project-scan-report.json",
-    "project-structure.md",
-    "existing-documentation-inventory.md",
-    "technology-stack.md",
-    "api-contracts.md",
-    "data-models.md",
-    "development-guide.md",
+    "api-contracts-main.md",
+    "data-models-main.md",
+    "source-tree-analysis.md",
+    "development-guide-main.md",
+    "architecture-main.md",
+    "project-overview.md",
     "index.md"
   ],
   "resume_instructions": "Workflow completed successfully"
 }
+
+
+
+

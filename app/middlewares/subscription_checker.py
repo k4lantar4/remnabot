@@ -44,10 +44,10 @@ class SubscriptionStatusMiddleware(BaseMiddleware):
                             subscription.updated_at = current_time
                             await db.commit()
                             
-                            logger.info(f"⏰ Middleware: Статус подписки пользователя {user.id} изменен на 'expired' (время истекло)")
+                            logger.info(f"⏰ Middleware: Subscription status for user {user.id} changed to 'expired' (time expired)")
                     break
                     
             except Exception as e:
-                logger.error(f"Ошибка проверки статуса подписки для пользователя {telegram_id}: {e}")
+                logger.error(f"Error checking subscription status for user {telegram_id}: {e}")
         
         return await handler(event, data)

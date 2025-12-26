@@ -38,9 +38,9 @@ def _coerce_value(key: str, value: Any) -> Any:
                 normalized = value
             elif isinstance(value, str):
                 lowered = value.strip().lower()
-                if lowered in {"true", "1", "yes", "on", "да"}:
+                if lowered in {"true", "1", "yes", "on", "\u0434\u0430"}:
                     normalized = True
-                elif lowered in {"false", "0", "no", "off", "нет"}:
+                elif lowered in {"false", "0", "no", "off", "\u043d\u0435\u0442"}:
                     normalized = False
                 else:
                     raise ValueError("invalid bool")
@@ -138,7 +138,7 @@ async def get_setting(
 ) -> SettingDefinition:
     try:
         definition = bot_configuration_service.get_definition(key)
-    except KeyError as error:  # pragma: no cover - защита от некорректного ключа
+    except KeyError as error:  # pragma: no cover - guard against invalid key
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Setting not found") from error
 
     return _serialize_definition(definition)

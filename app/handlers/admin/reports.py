@@ -27,9 +27,10 @@ async def show_reports_menu(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     await callback.message.edit_text(
-        "📊 <b>Отчеты</b>\n\n"
-        "Выберите период, чтобы отправить отчет в админский топик.",
+        texts.t("ADMIN_REPORTS_TITLE", "📊 <b>Reports</b>") + "\n\n"
+        + texts.t("ADMIN_REPORTS_HINT", "Select a period to send the report to the admin topic."),
         reply_markup=get_admin_reports_keyboard(db_user.language),
         parse_mode="HTML",
     )
@@ -74,19 +75,21 @@ async def _send_report(
     try:
         report_text = await reporting_service.send_report(period, send_to_topic=True)
     except ReportingServiceError as exc:
-        logger.warning("Не удалось отправить отчет: %s", exc)
+        logger.warning("Failed to send report: %s", exc)
         await callback.answer(str(exc), show_alert=True)
         return
     except Exception as exc:  # noqa: BLE001
-        logger.error("Непредвиденная ошибка при отправке отчета: %s", exc)
-        await callback.answer("Не удалось отправить отчет. Попробуйте позже.", show_alert=True)
+        logger.error("Unexpected error sending report: %s", exc)
+        texts = get_texts(language)
+        await callback.answer(texts.t("ADMIN_REPORTS_ERROR_SEND", "Failed to send report. Please try later."), show_alert=True)
         return
 
     await callback.message.answer(
         report_text,
         reply_markup=get_admin_report_result_keyboard(language),
     )
-    await callback.answer("Отчет отправлен в топик")
+    texts = get_texts(language)
+    await callback.answer(texts.t("ADMIN_REPORTS_SENT", "Report sent to topic"))
 
 
 @admin_required
@@ -101,11 +104,11 @@ async def close_report_message(
     try:
         await callback.message.delete()
     except (TelegramBadRequest, TelegramForbiddenError) as exc:
-        logger.warning("Не удалось закрыть сообщение отчета: %s", exc)
-        await callback.answer(texts.t("REPORT_CLOSE_ERROR", "Не удалось закрыть отчет."), show_alert=True)
+        logger.warning("Failed to close report message: %s", exc)
+        await callback.answer(texts.t("REPORT_CLOSE_ERROR", "Failed to close report."), show_alert=True)
         return
 
-    await callback.answer(texts.t("REPORT_CLOSED", "Отчет закрыт."))
+    await callback.answer(texts.t("REPORT_CLOSED", "Report closed."))
 
 
 def register_handlers(dp: Dispatcher) -> None:

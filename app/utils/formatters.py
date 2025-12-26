@@ -28,7 +28,7 @@ def format_date(dt: Union[datetime, str], format_str: str = "%d.%m.%Y") -> str:
     return dt.strftime(format_str)
 
 
-def format_time_ago(dt: Union[datetime, str], language: str = "ru") -> str:
+def format_time_ago(dt: Union[datetime, str], language: str = "en") -> str:
     if isinstance(dt, str):
         if dt == "now" or dt == "":
             dt = datetime.now()
@@ -41,77 +41,55 @@ def format_time_ago(dt: Union[datetime, str], language: str = "ru") -> str:
     now = datetime.utcnow()
     diff = now - dt
 
-    language_code = (language or "ru").split("-")[0].lower()
-
     if diff.days > 0:
         if diff.days == 1:
-            return "yesterday" if language_code == "en" else "вчера"
+            return "yesterday"
         if diff.days < 7:
             value = diff.days
-            if language_code == "en":
-                suffix = "day" if value == 1 else "days"
-                return f"{value} {suffix} ago"
-            return f"{value} дн. назад"
+            suffix = "day" if value == 1 else "days"
+            return f"{value} {suffix} ago"
         if diff.days < 30:
             value = diff.days // 7
-            if language_code == "en":
-                suffix = "week" if value == 1 else "weeks"
-                return f"{value} {suffix} ago"
-            return f"{value} нед. назад"
+            suffix = "week" if value == 1 else "weeks"
+            return f"{value} {suffix} ago"
         if diff.days < 365:
             value = diff.days // 30
-            if language_code == "en":
-                suffix = "month" if value == 1 else "months"
-                return f"{value} {suffix} ago"
-            return f"{value} мес. назад"
-        value = diff.days // 365
-        if language_code == "en":
-            suffix = "year" if value == 1 else "years"
+            suffix = "month" if value == 1 else "months"
             return f"{value} {suffix} ago"
-        return f"{value} г. назад"
+        value = diff.days // 365
+        suffix = "year" if value == 1 else "years"
+        return f"{value} {suffix} ago"
 
     if diff.seconds > 3600:
         value = diff.seconds // 3600
-        if language_code == "en":
-            suffix = "hour" if value == 1 else "hours"
-            return f"{value} {suffix} ago"
-        return f"{value} ч. назад"
+        suffix = "hour" if value == 1 else "hours"
+        return f"{value} {suffix} ago"
 
     if diff.seconds > 60:
         value = diff.seconds // 60
-        if language_code == "en":
-            suffix = "minute" if value == 1 else "minutes"
-            return f"{value} {suffix} ago"
-        return f"{value} мин. назад"
+        suffix = "minute" if value == 1 else "minutes"
+        return f"{value} {suffix} ago"
 
-    return "just now" if language_code == "en" else "только что"
+    return "just now"
 
-def format_days_declension(days: int, language: str = "ru") -> str:
-    if language != "ru":
-        return f"{days} day{'s' if days != 1 else ''}"
-    
-    if days % 10 == 1 and days % 100 != 11:
-        return f"{days} день"
-    elif days % 10 in [2, 3, 4] and days % 100 not in [12, 13, 14]:
-        return f"{days} дня"
-    else:
-        return f"{days} дней"
+def format_days_declension(days: int, language: str = "en") -> str:
+    return f"{days} day{'s' if days != 1 else ''}"
 
 
 def format_duration(seconds: int) -> str:
     if seconds < 60:
-        return f"{seconds} сек."
+        return f"{seconds} sec"
     
     minutes = seconds // 60
     if minutes < 60:
-        return f"{minutes} мин."
+        return f"{minutes} min"
     
     hours = minutes // 60
     if hours < 24:
-        return f"{hours} ч."
+        return f"{hours} hr"
     
     days = hours // 24
-    return f"{days} дн."
+    return f"{days} day{'s' if days != 1 else ''}"
 
 
 def format_bytes(bytes_value: int) -> str:
@@ -183,8 +161,14 @@ def format_subscription_status(
     is_active: bool,
     is_trial: bool,
     end_date: Union[datetime, str],
-    language: str = "ru"
+    language: str = None
 ) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
+    
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
     
     if isinstance(end_date, str):
         try:
@@ -193,45 +177,57 @@ def format_subscription_status(
             end_date = datetime.now()
     
     if not is_active:
-        return "❌ Неактивна" if language == "ru" else "❌ Inactive"
+        return texts.t("SUBSCRIPTION_STATUS_INACTIVE", "❌ Inactive")
     
     if is_trial:
-        status = "🎁 Тестовая" if language == "ru" else "🎁 Trial"
+        status = texts.t("SUBSCRIPTION_STATUS_TRIAL", "🎁 Trial")
     else:
-        status = "✅ Активна" if language == "ru" else "✅ Active"
+        status = texts.t("SUBSCRIPTION_STATUS_ACTIVE", "✅ Active")
     
     now = datetime.utcnow()
     if end_date > now:
         days_left = (end_date - now).days
         if days_left > 0:
-            status += f" ({days_left} дн.)" if language == "ru" else f" ({days_left} days)"
+            days_text = texts.t("DAYS_LEFT", "{days} days").format(days=days_left)
+            status += f" ({days_text})"
         else:
             hours_left = (end_date - now).seconds // 3600
-            status += f" ({hours_left} ч.)" if language == "ru" else f" ({hours_left} hrs)"
+            hours_text = texts.t("HOURS_LEFT", "{hours} hrs").format(hours=hours_left)
+            status += f" ({hours_text})"
     else:
-        status = "⏰ Истекла" if language == "ru" else "⏰ Expired"
+        status = texts.t("SUBSCRIPTION_STATUS_EXPIRED", "⏰ Expired")
     
     return status
 
 
-def format_traffic_usage(used_gb: float, limit_gb: int, language: str = "ru") -> str:
+def format_traffic_usage(used_gb: float, limit_gb: int, language: str = None) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
+    
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
     
     if limit_gb == 0: 
-        if language == "ru":
-            return f"{used_gb:.1f} ГБ / ∞"
-        else:
-            return f"{used_gb:.1f} GB / ∞"
+        return texts.t("TRAFFIC_USAGE_UNLIMITED", "{used} GB / ∞").format(used=f"{used_gb:.1f}")
     
     percentage = (used_gb / limit_gb) * 100 if limit_gb > 0 else 0
+    return texts.t("TRAFFIC_USAGE_FORMAT", "{used} GB / {limit} GB ({percent}%)").format(
+        used=f"{used_gb:.1f}",
+        limit=limit_gb,
+        percent=f"{percentage:.1f}"
+    )
+
+
+def format_boolean(value: bool, language: str = None) -> str:
+    from app.localization.loader import DEFAULT_LANGUAGE
+    from app.localization.texts import get_texts
     
-    if language == "ru":
-        return f"{used_gb:.1f} ГБ / {limit_gb} ГБ ({percentage:.1f}%)"
+    if language is None:
+        language = DEFAULT_LANGUAGE
+    texts = get_texts(language)
+    
+    if value:
+        return texts.t("BOOLEAN_YES", "✅ Yes")
     else:
-        return f"{used_gb:.1f} GB / {limit_gb} GB ({percentage:.1f}%)"
-
-
-def format_boolean(value: bool, language: str = "ru") -> str:
-    if language == "ru":
-        return "✅ Да" if value else "❌ Нет"
-    else:
-        return "✅ Yes" if value else "❌ No"
+        return texts.t("BOOLEAN_NO", "❌ No")

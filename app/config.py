@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = "api_key"  # api_key, basic, bearer, cookies, caddy
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = "Bot user: {full_name} {username}"
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = "user_{telegram_id}"
-    REMNAWAVE_USER_DELETE_MODE: str = "delete"  # "delete" или "disable"
+    REMNAWAVE_USER_DELETE_MODE: str = "delete"  # "delete" or "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = "03:00"
     
@@ -150,9 +150,9 @@ class Settings(BaseSettings):
     FIXED_TRAFFIC_LIMIT_GB: int = 100
     BUY_TRAFFIC_BUTTON_VISIBLE: bool = True 
     
-    REFERRAL_MINIMUM_TOPUP_KOPEKS: int = 10000 
-    REFERRAL_FIRST_TOPUP_BONUS_KOPEKS: int = 10000 
-    REFERRAL_INVITER_BONUS_KOPEKS: int = 10000 
+    REFERRAL_MINIMUM_TOPUP_TOMAN: int = 1000000
+    REFERRAL_FIRST_TOPUP_BONUS_TOMAN: int = 1000000
+    REFERRAL_INVITER_BONUS_TOMAN: int = 1000000
     REFERRAL_COMMISSION_PERCENT: int = 25 
 
     REFERRAL_PROGRAM_ENABLED: bool = True
@@ -192,8 +192,8 @@ class Settings(BaseSettings):
 
     DEFAULT_AUTOPAY_ENABLED: bool = False
     DEFAULT_AUTOPAY_DAYS_BEFORE: int = 3
-    MIN_BALANCE_FOR_AUTOPAY_KOPEKS: int = 10000  
-    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS: int = 20000  
+    MIN_BALANCE_FOR_AUTOPAY_TOMAN: int = 1000000
+    SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN: int = 2000000
     
     MONITORING_INTERVAL: int = 60
     INACTIVE_USER_DELETE_MONTHS: int = 3
@@ -203,7 +203,7 @@ class Settings(BaseSettings):
     MAINTENANCE_AUTO_ENABLE: bool = True
     MAINTENANCE_MONITORING_ENABLED: bool = True
     MAINTENANCE_RETRY_ATTEMPTS: int = 1
-    MAINTENANCE_MESSAGE: str = "🔧 Ведутся технические работы. Сервис временно недоступен. Попробуйте позже."
+    MAINTENANCE_MESSAGE: str = "🔧 Maintenance in progress. Service is temporarily unavailable. Please try again later."
     
     TELEGRAM_STARS_ENABLED: bool = True
     TELEGRAM_STARS_RATE_RUB: float = 1.3
@@ -228,8 +228,8 @@ class Settings(BaseSettings):
     YOOKASSA_WEBHOOK_HOST: str = "0.0.0.0"
     YOOKASSA_WEBHOOK_PORT: int = 8082
     YOOKASSA_TRUSTED_PROXY_NETWORKS: str = ""
-    YOOKASSA_MIN_AMOUNT_KOPEKS: int = 5000
-    YOOKASSA_MAX_AMOUNT_KOPEKS: int = 1000000
+    YOOKASSA_MIN_AMOUNT_TOMAN: int = 500000
+    YOOKASSA_MAX_AMOUNT_TOMAN: int = 100000000
     YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED: bool = False
     DISABLE_TOPUP_BUTTONS: bool = False
     SUPPORT_TOPUP_ENABLED: bool = True
@@ -249,9 +249,10 @@ class Settings(BaseSettings):
     DISABLE_WEB_PAGE_PREVIEW: bool = False
     ACTIVATE_BUTTON_VISIBLE: bool = False
     ACTIVATE_BUTTON_TEXT: str = "активировать"
-    PAYMENT_BALANCE_DESCRIPTION: str = "Пополнение баланса"
-    PAYMENT_SUBSCRIPTION_DESCRIPTION: str = "Оплата подписки"
-    PAYMENT_SERVICE_NAME: str = "Интернет-сервис"
+    # Payment descriptions (English for consistency)
+    PAYMENT_BALANCE_DESCRIPTION: str = "Balance top-up"
+    PAYMENT_SUBSCRIPTION_DESCRIPTION: str = "Subscription payment"
+    PAYMENT_SERVICE_NAME: str = "Internet service"
     PAYMENT_BALANCE_TEMPLATE: str = "{service_name} - {description}"
     PAYMENT_SUBSCRIPTION_TEMPLATE: str = "{service_name} - {description}"
 
@@ -288,7 +289,7 @@ class Settings(BaseSettings):
     MULENPAY_BASE_URL: str = "https://mulenpay.ru/api"
     MULENPAY_WEBHOOK_PATH: str = "/mulenpay-webhook"
     MULENPAY_DISPLAY_NAME: str = "Mulen Pay"
-    MULENPAY_DESCRIPTION: str = "Пополнение баланса"
+    MULENPAY_DESCRIPTION: str = "Balance top-up"
     MULENPAY_LANGUAGE: str = "ru"
     MULENPAY_VAT_CODE: int = 0
 
@@ -297,8 +298,8 @@ class Settings(BaseSettings):
     )
     MULENPAY_PAYMENT_SUBJECT: int = 4
     MULENPAY_PAYMENT_MODE: int = 4
-    MULENPAY_MIN_AMOUNT_KOPEKS: int = 10000
-    MULENPAY_MAX_AMOUNT_KOPEKS: int = 10000000
+    MULENPAY_MIN_AMOUNT_TOMAN: int = 1000000
+    MULENPAY_MAX_AMOUNT_TOMAN: int = 1000000000
     MULENPAY_IFRAME_EXPECTED_ORIGIN: Optional[str] = None
 
     PAL24_ENABLED: bool = False
@@ -308,9 +309,9 @@ class Settings(BaseSettings):
     PAL24_BASE_URL: str = "https://pal24.pro/api/v1/"
     PAL24_WEBHOOK_PATH: str = "/pal24-webhook"
     PAL24_WEBHOOK_PORT: int = 8084
-    PAL24_PAYMENT_DESCRIPTION: str = "Пополнение баланса"
-    PAL24_MIN_AMOUNT_KOPEKS: int = 10000
-    PAL24_MAX_AMOUNT_KOPEKS: int = 100000000
+    PAL24_PAYMENT_DESCRIPTION: str = "Balance top-up"
+    PAL24_MIN_AMOUNT_TOMAN: int = 1000000
+    PAL24_MAX_AMOUNT_TOMAN: int = 10000000000
     PAL24_REQUEST_TIMEOUT: int = 30
     PAL24_SBP_BUTTON_TEXT: Optional[str] = None
     PAL24_CARD_BUTTON_TEXT: Optional[str] = None
@@ -326,8 +327,8 @@ class Settings(BaseSettings):
     PLATEGA_FAILED_URL: Optional[str] = None
     PLATEGA_CURRENCY: str = "RUB"
     PLATEGA_ACTIVE_METHODS: str = "2,10,11,12,13"
-    PLATEGA_MIN_AMOUNT_KOPEKS: int = 10000
-    PLATEGA_MAX_AMOUNT_KOPEKS: int = 100000000
+    PLATEGA_MIN_AMOUNT_TOMAN: int = 1000000
+    PLATEGA_MAX_AMOUNT_TOMAN: int = 10000000000
     PLATEGA_WEBHOOK_PATH: str = "/platega-webhook"
     PLATEGA_WEBHOOK_HOST: str = "0.0.0.0"
     PLATEGA_WEBHOOK_PORT: int = 8086
@@ -336,13 +337,13 @@ class Settings(BaseSettings):
     WATA_BASE_URL: str = "https://api.wata.pro/api/h2h"
     WATA_ACCESS_TOKEN: Optional[str] = None
     WATA_TERMINAL_PUBLIC_ID: Optional[str] = None
-    WATA_PAYMENT_DESCRIPTION: str = "Пополнение баланса"
+    WATA_PAYMENT_DESCRIPTION: str = "Balance top-up"
     WATA_PAYMENT_TYPE: str = "OneTime"
     WATA_SUCCESS_REDIRECT_URL: Optional[str] = None
     WATA_FAIL_REDIRECT_URL: Optional[str] = None
     WATA_LINK_TTL_MINUTES: Optional[int] = None
-    WATA_MIN_AMOUNT_KOPEKS: int = 10000
-    WATA_MAX_AMOUNT_KOPEKS: int = 100000000
+    WATA_MIN_AMOUNT_TOMAN: int = 1000000
+    WATA_MAX_AMOUNT_TOMAN: int = 10000000000
     WATA_REQUEST_TIMEOUT: int = 30
     WATA_WEBHOOK_PATH: str = "/wata-webhook"
     WATA_WEBHOOK_HOST: str = "0.0.0.0"
@@ -373,10 +374,12 @@ class Settings(BaseSettings):
     MINIAPP_CUSTOM_URL: str = ""
     MINIAPP_STATIC_PATH: str = "miniapp"
     MINIAPP_PURCHASE_URL: str = ""
-    MINIAPP_SERVICE_NAME_EN: str = "Bedolaga VPN"
-    MINIAPP_SERVICE_NAME_RU: str = "Bedolaga VPN"
+    MINIAPP_SERVICE_NAME_EN: str = "Capitan VPN"
+    MINIAPP_SERVICE_NAME_RU: str = "Capitan VPN"
+    MINIAPP_SERVICE_NAME_FA: str = "کاپیتان وی پی ان"
     MINIAPP_SERVICE_DESCRIPTION_EN: str = "Secure & Fast Connection"
-    MINIAPP_SERVICE_DESCRIPTION_RU: str = "Безопасное и быстрое подключение"
+    MINIAPP_SERVICE_DESCRIPTION_DEFAULT: str = "Secure & Fast Connection"
+    MINIAPP_SERVICE_DESCRIPTION_FA: str = "اتصال امن و سریع"
     CONNECT_BUTTON_HAPP_DOWNLOAD_ENABLED: bool = False
     HAPP_CRYPTOLINK_REDIRECT_TEMPLATE: Optional[str] = None
     HAPP_DOWNLOAD_LINK_IOS: Optional[str] = None
@@ -390,8 +393,8 @@ class Settings(BaseSettings):
     SKIP_RULES_ACCEPT: bool = False
     SKIP_REFERRAL_CODE: bool = False
 
-    DEFAULT_LANGUAGE: str = "ru"
-    AVAILABLE_LANGUAGES: str = "ru,en"
+    DEFAULT_LANGUAGE: str = "en"
+    AVAILABLE_LANGUAGES: str = "en,fa"
     LANGUAGE_SELECTION_ENABLED: bool = True
     
     LOG_LEVEL: str = "INFO"
@@ -565,11 +568,11 @@ class Settings(BaseSettings):
             return self._get_sqlite_url()
     
     def is_postgresql(self) -> bool:
-        """Проверяет, используется ли PostgreSQL"""
+        """Checks if PostgreSQL is being used"""
         return "postgresql" in self.get_database_url()
     
     def is_sqlite(self) -> bool:
-        """Проверяет, используется ли SQLite"""
+        """Checks if SQLite is being used"""
         return "sqlite" in self.get_database_url()
     
     def is_admin(self, user_id: int) -> bool:
@@ -615,7 +618,7 @@ class Settings(BaseSettings):
         return self.PAL24_CARD_BUTTON_VISIBLE
     
     def get_remnawave_user_delete_mode(self) -> str:
-        """Возвращает режим удаления пользователей: 'delete' или 'disable'"""
+        """Returns user deletion mode: 'delete' or 'disable'"""
         mode = self.REMNAWAVE_USER_DELETE_MODE.lower().strip()
         return mode if mode in ["delete", "disable"] else "delete"
 
@@ -763,7 +766,7 @@ class Settings(BaseSettings):
         return bool(value)
     
     def get_available_languages(self) -> List[str]:
-        defaults = ["ru", "en", "ua", "zh"]
+        defaults = ["en", "fa"]
 
         try:
             langs = self.AVAILABLE_LANGUAGES
@@ -801,15 +804,15 @@ class Settings(BaseSettings):
     def is_language_selection_enabled(self) -> bool:
         return bool(getattr(self, "LANGUAGE_SELECTION_ENABLED", True))
 
-    def format_price(self, price_kopeks: int) -> str:
-        sign = "-" if price_kopeks < 0 else ""
-        rubles, kopeks = divmod(abs(price_kopeks), 100)
-
-        if kopeks:
-            value = f"{sign}{rubles}.{kopeks:02d}".rstrip("0").rstrip(".")
-            return f"{value} ₽"
-
-        return f"{sign}{rubles} ₽"
+    def format_price(self, price_toman: int, language: str = "en") -> str:
+        sign = "-" if price_toman < 0 else ""
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
+        except Exception:
+            currency_unit = "Toman"
+        return f"{sign}{abs(price_toman):,} {currency_unit}"
 
     def get_reports_chat_id(self) -> Optional[str]:
         if self.ADMIN_REPORTS_CHAT_ID:
@@ -833,14 +836,16 @@ class Settings(BaseSettings):
             return time(hour=hours, minute=minutes)
         except (ValueError, AttributeError):
             logging.getLogger(__name__).warning(
-                "Некорректное значение ADMIN_REPORTS_SEND_TIME: %s", value
+                "Invalid ADMIN_REPORTS_SEND_TIME value: %s", value
             )
             return None
     
-    def kopeks_to_rubles(self, kopeks: int) -> float:
-        return kopeks / 100
+    def toman_to_rubles(self, toman: int) -> float:
+        """Convert toman to rubles for external APIs that expect rubles."""
+        return toman / 100
 
-    def rubles_to_kopeks(self, rubles: float) -> int:
+    def rubles_to_toman(self, rubles: float) -> int:
+        """Convert rubles to toman for external APIs that provide rubles."""
         return int(rubles * 100)
 
     @staticmethod
@@ -854,7 +859,7 @@ class Settings(BaseSettings):
 
         if len(cleaned) > 16:
             logger.warning(
-                "Некорректная длина %s: максимум 16 символов, получено %s",
+                "Invalid %s length: max 16 characters, got %s",
                 setting_name,
                 len(cleaned),
             )
@@ -862,7 +867,7 @@ class Settings(BaseSettings):
 
         if not USER_TAG_PATTERN.fullmatch(cleaned):
             logger.warning(
-                "Некорректный формат %s: допустимы только A-Z, 0-9 и подчёркивание",
+                "Invalid %s format: only A-Z, 0-9 and underscore are allowed",
                 setting_name,
             )
             return None
@@ -921,12 +926,29 @@ class Settings(BaseSettings):
             value_str = str(value).strip()
             return value_str or None
 
-        name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
-        name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
-        desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
-        desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_RU)
+        # Try to get from localization for FA, fallback to config values
+        try:
+            from app.localization.texts import get_texts
+            
+            texts_fa = get_texts("fa")
+            
+            # Get from localization for FA, use config for EN and RU
+            name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
+            name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
+            name_fa = _clean(texts_fa.t("MINIAPP_SERVICE_NAME_FA", self.MINIAPP_SERVICE_NAME_FA))
+            desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
+            desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
+            desc_fa = _clean(texts_fa.t("MINIAPP_SERVICE_DESCRIPTION_FA", self.MINIAPP_SERVICE_DESCRIPTION_FA))
+        except Exception:
+            # Fallback to config values if localization fails
+            name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
+            name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
+            name_fa = _clean(self.MINIAPP_SERVICE_NAME_FA)
+            desc_en = _clean(self.MINIAPP_SERVICE_DESCRIPTION_EN)
+            desc_ru = _clean(self.MINIAPP_SERVICE_DESCRIPTION_DEFAULT)
+            desc_fa = _clean(self.MINIAPP_SERVICE_DESCRIPTION_FA)
 
-        default_name = name_en or name_ru or "RemnaWave VPN"
+        default_name = name_en or name_ru or "Capitan VPN"
         default_description = desc_en or desc_ru or "Secure & Fast Connection"
 
         return {
@@ -934,11 +956,13 @@ class Settings(BaseSettings):
                 "default": default_name,
                 "en": name_en,
                 "ru": name_ru,
+                "fa": name_fa,
             },
             "service_description": {
                 "default": default_description,
                 "en": desc_en,
                 "ru": desc_ru,
+                "fa": desc_fa,
             },
         }
     
@@ -946,7 +970,7 @@ class Settings(BaseSettings):
         return self.APP_CONFIG_CACHE_TTL
 
     def build_external_admin_token(self, bot_username: str) -> str:
-        """Генерирует детерминированный и криптографически стойкий токен внешней админки."""
+        """Generates a deterministic and cryptographically secure external admin token."""
         normalized = (bot_username or "").strip().lstrip("@").lower()
         if not normalized:
             raise ValueError("Bot username is required to build external admin token")
@@ -969,9 +993,9 @@ class Settings(BaseSettings):
     def get_external_admin_bot_id(self) -> Optional[int]:
         try:
             return int(self.EXTERNAL_ADMIN_TOKEN_BOT_ID) if self.EXTERNAL_ADMIN_TOKEN_BOT_ID else None
-        except (TypeError, ValueError):  # pragma: no cover - защитная ветка для некорректных значений
+        except (TypeError, ValueError):  # pragma: no cover - defensive branch for invalid values
             logging.getLogger(__name__).warning(
-                "Некорректный идентификатор бота для внешней админки: %s",
+                "Invalid bot identifier for external admin: %s",
                 self.EXTERNAL_ADMIN_TOKEN_BOT_ID,
             )
             return None
@@ -998,7 +1022,7 @@ class Settings(BaseSettings):
             value = int(raw_value)
         except (TypeError, ValueError):
             logger.warning(
-                "Некорректное значение DEVICES_SELECTION_DISABLED_AMOUNT: %s",
+                "Invalid DEVICES_SELECTION_DISABLED_AMOUNT value: %s",
                 raw_value,
             )
             return None
@@ -1019,7 +1043,7 @@ class Settings(BaseSettings):
             value = int(self.TRIAL_ACTIVATION_PRICE)
         except (TypeError, ValueError):
             logger.warning(
-                "Некорректное значение TRIAL_ACTIVATION_PRICE: %s",
+                "Invalid TRIAL_ACTIVATION_PRICE value: %s",
                 self.TRIAL_ACTIVATION_PRICE,
             )
             return 0
@@ -1140,7 +1164,7 @@ class Settings(BaseSettings):
             try:
                 method_code = int(part)
             except ValueError:
-                logger.warning("Некорректный код метода Platega: %s", part)
+                logger.warning("Invalid Platega method code: %s", part)
                 continue
             if method_code in {2, 10, 11, 12, 13} and method_code not in seen:
                 methods.append(method_code)
@@ -1154,11 +1178,11 @@ class Settings(BaseSettings):
     @staticmethod
     def get_platega_method_definitions() -> Dict[int, Dict[str, str]]:
         return {
-            2: {"name": "СБП (QR)", "title": "🏦 СБП (QR)"},
-            10: {"name": "Банковские карты (RUB)", "title": "💳 Карты (RUB)"},
-            11: {"name": "Банковские карты", "title": "💳 Банковские карты"},
-            12: {"name": "Международные карты", "title": "🌍 Международные карты"},
-            13: {"name": "Криптовалюта", "title": "🪙 Криптовалюта"},
+            2: {"name": "SBP (QR)", "title": "🏦 SBP (QR)"},
+            10: {"name": "Bank cards (RUB)", "title": "💳 Cards (RUB)"},
+            11: {"name": "Bank cards", "title": "💳 Bank cards"},
+            12: {"name": "International cards", "title": "🌍 International cards"},
+            13: {"name": "Cryptocurrency", "title": "🪙 Cryptocurrency"},
         }
 
     def get_platega_method_display_name(self, method_code: int) -> str:
@@ -1166,7 +1190,7 @@ class Settings(BaseSettings):
         info = definitions.get(method_code)
         if info and info.get("name"):
             return info["name"]
-        return f"Метод {method_code}"
+        return f"Method {method_code}"
 
     def get_platega_method_display_title(self, method_code: int) -> str:
         definitions = self.get_platega_method_definitions()
@@ -1195,12 +1219,12 @@ class Settings(BaseSettings):
     def get_payment_verification_auto_check_interval(self) -> int:
         try:
             minutes = int(self.PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES)
-        except (TypeError, ValueError):  # pragma: no cover - защитная проверка конфигурации
+        except (TypeError, ValueError):  # pragma: no cover - defensive configuration check
             minutes = 10
 
         if minutes <= 0:
             logger.warning(
-                "Некорректный интервал автопроверки платежей: %s. Используется значение по умолчанию 10 минут.",
+                "Invalid payment auto-check interval: %s. Using default value of 10 minutes.",
                 self.PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES,
             )
             return 10
@@ -1388,29 +1412,63 @@ class Settings(BaseSettings):
         except (ValueError, AttributeError):
             return [30, 90, 180]
 
-    def get_balance_payment_description(self, amount_kopeks: int, telegram_user_id: Optional[int] = None) -> str:
-        # Базовое описание
-        description = f"{self.PAYMENT_BALANCE_DESCRIPTION} на {self.format_price(amount_kopeks)}"
+    def get_balance_payment_description(self, amount_toman: int, language: str = "en", telegram_user_id: Optional[int] = None) -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            balance_desc = texts.t("PAYMENT_BALANCE_DESCRIPTION", self.PAYMENT_BALANCE_DESCRIPTION)
+            template = texts.t("PAYMENT_BALANCE_TEMPLATE", self.PAYMENT_BALANCE_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            balance_desc = self.PAYMENT_BALANCE_DESCRIPTION
+            template = self.PAYMENT_BALANCE_TEMPLATE
         
-        # Если передан user_id, добавляем его
+        # Build description with user ID if provided
+        description = f"{balance_desc} for {self.format_price(amount_toman)}"
         if telegram_user_id is not None:
             description += f" (ID {telegram_user_id})"
         
-        # Формируем финальную строку по шаблону
-        return self.PAYMENT_BALANCE_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
+        return template.format(
+            service_name=service_name,
             description=description
         )
     
-    def get_subscription_payment_description(self, period_days: int, amount_kopeks: int) -> str:
-        return self.PAYMENT_SUBSCRIPTION_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
-            description=f"{self.PAYMENT_SUBSCRIPTION_DESCRIPTION} на {period_days} дней"
+    def get_subscription_payment_description(self, period_days: int, amount_toman: int, language: str = "en") -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            subscription_desc = texts.t("PAYMENT_SUBSCRIPTION_DESCRIPTION", self.PAYMENT_SUBSCRIPTION_DESCRIPTION)
+            template = texts.t("PAYMENT_SUBSCRIPTION_TEMPLATE", self.PAYMENT_SUBSCRIPTION_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            subscription_desc = self.PAYMENT_SUBSCRIPTION_DESCRIPTION
+            template = self.PAYMENT_SUBSCRIPTION_TEMPLATE
+        
+        return template.format(
+            service_name=service_name,
+            description=f"{subscription_desc} for {period_days} days"
         )
     
-    def get_custom_payment_description(self, description: str) -> str:
-        return self.PAYMENT_BALANCE_TEMPLATE.format(
-            service_name=self.PAYMENT_SERVICE_NAME,
+    def get_custom_payment_description(self, description: str, language: str = "en") -> str:
+        # Use translation keys with fallback to config values if customized
+        try:
+            from app.localization.texts import get_texts
+            texts = get_texts(language)
+            service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
+            template = texts.t("PAYMENT_BALANCE_TEMPLATE", self.PAYMENT_BALANCE_TEMPLATE)
+        except Exception:
+            # Fallback to config values if translation system is not available
+            service_name = self.PAYMENT_SERVICE_NAME
+            template = self.PAYMENT_BALANCE_TEMPLATE
+        
+        return template.format(
+            service_name=service_name,
             description=description
         )
 
@@ -1452,9 +1510,9 @@ class Settings(BaseSettings):
     def get_referral_settings(self) -> Dict:
         return {
             "program_enabled": self.is_referral_program_enabled(),
-            "minimum_topup_kopeks": self.REFERRAL_MINIMUM_TOPUP_KOPEKS,
-            "first_topup_bonus_kopeks": self.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
-            "inviter_bonus_kopeks": self.REFERRAL_INVITER_BONUS_KOPEKS,
+            "minimum_topup_toman": self.REFERRAL_MINIMUM_TOPUP_TOMAN,
+            "first_topup_bonus_toman": self.REFERRAL_FIRST_TOPUP_BONUS_TOMAN,
+            "inviter_bonus_toman": self.REFERRAL_INVITER_BONUS_TOMAN,
             "commission_percent": self.REFERRAL_COMMISSION_PERCENT,
             "notifications_enabled": self.REFERRAL_NOTIFICATIONS_ENABLED,
         }
@@ -1783,7 +1841,7 @@ class Settings(BaseSettings):
             ZoneInfo(value)
         except Exception as exc:  # pragma: no cover - defensive validation
             raise ValueError(
-                f"Некорректный идентификатор часового пояса: {value}"
+                f"Invalid timezone identifier: {value}"
             ) from exc
         return value
 

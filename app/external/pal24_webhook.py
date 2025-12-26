@@ -26,7 +26,7 @@ def _normalize_payload() -> Dict[str, str]:
         payload = request.get_json(silent=True) or {}
         if isinstance(payload, dict):
             return {k: str(v) for k, v in payload.items()}
-        logger.warning("Pal24 webhook JSON payload не является объектом: %s", payload)
+        logger.warning("Pal24 webhook JSON payload is not an object: %s", payload)
         return {}
 
     if request.form:
@@ -39,7 +39,7 @@ def _normalize_payload() -> Dict[str, str]:
             if isinstance(payload, dict):
                 return {k: str(v) for k, v in payload.items()}
     except json.JSONDecodeError:
-        logger.debug("Pal24 webhook body не удалось распарсить как JSON")
+        logger.debug("Pal24 webhook body could not be parsed as JSON")
 
     return {}
 
@@ -54,20 +54,20 @@ def create_pal24_flask_app(
     @app.route(settings.PAL24_WEBHOOK_PATH, methods=["POST"])
     def pal24_webhook() -> tuple:
         if not pal24_service.is_configured:
-            logger.error("Pal24 webhook получен, но сервис не настроен")
+            logger.error("Pal24 webhook received but service not configured")
             return jsonify({"status": "error", "reason": "service_not_configured"}), 503
 
-        logger.debug("Получен Pal24 webhook: headers=%s", dict(request.headers))
+        logger.debug("Received Pal24 webhook: headers=%s", dict(request.headers))
 
         payload = _normalize_payload()
         if not payload:
-            logger.warning("Пустой Pal24 webhook")
+            logger.warning("Empty Pal24 webhook")
             return jsonify({"status": "error", "reason": "empty_payload"}), 400
 
         try:
             parsed_payload = pal24_service.parse_callback(payload)
         except Pal24APIError as error:
-            logger.error("Ошибка валидации Pal24 webhook: %s", error)
+            logger.error("Pal24 webhook validation error: %s", error)
             return jsonify({"status": "error", "reason": str(error)}), 400
 
         async def process() -> bool:
@@ -82,10 +82,10 @@ def create_pal24_flask_app(
             future = asyncio.run_coroutine_threadsafe(process(), loop)
             processed = future.result(timeout=settings.PAL24_REQUEST_TIMEOUT)
         except FuturesTimeoutError:
-            logger.error("Обработка Pal24 webhook превысила таймаут %sс", settings.PAL24_REQUEST_TIMEOUT)
+            logger.error("Pal24 webhook processing exceeded timeout %ss", settings.PAL24_REQUEST_TIMEOUT)
             return jsonify({"status": "error", "reason": "timeout"}), 504
         except Exception as error:  # pragma: no cover - defensive
-            logger.exception("Критическая ошибка обработки Pal24 webhook: %s", error)
+            logger.exception("Critical error processing Pal24 webhook: %s", error)
             return jsonify({"status": "error", "reason": "internal_error"}), 500
 
         if processed:
@@ -121,7 +121,7 @@ class Pal24WebhookServer:
 
     def start(self) -> None:
         if self._server:
-            logger.warning("Pal24 webhook server уже запущен")
+            logger.warning("Pal24 webhook server already running")
             return
 
         self._server = make_server(
@@ -133,7 +133,7 @@ class Pal24WebhookServer:
 
         def _serve() -> None:
             logger.info(
-                "Pal24 webhook сервер запущен на %s:%s%s",
+                "Pal24 webhook server started on %s:%s%s",
                 "0.0.0.0",
                 settings.PAL24_WEBHOOK_PORT,
                 settings.PAL24_WEBHOOK_PATH,
@@ -145,7 +145,7 @@ class Pal24WebhookServer:
 
     def stop(self) -> None:
         if self._server:
-            logger.info("Останавливаем Pal24 webhook сервер")
+            logger.info("Stopping Pal24 webhook server")
             self._server.shutdown()
             self._server = None
 

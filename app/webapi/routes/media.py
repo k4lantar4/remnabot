@@ -33,7 +33,7 @@ ALLOWED_MEDIA_TYPES = {"photo", "video", "document"}
 
 
 def _resolve_target_chat_id() -> int:
-    """Выбирает чат для загрузки файлов (канал уведомлений или первый админ)."""
+    """Selects chat for file uploads (notifications channel or first admin)."""
 
     chat_id = settings.get_admin_notifications_chat_id()
     if chat_id is not None:
@@ -45,7 +45,7 @@ def _resolve_target_chat_id() -> int:
 
     raise HTTPException(
         status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "Не настроен чат для загрузки файлов (ADMIN_NOTIFICATIONS_CHAT_ID или ADMIN_IDS)",
+        "Upload chat is not configured (ADMIN_NOTIFICATIONS_CHAT_ID or ADMIN_IDS)",
     )
 
 
@@ -58,8 +58,8 @@ async def upload_media(
     request: Request,
     _: Any = Security(require_api_token),
     file: UploadFile = File(...),
-    media_type: str = Form("document", description="Тип файла: photo, video или document"),
-    caption: str | None = Form(None, description="Необязательная подпись к файлу"),
+    media_type: str = Form("document", description="File type: photo, video or document"),
+    caption: str | None = Form(None, description="Optional file caption"),
 ) -> MediaUploadResponse:
     media_type_normalized = (media_type or "").strip().lower()
     if media_type_normalized not in ALLOWED_MEDIA_TYPES:
@@ -150,7 +150,7 @@ async def download_media(
         )
     except HTTPException:
         raise
-    except Exception as error:  # pragma: no cover - неожиданные ошибки загрузки файла
+    except Exception as error:  # pragma: no cover - unexpected download errors
         logger.error("Failed to download media %s: %s", file_id, error)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to download media") from error
     finally:

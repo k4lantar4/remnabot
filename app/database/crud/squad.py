@@ -27,14 +27,14 @@ async def create_squad(
     uuid: str,
     name: str,
     country_code: str = None,
-    price_kopeks: int = 0,
+    price_toman: int = 0,
     description: str = None
 ) -> Squad:
     squad = Squad(
         uuid=uuid,
         name=name,
         country_code=country_code,
-        price_kopeks=price_kopeks,
+        price_toman=price_toman,
         description=description
     )
     
@@ -42,7 +42,7 @@ async def create_squad(
     await db.commit()
     await db.refresh(squad)
     
-    logger.info(f"✅ Создан сквад: {name}")
+    logger.info(f"✅ Squad created: {name}")
     return squad
 
 

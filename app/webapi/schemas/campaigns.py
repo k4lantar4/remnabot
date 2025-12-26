@@ -5,14 +5,14 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, validator
 
-CampaignBonusType = Annotated[Literal["balance", "subscription"], Field(description="Тип бонуса кампании")]
+CampaignBonusType = Annotated[Literal["balance", "subscription"], Field(description="Campaign bonus type")]
 
 
 class CampaignBase(BaseModel):
     name: str = Field(..., max_length=255)
-    start_parameter: str = Field(..., max_length=64, description="Start parameter для deep-link (уникальный)")
+    start_parameter: str = Field(..., max_length=64, description="Start parameter for deep-link (unique)")
     bonus_type: CampaignBonusType
-    balance_bonus_kopeks: int = Field(0, ge=0)
+    balance_bonus_toman: int = Field(0, ge=0)
     subscription_duration_days: Optional[int] = Field(None, ge=0)
     subscription_traffic_gb: Optional[int] = Field(None, ge=0)
     subscription_device_limit: Optional[int] = Field(None, ge=0)
@@ -26,10 +26,10 @@ class CampaignBase(BaseModel):
 class CampaignCreateRequest(CampaignBase):
     is_active: bool = True
 
-    @validator("balance_bonus_kopeks")
+    @validator("balance_bonus_toman")
     def validate_balance_bonus(cls, value: int, values: dict) -> int:  # noqa: D401,B902
         if values.get("bonus_type") == "balance" and value <= 0:
-            raise ValueError("balance_bonus_kopeks must be positive for balance bonus")
+            raise ValueError("balance_bonus_toman must be positive for balance bonus")
         return value
 
     @validator("subscription_duration_days")
@@ -45,8 +45,7 @@ class CampaignResponse(BaseModel):
     name: str
     start_parameter: str
     bonus_type: CampaignBonusType
-    balance_bonus_kopeks: int
-    balance_bonus_rubles: float
+    balance_bonus_toman: int
     subscription_duration_days: Optional[int] = None
     subscription_traffic_gb: Optional[int] = None
     subscription_device_limit: Optional[int] = None
@@ -69,7 +68,7 @@ class CampaignUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     start_parameter: Optional[str] = Field(None, max_length=64)
     bonus_type: Optional[CampaignBonusType] = None
-    balance_bonus_kopeks: Optional[int] = Field(None, ge=0)
+    balance_bonus_toman: Optional[int] = Field(None, ge=0)
     subscription_duration_days: Optional[int] = Field(None, ge=0)
     subscription_traffic_gb: Optional[int] = Field(None, ge=0)
     subscription_device_limit: Optional[int] = Field(None, ge=0)
@@ -82,11 +81,11 @@ class CampaignUpdateRequest(BaseModel):
             return value.strip()
         return value
 
-    @validator("balance_bonus_kopeks")
+    @validator("balance_bonus_toman")
     def validate_balance_bonus(cls, value: Optional[int], values: dict):  # noqa: D401,B902
         bonus_type = values.get("bonus_type")
         if bonus_type == "balance" and value is not None and value <= 0:
-            raise ValueError("balance_bonus_kopeks must be positive for balance bonus")
+            raise ValueError("balance_bonus_toman must be positive for balance bonus")
         return value
 
     @validator("subscription_duration_days")

@@ -32,6 +32,9 @@ def get_country_flag(country_name: str) -> str:
     return flags.get(country_name, '🌍')
 
 
+logger = logging.getLogger(__name__)
+
+
 async def get_users_by_countries(db: AsyncSession) -> dict:
     try:
         result = await db.execute(
@@ -47,10 +50,8 @@ async def get_users_by_countries(db: AsyncSession) -> dict:
         
         return stats
     except Exception as e:
-        logger.error(f"Ошибка получения статистики по странам: {e}")
+        logger.error(f"Error getting country statistics: {e}")
         return {}
-
-logger = logging.getLogger(__name__)
 
 
 @admin_required
@@ -60,36 +61,37 @@ async def show_subscriptions_menu(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     stats = await get_subscriptions_statistics(db)
     
     text = f"""
-📱 <b>Управление подписками</b>
+{texts.t("ADMIN_SUBS_MENU_TITLE", "📱 <b>Subscription Management</b>")}
 
-📊 <b>Статистика:</b>
-- Всего: {stats['total_subscriptions']}
-- Активных: {stats['active_subscriptions']}
-- Платных: {stats['paid_subscriptions']}
-- Триальных: {stats['trial_subscriptions']}
+{texts.t("ADMIN_SUBS_STATS_TITLE", "📊 <b>Statistics:</b>")}
+- {texts.t("ADMIN_SUBS_TOTAL", "Total")}: {stats['total_subscriptions']}
+- {texts.t("ADMIN_SUBS_ACTIVE", "Active")}: {stats['active_subscriptions']}
+- {texts.t("ADMIN_SUBS_PAID", "Paid")}: {stats['paid_subscriptions']}
+- {texts.t("ADMIN_SUBS_TRIAL", "Trial")}: {stats['trial_subscriptions']}
 
-📈 <b>Продажи:</b>
-- Сегодня: {stats['purchased_today']}
-- За неделю: {stats['purchased_week']}
-- За месяц: {stats['purchased_month']}
+{texts.t("ADMIN_SUBS_SALES_TITLE", "📈 <b>Sales:</b>")}
+- {texts.t("ADMIN_SUBS_TODAY", "Today")}: {stats['purchased_today']}
+- {texts.t("ADMIN_SUBS_WEEK", "This week")}: {stats['purchased_week']}
+- {texts.t("ADMIN_SUBS_MONTH", "This month")}: {stats['purchased_month']}
 
-Выберите действие:
+{texts.t("ADMIN_SUBS_SELECT_ACTION", "Select an action:")}
 """
     
     keyboard = [
         [
-            types.InlineKeyboardButton(text="📋 Список подписок", callback_data="admin_subs_list"),
-            types.InlineKeyboardButton(text="⏰ Истекающие", callback_data="admin_subs_expiring")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_LIST", "📋 Subscription list"), callback_data="admin_subs_list"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_EXPIRING", "⏰ Expiring"), callback_data="admin_subs_expiring")
         ],
         [
-            types.InlineKeyboardButton(text="📊 Статистика", callback_data="admin_subs_stats"),
-            types.InlineKeyboardButton(text="🌍 География", callback_data="admin_subs_countries")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_STATS", "📊 Statistics"), callback_data="admin_subs_stats"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_GEOGRAPHY", "🌍 Geography"), callback_data="admin_subs_countries")
         ],
         [
-            types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel")
+            types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_panel")
         ]
     ]
     
@@ -108,25 +110,25 @@ async def show_subscriptions_list(
     db: AsyncSession,
     page: int = 1
 ):
-    
+    texts = get_texts(db_user.language)
     subscriptions, total_count = await get_all_subscriptions(db, page=page, limit=10)
     total_pages = (total_count + 9) // 10 
     
     if not subscriptions:
-        text = "📱 <b>Список подписок</b>\n\n❌ Подписки не найдены."
+        text = f"{texts.t('ADMIN_SUBS_LIST_TITLE', '📱 <b>Subscription List</b>')}\n\n{texts.t('ADMIN_SUBS_NOT_FOUND', '❌ No subscriptions found.')}"
     else:
-        text = f"📱 <b>Список подписок</b>\n\n"
-        text += f"📊 Всего: {total_count} | Страница: {page}/{total_pages}\n\n"
+        text = f"{texts.t('ADMIN_SUBS_LIST_TITLE', '📱 <b>Subscription List</b>')}\n\n"
+        text += f"📊 {texts.t('ADMIN_SUBS_TOTAL', 'Total')}: {total_count} | {texts.t('ADMIN_SUBS_PAGE', 'Page')}: {page}/{total_pages}\n\n"
         
         for i, sub in enumerate(subscriptions, 1 + (page - 1) * 10):
-            user_info = f"ID{sub.user.telegram_id}" if sub.user else "Неизвестно"
+            user_info = f"ID{sub.user.telegram_id}" if sub.user else texts.t("ADMIN_SUBS_UNKNOWN", "Unknown")
             sub_type = "🎁" if sub.is_trial else "💎"
-            status = "✅ Активна" if sub.is_active else "❌ Неактивна"
+            status = texts.t("ADMIN_SUBS_STATUS_ACTIVE", "✅ Active") if sub.is_active else texts.t("ADMIN_SUBS_STATUS_INACTIVE", "❌ Inactive")
             
             text += f"{i}. {sub_type} {user_info}\n"
-            text += f"   {status} | До: {format_datetime(sub.end_date)}\n"
+            text += f"   {status} | {texts.t('ADMIN_SUBS_UNTIL', 'Until')}: {format_datetime(sub.end_date)}\n"
             if sub.device_limit > 0:
-                text += f"   📱 Устройств: {sub.device_limit}\n"
+                text += f"   📱 {texts.t('ADMIN_SUBS_DEVICES', 'Devices')}: {sub.device_limit}\n"
             text += "\n"
     
     keyboard = []
@@ -150,8 +152,8 @@ async def show_subscriptions_list(
         keyboard.append(nav_row)
     
     keyboard.extend([
-        [types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_subs_list")],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_subscriptions")]
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_REFRESH", "🔄 Refresh"), callback_data="admin_subs_list")],
+        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_subscriptions")]
     ])
     
     await callback.message.edit_text(
@@ -168,42 +170,43 @@ async def show_expiring_subscriptions(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     expiring_3d = await get_expiring_subscriptions(db, 3)
     expiring_1d = await get_expiring_subscriptions(db, 1)
     expired = await get_expired_subscriptions(db)
     
     text = f"""
-⏰ <b>Истекающие подписки</b>
+{texts.t("ADMIN_SUBS_EXPIRING_TITLE", "⏰ <b>Expiring Subscriptions</b>")}
 
-📊 <b>Статистика:</b>
-- Истекают через 3 дня: {len(expiring_3d)}
-- Истекают завтра: {len(expiring_1d)}
-- Уже истекли: {len(expired)}
+{texts.t("ADMIN_SUBS_STATS_TITLE", "📊 <b>Statistics:</b>")}
+- {texts.t("ADMIN_SUBS_EXPIRING_IN_3_DAYS", "Expiring in 3 days")}: {len(expiring_3d)}
+- {texts.t("ADMIN_SUBS_EXPIRING_TOMORROW", "Expiring tomorrow")}: {len(expiring_1d)}
+- {texts.t("ADMIN_SUBS_EXPIRED", "Already expired")}: {len(expired)}
 
-<b>Истекают через 3 дня:</b>
+<b>{texts.t("ADMIN_SUBS_EXPIRING_IN_3_DAYS", "Expiring in 3 days")}:</b>
 """
     
     for sub in expiring_3d[:5]:
-        user_info = f"ID{sub.user.telegram_id}" if sub.user else "Неизвестно"
+        user_info = f"ID{sub.user.telegram_id}" if sub.user else texts.t("ADMIN_SUBS_UNKNOWN", "Unknown")
         sub_type = "🎁" if sub.is_trial else "💎"
         text += f"{sub_type} {user_info} - {format_datetime(sub.end_date)}\n"
     
     if len(expiring_3d) > 5:
-        text += f"... и еще {len(expiring_3d) - 5}\n"
+        text += f"... {texts.t('ADMIN_SUBS_AND_MORE', 'and {count} more').format(count=len(expiring_3d) - 5)}\n"
     
-    text += f"\n<b>Истекают завтра:</b>\n"
+    text += f"\n<b>{texts.t('ADMIN_SUBS_EXPIRING_TOMORROW', 'Expiring tomorrow')}:</b>\n"
     for sub in expiring_1d[:5]:
-        user_info = f"ID{sub.user.telegram_id}" if sub.user else "Неизвестно"
+        user_info = f"ID{sub.user.telegram_id}" if sub.user else texts.t("ADMIN_SUBS_UNKNOWN", "Unknown")
         sub_type = "🎁" if sub.is_trial else "💎"
         text += f"{sub_type} {user_info} - {format_datetime(sub.end_date)}\n"
     
     if len(expiring_1d) > 5:
-        text += f"... и еще {len(expiring_1d) - 5}\n"
+        text += f"... {texts.t('ADMIN_SUBS_AND_MORE', 'and {count} more').format(count=len(expiring_1d) - 5)}\n"
     
     keyboard = [
-        [types.InlineKeyboardButton(text="📨 Отправить напоминания", callback_data="admin_send_expiry_reminders")],
-        [types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_subs_expiring")],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_subscriptions")]
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_SEND_REMINDERS", "📨 Send reminders"), callback_data="admin_send_expiry_reminders")],
+        [types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_REFRESH", "🔄 Refresh"), callback_data="admin_subs_expiring")],
+        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_subscriptions")]
     ]
     
     await callback.message.edit_text(
@@ -220,7 +223,7 @@ async def show_subscriptions_stats(
     db_user: User,
     db: AsyncSession
 ):
-    
+    texts = get_texts(db_user.language)
     stats = await get_subscriptions_statistics(db)
     
     expiring_3d = await get_expiring_subscriptions(db, 3)
@@ -228,39 +231,34 @@ async def show_subscriptions_stats(
     expired = await get_expired_subscriptions(db)
     
     text = f"""
-📊 <b>Детальная статистика подписок</b>
+{texts.t("ADMIN_SUBS_DETAILED_STATS_TITLE", "📊 <b>Detailed Subscription Statistics</b>")}
 
-<b>📱 Общая информация:</b>
-• Всего подписок: {stats['total_subscriptions']}
-• Активных: {stats['active_subscriptions']}
-• Неактивных: {stats['total_subscriptions'] - stats['active_subscriptions']}
+<b>{texts.t("ADMIN_SUBS_GENERAL_INFO", "📱 General Information:")}</b>
+• {texts.t("ADMIN_SUBS_TOTAL_SUBS", "Total subscriptions")}: {stats['total_subscriptions']}
+• {texts.t("ADMIN_SUBS_ACTIVE", "Active")}: {stats['active_subscriptions']}
+• {texts.t("ADMIN_SUBS_INACTIVE", "Inactive")}: {stats['total_subscriptions'] - stats['active_subscriptions']}
 
-<b>💎 По типам:</b>
-• Платных: {stats['paid_subscriptions']}
-• Триальных: {stats['trial_subscriptions']}
+<b>{texts.t("ADMIN_SUBS_BY_TYPE", "💎 By Type:")}</b>
+• {texts.t("ADMIN_SUBS_PAID", "Paid")}: {stats['paid_subscriptions']}
+• {texts.t("ADMIN_SUBS_TRIAL", "Trial")}: {stats['trial_subscriptions']}
 
-<b>📈 Продажи:</b>
-• Сегодня: {stats['purchased_today']}
-• За неделю: {stats['purchased_week']}  
-• За месяц: {stats['purchased_month']}
+<b>{texts.t("ADMIN_SUBS_SALES_TITLE", "📈 Sales:")}</b>
+• {texts.t("ADMIN_SUBS_TODAY", "Today")}: {stats['purchased_today']}
+• {texts.t("ADMIN_SUBS_WEEK", "This week")}: {stats['purchased_week']}  
+• {texts.t("ADMIN_SUBS_MONTH", "This month")}: {stats['purchased_month']}
 
-<b>⏰ Истечение:</b>
-• Истекают через 3 дня: {len(expiring_3d)}
-• Истекают через 7 дней: {len(expiring_7d)}
-• Уже истекли: {len(expired)}
+<b>{texts.t("ADMIN_SUBS_EXPIRATION", "⏰ Expiration:")}</b>
+• {texts.t("ADMIN_SUBS_EXPIRING_IN_3_DAYS", "Expiring in 3 days")}: {len(expiring_3d)}
+• {texts.t("ADMIN_SUBS_EXPIRING_IN_7_DAYS", "Expiring in 7 days")}: {len(expiring_7d)}
+• {texts.t("ADMIN_SUBS_EXPIRED", "Already expired")}: {len(expired)}
 
-<b>💰 Конверсия:</b>
-• Из триала в платную: {stats.get('trial_to_paid_conversion', 0)}%
-• Продлений: {stats.get('renewals_count', 0)}
+<b>{texts.t("ADMIN_SUBS_CONVERSION", "💰 Conversion:")}</b>
+• {texts.t("ADMIN_SUBS_TRIAL_TO_PAID", "Trial to paid")}: {stats.get('trial_to_paid_conversion', 0)}%
+• {texts.t("ADMIN_SUBS_RENEWALS", "Renewals")}: {stats.get('renewals_count', 0)}
 """
     
     keyboard = [
-       # [
-       #     types.InlineKeyboardButton(text="📊 Экспорт данных", callback_data="admin_subs_export"),
-       #     types.InlineKeyboardButton(text="📈 Графики", callback_data="admin_subs_charts")
-       # ],
-       # [types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_subs_stats")],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_subscriptions")]
+        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_subscriptions")]
     ]
     
     await callback.message.edit_text(
@@ -277,6 +275,7 @@ async def show_countries_management(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     
     try:
         from app.services.remnawave_service import RemnaWaveService
@@ -285,10 +284,10 @@ async def show_countries_management(
         nodes_data = await remnawave_service.get_all_nodes()
         squads_data = await remnawave_service.get_all_squads() 
         
-        text = "🌍 <b>Управление странами</b>\n\n"
+        text = f"{texts.t('ADMIN_SUBS_COUNTRIES_TITLE', '🌍 <b>Country Management</b>')}\n\n"
         
         if nodes_data:
-            text += "<b>Доступные серверы:</b>\n"
+            text += f"<b>{texts.t('ADMIN_SUBS_AVAILABLE_SERVERS', 'Available Servers:')}</b>\n"
             countries = {}
             
             for node in nodes_data:
@@ -304,59 +303,59 @@ async def show_countries_management(
                 total_nodes = len(nodes)
                 
                 country_flag = get_country_flag(country)
-                text += f"{country_flag} {country}: {active_nodes}/{total_nodes} серверов\n"
+                text += f"{country_flag} {country}: {active_nodes}/{total_nodes} {texts.t('ADMIN_SUBS_SERVERS', 'servers')}\n"
                 
                 total_users_online = sum(n.get('users_online', 0) or 0 for n in nodes)
                 if total_users_online > 0:
-                    text += f"   👥 Пользователей онлайн: {total_users_online}\n"
+                    text += f"   👥 {texts.t('ADMIN_SUBS_USERS_ONLINE', 'Users online')}: {total_users_online}\n"
         else:
-            text += "❌ Не удалось загрузить данные о серверах\n"
+            text += f"❌ {texts.t('ADMIN_SUBS_FAILED_LOAD_SERVERS', 'Failed to load server data')}\n"
         
         if squads_data:
-            text += f"\n<b>Всего сквадов:</b> {len(squads_data)}\n"
+            text += f"\n<b>{texts.t('ADMIN_SUBS_TOTAL_SQUADS', 'Total squads')}:</b> {len(squads_data)}\n"
             
             total_members = sum(squad.get('members_count', 0) for squad in squads_data)
-            text += f"<b>Участников в сквадах:</b> {total_members}\n"
+            text += f"<b>{texts.t('ADMIN_SUBS_SQUAD_MEMBERS', 'Members in squads')}:</b> {total_members}\n"
             
-            text += "\n<b>Сквады:</b>\n"
+            text += f"\n<b>{texts.t('ADMIN_SUBS_SQUADS', 'Squads')}:</b>\n"
             for squad in squads_data[:5]: 
-                name = squad.get('name', 'Неизвестно')
+                name = squad.get('name', texts.t("ADMIN_SUBS_UNKNOWN", "Unknown"))
                 members = squad.get('members_count', 0)
                 inbounds = squad.get('inbounds_count', 0)
-                text += f"• {name}: {members} участников, {inbounds} inbound(s)\n"
+                text += f"• {name}: {members} {texts.t('ADMIN_SUBS_MEMBERS', 'members')}, {inbounds} inbound(s)\n"
             
             if len(squads_data) > 5:
-                text += f"... и еще {len(squads_data) - 5} сквадов\n"
+                text += f"... {texts.t('ADMIN_SUBS_AND_MORE', 'and {count} more').format(count=len(squads_data) - 5)} {texts.t('ADMIN_SUBS_SQUADS', 'squads')}\n"
         
         user_stats = await get_users_by_countries(db)
         if user_stats:
-            text += "\n<b>Пользователи по регионам:</b>\n"
+            text += f"\n<b>{texts.t('ADMIN_SUBS_USERS_BY_REGION', 'Users by Region:')}</b>\n"
             for country, count in user_stats.items():
                 country_flag = get_country_flag(country)
-                text += f"{country_flag} {country}: {count} пользователей\n"
+                text += f"{country_flag} {country}: {count} {texts.t('ADMIN_SUBS_USERS', 'users')}\n"
         
     except Exception as e:
-        logger.error(f"Ошибка получения данных о странах: {e}")
+        logger.error(f"Error getting country data: {e}")
         text = f"""
-🌍 <b>Управление странами</b>
+{texts.t('ADMIN_SUBS_COUNTRIES_TITLE', '🌍 <b>Country Management</b>')}
 
-❌ <b>Ошибка загрузки данных</b>
-Не удалось получить информацию о серверах.
+❌ <b>{texts.t('ADMIN_SUBS_LOAD_ERROR', 'Data Loading Error')}</b>
+{texts.t('ADMIN_SUBS_FAILED_GET_SERVER_INFO', 'Failed to retrieve server information.')}
 
-Проверьте подключение к RemnaWave API.
+{texts.t('ADMIN_SUBS_CHECK_REMNAWAVE', 'Check connection to RemnaWave API.')}
 
-<b>Детали ошибки:</b> {str(e)}
+<b>{texts.t('ADMIN_SUBS_ERROR_DETAILS', 'Error details')}:</b> {str(e)}
 """
     
     keyboard = [
         [
-            types.InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_subs_countries")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_REFRESH", "🔄 Refresh"), callback_data="admin_subs_countries")
         ],
         [
-            types.InlineKeyboardButton(text="📊 Статистика нод", callback_data="admin_rw_nodes"),
-            types.InlineKeyboardButton(text="🔧 Сквады", callback_data="admin_rw_squads")
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_NODE_STATS", "📊 Node statistics"), callback_data="admin_rw_nodes"),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_SUBS_BUTTON_SQUADS", "🔧 Squads"), callback_data="admin_rw_squads")
         ],
-        [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_subscriptions")]
+        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_subscriptions")]
     ]
     
     await callback.message.edit_text(
@@ -373,8 +372,9 @@ async def send_expiry_reminders(
     db_user: User,
     db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     await callback.message.edit_text(
-        "📨 Отправка напоминаний...\n\nПодождите, это может занять время.",
+        f"{texts.t('ADMIN_SUBS_SENDING_REMINDERS', '📨 Sending reminders...')}\n\n{texts.t('ADMIN_SUBS_WAIT_MESSAGE', 'Please wait, this may take some time.')}",
         reply_markup=None
     )
     
@@ -385,16 +385,17 @@ async def send_expiry_reminders(
         if subscription.user:
             try:
                 user = subscription.user
+                user_texts = get_texts(user.language)
                 days_left = max(1, subscription.days_left)
                 
                 reminder_text = f"""
-⚠️ <b>Подписка истекает!</b>
+⚠️ <b>{user_texts.t('ADMIN_SUBS_REMINDER_TITLE', 'Subscription Expiring!')}</b>
 
-Ваша подписка истекает через {days_left} день(а).
+{user_texts.t('ADMIN_SUBS_REMINDER_MESSAGE', 'Your subscription expires in {days} day(s).').format(days=days_left)}
 
-Не забудьте продлить подписку, чтобы не потерять доступ к серверам.
+{user_texts.t('ADMIN_SUBS_REMINDER_HINT', 'Don\'t forget to renew your subscription to avoid losing access to servers.')}
 
-💎 Продлить подписку можно в главном меню.
+💎 {user_texts.t('ADMIN_SUBS_RENEW_HINT', 'You can renew your subscription in the main menu.')}
 """
                 
                 await callback.bot.send_message(
@@ -404,12 +405,12 @@ async def send_expiry_reminders(
                 sent_count += 1
                 
             except Exception as e:
-                logger.error(f"Ошибка отправки напоминания пользователю {subscription.user_id}: {e}")
+                logger.error(f"Error sending reminder to user {subscription.user_id}: {e}")
     
     await callback.message.edit_text(
-        f"✅ Напоминания отправлены: {sent_count} из {len(expiring_subs)}",
+        texts.t("ADMIN_SUBS_REMINDERS_SENT", "✅ Reminders sent: {sent} of {total}").format(sent=sent_count, total=len(expiring_subs)),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_subs_expiring")]
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_subs_expiring")]
         ])
     )
     await callback.answer()

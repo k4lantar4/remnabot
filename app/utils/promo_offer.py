@@ -44,7 +44,7 @@ def _format_time_left(seconds_left: int, language: str) -> str:
     if language_code == "en":
         day_label, hour_label, minute_label = "d", "h", "m"
     else:
-        day_label, hour_label, minute_label = "д", "ч", "м"
+        day_label, hour_label, minute_label = "d", "h", "m"
 
     parts: list[str] = []
     if days:

@@ -1,4 +1,4 @@
-"""Пакет административного веб-API."""
+"""Administrative web API package."""
 from .app import create_web_api_app
 from .server import WebAPIServer
 

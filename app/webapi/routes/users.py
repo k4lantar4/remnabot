@@ -79,8 +79,7 @@ def _serialize_user(user: User) -> UserResponse:
         last_name=user.last_name,
         status=user.status,
         language=user.language,
-        balance_kopeks=user.balance_kopeks,
-        balance_rubles=round(user.balance_kopeks / 100, 2),
+        balance_toman=user.balance_toman,
         referral_code=user.referral_code,
         referred_by_id=user.referred_by_id,
         has_had_paid_subscription=user.has_had_paid_subscription,
@@ -289,7 +288,7 @@ async def update_balance(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
-    if payload.amount_kopeks == 0:
+    if payload.amount_toman == 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Amount must be non-zero")
 
     # First check if the provided ID is a telegram_id
@@ -306,8 +305,8 @@ async def update_balance(
     success = await add_user_balance(
         db,
         found_user,
-        amount_kopeks=payload.amount_kopeks,
-        description=payload.description or "Корректировка через веб-API",
+        amount_toman=payload.amount_toman,
+        description=payload.description or "Adjustment via web API",
         create_transaction=payload.create_transaction,
     )
 

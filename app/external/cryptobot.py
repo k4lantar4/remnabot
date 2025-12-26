@@ -26,7 +26,7 @@ class CryptoBotService:
     ) -> Optional[Dict[str, Any]]:
         
         if not self.api_token:
-            logger.error("CryptoBot API token не настроен")
+            logger.error("CryptoBot API token not configured")
             return None
         
         url = f"{self.base_url}/api/{endpoint}"
@@ -56,11 +56,11 @@ class CryptoBotService:
                     if response.status == 200 and response_data.get('ok'):
                         return response_data.get('result')
                     else:
-                        logger.error(f"CryptoBot API ошибка: {response_data}")
+                        logger.error(f"CryptoBot API error: {response_data}")
                         return None
                         
         except Exception as e:
-            logger.error(f"Ошибка запроса к CryptoBot API: {e}")
+            logger.error(f"Error requesting CryptoBot API: {e}")
             return None
     
     async def get_me(self) -> Optional[Dict[str, Any]]:
@@ -93,7 +93,7 @@ class CryptoBotService:
         result = await self._make_request('POST', 'createInvoice', data)
         
         if result:
-            logger.info(f"Создан CryptoBot invoice {result.get('invoice_id')} на {amount} {asset}")
+            logger.info(f"Created CryptoBot invoice {result.get('invoice_id')} for {amount} {asset}")
         
         return result
     
@@ -140,7 +140,7 @@ class CryptoBotService:
     def verify_webhook_signature(self, body: str, signature: str) -> bool:
         
         if not self.webhook_secret:
-            logger.warning("CryptoBot webhook secret не настроен")
+            logger.warning("CryptoBot webhook secret not configured")
             return True
         
         try:
@@ -150,14 +150,14 @@ class CryptoBotService:
             is_valid = hmac.compare_digest(signature, expected_signature)
             
             if is_valid:
-                logger.info("✅ CryptoBot webhook подпись валидна")
+                logger.info("CryptoBot webhook signature valid")
             else:
-                logger.error("❌ Неверная подпись CryptoBot webhook")
+                logger.error("Invalid CryptoBot webhook signature")
             
             return is_valid
             
         except Exception as e:
-            logger.error(f"Ошибка проверки подписи CryptoBot webhook: {e}")
+            logger.error(f"Error verifying CryptoBot webhook signature: {e}")
             return False
     
     async def process_webhook(self, webhook_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -179,9 +179,9 @@ class CryptoBotService:
                     'payment_system': 'cryptobot'
                 }
             
-            logger.warning(f"Неизвестный тип CryptoBot webhook: {update_type}")
+            logger.warning(f"Unknown CryptoBot webhook type: {update_type}")
             return None
             
         except Exception as e:
-            logger.error(f"Ошибка обработки CryptoBot webhook: {e}")
+            logger.error(f"Error processing CryptoBot webhook: {e}")
             return None

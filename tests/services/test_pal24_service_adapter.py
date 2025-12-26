@@ -66,7 +66,7 @@ async def test_create_bill_success(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Pal24Client, "normalize_amount", staticmethod(lambda amount: Decimal("500.00")), raising=False)
 
     result = await service.create_bill(
-        amount_kopeks=50000,
+        amount_toman=5000000,  # 50000 toman (was 500 rubles = 50000 kopeks)
         user_id=7,
         order_id="order-7",
         description="Пополнение",
@@ -92,7 +92,7 @@ async def test_create_bill_requires_configuration(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(Pal24APIError):
         await service.create_bill(
-            amount_kopeks=1000,
+            amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
             user_id=1,
             order_id="order",
             description="desc",
@@ -129,8 +129,8 @@ def test_parse_callback_missing_fields(monkeypatch: pytest.MonkeyPatch) -> None:
         Pal24Service.parse_callback({"InvId": "1"})
 
 
-def test_convert_to_kopeks_and_expiration() -> None:
-    assert Pal24Service.convert_to_kopeks("10.50") == 1050
+def test_convert_to_toman_and_expiration() -> None:
+    assert Pal24Service.convert_to_toman("10.50") == 1050
     expiration = Pal24Service.get_expiration(60)
     assert isinstance(expiration, datetime)
     assert expiration - datetime.utcnow() <= timedelta(seconds=61)

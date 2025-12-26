@@ -53,15 +53,15 @@ def get_quick_amount_buttons(language: str, user: User) -> list:
     for period in periods:
         price_attr = f"PRICE_{period}_DAYS"
         if hasattr(settings, price_attr):
-            base_price_kopeks = getattr(settings, price_attr)
+            base_price_toman = getattr(settings, price_attr)
 
             # Calculate price with user's promo group discount using unified system
-            price_info = calculate_user_price(user, base_price_kopeks, period, "period")
+            price_info = calculate_user_price(user, base_price_toman, period, "period")
 
             callback_data = f"quick_amount_{price_info.final_price}"
 
             # Format button text with discount display
-            period_label = f"{period} дней"
+            period_label = texts.t("BALANCE_PERIOD_DAYS", "{period} days").format(period=period)
 
             # For balance buttons, use simpler format without emoji and period label prefix
             if price_info.has_discount:
@@ -96,7 +96,7 @@ async def show_balance_menu(
     texts = get_texts(db_user.language)
 
     balance_text = texts.BALANCE_INFO.format(
-        balance=texts.format_price(db_user.balance_kopeks)
+        balance=texts.format_price(db_user.balance_toman)
     )
 
     reply_markup = get_balance_keyboard(db_user.language)
@@ -152,7 +152,7 @@ async def show_balance_history(
     for transaction in raw_transactions:
         rounded_time = transaction.created_at.replace(second=0, microsecond=0)
         transaction_key = (
-            transaction.amount_kopeks,
+            transaction.amount_toman,
             transaction.description,
             rounded_time
         )
@@ -171,7 +171,7 @@ async def show_balance_history(
     for transaction in all_transactions:
         rounded_time = transaction.created_at.replace(second=0, microsecond=0)
         transaction_key = (
-            transaction.amount_kopeks,
+            transaction.amount_toman,
             transaction.description,
             rounded_time
         )
@@ -181,17 +181,17 @@ async def show_balance_history(
     
     if not unique_transactions:
         await callback.message.edit_text(
-            "📊 История операций пуста",
+            texts.BALANCE_HISTORY_EMPTY,
             reply_markup=get_back_keyboard(db_user.language)
         )
         await callback.answer()
         return
     
-    text = "📊 <b>История операций</b>\n\n"
+    text = texts.BALANCE_HISTORY_TITLE
     
     for transaction in unique_transactions:
         emoji = "💰" if transaction.type == TransactionType.DEPOSIT.value else "💸"
-        amount_text = f"+{texts.format_price(transaction.amount_kopeks)}" if transaction.type == TransactionType.DEPOSIT.value else f"-{texts.format_price(transaction.amount_kopeks)}"
+        amount_text = f"+{texts.format_price(transaction.amount_toman)}" if transaction.type == TransactionType.DEPOSIT.value else f"-{texts.format_price(transaction.amount_toman)}"
         
         text += f"{emoji} {amount_text}\n"
         text += f"📝 {transaction.description}\n"
@@ -244,18 +244,18 @@ async def show_payment_methods(
     texts = get_texts(db_user.language)
     payment_text = get_payment_methods_text(db_user.language)
 
-    # Добавляем информацию о текущем тарифе пользователя
+    # Add information about user's current tariff
     subscription = await get_subscription_by_user_id(db, db_user.id)
     tariff_info = ""
     if subscription and not subscription.is_trial:
-        # Рассчитываем приблизительную стоимость продления на 30 дней
-        duration_days = 30  # Берем для примера 30 дней
+        # Calculate approximate renewal cost for 30 days
+        duration_days = 30  # Use 30 days as example
         current_traffic = subscription.traffic_limit_gb
         current_connected_squads = subscription.connected_squads or []
         current_device_limit = subscription.device_limit or settings.DEFAULT_DEVICE_LIMIT
 
         try:
-            # Получаем цены для текущих параметров
+            # Get prices for current parameters
             from app.config import PERIOD_PRICES
             base_price_original = PERIOD_PRICES.get(duration_days, 0)
             period_discount_percent = db_user.get_promo_discount("period", duration_days)
@@ -264,7 +264,7 @@ async def show_payment_methods(
                 period_discount_percent,
             )
 
-            # Рассчитываем стоимость серверов
+            # Calculate servers cost
             from app.services.subscription_service import SubscriptionService
             subscription_service = SubscriptionService()
             servers_price_per_month, per_server_monthly_prices = await subscription_service.get_countries_price_by_uuids(
@@ -281,7 +281,7 @@ async def show_payment_methods(
                 )
                 total_servers_price += discounted_per_month
 
-            # Рассчитываем стоимость трафика
+            # Calculate traffic cost
             traffic_price_per_month = settings.get_traffic_price(current_traffic)
             traffic_discount_percent = db_user.get_promo_discount("traffic", duration_days)
             traffic_discounted_per_month, traffic_discount_per_month = apply_percentage_discount(
@@ -289,7 +289,7 @@ async def show_payment_methods(
                 traffic_discount_percent,
             )
 
-            # Рассчитываем стоимость устройств
+            # Calculate devices cost
             additional_devices = max(0, (current_device_limit or 0) - settings.DEFAULT_DEVICE_LIMIT)
             devices_price_per_month = additional_devices * settings.PRICE_PER_DEVICE
             devices_discount_percent = db_user.get_promo_discount("devices", duration_days)
@@ -298,7 +298,7 @@ async def show_payment_methods(
                 devices_discount_percent,
             )
 
-            # Общая стоимость
+            # Total cost
             months_in_period = calculate_months_from_days(duration_days)
             total_price = (
                 base_price +
@@ -309,19 +309,35 @@ async def show_payment_methods(
             
             traffic_value = current_traffic or 0
             if traffic_value <= 0:
-                traffic_display = texts.t("TRAFFIC_UNLIMITED_SHORT", "Безлимит")
+                traffic_display = texts.t("TRAFFIC_UNLIMITED_SHORT", "Unlimited")
             else:
                 traffic_display = texts.format_traffic(traffic_value)
 
-            current_tariff_desc = (
-                f"📱 Подписка: {len(current_connected_squads)} серверов, "
-                f"{traffic_display}, {current_device_limit} устр."
+            current_tariff_desc = texts.t(
+                "BALANCE_CURRENT_TARIFF_DESC",
+                "📱 Subscription: {servers} servers, {traffic}, {devices} devices"
+            ).format(
+                servers=len(current_connected_squads),
+                traffic=traffic_display,
+                devices=current_device_limit
             )
-            estimated_price_info = f"💰 Стоимость продления (примерно): {texts.format_price(total_price)} за {duration_days} дней"
+            estimated_price_info = texts.t(
+                "BALANCE_ESTIMATED_RENEWAL_PRICE",
+                "💰 Estimated renewal cost: {price} for {days} days"
+            ).format(
+                price=texts.format_price(total_price),
+                days=duration_days
+            )
             
-            tariff_info = f"\n\n📋 <b>Ваш текущий тариф:</b>\n{current_tariff_desc}\n{estimated_price_info}"
+            tariff_info = texts.t(
+                "BALANCE_CURRENT_TARIFF_INFO",
+                "\n\n📋 <b>Your current tariff:</b>\n{desc}\n{price}"
+            ).format(
+                desc=current_tariff_desc,
+                price=estimated_price_info
+            )
         except Exception as e:
-            logger.warning(f"Не удалось рассчитать стоимость текущей подписки для пользователя {db_user.id}: {e}")
+            logger.warning(f"Failed to calculate current subscription cost for user {db_user.id}: {e}")
             tariff_info = ""
 
     full_text = payment_text + tariff_info
@@ -365,7 +381,7 @@ async def handle_payment_methods_unavailable(
     await callback.answer(
         texts.t(
             "PAYMENT_METHODS_UNAVAILABLE_ALERT",
-            "⚠️ В данный момент автоматические способы оплаты временно недоступны. Для пополнения баланса обратитесь в техподдержку.",
+            "⚠️ Automatic payment methods are temporarily unavailable. Contact support to top up your balance.",
         ),
         show_alert=True
     )
@@ -374,7 +390,7 @@ async def handle_payment_methods_unavailable(
 @error_handler
 async def handle_successful_topup_with_cart(
     user_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     bot,
     db: AsyncSession
 ):
@@ -402,29 +418,31 @@ async def handle_successful_topup_with_cart(
             
             keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(
-                    text="🛒 Вернуться к оформлению подписки", 
+                    text=texts.t("BALANCE_RETURN_TO_CART_BUTTON", "🛒 Return to subscription checkout"), 
                     callback_data="return_to_saved_cart"
                 )],
                 [types.InlineKeyboardButton(
-                    text="💰 Мой баланс", 
+                    text=texts.MY_BALANCE_BUTTON, 
                     callback_data="menu_balance"
                 )],
                 [types.InlineKeyboardButton(
-                    text="🏠 Главное меню", 
+                    text=texts.MAIN_MENU_BUTTON, 
                     callback_data="back_to_menu"
                 )]
             ])
             
             success_text = (
-                f"✅ Баланс пополнен на {texts.format_price(amount_kopeks)}!\n\n"
-                f"💰 Текущий баланс: {texts.format_price(user.balance_kopeks)}\n\n"
-                f"⚠️ <b>Важно:</b> Пополнение баланса не активирует подписку автоматически. "
-                f"Обязательно активируйте подписку отдельно!\n\n"
-                f"🔄 При наличии сохранённой корзины подписки и включенной автопокупке, "
-                f"подписка будет приобретена автоматически после пополнения баланса.\n\n"
-                f"🛒 У вас есть сохраненная корзина подписки\n"
-                f"Стоимость: {texts.format_price(total_price)}\n\n"
-                f"Хотите продолжить оформление?"
+                texts.t("BALANCE_TOPUP_SUCCESS", "✅ Balance topped up by {amount}!").format(
+                    amount=texts.format_price(amount_toman)
+                ) + "\n\n" +
+                texts.t("BALANCE_CURRENT_BALANCE", "💰 Current balance: {balance}").format(
+                    balance=texts.format_price(user.balance_toman)
+                ) + "\n\n" +
+                texts.t("BALANCE_TOPUP_IMPORTANT_NOTE", "⚠️ <b>Important:</b> Topping up balance does not activate subscription automatically. You must activate subscription separately!") + "\n\n" +
+                texts.t("BALANCE_AUTO_PURCHASE_NOTE", "🔄 If you have a saved subscription cart and auto-purchase is enabled, subscription will be purchased automatically after balance top-up.") + "\n\n" +
+                texts.t("BALANCE_SAVED_CART_INFO", "🛒 You have a saved subscription cart\nCost: {price}\n\nDo you want to continue checkout?").format(
+                    price=texts.format_price(total_price)
+                )
             )
             
             await bot.send_message(
@@ -435,7 +453,7 @@ async def handle_successful_topup_with_cart(
             )
             
     except Exception as e:
-        logger.error(f"Ошибка обработки успешного пополнения с корзиной: {e}")
+        logger.error(f"Error processing successful top-up with cart: {e}")
 
 
 @error_handler
@@ -449,34 +467,25 @@ async def request_support_topup(
         await callback.answer(
             texts.t(
                 "SUPPORT_TOPUP_DISABLED",
-                "Пополнение через поддержку отключено. Попробуйте другой способ оплаты.",
+                "Top-up through support is disabled. Try another payment method.",
             ),
             show_alert=True,
         )
         return
 
-    support_text = f"""
-🛠️ <b>Пополнение через поддержку</b>
-
-Для пополнения баланса обратитесь в техподдержку:
-{settings.get_support_contact_display_html()}
-
-Укажите:
-• ID: {db_user.telegram_id}
-• Сумму пополнения
-• Способ оплаты
-
-⏰ Время обработки: 1-24 часа
-
-<b>Доступные способы:</b>
-• Криптовалюта
-• Переводы между банками
-• Другие платежные системы
-"""
+    support_text = (
+        texts.t("BALANCE_SUPPORT_TOPUP_TITLE", "🛠️ <b>Top-up through support</b>") + "\n\n" +
+        texts.t("BALANCE_SUPPORT_TOPUP_INSTRUCTIONS", "To top up your balance, contact support:\n{contact}\n\nSpecify:\n• ID: {id}\n• Top-up amount\n• Payment method").format(
+            contact=settings.get_support_contact_display_html(),
+            id=db_user.telegram_id
+        ) + "\n\n" +
+        texts.t("BALANCE_SUPPORT_TOPUP_PROCESSING_TIME", "⏰ Processing time: 1-24 hours") + "\n\n" +
+        texts.t("BALANCE_SUPPORT_TOPUP_AVAILABLE_METHODS", "<b>Available methods:</b>\n• Cryptocurrency\n• Bank transfers\n• Other payment systems")
+    )
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(
-            text="💬 Написать в поддержку",
+            text=texts.t("BALANCE_CONTACT_SUPPORT_BUTTON", "💬 Contact support"),
             url=settings.get_support_contact_url() or "https://t.me/"
         )],
         [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
@@ -502,8 +511,8 @@ async def process_topup_amount(
         if not message.text:
             if message.successful_payment:
                 logger.info(
-                    "Получено сообщение об успешном платеже без текста, "
-                    "обработчик суммы пополнения завершает работу"
+                    "Received successful payment message without text, "
+                    "top-up amount handler completing"
                 )
                 await state.clear()
                 return
@@ -525,82 +534,77 @@ async def process_topup_amount(
         amount_rubles = float(amount_text.replace(',', '.'))
 
         if amount_rubles < 1:
-            await message.answer("Минимальная сумма пополнения: 1 ₽")
+            await message.answer(texts.t("BALANCE_MIN_TOPUP_AMOUNT", "Minimum top-up amount: 1  Toman"))
             return
         
         if amount_rubles > 50000:
-            await message.answer("Максимальная сумма пополнения: 50,000 ₽")
+            await message.answer(texts.t("BALANCE_MAX_TOPUP_AMOUNT", "Maximum top-up amount: 50,000  Toman"))
             return
         
-        amount_kopeks = int(amount_rubles * 100)
+        amount_toman = int(amount_rubles)
         data = await state.get_data()
         payment_method = data.get("payment_method", "stars")
         
         if payment_method in ["yookassa", "yookassa_sbp"]:
-            if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
-                min_rubles = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
-                await message.answer(f"❌ Минимальная сумма для оплаты через YooKassa: {min_rubles:.0f} ₽")
+            if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
+                min_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
+                await message.answer(texts.t("BALANCE_MIN_YOOKASSA_AMOUNT", "❌ Minimum amount for YooKassa payment: {amount:.0f}  Toman").format(amount=min_toman))
                 return
             
-            if amount_kopeks > settings.YOOKASSA_MAX_AMOUNT_KOPEKS:
-                max_rubles = settings.YOOKASSA_MAX_AMOUNT_KOPEKS / 100
-                await message.answer(f"❌ Максимальная сумма для оплаты через YooKassa: {max_rubles:,.0f} ₽".replace(',', ' '))
+            if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
+                max_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
+                await message.answer(texts.t("BALANCE_MAX_YOOKASSA_AMOUNT", "❌ Maximum amount for YooKassa payment: {amount:,.0f}  Toman").format(amount=max_toman).replace(',', ' '))
                 return
         
         if payment_method == "stars":
             from .stars import process_stars_payment_amount
-            await process_stars_payment_amount(message, db_user, amount_kopeks, state)
+            await process_stars_payment_amount(message, db_user, amount_toman, state)
         elif payment_method == "yookassa":
             from app.database.database import AsyncSessionLocal
             from .yookassa import process_yookassa_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_yookassa_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_yookassa_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "yookassa_sbp":
             from app.database.database import AsyncSessionLocal
             from .yookassa import process_yookassa_sbp_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_yookassa_sbp_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_yookassa_sbp_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "mulenpay":
             from app.database.database import AsyncSessionLocal
             from .mulenpay import process_mulenpay_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_mulenpay_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_mulenpay_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "platega":
             from app.database.database import AsyncSessionLocal
             from .platega import process_platega_payment_amount
 
             async with AsyncSessionLocal() as db:
                 await process_platega_payment_amount(
-                    message, db_user, db, amount_kopeks, state
+                    message, db_user, db, amount_toman, state
                 )
         elif payment_method == "wata":
             from app.database.database import AsyncSessionLocal
             from .wata import process_wata_payment_amount
 
             async with AsyncSessionLocal() as db:
-                await process_wata_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_wata_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "pal24":
             from app.database.database import AsyncSessionLocal
             from .pal24 import process_pal24_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_pal24_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_pal24_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "cryptobot":
             from app.database.database import AsyncSessionLocal
             from .cryptobot import process_cryptobot_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_cryptobot_payment_amount(message, db_user, db, amount_kopeks, state)
+                await process_cryptobot_payment_amount(message, db_user, db, amount_toman, state)
         elif payment_method == "heleket":
             from app.database.database import AsyncSessionLocal
             from .heleket import process_heleket_payment_amount
             async with AsyncSessionLocal() as db:
-                await process_heleket_payment_amount(message, db_user, db, amount_kopeks, state)
-        elif payment_method == "cloudpayments":
-            from app.database.database import AsyncSessionLocal
-            from .cloudpayments import process_cloudpayments_amount
-            async with AsyncSessionLocal() as db:
-                await process_cloudpayments_amount(message, db_user, db, state)
+                await process_heleket_payment_amount(message, db_user, db, amount_toman, state)
         else:
-            await message.answer("Неизвестный способ оплаты")
+            await message.answer(texts.t("BALANCE_UNKNOWN_PAYMENT_METHOD", "Unknown payment method"))
         
     except ValueError:
         await message.answer(
@@ -618,10 +622,22 @@ async def handle_sbp_payment(
         local_payment_id = int(callback.data.split('_')[-1])
         
         from app.database.crud.yookassa import get_yookassa_payment_by_local_id
+        from app.database.crud.user import get_user_by_id
         payment = await get_yookassa_payment_by_local_id(db, local_payment_id)
         
+        user_language = "ru"
+        if payment:
+            try:
+                user = await get_user_by_id(db, payment.user_id)
+                if user and getattr(user, "language", None):
+                    user_language = user.language
+            except Exception as error:
+                logger.debug("Failed to get user for SBP payment: %s", error)
+        
+        texts = get_texts(user_language)
+        
         if not payment:
-            await callback.answer("❌ Платеж не найден", show_alert=True)
+            await callback.answer(texts.t("BALANCE_PAYMENT_NOT_FOUND", "❌ Payment not found"), show_alert=True)
             return
         
         import json
@@ -629,24 +645,20 @@ async def handle_sbp_payment(
         confirmation_token = metadata.get("confirmation_token")
         
         if not confirmation_token:
-            await callback.answer("❌ Токен подтверждения не найден", show_alert=True)
+            await callback.answer(texts.t("BALANCE_CONFIRMATION_TOKEN_NOT_FOUND", "❌ Confirmation token not found"), show_alert=True)
             return
         
         await callback.message.answer(
-            f"Для оплаты через СБП откройте приложение вашего банка и подтвердите платеж.\\n\\n"
-            f"Если у вас не открылось банковское приложение автоматически, вы можете:\\n"
-            f"1. Скопировать этот токен: <code>{confirmation_token}</code>\\n"
-            f"2. Открыть приложение вашего банка\\n"
-            f"3. Найти функцию оплаты по токену\\n"
-            f"4. Вставить токен и подтвердить платеж",
+            texts.t("BALANCE_SBP_PAYMENT_INSTRUCTIONS", "To pay via SBP, open your bank app and confirm the payment.\n\nIf your bank app didn't open automatically, you can:\n1. Copy this token: <code>{token}</code>\n2. Open your bank app\n3. Find the payment by token function\n4. Paste the token and confirm the payment").format(token=confirmation_token),
             parse_mode="HTML"
         )
         
-        await callback.answer("Информация об оплате отправлена", show_alert=True)
+        await callback.answer(texts.t("BALANCE_PAYMENT_INFO_SENT", "Payment information sent"), show_alert=True)
         
     except Exception as e:
-        logger.error(f"Ошибка обработки embedded платежа СБП: {e}")
-        await callback.answer("❌ Ошибка обработки платежа", show_alert=True)
+        logger.error(f"Error processing embedded SBP payment: {e}")
+        texts = get_texts("ru")
+        await callback.answer(texts.t("BALANCE_PAYMENT_PROCESSING_ERROR", "❌ Payment processing error"), show_alert=True)
 
 
 @error_handler
@@ -656,38 +668,37 @@ async def handle_quick_amount_selection(
     state: FSMContext
 ):
     """
-    Обработчик выбора суммы через кнопки быстрого выбора
+    Handler for quick amount selection via buttons
     """
-    # Извлекаем сумму из callback_data
+    # Extract amount from callback_data
     try:
-        amount_kopeks = int(callback.data.split('_')[-1])
-        amount_rubles = amount_kopeks / 100
+        amount_toman = int(callback.data.split('_')[-1])
         
-        # Получаем метод оплаты из состояния
+        # Get payment method from state
         data = await state.get_data()
         payment_method = data.get("payment_method", "yookassa")
         
-        # Проверяем, какой метод оплаты был выбран и вызываем соответствующий обработчик
+        # Check which payment method was selected and call corresponding handler
         if payment_method == "yookassa":
             from app.database.database import AsyncSessionLocal
             from .yookassa import process_yookassa_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_yookassa_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "yookassa_sbp":
             from app.database.database import AsyncSessionLocal
             from .yookassa import process_yookassa_sbp_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_yookassa_sbp_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "mulenpay":
             from app.database.database import AsyncSessionLocal
             from .mulenpay import process_mulenpay_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_mulenpay_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "platega":
             from app.database.database import AsyncSessionLocal
@@ -695,7 +706,7 @@ async def handle_quick_amount_selection(
 
             async with AsyncSessionLocal() as db:
                 await process_platega_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "wata":
             from app.database.database import AsyncSessionLocal
@@ -703,14 +714,14 @@ async def handle_quick_amount_selection(
 
             async with AsyncSessionLocal() as db:
                 await process_wata_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "pal24":
             from app.database.database import AsyncSessionLocal
             from .pal24 import process_pal24_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_pal24_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "cryptobot":
             from app.database.database import AsyncSessionLocal
@@ -718,7 +729,7 @@ async def handle_quick_amount_selection(
 
             async with AsyncSessionLocal() as db:
                 await process_cryptobot_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "heleket":
             from app.database.database import AsyncSessionLocal
@@ -726,31 +737,26 @@ async def handle_quick_amount_selection(
 
             async with AsyncSessionLocal() as db:
                 await process_heleket_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
-                )
-        elif payment_method == "cloudpayments":
-            from app.database.database import AsyncSessionLocal
-            from .cloudpayments import process_cloudpayments_payment_amount
-
-            async with AsyncSessionLocal() as db:
-                await process_cloudpayments_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif payment_method == "stars":
             from .stars import process_stars_payment_amount
 
             await process_stars_payment_amount(
-                callback.message, db_user, amount_kopeks, state
+                callback.message, db_user, amount_toman, state
             )
         else:
-            await callback.answer("❌ Неизвестный способ оплаты", show_alert=True)
+            texts = get_texts(db_user.language)
+            await callback.answer(texts.t("BALANCE_UNKNOWN_PAYMENT_METHOD", "❌ Unknown payment method"), show_alert=True)
             return
 
     except ValueError:
-        await callback.answer("❌ Ошибка обработки суммы", show_alert=True)
+        texts = get_texts(db_user.language)
+        await callback.answer(texts.t("BALANCE_QUICK_AMOUNT_SELECTION_ERROR", "❌ Amount processing error"), show_alert=True)
     except Exception as e:
-        logger.error(f"Ошибка обработки быстрого выбора суммы: {e}")
-        await callback.answer("❌ Ошибка обработки запроса", show_alert=True)
+        logger.error(f"Error processing quick amount selection: {e}")
+        texts = get_texts(db_user.language)
+        await callback.answer(texts.t("BALANCE_QUICK_AMOUNT_PROCESSING_ERROR", "❌ Request processing error"), show_alert=True)
 
 
 @error_handler
@@ -759,15 +765,17 @@ async def handle_topup_amount_callback(
     db_user: User,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
+    
     try:
         _, method, amount_str = callback.data.split("|", 2)
-        amount_kopeks = int(amount_str)
+        amount_toman = int(amount_str)
     except ValueError:
-        await callback.answer("❌ Некорректный запрос", show_alert=True)
+        await callback.answer(texts.t("BALANCE_INCORRECT_REQUEST", "❌ Incorrect request"), show_alert=True)
         return
 
-    if amount_kopeks <= 0:
-        await callback.answer("❌ Некорректная сумма", show_alert=True)
+    if amount_toman <= 0:
+        await callback.answer(texts.t("BALANCE_INCORRECT_AMOUNT", "❌ Incorrect amount"), show_alert=True)
         return
 
     try:
@@ -776,21 +784,21 @@ async def handle_topup_amount_callback(
             from .yookassa import process_yookassa_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_yookassa_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "yookassa_sbp":
             from app.database.database import AsyncSessionLocal
             from .yookassa import process_yookassa_sbp_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_yookassa_sbp_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "mulenpay":
             from app.database.database import AsyncSessionLocal
             from .mulenpay import process_mulenpay_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_mulenpay_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "platega":
             from app.database.database import AsyncSessionLocal
@@ -802,64 +810,57 @@ async def handle_topup_amount_callback(
             if method_code > 0:
                 async with AsyncSessionLocal() as db:
                     await process_platega_payment_amount(
-                        callback.message, db_user, db, amount_kopeks, state
+                        callback.message, db_user, db, amount_toman, state
                     )
             else:
-                await state.update_data(platega_pending_amount=amount_kopeks)
+                await state.update_data(platega_pending_amount=amount_toman)
                 await start_platega_payment(callback, db_user, state)
         elif method == "pal24":
             from app.database.database import AsyncSessionLocal
             from .pal24 import process_pal24_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_pal24_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "cryptobot":
             from app.database.database import AsyncSessionLocal
             from .cryptobot import process_cryptobot_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_cryptobot_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "heleket":
             from app.database.database import AsyncSessionLocal
             from .heleket import process_heleket_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_heleket_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "wata":
             from app.database.database import AsyncSessionLocal
             from .wata import process_wata_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_wata_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
-                )
-        elif method == "cloudpayments":
-            from app.database.database import AsyncSessionLocal
-            from .cloudpayments import process_cloudpayments_payment_amount
-            async with AsyncSessionLocal() as db:
-                await process_cloudpayments_payment_amount(
-                    callback.message, db_user, db, amount_kopeks, state
+                    callback.message, db_user, db, amount_toman, state
                 )
         elif method == "stars":
             from .stars import process_stars_payment_amount
             await process_stars_payment_amount(
-                callback.message, db_user, amount_kopeks, state
+                callback.message, db_user, amount_toman, state
             )
         elif method == "tribute":
             from .tribute import start_tribute_payment
             await start_tribute_payment(callback, db_user)
             return
         else:
-            await callback.answer("❌ Неизвестный способ оплаты", show_alert=True)
+            await callback.answer(texts.t("BALANCE_UNKNOWN_PAYMENT_METHOD", "❌ Unknown payment method"), show_alert=True)
             return
 
         await callback.answer()
 
     except Exception as error:
-        logger.error(f"Ошибка быстрого пополнения: {error}")
-        await callback.answer("❌ Ошибка обработки запроса", show_alert=True)
+        logger.error(f"Error processing quick top-up: {error}")
+        await callback.answer(texts.t("BALANCE_QUICK_AMOUNT_PROCESSING_ERROR", "❌ Request processing error"), show_alert=True)
 
 
 def register_balance_handlers(dp: Dispatcher):
@@ -913,6 +914,9 @@ def register_balance_handlers(dp: Dispatcher):
         start_wata_payment,
         F.data == "topup_wata"
     )
+
+    from .card_to_card import register_card_to_card_handlers
+    register_card_to_card_handlers(dp)
 
     from .pal24 import start_pal24_payment
     dp.callback_query.register(
@@ -985,16 +989,6 @@ def register_balance_handlers(dp: Dispatcher):
         F.data.startswith("check_heleket_")
     )
 
-    from .cloudpayments import start_cloudpayments_payment, handle_cloudpayments_quick_amount
-    dp.callback_query.register(
-        start_cloudpayments_payment,
-        F.data == "topup_cloudpayments"
-    )
-    dp.callback_query.register(
-        handle_cloudpayments_quick_amount,
-        F.data.startswith("topup_amount|cloudpayments|")
-    )
-
     from .mulenpay import check_mulenpay_payment_status
     dp.callback_query.register(
         check_mulenpay_payment_status,
@@ -1024,7 +1018,7 @@ def register_balance_handlers(dp: Dispatcher):
         F.data == "payment_methods_unavailable"
     )
     
-    # Регистрируем обработчик для кнопок быстрого выбора суммы
+    # Register handler for quick amount selection buttons
     dp.callback_query.register(
         handle_quick_amount_selection,
         F.data.startswith("quick_amount_")

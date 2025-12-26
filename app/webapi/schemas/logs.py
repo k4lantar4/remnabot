@@ -1,4 +1,4 @@
-"""Pydantic-схемы для работы с логами административного API."""
+"""Pydantic schemas for administrative API logs."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,21 +8,21 @@ from pydantic import BaseModel, Field
 
 
 class MonitoringLogEntry(BaseModel):
-    """Запись лога мониторинга."""
+    """Monitoring log entry."""
 
     id: int
-    event_type: str = Field(..., description="Тип события мониторинга")
-    message: str = Field(..., description="Краткое описание события")
+    event_type: str = Field(..., description="Monitoring event type")
+    message: str = Field(..., description="Short event description")
     data: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Дополнительные данные события",
+        description="Additional event data",
     )
-    is_success: bool = Field(..., description="Флаг успешности выполнения операции")
-    created_at: datetime = Field(..., description="Дата и время создания записи")
+    is_success: bool = Field(..., description="Flag indicating operation success")
+    created_at: datetime = Field(..., description="Record creation datetime")
 
 
 class MonitoringLogListResponse(BaseModel):
-    """Ответ со списком логов мониторинга."""
+    """Response with monitoring log list."""
 
     total: int = Field(..., ge=0)
     limit: int = Field(..., ge=1)
@@ -31,13 +31,13 @@ class MonitoringLogListResponse(BaseModel):
 
 
 class MonitoringLogTypeListResponse(BaseModel):
-    """Ответ со списком доступных типов событий мониторинга."""
+    """Response with available monitoring event types."""
 
     items: List[str] = Field(default_factory=list)
 
 
 class SupportAuditLogEntry(BaseModel):
-    """Запись аудита модераторов поддержки."""
+    """Support moderators audit entry."""
 
     id: int
     actor_user_id: Optional[int]
@@ -51,7 +51,7 @@ class SupportAuditLogEntry(BaseModel):
 
 
 class SupportAuditLogListResponse(BaseModel):
-    """Ответ со списком аудита поддержки."""
+    """Response with support audit list."""
 
     total: int = Field(..., ge=0)
     limit: int = Field(..., ge=1)
@@ -60,38 +60,38 @@ class SupportAuditLogListResponse(BaseModel):
 
 
 class SupportAuditActionsResponse(BaseModel):
-    """Ответ со списком доступных действий аудита поддержки."""
+    """Response with available support audit actions."""
 
     items: List[str] = Field(default_factory=list)
 
 
 class SystemLogPreviewResponse(BaseModel):
-    """Ответ с превью системного лог-файла бота."""
+    """Response with preview of the bot system log file."""
 
-    path: str = Field(..., description="Абсолютный путь до лог-файла")
-    exists: bool = Field(..., description="Флаг наличия лог-файла")
+    path: str = Field(..., description="Absolute path to the log file")
+    exists: bool = Field(..., description="Flag indicating log file exists")
     updated_at: Optional[datetime] = Field(
         default=None,
-        description="Дата и время последнего изменения лог-файла",
+        description="Last modified datetime of the log file",
     )
-    size_bytes: int = Field(..., ge=0, description="Размер лог-файла в байтах")
-    size_chars: int = Field(..., ge=0, description="Количество символов в лог-файле")
+    size_bytes: int = Field(..., ge=0, description="Log file size in bytes")
+    size_chars: int = Field(..., ge=0, description="Number of characters in the log file")
     preview: str = Field(
         default="",
-        description="Фрагмент содержимого лог-файла, возвращаемый для предпросмотра",
+        description="Log file content fragment returned for preview",
     )
-    preview_chars: int = Field(..., ge=0, description="Размер предпросмотра в символах")
+    preview_chars: int = Field(..., ge=0, description="Preview size in characters")
     preview_truncated: bool = Field(
-        ..., description="Флаг усечения предпросмотра относительно полного файла"
+        ..., description="Flag indicating preview is truncated relative to full file"
     )
     download_url: Optional[str] = Field(
         default=None,
-        description="Относительный путь до endpoint для скачивания лог-файла",
+        description="Relative path to the endpoint for downloading the log file",
     )
 
 
 class SystemLogFullResponse(BaseModel):
-    """Полное содержимое системного лог-файла."""
+    """Full content of the system log file."""
 
     path: str
     exists: bool

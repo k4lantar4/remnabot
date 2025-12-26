@@ -39,8 +39,7 @@ def _serialize_campaign(campaign) -> CampaignResponse:
         name=campaign.name,
         start_parameter=campaign.start_parameter,
         bonus_type=campaign.bonus_type,
-        balance_bonus_kopeks=campaign.balance_bonus_kopeks or 0,
-        balance_bonus_rubles=round((campaign.balance_bonus_kopeks or 0) / 100, 2),
+        balance_bonus_toman=campaign.balance_bonus_toman or 0,
         subscription_duration_days=campaign.subscription_duration_days,
         subscription_traffic_gb=campaign.subscription_traffic_gb,
         subscription_device_limit=campaign.subscription_device_limit,
@@ -57,7 +56,7 @@ def _serialize_campaign(campaign) -> CampaignResponse:
     "",
     response_model=CampaignResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создать рекламную кампанию",
+    summary="Create advertising campaign",
 )
 async def create_campaign_endpoint(
     payload: CampaignCreateRequest,
@@ -73,7 +72,7 @@ async def create_campaign_endpoint(
             start_parameter=payload.start_parameter,
             bonus_type=payload.bonus_type,
             created_by=created_by,
-            balance_bonus_kopeks=payload.balance_bonus_kopeks,
+            balance_bonus_toman=payload.balance_bonus_toman,
             subscription_duration_days=payload.subscription_duration_days,
             subscription_traffic_gb=payload.subscription_traffic_gb,
             subscription_device_limit=payload.subscription_device_limit,
@@ -93,14 +92,14 @@ async def create_campaign_endpoint(
 @router.get(
     "",
     response_model=CampaignListResponse,
-    summary="Список рекламных кампаний",
+    summary="List advertising campaigns",
 )
 async def list_campaigns(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    include_inactive: bool = Query(True, description="Включать неактивные кампании"),
+    include_inactive: bool = Query(True, description="Include inactive campaigns"),
 ) -> CampaignListResponse:
     total = await get_campaigns_count(db, is_active=None if include_inactive else True)
     campaigns = await get_campaigns_list(
@@ -121,7 +120,7 @@ async def list_campaigns(
 @router.delete(
     "/{campaign_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Удалить рекламную кампанию",
+    summary="Delete advertising campaign",
 )
 async def delete_campaign_endpoint(
     campaign_id: int,
@@ -139,7 +138,7 @@ async def delete_campaign_endpoint(
 @router.patch(
     "/{campaign_id}",
     response_model=CampaignResponse,
-    summary="Обновить рекламную кампанию",
+    summary="Update advertising campaign",
 )
 async def update_campaign_endpoint(
     campaign_id: int,

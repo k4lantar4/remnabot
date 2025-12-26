@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class WebAPIServer:
-    """Асинхронный uvicorn-сервер для административного API."""
+    """Asynchronous uvicorn server for the admin API."""
 
     def __init__(self, app: Optional[object] = None) -> None:
         self._app = app or create_web_api_app()
 
         workers = max(1, int(settings.WEB_API_WORKERS or 1))
         if workers > 1:
-            logger.warning("WEB_API_WORKERS > 1 не поддерживается в embed-режиме, используем 1")
+            logger.warning("WEB_API_WORKERS > 1 is not supported in embed mode, using 1")
             workers = 1
 
         self._config = uvicorn.Config(
@@ -38,18 +38,18 @@ class WebAPIServer:
 
     async def start(self) -> None:
         if self._task and not self._task.done():
-            logger.info("🌐 Административное веб-API уже запущено")
+            logger.info("🌐 Admin web API is already running")
             return
 
         async def _serve() -> None:
             try:
                 await self._server.serve()
-            except Exception as error:  # pragma: no cover - логируем ошибки сервера
-                logger.exception("❌ Ошибка работы веб-API: %s", error)
+            except Exception as error:  # pragma: no cover - log server errors
+                logger.exception("❌ Web API error: %s", error)
                 raise
 
         logger.info(
-            "🌐 Запуск административного API на %s:%s",
+            "🌐 Starting admin API at %s:%s",
             settings.WEB_API_HOST,
             settings.WEB_API_PORT,
         )
@@ -75,7 +75,7 @@ class WebAPIServer:
         if not self._task:
             return
 
-        logger.info("🛑 Остановка административного API")
+        logger.info("🛑 Stopping admin API")
         self._server.should_exit = True
         await self._task
         self._task = None

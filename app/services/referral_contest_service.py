@@ -479,7 +479,7 @@ class ReferralContestService:
         self,
         db: AsyncSession,
         user_id: int,
-        amount_kopeks: int = 0,
+        amount_toman: int = 0,
     ) -> None:
         if not settings.is_contests_enabled():
             return
@@ -504,7 +504,7 @@ class ReferralContestService:
                     contest_id=contest.id,
                     referrer_id=user.referred_by_id,
                     referral_id=user.id,
-                    amount_kopeks=amount_kopeks,
+                    amount_toman=amount_toman,
                     event_type="subscription_purchase",
                 )
                 if event:
@@ -545,7 +545,7 @@ class ReferralContestService:
                     contest_id=contest.id,
                     referrer_id=user.referred_by_id,
                     referral_id=user.id,
-                    amount_kopeks=0,
+                    amount_toman=0,
                     event_type="referral_registration",
                 )
                 if event:

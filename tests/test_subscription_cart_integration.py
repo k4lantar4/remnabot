@@ -28,7 +28,7 @@ def mock_user():
     user.id = 12345
     user.telegram_id = 12345
     user.language = "ru"
-    user.balance_kopeks = 10000
+    user.balance_toman = 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
     user.subscription = None
     user.has_had_paid_subscription = False
     user.promo_group_id = None
@@ -75,7 +75,7 @@ async def test_save_cart_and_redirect_to_topup(mock_callback_query, mock_state, 
 
         # Подготовим тексты
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f"{x/100:.0f} ₽"
+        mock_texts.format_price = lambda x: f"{x/100:.0f}  Toman"
         mock_get_texts.return_value = mock_texts
 
         missing_amount = 40000  # 50000 - 10000 = 40000
@@ -140,11 +140,11 @@ async def test_return_to_saved_cart_success(mock_callback_query, mock_state, moc
 
         # Подготовим тексты
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f"{x/100:.0f} ₽"
+        mock_texts.format_price = lambda x: f"{x/100:.0f}  Toman"
         mock_get_texts.return_value = mock_texts
 
         # Увеличиваем баланс пользователя, чтобы его хватило
-        mock_user.balance_kopeks = 50000
+        mock_user.balance_toman = 5_000_000  # 50000 toman (was 500 rubles = 50000 kopeks)
 
         # Вызываем функцию
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)
@@ -199,13 +199,13 @@ async def test_return_to_saved_cart_skips_edit_when_message_matches(
         mock_keyboard_func.return_value = confirm_keyboard
 
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f"{x/100:.0f} ₽"
+        mock_texts.format_price = lambda x: f"{x/100:.0f}  Toman"
         mock_get_texts.return_value = mock_texts
 
         mock_settings.is_devices_selection_enabled.return_value = True
         mock_settings.is_traffic_fixed.return_value = False
 
-        mock_user.balance_kopeks = 50000
+        mock_user.balance_toman = 5_000_000  # 50000 toman (was 500 rubles = 50000 kopeks)
 
         summary_text = (
             "🛒 Восстановленная корзина\n\n"
@@ -213,7 +213,7 @@ async def test_return_to_saved_cart_skips_edit_when_message_matches(
             "📊 Трафик: 40 ГБ\n"
             "🌍 Страны: Russia, USA\n"
             "📱 Устройства: 3\n\n"
-            "💎 Общая стоимость: 440 ₽\n\n"
+            "💎 Общая стоимость: 440  Toman\n\n"
             "Подтверждаете покупку?"
         )
 
@@ -273,7 +273,7 @@ async def test_return_to_saved_cart_normalizes_devices_when_disabled(
         mock_keyboard_func.return_value = mock_keyboard
 
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f"{x/100:.0f} ₽"
+        mock_texts.format_price = lambda x: f"{x/100:.0f}  Toman"
         mock_texts.t = lambda key, default=None: default or ""
         mock_get_texts.return_value = mock_texts
 
@@ -282,7 +282,7 @@ async def test_return_to_saved_cart_normalizes_devices_when_disabled(
         mock_settings.is_traffic_fixed.return_value = False
         mock_settings.get_fixed_traffic_limit.return_value = 0
 
-        mock_user.balance_kopeks = 60000
+        mock_user.balance_toman = 60000
 
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)
 
@@ -331,12 +331,12 @@ async def test_return_to_saved_cart_insufficient_funds(mock_callback_query, mock
 
         # Подготовим тексты
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f"{x/100:.0f} ₽"
+        mock_texts.format_price = lambda x: f"{x/100:.0f}  Toman"
         mock_texts.t = lambda key, default: default
         mock_get_texts.return_value = mock_texts
 
         # Баланс пользователя меньше стоимости подписки
-        mock_user.balance_kopeks = 10000
+        mock_user.balance_toman = 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
 
         # Вызываем функцию
         await return_to_saved_cart(mock_callback_query, mock_state, mock_user, mock_db)

@@ -50,8 +50,8 @@ from ..schemas.polls import (
 router = APIRouter()
 
 
-def _format_price(kopeks: int) -> float:
-    return round(kopeks / 100, 2)
+def _format_price(toman: int) -> float:
+    return round(toman / 100, 2)
 
 
 def _serialize_option(option: PollOption) -> PollQuestionOptionResponse:
@@ -88,8 +88,7 @@ def _serialize_poll_summary(
         title=poll.title,
         description=poll.description,
         reward_enabled=poll.reward_enabled,
-        reward_amount_kopeks=poll.reward_amount_kopeks,
-        reward_amount_rubles=_format_price(poll.reward_amount_kopeks),
+        reward_amount_toman=poll.reward_amount_toman,
         questions_count=len(questions),
         responses_count=responses_count,
         created_at=poll.created_at,
@@ -107,8 +106,7 @@ def _serialize_poll_detail(poll: Poll) -> PollDetailResponse:
         title=poll.title,
         description=poll.description,
         reward_enabled=poll.reward_enabled,
-        reward_amount_kopeks=poll.reward_amount_kopeks,
-        reward_amount_rubles=_format_price(poll.reward_amount_kopeks),
+        reward_amount_toman=poll.reward_amount_toman,
         questions=questions,
         created_at=poll.created_at,
         updated_at=poll.updated_at,
@@ -142,8 +140,7 @@ def _serialize_user_response(response: PollResponse) -> PollUserResponse:
         started_at=response.started_at,
         completed_at=response.completed_at,
         reward_given=response.reward_given,
-        reward_amount_kopeks=response.reward_amount_kopeks,
-        reward_amount_rubles=_format_price(response.reward_amount_kopeks),
+        reward_amount_toman=response.reward_amount_toman,
         answers=answers,
     )
 
@@ -218,7 +215,7 @@ async def create_poll_endpoint(
         title=payload.title,
         description=payload.description,
         reward_enabled=payload.reward_enabled,
-        reward_amount_kopeks=payload.reward_amount_kopeks,
+        reward_amount_toman=payload.reward_amount_toman,
         created_by=None,
         questions=[
             {
@@ -280,8 +277,7 @@ async def get_poll_stats(
         poll_title=poll.title,
         total_responses=stats.get("total_responses", 0),
         completed_responses=stats.get("completed_responses", 0),
-        reward_sum_kopeks=stats.get("reward_sum_kopeks", 0),
-        reward_sum_rubles=_format_price(stats.get("reward_sum_kopeks", 0)),
+        reward_sum_toman=stats.get("reward_sum_toman", 0),
         questions=formatted_questions,
     )
 

@@ -22,7 +22,7 @@ async def create_poll(
     title: str,
     description: str | None,
     reward_enabled: bool,
-    reward_amount_kopeks: int,
+    reward_amount_toman: int,
     created_by: int | None,
     questions: Sequence[dict[str, Iterable[str]]],
 ) -> Poll:
@@ -30,7 +30,7 @@ async def create_poll(
         title=title,
         description=description,
         reward_enabled=reward_enabled,
-        reward_amount_kopeks=reward_amount_kopeks if reward_enabled else 0,
+        reward_amount_toman=reward_amount_toman if reward_enabled else 0,
         created_by=created_by,
     )
     db.add(poll)
@@ -98,7 +98,7 @@ async def delete_poll(db: AsyncSession, poll_id: int) -> bool:
 
     await db.delete(poll)
     await db.commit()
-    logger.info("🗑️ Удалён опрос %s", poll_id)
+    logger.info("🗑️ Poll deleted %s", poll_id)
     return True
 
 
@@ -193,7 +193,7 @@ async def get_poll_statistics(db: AsyncSession, poll_id: int) -> dict:
         select(
             func.count(PollResponse.id),
             func.count(PollResponse.completed_at),
-            func.coalesce(func.sum(PollResponse.reward_amount_kopeks), 0),
+            func.coalesce(func.sum(PollResponse.reward_amount_toman), 0),
         ).where(PollResponse.poll_id == poll_id)
     )
     total_responses, completed_responses, reward_sum = totals_result.one()
@@ -260,7 +260,7 @@ async def get_poll_statistics(db: AsyncSession, poll_id: int) -> dict:
     return {
         "total_responses": total_responses,
         "completed_responses": completed_responses,
-        "reward_sum_kopeks": reward_sum,
+        "reward_sum_toman": reward_sum,
         "questions": questions,
     }
 

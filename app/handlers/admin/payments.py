@@ -285,7 +285,7 @@ def _build_record_lines(
     texts,
     language: str,
 ) -> list[str]:
-    amount = settings.format_price(record.amount_kopeks)
+    amount = settings.format_price(record.amount_toman)
     if record.method == PaymentMethod.CRYPTOBOT:
         crypto_amount = getattr(record.payment, "amount", None)
         crypto_asset = getattr(record.payment, "asset", None)
@@ -318,7 +318,7 @@ def _build_record_lines(
 def _build_payment_details_text(record: PendingPayment, *, texts, language: str) -> str:
     method_name = _method_display(record.method)
     emoji, status_text = _status_info(record, texts=texts)
-    amount = settings.format_price(record.amount_kopeks)
+    amount = settings.format_price(record.amount_toman)
     if record.method == PaymentMethod.CRYPTOBOT:
         crypto_amount = getattr(record.payment, "amount", None)
         crypto_asset = getattr(record.payment, "asset", None)
@@ -533,15 +533,17 @@ async def show_payment_details(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     parsed = _parse_method_and_id(callback.data, prefix="admin_payment_")
     if not parsed:
-        await callback.answer("❌ Invalid payment reference", show_alert=True)
+        await callback.answer(texts.t("INVALID_PAYMENT_REFERENCE"), show_alert=True)
         return
 
     method, payment_id = parsed
     record = await get_payment_record(db, method, payment_id)
     if not record:
-        await callback.answer("❌ Платеж не найден", show_alert=True)
+        texts = get_texts(db_user.language)
+        await callback.answer(texts.t("ADMIN_PAYMENT_NOT_FOUND", "Payment not found."), show_alert=True)
         return
 
     await _render_payment_details(callback, db_user, record)
@@ -555,9 +557,10 @@ async def manual_check_payment(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     parsed = _parse_method_and_id(callback.data, prefix="admin_payment_check_")
     if not parsed:
-        await callback.answer("❌ Invalid payment reference", show_alert=True)
+        await callback.answer(texts.t("INVALID_PAYMENT_REFERENCE"), show_alert=True)
         return
 
     method, payment_id = parsed

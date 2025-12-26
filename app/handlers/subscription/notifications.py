@@ -86,7 +86,7 @@ async def send_trial_notification(callback: types.CallbackQuery, db: AsyncSessio
         notification_service = AdminNotificationService(callback.bot)
         await notification_service.send_trial_activation_notification(db, db_user, subscription)
     except Exception as e:
-        logger.error(f"Ошибка отправки уведомления о триале: {e}")
+        logger.error(f"Error sending trial notification: {e}")
 
 async def send_purchase_notification(
         callback: types.CallbackQuery,
@@ -107,7 +107,7 @@ async def send_purchase_notification(
                 db, db_user, subscription, transaction, period_days, was_trial_conversion
             )
     except Exception as e:
-        logger.error(f"Ошибка отправки уведомления о покупке: {e}")
+        logger.error(f"Error sending purchase notification: {e}")
 
 async def send_extension_notification(
         callback: types.CallbackQuery,
@@ -128,4 +128,4 @@ async def send_extension_notification(
                 db, db_user, subscription, transaction, extended_days, old_end_date
             )
     except Exception as e:
-        logger.error(f"Ошибка отправки уведомления о продлении: {e}")
+        logger.error(f"Error sending extension notification: {e}")

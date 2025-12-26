@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class UserCartService:
     """
-    Сервис для работы с корзиной пользователя через Redis
+    Service for working with the user's cart via Redis.
     """
     
     def __init__(self):
@@ -19,94 +19,94 @@ class UserCartService:
         self._setup_redis()
     
     def _setup_redis(self):
-        """Инициализация Redis клиента"""
+        """Initialize Redis client."""
         try:
             self.redis_client = redis.from_url(settings.REDIS_URL)
         except Exception as e:
-            logger.error(f"Ошибка подключения к Redis: {e}")
+            logger.error("Redis connection error: %s", e)
             raise
     
     async def save_user_cart(self, user_id: int, cart_data: Dict[str, Any], ttl: int = 3600) -> bool:
         """
-        Сохранить корзину пользователя в Redis
-        
+        Save the user's cart to Redis.
+
         Args:
-            user_id: ID пользователя
-            cart_data: Данные корзины (параметры подписки)
-            ttl: Время жизни ключа в секундах (по умолчанию 1 час)
-        
+            user_id: User ID.
+            cart_data: Cart data (subscription parameters).
+            ttl: Key lifetime in seconds (default 1 hour).
+
         Returns:
-            bool: Успешность сохранения
+            bool: Whether the cart was saved successfully.
         """
         try:
             key = f"user_cart:{user_id}"
             json_data = json.dumps(cart_data, ensure_ascii=False)
             await self.redis_client.setex(key, ttl, json_data)
-            logger.info(f"Корзина пользователя {user_id} сохранена в Redis")
+            logger.info("User %s cart saved to Redis", user_id)
             return True
         except Exception as e:
-            logger.error(f"Ошибка сохранения корзины пользователя {user_id}: {e}")
+            logger.error("Failed to save cart for user %s: %s", user_id, e)
             return False
     
     async def get_user_cart(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
-        Получить корзину пользователя из Redis
-        
+        Get the user's cart from Redis.
+
         Args:
-            user_id: ID пользователя
-        
+            user_id: User ID.
+
         Returns:
-            dict: Данные корзины или None
+            dict: Cart data or None.
         """
         try:
             key = f"user_cart:{user_id}"
             json_data = await self.redis_client.get(key)
             if json_data:
                 cart_data = json.loads(json_data)
-                logger.info(f"Корзина пользователя {user_id} загружена из Redis")
+                logger.info("User %s cart loaded from Redis", user_id)
                 return cart_data
             return None
         except Exception as e:
-            logger.error(f"Ошибка получения корзины пользователя {user_id}: {e}")
+            logger.error("Failed to fetch cart for user %s: %s", user_id, e)
             return None
     
     async def delete_user_cart(self, user_id: int) -> bool:
         """
-        Удалить корзину пользователя из Redis
-        
+        Delete the user's cart from Redis.
+
         Args:
-            user_id: ID пользователя
-        
+            user_id: User ID.
+
         Returns:
-            bool: Успешность удаления
+            bool: Whether the cart was removed.
         """
         try:
             key = f"user_cart:{user_id}"
             result = await self.redis_client.delete(key)
             if result:
-                logger.info(f"Корзина пользователя {user_id} удалена из Redis")
+                logger.info("User %s cart removed from Redis", user_id)
             return bool(result)
         except Exception as e:
-            logger.error(f"Ошибка удаления корзины пользователя {user_id}: {e}")
+            logger.error("Failed to delete cart for user %s: %s", user_id, e)
             return False
     
     async def has_user_cart(self, user_id: int) -> bool:
         """
-        Проверить наличие корзины у пользователя
-        
+        Check whether the user has a saved cart.
+
         Args:
-            user_id: ID пользователя
-        
+            user_id: User ID.
+
         Returns:
-            bool: Наличие корзины
+            bool: True if the cart exists.
         """
         try:
             key = f"user_cart:{user_id}"
             exists = await self.redis_client.exists(key)
             return bool(exists)
         except Exception as e:
-            logger.error(f"Ошибка проверки наличия корзины пользователя {user_id}: {e}")
+            logger.error("Failed to check cart existence for user %s: %s", user_id, e)
             return False
 
-# Глобальный экземпляр сервиса
+# Global service instance
 user_cart_service = UserCartService()

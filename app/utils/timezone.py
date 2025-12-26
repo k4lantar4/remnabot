@@ -27,7 +27,7 @@ def get_local_timezone() -> ZoneInfo:
         return ZoneInfo(tz_name)
     except Exception as exc:  # pragma: no cover - defensive branch
         logger.warning(
-            "⚠️ Не удалось загрузить временную зону '%s': %s. Используем UTC.",
+            "⚠️ Failed to load timezone '%s': %s. Using UTC.",
             tz_name,
             exc,
         )
@@ -67,7 +67,7 @@ class TimezoneAwareFormatter(logging.Formatter):
                 self._timezone = ZoneInfo(timezone_name)
             except Exception as exc:  # pragma: no cover - defensive branch
                 logger.warning(
-                    "⚠️ Не удалось загрузить временную зону '%s': %s. Используем UTC.",
+                    "⚠️ Failed to load timezone '%s': %s. Using UTC.",
                     timezone_name,
                     exc,
                 )

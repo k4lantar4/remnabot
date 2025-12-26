@@ -7,6 +7,10 @@ from packaging import version
 import re
 
 from app.config import settings
+from app.localization.texts import get_texts
+
+
+_default_texts = get_texts()
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +46,7 @@ class VersionInfo:
     @property
     def short_description(self) -> str:
         if not self.body:
-            return "Без описания"
+            return _default_texts.get_text("VERSION_NO_DESCRIPTION", "No description")
         
         description = self.body.strip()
         if len(description) > 350:
@@ -118,7 +122,7 @@ class VersionService:
             return has_updates, newer_releases
             
         except Exception as e:
-            logger.error(f"Ошибка проверки обновлений: {e}")
+            logger.error(f"Update check failed: {e}")
             return False, []
     
     async def _fetch_releases(self, force: bool = False) -> List[VersionInfo]:
@@ -149,17 +153,17 @@ class VersionService:
                         self._cache['releases'] = releases
                         self._last_check = datetime.now()
                         
-                        logger.info(f"Получено {len(releases)} релизов из GitHub")
+                        logger.info(f"Fetched {len(releases)} releases from GitHub")
                         return releases
                     else:
-                        logger.warning(f"GitHub API вернул статус {response.status}")
+                        logger.warning(f"GitHub API returned status {response.status}")
                         return []
                         
         except asyncio.TimeoutError:
-            logger.warning("Таймаут при запросе к GitHub API")
+            logger.warning("Timeout while requesting GitHub API")
             return []
         except Exception as e:
-            logger.error(f"Ошибка запроса к GitHub API: {e}")
+            logger.error(f"GitHub API request failed: {e}")
             return []
     
     def _parse_version(self, version_str: str):
@@ -194,7 +198,7 @@ class VersionService:
             self._cache[cache_key] = True
             
         except Exception as e:
-            logger.error(f"Ошибка отправки уведомления об обновлении: {e}")
+            logger.error(f"Failed to send update notification: {e}")
     
     async def get_version_info(self) -> Dict:
         try:
@@ -220,7 +224,7 @@ class VersionService:
             }
             
         except Exception as e:
-            logger.error(f"Ошибка получения информации о версиях: {e}")
+            logger.error(f"Failed to get version info: {e}")
             return {
                 'current_version': self.current_version,
                 'current_release': None,
@@ -234,11 +238,11 @@ class VersionService:
     
     async def start_periodic_check(self):
         if not self.enabled:
-            logger.info("Проверка версий отключена")
+            logger.info("Version checks disabled")
             return
         
-        logger.info(f"Запуск периодической проверки обновлений для {self.repo}")
-        logger.info(f"Текущая версия: {self.current_version}")
+        logger.info(f"Starting periodic update checks for {self.repo}")
+        logger.info(f"Current version: {self.current_version}")
         
         while True:
             try:
@@ -246,10 +250,10 @@ class VersionService:
                 await self.check_for_updates()
                 
             except asyncio.CancelledError:
-                logger.info("Остановка проверки обновлений")
+                logger.info("Stopping update checks")
                 break
             except Exception as e:
-                logger.error(f"Ошибка в периодической проверке обновлений: {e}")
+                logger.error(f"Error in periodic update check: {e}")
                 await asyncio.sleep(300) 
     
     def format_version_display(self, version_info: VersionInfo) -> str:

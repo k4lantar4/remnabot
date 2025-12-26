@@ -109,13 +109,13 @@ async def test_create_pal24_payment_success(monkeypatch: pytest.MonkeyPatch) -> 
         fake_create_pal24_payment,
         raising=False,
     )
-    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_KOPEKS", 1000, raising=False)
-    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_KOPEKS", 1_000_000, raising=False)
+    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_TOMAN", 100000, raising=False)  # 1000 toman (was 10 rubles = 1000 kopeks)
+    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_TOMAN", 100_000_000, raising=False)  # 1000000 toman (was 10000 rubles = 1000000 kopeks)
 
     result = await service.create_pal24_payment(
         db=db,
         user_id=15,
-        amount_kopeks=50000,
+        amount_toman=5000000,  # 50000 toman (was 500 rubles = 50000 kopeks)
         description="Оплата подписки",
         language="ru",
         ttl_seconds=600,
@@ -130,7 +130,7 @@ async def test_create_pal24_payment_success(monkeypatch: pytest.MonkeyPatch) -> 
     assert result["link_url"] == "https://pal24/sbp"
     assert result["card_url"] == "https://pal24/card"
     assert stub.calls and stub.calls[0]["payment_method"] == "BANK_CARD"
-    assert stub.calls and stub.calls[0]["amount_kopeks"] == 50000
+        assert stub.calls and stub.calls[0]["amount_toman"] == 5000000
     assert "links" in captured_args["metadata"]
 
 
@@ -150,13 +150,13 @@ async def test_create_pal24_payment_default_method(monkeypatch: pytest.MonkeyPat
         raising=False,
     )
 
-    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_KOPEKS", 1000, raising=False)
-    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_KOPEKS", 1_000_000, raising=False)
+    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_TOMAN", 100000, raising=False)  # 1000 toman (was 10 rubles = 1000 kopeks)
+    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_TOMAN", 100_000_000, raising=False)  # 1000000 toman (was 10000 rubles = 1000000 kopeks)
 
     result = await service.create_pal24_payment(
         db=db,
         user_id=42,
-        amount_kopeks=10_000,
+        amount_toman=1_000_000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -172,13 +172,13 @@ async def test_create_pal24_payment_limits_and_configuration(monkeypatch: pytest
     service = _make_service(stub)
     db = DummySession()
 
-    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_KOPEKS", 5000, raising=False)
-    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_KOPEKS", 20_000, raising=False)
+    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_TOMAN", 500000, raising=False)  # 5000 toman (was 50 rubles = 5000 kopeks)
+    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_TOMAN", 2_000_000, raising=False)  # 20000 toman (was 200 rubles = 20000 kopeks)
 
     result_low = await service.create_pal24_payment(
         db=db,
         user_id=1,
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -187,7 +187,7 @@ async def test_create_pal24_payment_limits_and_configuration(monkeypatch: pytest
     result_high = await service.create_pal24_payment(
         db=db,
         user_id=1,
-        amount_kopeks=50_000,
+        amount_toman=5_000_000,  # 50000 toman (was 500 rubles = 50000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -197,7 +197,7 @@ async def test_create_pal24_payment_limits_and_configuration(monkeypatch: pytest
     result_config = await service_not_configured.create_pal24_payment(
         db=db,
         user_id=1,
-        amount_kopeks=10_000,
+        amount_toman=1_000_000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         description="Пополнение",
         language="ru",
     )
@@ -211,13 +211,13 @@ async def test_create_pal24_payment_handles_api_errors(monkeypatch: pytest.Monke
     service = _make_service(stub)
     db = DummySession()
 
-    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_KOPEKS", 1000, raising=False)
-    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_KOPEKS", 10_000, raising=False)
+    monkeypatch.setattr(settings, "PAL24_MIN_AMOUNT_TOMAN", 100000, raising=False)  # 1000 toman (was 10 rubles = 1000 kopeks)
+    monkeypatch.setattr(settings, "PAL24_MAX_AMOUNT_TOMAN", 1_000_000, raising=False)  # 10000 toman (was 100 rubles = 10000 kopeks)
 
     result = await service.create_pal24_payment(
         db=db,
         user_id=5,
-        amount_kopeks=2000,
+        amount_toman=200000,  # 2000 toman (was 20 rubles = 2000 kopeks)
         description="Пополнение",
         language="ru",
     )

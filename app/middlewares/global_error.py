@@ -20,7 +20,7 @@ class GlobalErrorMiddleware(BaseMiddleware):
         except TelegramBadRequest as e:
             return await self._handle_telegram_error(event, e)
         except Exception as e:
-            logger.error(f"Неожиданная ошибка в GlobalErrorMiddleware: {e}", exc_info=True)
+            logger.error(f"Unexpected error in GlobalErrorMiddleware: {e}", exc_info=True)
             raise
     
     async def _handle_telegram_error(self, event: TelegramObject, error: TelegramBadRequest):
@@ -33,7 +33,7 @@ class GlobalErrorMiddleware(BaseMiddleware):
         elif self._is_bad_request_error(error_message):
             return await self._handle_bad_request(event, error)
         else:
-            logger.error(f"Неизвестная Telegram API ошибка: {error}")
+            logger.error(f"Unknown Telegram API error: {error}")
             raise error
     
     def _is_old_query_error(self, error_message: str) -> bool:
@@ -57,22 +57,22 @@ class GlobalErrorMiddleware(BaseMiddleware):
     async def _handle_old_query(self, event: TelegramObject, error: TelegramBadRequest):
         if isinstance(event, CallbackQuery):
             user_info = self._get_user_info(event)
-            logger.warning(f"🕐 [GlobalErrorMiddleware] Игнорируем устаревший callback '{event.data}' от {user_info}")
+            logger.warning(f"🕐 [GlobalErrorMiddleware] Ignoring stale callback '{event.data}' from {user_info}")
         else:
-            logger.warning(f"🕐 [GlobalErrorMiddleware] Игнорируем устаревший запрос: {error}")
+            logger.warning(f"🕐 [GlobalErrorMiddleware] Ignoring stale request: {error}")
         
         return None
     
     async def _handle_message_not_modified(self, event: TelegramObject, error: TelegramBadRequest):
-        logger.debug(f"📝 [GlobalErrorMiddleware] Сообщение не было изменено: {error}")
+        logger.debug(f"📝 [GlobalErrorMiddleware] Message was not modified: {error}")
         
         if isinstance(event, CallbackQuery):
             try:
                 await event.answer()
-                logger.debug("✅ Успешно ответили на callback после 'message not modified'")
+                logger.debug("✅ Successfully answered callback after 'message not modified'")
             except TelegramBadRequest as answer_error:
                 if not self._is_old_query_error(str(answer_error).lower()):
-                    logger.error(f"❌ Ошибка при ответе на callback: {answer_error}")
+                    logger.error(f"❌ Error answering callback: {answer_error}")
         
         return None
     
@@ -81,17 +81,17 @@ class GlobalErrorMiddleware(BaseMiddleware):
         
         if "bot was blocked" in error_message:
             user_info = self._get_user_info(event) if hasattr(event, 'from_user') else "Unknown"
-            logger.info(f"🚫 [GlobalErrorMiddleware] Бот заблокирован пользователем {user_info}")
+            logger.info(f"🚫 [GlobalErrorMiddleware] Bot blocked by user {user_info}")
             return None
         elif "user is deactivated" in error_message:
             user_info = self._get_user_info(event) if hasattr(event, 'from_user') else "Unknown"
-            logger.info(f"👻 [GlobalErrorMiddleware] Пользователь деактивирован {user_info}")
+            logger.info(f"👻 [GlobalErrorMiddleware] User deactivated {user_info}")
             return None
         elif "chat not found" in error_message or "message not found" in error_message:
-            logger.warning(f"🔍 [GlobalErrorMiddleware] Чат или сообщение не найдено: {error}")
+            logger.warning(f"🔍 [GlobalErrorMiddleware] Chat or message not found: {error}")
             return None
         else:
-            logger.error(f"❌ [GlobalErrorMiddleware] Неизвестная bad request ошибка: {error}")
+            logger.error(f"❌ [GlobalErrorMiddleware] Unknown bad request error: {error}")
             raise error
     
     def _get_user_info(self, event: TelegramObject) -> str:

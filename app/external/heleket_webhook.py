@@ -20,13 +20,13 @@ class HeleketWebhookHandler:
 
     async def handle(self, request: web.Request) -> web.Response:
         if not settings.is_heleket_enabled():
-            logger.warning("Получен Heleket webhook, но сервис отключен")
+            logger.warning("Received Heleket webhook but service is disabled")
             return web.json_response({"status": "error", "reason": "disabled"}, status=503)
 
         try:
             payload: Dict[str, Any] = await request.json()
         except json.JSONDecodeError:
-            logger.error("Некорректный JSON Heleket webhook")
+            logger.error("Invalid JSON in Heleket webhook")
             return web.json_response({"status": "error", "reason": "invalid_json"}, status=400)
 
         if not self.service.verify_webhook_signature(payload):
@@ -74,7 +74,7 @@ def create_heleket_app(payment_service: PaymentService) -> web.Application:
 
 async def start_heleket_webhook_server(payment_service: PaymentService) -> None:
     if not settings.is_heleket_enabled():
-        logger.info("Heleket отключен, webhook сервер не запускается")
+        logger.info("Heleket disabled, webhook server not starting")
         return
 
     app = create_heleket_app(payment_service)
@@ -90,7 +90,7 @@ async def start_heleket_webhook_server(payment_service: PaymentService) -> None:
     try:
         await site.start()
         logger.info(
-            "Heleket webhook сервер запущен на %s:%s",
+            "Heleket webhook server started on %s:%s",
             settings.HELEKET_WEBHOOK_HOST,
             settings.HELEKET_WEBHOOK_PORT,
         )
@@ -104,8 +104,8 @@ async def start_heleket_webhook_server(payment_service: PaymentService) -> None:
         while True:
             await asyncio.sleep(1)
     except asyncio.CancelledError:
-        logger.info("Heleket webhook сервер остановлен по запросу")
+        logger.info("Heleket webhook server stopped on request")
     finally:
         await site.stop()
         await runner.cleanup()
-        logger.info("Heleket webhook сервер корректно остановлен")
+        logger.info("Heleket webhook server stopped gracefully")

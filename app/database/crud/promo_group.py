@@ -53,9 +53,9 @@ async def get_promo_groups_with_counts(
 async def get_auto_assign_promo_groups(db: AsyncSession) -> List[PromoGroup]:
     result = await db.execute(
         select(PromoGroup)
-        .where(PromoGroup.auto_assign_total_spent_kopeks.is_not(None))
-        .where(PromoGroup.auto_assign_total_spent_kopeks > 0)
-        .order_by(PromoGroup.auto_assign_total_spent_kopeks, PromoGroup.id)
+        .where(PromoGroup.auto_assign_total_spent_toman.is_not(None))
+        .where(PromoGroup.auto_assign_total_spent_toman > 0)
+        .order_by(PromoGroup.auto_assign_total_spent_toman, PromoGroup.id)
     )
     return result.scalars().all()
 
@@ -63,8 +63,8 @@ async def get_auto_assign_promo_groups(db: AsyncSession) -> List[PromoGroup]:
 async def has_auto_assign_promo_groups(db: AsyncSession) -> bool:
     result = await db.execute(
         select(func.count(PromoGroup.id))
-        .where(PromoGroup.auto_assign_total_spent_kopeks.is_not(None))
-        .where(PromoGroup.auto_assign_total_spent_kopeks > 0)
+        .where(PromoGroup.auto_assign_total_spent_toman.is_not(None))
+        .where(PromoGroup.auto_assign_total_spent_toman > 0)
     )
     return bool(result.scalar_one())
 
@@ -94,15 +94,15 @@ async def create_promo_group(
     traffic_discount_percent: int,
     device_discount_percent: int,
     period_discounts: Optional[Dict[int, int]] = None,
-    auto_assign_total_spent_kopeks: Optional[int] = None,
+    auto_assign_total_spent_toman: Optional[int] = None,
     apply_discounts_to_addons: bool = True,
     is_default: bool = False,
 ) -> PromoGroup:
     normalized_period_discounts = _normalize_period_discounts(period_discounts)
 
-    auto_assign_total_spent_kopeks = (
-        max(0, auto_assign_total_spent_kopeks)
-        if auto_assign_total_spent_kopeks is not None
+    auto_assign_total_spent_toman = (
+        max(0, auto_assign_total_spent_toman)
+        if auto_assign_total_spent_toman is not None
         else None
     )
 
@@ -116,7 +116,7 @@ async def create_promo_group(
         traffic_discount_percent=max(0, min(100, traffic_discount_percent)),
         device_discount_percent=max(0, min(100, device_discount_percent)),
         period_discounts=normalized_period_discounts or None,
-        auto_assign_total_spent_kopeks=auto_assign_total_spent_kopeks,
+        auto_assign_total_spent_toman=auto_assign_total_spent_toman,
         apply_discounts_to_addons=bool(apply_discounts_to_addons),
         is_default=should_be_default,
     )
@@ -135,14 +135,14 @@ async def create_promo_group(
     await db.refresh(promo_group)
 
     logger.info(
-        "Создана промогруппа '%s' (default=%s) с скидками (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) и порогом автоприсвоения %s₽, скидки на доп. услуги: %s",
+        "Promo group created '%s' (default=%s) with discounts (servers=%s%%, traffic=%s%%, devices=%s%%, periods=%s) and auto-assign threshold %s Toman, addon discounts: %s",
         promo_group.name,
         promo_group.is_default,
         promo_group.server_discount_percent,
         promo_group.traffic_discount_percent,
         promo_group.device_discount_percent,
         normalized_period_discounts,
-        (auto_assign_total_spent_kopeks or 0) / 100,
+        (auto_assign_total_spent_toman or 0) ,
         "on" if promo_group.apply_discounts_to_addons else "off",
     )
 
@@ -159,7 +159,7 @@ async def update_promo_group(
     traffic_discount_percent: Optional[int] = None,
     device_discount_percent: Optional[int] = None,
     period_discounts: Optional[Dict[int, int]] = None,
-    auto_assign_total_spent_kopeks: Optional[int] = None,
+    auto_assign_total_spent_toman: Optional[int] = None,
     apply_discounts_to_addons: Optional[bool] = None,
     is_default: Optional[bool] = None,
 ) -> PromoGroup:
@@ -176,8 +176,8 @@ async def update_promo_group(
     if period_discounts is not None:
         normalized_period_discounts = _normalize_period_discounts(period_discounts)
         group.period_discounts = normalized_period_discounts or None
-    if auto_assign_total_spent_kopeks is not None:
-        group.auto_assign_total_spent_kopeks = max(0, auto_assign_total_spent_kopeks)
+    if auto_assign_total_spent_toman is not None:
+        group.auto_assign_total_spent_toman = max(0, auto_assign_total_spent_toman)
     if apply_discounts_to_addons is not None:
         group.apply_discounts_to_addons = bool(apply_discounts_to_addons)
 
@@ -208,14 +208,14 @@ async def update_promo_group(
                         .values(is_default=True)
                     )
                 else:
-                    # Не допускаем состояния без базовой промогруппы
+                    # Don't allow state without base promo group
                     group.is_default = True
 
     await db.commit()
     await db.refresh(group)
 
     logger.info(
-        "Обновлена промогруппа '%s' (id=%s)",
+        "Promo group updated '%s' (id=%s)",
         group.name,
         group.id,
     )
@@ -224,16 +224,16 @@ async def update_promo_group(
 
 async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
     if group.is_default:
-        logger.warning("Попытка удалить базовую промогруппу запрещена")
+        logger.warning("Attempt to delete default promo group is forbidden")
         return False
 
     default_group = await get_default_promo_group(db)
     if not default_group:
-        logger.error("Не найдена базовая промогруппа для reassignment")
+        logger.error("Default promo group not found for reassignment")
         return False
 
 
-    # Получаем список пользователей, связанных с удаляемой промогруппой
+    # Get list of users linked to promo group being deleted
     affected_user_ids: Set[int] = set()
 
     user_ids_result = await db.execute(
@@ -273,7 +273,7 @@ async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
     await db.commit()
 
     logger.info(
-        "Промогруппа '%s' (id=%s) удалена, пользователи переведены в '%s'",
+        "Promo group '%s' (id=%s) deleted, users moved to '%s'",
         group.name,
         group.id,
         default_group.name,

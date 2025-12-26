@@ -26,7 +26,7 @@ async def create_or_update_rules(
     db: AsyncSession,
     content: str,
     language: str = "ru",
-    title: str = "Правила сервиса"
+    title: str = "Service Rules"
 ) -> ServiceRule:
     
     existing_rules_result = await db.execute(
@@ -53,7 +53,7 @@ async def create_or_update_rules(
     await db.commit()
     await db.refresh(new_rules)
     
-    logger.info(f"✅ Правила для языка {language} обновлены (ID: {new_rules.id})")
+    logger.info(f"✅ Rules for language {language} updated (ID: {new_rules.id})")
     return new_rules
 
 
@@ -74,12 +74,12 @@ async def clear_all_rules(db: AsyncSession, language: str = "ru") -> bool:
         await db.commit()
         
         rows_affected = result.rowcount
-        logger.info(f"✅ Очищены правила для языка {language}. Деактивировано записей: {rows_affected}")
+        logger.info(f"✅ Rules cleared for language {language}. Deactivated records: {rows_affected}")
         
         return rows_affected > 0
         
     except Exception as e:
-        logger.error(f"❌ Ошибка при очистке правил для языка {language}: {e}")
+        logger.error(f"❌ Error clearing rules for language {language}: {e}")
         await db.rollback()
         raise
 
@@ -91,21 +91,21 @@ async def get_current_rules_content(db: AsyncSession, language: str = "ru") -> s
         return rules.content
     else:
         return """
-🔒 <b>Правила использования сервиса</b>
+🔒 <b>Service Usage Rules</b>
 
-1. Сервис предоставляется "как есть" без каких-либо гарантий.
+1. Service is provided "as is" without any warranties.
 
-2. Запрещается использование сервиса для незаконных действий.
+2. Use of service for illegal activities is prohibited.
 
-3. Администрация оставляет за собой право заблокировать доступ пользователя при нарушении правил.
+3. Administration reserves the right to block user access in case of rule violations.
 
-4. Возврат средств осуществляется в соответствии с политикой возврата.
+4. Refunds are processed according to refund policy.
 
-5. Пользователь несет полную ответственность за безопасность своего аккаунта.
+5. User is fully responsible for account security.
 
-6. При возникновении вопросов обращайтесь в техническую поддержку.
+6. For questions, contact technical support.
 
-Используя сервис, вы соглашаетесь с данными правилами.
+By using the service, you agree to these rules.
 """
 
 
@@ -138,7 +138,7 @@ async def restore_rules_version(
         rule_to_restore = result.scalar_one_or_none()
         
         if not rule_to_restore:
-            logger.warning(f"Правило с ID {rule_id} не найдено для языка {language}")
+            logger.warning(f"Rule with ID {rule_id} not found for language {language}")
             return None
         
         await db.execute(
@@ -165,11 +165,11 @@ async def restore_rules_version(
         await db.commit()
         await db.refresh(restored_rule)
         
-        logger.info(f"✅ Восстановлена версия правил ID {rule_id} как новое правило ID {restored_rule.id}")
+        logger.info(f"✅ Rule version ID {rule_id} restored as new rule ID {restored_rule.id}")
         return restored_rule
         
     except Exception as e:
-        logger.error(f"❌ Ошибка при восстановлении правил ID {rule_id}: {e}")
+        logger.error(f"❌ Error restoring rules ID {rule_id}: {e}")
         await db.rollback()
         raise
 
@@ -208,7 +208,7 @@ async def get_rules_statistics(db: AsyncSession) -> dict:
         }
         
     except Exception as e:
-        logger.error(f"❌ Ошибка при получении статистики правил: {e}")
+        logger.error(f"❌ Error getting rules statistics: {e}")
         return {
             'total_active': 0,
             'total_all_time': 0,

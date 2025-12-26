@@ -62,7 +62,7 @@ async def test_activate_trial_uses_trial_price_for_topup_redirect(
 
     insufficient_keyboard.assert_called_once_with(
         trial_user.language,
-        amount_kopeks=error.required_amount,
+        amount_toman=error.required_amount,
     )
     trial_callback_query.message.edit_text.assert_called_once()
     trial_callback_query.answer.assert_called_once()

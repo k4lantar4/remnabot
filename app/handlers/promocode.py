@@ -39,16 +39,16 @@ async def activate_promocode_for_registration(
     bot: Bot = None
 ) -> dict:
     """
-    Активирует промокод для пользователя во время регистрации.
-    Возвращает результат активации без отправки сообщений.
+    Activates a promo code for a user during registration.
+    Returns the activation result without sending messages.
     """
     promocode_service = PromoCodeService()
     result = await promocode_service.activate_promocode(db, user_id, code)
 
     if result["success"]:
-        logger.info(f"✅ Пользователь {user_id} активировал промокод {code} при регистрации")
+        logger.info(f"✅ User {user_id} activated promocode {code} during registration")
 
-        # Отправляем уведомление админу, если бот доступен
+        # Send admin notification if the bot is available
         if bot:
             try:
                 from app.database.crud.user import get_user_by_id
@@ -60,12 +60,12 @@ async def activate_promocode_for_registration(
                         user,
                         result.get("promocode", {"code": code}),
                         result["description"],
-                        result.get("balance_before_kopeks"),
-                        result.get("balance_after_kopeks"),
+                        result.get("balance_before_toman"),
+                        result.get("balance_after_toman"),
                     )
             except Exception as notify_error:
                 logger.error(
-                    "Ошибка отправки админ уведомления об активации промокода %s: %s",
+                    "Failed to send admin notification about promocode %s activation: %s",
                     code,
                     notify_error,
                 )
@@ -106,7 +106,7 @@ async def process_promocode(
         await message.answer(
             texts.t(
                 "PROMOCODE_EMPTY_INPUT",
-                "❌ Введите корректный промокод",
+                "❌ Please enter a valid promo code",
             ),
             reply_markup=get_back_keyboard(db_user.language)
         )

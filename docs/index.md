@@ -1,150 +1,118 @@
-# 📚 مستندات پروژه Remnawave Bedolaga Bot
+# Project Documentation Index
 
-## 🎯 خلاصه پروژه
+## Project Overview
 
-| ویژگی | مقدار |
-|-------|-------|
-| **نام** | Remnawave Bedolaga Bot |
-| **نوع** | Backend (ربات تلگرام + REST API) |
-| **زبان** | Python 3.13+ |
-| **معماری** | Monolith با Service-Oriented Architecture |
-| **فریم‌ورک‌ها** | aiogram 3, FastAPI, SQLAlchemy |
-| **دیتابیس** | PostgreSQL 15+ / SQLite |
-| **استقرار** | Docker + Docker Compose |
+- **Type:** Monolith Backend (Python)
+- **Primary Language:** Python 3.13+
+- **Architecture:** Service-Oriented Architecture (Layered: Handlers → Services → Database)
+- **Repository Structure:** Single cohesive codebase
 
-## 📖 مرجع سریع
+### Quick Reference
 
-### پشته فناوری
-- **ربات تلگرام:** aiogram 3.22.0
-- **REST API:** FastAPI 0.115.6
-- **ORM:** SQLAlchemy 2.0.43
-- **کش:** Redis 5.0.1
-- **زمان‌بندی:** APScheduler 3.11.0
+- **Tech Stack:** Python 3.13, aiogram 3.22, FastAPI 0.115, SQLAlchemy 2.0, PostgreSQL/SQLite, Redis
+- **Entry Point:** `main.py`
+- **Architecture Pattern:** Service-Oriented Architecture
 
-### نقاط ورود
-- **اصلی:** `main.py`
-- **ربات:** `app/bot.py`
-- **API:** `app/webapi/app.py`
-- **پورت:** 8080
+## Generated Documentation
 
----
+### Core Documentation
 
-## 📁 مستندات تولیدشده
+- [Project Overview](./project-overview.md) - High-level project summary and quick reference
+- [Architecture Documentation](./architecture-main.md) - Complete system architecture, components, and design patterns
+- [Source Tree Analysis](./source-tree-analysis.md) - Complete annotated directory structure with file purposes
+- [Development Guide](./development-guide-main.md) - Setup, installation, build, test, and deployment instructions
 
-### معماری و ساختار
+### Technical Documentation
 
-| سند | توضیح |
-|-----|-------|
-| [ساختار پروژه](./project-structure.md) | درخت منبع و سازماندهی کد |
-| [پشته فناوری](./technology-stack.md) | فناوری‌ها، وابستگی‌ها و معماری |
-| [مدل‌های داده](./data-models.md) | جداول SQLAlchemy و روابط |
-| [قراردادهای API](./api-contracts.md) | مستندات REST API با ۱۵۰+ endpoint |
+- [API Contracts](./api-contracts-main.md) - Complete REST API endpoint documentation (27 route modules, 100+ endpoints)
+- [Data Models](./data-models-main.md) - Database schema documentation (40+ tables, relationships, indexes)
 
-### راهنماها
+## Existing Documentation
 
-| سند | توضیح |
-|-----|-------|
-| [راهنمای توسعه](./development-guide.md) | راه‌اندازی محیط، تست و بهترین شیوه‌ها |
-| [موجودی مستندات](./existing-documentation-inventory.md) | لیست مستندات موجود |
+### Setup & Integration Guides
 
----
+- [Mini App Setup](./miniapp-setup.md) - Telegram Mini App configuration and deployment (Russian)
+- [Web Admin Integration](./web-admin-integration.md) - Web API integration guide for external admin panels (Russian)
 
-## 📁 مستندات موجود
+### Feature Documentation
 
-### راهنماهای اصلی (ریشه پروژه)
+- [Persistent Cart System](./persistent_cart_system.md) - Cart persistence system documentation (Russian)
+- [Referral Program Setting](./referral_program_setting.md) - Referral program configuration (Russian)
 
-| سند | توضیح |
-|-----|-------|
-| [README.md](../README.md) | راهنمای جامع پروژه - نصب، پیکربندی، استفاده |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | راهنمای مشارکت |
-| [SECURITY.md](../SECURITY.md) | سیاست امنیتی |
+### Reference Documentation
 
-### مستندات فنی
+- [Project Structure Reference](./project_structure_reference.md) - Complete project structure with modules, classes, and functions (Russian)
 
-| سند | موضوع |
-|-----|-------|
-| [contests-api.md](./contests-api.md) | API مسابقات |
-| [menu_stats_api_usage.md](./menu_stats_api_usage.md) | استفاده از API آمار منو |
-| [miniapp-setup.md](./miniapp-setup.md) | راه‌اندازی Mini App تلگرام |
-| [persistent_cart_system.md](./persistent_cart_system.md) | سیستم سبد خرید پایدار |
-| [project_structure_reference.md](./project_structure_reference.md) | مرجع ساختار پروژه |
-| [referral_program_setting.md](./referral_program_setting.md) | تنظیمات برنامه ارجاع |
-| [web-admin-integration.md](./web-admin-integration.md) | یکپارچه‌سازی پنل مدیریت وب |
+### Root Documentation
 
----
+- [README.md](../README.md) - Main project documentation with features, setup, and usage (Russian)
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines, code standards, and development workflow (Russian)
 
-## 🚀 شروع سریع
+## Getting Started
 
-### برای توسعه‌دهندگان
+### For Developers
 
-```bash
-# 1. کلون مخزن
-git clone https://github.com/Fr1ngg/remnawave-bedolaga-telegram-bot.git
-cd remnawave-bedolaga-telegram-bot
+1. Start with [Project Overview](./project-overview.md) for high-level understanding
+2. Read [Development Guide](./development-guide-main.md) for setup instructions
+3. Review [Architecture Documentation](./architecture-main.md) for system design
+4. Explore [Source Tree Analysis](./source-tree-analysis.md) for code navigation
 
-# 2. پیکربندی
-cp .env.example .env
-nano .env
+### For Integrators
 
-# 3. راه‌اندازی با Docker
-make up
+1. Check [API Contracts](./api-contracts-main.md) for REST API endpoints
+2. Review [Web Admin Integration](./web-admin-integration.md) for integration patterns
+3. Understand [Data Models](./data-models-main.md) for data structures
 
-# 4. بررسی وضعیت
-docker compose logs -f bot
-```
+### For AI-Assisted Development
 
-### برای ویژگی‌های جدید
+This index serves as the primary entry point for AI-assisted development. All documentation files are structured for easy retrieval and context building.
 
-1. **فقط ربات:** مرجع `app/handlers/` و `app/services/`
-2. **فقط API:** مرجع `app/webapi/routes/` و `api-contracts.md`
-3. **دیتابیس:** مرجع `data-models.md` و `app/database/`
-4. **پرداخت:** مرجع `app/external/` و `app/services/payment_service.py`
+**Key Documents for AI Context:**
+- `architecture-main.md` - System design and component organization
+- `api-contracts-main.md` - API endpoint specifications
+- `data-models-main.md` - Database schema and relationships
+- `source-tree-analysis.md` - Code organization and file locations
+- `development-guide-main.md` - Development workflow and commands
 
----
+## Documentation Statistics
 
-## 🔗 لینک‌های مفید
+- **Total Documentation Files:** 11 markdown files
+- **Generated Files:** 6 files (this scan)
+- **Existing Files:** 5 files (from upstream)
+- **Languages:** English (generated), Russian (existing)
 
-### توسعه
+## Project Classification
 
-- **Health Check:** `http://localhost:8080/health`
-- **API Docs:** `http://localhost:8080/docs` (اگر فعال باشد)
-- **لاگ‌ها:** `./logs/bot.log`
+**Repository Type:** Monolith  
+**Project Type:** Backend (Python)  
+**Scan Level:** Exhaustive  
+**Scan Date:** 2025-12-12
 
-### منابع خارجی
+## Quick Links by Topic
 
-- [مستندات Remnawave](https://docs.remna.st)
-- [Telegram Bot API](https://core.telegram.org/bots/api)
-- [aiogram Documentation](https://docs.aiogram.dev/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
+### Architecture & Design
+- [Architecture Documentation](./architecture-main.md)
+- [Source Tree Analysis](./source-tree-analysis.md)
+- [Project Structure Reference](./project_structure_reference.md)
+
+### API & Integration
+- [API Contracts](./api-contracts-main.md)
+- [Web Admin Integration](./web-admin-integration.md)
+- [Mini App Setup](./miniapp-setup.md)
+
+### Data & Models
+- [Data Models](./data-models-main.md)
+
+### Development
+- [Development Guide](./development-guide-main.md)
+- [Project Overview](./project-overview.md)
+- [README.md](../README.md)
+- [CONTRIBUTING.md](../CONTRIBUTING.md)
+
+### Features
+- [Persistent Cart System](./persistent_cart_system.md)
+- [Referral Program Setting](./referral_program_setting.md)
 
 ---
 
-## 📊 آمار پروژه
-
-| معیار | مقدار |
-|-------|-------|
-| **سرویس‌های پشته فناوری** | ۱۵+ |
-| **سیستم‌های پرداخت** | ۹ (Stars, YooKassa, CryptoBot, Heleket, Tribute, MulenPay, Pal24, Platega, WATA) |
-| **ماژول‌های API** | ۳۲ |
-| **جداول دیتابیس** | ۳۵+ |
-| **فایل‌های سرویس** | ۶۸ |
-| **هندلرهای ربات** | ۶۰+ |
-| **مهاجرت‌های Alembic** | ۱۲ |
-
----
-
-## 📅 اطلاعات تولید
-
-| فیلد | مقدار |
-|------|-------|
-| **تاریخ تولید** | 2025-12-25 |
-| **حالت اسکن** | exhaustive |
-| **نسخه گردش‌کار** | 1.2.0 |
-| **فایل وضعیت** | [project-scan-report.json](./project-scan-report.json) |
-
----
-
-*این مستندات توسط گردش‌کار BMAD document-project تولید شده است.*
-*برای بروزرسانی، گردش‌کار را مجدداً اجرا کنید.*
-
+**Note:** This index is the primary entry point for AI-assisted development. All documentation is structured for easy retrieval and context building.

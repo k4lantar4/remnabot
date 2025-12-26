@@ -176,15 +176,14 @@ def _primary_time(times_str: Optional[str], fallback: Optional[time]) -> time:
 
 def _serialize_leaderboard_item(row) -> ReferralContestLeaderboardItem:
     user, referrals_count, total_amount = row
-    total_amount_kopeks = int(total_amount or 0)
+    total_amount_toman = int(total_amount or 0)
     return ReferralContestLeaderboardItem(
         user_id=user.id,
         telegram_id=user.telegram_id,
         username=user.username,
         full_name=user.full_name,
         referrals_count=int(referrals_count or 0),
-        total_amount_kopeks=total_amount_kopeks,
-        total_amount_rubles=round(total_amount_kopeks / 100, 2),
+        total_amount_toman=total_amount_toman,
     )
 
 
@@ -193,7 +192,7 @@ def _serialize_event(
     referrer: User,
     referral: User,
 ) -> ReferralContestEventResponse:
-    amount_kopeks = int(event.amount_kopeks or 0)
+    amount_toman = int(event.amount_toman or 0)
     return ReferralContestEventResponse(
         id=event.id,
         contest_id=event.contest_id,
@@ -210,8 +209,7 @@ def _serialize_event(
             full_name=referral.full_name,
         ),
         event_type=event.event_type,
-        amount_kopeks=amount_kopeks,
-        amount_rubles=round(amount_kopeks / 100, 2),
+        amount_toman=amount_toman,
         occurred_at=event.occurred_at,
     )
 

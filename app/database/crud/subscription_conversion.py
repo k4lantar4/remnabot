@@ -14,7 +14,7 @@ async def create_subscription_conversion(
     user_id: int,
     trial_duration_days: int,
     payment_method: str,
-    first_payment_amount_kopeks: int,
+    first_payment_amount_toman: int,
     first_paid_period_days: int
 ) -> SubscriptionConversion:
     
@@ -23,7 +23,7 @@ async def create_subscription_conversion(
         converted_at=datetime.utcnow(),
         trial_duration_days=trial_duration_days,
         payment_method=payment_method,
-        first_payment_amount_kopeks=first_payment_amount_kopeks,
+        first_payment_amount_toman=first_payment_amount_toman,
         first_paid_period_days=first_paid_period_days
     )
     
@@ -31,7 +31,7 @@ async def create_subscription_conversion(
     await db.commit()
     await db.refresh(conversion)
     
-    logger.info(f"✅ Создана запись о конверсии для пользователя {user_id}: {trial_duration_days} дн. → {first_paid_period_days} дн. за {first_payment_amount_kopeks/100}₽")
+    logger.info(f"✅ Conversion record created for user {user_id}: {trial_duration_days} days → {first_paid_period_days} days for {first_payment_amount_toman/100} Toman")
     
     return conversion
 
@@ -77,7 +77,7 @@ async def get_conversion_statistics(db: AsyncSession) -> dict:
     avg_trial_duration = avg_trial_duration_result.scalar() or 0
     
     avg_first_payment_result = await db.execute(
-        select(func.avg(SubscriptionConversion.first_payment_amount_kopeks))
+        select(func.avg(SubscriptionConversion.first_payment_amount_toman))
     )
     avg_first_payment = avg_first_payment_result.scalar() or 0
     
@@ -88,16 +88,16 @@ async def get_conversion_statistics(db: AsyncSession) -> dict:
     )
     month_conversions = month_conversions_result.scalar()
     
-    logger.info(f"📊 Статистика конверсий:")
-    logger.info(f"   Всего записей о конверсиях: {total_conversions}")
-    logger.info(f"   Пользователей с платными подписками: {users_with_paid}")
-    logger.info(f"   Рассчитанная конверсия: {conversion_rate}%")
+    logger.info(f"📊 Conversion statistics:")
+    logger.info(f"   Total conversion records: {total_conversions}")
+    logger.info(f"   Users with paid subscriptions: {users_with_paid}")
+    logger.info(f"   Calculated conversion rate: {conversion_rate}%")
     
     return {
         "total_conversions": total_conversions,
         "conversion_rate": conversion_rate,
         "avg_trial_duration_days": round(avg_trial_duration, 1),
-        "avg_first_payment_rubles": round((avg_first_payment or 0) / 100, 2),
+        "avg_first_payment_toman": round(avg_first_payment or 0, 2),
         "month_conversions": month_conversions
     }
 

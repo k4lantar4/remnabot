@@ -29,7 +29,7 @@ class TrafficLimitStrategy(Enum):
 
 @dataclass
 class UserTraffic:
-    """Данные о трафике пользователя (новая структура API)"""
+    """User traffic data (new API structure)."""
     used_traffic_bytes: int
     lifetime_used_traffic_bytes: int
     online_at: Optional[datetime] = None
@@ -71,28 +71,28 @@ class RemnaWaveUser:
 
     @property
     def used_traffic_bytes(self) -> int:
-        """Обратная совместимость: получение used_traffic_bytes из user_traffic"""
+        """Backward compatibility: get used_traffic_bytes from user_traffic."""
         if self.user_traffic:
             return self.user_traffic.used_traffic_bytes
         return 0
 
     @property
     def lifetime_used_traffic_bytes(self) -> int:
-        """Обратная совместимость: получение lifetime_used_traffic_bytes из user_traffic"""
+        """Backward compatibility: get lifetime_used_traffic_bytes from user_traffic."""
         if self.user_traffic:
             return self.user_traffic.lifetime_used_traffic_bytes
         return 0
 
     @property
     def online_at(self) -> Optional[datetime]:
-        """Обратная совместимость: получение online_at из user_traffic"""
+        """Backward compatibility: get online_at from user_traffic."""
         if self.user_traffic:
             return self.user_traffic.online_at
         return None
 
     @property
     def first_connected_at(self) -> Optional[datetime]:
-        """Обратная совместимость: получение first_connected_at из user_traffic"""
+        """Backward compatibility: get first_connected_at from user_traffic."""
         if self.user_traffic:
             return self.user_traffic.first_connected_at
         return None
@@ -100,7 +100,7 @@ class RemnaWaveUser:
 
 @dataclass
 class RemnaWaveInbound:
-    """Структура inbound для Internal Squad"""
+    """Inbound structure for an Internal Squad."""
     uuid: str
     profile_uuid: str
     tag: str
@@ -125,7 +125,7 @@ class RemnaWaveInternalSquad:
 
 @dataclass
 class RemnaWaveAccessibleNode:
-    """Доступная нода для Internal Squad"""
+    """Accessible node for an Internal Squad."""
     uuid: str
     node_name: str
     country_code: str
@@ -151,7 +151,7 @@ class RemnaWaveNode:
     node_version: Optional[str] = None
     view_position: int = 0
     tags: Optional[List[str]] = None
-    # Новые поля API
+    # New API fields
     last_status_change: Optional[datetime] = None
     last_status_message: Optional[str] = None
     xray_uptime: Optional[str] = None
@@ -168,12 +168,12 @@ class RemnaWaveNode:
 
     @property
     def is_node_online(self) -> bool:
-        """Обратная совместимость: is_node_online = is_connected"""
+        """Backward compatibility: is_node_online equals is_connected."""
         return self.is_connected
 
     @property
     def is_xray_running(self) -> bool:
-        """Обратная совместимость: xray работает если нода подключена"""
+        """Backward compatibility: xray is running if the node is connected."""
         return self.is_connected
 
 
@@ -189,33 +189,6 @@ class SubscriptionInfo:
     happ_crypto_link: Optional[str] = None
 
 
-@dataclass
-class SubscriptionPageConfig:
-    """Конфигурация страницы подписки"""
-    uuid: str
-    name: str
-    view_position: int
-    config: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class RemnaWaveExternalSquad:
-    """Структура External Squad"""
-    uuid: str
-    name: str
-    view_position: int
-    members_count: int
-    templates: List[Dict[str, str]]
-    subscription_settings: Optional[Dict[str, Any]] = None
-    host_overrides: Optional[Dict[str, Any]] = None
-    response_headers: Optional[Dict[str, str]] = None
-    hwid_settings: Optional[Dict[str, Any]] = None
-    custom_remarks: Optional[Dict[str, Any]] = None
-    subpage_config_uuid: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-
 class RemnaWaveAPIError(Exception):
     def __init__(self, message: str, status_code: int = None, response_data: dict = None):
         self.message = message
@@ -225,24 +198,14 @@ class RemnaWaveAPIError(Exception):
 
 
 class RemnaWaveAPI:
-
-    def __init__(
-        self,
-        base_url: str,
-        api_key: str,
-        secret_key: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        caddy_token: Optional[str] = None,
-        auth_type: str = "api_key",
-    ):
+    
+    def __init__(self, base_url: str, api_key: str, secret_key: Optional[str] = None, 
+                 username: Optional[str] = None, password: Optional[str] = None):
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
         self.secret_key = secret_key
         self.username = username
         self.password = password
-        self.caddy_token = caddy_token
-        self.auth_type = auth_type.lower() if auth_type else "api_key"
         self.session: Optional[aiohttp.ClientSession] = None
         self.authenticated = False
         
@@ -274,38 +237,25 @@ class RemnaWaveAPI:
             'X-Forwarded-For': '127.0.0.1',
             'X-Real-IP': '127.0.0.1'
         }
-
-        # Caddy авторизация — добавляется поверх основной
-        if self.caddy_token:
-            # Caddy Security: готовый base64 токен используется как есть
-            headers['Authorization'] = f'Basic {self.caddy_token}'
-            logger.debug("Используем Caddy Basic Auth")
-
-        # Основная авторизация RemnaWave API
-        if self.auth_type == "basic" and self.username and self.password:
+        
+        if self.username and self.password:
+            import base64
             credentials = f"{self.username}:{self.password}"
             encoded_credentials = base64.b64encode(credentials.encode()).decode()
             headers['X-Api-Key'] = f"Basic {encoded_credentials}"
-            logger.debug("Используем Basic Auth в X-Api-Key заголовке")
-        elif self.auth_type == "caddy":
-            # Для caddy auth_type основная авторизация уже в Authorization header
-            # Но API ключ всё равно нужен для RemnaWave
-            if self.api_key:
-                headers['X-Api-Key'] = self.api_key
-                logger.debug("Используем API ключ для RemnaWave + Caddy авторизацию")
+            logger.debug("Using Basic Auth in X-Api-Key header")
         else:
-            # api_key или bearer — стандартный режим
             headers['X-Api-Key'] = self.api_key
-            if not self.caddy_token:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            logger.debug("Используем API ключ в X-Api-Key заголовке")
-
+            logger.debug("Using API key in X-Api-Key header")
+        
+        headers['Authorization'] = f'Bearer {self.api_key}'
+        
         return headers
         
     async def __aenter__(self):
         conn_type = self._detect_connection_type()
         
-        logger.debug(f"Подключение к Remnawave: {self.base_url} (тип: {conn_type})")
+        logger.debug(f"Connecting to Remnawave: {self.base_url} (type: {conn_type})")
             
         headers = self._prepare_auth_headers() 
         
@@ -314,15 +264,15 @@ class RemnaWaveAPI:
             if ':' in self.secret_key:
                 key_name, key_value = self.secret_key.split(':', 1)
                 cookies = {key_name: key_value}
-                logger.debug(f"Используем куки: {key_name}=***")
+                logger.debug(f"Using cookies: {key_name}=***")
             else:
                 cookies = {self.secret_key: self.secret_key}
-                logger.debug(f"Используем куки: {self.secret_key}=***")
+                logger.debug(f"Using cookies: {self.secret_key}=***")
         
         connector_kwargs = {}
         
         if conn_type == "local":
-            logger.debug("Используют локальные заголовки proxy")
+            logger.debug("Using local proxy headers")
             headers.update({
                 'X-Forwarded-Host': 'localhost',
                 'Host': 'localhost'
@@ -333,10 +283,10 @@ class RemnaWaveAPI:
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
                 connector_kwargs['ssl'] = ssl_context
-                logger.debug("SSL проверка отключена для локального HTTPS")
+                logger.debug("SSL verification disabled for local HTTPS")
                 
         elif conn_type == "external":
-            logger.debug("Используют внешнее подключение с полной SSL проверкой")
+            logger.debug("Using external connection with full SSL verification")
             pass
             
         connector = aiohttp.TCPConnector(**connector_kwargs)
@@ -439,8 +389,7 @@ class RemnaWaveAPI:
             data['tag'] = tag
         if active_internal_squads:
             data['activeInternalSquads'] = active_internal_squads
-
-        logger.debug("Создание пользователя в панели: %s", data)
+            
         response = await self._make_request('POST', '/api/users', data)
         user = self._parse_user(response['response'])
         return await self.enrich_user_with_happ_link(user)
@@ -548,6 +497,15 @@ class RemnaWaveAPI:
         return await self.enrich_user_with_happ_link(user)
     
     async def get_all_users(self, start: int = 0, size: int = 100, enrich_happ_links: bool = False) -> Dict[str, Any]:
+        """
+        Получает список всех пользователей.
+
+        Args:
+            start: Смещение для пагинации
+            size: Размер страницы
+            enrich_happ_links: Если True, для каждого пользователя будет запрошена
+                              зашифрованная happ ссылка (медленно для больших списков)
+        """
         params = {'start': start, 'size': size}
         response = await self._make_request('GET', '/api/users', params=params)
 
@@ -603,7 +561,7 @@ class RemnaWaveAPI:
         return response['response']['isDeleted']
 
     async def get_internal_squad_accessible_nodes(self, uuid: str) -> List[RemnaWaveAccessibleNode]:
-        """Получает список доступных нод для Internal Squad"""
+        """Get the list of accessible nodes for an Internal Squad."""
         try:
             response = await self._make_request('GET', f'/api/internal-squads/{uuid}/accessible-nodes')
             return [self._parse_accessible_node(node) for node in response['response']['accessibleNodes']]
@@ -613,118 +571,24 @@ class RemnaWaveAPI:
             raise
 
     async def add_users_to_internal_squad(self, uuid: str) -> bool:
-        """Добавляет всех пользователей в Internal Squad (bulk action)"""
+        """Add all users to an Internal Squad (bulk action)."""
         response = await self._make_request('POST', f'/api/internal-squads/{uuid}/bulk-actions/add-users')
         return response['response']['eventSent']
 
     async def remove_users_from_internal_squad(self, uuid: str) -> bool:
-        """Удаляет всех пользователей из Internal Squad (bulk action)"""
+        """Remove all users from an Internal Squad (bulk action)."""
         response = await self._make_request('POST', f'/api/internal-squads/{uuid}/bulk-actions/remove-users')
         return response['response']['eventSent']
 
     async def reorder_internal_squads(self, items: List[Dict[str, Any]]) -> List[RemnaWaveInternalSquad]:
         """
-        Изменяет порядок Internal Squads
-        items: список словарей с uuid и viewPosition
-        Пример: [{'uuid': '...', 'viewPosition': 0}, {'uuid': '...', 'viewPosition': 1}]
+        Reorder Internal Squads.
+        items: list of dicts with uuid and viewPosition
+        Example: [{'uuid': '...', 'viewPosition': 0}, {'uuid': '...', 'viewPosition': 1}]
         """
         data = {'items': items}
         response = await self._make_request('POST', '/api/internal-squads/actions/reorder', data)
         return [self._parse_internal_squad(squad) for squad in response['response']['internalSquads']]
-
-    # ============== External Squads API ==============
-
-    async def get_external_squads(self) -> List[RemnaWaveExternalSquad]:
-        """Получает список всех External Squads"""
-        response = await self._make_request('GET', '/api/external-squads')
-        return [self._parse_external_squad(squad) for squad in response['response']['externalSquads']]
-
-    async def get_external_squad_by_uuid(self, uuid: str) -> Optional[RemnaWaveExternalSquad]:
-        """Получает External Squad по UUID"""
-        try:
-            response = await self._make_request('GET', f'/api/external-squads/{uuid}')
-            return self._parse_external_squad(response['response'])
-        except RemnaWaveAPIError as e:
-            if e.status_code == 404:
-                return None
-            raise
-
-    async def create_external_squad(self, name: str) -> RemnaWaveExternalSquad:
-        data = {'name': name}
-        response = await self._make_request('POST', '/api/external-squads', data)
-        return self._parse_external_squad(response['response'])
-
-    async def update_external_squad(
-        self,
-        uuid: str,
-        name: Optional[str] = None,
-        templates: Optional[List[Dict[str, str]]] = None,
-        subscription_settings: Optional[Dict[str, Any]] = None,
-        host_overrides: Optional[Dict[str, Any]] = None,
-        response_headers: Optional[Dict[str, str]] = None,
-        hwid_settings: Optional[Dict[str, Any]] = None,
-        custom_remarks: Optional[Dict[str, Any]] = None,
-        subpage_config_uuid: Optional[str] = None
-    ) -> RemnaWaveExternalSquad:
-        data = {'uuid': uuid}
-        if name is not None:
-            data['name'] = name
-        if templates is not None:
-            data['templates'] = templates
-        if subscription_settings is not None:
-            data['subscriptionSettings'] = subscription_settings
-        if host_overrides is not None:
-            data['hostOverrides'] = host_overrides
-        if response_headers is not None:
-            data['responseHeaders'] = response_headers
-        if hwid_settings is not None:
-            data['hwidSettings'] = hwid_settings
-        if custom_remarks is not None:
-            data['customRemarks'] = custom_remarks
-        if subpage_config_uuid is not None:
-            data['subpageConfigUuid'] = subpage_config_uuid
-
-        response = await self._make_request('PATCH', '/api/external-squads', data)
-        return self._parse_external_squad(response['response'])
-
-    async def delete_external_squad(self, uuid: str) -> bool:
-        """Удаляет External Squad"""
-        response = await self._make_request('DELETE', f'/api/external-squads/{uuid}')
-        return response['response']['isDeleted']
-
-    async def add_users_to_external_squad(self, uuid: str) -> bool:
-        """Добавляет всех пользователей в External Squad (bulk action)"""
-        response = await self._make_request('POST', f'/api/external-squads/{uuid}/bulk-actions/add-users')
-        return response['response']['eventSent']
-
-    async def remove_users_from_external_squad(self, uuid: str) -> bool:
-        """Удаляет всех пользователей из External Squad (bulk action)"""
-        response = await self._make_request('POST', f'/api/external-squads/{uuid}/bulk-actions/remove-users')
-        return response['response']['eventSent']
-
-    async def reorder_external_squads(self, items: List[Dict[str, Any]]) -> List[RemnaWaveExternalSquad]:
-        data = {'items': items}
-        response = await self._make_request('POST', '/api/external-squads/actions/reorder', data)
-        return [self._parse_external_squad(squad) for squad in response['response']['externalSquads']]
-
-    def _parse_external_squad(self, squad_data: Dict) -> RemnaWaveExternalSquad:
-        """Парсит данные External Squad"""
-        info = squad_data.get('info', {})
-        return RemnaWaveExternalSquad(
-            uuid=squad_data['uuid'],
-            name=squad_data['name'],
-            view_position=squad_data.get('viewPosition', 0),
-            members_count=info.get('membersCount', 0),
-            templates=squad_data.get('templates', []),
-            subscription_settings=squad_data.get('subscriptionSettings'),
-            host_overrides=squad_data.get('hostOverrides'),
-            response_headers=squad_data.get('responseHeaders'),
-            hwid_settings=squad_data.get('hwidSettings'),
-            custom_remarks=squad_data.get('customRemarks'),
-            subpage_config_uuid=squad_data.get('subpageConfigUuid'),
-            created_at=self._parse_optional_datetime(squad_data.get('createdAt')),
-            updated_at=self._parse_optional_datetime(squad_data.get('updatedAt'))
-        )
 
 
     async def get_all_nodes(self) -> List[RemnaWaveNode]:
@@ -819,148 +683,29 @@ class RemnaWaveAPI:
         return response['response']
     
     async def get_nodes_realtime_usage(self) -> List[Dict[str, Any]]:
-        return await self.get_bandwidth_stats_nodes_realtime()
+        response = await self._make_request('GET', '/api/nodes/usage/realtime')
+        return response['response']
 
     async def get_user_stats_usage(self, user_uuid: str, start_date: str, end_date: str) -> Dict[str, Any]:
-        return await self.get_bandwidth_stats_user_legacy(user_uuid, start_date, end_date)
+        """
+        Получает статистику использования трафика пользователем за указанный период
 
-    # ============== Bandwidth Stats API ==============
+        Args:
+            user_uuid: UUID пользователя
+            start_date: Начальная дата в формате ISO (например, "2025-12-09T00:00:00.000Z")
+            end_date: Конечная дата в формате ISO (например, "2025-12-09T23:59:59.999Z")
 
-    async def get_bandwidth_stats_nodes(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        Returns:
+            Словарь с информацией о трафике пользователя за указанный период
+        """
         params = {
             'start': start_date,
             'end': end_date
         }
-        response = await self._make_request('GET', '/api/bandwidth-stats/nodes', params=params)
-        return response['response']
-
-    async def get_bandwidth_stats_nodes_realtime(self) -> List[Dict[str, Any]]:
-        response = await self._make_request('GET', '/api/bandwidth-stats/nodes/realtime')
-        return response['response']
-
-    async def get_bandwidth_stats_node_users(
-        self,
-        node_uuid: str,
-        start_date: str,
-        end_date: str,
-        top_users_limit: int = 10
-    ) -> Dict[str, Any]:
-        params = {
-            'start': start_date,
-            'end': end_date,
-            'topUsersLimit': top_users_limit
-        }
-        response = await self._make_request('GET', f'/api/bandwidth-stats/nodes/{node_uuid}/users', params=params)
-        return response['response']
-
-    async def get_bandwidth_stats_node_users_legacy(
-        self,
-        node_uuid: str,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        params = {
-            'start': start_date,
-            'end': end_date
-        }
-        response = await self._make_request('GET', f'/api/bandwidth-stats/nodes/{node_uuid}/users/legacy', params=params)
-        return response['response']
-
-    async def get_bandwidth_stats_user(
-        self,
-        user_uuid: str,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        params = {
-            'start': start_date,
-            'end': end_date
-        }
-        response = await self._make_request('GET', f'/api/bandwidth-stats/users/{user_uuid}', params=params)
-        return response['response']
-
-    async def get_bandwidth_stats_user_legacy(
-        self,
-        user_uuid: str,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        params = {
-            'start': start_date,
-            'end': end_date
-        }
-        response = await self._make_request('GET', f'/api/bandwidth-stats/users/{user_uuid}/legacy', params=params)
+        response = await self._make_request('GET', f'/api/users/stats/usage/{user_uuid}/range', params=params)
         return response
-
-    # ============== Subscription Page Configs API ==============
-
-    async def get_subscription_page_configs(self) -> List[SubscriptionPageConfig]:
-        response = await self._make_request('GET', '/api/subscription-page-configs')
-        configs_data = response['response'].get('configs', [])
-        return [self._parse_subscription_page_config(c) for c in configs_data]
-
-    async def get_subscription_page_config(self, uuid: str) -> Optional[SubscriptionPageConfig]:
-        try:
-            response = await self._make_request('GET', f'/api/subscription-page-configs/{uuid}')
-            return self._parse_subscription_page_config(response['response'])
-        except RemnaWaveAPIError as e:
-            if e.status_code == 404:
-                return None
-            raise
-
-    async def create_subscription_page_config(self, name: str) -> SubscriptionPageConfig:
-        data = {'name': name}
-        response = await self._make_request('POST', '/api/subscription-page-configs', data)
-        return self._parse_subscription_page_config(response['response'])
-
-    async def update_subscription_page_config(
-        self,
-        uuid: str,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> SubscriptionPageConfig:
-        data = {'uuid': uuid}
-        if name is not None:
-            data['name'] = name
-        if config is not None:
-            data['config'] = config
-        response = await self._make_request('PATCH', '/api/subscription-page-configs', data)
-        return self._parse_subscription_page_config(response['response'])
-
-    async def delete_subscription_page_config(self, uuid: str) -> bool:
-        response = await self._make_request('DELETE', f'/api/subscription-page-configs/{uuid}')
-        return response['response']['isDeleted']
-
-    async def reorder_subscription_page_configs(self, items: List[Dict[str, Any]]) -> List[SubscriptionPageConfig]:
-        data = {'items': items}
-        response = await self._make_request('POST', '/api/subscription-page-configs/actions/reorder', data)
-        configs_data = response['response'].get('configs', [])
-        return [self._parse_subscription_page_config(c) for c in configs_data]
-
-    async def clone_subscription_page_config(self, clone_from_uuid: str) -> SubscriptionPageConfig:
-        data = {'cloneFromUuid': clone_from_uuid}
-        response = await self._make_request('POST', '/api/subscription-page-configs/actions/clone', data)
-        return self._parse_subscription_page_config(response['response'])
-
-    async def get_subpage_config_by_short_uuid(self, short_uuid: str) -> Optional[Dict[str, Any]]:
-        try:
-            response = await self._make_request('GET', f'/api/subscriptions/subpage-config/{short_uuid}')
-            return response.get('response')
-        except RemnaWaveAPIError as e:
-            if e.status_code == 404:
-                return None
-            raise
-
-    def _parse_subscription_page_config(self, data: Dict) -> SubscriptionPageConfig:
-        """Парсит данные конфигурации страницы подписки"""
-        return SubscriptionPageConfig(
-            uuid=data['uuid'],
-            name=data['name'],
-            view_position=data['viewPosition'],
-            config=data.get('config')
-        )
-
-
+    
+    
     async def get_user_devices(self, user_uuid: str) -> Dict[str, Any]:
         try:
             response = await self._make_request('GET', f'/api/hwid/devices/{user_uuid}')
@@ -989,13 +734,13 @@ class RemnaWaveAPI:
                         }
                         await self._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
                     except Exception as device_error:
-                        logger.error(f"Ошибка удаления устройства {device_hwid}: {device_error}")
+                        logger.error(f"Error deleting device {device_hwid}: {device_error}")
                         failed_count += 1
             
             return failed_count < len(devices) / 2
             
         except Exception as e:
-            logger.error(f"Ошибка при сбросе устройств: {e}")
+            logger.error(f"Error resetting devices: {e}")
             return False
 
     async def remove_device(self, user_uuid: str, device_hwid: str) -> bool:
@@ -1007,10 +752,14 @@ class RemnaWaveAPI:
             await self._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
             return True
         except Exception as e:
-            logger.error(f"Ошибка удаления устройства {device_hwid}: {e}")
+            logger.error(f"Error deleting device {device_hwid}: {e}")
             return False
 
     async def encrypt_happ_crypto_link(self, link_to_encrypt: str) -> Optional[str]:
+        """
+        Шифрует ссылку подписки через API Remnawave.
+        Возвращает зашифрованную happ:// ссылку или None при ошибке.
+        """
         try:
             data = {"linkToEncrypt": link_to_encrypt}
             response = await self._make_request('POST', '/api/system/tools/happ/encrypt', data)
@@ -1023,6 +772,10 @@ class RemnaWaveAPI:
             return None
 
     async def enrich_user_with_happ_link(self, user: RemnaWaveUser) -> RemnaWaveUser:
+        """
+        Обогащает объект пользователя зашифрованной happ ссылкой,
+        если она отсутствует но есть subscription_url.
+        """
         if not user.happ_crypto_link and user.subscription_url:
             encrypted = await self.encrypt_happ_crypto_link(user.subscription_url)
             if encrypted:
@@ -1031,7 +784,7 @@ class RemnaWaveAPI:
 
 
     def _parse_user_traffic(self, traffic_data: Optional[Dict]) -> Optional[UserTraffic]:
-        """Парсит данные трафика из нового формата API"""
+        """Parse traffic data from the new API format."""
         if not traffic_data:
             return None
 
@@ -1048,23 +801,23 @@ class RemnaWaveAPI:
         happ_link = happ_data.get('link') or happ_data.get('url')
         happ_crypto_link = happ_data.get('cryptoLink') or happ_data.get('crypto_link')
 
-        # Парсим userTraffic из нового формата API
+        # Parse userTraffic from the new API format
         user_traffic = self._parse_user_traffic(user_data.get('userTraffic'))
 
-        # Получаем status с fallback на ACTIVE
+        # Get status with a fallback to ACTIVE
         status_str = user_data.get('status') or 'ACTIVE'
         try:
             status = UserStatus(status_str)
         except ValueError:
-            logger.warning(f"Неизвестный статус пользователя: {status_str}, используем ACTIVE")
+            logger.warning(f"Unknown user status: {status_str}, using ACTIVE")
             status = UserStatus.ACTIVE
 
-        # Получаем trafficLimitStrategy с fallback
+        # Get trafficLimitStrategy with fallback
         strategy_str = user_data.get('trafficLimitStrategy') or 'NO_RESET'
         try:
             traffic_strategy = TrafficLimitStrategy(strategy_str)
         except ValueError:
-            logger.warning(f"Неизвестная стратегия трафика: {strategy_str}, используем NO_RESET")
+            logger.warning(f"Unknown traffic strategy: {strategy_str}, using NO_RESET")
             traffic_strategy = TrafficLimitStrategy.NO_RESET
 
         return RemnaWaveUser(
@@ -1105,7 +858,7 @@ class RemnaWaveAPI:
         return None
     
     def _parse_inbound(self, inbound_data: Dict) -> RemnaWaveInbound:
-        """Парсит данные inbound"""
+        """Parse inbound data."""
         return RemnaWaveInbound(
             uuid=inbound_data['uuid'],
             profile_uuid=inbound_data['profileUuid'],
@@ -1133,7 +886,7 @@ class RemnaWaveAPI:
         )
 
     def _parse_accessible_node(self, node_data: Dict) -> RemnaWaveAccessibleNode:
-        """Парсит данные доступной ноды для Internal Squad"""
+        """Parse accessible node data for an Internal Squad."""
         return RemnaWaveAccessibleNode(
             uuid=node_data['uuid'],
             node_name=node_data['nodeName'],
@@ -1160,7 +913,7 @@ class RemnaWaveAPI:
             node_version=node_data.get('nodeVersion'),
             view_position=node_data.get('viewPosition', 0),
             tags=node_data.get('tags', []),
-            # Новые поля API
+            # New API fields
             last_status_change=self._parse_optional_datetime(node_data.get('lastStatusChange')),
             last_status_message=node_data.get('lastStatusMessage'),
             xray_uptime=node_data.get('xrayUptime'),

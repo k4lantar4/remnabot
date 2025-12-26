@@ -76,7 +76,7 @@ def _mount_miniapp_static(app: FastAPI) -> tuple[bool, Path]:
         app.mount("/miniapp/static", StaticFiles(directory=static_path), name="miniapp-static")
         logger.info("📦 Miniapp static files mounted at /miniapp/static from %s", static_path)
     except RuntimeError as error:  # pragma: no cover - defensive guard
-        logger.warning("Не удалось смонтировать статические файлы миниаппа: %s", error)
+        logger.warning("Failed to mount miniapp static files: %s", error)
         return False, static_path
 
     return True, static_path
@@ -88,7 +88,18 @@ def create_unified_app(
     payment_service: PaymentService,
     *,
     enable_telegram_webhook: bool,
+    initialized_bots: dict[int, tuple[Bot, Dispatcher]] | None = None,
 ) -> FastAPI:
+    """
+    Create unified FastAPI app.
+    
+    Args:
+        bot: Primary bot (for backward compatibility)
+        dispatcher: Primary dispatcher (for backward compatibility)
+        payment_service: Payment service
+        enable_telegram_webhook: Whether to enable Telegram webhooks
+        initialized_bots: Dictionary of all initialized bots (bot_id -> (Bot, Dispatcher))
+    """
     app = _create_base_app()
 
     app.state.bot = bot
@@ -109,25 +120,74 @@ def create_unified_app(
     }
 
     if enable_telegram_webhook:
-        telegram_processor = telegram.TelegramWebhookProcessor(
-            bot=bot,
-            dispatcher=dispatcher,
-            queue_maxsize=settings.get_webhook_queue_maxsize(),
-            worker_count=settings.get_webhook_worker_count(),
-            enqueue_timeout=settings.get_webhook_enqueue_timeout(),
-            shutdown_timeout=settings.get_webhook_shutdown_timeout(),
-        )
-        app.state.telegram_webhook_processor = telegram_processor
+        # For multi-bot support, register all bots
+        if initialized_bots:
+            from app.bot import active_bots, active_dispatchers
+            
+            processors = {}
+            for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
+                telegram_processor = telegram.TelegramWebhookProcessor(
+                    bot=bot_instance,
+                    dispatcher=dp_instance,
+                    queue_maxsize=settings.get_webhook_queue_maxsize(),
+                    worker_count=settings.get_webhook_worker_count(),
+                    enqueue_timeout=settings.get_webhook_enqueue_timeout(),
+                    shutdown_timeout=settings.get_webhook_shutdown_timeout(),
+                )
+                processors[bot_id] = telegram_processor
+                
+                # Register bot in webhook registry
+                telegram.register_bot_for_webhook(bot_id, bot_instance, dp_instance, telegram_processor)
+                
+                # Create bot-specific webhook router
+                app.include_router(
+                    telegram.create_telegram_router(
+                        bot_instance, 
+                        dp_instance, 
+                        processor=telegram_processor,
+                        bot_id=bot_id
+                    )
+                )
+                logger.info(f"✅ Webhook router registered for bot {bot_id}")
+            
+            app.state.telegram_webhook_processors = processors
+            
+            # Include unified multi-bot webhook router for dynamic bot support
+            app.include_router(telegram.create_multi_bot_webhook_router())
+            logger.info("✅ Unified multi-bot webhook router registered")
+            
+            @app.on_event("startup")
+            async def start_all_telegram_webhook_processors() -> None:
+                for bot_id, processor in processors.items():
+                    await processor.start()
+                    logger.info(f"🚀 Webhook processor started for bot {bot_id}")
+            
+            @app.on_event("shutdown")
+            async def stop_all_telegram_webhook_processors() -> None:
+                for bot_id, processor in processors.items():
+                    await processor.stop()
+                    logger.info(f"🛑 Webhook processor stopped for bot {bot_id}")
+        else:
+            # Single bot mode (backward compatibility)
+            telegram_processor = telegram.TelegramWebhookProcessor(
+                bot=bot,
+                dispatcher=dispatcher,
+                queue_maxsize=settings.get_webhook_queue_maxsize(),
+                worker_count=settings.get_webhook_worker_count(),
+                enqueue_timeout=settings.get_webhook_enqueue_timeout(),
+                shutdown_timeout=settings.get_webhook_shutdown_timeout(),
+            )
+            app.state.telegram_webhook_processor = telegram_processor
 
-        @app.on_event("startup")
-        async def start_telegram_webhook_processor() -> None:  # pragma: no cover - event hook
-            await telegram_processor.start()
+            @app.on_event("startup")
+            async def start_telegram_webhook_processor() -> None:
+                await telegram_processor.start()
 
-        @app.on_event("shutdown")
-        async def stop_telegram_webhook_processor() -> None:  # pragma: no cover - event hook
-            await telegram_processor.stop()
+            @app.on_event("shutdown")
+            async def stop_telegram_webhook_processor() -> None:
+                await telegram_processor.stop()
 
-        app.include_router(telegram.create_telegram_router(bot, dispatcher, processor=telegram_processor))
+            app.include_router(telegram.create_telegram_router(bot, dispatcher, processor=telegram_processor))
     else:
         telegram_processor = None
 

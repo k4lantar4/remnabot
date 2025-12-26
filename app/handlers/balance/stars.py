@@ -24,27 +24,20 @@ async def start_stars_payment(
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
-        await callback.answer("❌ Пополнение через Stars временно недоступно", show_alert=True)
+        await callback.answer(texts.t("STARS_UNAVAILABLE"), show_alert=True)
         return
 
-    # Формируем текст сообщения в зависимости от настройки
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
-        message_text = (
-            f"⭐ <b>Пополнение через Telegram Stars</b>\n\n"
-            f"Выберите сумму пополнения или введите вручную:"
-        )
+        message_text = texts.t("STARS_PROMPT_WITH_BUTTONS")
     else:
         message_text = texts.TOP_UP_AMOUNT
 
-    # Создаем клавиатуру
     keyboard = get_back_keyboard(db_user.language)
 
-    # Если включен быстрый выбор суммы и не отключены кнопки, добавляем кнопки
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
-            # Вставляем кнопки быстрого выбора перед кнопкой "Назад"
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
 
     await callback.message.edit_text(
@@ -66,7 +59,7 @@ async def start_stars_payment(
 async def process_stars_payment_amount(
     message: types.Message,
     db_user: User,
-    amount_kopeks: int,
+    amount_toman: int,
     state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
@@ -90,23 +83,23 @@ async def process_stars_payment_amount(
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
-        await message.answer("⚠️ Оплата Stars временно недоступна")
+        await message.answer(texts.t("STARS_UNAVAILABLE"))
         return
 
     try:
-        amount_rubles = amount_kopeks / 100
+        amount_rubles = amount_toman / 100
         stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_rubles)
         stars_rate = settings.get_stars_rate()
 
         payment_service = PaymentService(message.bot)
         invoice_link = await payment_service.create_stars_invoice(
-            amount_kopeks=amount_kopeks,
-            description=f"Пополнение баланса на {texts.format_price(amount_kopeks)}",
-            payload=f"balance_{db_user.id}_{amount_kopeks}"
+            amount_toman=amount_toman,
+            description=f"Balance top-up {texts.format_price(amount_toman)}",
+            payload=f"balance_{db_user.id}_{amount_toman}"
         )
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="⭐ Оплатить", url=invoice_link)],
+            [types.InlineKeyboardButton(text=texts.t("STARS_PAY_BUTTON"), url=invoice_link)],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
         ])
 
@@ -117,24 +110,24 @@ async def process_stars_payment_amount(
 
         try:
             await message.delete()
-        except Exception as delete_error:  # pragma: no cover - зависит от прав бота
-            logger.warning("Не удалось удалить сообщение с суммой Stars: %s", delete_error)
+        except Exception as delete_error:  # pragma: no cover - depends on bot rights
+            logger.warning("Failed to delete Stars amount message: %s", delete_error)
 
         if prompt_message_id:
             try:
                 await message.bot.delete_message(prompt_chat_id, prompt_message_id)
-            except Exception as delete_error:  # pragma: no cover - диагностический лог
+            except Exception as delete_error:  # pragma: no cover - diagnostic log
                 logger.warning(
-                    "Не удалось удалить сообщение с запросом суммы Stars: %s",
+                    "Failed to delete Stars prompt message: %s",
                     delete_error,
                 )
 
         invoice_message = await message.answer(
-            f"⭐ <b>Оплата через Telegram Stars</b>\n\n"
-            f"💰 Сумма: {texts.format_price(amount_kopeks)}\n"
-            f"⭐ К оплате: {stars_amount} звезд\n"
-            f"📊 Курс: {stars_rate}₽ за звезду\n\n"
-            f"Нажмите кнопку ниже для оплаты:",
+            texts.t("STARS_INVOICE_MESSAGE").format(
+                amount=texts.format_price(amount_toman),
+                stars=stars_amount,
+                rate=f"{stars_rate} Toman"
+            ),
             reply_markup=keyboard,
             parse_mode="HTML"
         )
@@ -147,5 +140,5 @@ async def process_stars_payment_amount(
         await state.set_state(None)
 
     except Exception as e:
-        logger.error(f"Ошибка создания Stars invoice: {e}")
-        await message.answer("⚠️ Ошибка создания платежа")
+        logger.error(f"Error creating Stars invoice: {e}")
+        await message.answer(texts.t("PAYMENT_CREATE_ERROR_SHORT"))

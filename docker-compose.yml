@@ -11,7 +11,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - bot_network_dev5
+      - bot_network
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-remnawave_user} -d ${POSTGRES_DB:-remnawave_bot}"]
       interval: 30s
@@ -27,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - bot_network_dev5
+      - bot_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -56,7 +58,7 @@ services:
       
       REDIS_URL: "redis://redis:6379/0"
       
-      TZ: "Europe/Moscow"
+      TZ: "Asia/Tehran"
       LOCALES_PATH: "${LOCALES_PATH:-/app/locales}"
     volumes:
       # Логи
@@ -74,14 +76,25 @@ services:
     ports:
       - "${WEB_API_PORT:-8080}:8080"
     networks:
-      - bot_network_dev5
+      - bot_network
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import requests, os; requests.get('http://localhost:8080/health', headers={'X-API-Key': os.environ.get('WEB_API_DEFAULT_TOKEN')}, timeout=5) or exit(1)\""]
       interval: 60s
       timeout: 10s
       retries: 3
       start_period: 30s
-
+  # caddy:
+  #   image: caddy:2
+  #   container_name: remnawave_caddy
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./miniapp:/miniapp:ro          # монтируем локальную папку внутрь контейнера
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   networks:
+  #     - bot_network
 volumes:
   postgres_data:
     driver: local
@@ -89,9 +102,9 @@ volumes:
     driver: local
 
 networks:
-  bot_network_dev5:
+  bot_network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.21.0.0/16
-          gateway: 172.21.0.1
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

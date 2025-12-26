@@ -14,29 +14,31 @@ async def create_transaction(
     db: AsyncSession,
     user_id: int,
     type: TransactionType,
-    amount_kopeks: int,
+    amount_toman: int,
     description: str,
     payment_method: Optional[PaymentMethod] = None,
     external_id: Optional[str] = None,
-    is_completed: bool = True
+    is_completed: bool = True,
+    bot_id: Optional[int] = None
 ) -> Transaction:
     
     transaction = Transaction(
         user_id=user_id,
         type=type.value,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         description=description,
         payment_method=payment_method.value if payment_method else None,
         external_id=external_id,
         is_completed=is_completed,
-        completed_at=datetime.utcnow() if is_completed else None
+        completed_at=datetime.utcnow() if is_completed else None,
+        bot_id=bot_id
     )
     
     db.add(transaction)
     await db.commit()
     await db.refresh(transaction)
     
-    logger.info(f"💳 Создана транзакция: {type.value} на {amount_kopeks/100}₽ для пользователя {user_id}")
+    logger.info(f"💳 Transaction created: {type.value} for {amount_toman} Toman for user {user_id}")
 
     try:
         from app.services.promo_group_assignment import (
@@ -46,7 +48,7 @@ async def create_transaction(
         await maybe_assign_promo_group_by_total_spent(db, user_id)
     except Exception as exc:
         logger.debug(
-            "Не удалось проверить автовыдачу промогруппы для пользователя %s: %s",
+            "Failed to check auto-assignment of promo group for user %s: %s",
             user_id,
             exc,
         )
@@ -57,7 +59,7 @@ async def create_transaction(
             await referral_contest_service.on_subscription_payment(
                 db,
                 user_id,
-                amount_kopeks,
+                amount_toman,
             )
         except Exception as exc:
             logger.debug(
@@ -127,9 +129,9 @@ async def get_user_transactions_count(
     return result.scalar()
 
 
-async def get_user_total_spent_kopeks(db: AsyncSession, user_id: int) -> int:
+async def get_user_total_spent_toman(db: AsyncSession, user_id: int) -> int:
     result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0)).where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             and_(
                 Transaction.user_id == user_id,
                 Transaction.is_completed.is_(True),
@@ -148,7 +150,7 @@ async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Tr
     await db.commit()
     await db.refresh(transaction)
 
-    logger.info(f"✅ Транзакция {transaction.id} завершена")
+    logger.info(f"✅ Transaction {transaction.id} completed")
 
     try:
         from app.services.promo_group_assignment import (
@@ -158,7 +160,7 @@ async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Tr
         await maybe_assign_promo_group_by_total_spent(db, transaction.user_id)
     except Exception as exc:
         logger.debug(
-            "Не удалось проверить автовыдачу промогруппы для пользователя %s: %s",
+            "Failed to check auto-assignment of promo group for user %s: %s",
             transaction.user_id,
             exc,
         )
@@ -189,7 +191,7 @@ async def get_transactions_statistics(
         end_date = datetime.utcnow()
     
     income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
@@ -202,7 +204,7 @@ async def get_transactions_statistics(
     total_income = income_result.scalar()
     
     expenses_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.WITHDRAWAL.value,
@@ -215,7 +217,7 @@ async def get_transactions_statistics(
     total_expenses = expenses_result.scalar()
     
     subscription_income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
@@ -231,7 +233,7 @@ async def get_transactions_statistics(
         select(
             Transaction.type,
             func.count(Transaction.id).label('count'),
-            func.coalesce(func.sum(Transaction.amount_kopeks), 0).label('total_amount')
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total_amount')
         )
         .where(
             and_(
@@ -249,7 +251,7 @@ async def get_transactions_statistics(
         select(
             Transaction.payment_method,
             func.count(Transaction.id).label('count'),
-            func.coalesce(func.sum(Transaction.amount_kopeks), 0).label('total_amount')
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total_amount')
         )
         .where(
             and_(
@@ -277,7 +279,7 @@ async def get_transactions_statistics(
     transactions_today = today_result.scalar()
     
     today_income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
@@ -294,14 +296,14 @@ async def get_transactions_statistics(
             "end_date": end_date
         },
         "totals": {
-            "income_kopeks": total_income,
-            "expenses_kopeks": total_expenses,
-            "profit_kopeks": total_income - total_expenses,
-            "subscription_income_kopeks": subscription_income
+            "income_toman": total_income,
+            "expenses_toman": total_expenses,
+            "profit_toman": total_income - total_expenses,
+            "subscription_income_toman": subscription_income
         },
         "today": {
             "transactions_count": transactions_today,
-            "income_kopeks": income_today
+            "income_toman": income_today
         },
         "by_type": transactions_by_type,
         "by_payment_method": payment_methods
@@ -318,7 +320,7 @@ async def get_revenue_by_period(
     result = await db.execute(
         select(
             func.date(Transaction.created_at).label('date'),
-            func.coalesce(func.sum(Transaction.amount_kopeks), 0).label('amount')
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label('amount')
         )
         .where(
             and_(
@@ -331,7 +333,7 @@ async def get_revenue_by_period(
         .order_by(func.date(Transaction.created_at))
     )
     
-    return [{"date": row.date, "amount_kopeks": row.amount} for row in result]
+    return [{"date": row.date, "amount_toman": row.amount} for row in result]
 
 
 async def find_tribute_transactions_by_payment_id(
@@ -366,7 +368,7 @@ async def find_tribute_transactions_by_payment_id(
 async def check_tribute_payment_duplicate(
     db: AsyncSession,
     payment_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     user_telegram_id: int
 ) -> Optional[Transaction]:
     cutoff_time = datetime.utcnow() - timedelta(hours=24)
@@ -377,7 +379,7 @@ async def check_tribute_payment_duplicate(
         and_(
             Transaction.payment_method == PaymentMethod.TRIBUTE.value,
             Transaction.external_id == exact_external_id, 
-            Transaction.amount_kopeks == amount_kopeks,
+            Transaction.amount_toman == amount_toman,
             Transaction.is_completed == True,
             Transaction.created_at >= cutoff_time  
         )
@@ -387,7 +389,7 @@ async def check_tribute_payment_duplicate(
     transaction = result.scalar_one_or_none()
     
     if transaction:
-        logger.info(f"🔍 Найден дубликат платежа в течение 24ч: {transaction.id}")
+        logger.info(f"🔍 Duplicate payment found within 24h: {transaction.id}")
     
     return transaction
 
@@ -396,7 +398,7 @@ async def create_unique_tribute_transaction(
     db: AsyncSession,
     user_id: int,
     payment_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     description: str
 ) -> Transaction:
     
@@ -406,15 +408,15 @@ async def create_unique_tribute_transaction(
     
     if existing:
         timestamp = int(datetime.utcnow().timestamp())
-        external_id = f"donation_{payment_id}_{amount_kopeks}_{timestamp}"
+        external_id = f"donation_{payment_id}_{amount_toman}_{timestamp}"
         
-        logger.info(f"Создан уникальный external_id для избежания дубликатов: {external_id}")
+        logger.info(f"Created unique external_id to avoid duplicates: {external_id}")
     
     return await create_transaction(
         db=db,
         user_id=user_id,
         type=TransactionType.DEPOSIT,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         description=description,
         payment_method=PaymentMethod.TRIBUTE,
         external_id=external_id,

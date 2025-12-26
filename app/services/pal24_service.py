@@ -30,7 +30,7 @@ class Pal24Service:
     async def create_bill(
         self,
         *,
-        amount_kopeks: int,
+        amount_toman: int,
         user_id: int,
         order_id: str,
         description: str,
@@ -42,7 +42,8 @@ class Pal24Service:
         if not self.is_configured:
             raise Pal24APIError("Pal24 service is not configured")
 
-        amount_decimal = Pal24Client.normalize_amount(amount_kopeks)
+        # Convert toman to rubles for Pal24 API (which expects rubles)
+        amount_decimal = Pal24Client.normalize_amount(amount_toman)
         extra_payload: Dict[str, Any] = {
             "custom": custom_payload or {},
             "ttl": ttl_seconds,
@@ -56,7 +57,7 @@ class Pal24Service:
         filtered_payload = {k: v for k, v in extra_payload.items() if v not in (None, {})}
 
         logger.info(
-            "Создаем Pal24 счет: user_id=%s, order_id=%s, amount=%s, ttl=%s",
+            "Creating Pal24 bill: user_id=%s, order_id=%s, amount=%s, ttl=%s",
             user_id,
             order_id,
             amount_decimal,
@@ -72,21 +73,21 @@ class Pal24Service:
             **filtered_payload,
         )
 
-        logger.info("Pal24 счет создан: %s", response)
+        logger.info("Pal24 bill created: %s", response)
         return response
 
     async def get_bill_status(self, bill_id: str) -> Dict[str, Any]:
-        logger.debug("Запрашиваем статус Pal24 счета %s", bill_id)
+        logger.debug("Requesting Pal24 bill status %s", bill_id)
         return await self.client.get_bill_status(bill_id)
 
     async def get_payment_status(self, payment_id: str) -> Dict[str, Any]:
-        logger.debug("Запрашиваем статус Pal24 платежа %s", payment_id)
+        logger.debug("Requesting Pal24 payment status %s", payment_id)
         return await self.client.get_payment_status(payment_id)
 
     async def get_bill_payments(self, bill_id: str) -> Dict[str, Any]:
-        """Возвращает список платежей, связанных со счетом."""
+        """Returns list of payments associated with the bill."""
 
-        logger.debug("Запрашиваем платежи Pal24 счёта %s", bill_id)
+        logger.debug("Requesting Pal24 bill payments %s", bill_id)
         return await self.client.get_bill_payments(bill_id)
 
     @staticmethod
@@ -104,7 +105,7 @@ class Pal24Service:
             raise Pal24APIError("Pal24 callback signature mismatch")
 
         logger.info(
-            "Получен Pal24 callback: InvId=%s, Status=%s, TrsId=%s",
+            "Received Pal24 callback: InvId=%s, Status=%s, TrsId=%s",
             inv_id,
             payload.get("Status"),
             payload.get("TrsId"),
@@ -113,7 +114,8 @@ class Pal24Service:
         return payload
 
     @staticmethod
-    def convert_to_kopeks(amount: str) -> int:
+    def convert_to_toman(amount: str) -> int:
+        """Convert rubles string (e.g., '10.50') to toman integer (1050)."""
         decimal_amount = Decimal(str(amount))
         return int((decimal_amount * Decimal("100")).quantize(Decimal("1")))
 

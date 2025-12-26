@@ -1,4 +1,4 @@
-# Инициализация админских обработчиков
+# Initialization of admin handlers
 from . import (
     backup,
     blacklist,

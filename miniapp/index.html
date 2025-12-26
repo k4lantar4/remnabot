@@ -6985,7 +6985,7 @@
             setTopupModalSubtitle(`topup.method.${monitor.method.id}.title`, monitor.method.id);
         }
 
-        function buildPaymentStatusQuery(methodId, amountKopeks, extra = {}) {
+        function buildPaymentStatusQuery(methodId, amountToman, extra = {}) {
             if (!methodId) {
                 return null;
             }
@@ -7020,9 +7020,9 @@
                 identifiers.payload = payloadValue;
             }
 
-            if (Number.isFinite(amountKopeks)) {
-                query.amountKopeks = amountKopeks;
-                identifiers.amountKopeks = amountKopeks;
+            if (Number.isFinite(amountToman)) {
+                query.amountToman = amountToman;
+                identifiers.amountToman = amountToman;
             }
 
             const startedAtRaw = extra.started_at || extra.requested_at || extra.startedAt;
@@ -7044,8 +7044,8 @@
 
             const method = monitor.method;
             const fallbackRawInput = monitor.rawInput ?? (
-                Number.isFinite(monitor.amountKopeks)
-                    ? (monitor.amountKopeks / 100).toString()
+                Number.isFinite(monitor.amountToman)
+                    ? monitor.amountToman.toString()
                     : ''
             );
 
@@ -7113,7 +7113,7 @@
                     variant: 'primary',
                     onClick: () => {
                         stopAllPaymentMonitors();
-                        startPaymentForMethod(method, monitor.amountKopeks, {
+                        startPaymentForMethod(method, monitor.amountToman, {
                             rawInput: monitor.rawInput ?? fallbackRawInput,
                             providerOption: monitor.option || monitor.extra?.selected_option,
                         });
@@ -7139,7 +7139,7 @@
 
             const { query, identifiers } = buildPaymentStatusQuery(
                 context.method.id,
-                Number.isFinite(context.amountKopeks) ? context.amountKopeks : null,
+                Number.isFinite(context.amountToman) ? context.amountToman : null,
                 context.extra || {},
             ) || {};
 
@@ -7152,7 +7152,7 @@
                 method: context.method,
                 methodId: context.method.id,
                 statusView,
-                amountKopeks: Number.isFinite(context.amountKopeks) ? context.amountKopeks : null,
+                amountToman: Number.isFinite(context.amountToman) ? context.amountToman : null,
                 option: (context.option || context.extra?.selected_option || null) || null,
                 paymentUrl: context.paymentUrl || context.originalUrl || null,
                 originalUrl: context.originalUrl || context.paymentUrl || null,
@@ -7296,7 +7296,7 @@
             const paymentId = normalizeIdentifier(extra.payment_id);
             const payload = normalizeIdentifier(extra.payload);
             const externalId = normalizeIdentifier(result.external_id);
-            const amount = Number.isFinite(result.amount_kopeks) ? Number(result.amount_kopeks) : null;
+            const amount = Number.isFinite(result.amount_toman) ? Number(result.amount_toman) : null;
 
             let fallback = null;
             for (const monitor of monitors) {
@@ -7317,7 +7317,7 @@
                 if (externalId && normalizeIdentifier(ids.externalId) === externalId) {
                     return monitor;
                 }
-                if (amount !== null && monitor.amountKopeks === amount) {
+                if (amount !== null && monitor.amountToman === amount) {
                     fallback = monitor;
                 }
             }
@@ -9334,10 +9334,10 @@
                 const rewards = [];
                 const fallback = [];
 
-                const balanceKopeks = Number.parseInt(promocode?.balance_bonus_kopeks, 10);
-                if (!Number.isNaN(balanceKopeks) && balanceKopeks > 0) {
+                const balanceToman = Number.parseInt(promocode?.balance_bonus_toman, 10);
+                if (!Number.isNaN(balanceToman) && balanceToman > 0) {
                     const currency = (userData?.balance_currency || 'RUB').toUpperCase();
-                    const amount = formatCurrency(balanceKopeks / 100, currency);
+                    const amount = formatCurrency(balanceToman, currency);
                     const template = t('promo_code.result.balance');
                     rewards.push({
                         icon: '💰',
@@ -10846,10 +10846,10 @@
             }
         }
 
-        function formatPriceFromKopeks(kopeks, currency) {
-            const normalized = typeof kopeks === 'number'
-                ? kopeks
-                : Number.parseInt(String(kopeks ?? '').trim() || '0', 10);
+        function formatPriceFromToman(toman, currency) {
+            const normalized = typeof toman === 'number'
+                ? toman
+                : Number.parseInt(String(toman ?? '').trim() || '0', 10);
             const currencyCode = currency
                 ? String(currency).toUpperCase()
                 : String(userData?.balance_currency || 'RUB').toUpperCase();
@@ -10858,7 +10858,8 @@
                 return formatCurrency(0, currencyCode);
             }
 
-            return formatCurrency(normalized / 100, currencyCode);
+            // Values are now stored directly in toman, no division needed
+            return formatCurrency(normalized, currencyCode);
         }
 
         function formatPercentValue(percent) {
@@ -10951,29 +10952,30 @@
                 return true;
             }
 
-            const priceKopeks = coercePositiveInt(
-                option.priceKopeks
-                    ?? option.price_kopeks
+            const priceToman = coercePositiveInt(
+                option.priceToman
+                    ?? option.price_toman
+                    ?? option.priceToman
                     ?? option.price
-                    ?? option.amount_kopeks
-                    ?? option.amountKopeks
+                    ?? option.amount_toman
+                    ?? option.amountToman
                     ?? null,
                 null,
             );
-            const originalPriceKopeks = coercePositiveInt(
-                option.originalPriceKopeks
-                    ?? option.original_price_kopeks
+            const originalPriceToman = coercePositiveInt(
+                option.originalPriceToman
+                    ?? option.original_price_toman
                     ?? option.original_price
-                    ?? option.base_price_kopeks
-                    ?? option.basePriceKopeks
+                    ?? option.base_price_toman
+                    ?? option.basePriceToman
                     ?? null,
                 null,
             );
-            if (originalPriceKopeks !== null && priceKopeks !== null) {
-                return originalPriceKopeks > priceKopeks;
+            if (originalPriceToman !== null && priceToman !== null) {
+                return originalPriceToman > priceToman;
             }
 
-            if (originalPriceKopeks !== null || priceKopeks !== null) {
+            if (originalPriceToman !== null || priceToman !== null) {
                 return false;
             }
 
@@ -11161,7 +11163,7 @@
 
             if (addTotalLine) {
                 if (hasCharge) {
-                    const amountLabel = formatPriceFromKopeks(chargeAmount, currency);
+                    const amountLabel = formatPriceFromToman(chargeAmount, currency);
                     const periodLabel = effectiveMonths ? formatMonthsLabel(effectiveMonths) : '';
                     const templateKey = periodLabel
                         ? 'subscription_settings.confirm.total.charge_period'
@@ -11211,7 +11213,7 @@
 
             const message = normalizedLines.join('\n\n').trim();
             const fallbackMessage = hasCharge
-                ? `You will be charged ${formatPriceFromKopeks(chargeAmount, currency)}.`
+                ? `You will be charged ${formatPriceFromToman(chargeAmount, currency)}.`
                 : 'No charges will be made.';
 
             return showConfirmationPopup({
@@ -11262,12 +11264,12 @@
                 for (const uuid of added) {
                     const option = findOption(uuid);
                     const name = findName(uuid);
-                    const monthlyPrice = coercePositiveInt(option?.priceKopeks, 0) || 0;
+                    const monthlyPrice = coercePositiveInt(option?.priceToman, 0) || 0;
                     const charge = monthlyPrice * months;
                     totalCharge += charge;
                     if (monthlyPrice > 0) {
                         const template = t('subscription_settings.confirm.servers.entry_paid');
-                        const formatted = formatPriceFromKopeks(charge, currency);
+                        const formatted = formatPriceFromToman(charge, currency);
                         details.push(
                             template && template !== 'subscription_settings.confirm.servers.entry_paid'
                                 ? template.replace('{name}', name).replace('{amount}', formatted)
@@ -11333,8 +11335,8 @@
             const currentOption = findOption(currentValue);
             const nextOption = findOption(nextValue);
 
-            const currentPrice = coercePositiveInt(currentOption?.priceKopeks, 0) || 0;
-            const nextPrice = coercePositiveInt(nextOption?.priceKopeks, 0) || 0;
+            const currentPrice = coercePositiveInt(currentOption?.priceToman, 0) || 0;
+            const nextPrice = coercePositiveInt(nextOption?.priceToman, 0) || 0;
             const priceDiffPerMonth = nextPrice - currentPrice;
             const chargeAmount = priceDiffPerMonth > 0 ? priceDiffPerMonth * months : 0;
 
@@ -11388,8 +11390,8 @@
             const currentOption = findOption(currentValue);
             const nextOption = findOption(nextValue);
 
-            const currentPrice = coercePositiveInt(currentOption?.priceKopeks, 0) || 0;
-            const nextPrice = coercePositiveInt(nextOption?.priceKopeks, 0) || 0;
+            const currentPrice = coercePositiveInt(currentOption?.priceToman, 0) || 0;
+            const nextPrice = coercePositiveInt(nextOption?.priceToman, 0) || 0;
             const priceDiffPerMonth = nextPrice - currentPrice;
             const chargeAmount = priceDiffPerMonth > 0 ? priceDiffPerMonth * months : 0;
 
@@ -11938,17 +11940,17 @@
         }
 
         function buildAmountHint(method, currency) {
-            const min = Number.isFinite(method?.min_amount_kopeks)
-                ? method.min_amount_kopeks
+            const min = Number.isFinite(method?.min_amount_toman)
+                ? method.min_amount_toman
                 : null;
-            const max = Number.isFinite(method?.max_amount_kopeks)
-                ? method.max_amount_kopeks
+            const max = Number.isFinite(method?.max_amount_toman)
+                ? method.max_amount_toman
                 : null;
 
             if (min && max) {
                 const template = t('topup.amount.hint.range');
-                const minLabel = formatCurrency(min / 100, currency);
-                const maxLabel = formatCurrency(max / 100, currency);
+                const minLabel = formatCurrency(min, currency);
+                const maxLabel = formatCurrency(max, currency);
                 if (template && template !== 'topup.amount.hint.range') {
                     return template.replace('{min}', minLabel).replace('{max}', maxLabel);
                 }
@@ -11956,7 +11958,7 @@
             }
             if (min) {
                 const template = t('topup.amount.hint.single_min');
-                const minLabel = formatCurrency(min / 100, currency);
+                const minLabel = formatCurrency(min, currency);
                 if (template && template !== 'topup.amount.hint.single_min') {
                     return template.replace('{min}', minLabel);
                 }
@@ -11964,7 +11966,7 @@
             }
             if (max) {
                 const template = t('topup.amount.hint.single_max');
-                const maxLabel = formatCurrency(max / 100, currency);
+                const maxLabel = formatCurrency(max, currency);
                 if (template && template !== 'topup.amount.hint.single_max') {
                     return template.replace('{max}', maxLabel);
                 }
@@ -11994,11 +11996,11 @@
                 return;
             }
 
-            const amountKopeks = Math.round(numeric * 100);
-            const min = Number.isFinite(method?.min_amount_kopeks) ? method.min_amount_kopeks : null;
-            const max = Number.isFinite(method?.max_amount_kopeks) ? method.max_amount_kopeks : null;
+            const amountToman = Math.round(numeric);
+            const min = Number.isFinite(method?.min_amount_toman) ? method.min_amount_toman : null;
+            const max = Number.isFinite(method?.max_amount_toman) ? method.max_amount_toman : null;
 
-            if ((min && amountKopeks < min) || (max && amountKopeks > max)) {
+            if ((min && amountToman < min) || (max && amountToman > max)) {
                 showTopupError('topup.error.amount', 'Enter a valid amount.');
                 input.focus({ preventScroll: true });
                 return;
@@ -12007,13 +12009,13 @@
             clearTopupError();
             const form = document.getElementById('topupAmountForm');
             const providerOption = form?.dataset?.paymentOption || paymentMethodSelections[method.id] || null;
-            await startPaymentForMethod(method, amountKopeks, {
+            await startPaymentForMethod(method, amountToman, {
                 rawInput: rawValue,
                 providerOption,
             });
         }
 
-        async function startPaymentForMethod(method, amountKopeks = null, options = {}) {
+        async function startPaymentForMethod(method, amountToman = null, options = {}) {
             clearTopupError();
             renderTopupLoading();
 
@@ -12054,8 +12056,8 @@
                 initData,
                 method: method.id,
             };
-            if (Number.isFinite(amountKopeks) && amountKopeks > 0) {
-                payload.amountKopeks = amountKopeks;
+            if (Number.isFinite(amountToman) && amountToman > 0) {
+                payload.amountToman = amountToman;
             }
             if (options.providerOption) {
                 payload.option = options.providerOption;
@@ -12084,7 +12086,7 @@
                 renderTopupPaymentLink(
                     method,
                     paymentUrl,
-                    data?.amount_kopeks ?? amountKopeks,
+                    data?.amount_toman ?? amountToman,
                     data?.extra || {},
                     {
                         rawInput: options.rawInput,
@@ -12110,7 +12112,7 @@
             }
         }
 
-        function renderTopupPaymentLink(method, paymentUrl, amountKopeks, extra = {}, options = {}) {
+        function renderTopupPaymentLink(method, paymentUrl, amountToman, extra = {}, options = {}) {
             stopAllPaymentMonitors();
             clearTopupError();
             setTopupModalTitle('topup.title', 'Top up balance');
@@ -12120,7 +12122,7 @@
                 return;
             }
 
-            const normalizedAmount = Number.isFinite(amountKopeks) ? Number(amountKopeks) : null;
+            const normalizedAmount = Number.isFinite(amountToman) ? Number(amountToman) : null;
             const monitorExtra = { ...extra };
 
             const methodOptions = Array.isArray(method.options) ? method.options : [];
@@ -12180,8 +12182,8 @@
                     const starsAmount = Number.isFinite(monitorExtra?.stars_amount)
                         ? Number(monitorExtra.stars_amount)
                         : null;
-                    const requestedAmount = Number.isFinite(monitorExtra?.requested_amount_kopeks)
-                        ? Number(monitorExtra.requested_amount_kopeks)
+                    const requestedAmount = Number.isFinite(monitorExtra?.requested_amount_toman)
+                        ? Number(monitorExtra.requested_amount_toman)
                         : null;
 
                     if (starsAmount && starsAmount > 0) {
@@ -12264,7 +12266,7 @@
 
             startPaymentStatusMonitor({
                 method,
-                amountKopeks: normalizedAmount,
+                amountToman: normalizedAmount,
                 extra: monitorExtra,
                 statusView,
                 paymentUrl: effectiveUrl,
@@ -12372,13 +12374,13 @@
                         key: 'total_earned_label',
                         label: 'referral.stats.total',
                         formatter: (_, full) => full.total_earned_label
-                            || formatPriceFromKopeks(full.total_earned_kopeks || 0),
+                            || formatPriceFromToman(full.total_earned_toman || 0),
                     },
                     {
                         key: 'month_earned_label',
                         label: 'referral.stats.month',
                         formatter: (_, full) => full.month_earned_label
-                            || formatPriceFromKopeks(full.month_earned_kopeks || 0),
+                            || formatPriceFromToman(full.month_earned_toman || 0),
                     },
                     {
                         key: 'conversion_rate',
@@ -12393,7 +12395,7 @@
                         ? stats
                         : stats[key];
                     const hasValue = key === 'total_earned_label' || key === 'month_earned_label'
-                        ? Boolean((stats[key] ?? stats[key.replace('_label', '_kopeks')]) !== undefined)
+                        ? Boolean((stats[key] ?? stats[key.replace('_label', '_toman')]) !== undefined)
                         : rawValue !== undefined && rawValue !== null;
                     if (!hasValue) {
                         if (key === 'conversion_rate') {
@@ -12426,7 +12428,7 @@
                 if (statsData) {
                     summaryInvited.textContent = String(statsData.invited_count ?? 0);
                     const totalLabel = statsData.total_earned_label
-                        || formatPriceFromKopeks(statsData.total_earned_kopeks || 0);
+                        || formatPriceFromToman(statsData.total_earned_toman || 0);
                     summaryEarned.textContent = totalLabel;
                     summaryContainer.classList.remove('hidden');
                 } else {
@@ -12535,7 +12537,7 @@
                     const earnedValue = document.createElement('span');
                     earnedValue.className = 'referral-item-value';
                     earnedValue.textContent = referral.total_earned_label
-                        || formatPriceFromKopeks(referral.total_earned_kopeks || 0);
+                        || formatPriceFromToman(referral.total_earned_toman || 0);
                     earnedMetric.appendChild(earnedLabel);
                     earnedMetric.appendChild(earnedValue);
 
@@ -12603,10 +12605,10 @@
                 const typeKey = `history.type.${type}`;
                 const typeLabelRaw = t(typeKey);
                 const typeLabel = typeLabelRaw === typeKey ? (tx.type || type || '').replace(/_/g, ' ') : typeLabelRaw;
-                const amountRaw = typeof tx.amount_kopeks === 'number'
-                    ? tx.amount_kopeks
-                    : Number.parseInt(tx.amount_kopeks ?? '0', 10);
-                const amountValue = Number.isFinite(amountRaw) ? amountRaw / 100 : 0;
+                const amountRaw = typeof tx.amount_toman === 'number'
+                    ? tx.amount_toman
+                    : Number.parseInt(tx.amount_toman ?? '0', 10);
+                const amountValue = Number.isFinite(amountRaw) ? amountRaw : 0;
                 const isNegative = amountValue < 0 || negativeTypes.has(type);
                 const amountFormatted = `${isNegative ? '−' : '+'}${formatCurrency(Math.abs(amountValue), currency)}`;
                 const statusKey = tx.is_completed ? 'history.status.completed' : 'history.status.pending';
@@ -13373,12 +13375,12 @@
                 ? userData.auto_assign_promo_groups
                 : [];
 
-            const totalSpentKopeksRaw = typeof userData?.total_spent_kopeks === 'number'
-                ? userData.total_spent_kopeks
-                : Number.parseInt(userData?.total_spent_kopeks ?? '0', 10);
-            const totalSpentKopeks = Number.isFinite(totalSpentKopeksRaw) ? totalSpentKopeksRaw : 0;
+            const totalSpentTomanRaw = typeof userData?.total_spent_toman === 'number'
+                ? userData.total_spent_toman
+                : Number.parseInt(userData?.total_spent_toman ?? '0', 10);
+            const totalSpentToman = Number.isFinite(totalSpentTomanRaw) ? totalSpentTomanRaw : 0;
             totalSpentElement.textContent = userData?.total_spent_label
-                || formatPriceFromKopeks(totalSpentKopeks);
+                || formatPriceFromToman(totalSpentToman);
 
             list.innerHTML = '';
 
@@ -13416,7 +13418,7 @@
                 const threshold = document.createElement('div');
                 threshold.className = 'promo-level-threshold';
                 const thresholdLabel = level?.threshold_label
-                    || formatPriceFromKopeks(level?.threshold_kopeks, currencyCode);
+                    || formatPriceFromToman(level?.threshold_toman, currencyCode);
                 threshold.textContent = thresholdTemplate.includes('{amount}')
                     ? thresholdTemplate.replace('{amount}', thresholdLabel)
                     : `${thresholdTemplate} ${thresholdLabel}`;
@@ -13744,8 +13746,8 @@
                     return {
                         uuid: base.uuid,
                         name: base.name,
-                        priceKopeks: coercePositiveInt(
-                            entry.price_kopeks ?? entry.priceKopeks ?? entry.price ?? entry.cost,
+                        priceToman: coercePositiveInt(
+                            entry.price_toman ?? entry.priceToman ?? entry.price ?? entry.cost,
                             null
                         ),
                         priceLabel: entry.price_label || entry.priceLabel || null,
@@ -13781,7 +13783,7 @@
                     return {
                         value,
                         label: option.label || option.title || (value !== null ? formatTrafficLimit(value) : ''),
-                        priceKopeks: coercePositiveInt(option.price_kopeks ?? option.priceKopeks ?? option.price ?? null, null),
+                        priceToman: coercePositiveInt(option.price_toman ?? option.priceToman ?? option.price ?? null, null),
                         priceLabel: option.price_label || option.priceLabel || null,
                         isCurrent: coerceBoolean(option.is_current ?? option.current, false),
                         isAvailable: coerceBoolean(option.is_available ?? option.available ?? option.enabled ?? true, true),
@@ -13823,7 +13825,7 @@
                     return {
                         value,
                         label: option.label || option.title || (value !== null ? String(value) : ''),
-                        priceKopeks: coercePositiveInt(option.price_kopeks ?? option.priceKopeks ?? option.price ?? null, null),
+                        priceToman: coercePositiveInt(option.price_toman ?? option.priceToman ?? option.price ?? null, null),
                         priceLabel: option.price_label || option.priceLabel || null,
                     };
                 })
@@ -14012,20 +14014,21 @@
                     ?? option.periodMonths,
                 null,
             );
-            const priceKopeks = coercePositiveInt(
-                option.price_kopeks
-                    ?? option.priceKopeks
+            const priceToman = coercePositiveInt(
+                option.price_toman
+                    ?? option.priceToman
                     ?? option.price
-                    ?? option.amount_kopeks
-                    ?? option.amountKopeks,
+                    ?? option.amount_toman
+                    ?? option.amountToman
+                    ?? option.amountToman,
                 null,
             );
-            const originalPriceKopeks = coercePositiveInt(
-                option.original_price_kopeks
-                    ?? option.originalPriceKopeks
+            const originalPriceToman = coercePositiveInt(
+                option.original_price_toman
+                    ?? option.originalPriceToman
                     ?? option.original_price
-                    ?? option.base_price_kopeks
-                    ?? option.basePriceKopeks,
+                    ?? option.base_price_toman
+                    ?? option.basePriceToman,
                 null,
             );
             const priceLabel = option.price_label ?? option.priceLabel ?? null;
@@ -14038,58 +14041,7 @@
                 option.discount_percent ?? option.discountPercent ?? option.discount ?? null,
                 null,
             );
-            const perMonthKopeks = coercePositiveInt(
-                option.per_month_kopeks
-                    ?? option.perMonthKopeks
-                    ?? option.price_per_month_kopeks
-                    ?? null,
-                null,
-            );
-            const perMonthLabel = option.per_month_label
-                ?? option.perMonthLabel
-                ?? option.price_per_month_label
-                ?? null;
-            const isRecommended = coerceBoolean(
-                option.is_recommended ?? option.isRecommended ?? option.recommended,
-                false,
-            );
-            const description = option.description ?? option.subtitle ?? null;
-            const badge = option.badge || null;
-            const title = option.title ?? option.label ?? null;
-
-            const id = idCandidate != null
-                ? String(idCandidate)
-                : (days !== null ? `days:${days}` : null);
-            if (!id) {
-                return null;
-            }
-
-            let resolvedPriceLabel = priceLabel;
-            if (!resolvedPriceLabel && priceKopeks !== null) {
-                resolvedPriceLabel = formatPriceFromKopeks(priceKopeks, currency);
-            }
-
-            let resolvedOriginalLabel = originalPriceLabel;
-            if (!resolvedOriginalLabel && originalPriceKopeks !== null) {
-                resolvedOriginalLabel = formatPriceFromKopeks(originalPriceKopeks, currency);
-            }
-
-            let resolvedPerMonthLabel = perMonthLabel;
-            if (!resolvedPerMonthLabel && perMonthKopeks !== null) {
-                resolvedPerMonthLabel = formatPriceFromKopeks(perMonthKopeks, currency);
-            }
-
-            return {
-                id,
-                days,
-                months: months ?? (days ? Math.round(days / 30) : null),
-                priceKopeks,
-                priceLabel: resolvedPriceLabel,
-                originalPriceKopeks,
-                originalPriceLabel: resolvedOriginalLabel,
-                discountPercent,
-                pricePerMonthKopeks: perMonthKopeks,
-                pricePerMonthLabel: resolvedPerMonthLabel,
+                    ?? option.amountToman,
                 isRecommended,
                 description,
                 badge,
@@ -14125,19 +14077,19 @@
                 null,
             );
 
-            const balanceKopeks = coercePositiveInt(
-                root.balance_kopeks
-                    ?? root.balanceKopeks
-                    ?? payload.balance_kopeks
-                    ?? payload.balanceKopeks
-                    ?? userData?.balance_kopeks,
+            const balanceToman = coercePositiveInt(
+                root.balance_toman
+                    ?? root.balanceToman
+                    ?? payload.balance_toman
+                    ?? payload.balanceToman
+                    ?? userData?.balance_toman,
                 null,
             );
             const balanceLabel = root.balance_label
                 ?? root.balanceLabel
                 ?? payload.balance_label
                 ?? payload.balanceLabel
-                ?? (balanceKopeks !== null ? formatPriceFromKopeks(balanceKopeks, currency) : '');
+                ?? (balanceToman !== null ? formatPriceFromToman(balanceToman, currency) : '');
 
             const periodsRaw = ensureArray(
                 root.periods
@@ -14158,9 +14110,9 @@
                 ?? null;
             const defaultPeriodId = defaultPeriodIdRaw != null ? String(defaultPeriodIdRaw) : null;
 
-            const missingAmountKopeks = coercePositiveInt(
-                root.missing_amount_kopeks
-                    ?? root.missingAmountKopeks
+            const missingAmountToman = coercePositiveInt(
+                root.missing_amount_toman
+                    ?? root.missingAmountToman
                     ?? null,
                 null,
             );
@@ -14190,13 +14142,13 @@
             return {
                 subscriptionId,
                 currency,
-                balanceKopeks,
+                balanceToman,
                 balanceLabel,
                 periods,
                 defaultPeriodId: defaultPeriodId || (periods.length ? periods[0].id : null),
                 promoGroup,
                 promoOffer,
-                missingAmountKopeks,
+                missingAmountToman,
                 statusMessage,
                 autopay: autopayData,
             };
@@ -14412,7 +14364,7 @@
 
             const periodLabel = buildRenewalPeriodLabel(option);
             const amountLabel = option.priceLabel
-                || (option.priceKopeks !== null ? formatPriceFromKopeks(option.priceKopeks, data.currency) : null);
+                || (option.priceToman !== null ? formatPriceFromToman(option.priceToman, data.currency) : null);
 
             if (periodLabel) {
                 const chip = document.createElement('div');
@@ -14581,10 +14533,10 @@
                     current.className = 'subscription-renewal-option-price-current';
                     current.textContent = option.priceLabel;
                     priceRow.appendChild(current);
-                } else if (option.priceKopeks !== null) {
+                } else if (option.priceToman !== null) {
                     const current = document.createElement('span');
                     current.className = 'subscription-renewal-option-price-current';
-                    current.textContent = formatPriceFromKopeks(option.priceKopeks, data.currency);
+                    current.textContent = formatPriceFromToman(option.priceToman, data.currency);
                     priceRow.appendChild(current);
                 }
 
@@ -14592,15 +14544,15 @@
                     && (
                         Boolean(option.originalPriceLabel)
                         || (
-                            option.originalPriceKopeks !== null
-                            && option.priceKopeks !== null
+                            option.originalPriceToman !== null
+                            && option.priceToman !== null
                         )
                     );
                 if (showOriginal) {
                     const original = document.createElement('span');
                     original.className = 'subscription-renewal-option-price-original';
                     original.textContent = option.originalPriceLabel
-                        || formatPriceFromKopeks(option.originalPriceKopeks, data.currency);
+                        || formatPriceFromToman(option.originalPriceToman, data.currency);
                     priceRow.appendChild(original);
                 }
 
@@ -14623,8 +14575,8 @@
                         ? template.replace('{amount}', option.pricePerMonthLabel)
                         : `${option.pricePerMonthLabel} per month`;
                     meta.appendChild(note);
-                } else if (option.pricePerMonthKopeks !== null) {
-                    const perMonthLabel = formatPriceFromKopeks(option.pricePerMonthKopeks, data.currency);
+                } else if (option.pricePerMonthToman !== null) {
+                    const perMonthLabel = formatPriceFromToman(option.pricePerMonthToman, data.currency);
                     const template = t('subscription_renewal.summary.per_month');
                     const text = template && template !== 'subscription_renewal.summary.per_month'
                         ? template.replace('{amount}', perMonthLabel)
@@ -14699,7 +14651,7 @@
             }
 
             const amountLabel = option.priceLabel
-                || (option.priceKopeks !== null ? formatPriceFromKopeks(option.priceKopeks, data.currency) : null);
+                || (option.priceToman !== null ? formatPriceFromToman(option.priceToman, data.currency) : null);
             priceCurrent.textContent = amountLabel || '—';
 
             const discountPercentValue = coercePositiveInt(option.discountPercent, null);
@@ -14707,14 +14659,14 @@
                 && (
                     Boolean(option.originalPriceLabel)
                     || (
-                        option.originalPriceKopeks !== null
-                        && option.priceKopeks !== null
+                        option.originalPriceToman !== null
+                        && option.priceToman !== null
                     )
                 );
             if (priceOriginal) {
                 if (showOriginal) {
                     const label = option.originalPriceLabel
-                        || formatPriceFromKopeks(option.originalPriceKopeks, data.currency);
+                        || formatPriceFromToman(option.originalPriceToman, data.currency);
                     priceOriginal.textContent = label;
                     priceOriginal.classList.remove('hidden');
                 } else {
@@ -14744,8 +14696,8 @@
                         ? template.replace('{amount}', option.pricePerMonthLabel)
                         : `${option.pricePerMonthLabel} per month`;
                     priceNote.classList.remove('hidden');
-                } else if (option.pricePerMonthKopeks !== null) {
-                    const perMonthLabel = formatPriceFromKopeks(option.pricePerMonthKopeks, data.currency);
+                } else if (option.pricePerMonthToman !== null) {
+                    const perMonthLabel = formatPriceFromToman(option.pricePerMonthToman, data.currency);
                     const template = t('subscription_renewal.summary.per_month');
                     priceNote.textContent = template && template !== 'subscription_renewal.summary.per_month'
                         ? template.replace('{amount}', perMonthLabel)
@@ -14757,21 +14709,21 @@
                 }
             }
 
-            const balanceKopeks = data?.balanceKopeks ?? coercePositiveInt(userData?.balance_kopeks, null);
-            const priceKopeks = option.priceKopeks;
+            const balanceToman = data?.balanceToman ?? coercePositiveInt(userData?.balance_toman, null);
+            const priceToman = option.priceToman;
             let missing = null;
 
-            const optionMissing = coercePositiveInt(option?.missingAmountKopeks ?? option?.missing_amount_kopeks, null);
+            const optionMissing = coercePositiveInt(option?.missingAmountToman ?? option?.missing_amount_toman, null);
             if (optionMissing !== null) {
                 missing = optionMissing;
-            } else if (balanceKopeks !== null && priceKopeks !== null && balanceKopeks < priceKopeks) {
-                missing = priceKopeks - balanceKopeks;
+            } else if (balanceToman !== null && priceToman !== null && balanceToman < priceToman) {
+                missing = priceToman - balanceToman;
             } else if (
-                data?.missingAmountKopeks != null
+                data?.missingAmountToman != null
                 && data?.defaultPeriodId
                 && normalizeIdentifier(String(data.defaultPeriodId)) === normalizeIdentifier(String(option.id))
             ) {
-                missing = coercePositiveInt(data.missingAmountKopeks, null);
+                missing = coercePositiveInt(data.missingAmountToman, null);
             }
 
             if (missing !== null && missing <= 0) {
@@ -14779,7 +14731,7 @@
             }
             if (balanceWarning) {
                 if (missing !== null && missing > 0) {
-                    const missingLabel = formatPriceFromKopeks(missing, data.currency);
+                    const missingLabel = formatPriceFromToman(missing, data.currency);
                     const template = t('subscription_renewal.summary.insufficient');
                     balanceWarning.textContent = template && template !== 'subscription_renewal.summary.insufficient'
                         ? template.replace('{missing}', missingLabel)
@@ -14791,7 +14743,7 @@
                 }
             }
 
-            submitButton.disabled = subscriptionRenewalSubmitting || option.priceKopeks === null;
+            submitButton.disabled = subscriptionRenewalSubmitting || option.priceToman === null;
             const submitKey = subscriptionRenewalSubmitting
                 ? 'subscription_renewal.submit.loading'
                 : 'subscription_renewal.submit';
@@ -14877,7 +14829,7 @@
 
         async function confirmSubscriptionRenewal(option, data) {
             const amountLabel = option.priceLabel
-                || (option.priceKopeks !== null ? formatPriceFromKopeks(option.priceKopeks, data.currency) : '');
+                || (option.priceToman !== null ? formatPriceFromToman(option.priceToman, data.currency) : '');
             const periodLabel = buildRenewalPeriodLabel(option);
 
             const messageTemplate = t('subscription_renewal.confirm.message');
@@ -14886,7 +14838,7 @@
                 : `Renew the subscription for ${periodLabel} and pay ${amountLabel}?`;
 
             const balanceLabel = data?.balanceLabel
-                || (data.balanceKopeks !== null ? formatPriceFromKopeks(data.balanceKopeks, data.currency) : null);
+                || (data.balanceToman !== null ? formatPriceFromToman(data.balanceToman, data.currency) : null);
 
             let finalMessage = message;
             if (balanceLabel) {
@@ -15343,17 +15295,17 @@
             if (option.priceLabel) {
                 return option.priceLabel;
             }
-            if (option.priceKopeks === null || option.priceKopeks === undefined) {
+            if (option.priceToman === null || option.priceToman === undefined) {
                 return '';
             }
-            const price = coercePositiveInt(option.priceKopeks, null);
+            const price = coercePositiveInt(option.priceToman, null);
             if (price === null) {
                 return '';
             }
             if (price === 0) {
                 return t('subscription_settings.price.included');
             }
-            return formatPriceFromKopeks(price, currency);
+            return formatPriceFromToman(price, currency);
         }
 
         function renderSubscriptionSettingsServers(data) {
@@ -15546,7 +15498,7 @@
                 labelContainer.appendChild(title);
 
                 const meta = option.priceLabel
-                    || (option.priceKopeks !== null && option.priceKopeks !== undefined
+                    || (option.priceToman !== null && option.priceToman !== undefined
                         ? resolveServerPriceLabel(option, data.currency)
                         : '');
                 if (meta) {
@@ -15587,26 +15539,26 @@
                 if (matched.priceLabel) {
                     return matched.priceLabel;
                 }
-                if (matched.priceKopeks !== null && matched.priceKopeks !== undefined) {
-                    const normalized = coercePositiveInt(matched.priceKopeks, null);
+                if (matched.priceToman !== null && matched.priceToman !== undefined) {
+                    const normalized = coercePositiveInt(matched.priceToman, null);
                     if (normalized !== null) {
                         if (normalized === 0) {
                             return t('subscription_settings.price.included');
                         }
-                        return formatPriceFromKopeks(normalized, currency);
+                        return formatPriceFromToman(normalized, currency);
                     }
                 }
             }
 
             const basePrice = coercePositiveInt(
-                devicesInfo?.priceKopeks ?? devicesInfo?.price_kopeks ?? devicesInfo?.price ?? null,
+                devicesInfo?.priceToman ?? devicesInfo?.price_toman ?? devicesInfo?.price ?? null,
                 null
             );
             if (basePrice !== null) {
                 if (basePrice === 0) {
                     return t('subscription_settings.price.included');
                 }
-                return formatPriceFromKopeks(basePrice, currency);
+                return formatPriceFromToman(basePrice, currency);
             }
 
             return '';
@@ -16001,8 +15953,8 @@
                 const value = coercePositiveInt(source, null);
                 if (value !== null) {
                     return {
-                        kopeks: value,
-                        label: formatPriceFromKopeks(value, currency),
+                        toman: value,
+                        label: formatPriceFromToman(value, currency),
                     };
                 }
             }
@@ -16010,13 +15962,13 @@
             for (const label of labelSources) {
                 if (typeof label === 'string' && label.trim().length) {
                     return {
-                        kopeks: null,
+                        toman: null,
                         label,
                     };
                 }
             }
 
-            return { kopeks: null, label: '' };
+            return { toman: null, label: '' };
         }
 
         function formatPurchaseTrafficLabel(option) {
@@ -16052,14 +16004,14 @@
             const uuid = base.uuid ? String(base.uuid) : null;
             const priceInfo = resolvePurchasePrice(
                 [
-                    option.final_price_kopeks,
-                    option.finalPriceKopeks,
-                    option.total_price_kopeks,
-                    option.totalPriceKopeks,
-                    option.price_kopeks,
-                    option.priceKopeks,
+                    option.final_price_toman,
+                    option.finalPriceToman,
+                    option.total_price_toman,
+                    option.totalPriceToman,
+                    option.price_toman,
+                    option.priceToman,
                     option.price,
-                    option.cost_kopeks,
+                    option.cost_toman,
                     option.cost,
                 ],
                 [option.price_label, option.priceLabel],
@@ -16067,10 +16019,10 @@
             );
             const originalInfo = resolvePurchasePrice(
                 [
-                    option.original_price_kopeks,
-                    option.originalPriceKopeks,
-                    option.base_price_kopeks,
-                    option.basePriceKopeks,
+                    option.original_price_toman,
+                    option.originalPriceToman,
+                    option.base_price_toman,
+                    option.basePriceToman,
                 ],
                 [option.original_price_label, option.originalPriceLabel],
                 currency
@@ -16078,9 +16030,9 @@
             return {
                 uuid,
                 name: option.name || base.name || uuid || '',
-                priceKopeks: priceInfo.kopeks,
+                priceToman: priceInfo.toman,
                 priceLabel: priceInfo.label,
-                originalPriceKopeks: originalInfo.kopeks,
+                originalPriceToman: originalInfo.toman,
                 originalPriceLabel: originalInfo.label,
                 discountPercent: coercePositiveInt(option.discount_percent ?? option.discountPercent, null),
                 isAvailable: coerceBoolean(option.is_available ?? option.available ?? option.enabled ?? option.selectable ?? true, true),
@@ -16313,20 +16265,20 @@
 
             const root = payload.data || payload.config || payload;
             const currency = (root.currency || payload.currency || userData?.balance_currency || 'RUB').toString().toUpperCase();
-            const balanceKopeks = coercePositiveInt(
-                root.balance_kopeks
-                ?? root.balanceKopeks
-                ?? payload.balance_kopeks
-                ?? payload.balanceKopeks
-                ?? userData?.balance_kopeks,
+            const balanceToman = coercePositiveInt(
+                root.balance_toman
+                ?? root.balanceToman
+                ?? payload.balance_toman
+                ?? payload.balanceToman
+                ?? userData?.balance_toman,
                 null
             );
 
             return {
                 raw: payload,
                 currency,
-                balanceKopeks,
-                balanceLabel: root.balance_label || payload.balance_label || (balanceKopeks !== null ? formatPriceFromKopeks(balanceKopeks, currency) : ''),
+                balanceToman,
+                balanceLabel: root.balance_label || payload.balance_label || (balanceToman !== null ? formatPriceFromToman(balanceToman, currency) : ''),
                 periods: ensureArray(root.periods || root.available_periods || root.options?.periods || []),
                 traffic: root.traffic || root.traffic_options || root.trafficOptions || {},
                 servers: root.servers || root.countries || {},
@@ -16563,14 +16515,14 @@
 
             const totalInfo = resolvePurchasePrice(
                 [
-                    root.total_price_kopeks,
-                    root.totalPriceKopeks,
-                    root.final_price_kopeks,
-                    root.finalPriceKopeks,
-                    root.price_kopeks,
-                    root.priceKopeks,
-                    root.amount_kopeks,
-                    root.amountKopeks,
+                    root.total_price_toman,
+                    root.totalPriceToman,
+                    root.final_price_toman,
+                    root.finalPriceToman,
+                    root.price_toman,
+                    root.priceToman,
+                    root.amount_toman,
+                    root.amountToman,
                 ],
                 [
                     root.total_price_label,
@@ -16587,10 +16539,10 @@
 
             const originalInfo = resolvePurchasePrice(
                 [
-                    root.original_price_kopeks,
-                    root.originalPriceKopeks,
-                    root.base_price_kopeks,
-                    root.basePriceKopeks,
+                    root.original_price_toman,
+                    root.originalPriceToman,
+                    root.base_price_toman,
+                    root.basePriceToman,
                 ],
                 [
                     root.original_price_label,
@@ -16603,10 +16555,10 @@
 
             const perMonthInfo = resolvePurchasePrice(
                 [
-                    root.per_month_price_kopeks,
-                    root.perMonthPriceKopeks,
-                    root.monthly_price_kopeks,
-                    root.monthlyPriceKopeks,
+                    root.per_month_price_toman,
+                    root.perMonthPriceToman,
+                    root.monthly_price_toman,
+                    root.monthlyPriceToman,
                 ],
                 [
                     root.per_month_price_label,
@@ -16646,51 +16598,51 @@
                 };
             }).filter(Boolean);
 
-            const balanceKopeks = coercePositiveInt(
-                root.balance_kopeks
-                ?? root.balanceKopeks
-                ?? payload.balance_kopeks
-                ?? payload.balanceKopeks
-                ?? subscriptionPurchaseData?.balanceKopeks
-                ?? userData?.balance_kopeks,
+            const balanceToman = coercePositiveInt(
+                root.balance_toman
+                ?? root.balanceToman
+                ?? payload.balance_toman
+                ?? payload.balanceToman
+                ?? subscriptionPurchaseData?.balanceToman
+                ?? userData?.balance_toman,
                 null,
             );
             const balanceLabel = root.balance_label
                 || root.balanceLabel
-                || (balanceKopeks !== null ? formatPriceFromKopeks(balanceKopeks, currency) : '');
+                || (balanceToman !== null ? formatPriceFromToman(balanceToman, currency) : '');
 
-            const missingAmountKopeks = coercePositiveInt(
-                root.missing_amount_kopeks
-                ?? root.missingAmountKopeks
-                ?? root.balance_needed_kopeks
-                ?? root.balanceNeededKopeks
-                ?? root.amount_due_kopeks
-                ?? root.amountDueKopeks,
+            const missingAmountToman = coercePositiveInt(
+                root.missing_amount_toman
+                ?? root.missingAmountToman
+                ?? root.balance_needed_toman
+                ?? root.balanceNeededToman
+                ?? root.amount_due_toman
+                ?? root.amountDueToman,
                 null,
             );
             const missingAmountLabel = root.missing_amount_label
                 || root.missingAmountLabel
-                || (missingAmountKopeks !== null ? formatPriceFromKopeks(missingAmountKopeks, currency) : '');
+                || (missingAmountToman !== null ? formatPriceFromToman(missingAmountToman, currency) : '');
 
             return {
                 raw: payload,
-                totalPriceKopeks: totalInfo.kopeks,
+                totalPriceToman: totalInfo.toman,
                 totalPriceLabel: totalInfo.label,
-                originalPriceKopeks: originalInfo.kopeks,
+                originalPriceToman: originalInfo.toman,
                 originalPriceLabel: originalInfo.label,
                 perMonthLabel: perMonthInfo.label,
                 discountPercent,
                 discountLabel,
                 discountLines,
                 breakdown,
-                balanceKopeks,
+                balanceToman,
                 balanceLabel,
-                missingAmountKopeks,
+                missingAmountToman,
                 missingAmountLabel,
                 canPurchase: coerceBoolean(
                     root.can_purchase
                     ?? root.canPurchase
-                    ?? (missingAmountKopeks === null || missingAmountKopeks <= 0),
+                    ?? (missingAmountToman === null || missingAmountToman <= 0),
                     true,
                 ),
                 statusMessage: root.status_message
@@ -16785,14 +16737,14 @@
 
                 const priceInfo = resolvePurchasePrice(
                     [
-                        period.final_price_kopeks,
-                        period.finalPriceKopeks,
-                        period.total_price_kopeks,
-                        period.totalPriceKopeks,
-                        period.price_kopeks,
-                        period.priceKopeks,
-                        period.amount_kopeks,
-                        period.amountKopeks,
+                        period.final_price_toman,
+                        period.finalPriceToman,
+                        period.total_price_toman,
+                        period.totalPriceToman,
+                        period.price_toman,
+                        period.priceToman,
+                        period.amount_toman,
+                        period.amountToman,
                     ],
                     [
                         period.final_price_label,
@@ -16807,10 +16759,10 @@
 
                 const originalInfo = resolvePurchasePrice(
                     [
-                        period.original_price_kopeks,
-                        period.originalPriceKopeks,
-                        period.base_price_kopeks,
-                        period.basePriceKopeks,
+                        period.original_price_toman,
+                        period.originalPriceToman,
+                        period.base_price_toman,
+                        period.basePriceToman,
                     ],
                     [
                         period.original_price_label,
@@ -16829,10 +16781,10 @@
                 let perMonthLabel = '';
                 const perMonthInfo = resolvePurchasePrice(
                     [
-                        period.per_month_price_kopeks,
-                        period.perMonthPriceKopeks,
-                        period.monthly_price_kopeks,
-                        period.monthlyPriceKopeks,
+                        period.per_month_price_toman,
+                        period.perMonthPriceToman,
+                        period.monthly_price_toman,
+                        period.monthlyPriceToman,
                     ],
                     [
                         period.per_month_price_label,
@@ -16844,7 +16796,7 @@
                 );
                 if (perMonthInfo.label) {
                     perMonthLabel = perMonthInfo.label;
-                } else if (priceInfo.kopeks !== null) {
+                } else if (priceInfo.toman !== null) {
                     const months = coercePositiveInt(
                         period.months
                         ?? period.period
@@ -16854,8 +16806,8 @@
                     );
                     const resolvedMonths = months || Math.max(1, Math.round((resolvePurchasePeriodDays(period) || 30) / 30));
                     if (resolvedMonths > 0) {
-                        const perMonthValue = Math.round(priceInfo.kopeks / resolvedMonths);
-                        perMonthLabel = formatPriceFromKopeks(perMonthValue, currency);
+                        const perMonthValue = Math.round(priceInfo.toman / resolvedMonths);
+                        perMonthLabel = formatPriceFromToman(perMonthValue, currency);
                     }
                 }
 
@@ -17074,10 +17026,10 @@
 
                 const priceInfo = resolvePurchasePrice(
                     [
-                        option.final_price_kopeks,
-                        option.finalPriceKopeks,
-                        option.price_kopeks,
-                        option.priceKopeks,
+                        option.final_price_toman,
+                        option.finalPriceToman,
+                        option.price_toman,
+                        option.priceToman,
                     ],
                     [
                         option.final_price_label,
@@ -17089,7 +17041,7 @@
                 );
 
                 const originalInfo = resolvePurchasePrice(
-                    [option.original_price_kopeks, option.originalPriceKopeks],
+                    [option.original_price_toman, option.originalPriceToman],
                     [option.original_price_label, option.originalPriceLabel],
                     currency,
                 );
@@ -17415,12 +17367,12 @@
                 const currency = getSubscriptionPurchaseCurrency();
                 const priceInfo = resolvePurchasePrice(
                     [
-                        config.price_per_device_kopeks,
-                        config.pricePerDeviceKopeks,
-                        config.extra_device_price_kopeks,
-                        config.extraDevicePriceKopeks,
-                        config.price_kopeks,
-                        config.priceKopeks,
+                        config.price_per_device_toman,
+                        config.pricePerDeviceToman,
+                        config.extra_device_price_toman,
+                        config.extraDevicePriceToman,
+                        config.price_toman,
+                        config.priceToman,
                     ],
                     [
                         config.price_per_device_label,
@@ -17434,10 +17386,10 @@
                 );
                 const originalInfo = resolvePurchasePrice(
                     [
-                        config.price_per_device_original_kopeks,
-                        config.pricePerDeviceOriginalKopeks,
-                        config.price_per_device_base_kopeks,
-                        config.pricePerDeviceBaseKopeks,
+                        config.price_per_device_original_toman,
+                        config.pricePerDeviceOriginalToman,
+                        config.price_per_device_base_toman,
+                        config.pricePerDeviceBaseToman,
                     ],
                     [
                         config.price_per_device_original_label,
@@ -17599,7 +17551,7 @@
             }
 
             if (balanceWarning) {
-                const hasMissingFunds = !loading && (preview?.missingAmountKopeks || 0) > 0;
+                const hasMissingFunds = !loading && (preview?.missingAmountToman || 0) > 0;
                 if (hasMissingFunds) {
                     const required = preview?.totalPriceLabel || '';
                     const balance = preview?.balanceLabel || '';
@@ -17616,7 +17568,7 @@
             }
 
             if (topupButton) {
-                const showTopup = !loading && (preview?.missingAmountKopeks || 0) > 0;
+                const showTopup = !loading && (preview?.missingAmountToman || 0) > 0;
                 topupButton.classList.toggle('hidden', !showTopup);
             }
 
@@ -17625,7 +17577,7 @@
                     || subscriptionPurchaseSubmitting
                     || !preview
                     || preview.canPurchase === false
-                    || (preview?.missingAmountKopeks || 0) > 0;
+                    || (preview?.missingAmountToman || 0) > 0;
                 submitButton.disabled = disabled;
             }
 

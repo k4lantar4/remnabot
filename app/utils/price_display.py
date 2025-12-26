@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class PriceInfo:
     """Container for pricing information with discounts."""
 
-    base_price: int  # Original price without any discounts (kopeks)
-    final_price: int  # Final price after all discounts (kopeks)
+    base_price: int  # Original price without any discounts (toman)
+    final_price: int  # Final price after all discounts (toman)
     discount_percent: int  # Total discount percentage
 
     @property
@@ -32,7 +32,7 @@ class PriceInfo:
 
     @property
     def discount_value(self) -> int:
-        """Get the absolute discount value in kopeks."""
+        """Get the absolute discount value in toman."""
         return self.base_price - self.final_price
 
 
@@ -47,7 +47,7 @@ def calculate_user_price(
 
     Args:
         user: User object (None for base/default pricing from settings)
-        base_price: Base price without discounts (kopeks)
+        base_price: Base price without discounts (toman)
         period_days: Subscription period in days
         category: Discount category ("period", "servers", "devices", "traffic")
 
@@ -112,7 +112,7 @@ def format_price_button(
     Format a price button text with unified discount display.
 
     Args:
-        period_label: Label for the period (e.g., "30 дней", "1 месяц")
+        period_label: Label for the period (e.g., "30 days", "1 month")
         price_info: PriceInfo object with pricing details
         format_price_func: Function to format price (usually texts.format_price)
         emphasize: Add fire emojis for emphasis (for best deals)
@@ -123,16 +123,16 @@ def format_price_button(
 
     Examples:
         With discount and price > 0:
-            "📅 30 дней - 990₽ ➜ 693₽ (-30%)!"
+            "📅 30 days - 990 Toman ➜ 693 Toman (-30%)!"
 
         With final price = 0:
-            "📅 30 дней"
+            "📅 30 days"
 
         With emphasis:
-            "🔥 📅 30 дней - 8990₽ ➜ 6293₽ (-30%)! 🔥"
+            "🔥 📅 30 days - 8990 Toman ➜ 6293 Toman (-30%)! 🔥"
 
         Without discount:
-            "📅 30 дней - 990₽"
+            "📅 30 days - 990 Toman"
     """
     # Format button text differently if final price is 0
     if price_info.final_price == 0:
@@ -165,7 +165,7 @@ def format_price_text(
     Format a price for message text (not button) with unified discount display.
 
     Args:
-        period_label: Label for the period (e.g., "30 дней")
+        period_label: Label for the period (e.g., "30 days")
         price_info: PriceInfo object with pricing details
         format_price_func: Function to format price (usually texts.format_price)
 
@@ -174,13 +174,13 @@ def format_price_text(
 
     Examples:
         With discount:
-            "📅 30 дней - 990₽ ➜ 693₽"
+            "📅 30 days - 990 Toman ➜ 693 Toman"
 
         Without discount:
-            "📅 30 дней - 990₽"
+            "📅 30 days - 990 Toman"
             
         With zero price:
-            "📅 30 дней"
+            "📅 30 days"
     """
     if price_info.final_price == 0:
         return f"📅 {period_label}"

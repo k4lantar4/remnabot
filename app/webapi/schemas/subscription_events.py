@@ -19,7 +19,7 @@ class SubscriptionEventCreate(BaseModel):
     user_id: int = Field(..., ge=1)
     subscription_id: Optional[int] = Field(default=None, ge=1)
     transaction_id: Optional[int] = Field(default=None, ge=1)
-    amount_kopeks: Optional[int] = Field(default=None, ge=0)
+    amount_toman: Optional[int] = Field(default=None, ge=0)
     currency: Optional[str] = Field(default=None, min_length=1, max_length=16)
     message: Optional[str] = Field(default=None, max_length=2000)
     occurred_at: Optional[datetime] = None
@@ -43,7 +43,7 @@ class SubscriptionEventResponse(BaseModel):
     user_telegram_id: int
     subscription_id: Optional[int] = None
     transaction_id: Optional[int] = None
-    amount_kopeks: Optional[int] = None
+    amount_toman: Optional[int] = None
     currency: Optional[str] = None
     message: Optional[str] = None
     occurred_at: datetime

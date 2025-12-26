@@ -20,7 +20,7 @@ class SubscriptionStates(StatesGroup):
     confirming_traffic_reset = State()
     cart_saved_for_topup = State()
     
-    # Состояния для простой подписки
+    # States for the simple subscription flow
     waiting_for_simple_subscription_payment_method = State()
 
 class BalanceStates(StatesGroup):
@@ -29,6 +29,7 @@ class BalanceStates(StatesGroup):
     waiting_for_platega_method = State()
     waiting_for_stars_payment = State()
     waiting_for_support_request = State()
+    waiting_for_card_to_card_receipt = State()
 
 
 class PromoCodeStates(StatesGroup):
@@ -109,6 +110,10 @@ class AdminStates(StatesGroup):
     editing_user_traffic = State()
     editing_user_referrals = State()
     editing_user_referral_percent = State()
+    
+    # Tenant bots management
+    waiting_for_bot_name = State()
+    waiting_for_bot_token = State()
 
     editing_rules_page = State()
     editing_privacy_policy = State()
@@ -148,7 +153,7 @@ class AdminStates(StatesGroup):
     selecting_promo_offer_user = State()
     searching_promo_offer_user = State()
     
-    # Состояния для отслеживания источника перехода
+    # States for tracking navigation sources
     viewing_user_from_balance_list = State()
     viewing_user_from_traffic_list = State()
     viewing_user_from_last_activity_list = State()

@@ -14,7 +14,7 @@ async def create_referral_earning(
     db: AsyncSession,
     user_id: int,
     referral_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     reason: str,
     referral_transaction_id: Optional[int] = None
 ) -> ReferralEarning:
@@ -22,7 +22,7 @@ async def create_referral_earning(
     earning = ReferralEarning(
         user_id=user_id,
         referral_id=referral_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         reason=reason,
         referral_transaction_id=referral_transaction_id
     )
@@ -31,7 +31,7 @@ async def create_referral_earning(
     await db.commit()
     await db.refresh(earning)
     
-    logger.info(f"💰 Создан реферальный заработок: {amount_kopeks/100}₽ для пользователя {user_id}")
+    logger.info(f"💰 Referral earning created: {amount_toman} Toman for user {user_id}")
     return earning
 
 
@@ -76,7 +76,7 @@ async def get_referral_earnings_sum(
     end_date: Optional[datetime] = None
 ) -> int:
     
-    query = select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0)).where(
+    query = select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(
         ReferralEarning.user_id == user_id
     )
     
@@ -105,13 +105,13 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     active_referrers = active_referrers_result.scalar()
     
     referral_paid_result = await db.execute(
-        select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+        select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
     )
     referral_paid = referral_paid_result.scalar()
     
     from app.database.models import Transaction, TransactionType
     transaction_paid_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(Transaction.type == TransactionType.REFERRAL_REWARD.value)
     )
     transaction_paid = transaction_paid_result.scalar()
@@ -131,7 +131,7 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     referral_earnings_result = await db.execute(
         select(
             ReferralEarning.user_id.label('referrer_id'),
-            func.sum(ReferralEarning.amount_kopeks).label('referral_earnings')
+            func.sum(ReferralEarning.amount_toman).label('referral_earnings')
         )
         .group_by(ReferralEarning.user_id)
     )
@@ -140,7 +140,7 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     transaction_earnings_result = await db.execute(
         select(
             Transaction.user_id.label('referrer_id'),
-            func.sum(Transaction.amount_kopeks).label('transaction_earnings')
+            func.sum(Transaction.amount_toman).label('transaction_earnings')
         )
         .where(Transaction.type == TransactionType.REFERRAL_REWARD.value)
         .group_by(Transaction.user_id)
@@ -203,18 +203,18 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
                 "display_name": display_name,
                 "username": user.username,
                 "telegram_id": user.telegram_id,
-                "total_earned_kopeks": stats['total_earned'],
+                "total_earned_toman": stats['total_earned'],
                 "referrals_count": stats['referrals_count']
             })
     
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     
     today_referral_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+        select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
         .where(ReferralEarning.created_at >= today)
     )
     today_transaction_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.REFERRAL_REWARD.value,
@@ -226,11 +226,11 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     
     week_ago = datetime.utcnow() - timedelta(days=7)
     week_referral_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+        select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
         .where(ReferralEarning.created_at >= week_ago)
     )
     week_transaction_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.REFERRAL_REWARD.value,
@@ -242,11 +242,11 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     
     month_ago = datetime.utcnow() - timedelta(days=30)
     month_referral_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(ReferralEarning.amount_kopeks), 0))
+        select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
         .where(ReferralEarning.created_at >= month_ago)
     )
     month_transaction_earnings_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0))
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
         .where(
             and_(
                 Transaction.type == TransactionType.REFERRAL_REWARD.value,
@@ -256,15 +256,15 @@ async def get_referral_statistics(db: AsyncSession) -> dict:
     )
     month_earnings = month_referral_earnings_result.scalar() + month_transaction_earnings_result.scalar()
     
-    logger.info(f"Реферальная статистика: {users_with_referrals} рефералов, {active_referrers} рефереров, выплачено {total_paid} копеек")
+    logger.info(f"Referral statistics: {users_with_referrals} referrals, {active_referrers} referrers, paid {total_paid} toman")
     
     return {
         "users_with_referrals": users_with_referrals,
         "active_referrers": active_referrers,
-        "total_paid_kopeks": total_paid,
-        "today_earnings_kopeks": today_earnings,
-        "week_earnings_kopeks": week_earnings,
-        "month_earnings_kopeks": month_earnings,
+        "total_paid_toman": total_paid,
+        "today_earnings_toman": today_earnings,
+        "week_earnings_toman": week_earnings,
+        "month_earnings_toman": month_earnings,
         "top_referrers": top_referrers
     }
 
@@ -300,6 +300,6 @@ async def get_user_referral_stats(db: AsyncSession, user_id: int) -> dict:
     return {
         "invited_count": invited_count,
         "active_referrals": active_referrals,
-        "total_earned_kopeks": total_earned,
-        "month_earned_kopeks": month_earned
+        "total_earned_toman": total_earned,
+        "month_earned_toman": month_earned
     }
