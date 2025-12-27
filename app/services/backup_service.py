@@ -84,12 +84,37 @@ class BackupSettings:
 class BackupService:
     def __init__(self, bot=None):
         self.bot = bot
-        self.backup_dir = Path(settings.BACKUP_LOCATION).expanduser().resolve()
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir = self.backup_dir.parent
+        self._backup_dir = None
+        self._data_dir = None
         self.archive_format_version = "2.0"
         self._auto_backup_task = None
-        self._settings = self._load_settings()
+        self._settings = None  # Lazy load settings too
+
+    @property
+    def backup_dir(self) -> Path:
+        """Get backup directory, creating it if necessary."""
+        if self._backup_dir is None:
+            self._backup_dir = Path(settings.BACKUP_LOCATION).expanduser().resolve()
+            try:
+                self._backup_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                # Log warning but don't fail - backup operations will handle gracefully
+                logger.warning(f"Could not create backup directory {self._backup_dir}: {e}")
+        return self._backup_dir
+
+    @property
+    def data_dir(self) -> Path:
+        """Get data directory (parent of backup directory)."""
+        if self._data_dir is None:
+            self._data_dir = self.backup_dir.parent
+        return self._data_dir
+
+    @property
+    def settings(self):
+        """Get settings, loading them lazily."""
+        if self._settings is None:
+            self._settings = self._load_settings()
+        return self._settings
 
         self._base_backup_models = [
             SystemSetting,
@@ -124,7 +149,7 @@ class BackupService:
 
         self.backup_models_ordered = self._base_backup_models.copy()
 
-        if self._settings.include_logs:
+        if self.settings.include_logs:
             self.backup_models_ordered.append(MonitoringLog)
 
         self.association_tables = {
@@ -143,7 +168,7 @@ class BackupService:
         )
 
     def _parse_backup_time(self) -> Tuple[int, int]:
-        time_str = (self._settings.backup_time or "").strip()
+        time_str = (self.settings.backup_time or "").strip()
 
         try:
             parts = time_str.split(":")
@@ -159,8 +184,8 @@ class BackupService:
 
         except ValueError:
             default_hours, default_minutes = 3, 0
-            logger.warning("Invalid BACKUP_TIME='%s'. Using default value 03:00.", self._settings.backup_time)
-            self._settings.backup_time = "03:00"
+            logger.warning("Invalid BACKUP_TIME='%s'. Using default value 03:00.", self.settings.backup_time)
+            self.settings.backup_time = "03:00"
             return default_hours, default_minutes
 
     def _calculate_next_backup_datetime(self, reference: Optional[datetime] = None) -> datetime:
@@ -174,7 +199,7 @@ class BackupService:
         return next_run
 
     def _get_backup_interval(self) -> timedelta:
-        hours = self._settings.backup_interval_hours
+        hours = self.settings.backup_interval_hours
 
         if hours <= 0:
             logger.warning("Invalid BACKUP_INTERVAL_HOURS=%s. Using default value 24.", hours)
@@ -1585,4 +1610,5 @@ class BackupService:
             return None
 
 
+# Create backup service instance - directories will be created lazily
 backup_service = BackupService()
