@@ -383,9 +383,7 @@ class SubscriptionRenewalService:
         overall_discount_value = max(0, base_original_total - final_total)
         overall_discount_percent = 0
         if base_original_total > 0 and overall_discount_value > 0:
-            overall_discount_percent = int(
-                round(overall_discount_value * 100 / base_original_total)
-            )
+            overall_discount_percent = int(round(overall_discount_value * 100 / base_original_total))
 
         per_month = final_total // months if months else final_total
 
@@ -537,10 +535,7 @@ class SubscriptionRenewalService:
         label = format_period_description(pricing.period_days, language)
         price_label = settings.format_price(pricing.final_total)
         original_label = None
-        if (
-            pricing.base_original_total
-            and pricing.base_original_total != pricing.final_total
-        ):
+        if pricing.base_original_total and pricing.base_original_total != pricing.final_total:
             original_label = settings.format_price(pricing.base_original_total)
 
         per_month_label = settings.format_price(pricing.per_month)
@@ -568,4 +563,3 @@ def calculate_missing_amount(balance_toman: int, total_toman: int) -> int:
     if balance_toman <= 0:
         return total_toman
     return max(0, total_toman - min(balance_toman, total_toman))
-

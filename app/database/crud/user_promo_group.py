@@ -1,4 +1,5 @@
 """CRUD operations for linking users with promo groups (Many-to-Many)."""
+
 import logging
 from datetime import datetime
 from typing import List, Optional
@@ -55,10 +56,7 @@ async def sync_user_primary_promo_group(
 
 
 async def add_user_to_promo_group(
-    db: AsyncSession,
-    user_id: int,
-    promo_group_id: int,
-    assigned_by: str = "admin"
+    db: AsyncSession, user_id: int, promo_group_id: int, assigned_by: str = "admin"
 ) -> Optional[UserPromoGroup]:
     """
     Adds promo group to user.
@@ -102,11 +100,7 @@ async def add_user_to_promo_group(
         return None
 
 
-async def remove_user_from_promo_group(
-    db: AsyncSession,
-    user_id: int,
-    promo_group_id: int
-) -> bool:
+async def remove_user_from_promo_group(db: AsyncSession, user_id: int, promo_group_id: int) -> bool:
     """
     Removes promo group from user.
 
@@ -121,10 +115,7 @@ async def remove_user_from_promo_group(
     try:
         result = await db.execute(
             select(UserPromoGroup).where(
-                and_(
-                    UserPromoGroup.user_id == user_id,
-                    UserPromoGroup.promo_group_id == promo_group_id
-                )
+                and_(UserPromoGroup.user_id == user_id, UserPromoGroup.promo_group_id == promo_group_id)
             )
         )
         user_promo_group = result.scalar_one_or_none()
@@ -149,10 +140,7 @@ async def remove_user_from_promo_group(
         return False
 
 
-async def get_user_promo_groups(
-    db: AsyncSession,
-    user_id: int
-) -> List[UserPromoGroup]:
+async def get_user_promo_groups(db: AsyncSession, user_id: int) -> List[UserPromoGroup]:
     """
     Gets all user promo groups, sorted by priority.
 
@@ -178,10 +166,7 @@ async def get_user_promo_groups(
         return []
 
 
-async def get_primary_user_promo_group(
-    db: AsyncSession,
-    user_id: int
-) -> Optional[PromoGroup]:
+async def get_primary_user_promo_group(db: AsyncSession, user_id: int) -> Optional[PromoGroup]:
     """
     Gets user promo group with maximum priority.
 
@@ -206,11 +191,7 @@ async def get_primary_user_promo_group(
         return None
 
 
-async def has_user_promo_group(
-    db: AsyncSession,
-    user_id: int,
-    promo_group_id: int
-) -> bool:
+async def has_user_promo_group(db: AsyncSession, user_id: int, promo_group_id: int) -> bool:
     """
     Checks if user has promo group.
 
@@ -225,10 +206,7 @@ async def has_user_promo_group(
     try:
         result = await db.execute(
             select(UserPromoGroup).where(
-                and_(
-                    UserPromoGroup.user_id == user_id,
-                    UserPromoGroup.promo_group_id == promo_group_id
-                )
+                and_(UserPromoGroup.user_id == user_id, UserPromoGroup.promo_group_id == promo_group_id)
             )
         )
         return result.scalar_one_or_none() is not None
@@ -238,10 +216,7 @@ async def has_user_promo_group(
         return False
 
 
-async def count_user_promo_groups(
-    db: AsyncSession,
-    user_id: int
-) -> int:
+async def count_user_promo_groups(db: AsyncSession, user_id: int) -> int:
     """
     Counts number of promo groups for user.
 
@@ -253,9 +228,7 @@ async def count_user_promo_groups(
         Number of promo groups
     """
     try:
-        result = await db.execute(
-            select(UserPromoGroup).where(UserPromoGroup.user_id == user_id)
-        )
+        result = await db.execute(select(UserPromoGroup).where(UserPromoGroup.user_id == user_id))
         return len(list(result.scalars().all()))
 
     except Exception as error:
@@ -264,10 +237,7 @@ async def count_user_promo_groups(
 
 
 async def replace_user_promo_groups(
-    db: AsyncSession,
-    user_id: int,
-    promo_group_ids: List[int],
-    assigned_by: str = "admin"
+    db: AsyncSession, user_id: int, promo_group_ids: List[int], assigned_by: str = "admin"
 ) -> bool:
     """
     Replaces all user promo groups with new list.
@@ -283,22 +253,14 @@ async def replace_user_promo_groups(
     """
     try:
         # Remove all current promo groups
-        await db.execute(
-            select(UserPromoGroup).where(UserPromoGroup.user_id == user_id)
-        )
-        result = await db.execute(
-            select(UserPromoGroup).where(UserPromoGroup.user_id == user_id)
-        )
+        await db.execute(select(UserPromoGroup).where(UserPromoGroup.user_id == user_id))
+        result = await db.execute(select(UserPromoGroup).where(UserPromoGroup.user_id == user_id))
         for upg in result.scalars().all():
             await db.delete(upg)
 
         # Add new ones
         for promo_group_id in promo_group_ids:
-            user_promo_group = UserPromoGroup(
-                user_id=user_id,
-                promo_group_id=promo_group_id,
-                assigned_by=assigned_by
-            )
+            user_promo_group = UserPromoGroup(user_id=user_id, promo_group_id=promo_group_id, assigned_by=assigned_by)
             db.add(user_promo_group)
 
         await db.commit()

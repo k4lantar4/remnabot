@@ -102,10 +102,7 @@ async def build_promo_offer_timer_line(
     if total_seconds is None and offer:
         extra_data = getattr(offer, "extra_data", None)
         if isinstance(extra_data, dict):
-            raw_duration = (
-                extra_data.get("active_discount_hours")
-                or extra_data.get("duration_hours")
-            )
+            raw_duration = extra_data.get("active_discount_hours") or extra_data.get("duration_hours")
         else:
             raw_duration = None
         try:
@@ -178,9 +175,7 @@ async def build_test_access_hint(
     )
     entries: Sequence[SubscriptionTemporaryAccess] = result.scalars().all()
 
-    active_entries = [
-        entry for entry in entries if entry.expires_at and entry.expires_at > now
-    ]
+    active_entries = [entry for entry in entries if entry.expires_at and entry.expires_at > now]
     if not active_entries:
         return None
 
@@ -220,9 +215,7 @@ async def build_test_access_hint(
             )
         )
         names_map = {
-            squad_uuid: html.escape(display_name)
-            for squad_uuid, display_name in squads_result.all()
-            if display_name
+            squad_uuid: html.escape(display_name) for squad_uuid, display_name in squads_result.all() if display_name
         }
         for squad_uuid in unique_squad_uuids:
             if squad_uuid in names_map:
@@ -233,9 +226,7 @@ async def build_test_access_hint(
     if squad_display_names:
         servers_display = ", ".join(squad_display_names)
     elif unique_squad_uuids:
-        servers_display = ", ".join(
-            html.escape(squad_uuid) for squad_uuid in unique_squad_uuids
-        )
+        servers_display = ", ".join(html.escape(squad_uuid) for squad_uuid in unique_squad_uuids)
     else:
         servers_display = str(len(active_entries))
 
@@ -248,9 +239,7 @@ async def build_test_access_hint(
         "⏳ Access active for {time_left}\n<code>{bar}</code>",
     )
 
-    header = header_template.format(
-        servers=_escape_format_braces(servers_display)
-    )
+    header = header_template.format(servers=_escape_format_braces(servers_display))
     timer_line = timer_template.format(time_left=time_left_text, bar=bar)
 
     return f"{header}\n{timer_line}"

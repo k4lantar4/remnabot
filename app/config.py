@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-
     BOT_TOKEN: str
     BOT_USERNAME: Optional[str] = None
     ADMIN_IDS: str = ""
@@ -55,24 +54,24 @@ class Settings(BaseSettings):
     CHANNEL_LINK: Optional[str] = None
     CHANNEL_IS_REQUIRED_SUB: bool = False
     CHANNEL_DISABLE_TRIAL_ON_UNSUBSCRIBE: bool = True
-    
+
     DATABASE_URL: Optional[str] = None
-    
+
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "remnawave_bot"
-    POSTGRES_USER: str = "remnawave_user" 
+    POSTGRES_USER: str = "remnawave_user"
     POSTGRES_PASSWORD: str = "secure_password_123"
-    
+
     SQLITE_PATH: str = "./data/bot.db"
     LOCALES_PATH: str = "./locales"
 
     TIMEZONE: str = Field(default_factory=lambda: os.getenv("TZ", "UTC"))
-    
+
     DATABASE_MODE: str = "auto"
-    
+
     REDIS_URL: str = "redis://localhost:6379/0"
-    
+
     REMNAWAVE_API_URL: Optional[str] = None
     REMNAWAVE_API_KEY: Optional[str] = None
     REMNAWAVE_SECRET_KEY: Optional[str] = None
@@ -86,7 +85,7 @@ class Settings(BaseSettings):
     REMNAWAVE_USER_DELETE_MODE: str = "delete"  # "delete" or "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = "03:00"
-    
+
     TRIAL_DURATION_DAYS: int = 3
     TRIAL_TRAFFIC_LIMIT_GB: int = 10
     TRIAL_DEVICE_LIMIT: int = 2
@@ -99,11 +98,11 @@ class Settings(BaseSettings):
     DEFAULT_TRAFFIC_RESET_STRATEGY: str = "MONTH"
     RESET_TRAFFIC_ON_PAYMENT: bool = False
     MAX_DEVICES_LIMIT: int = 20
-    
-    TRIAL_WARNING_HOURS: int = 2 
-    ENABLE_NOTIFICATIONS: bool = True 
-    NOTIFICATION_RETRY_ATTEMPTS: int = 3 
-    
+
+    TRIAL_WARNING_HOURS: int = 2
+    ENABLE_NOTIFICATIONS: bool = True
+    NOTIFICATION_RETRY_ATTEMPTS: int = 3
+
     MONITORING_LOGS_RETENTION_DAYS: int = 30
     NOTIFICATION_CACHE_HOURS: int = 24
 
@@ -115,7 +114,7 @@ class Settings(BaseSettings):
     SERVER_STATUS_METRICS_VERIFY_SSL: bool = True
     SERVER_STATUS_REQUEST_TIMEOUT: int = 10
     SERVER_STATUS_ITEMS_PER_PAGE: int = 10
-    
+
     BASE_SUBSCRIPTION_PRICE: int = 50000
     AVAILABLE_SUBSCRIPTION_PERIODS: str = "14,30,60,90,180,360"
     AVAILABLE_RENEWAL_PERIODS: str = "30,90,180"
@@ -148,12 +147,12 @@ class Settings(BaseSettings):
 
     TRAFFIC_SELECTION_MODE: str = "selectable"
     FIXED_TRAFFIC_LIMIT_GB: int = 100
-    BUY_TRAFFIC_BUTTON_VISIBLE: bool = True 
-    
+    BUY_TRAFFIC_BUTTON_VISIBLE: bool = True
+
     REFERRAL_MINIMUM_TOPUP_TOMAN: int = 1000000
     REFERRAL_FIRST_TOPUP_BONUS_TOMAN: int = 1000000
     REFERRAL_INVITER_BONUS_TOMAN: int = 1000000
-    REFERRAL_COMMISSION_PERCENT: int = 25 
+    REFERRAL_COMMISSION_PERCENT: int = 25
 
     REFERRAL_PROGRAM_ENABLED: bool = True
     REFERRAL_NOTIFICATIONS_ENABLED: bool = True
@@ -194,7 +193,7 @@ class Settings(BaseSettings):
     DEFAULT_AUTOPAY_DAYS_BEFORE: int = 3
     MIN_BALANCE_FOR_AUTOPAY_TOMAN: int = 1000000
     SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_TOMAN: int = 2000000
-    
+
     MONITORING_INTERVAL: int = 60
     INACTIVE_USER_DELETE_MONTHS: int = 3
 
@@ -204,10 +203,10 @@ class Settings(BaseSettings):
     MAINTENANCE_MONITORING_ENABLED: bool = True
     MAINTENANCE_RETRY_ATTEMPTS: int = 1
     MAINTENANCE_MESSAGE: str = "🔧 Maintenance in progress. Service is temporarily unavailable. Please try again later."
-    
+
     TELEGRAM_STARS_ENABLED: bool = True
     TELEGRAM_STARS_RATE_RUB: float = 1.3
-    
+
     TRIBUTE_ENABLED: bool = False
     TRIBUTE_API_KEY: Optional[str] = None
     TRIBUTE_DONATE_LINK: Optional[str] = None
@@ -221,7 +220,7 @@ class Settings(BaseSettings):
     YOOKASSA_RETURN_URL: Optional[str] = None
     YOOKASSA_DEFAULT_RECEIPT_EMAIL: Optional[str] = None
     YOOKASSA_VAT_CODE: int = 1
-    YOOKASSA_SBP_ENABLED: bool = False 
+    YOOKASSA_SBP_ENABLED: bool = False
     YOOKASSA_PAYMENT_MODE: str = "full_payment"
     YOOKASSA_PAYMENT_SUBJECT: str = "service"
     YOOKASSA_WEBHOOK_PATH: str = "/yookassa-webhook"
@@ -293,9 +292,7 @@ class Settings(BaseSettings):
     MULENPAY_LANGUAGE: str = "ru"
     MULENPAY_VAT_CODE: int = 0
 
-    DISPLAY_NAME_BANNED_KEYWORDS: str = "\n".join(
-        DEFAULT_DISPLAY_NAME_BANNED_KEYWORDS
-    )
+    DISPLAY_NAME_BANNED_KEYWORDS: str = "\n".join(DEFAULT_DISPLAY_NAME_BANNED_KEYWORDS)
     MULENPAY_PAYMENT_SUBJECT: int = 4
     MULENPAY_PAYMENT_MODE: int = 4
     MULENPAY_MIN_AMOUNT_TOMAN: int = 1000000
@@ -396,10 +393,10 @@ class Settings(BaseSettings):
     DEFAULT_LANGUAGE: str = "en"
     AVAILABLE_LANGUAGES: str = "en,fa"
     LANGUAGE_SELECTION_ENABLED: bool = True
-    
+
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/bot.log"
-    
+
     DEBUG: bool = False
     WEBHOOK_URL: Optional[str] = None
     WEBHOOK_PATH: str = "/webhook"
@@ -423,10 +420,10 @@ class Settings(BaseSettings):
     WEB_API_DEFAULT_TOKEN_NAME: str = "Bootstrap Token"
     WEB_API_TOKEN_HASH_ALGORITHM: str = "sha256"
     WEB_API_REQUEST_LOGGING: bool = True
-    
+
     APP_CONFIG_PATH: str = "app-config.json"
     ENABLE_DEEP_LINKS: bool = True
-    APP_CONFIG_CACHE_TTL: int = 3600 
+    APP_CONFIG_CACHE_TTL: int = 3600
 
     VERSION_CHECK_ENABLED: bool = True
     VERSION_CHECK_REPO: str = "fr1ngg/remnawave-bedolaga-telegram-bot"
@@ -446,7 +443,7 @@ class Settings(BaseSettings):
     EXTERNAL_ADMIN_TOKEN: Optional[str] = None
     EXTERNAL_ADMIN_TOKEN_BOT_ID: Optional[int] = None
 
-    @field_validator('MAIN_MENU_MODE', mode='before')
+    @field_validator("MAIN_MENU_MODE", mode="before")
     @classmethod
     def normalize_main_menu_mode(cls, value: Optional[str]) -> str:
         if not value:
@@ -469,7 +466,7 @@ class Settings(BaseSettings):
             raise ValueError("MAIN_MENU_MODE must be one of: default, text")
         return mode
 
-    @field_validator('SERVER_STATUS_MODE', mode='before')
+    @field_validator("SERVER_STATUS_MODE", mode="before")
     @classmethod
     def normalize_server_status_mode(cls, value: Optional[str]) -> str:
         if not value:
@@ -499,12 +496,10 @@ class Settings(BaseSettings):
 
         mode = aliases.get(normalized, normalized)
         if mode not in {"disabled", "external_link", "external_link_miniapp", "xray"}:
-            raise ValueError(
-                "SERVER_STATUS_MODE must be one of: disabled, external_link, external_link_miniapp, xray"
-            )
+            raise ValueError("SERVER_STATUS_MODE must be one of: disabled, external_link, external_link_miniapp, xray")
         return mode
 
-    @field_validator('SERVER_STATUS_ITEMS_PER_PAGE', mode='before')
+    @field_validator("SERVER_STATUS_ITEMS_PER_PAGE", mode="before")
     @classmethod
     def ensure_positive_server_status_page_size(cls, value: Optional[int]) -> int:
         try:
@@ -515,7 +510,7 @@ class Settings(BaseSettings):
         except (TypeError, ValueError):
             return 10
 
-    @field_validator('SERVER_STATUS_REQUEST_TIMEOUT', mode='before')
+    @field_validator("SERVER_STATUS_REQUEST_TIMEOUT", mode="before")
     @classmethod
     def ensure_positive_server_status_timeout(cls, value: Optional[int]) -> int:
         try:
@@ -525,20 +520,20 @@ class Settings(BaseSettings):
             return max(1, value_int)
         except (TypeError, ValueError):
             return 10
-    
-    @field_validator('LOG_FILE', mode='before')
+
+    @field_validator("LOG_FILE", mode="before")
     @classmethod
     def ensure_log_dir(cls, v):
         log_path = Path(v)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         return str(log_path)
-    
+
     def get_database_url(self) -> str:
         if self.DATABASE_URL and self.DATABASE_URL.strip():
             return self.DATABASE_URL
-            
+
         mode = self.DATABASE_MODE.lower()
-        
+
         if mode == "sqlite":
             return self._get_sqlite_url()
         elif mode == "postgresql":
@@ -550,45 +545,46 @@ class Settings(BaseSettings):
                 return self._get_sqlite_url()
         else:
             return self._get_auto_database_url()
-    
+
     def _get_sqlite_url(self) -> str:
         sqlite_path = Path(self.SQLITE_PATH)
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite+aiosqlite:///{sqlite_path.absolute()}"
-    
+
     def _get_postgresql_url(self) -> str:
-        return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
-    
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
     def _get_auto_database_url(self) -> str:
-        if (os.getenv("DOCKER_ENV") == "true" or 
-            os.path.exists("/.dockerenv")):
+        if os.getenv("DOCKER_ENV") == "true" or os.path.exists("/.dockerenv"):
             return self._get_postgresql_url()
         else:
             return self._get_sqlite_url()
-    
+
     def is_postgresql(self) -> bool:
         """Checks if PostgreSQL is being used"""
         return "postgresql" in self.get_database_url()
-    
+
     def is_sqlite(self) -> bool:
         """Checks if SQLite is being used"""
         return "sqlite" in self.get_database_url()
-    
+
     def is_admin(self, user_id: int) -> bool:
         return user_id in self.get_admin_ids()
-    
+
     def get_admin_ids(self) -> List[int]:
         try:
             admin_ids = self.ADMIN_IDS
-            
+
             if isinstance(admin_ids, str):
                 if not admin_ids.strip():
                     return []
-                return [int(x.strip()) for x in admin_ids.split(',') if x.strip()]
-            
+                return [int(x.strip()) for x in admin_ids.split(",") if x.strip()]
+
             return []
-            
+
         except (ValueError, AttributeError):
             return []
 
@@ -600,7 +596,7 @@ class Settings(BaseSettings):
             "username": self.REMNAWAVE_USERNAME,
             "password": self.REMNAWAVE_PASSWORD,
             "caddy_token": self.REMNAWAVE_CADDY_TOKEN,
-            "auth_type": self.REMNAWAVE_AUTH_TYPE
+            "auth_type": self.REMNAWAVE_AUTH_TYPE,
         }
 
     def get_pal24_sbp_button_text(self, fallback: str) -> str:
@@ -610,63 +606,57 @@ class Settings(BaseSettings):
     def get_pal24_card_button_text(self, fallback: str) -> str:
         value = (self.PAL24_CARD_BUTTON_TEXT or "").strip()
         return value or fallback
-    
+
     def is_pal24_sbp_button_visible(self) -> bool:
         return self.PAL24_SBP_BUTTON_VISIBLE
-    
+
     def is_pal24_card_button_visible(self) -> bool:
         return self.PAL24_CARD_BUTTON_VISIBLE
-    
+
     def get_remnawave_user_delete_mode(self) -> str:
         """Returns user deletion mode: 'delete' or 'disable'"""
         mode = self.REMNAWAVE_USER_DELETE_MODE.lower().strip()
         return mode if mode in ["delete", "disable"] else "delete"
 
-    def format_remnawave_user_description(
-        self,
-        *,
-        full_name: str,
-        username: Optional[str],
-        telegram_id: int
-    ) -> str:
+    def format_remnawave_user_description(self, *, full_name: str, username: Optional[str], telegram_id: int) -> str:
         template = self.REMNAWAVE_USER_DESCRIPTION_TEMPLATE or "Bot user: {full_name} {username}"
         template_for_formatting = template.replace("@{username}", "{username}")
 
         username_clean = (username or "").lstrip("@")
-        values = defaultdict(str, {
-            "full_name": full_name,
-            "username": f"@{username_clean}" if username_clean else "",
-            "username_clean": username_clean,
-            "telegram_id": str(telegram_id)
-        })
+        values = defaultdict(
+            str,
+            {
+                "full_name": full_name,
+                "username": f"@{username_clean}" if username_clean else "",
+                "username_clean": username_clean,
+                "telegram_id": str(telegram_id),
+            },
+        )
 
         description = template_for_formatting.format_map(values)
 
         if not username_clean:
-            description = re.sub(r'@(?=\W|$)', '', description)
-            description = re.sub(r'\(\s*\)', '', description)
+            description = re.sub(r"@(?=\W|$)", "", description)
+            description = re.sub(r"\(\s*\)", "", description)
 
-        description = re.sub(r'\s+', ' ', description).strip()
+        description = re.sub(r"\s+", " ", description).strip()
         return description
 
-    def format_remnawave_username(
-        self,
-        *,
-        full_name: str,
-        username: Optional[str],
-        telegram_id: int
-    ) -> str:
+    def format_remnawave_username(self, *, full_name: str, username: Optional[str], telegram_id: int) -> str:
         template = self.REMNAWAVE_USER_USERNAME_TEMPLATE or "user_{telegram_id}"
 
         username_clean = (username or "").lstrip("@")
         full_name_value = full_name or ""
 
-        values = defaultdict(str, {
-            "full_name": full_name_value,
-            "username": username_clean,
-            "username_clean": username_clean,
-            "telegram_id": str(telegram_id),
-        })
+        values = defaultdict(
+            str,
+            {
+                "full_name": full_name_value,
+                "username": username_clean,
+                "username_clean": username_clean,
+                "telegram_id": str(telegram_id),
+            },
+        )
 
         raw_username = template.format_map(values).strip()
         sanitized_username = re.sub(r"[^0-9A-Za-z._-]+", "_", raw_username)
@@ -735,14 +725,14 @@ class Settings(BaseSettings):
             unique.append(normalized)
 
         return unique
-    
+
     def get_autopay_warning_days(self) -> List[int]:
         try:
             days = self.AUTOPAY_WARNING_DAYS
             if isinstance(days, str):
                 if not days.strip():
                     return [3, 1]
-                return [int(x.strip()) for x in days.split(',') if x.strip()]
+                return [int(x.strip()) for x in days.split(",") if x.strip()]
             return [3, 1]
         except (ValueError, AttributeError):
             return [3, 1]
@@ -764,7 +754,7 @@ class Settings(BaseSettings):
             return normalized in {"1", "true", "yes", "on"}
 
         return bool(value)
-    
+
     def get_available_languages(self) -> List[str]:
         defaults = ["en", "fa"]
 
@@ -778,7 +768,7 @@ class Settings(BaseSettings):
         if isinstance(langs, str):
             if not langs.strip():
                 return defaults
-            candidates = [chunk.strip() for chunk in langs.split(',')]
+            candidates = [chunk.strip() for chunk in langs.split(",")]
         elif isinstance(langs, (list, tuple, set)):
             candidates = [str(item).strip() for item in langs]
         else:
@@ -808,6 +798,7 @@ class Settings(BaseSettings):
         sign = "-" if price_toman < 0 else ""
         try:
             from app.localization.texts import get_texts
+
             texts = get_texts(language)
             currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
         except Exception:
@@ -835,11 +826,9 @@ class Settings(BaseSettings):
                 raise ValueError
             return time(hour=hours, minute=minutes)
         except (ValueError, AttributeError):
-            logging.getLogger(__name__).warning(
-                "Invalid ADMIN_REPORTS_SEND_TIME value: %s", value
-            )
+            logging.getLogger(__name__).warning("Invalid ADMIN_REPORTS_SEND_TIME value: %s", value)
             return None
-    
+
     def toman_to_rubles(self, toman: int) -> float:
         """Convert toman to rubles for external APIs that expect rubles."""
         return toman / 100
@@ -908,14 +897,14 @@ class Settings(BaseSettings):
             if value:
                 return value
         return None
-    
+
     def get_app_config_path(self) -> str:
         if os.path.isabs(self.APP_CONFIG_PATH):
             return self.APP_CONFIG_PATH
-        
+
         project_root = Path(__file__).parent.parent
         return str(project_root / self.APP_CONFIG_PATH)
-    
+
     def is_deep_links_enabled(self) -> bool:
         return self.ENABLE_DEEP_LINKS
 
@@ -929,9 +918,9 @@ class Settings(BaseSettings):
         # Try to get from localization for FA, fallback to config values
         try:
             from app.localization.texts import get_texts
-            
+
             texts_fa = get_texts("fa")
-            
+
             # Get from localization for FA, use config for EN and RU
             name_en = _clean(self.MINIAPP_SERVICE_NAME_EN)
             name_ru = _clean(self.MINIAPP_SERVICE_NAME_RU)
@@ -965,7 +954,7 @@ class Settings(BaseSettings):
                 "fa": desc_fa,
             },
         }
-    
+
     def get_app_config_cache_ttl(self) -> int:
         return self.APP_CONFIG_CACHE_TTL
 
@@ -999,10 +988,10 @@ class Settings(BaseSettings):
                 self.EXTERNAL_ADMIN_TOKEN_BOT_ID,
             )
             return None
-    
+
     def is_traffic_selectable(self) -> bool:
         return self.TRAFFIC_SELECTION_MODE.lower() == "selectable"
-    
+
     def is_traffic_fixed(self) -> bool:
         return self.TRAFFIC_SELECTION_MODE.lower() == "fixed"
 
@@ -1052,20 +1041,16 @@ class Settings(BaseSettings):
             return 0
 
         return value
-    
+
     def is_yookassa_enabled(self) -> bool:
-        return (self.YOOKASSA_ENABLED and
-                self.YOOKASSA_SHOP_ID is not None and
-                self.YOOKASSA_SECRET_KEY is not None)
+        return self.YOOKASSA_ENABLED and self.YOOKASSA_SHOP_ID is not None and self.YOOKASSA_SECRET_KEY is not None
 
     def is_nalogo_enabled(self) -> bool:
-        return (self.NALOGO_ENABLED and
-                self.NALOGO_INN is not None and
-                self.NALOGO_PASSWORD is not None)
+        return self.NALOGO_ENABLED and self.NALOGO_INN is not None and self.NALOGO_PASSWORD is not None
 
     def is_support_topup_enabled(self) -> bool:
         return bool(self.SUPPORT_TOPUP_ENABLED)
-    
+
     def get_yookassa_return_url(self) -> str:
         if self.YOOKASSA_RETURN_URL:
             return self.YOOKASSA_RETURN_URL
@@ -1074,15 +1059,10 @@ class Settings(BaseSettings):
         return "https://t.me/"
 
     def is_cryptobot_enabled(self) -> bool:
-        return (self.CRYPTOBOT_ENABLED and
-                self.CRYPTOBOT_API_TOKEN is not None)
+        return self.CRYPTOBOT_ENABLED and self.CRYPTOBOT_API_TOKEN is not None
 
     def is_heleket_enabled(self) -> bool:
-        return (
-            self.HELEKET_ENABLED
-            and self.HELEKET_MERCHANT_ID is not None
-            and self.HELEKET_API_KEY is not None
-        )
+        return self.HELEKET_ENABLED and self.HELEKET_MERCHANT_ID is not None and self.HELEKET_API_KEY is not None
 
     def is_mulenpay_enabled(self) -> bool:
         return (
@@ -1116,18 +1096,10 @@ class Settings(BaseSettings):
         return None
 
     def is_pal24_enabled(self) -> bool:
-        return (
-            self.PAL24_ENABLED
-            and self.PAL24_API_TOKEN is not None
-            and self.PAL24_SHOP_ID is not None
-        )
+        return self.PAL24_ENABLED and self.PAL24_API_TOKEN is not None and self.PAL24_SHOP_ID is not None
 
     def is_platega_enabled(self) -> bool:
-        return (
-            self.PLATEGA_ENABLED
-            and self.PLATEGA_MERCHANT_ID is not None
-            and self.PLATEGA_SECRET is not None
-        )
+        return self.PLATEGA_ENABLED and self.PLATEGA_MERCHANT_ID is not None and self.PLATEGA_SECRET is not None
 
     def get_platega_display_name(self) -> str:
         name = (self.PLATEGA_DISPLAY_NAME or "").strip()
@@ -1200,11 +1172,7 @@ class Settings(BaseSettings):
         return info.get("title") or info.get("name") or f"Platega {method_code}"
 
     def is_wata_enabled(self) -> bool:
-        return (
-            self.WATA_ENABLED
-            and self.WATA_ACCESS_TOKEN is not None
-            and self.WATA_TERMINAL_PUBLIC_ID is not None
-        )
+        return self.WATA_ENABLED and self.WATA_ACCESS_TOKEN is not None and self.WATA_TERMINAL_PUBLIC_ID is not None
 
     def is_cloudpayments_enabled(self) -> bool:
         return (
@@ -1235,16 +1203,16 @@ class Settings(BaseSettings):
         if self.CRYPTOBOT_TESTNET:
             return "https://testnet-pay.crypt.bot"
         return self.CRYPTOBOT_BASE_URL
-    
+
     def get_cryptobot_assets(self) -> List[str]:
         try:
             assets = self.CRYPTOBOT_ASSETS.strip()
             if not assets:
                 return ["USDT", "TON"]
-            return [asset.strip() for asset in assets.split(',') if asset.strip()]
+            return [asset.strip() for asset in assets.split(",") if asset.strip()]
         except (ValueError, AttributeError):
             return ["USDT", "TON"]
-    
+
     def get_cryptobot_invoice_expires_seconds(self) -> int:
         return self.CRYPTOBOT_INVOICE_EXPIRES_HOURS * 3600
 
@@ -1305,20 +1273,17 @@ class Settings(BaseSettings):
             "ios": (self.HAPP_DOWNLOAD_LINK_IOS or "").strip(),
             "android": (self.HAPP_DOWNLOAD_LINK_ANDROID or "").strip(),
             "macos": (self.HAPP_DOWNLOAD_LINK_MACOS or "").strip(),
-            "windows": (
-                (self.HAPP_DOWNLOAD_LINK_WINDOWS or "").strip()
-                or (self.HAPP_DOWNLOAD_LINK_PC or "").strip()
-            ),
+            "windows": ((self.HAPP_DOWNLOAD_LINK_WINDOWS or "").strip() or (self.HAPP_DOWNLOAD_LINK_PC or "").strip()),
         }
         link = links.get(platform_key)
         return link if link else None
 
     def is_maintenance_mode(self) -> bool:
         return self.MAINTENANCE_MODE
-    
+
     def get_maintenance_message(self) -> str:
         return self.MAINTENANCE_MESSAGE
-    
+
     def get_maintenance_check_interval(self) -> int:
         return self.MAINTENANCE_CHECK_INTERVAL
 
@@ -1339,12 +1304,12 @@ class Settings(BaseSettings):
                 return {}
 
             discounts: Dict[int, int] = {}
-            for part in config_str.split(','):
+            for part in config_str.split(","):
                 part = part.strip()
                 if not part:
                     continue
 
-                period_and_discount = part.split(':')
+                period_and_discount = part.split(":")
                 if len(period_and_discount) != 2:
                     continue
 
@@ -1378,44 +1343,47 @@ class Settings(BaseSettings):
         try:
             periods_str = self.AVAILABLE_SUBSCRIPTION_PERIODS
             if not periods_str.strip():
-                return [30, 90, 180] 
-            
+                return [30, 90, 180]
+
             periods = []
-            for period_str in periods_str.split(','):
+            for period_str in periods_str.split(","):
                 period_str = period_str.strip()
                 if period_str:
                     period = int(period_str)
-                    if hasattr(self, f'PRICE_{period}_DAYS'):
+                    if hasattr(self, f"PRICE_{period}_DAYS"):
                         periods.append(period)
-            
+
             return periods if periods else [30, 90, 180]
-            
+
         except (ValueError, AttributeError):
             return [30, 90, 180]
-    
+
     def get_available_renewal_periods(self) -> List[int]:
         try:
             periods_str = self.AVAILABLE_RENEWAL_PERIODS
             if not periods_str.strip():
-                return [30, 90, 180] 
-            
+                return [30, 90, 180]
+
             periods = []
-            for period_str in periods_str.split(','):
+            for period_str in periods_str.split(","):
                 period_str = period_str.strip()
                 if period_str:
                     period = int(period_str)
-                    if hasattr(self, f'PRICE_{period}_DAYS'):
+                    if hasattr(self, f"PRICE_{period}_DAYS"):
                         periods.append(period)
-            
+
             return periods if periods else [30, 90, 180]
-            
+
         except (ValueError, AttributeError):
             return [30, 90, 180]
 
-    def get_balance_payment_description(self, amount_toman: int, language: str = "en", telegram_user_id: Optional[int] = None) -> str:
+    def get_balance_payment_description(
+        self, amount_toman: int, language: str = "en", telegram_user_id: Optional[int] = None
+    ) -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
+
             texts = get_texts(language)
             service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
             balance_desc = texts.t("PAYMENT_BALANCE_DESCRIPTION", self.PAYMENT_BALANCE_DESCRIPTION)
@@ -1425,21 +1393,19 @@ class Settings(BaseSettings):
             service_name = self.PAYMENT_SERVICE_NAME
             balance_desc = self.PAYMENT_BALANCE_DESCRIPTION
             template = self.PAYMENT_BALANCE_TEMPLATE
-        
+
         # Build description with user ID if provided
         description = f"{balance_desc} for {self.format_price(amount_toman)}"
         if telegram_user_id is not None:
             description += f" (ID {telegram_user_id})"
-        
-        return template.format(
-            service_name=service_name,
-            description=description
-        )
-    
+
+        return template.format(service_name=service_name, description=description)
+
     def get_subscription_payment_description(self, period_days: int, amount_toman: int, language: str = "en") -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
+
             texts = get_texts(language)
             service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
             subscription_desc = texts.t("PAYMENT_SUBSCRIPTION_DESCRIPTION", self.PAYMENT_SUBSCRIPTION_DESCRIPTION)
@@ -1449,16 +1415,14 @@ class Settings(BaseSettings):
             service_name = self.PAYMENT_SERVICE_NAME
             subscription_desc = self.PAYMENT_SUBSCRIPTION_DESCRIPTION
             template = self.PAYMENT_SUBSCRIPTION_TEMPLATE
-        
-        return template.format(
-            service_name=service_name,
-            description=f"{subscription_desc} for {period_days} days"
-        )
-    
+
+        return template.format(service_name=service_name, description=f"{subscription_desc} for {period_days} days")
+
     def get_custom_payment_description(self, description: str, language: str = "en") -> str:
         # Use translation keys with fallback to config values if customized
         try:
             from app.localization.texts import get_texts
+
             texts = get_texts(language)
             service_name = texts.t("PAYMENT_SERVICE_NAME", self.PAYMENT_SERVICE_NAME)
             template = texts.t("PAYMENT_BALANCE_TEMPLATE", self.PAYMENT_BALANCE_TEMPLATE)
@@ -1466,33 +1430,29 @@ class Settings(BaseSettings):
             # Fallback to config values if translation system is not available
             service_name = self.PAYMENT_SERVICE_NAME
             template = self.PAYMENT_BALANCE_TEMPLATE
-        
-        return template.format(
-            service_name=service_name,
-            description=description
-        )
+
+        return template.format(service_name=service_name, description=description)
 
     def get_stars_rate(self) -> float:
         return self.TELEGRAM_STARS_RATE_RUB
-    
+
     def stars_to_rubles(self, stars: int) -> float:
         return stars * self.get_stars_rate()
-    
+
     def rubles_to_stars(self, rubles: float) -> int:
         return max(1, math.ceil(rubles / self.get_stars_rate()))
 
     def get_admin_notifications_chat_id(self) -> Optional[int]:
         if not self.ADMIN_NOTIFICATIONS_CHAT_ID:
             return None
-        
+
         try:
             return int(self.ADMIN_NOTIFICATIONS_CHAT_ID)
         except (ValueError, TypeError):
             return None
-    
+
     def is_admin_notifications_enabled(self) -> bool:
-        return (self.ADMIN_NOTIFICATIONS_ENABLED and
-                self.get_admin_notifications_chat_id() is not None)
+        return self.ADMIN_NOTIFICATIONS_ENABLED and self.get_admin_notifications_chat_id() is not None
 
     def get_backup_send_chat_id(self) -> Optional[int]:
         if not self.BACKUP_SEND_CHAT_ID:
@@ -1504,8 +1464,7 @@ class Settings(BaseSettings):
             return None
 
     def is_backup_send_enabled(self) -> bool:
-        return (self.BACKUP_SEND_ENABLED and
-                self.get_backup_send_chat_id() is not None)
+        return self.BACKUP_SEND_ENABLED and self.get_backup_send_chat_id() is not None
 
     def get_referral_settings(self) -> Dict:
         return {
@@ -1516,21 +1475,22 @@ class Settings(BaseSettings):
             "commission_percent": self.REFERRAL_COMMISSION_PERCENT,
             "notifications_enabled": self.REFERRAL_NOTIFICATIONS_ENABLED,
         }
-    
+
     def is_referral_program_enabled(self) -> bool:
         return bool(self.REFERRAL_PROGRAM_ENABLED)
-    
+
     def is_referral_notifications_enabled(self) -> bool:
         return self.REFERRAL_NOTIFICATIONS_ENABLED
-    
+
     def get_traffic_packages(self) -> List[Dict]:
         import logging
+
         logger = logging.getLogger(__name__)
-        
+
         try:
             packages = []
             config_str = self.TRAFFIC_PACKAGES_CONFIG.strip()
-            
+
             logger.debug(f"CONFIG STRING: '{config_str}'")
 
             if not config_str:
@@ -1538,76 +1498,68 @@ class Settings(BaseSettings):
                 return self._get_fallback_traffic_packages()
 
             logger.debug("PARSING CONFIG...")
-            
-            for package_config in config_str.split(','):
+
+            for package_config in config_str.split(","):
                 package_config = package_config.strip()
                 if not package_config:
                     continue
-                    
-                parts = package_config.split(':')
+
+                parts = package_config.split(":")
                 if len(parts) != 3:
                     continue
-                    
+
                 try:
                     gb = int(parts[0])
                     price = int(parts[1])
-                    enabled = parts[2].lower() == 'true'
-                    
-                    packages.append({
-                        "gb": gb,
-                        "price": price,
-                        "enabled": enabled
-                    })
+                    enabled = parts[2].lower() == "true"
+
+                    packages.append({"gb": gb, "price": price, "enabled": enabled})
                 except ValueError:
                     continue
-            
+
             logger.debug(f"PARSED {len(packages)} packages from config")
             return packages if packages else self._get_fallback_traffic_packages()
-            
+
         except Exception as e:
             logger.info(f"ERROR PARSING CONFIG: {e}")
             return self._get_fallback_traffic_packages()
 
     def is_version_check_enabled(self) -> bool:
         return self.VERSION_CHECK_ENABLED
-    
+
     def get_version_check_repo(self) -> str:
         return self.VERSION_CHECK_REPO
-    
+
     def get_version_check_interval(self) -> int:
         return self.VERSION_CHECK_INTERVAL_HOURS
-    
+
     def _get_fallback_traffic_packages(self) -> List[Dict]:
         try:
             if self.TRAFFIC_PACKAGES_CONFIG.strip():
                 packages = []
-                for package_config in self.TRAFFIC_PACKAGES_CONFIG.split(','):
+                for package_config in self.TRAFFIC_PACKAGES_CONFIG.split(","):
                     package_config = package_config.strip()
                     if not package_config:
                         continue
-                        
-                    parts = package_config.split(':')
+
+                    parts = package_config.split(":")
                     if len(parts) != 3:
                         continue
-                        
+
                     try:
                         gb = int(parts[0])
                         price = int(parts[1])
-                        enabled = parts[2].lower() == 'true'
-                        
-                        packages.append({
-                            "gb": gb,
-                            "price": price,
-                            "enabled": enabled
-                        })
+                        enabled = parts[2].lower() == "true"
+
+                        packages.append({"gb": gb, "price": price, "enabled": enabled})
                     except ValueError:
                         continue
-                
+
                 if packages:
                     return packages
         except Exception as e:
             pass
-        
+
         return [
             {"gb": 5, "price": self.PRICE_TRAFFIC_5GB, "enabled": True},
             {"gb": 10, "price": self.PRICE_TRAFFIC_10GB, "enabled": True},
@@ -1617,9 +1569,9 @@ class Settings(BaseSettings):
             {"gb": 250, "price": self.PRICE_TRAFFIC_250GB, "enabled": True},
             {"gb": 500, "price": self.PRICE_TRAFFIC_500GB, "enabled": True},
             {"gb": 1000, "price": self.PRICE_TRAFFIC_1000GB, "enabled": True},
-            {"gb": 0, "price": self.PRICE_TRAFFIC_UNLIMITED, "enabled": True}, 
+            {"gb": 0, "price": self.PRICE_TRAFFIC_UNLIMITED, "enabled": True},
         ]
-    
+
     def get_traffic_price(self, gb: Optional[int]) -> int:
         packages = self.get_traffic_packages()
         enabled_packages = [pkg for pkg in packages if pkg["enabled"]]
@@ -1766,10 +1718,10 @@ class Settings(BaseSettings):
     def get_support_system_mode(self) -> str:
         mode = (self.SUPPORT_SYSTEM_MODE or "both").strip().lower()
         return mode if mode in {"tickets", "contact", "both"} else "both"
-    
+
     def is_support_tickets_enabled(self) -> bool:
         return self.get_support_system_mode() in {"tickets", "both"}
-    
+
     def is_support_contact_enabled(self) -> bool:
         return self.get_support_system_mode() in {"contact", "both"}
 
@@ -1828,11 +1780,7 @@ class Settings(BaseSettings):
             raw_path = "miniapp"
         return Path(raw_path)
 
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore"
-    }
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @field_validator("TIMEZONE")
     @classmethod
@@ -1840,9 +1788,7 @@ class Settings(BaseSettings):
         try:
             ZoneInfo(value)
         except Exception as exc:  # pragma: no cover - defensive validation
-            raise ValueError(
-                f"Invalid timezone identifier: {value}"
-            ) from exc
+            raise ValueError(f"Invalid timezone identifier: {value}") from exc
         return value
 
 
@@ -1863,26 +1809,25 @@ def refresh_period_prices() -> None:
     """Rebuild cached period price mapping using the latest settings."""
 
     PERIOD_PRICES.clear()
-    PERIOD_PRICES.update(
-        {
-            days: getattr(settings, field_name, 0)
-            for days, field_name in _PERIOD_PRICE_FIELDS.items()
-        }
-    )
+    PERIOD_PRICES.update({days: getattr(settings, field_name, 0) for days, field_name in _PERIOD_PRICE_FIELDS.items()})
 
 
 PERIOD_PRICES: Dict[int, int] = {}
 refresh_period_prices()
 
+
 def get_traffic_prices() -> Dict[int, int]:
     packages = settings.get_traffic_packages()
     return {package["gb"]: package["price"] for package in packages}
 
+
 TRAFFIC_PRICES = get_traffic_prices()
+
 
 def refresh_traffic_prices():
     global TRAFFIC_PRICES
     TRAFFIC_PRICES = get_traffic_prices()
+
 
 refresh_traffic_prices()
 

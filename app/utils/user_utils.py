@@ -25,20 +25,20 @@ def format_referrer_info(user: User) -> str:
     try:
         # Check if referrer is a regular object or InstrumentedList
         referrer = getattr(user, "referrer", None)
-        
+
         # If referrer is InstrumentedList or None, return info by ID
         if referrer is None:
             return f"ID {referred_by_id} (not found)"
-        
+
         # Try to get referrer attributes if available
         referrer_username = getattr(referrer, "username", None)
         referrer_telegram_id = getattr(referrer, "telegram_id", None)
-        
+
         if referrer_username:
             return f"@{referrer_username} (ID: {referred_by_id})"
-        
+
         return f"ID {referrer_telegram_id or referred_by_id}"
-    
+
     except (AttributeError, TypeError):
         # If error accessing attributes, just return ID
         return f"ID {referred_by_id} (load error)"
@@ -46,16 +46,14 @@ def format_referrer_info(user: User) -> str:
 
 async def generate_unique_referral_code(db: AsyncSession, telegram_id: int) -> str:
     max_attempts = 10
-    
+
     for _ in range(max_attempts):
         code = f"ref{''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))}"
-        
-        result = await db.execute(
-            select(User).where(User.referral_code == code)
-        )
+
+        result = await db.execute(select(User).where(User.referral_code == code))
         if not result.scalar_one_or_none():
             return code
-    
+
     timestamp = str(int(datetime.utcnow().timestamp()))[-6:]
     return f"ref{timestamp}"
 
@@ -84,20 +82,15 @@ async def mark_user_as_had_paid_subscription(db: AsyncSession, user: User) -> bo
         if user.has_had_paid_subscription:
             logger.debug(f"User {user.id} already marked as having had paid subscription")
             return True
-        
+
         await db.execute(
-            update(User)
-            .where(User.id == user.id)
-            .values(
-                has_had_paid_subscription=True,
-                updated_at=datetime.utcnow()
-            )
+            update(User).where(User.id == user.id).values(has_had_paid_subscription=True, updated_at=datetime.utcnow())
         )
-        
+
         await db.commit()
         logger.info(f"✅ User {user.id} marked as having had paid subscription")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error marking user {user.id} as having had paid subscription: {e}")
         try:
@@ -114,33 +107,28 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
             query = query.where(User.bot_id == bot_id)
         invited_count_result = await db.execute(query)
         invited_count = invited_count_result.scalar() or 0
-        
+
         referrals_query = select(User).where(User.referred_by_id == user_id)
         if bot_id is not None:
             referrals_query = referrals_query.where(User.bot_id == bot_id)
         referrals_result = await db.execute(referrals_query)
         referrals = referrals_result.scalars().all()
-        
+
         paid_referrals_count = sum(1 for ref in referrals if ref.has_made_first_topup)
-        
+
         total_earnings_result = await db.execute(
-            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
-            .where(ReferralEarning.user_id == user_id)
+            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(ReferralEarning.user_id == user_id)
         )
         total_earned_toman = total_earnings_result.scalar() or 0
-        
+
         month_ago = datetime.utcnow() - timedelta(days=30)
         month_earnings_result = await db.execute(
-            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
-            .where(
-                and_(
-                    ReferralEarning.user_id == user_id,
-                    ReferralEarning.created_at >= month_ago
-                )
+            select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(
+                and_(ReferralEarning.user_id == user_id, ReferralEarning.created_at >= month_ago)
             )
         )
         month_earned_toman = month_earnings_result.scalar() or 0
-        
+
         recent_earnings_result = await db.execute(
             select(ReferralEarning)
             .options(selectinload(ReferralEarning.referral))
@@ -149,65 +137,66 @@ async def get_user_referral_summary(db: AsyncSession, user_id: int, bot_id: int 
             .limit(5)
         )
         recent_earnings_raw = recent_earnings_result.scalars().all()
-        
+
         recent_earnings = []
         for earning in recent_earnings_raw:
             if earning.referral:
-                recent_earnings.append({
-                    'amount_toman': earning.amount_toman,
-                    'reason': earning.reason,
-                    'referral_name': earning.referral.full_name,
-                    'created_at': earning.created_at
-                })
-        
+                recent_earnings.append(
+                    {
+                        "amount_toman": earning.amount_toman,
+                        "reason": earning.reason,
+                        "referral_name": earning.referral.full_name,
+                        "created_at": earning.created_at,
+                    }
+                )
+
         earnings_by_type = {}
         earnings_by_type_result = await db.execute(
             select(
                 ReferralEarning.reason,
-                func.count(ReferralEarning.id).label('count'),
-                func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label('total_amount')
+                func.count(ReferralEarning.id).label("count"),
+                func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label("total_amount"),
             )
             .where(ReferralEarning.user_id == user_id)
             .group_by(ReferralEarning.reason)
         )
-        
+
         for row in earnings_by_type_result:
-            earnings_by_type[row.reason] = {
-                'count': row.count,
-                'total_amount_toman': row.total_amount
-            }
-        
+            earnings_by_type[row.reason] = {"count": row.count, "total_amount_toman": row.total_amount}
+
         active_referrals_count = 0
         for referral in referrals:
             if referral.last_activity and referral.last_activity >= month_ago:
                 active_referrals_count += 1
-        
+
         return {
-            'invited_count': invited_count,
-            'paid_referrals_count': paid_referrals_count,
-            'active_referrals_count': active_referrals_count,
-            'total_earned_toman': total_earned_toman,
-            'month_earned_toman': month_earned_toman,
-            'recent_earnings': recent_earnings,
-            'earnings_by_type': earnings_by_type,
-            'conversion_rate': round((paid_referrals_count / invited_count * 100) if invited_count > 0 else 0, 1)
+            "invited_count": invited_count,
+            "paid_referrals_count": paid_referrals_count,
+            "active_referrals_count": active_referrals_count,
+            "total_earned_toman": total_earned_toman,
+            "month_earned_toman": month_earned_toman,
+            "recent_earnings": recent_earnings,
+            "earnings_by_type": earnings_by_type,
+            "conversion_rate": round((paid_referrals_count / invited_count * 100) if invited_count > 0 else 0, 1),
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting referral statistics for user {user_id}: {e}")
         return {
-            'invited_count': 0,
-            'paid_referrals_count': 0,
-            'active_referrals_count': 0,
-            'total_earned_toman': 0,
-            'month_earned_toman': 0,
-            'recent_earnings': [],
-            'earnings_by_type': {},
-            'conversion_rate': 0.0
+            "invited_count": 0,
+            "paid_referrals_count": 0,
+            "active_referrals_count": 0,
+            "total_earned_toman": 0,
+            "month_earned_toman": 0,
+            "recent_earnings": [],
+            "earnings_by_type": {},
+            "conversion_rate": 0.0,
         }
 
 
-async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0, bot_id: int = None) -> Dict:
+async def get_detailed_referral_list(
+    db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0, bot_id: int = None
+) -> Dict:
     try:
         referrals_query = select(User).where(User.referred_by_id == user_id)
         if bot_id is not None:
@@ -215,78 +204,75 @@ async def get_detailed_referral_list(db: AsyncSession, user_id: int, limit: int 
         referrals_query = referrals_query.order_by(User.created_at.desc()).offset(offset).limit(limit)
         referrals_result = await db.execute(referrals_query)
         referrals = referrals_result.scalars().all()
-        
+
         total_count_query = select(func.count(User.id)).where(User.referred_by_id == user_id)
         if bot_id is not None:
             total_count_query = total_count_query.where(User.bot_id == bot_id)
         total_count_result = await db.execute(total_count_query)
         total_count = total_count_result.scalar() or 0
-        
+
         detailed_referrals = []
         for referral in referrals:
             earnings_result = await db.execute(
-                select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0))
-                .where(
-                    and_(
-                        ReferralEarning.user_id == user_id,
-                        ReferralEarning.referral_id == referral.id
-                    )
+                select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(
+                    and_(ReferralEarning.user_id == user_id, ReferralEarning.referral_id == referral.id)
                 )
             )
             total_earned_from_referral = earnings_result.scalar() or 0
-            
+
             topups_result = await db.execute(
-                select(func.count(Transaction.id))
-                .where(
+                select(func.count(Transaction.id)).where(
                     and_(
                         Transaction.user_id == referral.id,
                         Transaction.type == TransactionType.DEPOSIT.value,
-                        Transaction.is_completed.is_(True)
+                        Transaction.is_completed.is_(True),
                     )
                 )
             )
             topups_count = topups_result.scalar() or 0
-            
+
             days_since_registration = (datetime.utcnow() - referral.created_at).days
-            
+
             days_since_activity = None
             if referral.last_activity:
                 days_since_activity = (datetime.utcnow() - referral.last_activity).days
-            
-            detailed_referrals.append({
-                'id': referral.id,
-                'telegram_id': referral.telegram_id,
-                'full_name': referral.full_name,
-                'username': referral.username,
-                'created_at': referral.created_at,
-                'last_activity': referral.last_activity,
-                'has_made_first_topup': referral.has_made_first_topup,
-                'balance_toman': referral.balance_toman,
-                'total_earned_toman': total_earned_from_referral,
-                'topups_count': topups_count,
-                'days_since_registration': days_since_registration,
-                'days_since_activity': days_since_activity,
-                'status': 'active' if days_since_activity is not None and days_since_activity <= 30 else 'inactive'
-            })
-        
+
+            detailed_referrals.append(
+                {
+                    "id": referral.id,
+                    "telegram_id": referral.telegram_id,
+                    "full_name": referral.full_name,
+                    "username": referral.username,
+                    "created_at": referral.created_at,
+                    "last_activity": referral.last_activity,
+                    "has_made_first_topup": referral.has_made_first_topup,
+                    "balance_toman": referral.balance_toman,
+                    "total_earned_toman": total_earned_from_referral,
+                    "topups_count": topups_count,
+                    "days_since_registration": days_since_registration,
+                    "days_since_activity": days_since_activity,
+                    "status": "active" if days_since_activity is not None and days_since_activity <= 30 else "inactive",
+                }
+            )
+
         return {
-            'referrals': detailed_referrals,
-            'total_count': total_count,
-            'has_next': offset + limit < total_count,
-            'has_prev': offset > 0,
-            'current_page': (offset // limit) + 1,
-            'total_pages': (total_count + limit - 1) // limit
+            "referrals": detailed_referrals,
+            "total_count": total_count,
+            "has_next": offset + limit < total_count,
+            "has_prev": offset > 0,
+            "current_page": (offset // limit) + 1,
+            "total_pages": (total_count + limit - 1) // limit,
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting referral list for user {user_id}: {e}")
         return {
-            'referrals': [],
-            'total_count': 0,
-            'has_next': False,
-            'has_prev': False,
-            'current_page': 1,
-            'total_pages': 1
+            "referrals": [],
+            "total_count": 0,
+            "has_next": False,
+            "has_prev": False,
+            "current_page": 1,
+            "total_pages": 1,
         }
 
 
@@ -294,36 +280,39 @@ async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = N
     try:
         now = datetime.utcnow()
         periods = {
-            'today': now.replace(hour=0, minute=0, second=0, microsecond=0),
-            'week': now - timedelta(days=7),
-            'month': now - timedelta(days=30),
-            'quarter': now - timedelta(days=90)
+            "today": now.replace(hour=0, minute=0, second=0, microsecond=0),
+            "week": now - timedelta(days=7),
+            "month": now - timedelta(days=30),
+            "quarter": now - timedelta(days=90),
         }
-        
+
         earnings_by_period = {}
         for period_name, start_date in periods.items():
             query = select(func.coalesce(func.sum(ReferralEarning.amount_toman), 0)).where(
-                and_(
-                    ReferralEarning.user_id == user_id,
-                    ReferralEarning.created_at >= start_date
-                )
+                and_(ReferralEarning.user_id == user_id, ReferralEarning.created_at >= start_date)
             )
             if bot_id is not None:
                 # Filter by referral's bot_id through join
                 query = query.join(User, ReferralEarning.referral_id == User.id).where(User.bot_id == bot_id)
             result = await db.execute(query)
             earnings_by_period[period_name] = result.scalar() or 0
-        
+
         top_referrals_query = select(
             ReferralEarning.referral_id,
-            func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label('total_earned'),
-            func.count(ReferralEarning.id).label('earnings_count')
+            func.coalesce(func.sum(ReferralEarning.amount_toman), 0).label("total_earned"),
+            func.count(ReferralEarning.id).label("earnings_count"),
         ).where(ReferralEarning.user_id == user_id)
         if bot_id is not None:
-            top_referrals_query = top_referrals_query.join(User, ReferralEarning.referral_id == User.id).where(User.bot_id == bot_id)
-        top_referrals_query = top_referrals_query.group_by(ReferralEarning.referral_id).order_by(func.sum(ReferralEarning.amount_toman).desc()).limit(5)
+            top_referrals_query = top_referrals_query.join(User, ReferralEarning.referral_id == User.id).where(
+                User.bot_id == bot_id
+            )
+        top_referrals_query = (
+            top_referrals_query.group_by(ReferralEarning.referral_id)
+            .order_by(func.sum(ReferralEarning.amount_toman).desc())
+            .limit(5)
+        )
         top_referrals_result = await db.execute(top_referrals_query)
-        
+
         top_referrals = []
         for row in top_referrals_result:
             referral_query = select(User).where(User.id == row.referral_id)
@@ -332,25 +321,16 @@ async def get_referral_analytics(db: AsyncSession, user_id: int, bot_id: int = N
             referral_result = await db.execute(referral_query)
             referral = referral_result.scalar_one_or_none()
             if referral:
-                top_referrals.append({
-                    'referral_name': referral.full_name,
-                    'total_earned_toman': row.total_earned,
-                    'earnings_count': row.earnings_count
-                })
-        
-        return {
-            'earnings_by_period': earnings_by_period,
-            'top_referrals': top_referrals
-        }
-        
+                top_referrals.append(
+                    {
+                        "referral_name": referral.full_name,
+                        "total_earned_toman": row.total_earned,
+                        "earnings_count": row.earnings_count,
+                    }
+                )
+
+        return {"earnings_by_period": earnings_by_period, "top_referrals": top_referrals}
+
     except Exception as e:
         logger.error(f"Error getting referral analytics for user {user_id}: {e}")
-        return {
-            'earnings_by_period': {
-                'today': 0,
-                'week': 0,
-                'month': 0,
-                'quarter': 0
-            },
-            'top_referrals': []
-        }
+        return {"earnings_by_period": {"today": 0, "week": 0, "month": 0, "quarter": 0}, "top_referrals": []}

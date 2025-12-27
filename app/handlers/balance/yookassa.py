@@ -19,44 +19,39 @@ logger = logging.getLogger(__name__)
 
 
 @error_handler
-async def start_yookassa_payment(
-    callback: types.CallbackQuery,
-    db_user: User,
-    state: FSMContext
-):
+async def start_yookassa_payment(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     texts = get_texts(db_user.language)
-    
+
     if not settings.is_yookassa_enabled():
-        await callback.answer(texts.t("YOOKASSA_CARD_UNAVAILABLE", "❌ Card payment via YooKassa temporarily unavailable"), show_alert=True)
+        await callback.answer(
+            texts.t("YOOKASSA_CARD_UNAVAILABLE", "❌ Card payment via YooKassa temporarily unavailable"),
+            show_alert=True,
+        )
         return
-    
+
     min_amount_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
     max_amount_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
-    
+
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         message_text = texts.t(
             "YOOKASSA_CARD_PROMPT_QUICK",
-            "💳 <b>Card payment</b>\n\nChoose a top-up amount or enter manually from {min} to {max} RUB:"
+            "💳 <b>Card payment</b>\n\nChoose a top-up amount or enter manually from {min} to {max} RUB:",
         ).format(min=f"{min_amount_toman:.0f}", max=f"{max_amount_toman:,.0f}")
     else:
         message_text = texts.t(
-            "YOOKASSA_CARD_PROMPT",
-            "💳 <b>Card payment</b>\n\nEnter a top-up amount from {min} to {max} RUB:"
+            "YOOKASSA_CARD_PROMPT", "💳 <b>Card payment</b>\n\nEnter a top-up amount from {min} to {max} RUB:"
         ).format(min=f"{min_amount_toman:.0f}", max=f"{max_amount_toman:,.0f}")
-    
+
     keyboard = get_back_keyboard(db_user.language)
-    
+
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
+
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
-    
-    await callback.message.edit_text(
-        message_text,
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
+
+    await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode="HTML")
 
     await state.set_state(BalanceStates.waiting_for_amount)
     await state.update_data(payment_method="yookassa")
@@ -68,13 +63,9 @@ async def start_yookassa_payment(
 
 
 @error_handler
-async def start_yookassa_sbp_payment(
-    callback: types.CallbackQuery,
-    db_user: User,
-    state: FSMContext
-):
+async def start_yookassa_sbp_payment(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     texts = get_texts(db_user.language)
-    
+
     if not settings.is_yookassa_enabled() or not settings.YOOKASSA_SBP_ENABLED:
         await callback.answer(
             texts.t(
@@ -84,10 +75,10 @@ async def start_yookassa_sbp_payment(
             show_alert=True,
         )
         return
-    
+
     min_amount_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
     max_amount_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
-    
+
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         message_text = texts.t(
             "YOOKASSA_SBP_PROMPT_QUICK",
@@ -98,20 +89,17 @@ async def start_yookassa_sbp_payment(
             "YOOKASSA_SBP_PROMPT",
             "🏦 <b>SBP payment</b>\n\nEnter an amount from {min_amount} to {max_amount} RUB:",
         ).format(min_amount=f"{min_amount_rub:.0f}", max_amount=f"{max_amount_rub:,.0f}")
-    
+
     keyboard = get_back_keyboard(db_user.language)
-    
+
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
+
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
-    
-    await callback.message.edit_text(
-        message_text,
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
+
+    await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode="HTML")
 
     await state.set_state(BalanceStates.waiting_for_amount)
     await state.update_data(payment_method="yookassa_sbp")
@@ -124,16 +112,11 @@ async def start_yookassa_sbp_payment(
 
 @error_handler
 async def process_yookassa_payment_amount(
-    message: types.Message,
-    db_user: User,
-    db: AsyncSession,
-    amount_toman: int,
-    state: FSMContext
+    message: types.Message, db_user: User, db: AsyncSession, amount_toman: int, state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        message.from_user.id,
-        message.from_user.username
+        message.from_user.id, message.from_user.username
     )
 
     if is_blacklisted:
@@ -153,20 +136,28 @@ async def process_yookassa_payment_amount(
     if not settings.is_yookassa_enabled():
         await message.answer(texts.t("YOOKASSA_UNAVAILABLE", "❌ YooKassa payments temporarily unavailable"))
         return
-    
+
     if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
         min_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
-        await message.answer(texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount}  Toman").format(amount=f"{min_toman:.0f}"))
+        await message.answer(
+            texts.t("YOOKASSA_MIN_CARD", "❌ Minimum card payment amount: {amount}  Toman").format(
+                amount=f"{min_toman:.0f}"
+            )
+        )
         return
-    
+
     if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
         max_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
-        await message.answer(texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount}  Toman").format(amount=f"{max_toman:,.0f}".replace(',', ' ')))
+        await message.answer(
+            texts.t("YOOKASSA_MAX_CARD", "❌ Maximum card payment amount: {amount}  Toman").format(
+                amount=f"{max_toman:,.0f}".replace(",", " ")
+            )
+        )
         return
-    
+
     try:
         payment_service = PaymentService(message.bot)
-        
+
         payment_result = await payment_service.create_yookassa_payment(
             db=db,
             user_id=db_user.id,
@@ -177,27 +168,42 @@ async def process_yookassa_payment_amount(
             metadata={
                 "user_telegram_id": str(db_user.telegram_id),
                 "user_username": db_user.username or "",
-                "purpose": "balance_topup"
-            }
+                "purpose": "balance_topup",
+            },
         )
-        
+
         if not payment_result:
-            await message.answer(texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support."))
+            await message.answer(
+                texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support.")
+            )
             await state.clear()
             return
-        
+
         confirmation_url = payment_result.get("confirmation_url")
         if not confirmation_url:
-            await message.answer(texts.t("PAYMENT_LINK_ERROR", "❌ Error getting payment link. Please contact support."))
+            await message.answer(
+                texts.t("PAYMENT_LINK_ERROR", "❌ Error getting payment link. Please contact support.")
+            )
             await state.clear()
             return
-        
-        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.t("YOOKASSA_PAY_CARD_BTN", "💳 Pay by card"), url=confirmation_url)],
-            [types.InlineKeyboardButton(text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"), callback_data=f"check_yookassa_{payment_result['local_payment_id']}")],
-            [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
-        ])
-        
+
+        keyboard = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t("YOOKASSA_PAY_CARD_BTN", "💳 Pay by card"), url=confirmation_url
+                    )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"),
+                        callback_data=f"check_yookassa_{payment_result['local_payment_id']}",
+                    )
+                ],
+                [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")],
+            ]
+        )
+
         state_data = await state.get_data()
         prompt_message_id = state_data.get("yookassa_prompt_message_id")
         prompt_chat_id = state_data.get("yookassa_prompt_chat_id", message.chat.id)
@@ -226,22 +232,20 @@ async def process_yookassa_payment_amount(
                 "4. Funds will be credited automatically\n\n"
                 "🔒 Payment is processed via secure YooKassa\n"
                 "✅ Cards accepted: Visa, MasterCard, MIR\n\n"
-                "❓ If you have issues, contact {support}"
+                "❓ If you have issues, contact {support}",
             ).format(
                 amount=settings.format_price(amount_toman),
-                pid=payment_result['yookassa_payment_id'][:8],
+                pid=payment_result["yookassa_payment_id"][:8],
                 support=settings.get_support_contact_display_html(),
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
 
         try:
             from app.services import payment_service as payment_module
 
-            payment = await payment_module.get_yookassa_payment_by_local_id(
-                db, payment_result["local_payment_id"]
-            )
+            payment = await payment_module.get_yookassa_payment_by_local_id(db, payment_result["local_payment_id"])
             if payment:
                 metadata = dict(getattr(payment, "metadata_json", {}) or {})
                 metadata["invoice_message"] = {
@@ -269,25 +273,22 @@ async def process_yookassa_payment_amount(
             amount_toman,
             payment_result["yookassa_payment_id"],
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating YooKassa payment: {e}")
-        await message.answer(texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support."))
+        await message.answer(
+            texts.t("PAYMENT_CREATE_ERROR", "❌ Error creating payment. Please try again later or contact support.")
+        )
         await state.clear()
 
 
 @error_handler
 async def process_yookassa_sbp_payment_amount(
-    message: types.Message,
-    db_user: User,
-    db: AsyncSession,
-    amount_toman: int,
-    state: FSMContext
+    message: types.Message, db_user: User, db: AsyncSession, amount_toman: int, state: FSMContext
 ):
     # Проверяем, находится ли пользователь в черном списке
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        message.from_user.id,
-        message.from_user.username
+        message.from_user.id, message.from_user.username
     )
 
     if is_blacklisted:
@@ -312,7 +313,7 @@ async def process_yookassa_sbp_payment_amount(
             )
         )
         return
-    
+
     if amount_toman < settings.YOOKASSA_MIN_AMOUNT_TOMAN:
         min_toman = settings.YOOKASSA_MIN_AMOUNT_TOMAN
         await message.answer(
@@ -322,7 +323,7 @@ async def process_yookassa_sbp_payment_amount(
             ).format(amount=f"{min_toman:.0f}")
         )
         return
-    
+
     if amount_toman > settings.YOOKASSA_MAX_AMOUNT_TOMAN:
         max_toman = settings.YOOKASSA_MAX_AMOUNT_TOMAN
         await message.answer(
@@ -332,10 +333,10 @@ async def process_yookassa_sbp_payment_amount(
             ).format(amount=f"{max_toman:,.0f}".replace(",", " "))
         )
         return
-    
+
     try:
         payment_service = PaymentService(message.bot)
-        
+
         payment_result = await payment_service.create_yookassa_sbp_payment(
             db=db,
             user_id=db_user.id,
@@ -346,10 +347,10 @@ async def process_yookassa_sbp_payment_amount(
             metadata={
                 "user_telegram_id": str(db_user.telegram_id),
                 "user_username": db_user.username or "",
-                "purpose": "balance_topup_sbp"
-            }
+                "purpose": "balance_topup_sbp",
+            },
         )
-        
+
         if not payment_result:
             await message.answer(
                 texts.t(
@@ -359,10 +360,10 @@ async def process_yookassa_sbp_payment_amount(
             )
             await state.clear()
             return
-        
+
         confirmation_url = payment_result.get("confirmation_url")
         qr_confirmation_data = payment_result.get("qr_confirmation_data")
-        
+
         if not confirmation_url and not qr_confirmation_data:
             await message.answer(
                 texts.t(
@@ -372,7 +373,7 @@ async def process_yookassa_sbp_payment_amount(
             )
             await state.clear()
             return
-        
+
         # Prepare QR code for insertion into main message
         qr_photo = None
         if qr_confirmation_data:
@@ -382,25 +383,25 @@ async def process_yookassa_sbp_payment_amount(
                 from io import BytesIO
                 import qrcode
                 from aiogram.types import BufferedInputFile
-                
+
                 # Create QR code from received data
                 qr = qrcode.QRCode(version=1, box_size=10, border=5)
                 qr.add_data(qr_confirmation_data)
                 qr.make(fit=True)
-                
+
                 img = qr.make_image(fill_color="black", back_color="white")
-                
+
                 # Save image to bytes
                 img_bytes = BytesIO()
-                img.save(img_bytes, format='PNG')
+                img.save(img_bytes, format="PNG")
                 img_bytes.seek(0)
-                
+
                 qr_photo = BufferedInputFile(img_bytes.getvalue(), filename="qrcode.png")
             except ImportError:
                 logger.warning("qrcode library is not installed; QR will not be generated")
             except Exception as e:
                 logger.error(f"QR code generation failed: {e}")
-        
+
         # If no QR data from YooKassa but URL exists, generate QR code from URL
         if not qr_photo and confirmation_url:
             try:
@@ -409,25 +410,25 @@ async def process_yookassa_sbp_payment_amount(
                 from io import BytesIO
                 import qrcode
                 from aiogram.types import BufferedInputFile
-                
+
                 # Create QR code from URL
                 qr = qrcode.QRCode(version=1, box_size=10, border=5)
                 qr.add_data(confirmation_url)
                 qr.make(fit=True)
-                
+
                 img = qr.make_image(fill_color="black", back_color="white")
-                
+
                 # Save image to bytes
                 img_bytes = BytesIO()
-                img.save(img_bytes, format='PNG')
+                img.save(img_bytes, format="PNG")
                 img_bytes.seek(0)
-                
+
                 qr_photo = BufferedInputFile(img_bytes.getvalue(), filename="qrcode.png")
             except ImportError:
                 logger.warning("qrcode library is not installed; QR will not be generated")
             except Exception as e:
                 logger.error(f"QR code generation from URL failed: {e}")
-        
+
         # Create keyboard with buttons for payment link and status check
         keyboard_buttons = []
 
@@ -489,9 +490,7 @@ async def process_yookassa_sbp_payment_amount(
 
         message_text = texts.t(
             "YOOKASSA_SBP_INVOICE_HEADER",
-            "🔗 <b>SBP payment</b>\n\n"
-            "💰 Amount: {amount}\n"
-            "🆔 Payment ID: {payment_id}...\n\n",
+            "🔗 <b>SBP payment</b>\n\n💰 Amount: {amount}\n🆔 Payment ID: {payment_id}...\n\n",
         ).format(
             amount=settings.format_price(amount_toman),
             payment_id=payment_result["yookassa_payment_id"][:8],
@@ -520,25 +519,16 @@ async def process_yookassa_sbp_payment_amount(
         if qr_photo:
             # Use media group or photo with caption method
             invoice_message = await message.answer_photo(
-                photo=qr_photo,
-                caption=message_text,
-                reply_markup=keyboard,
-                parse_mode="HTML"
+                photo=qr_photo, caption=message_text, reply_markup=keyboard, parse_mode="HTML"
             )
         else:
             # If QR code is unavailable, send regular text message
-            invoice_message = await message.answer(
-                message_text,
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
+            invoice_message = await message.answer(message_text, reply_markup=keyboard, parse_mode="HTML")
 
         try:
             from app.services import payment_service as payment_module
 
-            payment = await payment_module.get_yookassa_payment_by_local_id(
-                db, payment_result["local_payment_id"]
-            )
+            payment = await payment_module.get_yookassa_payment_by_local_id(db, payment_result["local_payment_id"])
             if payment:
                 metadata = dict(getattr(payment, "metadata_json", {}) or {})
                 metadata["invoice_message"] = {
@@ -566,7 +556,7 @@ async def process_yookassa_sbp_payment_amount(
             amount_toman,
             payment_result["yookassa_payment_id"],
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to create YooKassa SBP payment: {e}")
         await message.answer(
@@ -578,20 +568,15 @@ async def process_yookassa_sbp_payment_amount(
         await state.clear()
 
 
-
-
-
 @error_handler
-async def check_yookassa_payment_status(
-    callback: types.CallbackQuery,
-    db: AsyncSession
-):
+async def check_yookassa_payment_status(callback: types.CallbackQuery, db: AsyncSession):
     try:
-        local_payment_id = int(callback.data.split('_')[-1])
-        
+        local_payment_id = int(callback.data.split("_")[-1])
+
         from app.database.crud.yookassa import get_yookassa_payment_by_local_id
+
         payment = await get_yookassa_payment_by_local_id(db, local_payment_id)
-        
+
         if not payment:
             await callback.answer(
                 texts.t(
@@ -601,26 +586,26 @@ async def check_yookassa_payment_status(
                 show_alert=True,
             )
             return
-        
+
         status_emoji = {
             "pending": "⏳",
             "waiting_for_capture": "⌛",
             "succeeded": "✅",
             "canceled": "❌",
-            "failed": "❌"
+            "failed": "❌",
         }
-        
+
         status_text = {
             "pending": texts.t("YOOKASSA_STATUS_PENDING", "Waiting for payment"),
             "waiting_for_capture": texts.t("YOOKASSA_STATUS_WAITING_FOR_CAPTURE", "Awaiting confirmation"),
             "succeeded": texts.t("YOOKASSA_STATUS_SUCCEEDED", "Paid"),
             "canceled": texts.t("YOOKASSA_STATUS_CANCELED", "Canceled"),
-            "failed": texts.t("YOOKASSA_STATUS_FAILED", "Failed")
+            "failed": texts.t("YOOKASSA_STATUS_FAILED", "Failed"),
         }
-        
+
         emoji = status_emoji.get(payment.status, "❓")
         status = status_text.get(payment.status, texts.t("YOOKASSA_STATUS_UNKNOWN", "Unknown"))
-        
+
         message_text = texts.t(
             "YOOKASSA_STATUS_MESSAGE",
             "💳 Payment status:\n\n"
@@ -633,9 +618,9 @@ async def check_yookassa_payment_status(
             amount=settings.format_price(payment.amount_toman),
             emoji=emoji,
             status=status,
-            created=payment.created_at.strftime('%d.%m.%Y %H:%M'),
+            created=payment.created_at.strftime("%d.%m.%Y %H:%M"),
         )
-        
+
         if payment.is_succeeded:
             message_text += texts.t(
                 "YOOKASSA_STATUS_SUCCESS",
@@ -651,9 +636,9 @@ async def check_yookassa_payment_status(
                 "YOOKASSA_STATUS_FAILED_HINT",
                 "\n❌ Payment failed. Contact {support}",
             ).format(support=settings.get_support_contact_display())
-        
+
         await callback.answer(message_text, show_alert=True)
-        
+
     except Exception as e:
         logger.error(f"Payment status check failed: {e}")
         await callback.answer(

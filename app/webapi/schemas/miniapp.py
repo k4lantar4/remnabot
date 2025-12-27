@@ -394,9 +394,7 @@ class MiniAppPaymentIframeConfig(BaseModel):
     expected_origin: str
 
     @model_validator(mode="after")
-    def _normalize_expected_origin(
-        cls, values: "MiniAppPaymentIframeConfig"
-    ) -> "MiniAppPaymentIframeConfig":
+    def _normalize_expected_origin(cls, values: "MiniAppPaymentIframeConfig") -> "MiniAppPaymentIframeConfig":
         origin = (values.expected_origin or "").strip()
         if not origin:
             raise ValueError("expected_origin must not be empty")
@@ -424,10 +422,7 @@ class MiniAppPaymentMethod(BaseModel):
 
     @model_validator(mode="after")
     def _ensure_iframe_config(cls, values: "MiniAppPaymentMethod") -> "MiniAppPaymentMethod":
-        if (
-            values.integration_type == MiniAppPaymentIntegrationType.IFRAME
-            and values.iframe_config is None
-        ):
+        if values.integration_type == MiniAppPaymentIntegrationType.IFRAME and values.iframe_config is None:
             raise ValueError("iframe_config is required when integration_type is 'iframe'")
         return values
 
@@ -806,4 +801,3 @@ class MiniAppSubscriptionTrialResponse(BaseModel):
     balance_label: Optional[str] = Field(default=None, alias="balanceLabel")
 
     model_config = ConfigDict(populate_by_name=True)
-

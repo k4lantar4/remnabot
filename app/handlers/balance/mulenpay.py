@@ -51,6 +51,7 @@ async def start_mulenpay_payment(
 
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
+
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
@@ -209,13 +210,9 @@ async def process_mulenpay_payment_amount(
         try:
             from app.services import payment_service as payment_module
 
-            payment = await payment_module.get_mulenpay_payment_by_local_id(
-                db, local_payment_id
-            )
+            payment = await payment_module.get_mulenpay_payment_by_local_id(db, local_payment_id)
             if payment:
-                payment_metadata = dict(
-                    getattr(payment, "metadata_json", {}) or {}
-                )
+                payment_metadata = dict(getattr(payment, "metadata_json", {}) or {})
                 payment_metadata["invoice_message"] = {
                     "chat_id": invoice_message.chat.id,
                     "message_id": invoice_message.message_id,
@@ -258,12 +255,9 @@ async def process_mulenpay_payment_amount(
 
 
 @error_handler
-async def check_mulenpay_payment_status(
-    callback: types.CallbackQuery,
-    db: AsyncSession
-):
+async def check_mulenpay_payment_status(callback: types.CallbackQuery, db: AsyncSession):
     try:
-        local_payment_id = int(callback.data.split('_')[-1])
+        local_payment_id = int(callback.data.split("_")[-1])
         payment_service = PaymentService(callback.bot)
         status_info = await payment_service.get_mulenpay_payment_status(db, local_payment_id)
 
@@ -304,21 +298,15 @@ async def check_mulenpay_payment_status(
 
         mulenpay_name = settings.get_mulenpay_display_name()
         message_lines = [
-            texts.t("MULENPAY_STATUS_TITLE", "💳 {provider} payment status:").format(
-                provider=mulenpay_name
-            ),
+            texts.t("MULENPAY_STATUS_TITLE", "💳 {provider} payment status:").format(provider=mulenpay_name),
             "",
-            texts.t("MULENPAY_STATUS_ID", "🆔 ID: {pid}").format(
-                pid=payment.mulen_payment_id or payment.id
-            ),
+            texts.t("MULENPAY_STATUS_ID", "🆔 ID: {pid}").format(pid=payment.mulen_payment_id or payment.id),
             texts.t("MULENPAY_STATUS_AMOUNT", "💰 Amount: {amount}").format(
                 amount=settings.format_price(payment.amount_toman)
             ),
-            texts.t("MULENPAY_STATUS_STATE", "📊 Status: {emoji} {status}").format(
-                emoji=emoji, status=status_label
-            ),
+            texts.t("MULENPAY_STATUS_STATE", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_label),
             texts.t("MULENPAY_STATUS_CREATED_AT", "📅 Created: {date}").format(
-                date=payment.created_at.strftime('%d.%m.%Y %H:%M')
+                date=payment.created_at.strftime("%d.%m.%Y %H:%M")
             ),
         ]
 
@@ -339,9 +327,7 @@ async def check_mulenpay_payment_status(
             )
             if payment.payment_url:
                 message_lines.append(
-                    texts.t("MULENPAY_STATUS_LINK", "🔗 Payment link: {url}").format(
-                        url=payment.payment_url
-                    )
+                    texts.t("MULENPAY_STATUS_LINK", "🔗 Payment link: {url}").format(url=payment.payment_url)
                 )
         elif payment.status in {"canceled", "error"}:
             message_lines.append(

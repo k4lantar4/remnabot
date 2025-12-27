@@ -86,9 +86,7 @@ async def _choose_trial_squads(
 
 async def _get_subscription(db: AsyncSession, subscription_id: int) -> Subscription:
     result = await db.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.user))
-        .where(Subscription.id == subscription_id)
+        select(Subscription).options(selectinload(Subscription.user)).where(Subscription.id == subscription_id)
     )
     subscription = result.scalar_one_or_none()
     if not subscription:
@@ -164,9 +162,7 @@ async def create_subscription(
                     duration_days=duration_days,
                     traffic_limit_gb=traffic_limit_gb,
                     device_limit=(
-                        trial_device_limit
-                        if trial_device_limit is not None
-                        else settings.TRIAL_DEVICE_LIMIT
+                        trial_device_limit if trial_device_limit is not None else settings.TRIAL_DEVICE_LIMIT
                     ),
                     connected_squads=connected_squads,
                     is_trial=True,
@@ -213,11 +209,7 @@ async def create_subscription(
                 )
 
         subscription_service = SubscriptionService()
-        rem_user = await subscription_service.create_remnawave_user(
-            db,
-            subscription,
-            reset_traffic=False
-        )
+        rem_user = await subscription_service.create_remnawave_user(db, subscription, reset_traffic=False)
         if not rem_user:
             raise ValueError("Failed to create/update user in Remnawave")
 
@@ -230,7 +222,9 @@ async def create_subscription(
             await db.rollback()
         except Exception:
             logger.exception("Rollback failed after error: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to sync with Remnawave: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to sync with Remnawave: {str(e)}"
+        )
 
     subscription = await _get_subscription(db, subscription.id)
     return _serialize_subscription(subscription)

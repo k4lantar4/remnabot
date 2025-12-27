@@ -112,7 +112,9 @@ async def handle_poll_start(
         return
 
     if response.completed_at:
-        await callback.answer(texts.t("POLL_ALREADY_COMPLETED", "You have already completed this poll."), show_alert=True)
+        await callback.answer(
+            texts.t("POLL_ALREADY_COMPLETED", "You have already completed this poll."), show_alert=True
+        )
         return
 
     if not response.poll or not response.poll.questions:
@@ -172,7 +174,9 @@ async def handle_poll_answer(
         return
 
     if response.completed_at:
-        await callback.answer(texts.t("POLL_ALREADY_COMPLETED", "You have already completed this poll."), show_alert=True)
+        await callback.answer(
+            texts.t("POLL_ALREADY_COMPLETED", "You have already completed this poll."), show_alert=True
+        )
         return
 
     question = next((q for q in response.poll.questions if q.id == question_id), None)
@@ -244,9 +248,7 @@ async def handle_poll_answer(
     ):
         await callback.answer(texts.t("POLL_COMPLETED", "🙏 Thanks for participating in the poll!"))
         return
-    asyncio.create_task(
-        _delete_message_later(callback.bot, callback.message.chat.id, callback.message.message_id)
-    )
+    asyncio.create_task(_delete_message_later(callback.bot, callback.message.chat.id, callback.message.message_id))
     await callback.answer()
 
 

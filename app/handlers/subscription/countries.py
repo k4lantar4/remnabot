@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -81,12 +92,8 @@ from app.utils.promo_offer import (
 from .common import _get_addon_discount_percent_for_user, _get_period_hint_from_subscription, logger
 from .summary import present_subscription_summary
 
-async def handle_add_countries(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
-        state: FSMContext
-):
+
+async def handle_add_countries(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     if not await _should_show_countries_management(db_user):
         texts = get_texts(db_user.language)
         await callback.answer(
@@ -120,8 +127,8 @@ async def handle_add_countries(
 
     current_countries_names = []
     for country in countries:
-        if country['uuid'] in current_countries:
-            current_countries_names.append(country['name'])
+        if country["uuid"] in current_countries:
+            current_countries_names.append(country["name"])
 
     current_list = (
         "\n".join(f"• {name}" for name in current_countries_names)
@@ -159,15 +166,16 @@ async def handle_add_countries(
             subscription.end_date,
             servers_discount_percent,
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
     await callback.answer()
 
+
 async def get_countries_price_by_uuids_fallback(
-        country_uuids: List[str],
-        db: AsyncSession,
-        promo_group_id: Optional[int] = None,
+    country_uuids: List[str],
+    db: AsyncSession,
+    promo_group_id: Optional[int] = None,
 ) -> Tuple[int, List[int]]:
     try:
         from app.database.crud.server_squad import get_server_squad_by_uuid
@@ -203,15 +211,11 @@ async def get_countries_price_by_uuids_fallback(
         default_prices = [0] * len(country_uuids)
         return sum(default_prices), default_prices
 
-async def handle_manage_country(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
-        state: FSMContext
-):
+
+async def handle_manage_country(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     logger.info(f"🔍 Managing country: {callback.data}")
 
-    country_uuid = callback.data.split('_')[2]
+    country_uuid = callback.data.split("_")[2]
 
     subscription = db_user.subscription
     if not subscription or subscription.is_trial:
@@ -223,10 +227,10 @@ async def handle_manage_country(
         return
 
     data = await state.get_data()
-    current_selected = data.get('countries', subscription.connected_squads.copy())
+    current_selected = data.get("countries", subscription.connected_squads.copy())
 
     countries = await _get_available_countries(db_user.promo_group_id)
-    allowed_country_ids = {country['uuid'] for country in countries}
+    allowed_country_ids = {country["uuid"] for country in countries}
 
     if country_uuid not in allowed_country_ids and country_uuid not in current_selected:
         texts = get_texts(db_user.language)
@@ -275,30 +279,22 @@ async def handle_manage_country(
 
     await callback.answer()
 
-async def apply_countries_changes(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
-        state: FSMContext
-):
+
+async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     logger.info(f"🔧 Applying country changes")
 
     data = await state.get_data()
     texts = get_texts(db_user.language)
 
     await save_subscription_checkout_draft(db_user.id, dict(data))
-    resume_callback = (
-        "subscription_resume_checkout"
-        if should_offer_checkout_resume(db_user, True)
-        else None
-    )
+    resume_callback = "subscription_resume_checkout" if should_offer_checkout_resume(db_user, True) else None
     subscription = db_user.subscription
 
-    selected_countries = data.get('countries', [])
+    selected_countries = data.get("countries", [])
     current_countries = subscription.connected_squads
 
     countries = await _get_available_countries(db_user.promo_group_id)
-    allowed_country_ids = {country['uuid'] for country in countries}
+    allowed_country_ids = {country["uuid"] for country in countries}
 
     selected_countries = [
         country_uuid
@@ -334,17 +330,17 @@ async def apply_countries_changes(
     added_server_components: List[Dict[str, int]] = []
 
     for country in countries:
-        if not country.get('is_available', True):
+        if not country.get("is_available", True):
             continue
 
-        if country['uuid'] in added:
-            server_price_per_month = country['price_toman']
+        if country["uuid"] in added:
+            server_price_per_month = country["price_toman"]
             discounted_per_month, discount_per_month = apply_percentage_discount(
                 server_price_per_month,
                 servers_discount_percent,
             )
             cost_per_month += discounted_per_month
-            added_names.append(country['name'])
+            added_names.append(country["name"])
             added_server_components.append(
                 {
                     "discounted_per_month": discounted_per_month,
@@ -352,20 +348,14 @@ async def apply_countries_changes(
                     "original_per_month": server_price_per_month,
                 }
             )
-        if country['uuid'] in removed:
-            removed_names.append(country['name'])
+        if country["uuid"] in removed:
+            removed_names.append(country["name"])
 
     total_cost, charged_months = calculate_prorated_price(cost_per_month, subscription.end_date)
 
-    added_server_prices = [
-        component["discounted_per_month"] * charged_months
-        for component in added_server_components
-    ]
+    added_server_prices = [component["discounted_per_month"] * charged_months for component in added_server_components]
 
-    total_discount = sum(
-        component["discount_per_month"] * charged_months
-        for component in added_server_components
-    )
+    total_discount = sum(component["discount_per_month"] * charged_months for component in added_server_components)
 
     if added_names:
         logger.info(
@@ -379,8 +369,7 @@ async def apply_countries_changes(
     if total_cost > 0 and db_user.balance_toman < total_cost:
         missing_toman = total_cost - db_user.balance_toman
         required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
-            amount=texts.format_price(total_cost),
-            months=charged_months
+            amount=texts.format_price(total_cost), months=charged_months
         )
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
@@ -413,21 +402,21 @@ async def apply_countries_changes(
     if len(selected_countries) == 0:
         await callback.answer(
             texts.t(
-                "COUNTRIES_MINIMUM_REQUIRED",
-                "❌ Cannot remove all countries. At least one country must be connected."
+                "COUNTRIES_MINIMUM_REQUIRED", "❌ Cannot remove all countries. At least one country must be connected."
             ),
-            show_alert=True
+            show_alert=True,
         )
         return
 
     try:
         if added and total_cost > 0:
             success = await subtract_user_balance(
-                db, db_user, total_cost,
-                texts.t("subscription.countries.add_transaction_desc", "Adding countries: {names} for {months} months").format(
-                    names=', '.join(added_names),
-                    months=charged_months
-                )
+                db,
+                db_user,
+                total_cost,
+                texts.t(
+                    "subscription.countries.add_transaction_desc", "Adding countries: {names} for {months} months"
+                ).format(names=", ".join(added_names), months=charged_months),
             )
             if not success:
                 await callback.answer(
@@ -441,10 +430,10 @@ async def apply_countries_changes(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_toman=total_cost,
-                description=texts.t("subscription.countries.add_transaction_desc", "Adding countries to subscription: {names} for {months} months").format(
-                    names=', '.join(added_names),
-                    months=charged_months
-                )
+                description=texts.t(
+                    "subscription.countries.add_transaction_desc",
+                    "Adding countries to subscription: {names} for {months} months",
+                ).format(names=", ".join(added_names), months=charged_months),
             )
 
         if added:
@@ -458,7 +447,8 @@ async def apply_countries_changes(
                 await add_user_to_servers(db, added_server_ids)
 
                 logger.info(
-                    f"📊 Added servers with prices for {charged_months} months: {list(zip(added_server_ids, added_server_prices))}")
+                    f"📊 Added servers with prices for {charged_months} months: {list(zip(added_server_ids, added_server_prices))}"
+                )
 
         subscription.connected_squads = selected_countries
         subscription.updated_at = datetime.utcnow()
@@ -471,6 +461,7 @@ async def apply_countries_changes(
 
         try:
             from app.services.admin_notification_service import AdminNotificationService
+
             notification_service = AdminNotificationService(callback.bot)
             await notification_service.send_subscription_update_notification(
                 db, db_user, subscription, "servers", current_countries, selected_countries, total_cost
@@ -513,10 +504,14 @@ async def apply_countries_changes(
                 "➖ <b>Removed countries:</b>\n",
             )
             success_text += "\n".join(f"• {name}" for name in removed_names)
-            success_text += "\n" + texts.t(
-                "COUNTRY_CHANGES_REMOVED_WARNING",
-                "ℹ️ Reconnection will be paid",
-            ) + "\n"
+            success_text += (
+                "\n"
+                + texts.t(
+                    "COUNTRY_CHANGES_REMOVED_WARNING",
+                    "ℹ️ Reconnection will be paid",
+                )
+                + "\n"
+            )
 
         success_text += "\n" + texts.t(
             "COUNTRY_CHANGES_ACTIVE_COUNT",
@@ -524,58 +519,49 @@ async def apply_countries_changes(
         ).format(count=len(selected_countries))
 
         await callback.message.edit_text(
-            success_text,
-            reply_markup=get_back_keyboard(db_user.language),
-            parse_mode="HTML"
+            success_text, reply_markup=get_back_keyboard(db_user.language), parse_mode="HTML"
         )
 
         await state.clear()
         logger.info(
-            f"✅ User {db_user.telegram_id} updated countries. Added: {len(added)}, removed: {len(removed)}, paid: {total_cost / 100} Toman")
+            f"✅ User {db_user.telegram_id} updated countries. Added: {len(added)}, removed: {len(removed)}, paid: {total_cost / 100} Toman"
+        )
 
     except Exception as e:
         logger.error(f"⚠️ Error applying changes: {e}")
-        await callback.message.edit_text(
-            texts.ERROR,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(texts.ERROR, reply_markup=get_back_keyboard(db_user.language))
 
     await callback.answer()
 
-async def select_country(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user: User,
-        db: AsyncSession
-):
-    country_uuid = callback.data.split('_')[1]
+
+async def select_country(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+    country_uuid = callback.data.split("_")[1]
     data = await state.get_data()
 
-    selected_countries = data.get('countries', [])
+    selected_countries = data.get("countries", [])
     if country_uuid in selected_countries:
         selected_countries.remove(country_uuid)
     else:
         selected_countries.append(country_uuid)
 
     countries = await _get_available_countries(db_user.promo_group_id)
-    allowed_country_ids = {country['uuid'] for country in countries}
+    allowed_country_ids = {country["uuid"] for country in countries}
 
     if country_uuid not in allowed_country_ids and country_uuid not in selected_countries:
         texts = get_texts(db_user.language)
         await callback.answer(
-            texts.t("COUNTRY_NOT_AVAILABLE_PROMOGROUP", "❌ Server unavailable for your promo group"),
-            show_alert=True
+            texts.t("COUNTRY_NOT_AVAILABLE_PROMOGROUP", "❌ Server unavailable for your promo group"), show_alert=True
         )
         return
 
-    period_base_price = PERIOD_PRICES[data['period_days']]
+    period_base_price = PERIOD_PRICES[data["period_days"]]
 
     discounted_base_price, _ = apply_percentage_discount(
         period_base_price,
-        db_user.get_promo_discount("period", data['period_days']),
+        db_user.get_promo_discount("period", data["period_days"]),
     )
 
-    base_price = discounted_base_price + settings.get_traffic_price(data['traffic_gb'])
+    base_price = discounted_base_price + settings.get_traffic_price(data["traffic_gb"])
 
     try:
         subscription_service = SubscriptionService()
@@ -592,8 +578,8 @@ async def select_country(
             promo_group_id=db_user.promo_group_id,
         )
 
-    data['countries'] = selected_countries
-    data['total_price'] = base_price + countries_price
+    data["countries"] = selected_countries
+    data["total_price"] = base_price + countries_price
     await state.set_data(data)
 
     await callback.message.edit_reply_markup(
@@ -601,18 +587,14 @@ async def select_country(
     )
     await callback.answer()
 
-async def countries_continue(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user: User
-):
+
+async def countries_continue(callback: types.CallbackQuery, state: FSMContext, db_user: User):
     data = await state.get_data()
     texts = get_texts(db_user.language)
 
-    if not data.get('countries'):
+    if not data.get("countries"):
         await callback.answer(
-            texts.t("subscription.countries.select_at_least_one", "⚠️ Select at least one country!"),
-            show_alert=True
+            texts.t("subscription.countries.select_at_least_one", "⚠️ Select at least one country!"), show_alert=True
         )
         return
 
@@ -621,15 +603,15 @@ async def countries_continue(
             await callback.answer()
         return
 
-    selected_devices = data.get('devices', settings.DEFAULT_DEVICE_LIMIT)
+    selected_devices = data.get("devices", settings.DEFAULT_DEVICE_LIMIT)
 
     await callback.message.edit_text(
-        texts.SELECT_DEVICES,
-        reply_markup=get_devices_keyboard(selected_devices, db_user.language)
+        texts.SELECT_DEVICES, reply_markup=get_devices_keyboard(selected_devices, db_user.language)
     )
 
     await state.set_state(SubscriptionStates.selecting_devices)
     await callback.answer()
+
 
 async def _get_available_countries(promo_group_id: Optional[int] = None):
     from app.utils.cache import cache, cache_key
@@ -643,9 +625,7 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
 
     try:
         async with AsyncSessionLocal() as db:
-            available_servers = await get_available_server_squads(
-                db, promo_group_id=promo_group_id
-            )
+            available_servers = await get_available_server_squads(db, promo_group_id=promo_group_id)
 
         if promo_group_id is not None and not available_servers:
             logger.info(
@@ -657,13 +637,15 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
 
         countries = []
         for server in available_servers:
-            countries.append({
-                "uuid": server.squad_uuid,
-                "name": server.display_name,
-                "price_toman": server.price_toman,
-                "country_code": server.country_code,
-                "is_available": server.is_available and not server.is_full
-            })
+            countries.append(
+                {
+                    "uuid": server.squad_uuid,
+                    "name": server.display_name,
+                    "price_toman": server.price_toman,
+                    "country_code": server.country_code,
+                    "is_available": server.is_available and not server.is_full,
+                }
+            )
 
         if not countries:
             logger.info("🔄 No servers in DB, fetching from RemnaWave...")
@@ -675,8 +657,9 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
             for squad in squads:
                 squad_name = squad["name"]
 
-                if not any(flag in squad_name for flag in
-                           ["🇳🇱", "🇩🇪", "🇺🇸", "🇫🇷", "🇬🇧", "🇮🇹", "🇪🇸", "🇨🇦", "🇯🇵", "🇸🇬", "🇦🇺"]):
+                if not any(
+                    flag in squad_name for flag in ["🇳🇱", "🇩🇪", "🇺🇸", "🇫🇷", "🇬🇧", "🇮🇹", "🇪🇸", "🇨🇦", "🇯🇵", "🇸🇬", "🇦🇺"]
+                ):
                     name_lower = squad_name.lower()
                     if "netherlands" in name_lower or "nl" in name_lower:
                         squad_name = f"🇳🇱 {squad_name}"
@@ -687,12 +670,7 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
                     else:
                         squad_name = f"🌐 {squad_name}"
 
-                countries.append({
-                    "uuid": squad["uuid"],
-                    "name": squad_name,
-                    "price_toman": 0,
-                    "is_available": True
-                })
+                countries.append({"uuid": squad["uuid"], "name": squad_name, "price_toman": 0, "is_available": True})
 
         await cache.set(cache_key_value, countries, 300)
         return countries
@@ -706,15 +684,14 @@ async def _get_available_countries(promo_group_id: Optional[int] = None):
         await cache.set(cache_key_value, fallback_countries, 60)
         return fallback_countries
 
+
 async def _get_countries_info(squad_uuids):
     countries = await _get_available_countries()
-    return [c for c in countries if c['uuid'] in squad_uuids]
+    return [c for c in countries if c["uuid"] in squad_uuids]
+
 
 async def handle_add_country_to_subscription(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
-        state: FSMContext
+    callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext
 ):
     logger.info(f"🔍 handle_add_country_to_subscription called for {db_user.telegram_id}")
     logger.info(f"🔍 Callback data: {callback.data}")
@@ -722,19 +699,18 @@ async def handle_add_country_to_subscription(
     current_state = await state.get_state()
     logger.info(f"🔍 Current state: {current_state}")
 
-    country_uuid = callback.data.split('_')[1]
+    country_uuid = callback.data.split("_")[1]
     data = await state.get_data()
     logger.info(f"🔍 State data: {data}")
 
-    selected_countries = data.get('countries', [])
+    selected_countries = data.get("countries", [])
     countries = await _get_available_countries(db_user.promo_group_id)
-    allowed_country_ids = {country['uuid'] for country in countries}
+    allowed_country_ids = {country["uuid"] for country in countries}
 
     if country_uuid not in allowed_country_ids and country_uuid not in selected_countries:
         texts = get_texts(db_user.language)
         await callback.answer(
-            texts.t("COUNTRY_NOT_AVAILABLE_PROMOGROUP", "❌ Server unavailable for your promo group"),
-            show_alert=True
+            texts.t("COUNTRY_NOT_AVAILABLE_PROMOGROUP", "❌ Server unavailable for your promo group"), show_alert=True
         )
         return
 
@@ -755,14 +731,11 @@ async def handle_add_country_to_subscription(
     )
 
     for country in countries:
-        if not country.get('is_available', True):
+        if not country.get("is_available", True):
             continue
 
-        if (
-                country['uuid'] in selected_countries
-                and country['uuid'] not in subscription.connected_squads
-        ):
-            server_price = country['price_toman']
+        if country["uuid"] in selected_countries and country["uuid"] not in subscription.connected_squads:
+            server_price = country["price_toman"]
             if servers_discount_percent > 0 and server_price > 0:
                 discounted_price, _ = apply_percentage_discount(
                     server_price,
@@ -772,8 +745,8 @@ async def handle_add_country_to_subscription(
                 discounted_price = server_price
             total_price += discounted_price
 
-    data['countries'] = selected_countries
-    data['total_price'] = total_price
+    data["countries"] = selected_countries
+    data["total_price"] = total_price
     await state.set_data(data)
 
     logger.info(f"🔍 New selected countries: {selected_countries}")
@@ -781,6 +754,7 @@ async def handle_add_country_to_subscription(
 
     try:
         from app.keyboards.inline import get_manage_countries_keyboard
+
         await callback.message.edit_reply_markup(
             reply_markup=get_manage_countries_keyboard(
                 countries,
@@ -797,6 +771,7 @@ async def handle_add_country_to_subscription(
 
     await callback.answer()
 
+
 async def _should_show_countries_management(user: Optional[User] = None) -> bool:
     try:
         promo_group_id = user.promo_group_id if user else None
@@ -804,9 +779,7 @@ async def _should_show_countries_management(user: Optional[User] = None) -> bool
         promo_group = getattr(user, "promo_group", None) if user else None
         if promo_group and getattr(promo_group, "server_squads", None):
             allowed_servers = [
-                server
-                for server in promo_group.server_squads
-                if server.is_available and not server.is_full
+                server for server in promo_group.server_squads if server.is_available and not server.is_full
             ]
 
             if allowed_servers:
@@ -826,27 +799,25 @@ async def _should_show_countries_management(user: Optional[User] = None) -> bool
                     return False
 
         countries = await _get_available_countries(promo_group_id)
-        available_countries = [c for c in countries if c.get('is_available', True)]
+        available_countries = [c for c in countries if c.get("is_available", True)]
         return len(available_countries) > 1
     except Exception as e:
         logger.error(f"Error checking available servers: {e}")
         return True
 
+
 async def confirm_add_countries_to_subscription(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
-        state: FSMContext
+    callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext
 ):
     data = await state.get_data()
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
-    selected_countries = data.get('countries', [])
+    selected_countries = data.get("countries", [])
     current_countries = subscription.connected_squads
 
     countries = await _get_available_countries(db_user.promo_group_id)
-    allowed_country_ids = {country['uuid'] for country in countries}
+    allowed_country_ids = {country["uuid"] for country in countries}
 
     selected_countries = [
         country_uuid
@@ -858,10 +829,7 @@ async def confirm_add_countries_to_subscription(
     removed_countries = [c for c in current_countries if c not in selected_countries]
 
     if not new_countries and not removed_countries:
-        await callback.answer(
-            texts.t("COUNTRY_CHANGES_NOT_FOUND", "⚠️ No changes detected"),
-            show_alert=True
-        )
+        await callback.answer(texts.t("COUNTRY_CHANGES_NOT_FOUND", "⚠️ No changes detected"), show_alert=True)
         return
 
     total_price = 0
@@ -877,11 +845,11 @@ async def confirm_add_countries_to_subscription(
     total_discount_value = 0
 
     for country in countries:
-        if not country.get('is_available', True):
+        if not country.get("is_available", True):
             continue
 
-        if country['uuid'] in new_countries:
-            server_price = country['price_toman']
+        if country["uuid"] in new_countries:
+            server_price = country["price_toman"]
             if servers_discount_percent > 0 and server_price > 0:
                 discounted_per_month, discount_per_month = apply_percentage_discount(
                     server_price,
@@ -898,9 +866,9 @@ async def confirm_add_countries_to_subscription(
 
             total_price += charged_price
             total_discount_value += discount_per_month * charged_months
-            new_countries_names.append(country['name'])
-        if country['uuid'] in removed_countries:
-            removed_countries_names.append(country['name'])
+            new_countries_names.append(country["name"])
+        if country["uuid"] in removed_countries:
+            removed_countries_names.append(country["name"])
 
     if new_countries and db_user.balance_toman < total_price:
         missing_toman = total_price - db_user.balance_toman
@@ -937,25 +905,24 @@ async def confirm_add_countries_to_subscription(
             await callback.answer(
                 texts.t(
                     "COUNTRIES_MINIMUM_REQUIRED",
-                    "❌ Cannot remove all countries. At least one country must be connected."
+                    "❌ Cannot remove all countries. At least one country must be connected.",
                 ),
-                show_alert=True
+                show_alert=True,
             )
             return
 
         if new_countries and total_price > 0:
             success = await subtract_user_balance(
-                db, db_user, total_price,
-                texts.t("subscription.countries.add_transaction_desc", "Adding countries to subscription: {names}").format(
-                    names=', '.join(new_countries_names)
-                )
+                db,
+                db_user,
+                total_price,
+                texts.t(
+                    "subscription.countries.add_transaction_desc", "Adding countries to subscription: {names}"
+                ).format(names=", ".join(new_countries_names)),
             )
 
             if not success:
-                await callback.answer(
-                    texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"),
-                    show_alert=True
-                )
+                await callback.answer(texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"), show_alert=True)
                 return
 
             await create_transaction(
@@ -963,9 +930,9 @@ async def confirm_add_countries_to_subscription(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_toman=total_price,
-                description=texts.t("subscription.countries.add_transaction_desc", "Adding countries to subscription: {names}").format(
-                    names=', '.join(new_countries_names)
-                )
+                description=texts.t(
+                    "subscription.countries.add_transaction_desc", "Adding countries to subscription: {names}"
+                ).format(names=", ".join(new_countries_names)),
             )
 
         subscription.connected_squads = selected_countries
@@ -987,12 +954,8 @@ async def confirm_add_countries_to_subscription(
                 success_text += f"\n💰 Charged: {texts.format_price(total_price)}"
                 if total_discount_value > 0:
                     success_text += texts.t(
-                        "COUNTRY_CHANGES_DISCOUNT_INFO",
-                        " (discount {percent}%: -{amount})"
-                    ).format(
-                        percent=servers_discount_percent,
-                        amount=texts.format_price(total_discount_value)
-                    )
+                        "COUNTRY_CHANGES_DISCOUNT_INFO", " (discount {percent}%: -{amount})"
+                    ).format(percent=servers_discount_percent, amount=texts.format_price(total_discount_value))
                 success_text += "\n"
 
         if removed_countries_names:
@@ -1004,20 +967,15 @@ async def confirm_add_countries_to_subscription(
             count=len(selected_countries)
         )
 
-        await callback.message.edit_text(
-            success_text,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
         logger.info(
-            f"✅ User {db_user.telegram_id} updated subscription countries. Added: {len(new_countries)}, removed: {len(removed_countries)}")
+            f"✅ User {db_user.telegram_id} updated subscription countries. Added: {len(new_countries)}, removed: {len(removed_countries)}"
+        )
 
     except Exception as e:
         logger.error(f"Error updating subscription countries: {e}")
-        await callback.message.edit_text(
-            texts.ERROR,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(texts.ERROR, reply_markup=get_back_keyboard(db_user.language))
 
     await state.clear()
     await callback.answer()

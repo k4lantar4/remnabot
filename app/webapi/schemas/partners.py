@@ -78,6 +78,7 @@ class PartnerReferralCommissionUpdate(BaseModel):
 
 class EarningsByPeriod(BaseModel):
     """Заработки по периодам."""
+
     all_time_kopeks: int
     year_kopeks: int
     month_kopeks: int
@@ -87,6 +88,7 @@ class EarningsByPeriod(BaseModel):
 
 class ReferralsCountByPeriod(BaseModel):
     """Количество рефералов по периодам."""
+
     all_time: int
     year: int
     month: int
@@ -96,6 +98,7 @@ class ReferralsCountByPeriod(BaseModel):
 
 class ReferrerSummary(BaseModel):
     """Сводка по рефереру."""
+
     total_referrals: int
     paid_referrals: int
     active_referrals: int
@@ -106,6 +109,7 @@ class ReferrerSummary(BaseModel):
 
 class ReferrerDetailedStats(BaseModel):
     """Детальная статистика реферера."""
+
     user_id: int
     summary: ReferrerSummary
     earnings: EarningsByPeriod
@@ -114,6 +118,7 @@ class ReferrerDetailedStats(BaseModel):
 
 class DailyStats(BaseModel):
     """Статистика за день."""
+
     date: str
     referrals_count: int
     earnings_kopeks: int
@@ -121,6 +126,7 @@ class DailyStats(BaseModel):
 
 class DailyStatsResponse(BaseModel):
     """Ответ со статистикой по дням."""
+
     items: List[DailyStats]
     days: int
     user_id: Optional[int] = None
@@ -128,6 +134,7 @@ class DailyStatsResponse(BaseModel):
 
 class TopReferralItem(BaseModel):
     """Топ реферал."""
+
     id: int
     telegram_id: int
     username: Optional[str] = None
@@ -142,12 +149,14 @@ class TopReferralItem(BaseModel):
 
 class TopReferralsResponse(BaseModel):
     """Топ рефералов реферера."""
+
     items: List[TopReferralItem]
     user_id: int
 
 
 class PeriodData(BaseModel):
     """Данные за период."""
+
     days: int
     start: str
     end: str
@@ -157,6 +166,7 @@ class PeriodData(BaseModel):
 
 class ChangeData(BaseModel):
     """Данные об изменении."""
+
     absolute: int
     percent: float
     trend: str  # up, down, stable
@@ -164,12 +174,14 @@ class ChangeData(BaseModel):
 
 class PeriodChange(BaseModel):
     """Изменения между периодами."""
+
     referrals: ChangeData
     earnings: ChangeData
 
 
 class PeriodComparisonResponse(BaseModel):
     """Сравнение периодов."""
+
     current_period: PeriodData
     previous_period: PeriodData
     change: PeriodChange
@@ -178,6 +190,7 @@ class PeriodComparisonResponse(BaseModel):
 
 class GlobalPartnerSummary(BaseModel):
     """Глобальная сводка партнёрской программы."""
+
     total_referrers: int
     total_referrals: int
     paid_referrals: int
@@ -187,6 +200,7 @@ class GlobalPartnerSummary(BaseModel):
 
 class PayoutsByPeriod(BaseModel):
     """Выплаты по периодам."""
+
     all_time_kopeks: int
     year_kopeks: int
     month_kopeks: int
@@ -196,6 +210,7 @@ class PayoutsByPeriod(BaseModel):
 
 class NewReferralsByPeriod(BaseModel):
     """Новые рефералы по периодам."""
+
     today: int
     week: int
     month: int
@@ -203,6 +218,7 @@ class NewReferralsByPeriod(BaseModel):
 
 class GlobalPartnerStats(BaseModel):
     """Глобальная статистика партнёрской программы."""
+
     summary: GlobalPartnerSummary
     payouts: PayoutsByPeriod
     new_referrals: NewReferralsByPeriod
@@ -210,6 +226,7 @@ class GlobalPartnerStats(BaseModel):
 
 class TopReferrerItem(BaseModel):
     """Топ реферер."""
+
     id: int
     telegram_id: int
     username: Optional[str] = None
@@ -223,5 +240,6 @@ class TopReferrerItem(BaseModel):
 
 class TopReferrersResponse(BaseModel):
     """Топ рефереров."""
+
     items: List[TopReferrerItem]
     days: Optional[int] = None

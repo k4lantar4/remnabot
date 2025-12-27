@@ -227,13 +227,17 @@ class ReferralContestService:
 
         for user, score, _ in leaderboard:
             rank = score_map.get(user.id, (None, score))[0]
-            today_score = await get_referrer_score(
-                db=db,
-                contest_id=contest.id,
-                referrer_id=user.id,
-                start=day_start_utc,
-                end=day_end_utc,
-            ) if score else 0
+            today_score = (
+                await get_referrer_score(
+                    db=db,
+                    contest_id=contest.id,
+                    referrer_id=user.id,
+                    start=day_start_utc,
+                    end=day_end_utc,
+                )
+                if score
+                else 0
+            )
 
             text = self._build_participant_message(
                 contest=contest,
@@ -396,22 +400,22 @@ class ReferralContestService:
         contest = await get_referral_contest(db, contest_id)
         if not contest:
             return {
-                'total_participants': 0,
-                'total_invited': 0,
-                'total_paid_amount': 0,
-                'total_unpaid': 0,
-                'participants': [],
+                "total_participants": 0,
+                "total_invited": 0,
+                "total_paid_amount": 0,
+                "total_unpaid": 0,
+                "participants": [],
             }
 
         # Get leaderboard - already includes User objects
         leaderboard = await get_contest_leaderboard(db, contest_id)
         if not leaderboard:
             return {
-                'total_participants': 0,
-                'total_invited': 0,
-                'total_paid_amount': 0,
-                'total_unpaid': 0,
-                'participants': [],
+                "total_participants": 0,
+                "total_invited": 0,
+                "total_paid_amount": 0,
+                "total_unpaid": 0,
+                "participants": [],
             }
 
         total_participants = len(leaderboard)
@@ -422,21 +426,23 @@ class ReferralContestService:
         # Build participants stats directly from leaderboard (already has User objects)
         participants_stats = []
         for user, score, amount in leaderboard:
-            participants_stats.append({
-                'referrer_id': user.id,
-                'full_name': user.full_name,
-                'total_referrals': score,
-                'paid_referrals': score,
-                'unpaid_referrals': 0,
-                'total_paid_amount': amount,
-            })
+            participants_stats.append(
+                {
+                    "referrer_id": user.id,
+                    "full_name": user.full_name,
+                    "total_referrals": score,
+                    "paid_referrals": score,
+                    "unpaid_referrals": 0,
+                    "total_paid_amount": amount,
+                }
+            )
 
         return {
-            'total_participants': total_participants,
-            'total_invited': total_invited,
-            'total_paid_amount': total_paid_amount,
-            'total_unpaid': total_unpaid,
-            'participants': participants_stats,
+            "total_participants": total_participants,
+            "total_invited": total_invited,
+            "total_paid_amount": total_paid_amount,
+            "total_unpaid": total_unpaid,
+            "participants": participants_stats,
         }
 
     def _get_timezone(self, contest: ReferralContest) -> ZoneInfo:
@@ -557,5 +563,6 @@ class ReferralContestService:
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Не удалось записать зачёт регистрации для конкурса %s: %s", contest.id, exc)
+
 
 referral_contest_service = ReferralContestService()

@@ -36,131 +36,148 @@ def _get_support_settings_keyboard(language: str) -> types.InlineKeyboardMarkup:
         prefix = "🔘" if active else "⚪"
         return f"{prefix} {texts.t(label_key, default)}"
 
-    rows.append([
-        types.InlineKeyboardButton(
-            text=(
-                f"{'✅' if menu_enabled else '🚫'} "
-                f"{texts.t('ADMIN_SUPPORT_SETTINGS_MENU_LABEL', 'Support menu item')}"
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=(
+                    f"{'✅' if menu_enabled else '🚫'} "
+                    f"{texts.t('ADMIN_SUPPORT_SETTINGS_MENU_LABEL', 'Support menu item')}"
+                ),
+                callback_data="admin_support_toggle_menu",
+            )
+        ]
+    )
+
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_TICKETS", "Tickets", mode == "tickets"),
+                callback_data="admin_support_mode_tickets",
             ),
-            callback_data="admin_support_toggle_menu"
-        )
-    ])
+            types.InlineKeyboardButton(
+                text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_CONTACT", "Contact", mode == "contact"),
+                callback_data="admin_support_mode_contact",
+            ),
+            types.InlineKeyboardButton(
+                text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_BOTH", "Both", mode == "both"),
+                callback_data="admin_support_mode_both",
+            ),
+        ]
+    )
 
-    rows.append([
-        types.InlineKeyboardButton(
-            text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_TICKETS", "Tickets", mode == "tickets"),
-            callback_data="admin_support_mode_tickets"
-        ),
-        types.InlineKeyboardButton(
-            text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_CONTACT", "Contact", mode == "contact"),
-            callback_data="admin_support_mode_contact"
-        ),
-        types.InlineKeyboardButton(
-            text=mode_button("ADMIN_SUPPORT_SETTINGS_MODE_BOTH", "Both", mode == "both"),
-            callback_data="admin_support_mode_both"
-        ),
-    ])
-
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SETTINGS_EDIT_DESCRIPTION", "📝 Edit description"),
-            callback_data="admin_support_edit_desc"
-        )
-    ])
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SETTINGS_EDIT_DESCRIPTION", "📝 Edit description"),
+                callback_data="admin_support_edit_desc",
+            )
+        ]
+    )
 
     # Notifications block
-    rows.append([
-        types.InlineKeyboardButton(
-            text=(
-                f"{'🔔' if admin_notif else '🔕'} "
-                f"{texts.t('ADMIN_SUPPORT_SETTINGS_ADMIN_NOTIFICATIONS', 'Admin notifications')}: "
-                f"{status_enabled if admin_notif else status_disabled}"
-            ),
-            callback_data="admin_support_toggle_admin_notifications"
-        )
-    ])
-    rows.append([
-        types.InlineKeyboardButton(
-            text=(
-                f"{'🔔' if user_notif else '🔕'} "
-                f"{texts.t('ADMIN_SUPPORT_SETTINGS_USER_NOTIFICATIONS', 'User notifications')}: "
-                f"{status_enabled if user_notif else status_disabled}"
-            ),
-            callback_data="admin_support_toggle_user_notifications"
-        )
-    ])
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=(
+                    f"{'🔔' if admin_notif else '🔕'} "
+                    f"{texts.t('ADMIN_SUPPORT_SETTINGS_ADMIN_NOTIFICATIONS', 'Admin notifications')}: "
+                    f"{status_enabled if admin_notif else status_disabled}"
+                ),
+                callback_data="admin_support_toggle_admin_notifications",
+            )
+        ]
+    )
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=(
+                    f"{'🔔' if user_notif else '🔕'} "
+                    f"{texts.t('ADMIN_SUPPORT_SETTINGS_USER_NOTIFICATIONS', 'User notifications')}: "
+                    f"{status_enabled if user_notif else status_disabled}"
+                ),
+                callback_data="admin_support_toggle_user_notifications",
+            )
+        ]
+    )
 
     # SLA block
-    rows.append([
-        types.InlineKeyboardButton(
-            text=(
-                f"{'⏰' if sla_enabled else '⏹️'} "
-                f"{texts.t('ADMIN_SUPPORT_SETTINGS_SLA_LABEL', 'SLA')}: "
-                f"{status_enabled if sla_enabled else status_disabled}"
-            ),
-            callback_data="admin_support_toggle_sla"
-        )
-    ])
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SETTINGS_SLA_TIME", "⏳ SLA time: {minutes} min").format(minutes=sla_minutes),
-            callback_data="admin_support_set_sla_minutes"
-        )
-    ])
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=(
+                    f"{'⏰' if sla_enabled else '⏹️'} "
+                    f"{texts.t('ADMIN_SUPPORT_SETTINGS_SLA_LABEL', 'SLA')}: "
+                    f"{status_enabled if sla_enabled else status_disabled}"
+                ),
+                callback_data="admin_support_toggle_sla",
+            )
+        ]
+    )
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SETTINGS_SLA_TIME", "⏳ SLA time: {minutes} min").format(
+                    minutes=sla_minutes
+                ),
+                callback_data="admin_support_set_sla_minutes",
+            )
+        ]
+    )
 
     # Moderators
     moderators = SupportSettingsService.get_moderators()
     mod_count = len(moderators)
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SETTINGS_MODERATORS_COUNT", "🧑‍⚖️ Moderators: {count}").format(count=mod_count),
-            callback_data="admin_support_list_moderators"
-        )
-    ])
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SETTINGS_ADD_MODERATOR", "➕ Assign moderator"),
-            callback_data="admin_support_add_moderator"
-        ),
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SETTINGS_REMOVE_MODERATOR", "➖ Remove moderator"),
-            callback_data="admin_support_remove_moderator"
-        )
-    ])
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SETTINGS_MODERATORS_COUNT", "🧑‍⚖️ Moderators: {count}").format(
+                    count=mod_count
+                ),
+                callback_data="admin_support_list_moderators",
+            )
+        ]
+    )
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SETTINGS_ADD_MODERATOR", "➕ Assign moderator"),
+                callback_data="admin_support_add_moderator",
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SETTINGS_REMOVE_MODERATOR", "➖ Remove moderator"),
+                callback_data="admin_support_remove_moderator",
+            ),
+        ]
+    )
 
-    rows.append([
-        types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_support")
-    ])
+    rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_support")])
 
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 @admin_required
 @error_handler
-async def show_support_settings(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession
-):
+async def show_support_settings(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     desc = SupportSettingsService.get_support_info_text(db_user.language)
     await callback.message.edit_text(
-        texts.t("ADMIN_SUPPORT_SETTINGS_TITLE", "🛟 <b>Support settings</b>") + "\n\n" +
-        texts.t("ADMIN_SUPPORT_SETTINGS_DESCRIPTION", "Operation mode and menu visibility. Below is the current support menu description:") + "\n\n" +
-        desc,
+        texts.t("ADMIN_SUPPORT_SETTINGS_TITLE", "🛟 <b>Support settings</b>")
+        + "\n\n"
+        + texts.t(
+            "ADMIN_SUPPORT_SETTINGS_DESCRIPTION",
+            "Operation mode and menu visibility. Below is the current support menu description:",
+        )
+        + "\n\n"
+        + desc,
         reply_markup=_get_support_settings_keyboard(db_user.language),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
     await callback.answer()
 
 
 @admin_required
 @error_handler
-async def toggle_support_menu(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession
-):
+async def toggle_support_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     current = SupportSettingsService.is_support_menu_enabled()
     SupportSettingsService.set_support_menu_enabled(not current)
     await show_support_settings(callback, db_user, db)
@@ -202,12 +219,12 @@ async def start_set_sla_minutes(callback: types.CallbackQuery, db_user: User, db
     await callback.message.edit_text(
         texts.t(
             "ADMIN_SUPPORT_SLA_SETUP_PROMPT",
-            "⏳ <b>SLA setup</b>\n\nEnter the number of minutes for response time (integer > 0):"
+            "⏳ <b>SLA setup</b>\n\nEnter the number of minutes for response time (integer > 0):",
         ),
         parse_mode="HTML",
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")]]
-        )
+        ),
     )
     await state.set_state(SupportAdvancedStates.waiting_for_sla_minutes)
     await callback.answer()
@@ -228,7 +245,13 @@ async def handle_sla_minutes(message: types.Message, db_user: User, db: AsyncSes
     SupportSettingsService.set_sla_minutes(minutes)
     await state.clear()
     markup = types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg")]]
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg"
+                )
+            ]
+        ]
     )
     await message.answer(texts.t("ADMIN_SUPPORT_SLA_SAVED", "✅ SLA value saved"), reply_markup=markup)
 
@@ -240,12 +263,12 @@ async def start_add_moderator(callback: types.CallbackQuery, db_user: User, db: 
     await callback.message.edit_text(
         texts.t(
             "ADMIN_SUPPORT_ASSIGN_MODERATOR_PROMPT",
-            "🧑‍⚖️ <b>Assign moderator</b>\n\nSend the user's Telegram ID (number)"
+            "🧑‍⚖️ <b>Assign moderator</b>\n\nSend the user's Telegram ID (number)",
         ),
         parse_mode="HTML",
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")]]
-        )
+        ),
     )
     await state.set_state(SupportAdvancedStates.waiting_for_moderator_id)
     await callback.answer()
@@ -258,12 +281,12 @@ async def start_remove_moderator(callback: types.CallbackQuery, db_user: User, d
     await callback.message.edit_text(
         texts.t(
             "ADMIN_SUPPORT_REMOVE_MODERATOR_PROMPT",
-            "🧑‍⚖️ <b>Remove moderator</b>\n\nSend the user's Telegram ID (number)"
+            "🧑‍⚖️ <b>Remove moderator</b>\n\nSend the user's Telegram ID (number)",
         ),
         parse_mode="HTML",
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")]]
-        )
+        ),
     )
     await state.set_state(SupportAdvancedStates.waiting_for_moderator_id)
     # We'll reuse the same state; next message will decide action via flag
@@ -299,7 +322,13 @@ async def handle_moderator_id(message: types.Message, db_user: User, db: AsyncSe
         )
     await state.clear()
     markup = types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg")]]
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg"
+                )
+            ]
+        ]
     )
     await message.answer(msg, reply_markup=markup)
 
@@ -313,8 +342,9 @@ async def list_moderators(callback: types.CallbackQuery, db_user: User, db: Asyn
         await callback.answer(texts.t("ADMIN_SUPPORT_MODERATORS_EMPTY", "List is empty"), show_alert=True)
         return
     text = (
-        texts.t("ADMIN_SUPPORT_MODERATORS_TITLE", "🧑‍⚖️ <b>Moderators</b>") +
-        "\n\n" + "\n".join([f"• <code>{tid}</code>" for tid in moderators])
+        texts.t("ADMIN_SUPPORT_MODERATORS_TITLE", "🧑‍⚖️ <b>Moderators</b>")
+        + "\n\n"
+        + "\n".join([f"• <code>{tid}</code>" for tid in moderators])
     )
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")]]
@@ -353,18 +383,18 @@ async def start_edit_desc(callback: types.CallbackQuery, db_user: User, db: Asyn
     current_desc_plain = re.sub(r"<[^>]+>", "", current_desc_html)
 
     kb_rows: list[list[types.InlineKeyboardButton]] = []
-    kb_rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_SUPPORT_SEND_DESCRIPTION", "📨 Send text"),
-            callback_data="admin_support_send_desc"
-        )
-    ])
+    kb_rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_SUPPORT_SEND_DESCRIPTION", "📨 Send text"), callback_data="admin_support_send_desc"
+            )
+        ]
+    )
     # Prepare contact block (separate inline)
     from app.config import settings
+
     support_contact_display = settings.get_support_contact_display()
-    kb_rows.append([
-        types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")
-    ])
+    kb_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_support_settings")])
 
     text_parts = [
         texts.t("ADMIN_SUPPORT_EDIT_DESCRIPTION_TITLE", "📝 <b>Edit support description</b>"),
@@ -382,9 +412,7 @@ async def start_edit_desc(callback: types.CallbackQuery, db_user: User, db: Asyn
             texts.t("ADMIN_SUPPORT_EDIT_DESCRIPTION_CONTACT_HINT", "Add to description if needed."),
         ]
     await callback.message.edit_text(
-        "\n".join(text_parts),
-        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_rows),
-        parse_mode="HTML"
+        "\n".join(text_parts), reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML"
     )
     await state.set_state(SupportSettingsStates.waiting_for_desc)
     await callback.answer()
@@ -398,7 +426,13 @@ async def handle_new_desc(message: types.Message, db_user: User, db: AsyncSessio
     SupportSettingsService.set_support_info_text(db_user.language, new_text)
     await state.clear()
     markup = types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg")]]
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg"
+                )
+            ]
+        ]
     )
     await message.answer(texts.t("ADMIN_SUPPORT_DESCRIPTION_UPDATED", "✅ Description updated."), reply_markup=markup)
 
@@ -412,7 +446,13 @@ async def send_desc_copy(callback: types.CallbackQuery, db_user: User, db: Async
     current_desc_plain = re.sub(r"<[^>]+>", "", current_desc_html)
     # attach delete button to the sent message
     markup = types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg")]]
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("DELETE_MESSAGE", "🗑 Delete"), callback_data="admin_support_delete_msg"
+                )
+            ]
+        ]
     )
     if len(current_desc_plain) <= 4000:
         await callback.message.answer(current_desc_plain, reply_markup=markup)
@@ -420,7 +460,7 @@ async def send_desc_copy(callback: types.CallbackQuery, db_user: User, db: Async
         # split long messages (attach delete only to the last chunk)
         chunk = 0
         while chunk < len(current_desc_plain):
-            next_chunk = current_desc_plain[chunk:chunk+4000]
+            next_chunk = current_desc_plain[chunk : chunk + 4000]
             is_last = (chunk + 4000) >= len(current_desc_plain)
             await callback.message.answer(next_chunk, reply_markup=(markup if is_last else None))
             chunk += 4000
@@ -431,10 +471,12 @@ async def send_desc_copy(callback: types.CallbackQuery, db_user: User, db: Async
 async def delete_sent_message(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     # Allow admins and moderators to delete informational notifications
     try:
-        may_delete = (settings.is_admin(callback.from_user.id) or SupportSettingsService.is_moderator(callback.from_user.id))
+        may_delete = settings.is_admin(callback.from_user.id) or SupportSettingsService.is_moderator(
+            callback.from_user.id
+        )
     except Exception:
         may_delete = False
-    texts = get_texts(db_user.language if db_user else 'ru')
+    texts = get_texts(db_user.language if db_user else "ru")
     if not may_delete:
         await callback.answer(texts.ACCESS_DENIED, show_alert=True)
         return
@@ -464,5 +506,3 @@ def register_handlers(dp: Dispatcher):
     dp.message.register(handle_new_desc, SupportSettingsStates.waiting_for_desc)
     dp.message.register(handle_sla_minutes, SupportAdvancedStates.waiting_for_sla_minutes)
     dp.message.register(handle_moderator_id, SupportAdvancedStates.waiting_for_moderator_id)
-
-

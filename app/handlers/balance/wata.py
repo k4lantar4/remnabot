@@ -248,9 +248,9 @@ async def check_wata_payment_status(
                 user_language = user.language
     except Exception:
         pass
-    
+
     texts = get_texts(user_language)
-    
+
     try:
         local_payment_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
@@ -299,14 +299,16 @@ async def check_wata_payment_status(
         {"emoji": "❓", "label": texts.t("WATA_STATUS_UNKNOWN", "Unknown")},
     )
 
-    created_date = payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
-    
+    created_date = payment.created_at.strftime("%d.%m.%Y %H:%M") if payment.created_at else "—"
+
     message_lines = [
         texts.t("WATA_STATUS_TITLE", "💳 <b>WATA payment status</b>"),
         "",
         texts.t("WATA_STATUS_ID", "🆔 ID: {payment_id}").format(payment_id=payment.payment_link_id),
         texts.t("WATA_STATUS_AMOUNT", "💰 Amount: {amount}").format(amount=settings.format_price(payment.amount_toman)),
-        texts.t("WATA_STATUS_STATUS", "📊 Status: {emoji} {label}").format(emoji=label_info['emoji'], label=label_info['label']),
+        texts.t("WATA_STATUS_STATUS", "📊 Status: {emoji} {label}").format(
+            emoji=label_info["emoji"], label=label_info["label"]
+        ),
         texts.t("WATA_STATUS_CREATED", "📅 Created: {date}").format(date=created_date),
     ]
 

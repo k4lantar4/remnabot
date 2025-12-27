@@ -41,7 +41,7 @@ async def _build_overview(
 
     description = texts.get_text(
         "ADMIN_PUBLIC_OFFER_DESCRIPTION",
-        "Public offer is shown in the \"Info\" section.",
+        'Public offer is shown in the "Info" section.',
     )
 
     status_text = texts.get_text(
@@ -80,10 +80,7 @@ async def _build_overview(
         preview_trimmed = preview_raw[:400]
         if len(preview_raw) > 400:
             preview_trimmed += "..."
-        preview_block = (
-            f"{preview_title}\n"
-            f"<code>{html.escape(preview_trimmed)}</code>"
-        )
+        preview_block = f"{preview_title}\n<code>{html.escape(preview_trimmed)}</code>"
 
     language_block = texts.get_text(
         "ADMIN_PUBLIC_OFFER_LANGUAGE",
@@ -116,26 +113,30 @@ async def _build_overview(
 
     buttons: list[list[types.InlineKeyboardButton]] = []
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.get_text(
-                "ADMIN_PUBLIC_OFFER_EDIT_BUTTON",
-                "✏️ Edit text",
-            ),
-            callback_data="admin_public_offer_edit",
-        )
-    ])
-
-    if has_content:
-        buttons.append([
+    buttons.append(
+        [
             types.InlineKeyboardButton(
                 text=texts.get_text(
-                    "ADMIN_PUBLIC_OFFER_VIEW_BUTTON",
-                    "👀 View current text",
+                    "ADMIN_PUBLIC_OFFER_EDIT_BUTTON",
+                    "✏️ Edit text",
                 ),
-                callback_data="admin_public_offer_view",
+                callback_data="admin_public_offer_edit",
             )
-        ])
+        ]
+    )
+
+    if has_content:
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.get_text(
+                        "ADMIN_PUBLIC_OFFER_VIEW_BUTTON",
+                        "👀 View current text",
+                    ),
+                    callback_data="admin_public_offer_view",
+                )
+            ]
+        )
 
     toggle_text = texts.get_text(
         "ADMIN_PUBLIC_OFFER_ENABLE_BUTTON",
@@ -147,29 +148,35 @@ async def _build_overview(
             "🚫 Disable display",
         )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=toggle_text,
-            callback_data="admin_public_offer_toggle",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=toggle_text,
+                callback_data="admin_public_offer_toggle",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.get_text(
-                "ADMIN_PUBLIC_OFFER_HTML_HELP",
-                "ℹ️ HTML help",
-            ),
-            callback_data="admin_public_offer_help",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.get_text(
+                    "ADMIN_PUBLIC_OFFER_HTML_HELP",
+                    "ℹ️ HTML help",
+                ),
+                callback_data="admin_public_offer_help",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="admin_submenu_settings",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data="admin_submenu_settings",
+            )
+        ]
+    )
 
     return overview_text, types.InlineKeyboardMarkup(inline_keyboard=buttons), offer
 
@@ -471,25 +478,29 @@ async def show_public_offer_html_help(
     buttons: list[list[types.InlineKeyboardButton]] = []
 
     if current_state == AdminStates.editing_public_offer.state:
-        buttons.append([
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.get_text(
+                        "ADMIN_PUBLIC_OFFER_RETURN_TO_EDIT",
+                        "⬅️ Back to editing",
+                    ),
+                    callback_data="admin_public_offer_edit",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
             types.InlineKeyboardButton(
                 text=texts.get_text(
-                    "ADMIN_PUBLIC_OFFER_RETURN_TO_EDIT",
-                    "⬅️ Back to editing",
+                    "ADMIN_PUBLIC_OFFER_BACK_BUTTON",
+                    "⬅️ Back to offer settings",
                 ),
-                callback_data="admin_public_offer_edit",
+                callback_data="admin_public_offer",
             )
-        ])
-
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.get_text(
-                "ADMIN_PUBLIC_OFFER_BACK_BUTTON",
-                "⬅️ Back to offer settings",
-            ),
-            callback_data="admin_public_offer",
-        )
-    ])
+        ]
+    )
 
     await callback.message.edit_text(
         help_text,

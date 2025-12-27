@@ -39,11 +39,17 @@ _CAMPAIGNS_PAGE_SIZE = 5
 
 
 def _format_campaign_summary(campaign, texts) -> str:
-    status = texts.t("ADMIN_CAMPAIGN_STATUS_ACTIVE", "🟢 Active") if campaign.is_active else texts.t("ADMIN_CAMPAIGN_STATUS_INACTIVE", "⚪️ Disabled")
+    status = (
+        texts.t("ADMIN_CAMPAIGN_STATUS_ACTIVE", "🟢 Active")
+        if campaign.is_active
+        else texts.t("ADMIN_CAMPAIGN_STATUS_INACTIVE", "⚪️ Disabled")
+    )
 
     if campaign.is_balance_bonus:
         bonus_text = texts.format_price(campaign.balance_bonus_toman)
-        bonus_info = texts.t("ADMIN_CAMPAIGN_BALANCE_BONUS", "💰 Balance bonus: <b>{amount}</b>").format(amount=bonus_text)
+        bonus_info = texts.t("ADMIN_CAMPAIGN_BALANCE_BONUS", "💰 Balance bonus: <b>{amount}</b>").format(
+            amount=bonus_text
+        )
     else:
         traffic_text = texts.format_traffic(campaign.subscription_traffic_gb or 0)
         device_limit = campaign.subscription_device_limit
@@ -51,9 +57,7 @@ def _format_campaign_summary(campaign, texts) -> str:
             device_limit = settings.DEFAULT_DEVICE_LIMIT
         bonus_info = texts.t(
             "ADMIN_CAMPAIGN_SUBSCRIPTION_BONUS",
-            "📱 Subscription: <b>{days} d.</b>\n"
-            "🌐 Traffic: <b>{traffic}</b>\n"
-            "📱 Devices: <b>{devices}</b>"
+            "📱 Subscription: <b>{days} d.</b>\n🌐 Traffic: <b>{traffic}</b>\n📱 Devices: <b>{devices}</b>",
         ).format(
             days=campaign.subscription_duration_days or 0,
             traffic=traffic_text,
@@ -62,10 +66,7 @@ def _format_campaign_summary(campaign, texts) -> str:
 
     return texts.t(
         "ADMIN_CAMPAIGN_SUMMARY",
-        "<b>{name}</b>\n"
-        "Start parameter: <code>{param}</code>\n"
-        "Status: {status}\n"
-        "{bonus_info}\n"
+        "<b>{name}</b>\nStart parameter: <code>{param}</code>\nStatus: {status}\n{bonus_info}\n",
     ).format(
         name=campaign.name,
         param=campaign.start_parameter,
@@ -74,16 +75,12 @@ def _format_campaign_summary(campaign, texts) -> str:
     )
 
 
-async def _get_bot_deep_link(
-    callback: types.CallbackQuery, start_parameter: str
-) -> str:
+async def _get_bot_deep_link(callback: types.CallbackQuery, start_parameter: str) -> str:
     bot = await callback.bot.get_me()
     return f"https://t.me/{bot.username}?start={start_parameter}"
 
 
-async def _get_bot_deep_link_from_message(
-    message: types.Message, start_parameter: str
-) -> str:
+async def _get_bot_deep_link_from_message(message: types.Message, start_parameter: str) -> str:
     bot = await message.bot.get_me()
     return f"https://t.me/{bot.username}?start={start_parameter}"
 
@@ -103,22 +100,12 @@ def _build_campaign_servers_keyboard(
         is_selected = server.squad_uuid in selected_uuids
         emoji = "✅" if is_selected else ("⚪" if server.is_available else "🔒")
         text = f"{emoji} {server.display_name}"
-        keyboard.append(
-            [
-                types.InlineKeyboardButton(
-                    text=text, callback_data=f"{toggle_prefix}{server.id}"
-                )
-            ]
-        )
+        keyboard.append([types.InlineKeyboardButton(text=text, callback_data=f"{toggle_prefix}{server.id}")])
 
     keyboard.append(
         [
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_BTN_SAVE", "✅ Save"), callback_data=save_callback
-            ),
-            types.InlineKeyboardButton(
-                text=texts.BACK, callback_data=back_callback
-            ),
+            types.InlineKeyboardButton(text=texts.t("ADMIN_BTN_SAVE", "✅ Save"), callback_data=save_callback),
+            types.InlineKeyboardButton(text=texts.BACK, callback_data=back_callback),
         ]
     )
 
@@ -135,10 +122,9 @@ async def _render_campaign_edit_menu(
     use_caption: bool = False,
 ):
     texts = get_texts(language)
-    text = texts.t(
-        "ADMIN_CAMPAIGN_EDIT_MENU",
-        "✏️ <b>Edit campaign</b>\n\n{summary}\nSelect what to change:"
-    ).format(summary=_format_campaign_summary(campaign, texts))
+    text = texts.t("ADMIN_CAMPAIGN_EDIT_MENU", "✏️ <b>Edit campaign</b>\n\n{summary}\nSelect what to change:").format(
+        summary=_format_campaign_summary(campaign, texts)
+    )
 
     edit_kwargs = dict(
         chat_id=chat_id,
@@ -180,14 +166,14 @@ async def show_campaigns_menu(
         "Active: <b>{active}</b> | Disabled: <b>{inactive}</b>\n"
         "Registrations: <b>{registrations}</b>\n"
         "Balance issued: <b>{balance}</b>\n"
-        "Subscriptions issued: <b>{subscriptions}</b>"
+        "Subscriptions issued: <b>{subscriptions}</b>",
     ).format(
-        total=overview['total'],
-        active=overview['active'],
-        inactive=overview['inactive'],
-        registrations=overview['registrations'],
-        balance=texts.format_price(overview['balance_total']),
-        subscriptions=overview['subscription_total']
+        total=overview["total"],
+        active=overview["active"],
+        inactive=overview["inactive"],
+        registrations=overview["registrations"],
+        balance=texts.format_price(overview["balance_total"]),
+        subscriptions=overview["subscription_total"],
     )
 
     await callback.message.edit_text(
@@ -214,26 +200,20 @@ async def show_campaigns_overall_stats(
         "Active: <b>{active}</b>, disabled: <b>{inactive}</b>\n"
         "Total registrations: <b>{registrations}</b>\n"
         "Total balance issued: <b>{balance}</b>\n"
-        "Subscriptions issued: <b>{subscriptions}</b>"
+        "Subscriptions issued: <b>{subscriptions}</b>",
     ).format(
-        total=overview['total'],
-        active=overview['active'],
-        inactive=overview['inactive'],
-        registrations=overview['registrations'],
-        balance=texts.format_price(overview['balance_total']),
-        subscriptions=overview['subscription_total']
+        total=overview["total"],
+        active=overview["active"],
+        inactive=overview["inactive"],
+        registrations=overview["registrations"],
+        balance=texts.format_price(overview["balance_total"]),
+        subscriptions=overview["subscription_total"],
     )
 
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.BACK, callback_data="admin_campaigns"
-                    )
-                ]
-            ]
+            inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_campaigns")]]
         ),
     )
     await callback.answer()
@@ -274,11 +254,7 @@ async def show_campaigns_list(
                             text=texts.t("ADMIN_BTN_CREATE", "➕ Create"), callback_data="admin_campaigns_create"
                         )
                     ],
-                    [
-                        types.InlineKeyboardButton(
-                            text=texts.BACK, callback_data="admin_campaigns"
-                        )
-                    ],
+                    [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_campaigns")],
                 ]
             ),
         )
@@ -289,16 +265,11 @@ async def show_campaigns_list(
 
     for campaign in campaigns:
         registrations = len(campaign.registrations or [])
-        total_balance = sum(
-            r.balance_bonus_toman or 0 for r in campaign.registrations or []
-        )
+        total_balance = sum(r.balance_bonus_toman or 0 for r in campaign.registrations or [])
         status = "🟢" if campaign.is_active else "⚪"
-        line = (
-            f"{status} <b>{campaign.name}</b> — <code>{campaign.start_parameter}</code>\n"
-        )
+        line = f"{status} <b>{campaign.name}</b> — <code>{campaign.start_parameter}</code>\n"
         line += texts.t(
-            "ADMIN_CAMPAIGNS_LIST_ITEM_INFO",
-            "   Registrations: {registrations}, balance: {balance}"
+            "ADMIN_CAMPAIGNS_LIST_ITEM_INFO", "   Registrations: {registrations}, balance: {balance}"
         ).format(registrations=registrations, balance=texts.format_price(total_balance))
         if campaign.is_subscription_bonus:
             line += texts.t("ADMIN_CAMPAIGNS_LIST_SUBSCRIPTION", ", subscription: {days} d.").format(
@@ -357,51 +328,67 @@ async def show_campaign_detail(
     text.append(_format_campaign_summary(campaign, texts))
     text.append(texts.t("ADMIN_CAMPAIGN_LINK", "🔗 Link: <code>{link}</code>").format(link=deep_link))
     text.append("\n" + texts.t("ADMIN_CAMPAIGN_STATS_HEADER", "📊 <b>Statistics</b>"))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_REGISTRATIONS", "• Registrations: <b>{count}</b>").format(count=stats['registrations']))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_BALANCE", "• Balance issued: <b>{amount}</b>").format(
-        amount=texts.format_price(stats['balance_issued'])
-    ))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_SUBSCRIPTIONS", "• Subscriptions issued: <b>{count}</b>").format(
-        count=stats['subscription_issued']
-    ))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_REVENUE", "• Revenue: <b>{amount}</b>").format(
-        amount=texts.format_price(stats['total_revenue_toman'])
-    ))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_TRIAL",
-        "• Got trial: <b>{total}</b> (active: {active})"
-    ).format(total=stats['trial_users_count'], active=stats['active_trials_count']))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_CONVERSIONS",
-        "• Payment conversions: <b>{conversions}</b> / users with payments: {paid}"
-    ).format(conversions=stats['conversion_count'], paid=stats['paid_users_count']))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_CONVERSION_RATE",
-        "• Payment conversion rate: <b>{rate:.1f}%</b>"
-    ).format(rate=stats['conversion_rate']))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_TRIAL_CONVERSION",
-        "• Trial conversion rate: <b>{rate:.1f}%</b>"
-    ).format(rate=stats['trial_conversion_rate']))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_AVG_REVENUE",
-        "• Avg revenue per user: <b>{amount}</b>"
-    ).format(amount=texts.format_price(stats['avg_revenue_per_user_toman'])))
-    text.append(texts.t(
-        "ADMIN_CAMPAIGN_STATS_AVG_FIRST_PAYMENT",
-        "• Avg first payment: <b>{amount}</b>"
-    ).format(amount=texts.format_price(stats['avg_first_payment_toman'])))
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_REGISTRATIONS", "• Registrations: <b>{count}</b>").format(
+            count=stats["registrations"]
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_BALANCE", "• Balance issued: <b>{amount}</b>").format(
+            amount=texts.format_price(stats["balance_issued"])
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_SUBSCRIPTIONS", "• Subscriptions issued: <b>{count}</b>").format(
+            count=stats["subscription_issued"]
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_REVENUE", "• Revenue: <b>{amount}</b>").format(
+            amount=texts.format_price(stats["total_revenue_toman"])
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_TRIAL", "• Got trial: <b>{total}</b> (active: {active})").format(
+            total=stats["trial_users_count"], active=stats["active_trials_count"]
+        )
+    )
+    text.append(
+        texts.t(
+            "ADMIN_CAMPAIGN_STATS_CONVERSIONS",
+            "• Payment conversions: <b>{conversions}</b> / users with payments: {paid}",
+        ).format(conversions=stats["conversion_count"], paid=stats["paid_users_count"])
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_CONVERSION_RATE", "• Payment conversion rate: <b>{rate:.1f}%</b>").format(
+            rate=stats["conversion_rate"]
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_TRIAL_CONVERSION", "• Trial conversion rate: <b>{rate:.1f}%</b>").format(
+            rate=stats["trial_conversion_rate"]
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_AVG_REVENUE", "• Avg revenue per user: <b>{amount}</b>").format(
+            amount=texts.format_price(stats["avg_revenue_per_user_toman"])
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_AVG_FIRST_PAYMENT", "• Avg first payment: <b>{amount}</b>").format(
+            amount=texts.format_price(stats["avg_first_payment_toman"])
+        )
+    )
     if stats["last_registration"]:
-        text.append(texts.t(
-            "ADMIN_CAMPAIGN_STATS_LAST_REG",
-            "• Last: {date}"
-        ).format(date=stats['last_registration'].strftime('%d.%m.%Y %H:%M')))
+        text.append(
+            texts.t("ADMIN_CAMPAIGN_STATS_LAST_REG", "• Last: {date}").format(
+                date=stats["last_registration"].strftime("%d.%m.%Y %H:%M")
+            )
+        )
 
     await callback.message.edit_text(
         "\n".join(text),
-        reply_markup=get_campaign_management_keyboard(
-            campaign.id, campaign.is_active, db_user.language
-        ),
+        reply_markup=get_campaign_management_keyboard(campaign.id, campaign.is_active, db_user.language),
     )
     await callback.answer()
 
@@ -465,9 +452,7 @@ async def start_edit_campaign_name(
     await callback.message.edit_text(
         texts.t(
             "ADMIN_CAMPAIGN_EDIT_NAME_PROMPT",
-            "✏️ <b>Change campaign name</b>\n\n"
-            "Current name: <b>{name}</b>\n"
-            "Enter new name (3-100 characters):"
+            "✏️ <b>Change campaign name</b>\n\nCurrent name: <b>{name}</b>\nEnter new name (3-100 characters):",
         ).format(name=campaign.name),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -501,9 +486,7 @@ async def process_edit_campaign_name(
 
     new_name = message.text.strip()
     if len(new_name) < 3 or len(new_name) > 100:
-        await message.answer(
-            texts.t("ADMIN_CAMPAIGN_NAME_LENGTH", "❌ Name must be 3-100 characters. Try again.")
-        )
+        await message.answer(texts.t("ADMIN_CAMPAIGN_NAME_LENGTH", "❌ Name must be 3-100 characters. Try again."))
         return
 
     campaign = await get_campaign_by_id(db, campaign_id)
@@ -559,7 +542,7 @@ async def start_edit_campaign_start_parameter(
             "ADMIN_CAMPAIGN_EDIT_START_PROMPT",
             "🔗 <b>Change start parameter</b>\n\n"
             "Current parameter: <code>{param}</code>\n"
-            "Enter new parameter (Latin letters, numbers, - or _, 3-32 characters):"
+            "Enter new parameter (Latin letters, numbers, - or _, 3-32 characters):",
         ).format(param=campaign.start_parameter),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -594,7 +577,10 @@ async def process_edit_campaign_start_parameter(
     new_param = message.text.strip()
     if not _CAMPAIGN_PARAM_REGEX.match(new_param):
         await message.answer(
-            texts.t("ADMIN_CAMPAIGN_PARAM_INVALID", "❌ Only Latin letters, numbers, - and _ allowed. Length 3-32 characters.")
+            texts.t(
+                "ADMIN_CAMPAIGN_PARAM_INVALID",
+                "❌ Only Latin letters, numbers, - and _ allowed. Length 3-32 characters.",
+            )
         )
         return
 
@@ -606,7 +592,9 @@ async def process_edit_campaign_start_parameter(
 
     existing = await get_campaign_by_start_parameter(db, new_param)
     if existing and existing.id != campaign_id:
-        await message.answer(texts.t("ADMIN_CAMPAIGN_PARAM_EXISTS", "❌ This parameter is already in use. Enter another."))
+        await message.answer(
+            texts.t("ADMIN_CAMPAIGN_PARAM_EXISTS", "❌ This parameter is already in use. Enter another.")
+        )
         return
 
     await update_campaign(db, campaign, start_parameter=new_param)
@@ -643,7 +631,9 @@ async def start_edit_campaign_balance_bonus(
         return
 
     if not campaign.is_balance_bonus:
-        await callback.answer(texts.t("ADMIN_CAMPAIGN_DIFFERENT_BONUS", "❌ Campaign has different bonus type"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CAMPAIGN_DIFFERENT_BONUS", "❌ Campaign has different bonus type"), show_alert=True
+        )
         return
 
     await state.clear()
@@ -660,7 +650,7 @@ async def start_edit_campaign_balance_bonus(
             "ADMIN_CAMPAIGN_EDIT_BALANCE_PROMPT",
             "💰 <b>Change balance bonus</b>\n\n"
             "Current bonus: <b>{amount}</b>\n"
-            "Enter new amount in rubles (e.g. 100 or 99.5):"
+            "Enter new amount in rubles (e.g. 100 or 99.5):",
         ).format(amount=texts.format_price(campaign.balance_bonus_toman)),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -780,7 +770,7 @@ async def start_edit_campaign_subscription_days(
             "ADMIN_CAMPAIGN_EDIT_DAYS_PROMPT",
             "📅 <b>Change subscription duration</b>\n\n"
             "Current value: <b>{days} d.</b>\n"
-            "Enter new number of days (1-730):"
+            "Enter new number of days (1-730):",
         ).format(days=campaign.subscription_duration_days or 0),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -885,7 +875,7 @@ async def start_edit_campaign_subscription_traffic(
             "ADMIN_CAMPAIGN_EDIT_TRAFFIC_PROMPT",
             "🌐 <b>Change traffic limit</b>\n\n"
             "Current value: <b>{traffic}</b>\n"
-            "Enter new limit in GB (0 = unlimited, max 10000):"
+            "Enter new limit in GB (0 = unlimited, max 10000):",
         ).format(traffic=traffic_text),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -989,9 +979,7 @@ async def start_edit_campaign_subscription_devices(
     await callback.message.edit_text(
         texts.t(
             "ADMIN_CAMPAIGN_EDIT_DEVICES_PROMPT",
-            "📱 <b>Change device limit</b>\n\n"
-            "Current value: <b>{devices}</b>\n"
-            "Enter new count (1-{max}):"
+            "📱 <b>Change device limit</b>\n\nCurrent value: <b>{devices}</b>\nEnter new count (1-{max}):",
         ).format(devices=current_devices, max=settings.MAX_DEVICES_LIMIT),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -1115,7 +1103,7 @@ async def start_edit_campaign_subscription_servers(
             "ADMIN_CAMPAIGN_EDIT_SERVERS_PROMPT",
             "🌍 <b>Edit available servers</b>\n\n"
             "Click on a server to add or remove it from the campaign.\n"
-            "After selection, click \"✅ Save\"."
+            'After selection, click "✅ Save".',
         ),
         reply_markup=keyboard,
     )
@@ -1260,17 +1248,27 @@ async def show_campaign_stats(
 
     text = [texts.t("ADMIN_CAMPAIGN_STATS_TITLE", "📊 <b>Campaign Statistics</b>") + "\n"]
     text.append(_format_campaign_summary(campaign, texts))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_REGISTRATIONS", "Registrations: <b>{count}</b>").format(count=stats['registrations']))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_BALANCE_ISSUED", "Balance issued: <b>{amount}</b>").format(
-        amount=texts.format_price(stats['balance_issued'])
-    ))
-    text.append(texts.t("ADMIN_CAMPAIGN_STATS_SUBS_ISSUED", "Subscriptions issued: <b>{count}</b>").format(
-        count=stats['subscription_issued']
-    ))
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_REGISTRATIONS", "Registrations: <b>{count}</b>").format(
+            count=stats["registrations"]
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_BALANCE_ISSUED", "Balance issued: <b>{amount}</b>").format(
+            amount=texts.format_price(stats["balance_issued"])
+        )
+    )
+    text.append(
+        texts.t("ADMIN_CAMPAIGN_STATS_SUBS_ISSUED", "Subscriptions issued: <b>{count}</b>").format(
+            count=stats["subscription_issued"]
+        )
+    )
     if stats["last_registration"]:
-        text.append(texts.t("ADMIN_CAMPAIGN_STATS_LAST_REG_DATE", "Last registration: {date}").format(
-            date=stats['last_registration'].strftime('%d.%m.%Y %H:%M')
-        ))
+        text.append(
+            texts.t("ADMIN_CAMPAIGN_STATS_LAST_REG_DATE", "Last registration: {date}").format(
+                date=stats["last_registration"].strftime("%d.%m.%Y %H:%M")
+            )
+        )
 
     await callback.message.edit_text(
         "\n".join(text),
@@ -1307,7 +1305,7 @@ async def confirm_delete_campaign(
         "🗑️ <b>Delete campaign</b>\n\n"
         "Name: <b>{name}</b>\n"
         "Parameter: <code>{param}</code>\n\n"
-        "Are you sure you want to delete this campaign?"
+        "Are you sure you want to delete this campaign?",
     ).format(name=campaign.name, param=campaign.start_parameter)
 
     await callback.message.edit_text(
@@ -1355,13 +1353,7 @@ async def start_campaign_creation(
     await callback.message.edit_text(
         texts.t("ADMIN_CAMPAIGN_CREATE_NAME_PROMPT", "🆕 <b>Create advertising campaign</b>\n\nEnter campaign name:"),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.BACK, callback_data="admin_campaigns"
-                    )
-                ]
-            ]
+            inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_campaigns")]]
         ),
     )
     await state.set_state(AdminStates.creating_campaign_name)
@@ -1379,9 +1371,7 @@ async def process_campaign_name(
     texts = get_texts(db_user.language)
     name = message.text.strip()
     if len(name) < 3 or len(name) > 100:
-        await message.answer(
-            texts.t("ADMIN_CAMPAIGN_NAME_LENGTH", "❌ Name must be 3-100 characters. Try again.")
-        )
+        await message.answer(texts.t("ADMIN_CAMPAIGN_NAME_LENGTH", "❌ Name must be 3-100 characters. Try again."))
         return
 
     await state.update_data(campaign_name=name)
@@ -1403,7 +1393,10 @@ async def process_campaign_start_parameter(
     start_param = message.text.strip()
     if not _CAMPAIGN_PARAM_REGEX.match(start_param):
         await message.answer(
-            texts.t("ADMIN_CAMPAIGN_PARAM_INVALID", "❌ Only Latin letters, numbers, - and _ allowed. Length 3-32 characters.")
+            texts.t(
+                "ADMIN_CAMPAIGN_PARAM_INVALID",
+                "❌ Only Latin letters, numbers, - and _ allowed. Length 3-32 characters.",
+            )
         )
         return
 
@@ -1439,13 +1432,7 @@ async def select_campaign_bonus_type(
         await callback.message.edit_text(
             texts.t("ADMIN_CAMPAIGN_ENTER_BALANCE", "💰 Enter balance bonus amount (in rubles):"),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=texts.BACK, callback_data="admin_campaigns"
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_campaigns")]]
             ),
         )
     else:
@@ -1453,13 +1440,7 @@ async def select_campaign_bonus_type(
         await callback.message.edit_text(
             texts.t("ADMIN_CAMPAIGN_ENTER_DAYS", "📅 Enter subscription duration in days (1-730):"),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=texts.BACK, callback_data="admin_campaigns"
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_campaigns")]]
             ),
         )
     await callback.answer()
@@ -1501,15 +1482,12 @@ async def process_campaign_balance_value(
     deep_link = await _get_bot_deep_link_from_message(message, campaign.start_parameter)
     summary = _format_campaign_summary(campaign, texts)
     text = texts.t(
-        "ADMIN_CAMPAIGN_CREATED",
-        "✅ <b>Campaign created!</b>\n\n{summary}\n🔗 Link: <code>{link}</code>"
+        "ADMIN_CAMPAIGN_CREATED", "✅ <b>Campaign created!</b>\n\n{summary}\n🔗 Link: <code>{link}</code>"
     ).format(summary=summary, link=deep_link)
 
     await message.answer(
         text,
-        reply_markup=get_campaign_management_keyboard(
-            campaign.id, campaign.is_active, db_user.language
-        ),
+        reply_markup=get_campaign_management_keyboard(campaign.id, campaign.is_active, db_user.language),
     )
 
 
@@ -1559,7 +1537,9 @@ async def process_campaign_subscription_traffic(
     await state.update_data(campaign_subscription_traffic=traffic)
     await state.set_state(AdminStates.creating_campaign_subscription_devices)
     await message.answer(
-        texts.t("ADMIN_CAMPAIGN_ENTER_DEVICES", "📱 Enter device count (1-{max}):").format(max=settings.MAX_DEVICES_LIMIT)
+        texts.t("ADMIN_CAMPAIGN_ENTER_DEVICES", "📱 Enter device count (1-{max}):").format(
+            max=settings.MAX_DEVICES_LIMIT
+        )
     )
 
 
@@ -1668,40 +1648,25 @@ async def finalize_campaign_subscription(
     deep_link = await _get_bot_deep_link(callback, campaign.start_parameter)
     summary = _format_campaign_summary(campaign, texts)
     text = texts.t(
-        "ADMIN_CAMPAIGN_CREATED",
-        "✅ <b>Campaign created!</b>\n\n{summary}\n🔗 Link: <code>{link}</code>"
+        "ADMIN_CAMPAIGN_CREATED", "✅ <b>Campaign created!</b>\n\n{summary}\n🔗 Link: <code>{link}</code>"
     ).format(summary=summary, link=deep_link)
 
     await callback.message.edit_text(
         text,
-        reply_markup=get_campaign_management_keyboard(
-            campaign.id, campaign.is_active, db_user.language
-        ),
+        reply_markup=get_campaign_management_keyboard(campaign.id, campaign.is_active, db_user.language),
     )
     await callback.answer()
 
 
 def register_handlers(dp: Dispatcher):
     dp.callback_query.register(show_campaigns_menu, F.data == "admin_campaigns")
-    dp.callback_query.register(
-        show_campaigns_overall_stats, F.data == "admin_campaigns_stats"
-    )
+    dp.callback_query.register(show_campaigns_overall_stats, F.data == "admin_campaigns_stats")
     dp.callback_query.register(show_campaigns_list, F.data == "admin_campaigns_list")
-    dp.callback_query.register(
-        show_campaigns_list, F.data.startswith("admin_campaigns_list_page_")
-    )
-    dp.callback_query.register(
-        start_campaign_creation, F.data == "admin_campaigns_create"
-    )
-    dp.callback_query.register(
-        show_campaign_stats, F.data.startswith("admin_campaign_stats_")
-    )
-    dp.callback_query.register(
-        show_campaign_detail, F.data.startswith("admin_campaign_manage_")
-    )
-    dp.callback_query.register(
-        start_edit_campaign_name, F.data.startswith("admin_campaign_edit_name_")
-    )
+    dp.callback_query.register(show_campaigns_list, F.data.startswith("admin_campaigns_list_page_"))
+    dp.callback_query.register(start_campaign_creation, F.data == "admin_campaigns_create")
+    dp.callback_query.register(show_campaign_stats, F.data.startswith("admin_campaign_stats_"))
+    dp.callback_query.register(show_campaign_detail, F.data.startswith("admin_campaign_manage_"))
+    dp.callback_query.register(start_edit_campaign_name, F.data.startswith("admin_campaign_edit_name_"))
     dp.callback_query.register(
         start_edit_campaign_start_parameter,
         F.data.startswith("admin_campaign_edit_start_"),
@@ -1730,38 +1695,18 @@ def register_handlers(dp: Dispatcher):
         save_edit_campaign_subscription_servers,
         F.data.startswith("campaign_edit_servers_save_"),
     )
-    dp.callback_query.register(
-        toggle_edit_campaign_server, F.data.startswith("campaign_edit_toggle_")
-    )
-    dp.callback_query.register(
-        show_campaign_edit_menu, F.data.startswith("admin_campaign_edit_")
-    )
-    dp.callback_query.register(
-        delete_campaign_confirmed, F.data.startswith("admin_campaign_delete_confirm_")
-    )
-    dp.callback_query.register(
-        confirm_delete_campaign, F.data.startswith("admin_campaign_delete_")
-    )
-    dp.callback_query.register(
-        toggle_campaign_status, F.data.startswith("admin_campaign_toggle_")
-    )
-    dp.callback_query.register(
-        finalize_campaign_subscription, F.data == "campaign_servers_save"
-    )
-    dp.callback_query.register(
-        toggle_campaign_server, F.data.startswith("campaign_toggle_server_")
-    )
-    dp.callback_query.register(
-        select_campaign_bonus_type, F.data.startswith("campaign_bonus_")
-    )
+    dp.callback_query.register(toggle_edit_campaign_server, F.data.startswith("campaign_edit_toggle_"))
+    dp.callback_query.register(show_campaign_edit_menu, F.data.startswith("admin_campaign_edit_"))
+    dp.callback_query.register(delete_campaign_confirmed, F.data.startswith("admin_campaign_delete_confirm_"))
+    dp.callback_query.register(confirm_delete_campaign, F.data.startswith("admin_campaign_delete_"))
+    dp.callback_query.register(toggle_campaign_status, F.data.startswith("admin_campaign_toggle_"))
+    dp.callback_query.register(finalize_campaign_subscription, F.data == "campaign_servers_save")
+    dp.callback_query.register(toggle_campaign_server, F.data.startswith("campaign_toggle_server_"))
+    dp.callback_query.register(select_campaign_bonus_type, F.data.startswith("campaign_bonus_"))
 
     dp.message.register(process_campaign_name, AdminStates.creating_campaign_name)
-    dp.message.register(
-        process_campaign_start_parameter, AdminStates.creating_campaign_start
-    )
-    dp.message.register(
-        process_campaign_balance_value, AdminStates.creating_campaign_balance
-    )
+    dp.message.register(process_campaign_start_parameter, AdminStates.creating_campaign_start)
+    dp.message.register(process_campaign_balance_value, AdminStates.creating_campaign_balance)
     dp.message.register(
         process_campaign_subscription_days,
         AdminStates.creating_campaign_subscription_days,
@@ -1774,9 +1719,7 @@ def register_handlers(dp: Dispatcher):
         process_campaign_subscription_devices,
         AdminStates.creating_campaign_subscription_devices,
     )
-    dp.message.register(
-        process_edit_campaign_name, AdminStates.editing_campaign_name
-    )
+    dp.message.register(process_edit_campaign_name, AdminStates.editing_campaign_name)
     dp.message.register(
         process_edit_campaign_start_parameter,
         AdminStates.editing_campaign_start,

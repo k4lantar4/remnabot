@@ -84,9 +84,7 @@ class TelegramWebhookProcessor:
                     self._queue_maxsize,
                 )
             else:
-                logger.warning(
-                    "Telegram webhook processor started with no workers — updates will not be processed"
-                )
+                logger.warning("Telegram webhook processor started with no workers — updates will not be processed")
 
     async def stop(self) -> None:
         async with self._lifecycle_lock:
@@ -195,7 +193,9 @@ async def _dispatch_update(
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="webhook_queue_full") from error
         except TelegramWebhookProcessorNotRunningError as error:
             logger.error("Telegram webhook processor is inactive: %s", error)
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="webhook_processor_unavailable") from error
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="webhook_processor_unavailable"
+            ) from error
         return
 
     await dispatcher.feed_update(bot, update)
@@ -228,13 +228,13 @@ def create_telegram_router(
 ) -> APIRouter:
     """
     Create a Telegram webhook router.
-    
+
     If bot_id is provided, registers the bot for multi-bot routing and creates bot-specific endpoint.
     Otherwise, creates a single-bot endpoint (backward compatibility).
     """
     router = APIRouter()
     secret_token = settings.WEBHOOK_SECRET_TOKEN
-    
+
     # For multi-bot support, use bot-specific path
     if bot_id is not None:
         webhook_path = f"/webhook/{bot_id}"
@@ -293,25 +293,45 @@ def create_telegram_router(
 def create_multi_bot_webhook_router() -> APIRouter:
     """
     Create a unified webhook router that handles all bots.
-    This is an alternative approach using a single endpoint that routes to the correct bot.
+    Uses bot_token in URL path (PRD FR2.1) for multi-tenant isolation.
     """
     router = APIRouter()
     base_webhook_path = settings.get_telegram_webhook_path()
     secret_token = settings.WEBHOOK_SECRET_TOKEN
 
-    @router.post(f"{base_webhook_path}/{{bot_id:int}}")
-    async def multi_bot_webhook(request: Request, bot_id: int) -> JSONResponse:
-        """Webhook endpoint for specific bot by ID."""
-        # Try to get from registry first
+    @router.post(f"{base_webhook_path}/{{bot_token:path}}")
+    async def multi_bot_webhook_by_token(request: Request, bot_token: str) -> JSONResponse:
+        """
+        Webhook endpoint for specific bot by token (PRD FR2.1).
+        This is the preferred method for new webhooks.
+        """
+        from app.database.database import get_db
+        from app.database.crud.bot import get_bot_by_token
+
+        # Look up bot by token
+        async for db in get_db():
+            bot_config = await get_bot_by_token(db, bot_token)
+
+            if not bot_config:
+                logger.warning(f"Bot not found for token: {bot_token[:10]}...")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bot not found")
+
+            if not bot_config.is_active:
+                logger.warning(f"Bot {bot_config.id} ({bot_config.name}) is inactive")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bot is inactive")
+
+            bot_id = bot_config.id
+            break
+
+        # Get bot and dispatcher from registry
         if bot_id in _bot_registry:
             bot, dispatcher, processor = _bot_registry[bot_id]
         else:
-            # Fallback: try to get from active_bots (for dynamically added bots)
             from app.bot import active_bots, active_dispatchers
+
             if bot_id in active_bots and bot_id in active_dispatchers:
                 bot = active_bots[bot_id]
                 dispatcher = active_dispatchers[bot_id]
-                # Create processor on the fly
                 processor = TelegramWebhookProcessor(
                     bot=bot,
                     dispatcher=dispatcher,
@@ -320,17 +340,11 @@ def create_multi_bot_webhook_router() -> APIRouter:
                     enqueue_timeout=settings.get_webhook_enqueue_timeout(),
                     shutdown_timeout=settings.get_webhook_shutdown_timeout(),
                 )
-                # Register for future use
                 register_bot_for_webhook(bot_id, bot, dispatcher, processor)
                 await processor.start()
-                logger.info(f"✅ Dynamically created webhook processor for bot {bot_id}")
             else:
-                logger.warning(f"Received webhook for unregistered bot_id: {bot_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Bot {bot_id} not found"
-                )
-        
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Bot {bot_id} not found")
+
         if secret_token:
             header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
             if header_token != secret_token:

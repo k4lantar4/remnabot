@@ -69,4 +69,3 @@ class PromoCodeDetailResponse(PromoCodeResponse):
     total_uses: int
     today_uses: int
     recent_uses: list[PromoCodeRecentUse] = Field(default_factory=list)
-

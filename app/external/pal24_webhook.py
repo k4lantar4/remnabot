@@ -94,19 +94,23 @@ def create_pal24_flask_app(
 
     @app.route(settings.PAL24_WEBHOOK_PATH, methods=["GET"])
     def pal24_health() -> tuple:
-        return jsonify({
-            "status": "ok",
-            "service": "pal24_webhook",
-            "enabled": settings.is_pal24_enabled(),
-        }), 200
+        return jsonify(
+            {
+                "status": "ok",
+                "service": "pal24_webhook",
+                "enabled": settings.is_pal24_enabled(),
+            }
+        ), 200
 
     @app.route("/pal24/health", methods=["GET"])
     def pal24_additional_health() -> tuple:
-        return jsonify({
-            "status": "ok",
-            "service": "pal24_webhook",
-            "path": settings.PAL24_WEBHOOK_PATH,
-        }), 200
+        return jsonify(
+            {
+                "status": "ok",
+                "service": "pal24_webhook",
+                "path": settings.PAL24_WEBHOOK_PATH,
+            }
+        ), 200
 
     return app
 
@@ -159,4 +163,3 @@ async def start_pal24_webhook_server(payment_service: PaymentService) -> Pal24We
     server = Pal24WebhookServer(payment_service, loop)
     await loop.run_in_executor(None, server.start)
     return server
-

@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -82,11 +93,8 @@ from app.utils.promo_offer import (
 from .countries import _get_available_countries, _should_show_countries_management
 from .pricing import _build_subscription_period_prompt
 
-async def handle_autopay_menu(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_autopay_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
     if not subscription:
@@ -120,66 +128,46 @@ async def handle_autopay_menu(
     )
     await callback.answer()
 
-async def toggle_autopay(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def toggle_autopay(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     subscription = db_user.subscription
     enable = callback.data == "autopay_enable"
 
     await update_subscription_autopay(db, subscription, enable)
 
     texts = get_texts(db_user.language)
-    status = (
-        texts.t("AUTOPAY_STATUS_ENABLED", "enabled")
-        if enable
-        else texts.t("AUTOPAY_STATUS_DISABLED", "disabled")
-    )
-    await callback.answer(
-        texts.t("AUTOPAY_TOGGLE_SUCCESS", "✅ Autopay {status}!").format(status=status)
-    )
+    status = texts.t("AUTOPAY_STATUS_ENABLED", "enabled") if enable else texts.t("AUTOPAY_STATUS_DISABLED", "disabled")
+    await callback.answer(texts.t("AUTOPAY_TOGGLE_SUCCESS", "✅ Autopay {status}!").format(status=status))
 
     await handle_autopay_menu(callback, db_user, db)
 
-async def show_autopay_days(
-        callback: types.CallbackQuery,
-        db_user: User
-):
+
+async def show_autopay_days(callback: types.CallbackQuery, db_user: User):
     texts = get_texts(db_user.language)
     await callback.message.edit_text(
         texts.t(
             "AUTOPAY_SELECT_DAYS_PROMPT",
             "⏰ Choose how many days before expiration to charge:",
         ),
-        reply_markup=get_autopay_days_keyboard(db_user.language)
+        reply_markup=get_autopay_days_keyboard(db_user.language),
     )
     await callback.answer()
 
-async def set_autopay_days(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    days = int(callback.data.split('_')[2])
+
+async def set_autopay_days(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    days = int(callback.data.split("_")[2])
     subscription = db_user.subscription
 
-    await update_subscription_autopay(
-        db, subscription, subscription.autopay_enabled, days
-    )
+    await update_subscription_autopay(db, subscription, subscription.autopay_enabled, days)
 
     texts = get_texts(db_user.language)
-    await callback.answer(
-        texts.t("AUTOPAY_DAYS_SET", "✅ Set to {days} days!").format(days=days)
-    )
+    await callback.answer(texts.t("AUTOPAY_DAYS_SET", "✅ Set to {days} days!").format(days=days))
 
     await handle_autopay_menu(callback, db_user, db)
 
+
 async def handle_subscription_config_back(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user: User,
-        db: AsyncSession
+    callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession
 ):
     current_state = await state.get_state()
     texts = get_texts(db_user.language)
@@ -195,8 +183,7 @@ async def handle_subscription_config_back(
     elif current_state == SubscriptionStates.selecting_countries.state:
         if settings.is_traffic_selectable():
             await callback.message.edit_text(
-                texts.SELECT_TRAFFIC,
-                reply_markup=get_traffic_packages_keyboard(db_user.language)
+                texts.SELECT_TRAFFIC, reply_markup=get_traffic_packages_keyboard(db_user.language)
             )
             await state.set_state(SubscriptionStates.selecting_traffic)
         else:
@@ -213,11 +200,10 @@ async def handle_subscription_config_back(
     elif current_state == SubscriptionStates.confirming_purchase.state:
         if settings.is_devices_selection_enabled():
             data = await state.get_data()
-            selected_devices = data.get('devices', settings.DEFAULT_DEVICE_LIMIT)
+            selected_devices = data.get("devices", settings.DEFAULT_DEVICE_LIMIT)
 
             await callback.message.edit_text(
-                texts.SELECT_DEVICES,
-                reply_markup=get_devices_keyboard(selected_devices, db_user.language)
+                texts.SELECT_DEVICES, reply_markup=get_devices_keyboard(selected_devices, db_user.language)
             )
             await state.set_state(SubscriptionStates.selecting_devices)
         else:
@@ -225,17 +211,14 @@ async def handle_subscription_config_back(
 
     else:
         from app.handlers.menu import show_main_menu
+
         await show_main_menu(callback, db_user, db)
         await state.clear()
 
     await callback.answer()
 
-async def handle_subscription_cancel(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_subscription_cancel(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
 
     await state.clear()
@@ -245,34 +228,33 @@ async def handle_subscription_cancel(
     await user_cart_service.delete_user_cart(db_user.id)
 
     from app.handlers.menu import show_main_menu
+
     await show_main_menu(callback, db_user, db)
 
-    await callback.answer(
-        texts.t("subscription.purchase_cancelled", "❌ Purchase cancelled")
-    )
+    await callback.answer(texts.t("subscription.purchase_cancelled", "❌ Purchase cancelled"))
+
+
 async def _show_previous_configuration_step(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user: User,
-        texts,
-        db: AsyncSession,
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    db_user: User,
+    texts,
+    db: AsyncSession,
 ):
     if await _should_show_countries_management(db_user):
         countries = await _get_available_countries(db_user.promo_group_id)
         data = await state.get_data()
-        selected_countries = data.get('countries', [])
+        selected_countries = data.get("countries", [])
 
         await callback.message.edit_text(
-            texts.SELECT_COUNTRIES,
-            reply_markup=get_countries_keyboard(countries, selected_countries, db_user.language)
+            texts.SELECT_COUNTRIES, reply_markup=get_countries_keyboard(countries, selected_countries, db_user.language)
         )
         await state.set_state(SubscriptionStates.selecting_countries)
         return
 
     if settings.is_traffic_selectable():
         await callback.message.edit_text(
-            texts.SELECT_TRAFFIC,
-            reply_markup=get_traffic_packages_keyboard(db_user.language)
+            texts.SELECT_TRAFFIC, reply_markup=get_traffic_packages_keyboard(db_user.language)
         )
         await state.set_state(SubscriptionStates.selecting_traffic)
         return
@@ -283,4 +265,3 @@ async def _show_previous_configuration_step(
         parse_mode="HTML",
     )
     await state.set_state(SubscriptionStates.selecting_period)
-

@@ -33,10 +33,10 @@ class MenuLayoutStatsService:
         """Получить выражение для извлечения часа (совместимо с SQLite и PostgreSQL)."""
         if cls._is_sqlite():
             # SQLite: strftime('%H', column) возвращает строку
-            return func.cast(func.strftime('%H', column), Integer)
+            return func.cast(func.strftime("%H", column), Integer)
         else:
             # PostgreSQL: EXTRACT(hour FROM column)
-            return func.extract('hour', column)
+            return func.extract("hour", column)
 
     @classmethod
     def _get_weekday_expr(cls, column):
@@ -44,18 +44,12 @@ class MenuLayoutStatsService:
         if cls._is_sqlite():
             # SQLite: strftime('%w', column) возвращает 0=воскресенье, 1-6=пн-сб
             # Преобразуем: 0->6, 1->0, 2->1, ..., 6->5
-            dow = func.cast(func.strftime('%w', column), Integer)
-            return case(
-                (dow == 0, 6),
-                else_=dow - 1
-            )
+            dow = func.cast(func.strftime("%w", column), Integer)
+            return case((dow == 0, 6), else_=dow - 1)
         else:
             # PostgreSQL: EXTRACT(dow FROM column) возвращает 0=воскресенье, 1-6=пн-сб
-            dow = func.extract('dow', column)
-            return case(
-                (dow == 0, 6),
-                else_=dow - 1
-            )
+            dow = func.extract("dow", column)
+            return case((dow == 0, 6), else_=dow - 1)
 
     @classmethod
     async def log_button_click(
@@ -94,45 +88,37 @@ class MenuLayoutStatsService:
 
         # Общее количество кликов
         total_result = await db.execute(
-            select(func.count(ButtonClickLog.id))
-            .where(ButtonClickLog.button_id == button_id)
+            select(func.count(ButtonClickLog.id)).where(ButtonClickLog.button_id == button_id)
         )
         clicks_total = total_result.scalar() or 0
 
         # Клики сегодня
         today_result = await db.execute(
-            select(func.count(ButtonClickLog.id))
-            .where(and_(
-                ButtonClickLog.button_id == button_id,
-                ButtonClickLog.clicked_at >= today_start
-            ))
+            select(func.count(ButtonClickLog.id)).where(
+                and_(ButtonClickLog.button_id == button_id, ButtonClickLog.clicked_at >= today_start)
+            )
         )
         clicks_today = today_result.scalar() or 0
 
         # Клики за неделю
         week_result = await db.execute(
-            select(func.count(ButtonClickLog.id))
-            .where(and_(
-                ButtonClickLog.button_id == button_id,
-                ButtonClickLog.clicked_at >= week_ago
-            ))
+            select(func.count(ButtonClickLog.id)).where(
+                and_(ButtonClickLog.button_id == button_id, ButtonClickLog.clicked_at >= week_ago)
+            )
         )
         clicks_week = week_result.scalar() or 0
 
         # Клики за месяц
         month_result = await db.execute(
-            select(func.count(ButtonClickLog.id))
-            .where(and_(
-                ButtonClickLog.button_id == button_id,
-                ButtonClickLog.clicked_at >= month_ago
-            ))
+            select(func.count(ButtonClickLog.id)).where(
+                and_(ButtonClickLog.button_id == button_id, ButtonClickLog.clicked_at >= month_ago)
+            )
         )
         clicks_month = month_result.scalar() or 0
 
         # Уникальные пользователи
         unique_result = await db.execute(
-            select(func.count(func.distinct(ButtonClickLog.user_id)))
-            .where(ButtonClickLog.button_id == button_id)
+            select(func.count(func.distinct(ButtonClickLog.user_id))).where(ButtonClickLog.button_id == button_id)
         )
         unique_users = unique_result.scalar() or 0
 
@@ -167,22 +153,13 @@ class MenuLayoutStatsService:
 
         # Группировка по дате
         result = await db.execute(
-            select(
-                func.date(ButtonClickLog.clicked_at).label("date"),
-                func.count(ButtonClickLog.id).label("count")
-            )
-            .where(and_(
-                ButtonClickLog.button_id == button_id,
-                ButtonClickLog.clicked_at >= start_date
-            ))
+            select(func.date(ButtonClickLog.clicked_at).label("date"), func.count(ButtonClickLog.id).label("count"))
+            .where(and_(ButtonClickLog.button_id == button_id, ButtonClickLog.clicked_at >= start_date))
             .group_by(func.date(ButtonClickLog.clicked_at))
             .order_by(func.date(ButtonClickLog.clicked_at))
         )
 
-        return [
-            {"date": str(row.date), "count": row.count}
-            for row in result.all()
-        ]
+        return [{"date": str(row.date), "count": row.count} for row in result.all()]
 
     @classmethod
     async def get_all_buttons_stats(
@@ -207,17 +184,11 @@ class MenuLayoutStatsService:
                 # Последний клик (все время)
                 func.max(ButtonClickLog.clicked_at).label("last_click_at"),
                 # Подсчет кликов за сегодня
-                func.sum(
-                    case((ButtonClickLog.clicked_at >= today_start, 1), else_=0)
-                ).label("clicks_today"),
+                func.sum(case((ButtonClickLog.clicked_at >= today_start, 1), else_=0)).label("clicks_today"),
                 # Подсчет кликов за неделю
-                func.sum(
-                    case((ButtonClickLog.clicked_at >= week_ago, 1), else_=0)
-                ).label("clicks_week"),
+                func.sum(case((ButtonClickLog.clicked_at >= week_ago, 1), else_=0)).label("clicks_week"),
                 # Подсчет кликов за месяц
-                func.sum(
-                    case((ButtonClickLog.clicked_at >= month_ago, 1), else_=0)
-                ).label("clicks_month"),
+                func.sum(case((ButtonClickLog.clicked_at >= month_ago, 1), else_=0)).label("clicks_month"),
             )
             .group_by(ButtonClickLog.button_id)
             .order_by(desc(func.count(ButtonClickLog.id)))
@@ -245,10 +216,7 @@ class MenuLayoutStatsService:
         """Получить общее количество кликов за период."""
         start_date = _utcnow() - timedelta(days=days)
 
-        result = await db.execute(
-            select(func.count(ButtonClickLog.id))
-            .where(ButtonClickLog.clicked_at >= start_date)
-        )
+        result = await db.execute(select(func.count(ButtonClickLog.id)).where(ButtonClickLog.clicked_at >= start_date))
         return result.scalar() or 0
 
     @classmethod
@@ -266,10 +234,7 @@ class MenuLayoutStatsService:
                 func.count(ButtonClickLog.id).label("clicks_total"),
                 func.count(func.distinct(ButtonClickLog.user_id)).label("unique_users"),
             )
-            .where(and_(
-                ButtonClickLog.clicked_at >= start_date,
-                ButtonClickLog.button_type.isnot(None)
-            ))
+            .where(and_(ButtonClickLog.clicked_at >= start_date, ButtonClickLog.button_type.isnot(None)))
             .group_by(ButtonClickLog.button_type)
             .order_by(desc(func.count(ButtonClickLog.id)))
         )
@@ -296,31 +261,20 @@ class MenuLayoutStatsService:
         # Используем helper-метод для совместимости с SQLite и PostgreSQL
         hour_expr = cls._get_hour_expr(ButtonClickLog.clicked_at).label("hour")
 
-        query = select(
-            hour_expr,
-            func.count(ButtonClickLog.id).label("count")
-        ).where(ButtonClickLog.clicked_at >= start_date)
+        query = select(hour_expr, func.count(ButtonClickLog.id).label("count")).where(
+            ButtonClickLog.clicked_at >= start_date
+        )
 
         if button_id:
             query = query.where(ButtonClickLog.button_id == button_id)
 
-        result = await db.execute(
-            query
-            .group_by(hour_expr)
-            .order_by(hour_expr)
-        )
+        result = await db.execute(query.group_by(hour_expr).order_by(hour_expr))
 
         # Создаем словарь для быстрого доступа по часу
-        stats_dict = {
-            int(row.hour): row.count
-            for row in result.all()
-        }
+        stats_dict = {int(row.hour): row.count for row in result.all()}
 
         # Возвращаем все 24 часа, даже если count = 0
-        return [
-            {"hour": hour, "count": stats_dict.get(hour, 0)}
-            for hour in range(24)
-        ]
+        return [{"hour": hour, "count": stats_dict.get(hour, 0)} for hour in range(24)]
 
     @classmethod
     async def get_clicks_by_weekday(
@@ -339,35 +293,23 @@ class MenuLayoutStatsService:
         # Используем helper-метод для совместимости с SQLite и PostgreSQL
         weekday_expr = cls._get_weekday_expr(ButtonClickLog.clicked_at).label("weekday")
 
-        query = select(
-            weekday_expr,
-            func.count(ButtonClickLog.id).label("count")
-        ).where(ButtonClickLog.clicked_at >= start_date)
+        query = select(weekday_expr, func.count(ButtonClickLog.id).label("count")).where(
+            ButtonClickLog.clicked_at >= start_date
+        )
 
         if button_id:
             query = query.where(ButtonClickLog.button_id == button_id)
 
-        result = await db.execute(
-            query
-            .group_by(weekday_expr)
-            .order_by(weekday_expr)
-        )
+        result = await db.execute(query.group_by(weekday_expr).order_by(weekday_expr))
 
         weekday_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-        
+
         # Создаем словарь для быстрого доступа по weekday
-        stats_dict = {
-            int(row.weekday): row.count
-            for row in result.all()
-        }
-        
+        stats_dict = {int(row.weekday): row.count for row in result.all()}
+
         # Возвращаем все дни недели, даже если count = 0
         return [
-            {
-                "weekday": weekday,
-                "weekday_name": weekday_names[weekday],
-                "count": stats_dict.get(weekday, 0)
-            }
+            {"weekday": weekday, "weekday_name": weekday_names[weekday], "count": stats_dict.get(weekday, 0)}
             for weekday in range(7)
         ]
 
@@ -385,20 +327,14 @@ class MenuLayoutStatsService:
         query = select(
             ButtonClickLog.user_id,
             func.count(ButtonClickLog.id).label("clicks_count"),
-            func.max(ButtonClickLog.clicked_at).label("last_click_at")
-        ).where(and_(
-            ButtonClickLog.clicked_at >= start_date,
-            ButtonClickLog.user_id.isnot(None)
-        ))
+            func.max(ButtonClickLog.clicked_at).label("last_click_at"),
+        ).where(and_(ButtonClickLog.clicked_at >= start_date, ButtonClickLog.user_id.isnot(None)))
 
         if button_id:
             query = query.where(ButtonClickLog.button_id == button_id)
 
         result = await db.execute(
-            query
-            .group_by(ButtonClickLog.user_id)
-            .order_by(desc(func.count(ButtonClickLog.id)))
-            .limit(limit)
+            query.group_by(ButtonClickLog.user_id).order_by(desc(func.count(ButtonClickLog.id))).limit(limit)
         )
 
         return [
@@ -431,14 +367,9 @@ class MenuLayoutStatsService:
             query_current = query_current.where(ButtonClickLog.button_id == button_id)
             query_previous = query_previous.where(ButtonClickLog.button_id == button_id)
 
-        query_current = query_current.where(
-            ButtonClickLog.clicked_at >= current_start
-        )
+        query_current = query_current.where(ButtonClickLog.clicked_at >= current_start)
         query_previous = query_previous.where(
-            and_(
-                ButtonClickLog.clicked_at >= previous_start,
-                ButtonClickLog.clicked_at < previous_end
-            )
+            and_(ButtonClickLog.clicked_at >= previous_start, ButtonClickLog.clicked_at < previous_end)
         )
 
         current_result = await db.execute(query_current)

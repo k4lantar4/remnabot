@@ -169,9 +169,7 @@ async def process_cloudpayments_payment_amount(
     # Clear state
     await state.clear()
 
-    await _create_cloudpayments_payment_and_respond(
-        message, db_user, db, amount_kopeks, edit_message=False
-    )
+    await _create_cloudpayments_payment_and_respond(message, db_user, db, amount_kopeks, edit_message=False)
 
 
 @error_handler

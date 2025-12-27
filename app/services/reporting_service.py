@@ -56,7 +56,12 @@ class ReportingService:
     # Includes patterns in multiple languages to match historical data
     # Kept for backward compatibility: Cyrillic patterns match old DB entries
     # Legacy DB patterns (Cyrillic)
-    _REFERRAL_TEXT_PATTERNS = ["%referral%", "%refer%", "%\u0440\u0435\u0444\u0435\u0440\u0430\u043b%", "%\u0440\u0435\u0444\u0435\u0440%"]
+    _REFERRAL_TEXT_PATTERNS = [
+        "%referral%",
+        "%refer%",
+        "%\u0440\u0435\u0444\u0435\u0440\u0430\u043b%",
+        "%\u0440\u0435\u0444\u0435\u0440%",
+    ]
 
     def __init__(self) -> None:
         self.bot: Optional[Bot] = None
@@ -254,9 +259,7 @@ class ReportingService:
             usage = await self._get_user_usage_stats(session)
 
         conversion_rate = (
-            (stats["trial_to_paid_conversions"] / stats["new_trials"] * 100)
-            if stats["new_trials"] > 0
-            else 0.0
+            (stats["trial_to_paid_conversions"] / stats["new_trials"] * 100) if stats["new_trials"] > 0 else 0.0
         )
 
         lines: List[str] = []
@@ -296,10 +299,7 @@ class ReportingService:
                 "• Subscription payments: "
                 f"{stats['subscription_payments_count']} totaling {self._format_amount(stats['subscription_payments_amount'])}"
             ),
-            (
-                "• Top-ups: "
-                f"{stats['deposits_count']} totaling {self._format_amount(stats['deposits_amount'])}"
-            ),
+            (f"• Top-ups: {stats['deposits_count']} totaling {self._format_amount(stats['deposits_amount'])}"),
             (
                 "<i>Note: «Total revenue» includes only top-ups; subscription purchases and referral bonuses "
                 "are excluded.</i>"
@@ -328,9 +328,7 @@ class ReportingService:
         if top_referrers:
             for index, row in enumerate(top_referrers, 1):
                 referrer_label = escape(row["referrer_label"], quote=False)
-                lines.append(
-                    f"{index}. {referrer_label}: {row['count']} invitations"
-                )
+                lines.append(f"{index}. {referrer_label}: {row['count']} invitations")
         else:
             lines.append("— no data")
 
@@ -440,24 +438,18 @@ class ReportingService:
         )
 
         subscription_payments_count, subscription_payments_amount = (
-            (
-                await session.execute(
-                    self._txn_query_base(
-                        TransactionType.SUBSCRIPTION_PAYMENT.value,
-                        start_utc,
-                        end_utc,
-                    )
+            await session.execute(
+                self._txn_query_base(
+                    TransactionType.SUBSCRIPTION_PAYMENT.value,
+                    start_utc,
+                    end_utc,
                 )
-            ).one()
-        )
+            )
+        ).one()
 
         deposits_count, deposits_amount = (
-            (
-                await session.execute(
-                    self._deposit_query_excluding_referrals(start_utc, end_utc)
-                )
-            ).one()
-        )
+            await session.execute(self._deposit_query_excluding_referrals(start_utc, end_utc))
+        ).one()
 
         new_tickets = int(
             (
@@ -592,10 +584,10 @@ class ReportingService:
 
     def _format_amount(self, amount_toman: int, language: str = "en") -> str:
         from app.localization.texts import get_texts
+
         texts = get_texts(language)
         currency_unit = texts.t("CURRENCY_UNIT_TOMAN", "Toman")
         return f"{amount_toman:,} {currency_unit}".replace(",", " ")
 
 
 reporting_service = ReportingService()
-

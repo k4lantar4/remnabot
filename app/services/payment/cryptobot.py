@@ -126,11 +126,7 @@ class CryptoBotPaymentMixin:
                 "mini_app_invoice_url": invoice_data.get("mini_app_invoice_url"),
                 "web_app_invoice_url": invoice_data.get("web_app_invoice_url"),
                 "status": "active",
-                "created_at": (
-                    local_payment.created_at.isoformat()
-                    if local_payment.created_at
-                    else None
-                ),
+                "created_at": (local_payment.created_at.isoformat() if local_payment.created_at else None),
             }
 
         except Exception as error:
@@ -159,9 +155,7 @@ class CryptoBotPaymentMixin:
                 return False
 
             cryptobot_crud = import_module("app.database.crud.cryptobot")
-            payment = await cryptobot_crud.get_cryptobot_payment_by_invoice_id(
-                db, invoice_id
-            )
+            payment = await cryptobot_crud.get_cryptobot_payment_by_invoice_id(db, invoice_id)
             if not payment:
                 logger.error("CryptoBot payment not found in DB: %s", invoice_id)
                 return False
@@ -173,17 +167,13 @@ class CryptoBotPaymentMixin:
             paid_at_str = payload.get("paid_at")
             if paid_at_str:
                 try:
-                    paid_at = datetime.fromisoformat(
-                        paid_at_str.replace("Z", "+00:00")
-                    ).replace(tzinfo=None)
+                    paid_at = datetime.fromisoformat(paid_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
                 except Exception:
                     paid_at = datetime.utcnow()
             else:
                 paid_at = datetime.utcnow()
 
-            updated_payment = await cryptobot_crud.update_cryptobot_payment_status(
-                db, invoice_id, status, paid_at
-            )
+            updated_payment = await cryptobot_crud.update_cryptobot_payment_status(db, invoice_id, status, paid_at)
 
             descriptor = decode_payment_payload(
                 getattr(updated_payment, "payload", "") or "",
@@ -222,9 +212,7 @@ class CryptoBotPaymentMixin:
                     amount_rubles = await currency_converter.usd_to_rub(amount_usd)
                     amount_rubles_rounded = math.ceil(amount_rubles)
                     amount_toman = int(amount_rubles_rounded * 100)
-                    conversion_rate = (
-                        amount_rubles / amount_usd if amount_usd > 0 else 0
-                    )
+                    conversion_rate = amount_rubles / amount_usd if amount_usd > 0 else 0
                     logger.info(
                         "Conversion USD->RUB: $%s -> %s RUB (rounded to %s RUB, rate: %.2f)",
                         amount_usd,
@@ -266,9 +254,7 @@ class CryptoBotPaymentMixin:
                     is_completed=True,
                 )
 
-                await cryptobot_crud.link_cryptobot_payment_to_transaction(
-                    db, invoice_id, transaction.id
-                )
+                await cryptobot_crud.link_cryptobot_payment_to_transaction(db, invoice_id, transaction.id)
 
                 get_user_by_id = payment_service_module.get_user_by_id
                 user = await get_user_by_id(db, updated_payment.user_id)
@@ -286,9 +272,7 @@ class CryptoBotPaymentMixin:
                 user.updated_at = datetime.utcnow()
 
                 referrer_info = format_referrer_info(user)
-                topup_status = (
-                    "🆕 First top-up" if was_first_topup else "🔄 Top-up"
-                )
+                topup_status = "🆕 First top-up" if was_first_topup else "🔄 Top-up"
 
                 await db.commit()
 
@@ -384,30 +368,27 @@ class CryptoBotPaymentMixin:
                             total_amount=settings.format_price(amount_toman)
                         )
 
-                        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-                            [types.InlineKeyboardButton(
-                                text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                                callback_data="return_to_saved_cart"
-                            )],
-                            [types.InlineKeyboardButton(
-                                text="💰 My balance",
-                                callback_data="menu_balance"
-                            )],
-                            [types.InlineKeyboardButton(
-                                text="🏠 Main menu",
-                                callback_data="back_to_menu"
-                            )]
-                        ])
+                        keyboard = types.InlineKeyboardMarkup(
+                            inline_keyboard=[
+                                [
+                                    types.InlineKeyboardButton(
+                                        text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT, callback_data="return_to_saved_cart"
+                                    )
+                                ],
+                                [types.InlineKeyboardButton(text="💰 My balance", callback_data="menu_balance")],
+                                [types.InlineKeyboardButton(text="🏠 Main menu", callback_data="back_to_menu")],
+                            ]
+                        )
 
                         saved_cart_notification = _SavedCartNotificationPayload(
                             telegram_id=user.telegram_id,
-                                text=(
-                                    f"✅ Balance has been topped up by {settings.format_price(amount_toman)}!\n\n"
-                                    f"⚠️ <b>Important:</b> Topping up your balance does not activate a subscription automatically. "
-                                    f"Be sure to activate your subscription separately.\n\n"
-                                    f"🔄 If you have a saved subscription cart and auto-purchase is enabled, "
-                                    f"the subscription will be purchased automatically after the top-up.\n\n{cart_message}"
-                                ),
+                            text=(
+                                f"✅ Balance has been topped up by {settings.format_price(amount_toman)}!\n\n"
+                                f"⚠️ <b>Important:</b> Topping up your balance does not activate a subscription automatically. "
+                                f"Be sure to activate your subscription separately.\n\n"
+                                f"🔄 If you have a saved subscription cart and auto-purchase is enabled, "
+                                f"the subscription will be purchased automatically after the top-up.\n\n{cart_message}"
+                            ),
                             reply_markup=keyboard,
                             user_id=user.id,
                         )
@@ -431,9 +412,7 @@ class CryptoBotPaymentMixin:
             return True
 
         except Exception as error:
-            logger.error(
-                "Error processing CryptoBot webhook: %s", error, exc_info=True
-            )
+            logger.error("Error processing CryptoBot webhook: %s", error, exc_info=True)
             return False
 
     async def _process_subscription_renewal_payment(
@@ -473,9 +452,7 @@ class CryptoBotPaymentMixin:
         pricing_model: Optional[SubscriptionRenewalPricing] = None
         if descriptor.pricing_snapshot:
             try:
-                pricing_model = SubscriptionRenewalPricing.from_payload(
-                    descriptor.pricing_snapshot
-                )
+                pricing_model = SubscriptionRenewalPricing.from_payload(descriptor.pricing_snapshot)
             except Exception as error:
                 logger.warning(
                     "Failed to restore saved renewal pricing from payload %s: %s",
@@ -591,9 +568,7 @@ class CryptoBotPaymentMixin:
 
         return True
 
-    async def _deliver_admin_topup_notification(
-        self, context: _AdminNotificationContext
-    ) -> None:
+    async def _deliver_admin_topup_notification(self, context: _AdminNotificationContext) -> None:
         bot_instance = getattr(self, "bot", None)
         if not bot_instance:
             return
@@ -650,9 +625,7 @@ class CryptoBotPaymentMixin:
                     exc_info=True,
                 )
 
-    async def _deliver_user_topup_notification(
-        self, payload: _UserNotificationPayload
-    ) -> None:
+    async def _deliver_user_topup_notification(self, payload: _UserNotificationPayload) -> None:
         bot_instance = getattr(self, "bot", None)
         if not bot_instance:
             return
@@ -676,9 +649,7 @@ class CryptoBotPaymentMixin:
                 error,
             )
 
-    async def _deliver_saved_cart_reminder(
-        self, payload: _SavedCartNotificationPayload
-    ) -> None:
+    async def _deliver_saved_cart_reminder(self, payload: _SavedCartNotificationPayload) -> None:
         bot_instance = getattr(self, "bot", None)
         if not bot_instance:
             return
@@ -720,9 +691,7 @@ class CryptoBotPaymentMixin:
 
         invoice_id = payment.invoice_id
         try:
-            invoices = await self.cryptobot_service.get_invoices(
-                invoice_ids=[invoice_id]
-            )
+            invoices = await self.cryptobot_service.get_invoices(invoice_ids=[invoice_id])
         except Exception as error:  # pragma: no cover - network errors
             logger.error(
                 "Error requesting CryptoBot invoice %s status: %s",
@@ -751,9 +720,7 @@ class CryptoBotPaymentMixin:
         paid_at = None
         if paid_at_str:
             try:
-                paid_at = datetime.fromisoformat(paid_at_str.replace("Z", "+00:00")).replace(
-                    tzinfo=None
-                )
+                paid_at = datetime.fromisoformat(paid_at_str.replace("Z", "+00:00")).replace(tzinfo=None)
             except Exception:  # pragma: no cover - defensive parsing
                 paid_at = None
 

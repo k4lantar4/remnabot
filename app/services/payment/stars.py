@@ -92,15 +92,9 @@ class TelegramStarsMixin:
     ) -> bool:
         """Finalizes a Telegram Stars payment and updates the user balance."""
         try:
-            rubles_amount = TelegramStarsService.calculate_rubles_from_stars(
-                stars_amount
-            )
+            rubles_amount = TelegramStarsService.calculate_rubles_from_stars(stars_amount)
             # Convert rubles from Telegram Stars API to toman
-            amount_toman = int(
-                (rubles_amount * Decimal(100)).to_integral_value(
-                    rounding=ROUND_HALF_UP
-                )
-            )
+            amount_toman = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
 
             simple_payload = self._parse_simple_subscription_payload(
                 payload,
@@ -112,11 +106,7 @@ class TelegramStarsMixin:
                 if simple_payload
                 else f"Balance top-up via Telegram Stars ({stars_amount} ⭐)"
             )
-            transaction_type = (
-                TransactionType.SUBSCRIPTION_PAYMENT
-                if simple_payload
-                else TransactionType.DEPOSIT
-            )
+            transaction_type = TransactionType.SUBSCRIPTION_PAYMENT if simple_payload else TransactionType.DEPOSIT
 
             transaction = await create_transaction(
                 db=db,
@@ -317,9 +307,7 @@ class TelegramStarsMixin:
             )
 
         period_display = period_days
-        if not period_display and getattr(subscription, "start_date", None) and getattr(
-            subscription, "end_date", None
-        ):
+        if not period_display and getattr(subscription, "start_date", None) and getattr(subscription, "end_date", None):
             period_display = max(1, (subscription.end_date - subscription.start_date).days or 0)
         if not period_display:
             period_display = settings.SIMPLE_SUBSCRIPTION_PERIOD_DAYS
@@ -331,9 +319,7 @@ class TelegramStarsMixin:
 
                 texts = get_texts(user.language)
                 traffic_limit = getattr(subscription, "traffic_limit_gb", 0) or 0
-                traffic_label = (
-                    "Unlimited" if traffic_limit == 0 else f"{int(traffic_limit)} GB"
-                )
+                traffic_label = "Unlimited" if traffic_limit == 0 else f"{int(traffic_limit)} GB"
 
                 success_message = (
                     "✅ <b>Subscription activated!</b>\n\n"
@@ -432,21 +418,15 @@ class TelegramStarsMixin:
 
         await db.commit()
 
-        description_for_referral = (
-            f"Stars top-up: {settings.format_price(amount_toman)} ({stars_amount} ⭐)"
-        )
+        description_for_referral = f"Stars top-up: {settings.format_price(amount_toman)} ({stars_amount} ⭐)"
         logger.info(
             "🔍 Checking referral logic for description: '%s'",
             description_for_referral,
         )
 
         lower_description = description_for_referral.lower()
-        contains_allowed_keywords = any(
-            word in lower_description for word in ["topup", "stars", "yookassa"]
-        )
-        contains_forbidden_keywords = any(
-            word in lower_description for word in ["commission", "bonus"]
-        )
+        contains_allowed_keywords = any(word in lower_description for word in ["topup", "stars", "yookassa"])
+        contains_forbidden_keywords = any(word in lower_description for word in ["commission", "bonus"])
         allow_referral = contains_allowed_keywords and not contains_forbidden_keywords
 
         if allow_referral:
@@ -540,8 +520,7 @@ class TelegramStarsMixin:
                 texts = get_texts(user.language)
                 cart_message = texts.t(
                     "BALANCE_TOPUP_CART_REMINDER_DETAILED",
-                    "🛒 You have an unfinished order.\n\n"
-                    "You can continue checkout with the same parameters.",
+                    "🛒 You have an unfinished order.\n\nYou can continue checkout with the same parameters.",
                 )
 
                 keyboard = types.InlineKeyboardMarkup(
@@ -570,10 +549,10 @@ class TelegramStarsMixin:
                 await self.bot.send_message(
                     chat_id=user.telegram_id,
                     text=f"✅ Balance topped up by {settings.format_price(amount_toman)}!\n\n"
-                         f"⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. "
-                         f"Please activate the subscription separately.\n\n"
-                         f"🔄 If a saved subscription cart exists and auto-purchase is enabled, "
-                         f"the subscription will be purchased automatically after the top-up.\n\n{cart_message}",
+                    f"⚠️ <b>Important:</b> Balance top-up does not activate a subscription automatically. "
+                    f"Please activate the subscription separately.\n\n"
+                    f"🔄 If a saved subscription cart exists and auto-purchase is enabled, "
+                    f"the subscription will be purchased automatically after the top-up.\n\n{cart_message}",
                     reply_markup=keyboard,
                 )
                 logger.info(

@@ -309,16 +309,15 @@ def _get_group_status(group_key: str, language: str = "en") -> Tuple[str, str]:
         if active == 0:
             return "🔴", texts.t("ADMIN_CFG_STATUS_NO_PAYMENTS", "No active payments")
         if active < total:
-            return "🟡", texts.t("ADMIN_CFG_STATUS_PAYMENTS_PARTIAL", "Active {active} of {total}").format(active=active, total=total)
+            return "🟡", texts.t("ADMIN_CFG_STATUS_PAYMENTS_PARTIAL", "Active {active} of {total}").format(
+                active=active, total=total
+            )
         return "🟢", texts.t("ADMIN_CFG_STATUS_PAYMENTS_ALL", "All systems active")
 
     if key == "remnawave":
         api_ready = bool(
             settings.REMNAWAVE_API_URL
-            and (
-                settings.REMNAWAVE_API_KEY
-                or (settings.REMNAWAVE_USERNAME and settings.REMNAWAVE_PASSWORD)
-            )
+            and (settings.REMNAWAVE_API_KEY or (settings.REMNAWAVE_USERNAME and settings.REMNAWAVE_PASSWORD))
         )
         if api_ready:
             return "🟢", texts.t("ADMIN_CFG_STATUS_API_CONNECTED", "API connected")
@@ -349,7 +348,9 @@ def _get_group_status(group_key: str, language: str = "en") -> Tuple[str, str]:
 
     if key == "trial":
         if settings.TRIAL_DURATION_DAYS > 0:
-            return "🟢", texts.t("ADMIN_CFG_STATUS_TRIAL_DAYS", "{days} days trial period").format(days=settings.TRIAL_DURATION_DAYS)
+            return "🟢", texts.t("ADMIN_CFG_STATUS_TRIAL_DAYS", "{days} days trial period").format(
+                days=settings.TRIAL_DURATION_DAYS
+            )
         return "⚪", texts.t("ADMIN_CFG_STATUS_TRIAL_OFF", "Trial disabled")
 
     if key == "referral":
@@ -439,9 +440,9 @@ def _render_dashboard_overview(language: str = "en") -> str:
     lines: List[str] = [
         texts.t("ADMIN_CFG_DASHBOARD_TITLE", "⚙️ <b>BOT CONTROL PANEL</b>"),
         "",
-        texts.t("ADMIN_CFG_DASHBOARD_STATS", "Total parameters: <b>{total}</b> • Overridden: <b>{overrides}</b>").format(
-            total=total_settings, overrides=total_overrides
-        ),
+        texts.t(
+            "ADMIN_CFG_DASHBOARD_STATS", "Total parameters: <b>{total}</b> • Overridden: <b>{overrides}</b>"
+        ).format(total=total_settings, overrides=total_overrides),
         "",
         texts.t("ADMIN_CFG_DASHBOARD_GROUPS_HEADER", "<b>Settings Groups</b>"),
         "",
@@ -520,8 +521,11 @@ def _perform_settings_search(query: str) -> List[Dict[str, object]]:
     return results[:20]
 
 
-def _build_search_results_keyboard(results: List[Dict[str, object]], language: str = "en") -> types.InlineKeyboardMarkup:
+def _build_search_results_keyboard(
+    results: List[Dict[str, object]], language: str = "en"
+) -> types.InlineKeyboardMarkup:
     from app.localization.texts import get_texts
+
     texts = get_texts(language)
     rows: List[List[types.InlineKeyboardButton]] = []
     for result in results:
@@ -536,9 +540,7 @@ def _build_search_results_keyboard(results: List[Dict[str, object]], language: s
             [
                 types.InlineKeyboardButton(
                     text=text,
-                    callback_data=(
-                        f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"
-                    ),
+                    callback_data=(f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"),
                 )
             ]
         )
@@ -590,7 +592,10 @@ async def start_settings_search(
     )
 
     await callback.message.edit_text(
-        texts.t("ADMIN_CFG_SEARCH_PROMPT", "🔍 <b>Search settings</b>\n\nSend part of the key or setting name.\nExample: <code>yookassa</code> or <code>notifications</code>."),
+        texts.t(
+            "ADMIN_CFG_SEARCH_PROMPT",
+            "🔍 <b>Search settings</b>\n\nSend part of the key or setting name.\nExample: <code>yookassa</code> or <code>notifications</code>.",
+        ),
         reply_markup=keyboard,
         parse_mode="HTML",
     )
@@ -624,9 +629,7 @@ async def handle_search_query(
             "",
         ]
         for index, item in enumerate(results, start=1):
-            lines.append(
-                f"{index}. {item['name']} — {item['value']} ({item['category_label']})"
-            )
+            lines.append(f"{index}. {item['name']} — {item['value']} ({item['category_label']})")
         text = "\n".join(lines)
     else:
         keyboard = types.InlineKeyboardMarkup(
@@ -646,7 +649,7 @@ async def handle_search_query(
         )
         text = texts.t(
             "ADMIN_CFG_SEARCH_NO_RESULTS",
-            "🔍 <b>Search Results</b>\n\nQuery: <code>{query}</code>\n\nNothing found. Try changing your search terms."
+            "🔍 <b>Search Results</b>\n\nQuery: <code>{query}</code>\n\nNothing found. Try changing your search terms.",
         ).format(query=html.escape(query))
 
     await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
@@ -677,11 +680,7 @@ async def show_presets(
     buttons: List[types.InlineKeyboardButton] = []
     for key, meta in PRESET_METADATA.items():
         title = texts.t(meta["title_key"], meta["title_default"])
-        buttons.append(
-            types.InlineKeyboardButton(
-                text=title, callback_data=f"botcfg_preset:{key}"
-            )
-        )
+        buttons.append(types.InlineKeyboardButton(text=title, callback_data=f"botcfg_preset:{key}"))
 
     rows: List[List[types.InlineKeyboardButton]] = []
     for chunk in _chunk(buttons, 2):
@@ -722,9 +721,7 @@ def _format_preset_preview(preset_key: str, language: str = "en") -> Tuple[str, 
         current_label = texts.t("ADMIN_CFG_PRESET_CURRENT", "Current")
         new_label = texts.t("ADMIN_CFG_PRESET_NEW", "New")
         lines.append(
-            f"{index}. <code>{setting_key}</code>\n"
-            f"   {current_label}: {current_pretty}\n"
-            f"   {new_label}: {new_pretty}"
+            f"{index}. <code>{setting_key}</code>\n   {current_label}: {current_pretty}\n   {new_label}: {new_pretty}"
         )
 
     return title, lines
@@ -753,11 +750,7 @@ async def preview_preset(
                     text=texts.t("ADMIN_CFG_BTN_APPLY", "✅ Apply"), callback_data=f"botcfg_preset_apply:{preset_key}"
                 )
             ],
-            [
-                types.InlineKeyboardButton(
-                    text=texts.BACK, callback_data="botcfg_action:presets"
-                )
-            ],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="botcfg_action:presets")],
         ]
     )
 
@@ -901,7 +894,10 @@ async def start_import_settings(
     )
 
     await callback.message.edit_text(
-        texts.t("ADMIN_CFG_IMPORT_PROMPT", "📥 <b>Import settings</b>\n\nAttach a .env file or send text with <code>KEY=value</code> pairs.\nUnknown parameters will be ignored."),
+        texts.t(
+            "ADMIN_CFG_IMPORT_PROMPT",
+            "📥 <b>Import settings</b>\n\nAttach a .env file or send text with <code>KEY=value</code> pairs.\nUnknown parameters will be ignored.",
+        ),
         parse_mode="HTML",
         reply_markup=keyboard,
     )
@@ -936,7 +932,10 @@ async def handle_import_message(
     parsed = _parse_env_content(content)
     if not parsed:
         await message.answer(
-            texts.t("ADMIN_CFG_IMPORT_NO_PARAMS", "❌ Could not find parameters in the file. Make sure to use KEY=value format."),
+            texts.t(
+                "ADMIN_CFG_IMPORT_NO_PARAMS",
+                "❌ Could not find parameters in the file. Make sure to use KEY=value format.",
+            ),
             parse_mode="HTML",
         )
         await state.clear()
@@ -958,9 +957,7 @@ async def handle_import_message(
             if raw_value in {"", '""'}:
                 value_to_apply = None
             else:
-                value_to_apply = bot_configuration_service.deserialize_value(
-                    setting_key, raw_value
-                )
+                value_to_apply = bot_configuration_service.deserialize_value(setting_key, raw_value)
         except Exception as error:
             errors.append(f"{setting_key}: {error}")
             continue
@@ -1000,9 +997,7 @@ async def handle_import_message(
         ]
     )
 
-    await message.answer(
-        "\n".join(summary_lines), parse_mode="HTML", reply_markup=keyboard
-    )
+    await message.answer("\n".join(summary_lines), parse_mode="HTML", reply_markup=keyboard)
     await state.clear()
 
 
@@ -1015,9 +1010,7 @@ async def show_settings_history(
     state: FSMContext,
 ):
     texts = get_texts(db_user.language)
-    result = await db.execute(
-        select(SystemSetting).order_by(SystemSetting.updated_at.desc()).limit(10)
-    )
+    result = await db.execute(select(SystemSetting).order_by(SystemSetting.updated_at.desc()).limit(10))
     rows = result.scalars().all()
 
     lines = [texts.t("ADMIN_CFG_HISTORY_TITLE", "🕘 <b>Change History</b>"), ""]
@@ -1027,9 +1020,7 @@ async def show_settings_history(
             ts_text = timestamp.strftime("%d.%m %H:%M") if timestamp else "—"
             try:
                 parsed_value = bot_configuration_service.deserialize_value(row.key, row.value)
-                formatted_value = bot_configuration_service.format_value_human(
-                    row.key, parsed_value
-                )
+                formatted_value = bot_configuration_service.format_value_human(row.key, parsed_value)
             except Exception:
                 formatted_value = row.value or "—"
             lines.append(f"{ts_text} • <code>{row.key}</code> = {formatted_value}")
@@ -1045,9 +1036,7 @@ async def show_settings_history(
         ]
     )
 
-    await callback.message.edit_text(
-        "\n".join(lines), parse_mode="HTML", reply_markup=keyboard
-    )
+    await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=keyboard)
     await callback.answer()
 
 
@@ -1068,7 +1057,7 @@ async def show_help(
         "• Use 🔍 search for quick access to a setting.\n"
         "• Export .env before major changes to have a backup.\n"
         "• Import allows you to restore configuration or apply a template.\n"
-        "• All secret keys are hidden in the interface automatically."
+        "• All secret keys are hidden in the interface automatically.",
     )
 
     keyboard = types.InlineKeyboardMarkup(
@@ -1081,9 +1070,7 @@ async def show_help(
         ]
     )
 
-    await callback.message.edit_text(
-        text, parse_mode="HTML", reply_markup=keyboard
-    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
     await callback.answer()
 
 
@@ -1187,11 +1174,7 @@ def _get_grouped_categories(language: str = "en") -> List[Tuple[str, str, List[T
             localized_title = _get_group_title(group_key, language)
             grouped.append((group_key, localized_title, items))
 
-    remaining = [
-        (key, label, count)
-        for key, (label, count) in categories_map.items()
-        if key not in used
-    ]
+    remaining = [(key, label, count) for key, (label, count) in categories_map.items() if key not in used]
 
     if remaining:
         remaining.sort(key=lambda item: item[1])
@@ -1367,9 +1350,7 @@ def _build_settings_keyboard(
             [
                 types.InlineKeyboardButton(
                     text=texts.t("ADMIN_CFG_BTN_TEST_CONNECTION", "🔌 Test connection"),
-                    callback_data=(
-                        f"botcfg_test_remnawave:{group_key}:{category_key}:{category_page}:{page}"
-                    ),
+                    callback_data=(f"botcfg_test_remnawave:{group_key}:{category_key}:{category_page}:{page}"),
                 )
             ]
         )
@@ -1379,9 +1360,7 @@ def _build_settings_keyboard(
     def _test_button(text: str, method: str) -> types.InlineKeyboardButton:
         return types.InlineKeyboardButton(
             text=text,
-            callback_data=(
-                f"botcfg_test_payment:{method}:{group_key}:{category_key}:{category_page}:{page}"
-            ),
+            callback_data=(f"botcfg_test_payment:{method}:{group_key}:{category_key}:{category_page}:{page}"),
         )
 
     if category_key == "YOOKASSA":
@@ -1427,9 +1406,7 @@ def _build_settings_keyboard(
             [
                 types.InlineKeyboardButton(
                     text=button_text,
-                    callback_data=(
-                        f"botcfg_setting:{group_key}:{category_page}:{page}:{callback_token}"
-                    ),
+                    callback_data=(f"botcfg_setting:{group_key}:{category_page}:{page}:{callback_token}"),
                 )
             ]
         )
@@ -1440,33 +1417,27 @@ def _build_settings_keyboard(
             nav_row.append(
                 types.InlineKeyboardButton(
                     text="⬅️",
-                    callback_data=(
-                        f"botcfg_cat:{group_key}:{category_key}:{category_page}:{page - 1}"
-                    ),
+                    callback_data=(f"botcfg_cat:{group_key}:{category_key}:{category_page}:{page - 1}"),
                 )
             )
-        nav_row.append(
-            types.InlineKeyboardButton(
-                text=f"[{page}/{total_pages}]", callback_data="botcfg_cat_page:noop"
-            )
-        )
+        nav_row.append(types.InlineKeyboardButton(text=f"[{page}/{total_pages}]", callback_data="botcfg_cat_page:noop"))
         if page < total_pages:
             nav_row.append(
                 types.InlineKeyboardButton(
                     text="➡️",
-                    callback_data=(
-                        f"botcfg_cat:{group_key}:{category_key}:{category_page}:{page + 1}"
-                    ),
+                    callback_data=(f"botcfg_cat:{group_key}:{category_key}:{category_page}:{page + 1}"),
                 )
             )
         rows.append(nav_row)
 
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_CFG_BTN_TO_CATEGORIES", "⬅️ To categories"),
-            callback_data=f"botcfg_group:{group_key}:{category_page}",
-        )
-    ])
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CFG_BTN_TO_CATEGORIES", "⬅️ To categories"),
+                callback_data=f"botcfg_group:{group_key}:{category_page}",
+            )
+        ]
+    )
 
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -1508,61 +1479,65 @@ def _build_setting_keyboard(
             rows.append(list(chunk))
 
     if key == "SIMPLE_SUBSCRIPTION_SQUAD_UUID" and not is_read_only:
-        rows.append([
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_CFG_BTN_SELECT_SQUAD", "🌍 Select squad"),
-                callback_data=(
-                    f"botcfg_simple_squad:{group_key}:{category_page}:{settings_page}:{callback_token}:1"
-                ),
-            )
-        ])
+        rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_CFG_BTN_SELECT_SQUAD", "🌍 Select squad"),
+                    callback_data=(
+                        f"botcfg_simple_squad:{group_key}:{category_page}:{settings_page}:{callback_token}:1"
+                    ),
+                )
+            ]
+        )
 
     if definition.python_type is bool and not is_read_only:
-        rows.append([
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_CFG_BTN_TOGGLE", "🔁 Toggle"),
-                callback_data=(
-                    f"botcfg_toggle:{group_key}:{category_page}:{settings_page}:{callback_token}"
-                ),
-            )
-        ])
+        rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_CFG_BTN_TOGGLE", "🔁 Toggle"),
+                    callback_data=(f"botcfg_toggle:{group_key}:{category_page}:{settings_page}:{callback_token}"),
+                )
+            ]
+        )
 
     if not is_read_only:
-        rows.append([
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_CFG_BTN_EDIT", "✏️ Edit"),
-                callback_data=(
-                    f"botcfg_edit:{group_key}:{category_page}:{settings_page}:{callback_token}"
-                ),
-            )
-        ])
+        rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_CFG_BTN_EDIT", "✏️ Edit"),
+                    callback_data=(f"botcfg_edit:{group_key}:{category_page}:{settings_page}:{callback_token}"),
+                )
+            ]
+        )
 
     if bot_configuration_service.has_override(key) and not is_read_only:
-        rows.append([
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_CFG_BTN_RESET", "♻️ Reset"),
-                callback_data=(
-                    f"botcfg_reset:{group_key}:{category_page}:{settings_page}:{callback_token}"
-                ),
-            )
-        ])
+        rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_CFG_BTN_RESET", "♻️ Reset"),
+                    callback_data=(f"botcfg_reset:{group_key}:{category_page}:{settings_page}:{callback_token}"),
+                )
+            ]
+        )
 
     if is_read_only:
-        rows.append([
-            types.InlineKeyboardButton(
-                text=texts.t("ADMIN_CFG_BTN_READ_ONLY", "🔒 Read only"),
-                callback_data="botcfg_group:noop",
-            )
-        ])
-
-    rows.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data=(
-                f"botcfg_cat:{group_key}:{definition.category_key}:{category_page}:{settings_page}"
-            ),
+        rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_CFG_BTN_READ_ONLY", "🔒 Read only"),
+                    callback_data="botcfg_group:noop",
+                )
+            ]
         )
-    ])
+
+    rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=(f"botcfg_cat:{group_key}:{definition.category_key}:{category_page}:{settings_page}"),
+            )
+        ]
+    )
 
     return types.InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -1586,17 +1561,17 @@ def _render_setting_text(key: str, language: str = "en") -> str:
 
     lines = [
         f"🧩 <b>{summary['name']}</b>",
-        texts.t("ADMIN_CFG_SETTING_KEY", "🔑 Key: <code>{key}</code>").format(key=summary['key']),
-        texts.t("ADMIN_CFG_SETTING_CATEGORY", "📁 Category: {label}").format(label=summary['category_label']),
+        texts.t("ADMIN_CFG_SETTING_KEY", "🔑 Key: <code>{key}</code>").format(key=summary["key"]),
+        texts.t("ADMIN_CFG_SETTING_CATEGORY", "📁 Category: {label}").format(label=summary["category_label"]),
         texts.t("ADMIN_CFG_SETTING_TYPE", "📝 Type: {type}").format(type=type_label),
-        texts.t("ADMIN_CFG_SETTING_CURRENT", "📌 Current: {value}").format(value=summary['current']),
+        texts.t("ADMIN_CFG_SETTING_CURRENT", "📌 Current: {value}").format(value=summary["current"]),
     ]
 
     original_value = summary.get("original")
     if original_value not in {None, ""}:
         lines.append(texts.t("ADMIN_CFG_SETTING_DEFAULT", "📦 Default: {value}").format(value=original_value))
 
-    override_status = yes_label if summary['has_override'] else no_label
+    override_status = yes_label if summary["has_override"] else no_label
     lines.append(texts.t("ADMIN_CFG_SETTING_OVERRIDDEN", "✳️ Overridden: {status}").format(status=override_status))
 
     if summary.get("is_read_only"):
@@ -1663,7 +1638,9 @@ async def show_bot_config_group(
     group_lookup = {key: (title, items) for key, title, items in grouped}
 
     if group_key not in group_lookup:
-        await callback.answer(texts.t("ADMIN_CFG_GROUP_UNAVAILABLE", "This group is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_GROUP_UNAVAILABLE", "This group is no longer available"), show_alert=True
+        )
         return
 
     group_title, items = group_lookup[group_key]
@@ -1682,7 +1659,9 @@ async def show_bot_config_group(
             clean_title = remainder.strip()
     lines = [f"{icon} <b>{clean_title}</b>"]
     if status_text:
-        lines.append(texts.t("ADMIN_CFG_STATUS_LABEL", "Status: {icon} {text}").format(icon=status_icon, text=status_text))
+        lines.append(
+            texts.t("ADMIN_CFG_STATUS_LABEL", "Status: {icon} {text}").format(icon=status_icon, text=status_text)
+        )
     lines.append(f"🏠 → {clean_title}")
     if description:
         lines.append("")
@@ -1705,9 +1684,7 @@ async def show_bot_config_category(
     db: AsyncSession,
 ):
     texts = get_texts(db_user.language)
-    group_key, category_key, category_page, settings_page = _parse_category_payload(
-        callback.data
-    )
+    group_key, category_key, category_page, settings_page = _parse_category_payload(callback.data)
     definitions = bot_configuration_service.get_settings_for_category(category_key)
 
     if not definitions:
@@ -1776,11 +1753,15 @@ async def show_simple_subscription_squad_selector(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
 
     if key != "SIMPLE_SUBSCRIPTION_SQUAD_UUID":
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
 
     try:
@@ -1822,7 +1803,11 @@ async def show_simple_subscription_squad_selector(
     lines = [
         texts.t("ADMIN_CFG_SELECT_SQUAD_TITLE", "🌍 <b>Select squad for simple purchase</b>"),
         "",
-        texts.t("ADMIN_CFG_CURRENT_SELECTION", "Current selection: {selection}").format(selection=html.escape(current_display)) if current_display else texts.t("ADMIN_CFG_CURRENT_SELECTION", "Current selection: —"),
+        texts.t("ADMIN_CFG_CURRENT_SELECTION", "Current selection: {selection}").format(
+            selection=html.escape(current_display)
+        )
+        if current_display
+        else texts.t("ADMIN_CFG_CURRENT_SELECTION", "Current selection: —"),
         "",
     ]
 
@@ -1838,9 +1823,7 @@ async def show_simple_subscription_squad_selector(
     keyboard_rows: List[List[types.InlineKeyboardButton]] = []
 
     for server in squads:
-        status_icon = (
-            "✅" if server.squad_uuid == current_uuid else ("🟢" if server.is_available else "🔒")
-        )
+        status_icon = "✅" if server.squad_uuid == current_uuid else ("🟢" if server.is_available else "🔒")
         label_parts = [status_icon, server.display_name]
         if server.country_code:
             label_parts.append(f"({server.country_code.upper()})")
@@ -1851,14 +1834,16 @@ async def show_simple_subscription_squad_selector(
                 pass
         label = " ".join(label_parts)
 
-        keyboard_rows.append([
-            types.InlineKeyboardButton(
-                text=label,
-                callback_data=(
-                    f"botcfg_simple_squad_select:{group_key}:{category_page}:{settings_page}:{token}:{server.id}:{page}"
-                ),
-            )
-        ])
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text=label,
+                    callback_data=(
+                        f"botcfg_simple_squad_select:{group_key}:{category_page}:{settings_page}:{token}:{server.id}:{page}"
+                    ),
+                )
+            ]
+        )
 
     if total_pages > 1:
         nav_row: List[types.InlineKeyboardButton] = []
@@ -1883,14 +1868,14 @@ async def show_simple_subscription_squad_selector(
         if nav_row:
             keyboard_rows.append(nav_row)
 
-    keyboard_rows.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data=(
-                f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"
-            ),
-        )
-    ])
+    keyboard_rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data=(f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"),
+            )
+        ]
+    )
 
     await callback.message.edit_text(
         text,
@@ -1932,7 +1917,9 @@ async def select_simple_subscription_squad(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
 
     if bot_configuration_service.is_read_only(key):
@@ -2071,7 +2058,7 @@ async def test_payment_provider(
             return
 
         amount_toman = 10 * 100
-        description = settings.get_balance_payment_description(amount_toman, telegram_user_id=db_user.telegram_id),
+        description = (settings.get_balance_payment_description(amount_toman, telegram_user_id=db_user.telegram_id),)
         payment_result = await payment_service.create_yookassa_payment(
             db=db,
             user_id=db_user.id,
@@ -2085,15 +2072,18 @@ async def test_payment_provider(
         )
 
         if not payment_result or not payment_result.get("confirmation_url"):
-            await callback.answer(texts.t("ADMIN_CFG_YOOKASSA_CREATE_FAILED", "❌ Failed to create YooKassa test payment"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_YOOKASSA_CREATE_FAILED", "❌ Failed to create YooKassa test payment"),
+                show_alert=True,
+            )
             await _refresh_markup()
             return
 
         confirmation_url = payment_result["confirmation_url"]
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_YOOKASSA",
-            "🧪 <b>YooKassa Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}"
-        ).format(amount=texts.format_price(amount_toman), payment_id=payment_result['yookassa_payment_id'])
+            "🧪 <b>YooKassa Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}",
+        ).format(amount=texts.format_price(amount_toman), payment_id=payment_result["yookassa_payment_id"])
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2144,7 +2134,9 @@ async def test_payment_provider(
 
         if not payment_result or not payment_result.get("payment_url"):
             await callback.answer(
-                texts.t("ADMIN_CFG_PAYMENT_CREATE_FAILED", "❌ Failed to create payment {provider}").format(provider=mulenpay_name),
+                texts.t("ADMIN_CFG_PAYMENT_CREATE_FAILED", "❌ Failed to create payment {provider}").format(
+                    provider=mulenpay_name
+                ),
                 show_alert=True,
             )
             await _refresh_markup()
@@ -2153,8 +2145,12 @@ async def test_payment_provider(
         payment_url = payment_result["payment_url"]
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_GENERIC",
-            "🧪 <b>{provider} Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}"
-        ).format(provider=mulenpay_name_html, amount=texts.format_price(amount_toman), payment_id=payment_result['mulen_payment_id'])
+            "🧪 <b>{provider} Test Payment</b>\n\n💰 Amount: {amount}\n🆔 ID: {payment_id}",
+        ).format(
+            provider=mulenpay_name_html,
+            amount=texts.format_price(amount_toman),
+            payment_id=payment_result["mulen_payment_id"],
+        )
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -2191,20 +2187,20 @@ async def test_payment_provider(
         )
 
         if not payment_result:
-            await callback.answer(texts.t("ADMIN_CFG_PAL24_CREATE_FAILED", "❌ Failed to create PayPalych payment"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_PAL24_CREATE_FAILED", "❌ Failed to create PayPalych payment"), show_alert=True
+            )
             await _refresh_markup()
             return
 
-        sbp_url = (
-            payment_result.get("sbp_url")
-            or payment_result.get("transfer_url")
-            or payment_result.get("link_url")
-        )
+        sbp_url = payment_result.get("sbp_url") or payment_result.get("transfer_url") or payment_result.get("link_url")
         card_url = payment_result.get("card_url")
         fallback_url = payment_result.get("link_page_url") or payment_result.get("link_url")
 
         if not (sbp_url or card_url or fallback_url):
-            await callback.answer(texts.t("ADMIN_CFG_PAL24_CREATE_FAILED", "❌ Failed to create PayPalych payment"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_PAL24_CREATE_FAILED", "❌ Failed to create PayPalych payment"), show_alert=True
+            )
             await _refresh_markup()
             return
 
@@ -2225,33 +2221,39 @@ async def test_payment_provider(
 
         pay_rows: list[list[types.InlineKeyboardButton]] = []
         if sbp_url:
-            pay_rows.append([
-                types.InlineKeyboardButton(
-                    text=sbp_button_text,
-                    url=sbp_url,
-                )
-            ])
+            pay_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=sbp_button_text,
+                        url=sbp_url,
+                    )
+                ]
+            )
 
         if card_url and card_url != sbp_url:
-            pay_rows.append([
-                types.InlineKeyboardButton(
-                    text=card_button_text,
-                    url=card_url,
-                )
-            ])
+            pay_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=card_button_text,
+                        url=card_url,
+                    )
+                ]
+            )
 
         if not pay_rows and fallback_url:
-            pay_rows.append([
-                types.InlineKeyboardButton(
-                    text=sbp_button_text,
-                    url=fallback_url,
-                )
-            ])
+            pay_rows.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=sbp_button_text,
+                        url=fallback_url,
+                    )
+                ]
+            )
 
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_PAL24",
-            "🧪 <b>PayPalych Test Payment</b>\n\n💰 Amount: {amount}\n🆔 Bill ID: {bill_id}"
-        ).format(amount=texts.format_price(amount_toman), bill_id=payment_result['bill_id'])
+            "🧪 <b>PayPalych Test Payment</b>\n\n💰 Amount: {amount}\n🆔 Bill ID: {bill_id}",
+        ).format(amount=texts.format_price(amount_toman), bill_id=payment_result["bill_id"])
         keyboard_rows = pay_rows + [
             [
                 types.InlineKeyboardButton(
@@ -2285,14 +2287,16 @@ async def test_payment_provider(
             invoice_link = None
 
         if not invoice_link:
-            await callback.answer(texts.t("ADMIN_CFG_STARS_CREATE_FAILED", "❌ Failed to create Telegram Stars payment"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_STARS_CREATE_FAILED", "❌ Failed to create Telegram Stars payment"), show_alert=True
+            )
             await _refresh_markup()
             return
 
         stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_toman / 100)
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_STARS",
-            "🧪 <b>Telegram Stars Test Payment</b>\n\n💰 Amount: {amount}\n⭐ To pay: {stars}"
+            "🧪 <b>Telegram Stars Test Payment</b>\n\n💰 Amount: {amount}\n⭐ To pay: {stars}",
         ).format(amount=texts.format_price(amount_toman), stars=stars_amount)
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -2337,7 +2341,9 @@ async def test_payment_provider(
         )
 
         if not payment_result:
-            await callback.answer(texts.t("ADMIN_CFG_CRYPTOBOT_CREATE_FAILED", "❌ Failed to create CryptoBot payment"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_CRYPTOBOT_CREATE_FAILED", "❌ Failed to create CryptoBot payment"), show_alert=True
+            )
             await _refresh_markup()
             return
 
@@ -2348,19 +2354,23 @@ async def test_payment_provider(
         )
 
         if not payment_url:
-            await callback.answer(texts.t("ADMIN_CFG_CRYPTOBOT_URL_FAILED", "❌ Failed to get CryptoBot payment link"), show_alert=True)
+            await callback.answer(
+                texts.t("ADMIN_CFG_CRYPTOBOT_URL_FAILED", "❌ Failed to get CryptoBot payment link"), show_alert=True
+            )
             await _refresh_markup()
             return
 
         amount_toman = int(amount_rubles * 100)
         message_text = texts.t(
             "ADMIN_CFG_TEST_PAYMENT_CRYPTOBOT",
-            "🧪 <b>CryptoBot Test Payment</b>\n\n💰 Amount to credit: {amount}\n💵 To pay: {usd} USD\n🪙 Asset: {asset}"
-        ).format(amount=texts.format_price(amount_toman), usd=f"{amount_usd:.2f}", asset=payment_result['asset'])
+            "🧪 <b>CryptoBot Test Payment</b>\n\n💰 Amount to credit: {amount}\n💵 To pay: {usd} USD\n🪙 Asset: {asset}",
+        ).format(amount=texts.format_price(amount_toman), usd=f"{amount_usd:.2f}", asset=payment_result["asset"])
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text=texts.t("ADMIN_CFG_BTN_OPEN_INVOICE", "🪙 Open invoice"), url=payment_url)
+                    types.InlineKeyboardButton(
+                        text=texts.t("ADMIN_CFG_BTN_OPEN_INVOICE", "🪙 Open invoice"), url=payment_url
+                    )
                 ],
                 [
                     types.InlineKeyboardButton(
@@ -2375,7 +2385,9 @@ async def test_payment_provider(
         await _refresh_markup()
         return
 
-    await callback.answer(texts.t("ADMIN_CFG_UNKNOWN_PAYMENT_METHOD", "❌ Unknown payment test method"), show_alert=True)
+    await callback.answer(
+        texts.t("ADMIN_CFG_UNKNOWN_PAYMENT_METHOD", "❌ Unknown payment test method"), show_alert=True
+    )
     await _refresh_markup()
 
 
@@ -2402,7 +2414,9 @@ async def show_bot_config_setting(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
     text = _render_setting_text(key, db_user.language)
     keyboard = _build_setting_keyboard(key, group_key, category_page, settings_page, db_user.language)
@@ -2440,7 +2454,9 @@ async def start_edit_setting(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
     if bot_configuration_service.is_read_only(key):
         await callback.answer(texts.t("ADMIN_CFG_SETTING_READ_ONLY", "This setting is read-only"), show_alert=True)
@@ -2451,10 +2467,10 @@ async def start_edit_setting(
 
     instructions = [
         texts.t("ADMIN_CFG_EDIT_TITLE", "✏️ <b>Edit setting</b>"),
-        texts.t("ADMIN_CFG_EDIT_NAME", "Name: {name}").format(name=summary['name']),
-        texts.t("ADMIN_CFG_EDIT_KEY", "Key: <code>{key}</code>").format(key=summary['key']),
-        texts.t("ADMIN_CFG_EDIT_TYPE", "Type: {type}").format(type=summary['type']),
-        texts.t("ADMIN_CFG_EDIT_CURRENT", "Current value: {value}").format(value=summary['current']),
+        texts.t("ADMIN_CFG_EDIT_NAME", "Name: {name}").format(name=summary["name"]),
+        texts.t("ADMIN_CFG_EDIT_KEY", "Key: <code>{key}</code>").format(key=summary["key"]),
+        texts.t("ADMIN_CFG_EDIT_TYPE", "Type: {type}").format(type=summary["type"]),
+        texts.t("ADMIN_CFG_EDIT_CURRENT", "Current value: {value}").format(value=summary["current"]),
         "\n" + texts.t("ADMIN_CFG_EDIT_SEND_NEW", "Send the new value as a message."),
     ]
 
@@ -2470,9 +2486,7 @@ async def start_edit_setting(
                 [
                     types.InlineKeyboardButton(
                         text=texts.BACK,
-                        callback_data=(
-                            f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"
-                        ),
+                        callback_data=(f"botcfg_setting:{group_key}:{category_page}:{settings_page}:{token}"),
                     )
                 ]
             ]
@@ -2506,7 +2520,9 @@ async def handle_edit_setting(
     settings_page = data.get("setting_settings_page", 1)
 
     if not key:
-        await message.answer(texts.t("ADMIN_CFG_COULD_NOT_IDENTIFY_SETTING", "Could not identify the setting to edit. Please try again."))
+        await message.answer(
+            texts.t("ADMIN_CFG_COULD_NOT_IDENTIFY_SETTING", "Could not identify the setting to edit. Please try again.")
+        )
         await state.clear()
         return
 
@@ -2619,7 +2635,9 @@ async def reset_setting(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
     if bot_configuration_service.is_read_only(key):
         await callback.answer(texts.t("ADMIN_CFG_SETTING_READ_ONLY", "This setting is read-only"), show_alert=True)
@@ -2667,7 +2685,9 @@ async def toggle_setting(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
     if bot_configuration_service.is_read_only(key):
         await callback.answer(texts.t("ADMIN_CFG_SETTING_READ_ONLY", "This setting is read-only"), show_alert=True)
@@ -2719,7 +2739,9 @@ async def apply_setting_choice(
     try:
         key = bot_configuration_service.resolve_callback_token(token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_SETTING_UNAVAILABLE", "This setting is no longer available"), show_alert=True
+        )
         return
     if bot_configuration_service.is_read_only(key):
         await callback.answer(texts.t("ADMIN_CFG_SETTING_READ_ONLY", "This setting is read-only"), show_alert=True)
@@ -2728,7 +2750,9 @@ async def apply_setting_choice(
     try:
         value = bot_configuration_service.resolve_choice_token(key, choice_token)
     except KeyError:
-        await callback.answer(texts.t("ADMIN_CFG_VALUE_UNAVAILABLE", "This value is no longer available"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_CFG_VALUE_UNAVAILABLE", "This value is no longer available"), show_alert=True
+        )
         return
 
     try:

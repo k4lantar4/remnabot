@@ -44,48 +44,163 @@ def _build_notification_settings_view(language: str):
 
     trial_1h_status = _format_toggle(config["trial_inactive_1h"].get("enabled", True), language)
     trial_24h_status = _format_toggle(config["trial_inactive_24h"].get("enabled", True), language)
-    trial_channel_status = _format_toggle(
-        config["trial_channel_unsubscribed"].get("enabled", True), language
-    )
+    trial_channel_status = _format_toggle(config["trial_channel_unsubscribed"].get("enabled", True), language)
     expired_1d_status = _format_toggle(config["expired_1d"].get("enabled", True), language)
     second_wave_status = _format_toggle(config["expired_second_wave"].get("enabled", True), language)
     third_wave_status = _format_toggle(config["expired_third_wave"].get("enabled", True), language)
 
     summary_text = texts.t("ADMIN_MON_NOTIFICATIONS_TITLE", "🔔 <b>User Notifications</b>") + "\n\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_TRIAL_1H", "• 1 hour after trial: {status}").format(status=trial_1h_status) + "\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_TRIAL_24H", "• 24 hours after trial: {status}").format(status=trial_24h_status) + "\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_CHANNEL_UNSUB", "• Channel unsubscription: {status}").format(status=trial_channel_status) + "\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_EXPIRED_1D", "• 1 day after expiration: {status}").format(status=expired_1d_status) + "\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_2_3_DAYS", "• 2-3 days (discount {percent}% / {hours} h): {status}").format(
-        percent=second_percent, hours=second_hours, status=second_wave_status
-    ) + "\n"
-    summary_text += texts.t("ADMIN_MON_NOTIFY_N_DAYS", "• {days} days (discount {percent}% / {hours} h): {status}").format(
-        days=third_days, percent=third_percent, hours=third_hours, status=third_wave_status
+    summary_text += (
+        texts.t("ADMIN_MON_NOTIFY_TRIAL_1H", "• 1 hour after trial: {status}").format(status=trial_1h_status) + "\n"
     )
+    summary_text += (
+        texts.t("ADMIN_MON_NOTIFY_TRIAL_24H", "• 24 hours after trial: {status}").format(status=trial_24h_status) + "\n"
+    )
+    summary_text += (
+        texts.t("ADMIN_MON_NOTIFY_CHANNEL_UNSUB", "• Channel unsubscription: {status}").format(
+            status=trial_channel_status
+        )
+        + "\n"
+    )
+    summary_text += (
+        texts.t("ADMIN_MON_NOTIFY_EXPIRED_1D", "• 1 day after expiration: {status}").format(status=expired_1d_status)
+        + "\n"
+    )
+    summary_text += (
+        texts.t("ADMIN_MON_NOTIFY_2_3_DAYS", "• 2-3 days (discount {percent}% / {hours} h): {status}").format(
+            percent=second_percent, hours=second_hours, status=second_wave_status
+        )
+        + "\n"
+    )
+    summary_text += texts.t(
+        "ADMIN_MON_NOTIFY_N_DAYS", "• {days} days (discount {percent}% / {hours} h): {status}"
+    ).format(days=third_days, percent=third_percent, hours=third_hours, status=third_wave_status)
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"{trial_1h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_1H_LABEL', '1 hour after trial')}", callback_data="admin_mon_notify_toggle_trial_1h")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_TRIAL_1H", "🧪 Test: 1 hour after trial"), callback_data="admin_mon_notify_preview_trial_1h")],
-        [InlineKeyboardButton(text=f"{trial_24h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_24H_LABEL', '24 hours after trial')}", callback_data="admin_mon_notify_toggle_trial_24h")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_TRIAL_24H", "🧪 Test: 24 hours after trial"), callback_data="admin_mon_notify_preview_trial_24h")],
-        [InlineKeyboardButton(text=f"{trial_channel_status} • {texts.t('ADMIN_MON_NOTIFY_CHANNEL_UNSUB_LABEL', 'Channel unsubscription')}", callback_data="admin_mon_notify_toggle_trial_channel")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_CHANNEL_UNSUB", "🧪 Test: channel unsubscription"), callback_data="admin_mon_notify_preview_trial_channel")],
-        [InlineKeyboardButton(text=f"{expired_1d_status} • {texts.t('ADMIN_MON_NOTIFY_EXPIRED_1D_LABEL', '1 day after expiration')}", callback_data="admin_mon_notify_toggle_expired_1d")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_EXPIRED_1D", "🧪 Test: 1 day after expiration"), callback_data="admin_mon_notify_preview_expired_1d")],
-        [InlineKeyboardButton(text=f"{second_wave_status} • {texts.t('ADMIN_MON_NOTIFY_2_3_DAYS_LABEL', '2-3 days with discount')}", callback_data="admin_mon_notify_toggle_expired_2d")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_2_3_DAYS", "🧪 Test: discount 2-3 days"), callback_data="admin_mon_notify_preview_expired_2d")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_2_3_DISCOUNT", "✏️ Discount 2-3 days: {percent}%").format(percent=second_percent), callback_data="admin_mon_notify_edit_2d_percent")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_2_3_HOURS", "⏱️ Discount period 2-3 days: {hours} h").format(hours=second_hours), callback_data="admin_mon_notify_edit_2d_hours")],
-        [InlineKeyboardButton(text=f"{third_wave_status} • {texts.t('ADMIN_MON_NOTIFY_N_DAYS_LABEL', '{days} days with discount').format(days=third_days)}", callback_data="admin_mon_notify_toggle_expired_nd")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_TEST_N_DAYS", "🧪 Test: discount after days"), callback_data="admin_mon_notify_preview_expired_nd")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_N_DISCOUNT", "✏️ Discount {days} days: {percent}%").format(days=third_days, percent=third_percent), callback_data="admin_mon_notify_edit_nd_percent")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_EDIT_N_HOURS", "⏱️ Discount period {days} days: {hours} h").format(days=third_days, hours=third_hours), callback_data="admin_mon_notify_edit_nd_hours")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_NOTIFY_THRESHOLD", "📆 Notification threshold: {days} days").format(days=third_days), callback_data="admin_mon_notify_edit_nd_threshold")],
-        [InlineKeyboardButton(text=texts.t("ADMIN_MON_SEND_ALL_TESTS", "🧪 Send all tests"), callback_data="admin_mon_notify_preview_all")],
-        [InlineKeyboardButton(text=texts.BACK, callback_data="admin_mon_settings")],
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"{trial_1h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_1H_LABEL', '1 hour after trial')}",
+                    callback_data="admin_mon_notify_toggle_trial_1h",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_TRIAL_1H", "🧪 Test: 1 hour after trial"),
+                    callback_data="admin_mon_notify_preview_trial_1h",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{trial_24h_status} • {texts.t('ADMIN_MON_NOTIFY_TRIAL_24H_LABEL', '24 hours after trial')}",
+                    callback_data="admin_mon_notify_toggle_trial_24h",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_TRIAL_24H", "🧪 Test: 24 hours after trial"),
+                    callback_data="admin_mon_notify_preview_trial_24h",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{trial_channel_status} • {texts.t('ADMIN_MON_NOTIFY_CHANNEL_UNSUB_LABEL', 'Channel unsubscription')}",
+                    callback_data="admin_mon_notify_toggle_trial_channel",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_CHANNEL_UNSUB", "🧪 Test: channel unsubscription"),
+                    callback_data="admin_mon_notify_preview_trial_channel",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{expired_1d_status} • {texts.t('ADMIN_MON_NOTIFY_EXPIRED_1D_LABEL', '1 day after expiration')}",
+                    callback_data="admin_mon_notify_toggle_expired_1d",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_EXPIRED_1D", "🧪 Test: 1 day after expiration"),
+                    callback_data="admin_mon_notify_preview_expired_1d",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{second_wave_status} • {texts.t('ADMIN_MON_NOTIFY_2_3_DAYS_LABEL', '2-3 days with discount')}",
+                    callback_data="admin_mon_notify_toggle_expired_2d",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_2_3_DAYS", "🧪 Test: discount 2-3 days"),
+                    callback_data="admin_mon_notify_preview_expired_2d",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_EDIT_2_3_DISCOUNT", "✏️ Discount 2-3 days: {percent}%").format(
+                        percent=second_percent
+                    ),
+                    callback_data="admin_mon_notify_edit_2d_percent",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_EDIT_2_3_HOURS", "⏱️ Discount period 2-3 days: {hours} h").format(
+                        hours=second_hours
+                    ),
+                    callback_data="admin_mon_notify_edit_2d_hours",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"{third_wave_status} • {texts.t('ADMIN_MON_NOTIFY_N_DAYS_LABEL', '{days} days with discount').format(days=third_days)}",
+                    callback_data="admin_mon_notify_toggle_expired_nd",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_TEST_N_DAYS", "🧪 Test: discount after days"),
+                    callback_data="admin_mon_notify_preview_expired_nd",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_EDIT_N_DISCOUNT", "✏️ Discount {days} days: {percent}%").format(
+                        days=third_days, percent=third_percent
+                    ),
+                    callback_data="admin_mon_notify_edit_nd_percent",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_EDIT_N_HOURS", "⏱️ Discount period {days} days: {hours} h").format(
+                        days=third_days, hours=third_hours
+                    ),
+                    callback_data="admin_mon_notify_edit_nd_hours",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_NOTIFY_THRESHOLD", "📆 Notification threshold: {days} days").format(
+                        days=third_days
+                    ),
+                    callback_data="admin_mon_notify_edit_nd_threshold",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_SEND_ALL_TESTS", "🧪 Send all tests"),
+                    callback_data="admin_mon_notify_preview_all",
+                )
+            ],
+            [InlineKeyboardButton(text=texts.BACK, callback_data="admin_mon_settings")],
+        ]
+    )
 
     return summary_text, keyboard
 
@@ -174,7 +289,7 @@ def _build_notification_preview_message(language: str, notification_type: str):
             (
                 "🚫 <b>Access suspended</b>\n\n"
                 "We couldn't find your subscription to our channel, so your trial subscription has been disabled.\n\n"
-                "Subscribe to the channel and press \"{check_button}\" to restore access."
+                'Subscribe to the channel and press "{check_button}" to restore access.'
             ),
         )
         check_button = texts.t("CHANNEL_CHECK_BUTTON", "✅ I subscribed")
@@ -339,7 +454,7 @@ async def _send_notification_preview(bot, chat_id: int, language: str, notificat
 
 
 async def _render_notification_settings(callback: CallbackQuery) -> None:
-    language = (callback.from_user.language_code or settings.DEFAULT_LANGUAGE)
+    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
     text, keyboard = _build_notification_settings_view(language)
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -383,6 +498,7 @@ async def _render_notification_settings_for_state(
         else:
             raise
 
+
 @router.callback_query(F.data == "admin_monitoring")
 @admin_required
 async def admin_monitoring_menu(callback: CallbackQuery):
@@ -391,10 +507,16 @@ async def admin_monitoring_menu(callback: CallbackQuery):
     try:
         async for db in get_db():
             status = await monitoring_service.get_monitoring_status(db)
-            
-            running_status = texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running") if status['is_running'] else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
-            last_update = status['last_update'].strftime('%H:%M:%S') if status['last_update'] else texts.t("NEVER", "Never")
-            
+
+            running_status = (
+                texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running")
+                if status["is_running"]
+                else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
+            )
+            last_update = (
+                status["last_update"].strftime("%H:%M:%S") if status["last_update"] else texts.t("NEVER", "Never")
+            )
+
             text = texts.t(
                 "ADMIN_MON_MENU_TEXT",
                 """
@@ -411,21 +533,21 @@ async def admin_monitoring_menu(callback: CallbackQuery):
 • Success rate: {success_rate}%
 
 🔧 Select an action:
-"""
+""",
             ).format(
                 running_status=running_status,
                 last_update=last_update,
                 interval=settings.MONITORING_INTERVAL,
-                total_events=status['stats_24h']['total_events'],
-                successful=status['stats_24h']['successful'],
-                failed=status['stats_24h']['failed'],
-                success_rate=status['stats_24h']['success_rate']
+                total_events=status["stats_24h"]["total_events"],
+                successful=status["stats_24h"]["successful"],
+                failed=status["stats_24h"]["failed"],
+                success_rate=status["stats_24h"]["success_rate"],
             )
-            
+
             keyboard = get_monitoring_keyboard(language)
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
             break
-            
+
     except Exception as e:
         logger.error(f"Error in admin monitoring menu: {e}")
         await callback.answer(texts.t("ADMIN_MON_ERROR_LOADING", "❌ Error loading data"), show_alert=True)
@@ -439,33 +561,44 @@ async def admin_monitoring_settings(callback: CallbackQuery):
     try:
         enabled_text = texts.t("ENABLED", "🟢 Enabled")
         disabled_text = texts.t("DISABLED", "🔴 Disabled")
-        global_status = enabled_text if NotificationSettingsService.are_notifications_globally_enabled() else disabled_text
+        global_status = (
+            enabled_text if NotificationSettingsService.are_notifications_globally_enabled() else disabled_text
+        )
         second_percent = NotificationSettingsService.get_second_wave_discount_percent()
         third_percent = NotificationSettingsService.get_third_wave_discount_percent()
         third_days = NotificationSettingsService.get_third_wave_trigger_days()
 
         text = texts.t(
             "ADMIN_MON_SETTINGS_TEXT",
-            "⚙️ <b>Monitoring settings</b>\n\n🔔 <b>User notifications:</b> {global_status}\n• Discount 2-3 days: {second_percent}%\n• Discount after {third_days} days: {third_percent}%\n\nSelect a section to configure."
+            "⚙️ <b>Monitoring settings</b>\n\n🔔 <b>User notifications:</b> {global_status}\n• Discount 2-3 days: {second_percent}%\n• Discount after {third_days} days: {third_percent}%\n\nSelect a section to configure.",
         ).format(
             global_status=global_status,
             second_percent=second_percent,
             third_days=third_days,
-            third_percent=third_percent
+            third_percent=third_percent,
         )
 
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_USER_NOTIFICATIONS", "🔔 User notifications"), callback_data="admin_mon_notify_settings")],
-            [InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_settings")],
-        ])
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=texts.t("ADMIN_MON_BTN_USER_NOTIFICATIONS", "🔔 User notifications"),
+                        callback_data="admin_mon_notify_settings",
+                    )
+                ],
+                [InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_settings")],
+            ]
+        )
 
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
 
     except Exception as e:
         logger.error(f"Error displaying monitoring settings: {e}")
-        await callback.answer(texts.t("ADMIN_MON_ERROR_OPENING_SETTINGS", "❌ Failed to open settings"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_ERROR_OPENING_SETTINGS", "❌ Failed to open settings"), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_notify_settings")
@@ -477,7 +610,9 @@ async def admin_notify_settings(callback: CallbackQuery):
         await _render_notification_settings(callback)
     except Exception as e:
         logger.error(f"Error displaying notification settings: {e}")
-        await callback.answer(texts.t("ADMIN_MON_ERROR_LOADING_SETTINGS", "❌ Failed to load settings"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_ERROR_LOADING_SETTINGS", "❌ Failed to load settings"), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_notify_toggle_trial_1h")
@@ -747,19 +882,21 @@ async def start_monitoring_callback(callback: CallbackQuery):
         if monitoring_service.is_running:
             await callback.answer(texts.t("ADMIN_MON_ALREADY_RUNNING", "ℹ️ Monitoring is already running"))
             return
-        
+
         if not monitoring_service.bot:
             monitoring_service.bot = callback.bot
-        
+
         asyncio.create_task(monitoring_service.start_monitoring())
-        
+
         await callback.answer(texts.t("ADMIN_MON_STARTED", "✅ Monitoring started!"))
-        
+
         await admin_monitoring_menu(callback)
-        
+
     except Exception as e:
         logger.error(f"Error starting monitoring: {e}")
-        await callback.answer(texts.t("ADMIN_MON_START_ERROR", "❌ Start error: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_START_ERROR", "❌ Start error: {error}").format(error=str(e)), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_stop")
@@ -771,15 +908,17 @@ async def stop_monitoring_callback(callback: CallbackQuery):
         if not monitoring_service.is_running:
             await callback.answer(texts.t("ADMIN_MON_ALREADY_STOPPED", "ℹ️ Monitoring is already stopped"))
             return
-        
+
         monitoring_service.stop_monitoring()
         await callback.answer(texts.t("ADMIN_MON_STOPPED", "⏹️ Monitoring stopped!"))
-        
+
         await admin_monitoring_menu(callback)
-        
+
     except Exception as e:
         logger.error(f"Error stopping monitoring: {e}")
-        await callback.answer(texts.t("ADMIN_MON_STOP_ERROR", "❌ Stop error: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_STOP_ERROR", "❌ Stop error: {error}").format(error=str(e)), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_force_check")
@@ -789,10 +928,10 @@ async def force_check_callback(callback: CallbackQuery):
     texts = get_texts(language)
     try:
         await callback.answer(texts.t("ADMIN_MON_CHECKING", "⏳ Running subscription check..."))
-        
+
         async for db in get_db():
             results = await monitoring_service.force_check_subscriptions(db)
-            
+
             text = texts.t(
                 "ADMIN_MON_FORCE_CHECK_RESULT",
                 """
@@ -806,25 +945,28 @@ async def force_check_callback(callback: CallbackQuery):
 🕐 <b>Check time:</b> {time}
 
 Press "Back" to return to monitoring menu.
-"""
+""",
             ).format(
-                expired=results['expired'],
-                expiring=results['expiring'],
-                autopay_ready=results['autopay_ready'],
-                time=datetime.now().strftime('%H:%M:%S')
+                expired=results["expired"],
+                expiring=results["expiring"],
+                autopay_ready=results["autopay_ready"],
+                time=datetime.now().strftime("%H:%M:%S"),
             )
-            
+
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]
-            ])
-            
+
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]]
+            )
+
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
             break
-            
+
     except Exception as e:
         logger.error(f"Error in forced check: {e}")
-        await callback.answer(texts.t("ADMIN_MON_CHECK_ERROR", "❌ Check error: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_CHECK_ERROR", "❌ Check error: {error}").format(error=str(e)), show_alert=True
+        )
 
 
 @router.callback_query(F.data.startswith("admin_mon_logs"))
@@ -836,46 +978,51 @@ async def monitoring_logs_callback(callback: CallbackQuery):
         page = 1
         if "_page_" in callback.data:
             page = int(callback.data.split("_page_")[1])
-        
+
         async for db in get_db():
             all_logs = await monitoring_service.get_monitoring_logs(db, limit=1000)
-            
+
             if not all_logs:
-                text = texts.t("ADMIN_MON_LOGS_EMPTY", "📋 <b>Monitoring logs are empty</b>\n\nSystem has not performed checks yet.")
+                text = texts.t(
+                    "ADMIN_MON_LOGS_EMPTY",
+                    "📋 <b>Monitoring logs are empty</b>\n\nSystem has not performed checks yet.",
+                )
                 keyboard = get_monitoring_logs_back_keyboard(language)
                 await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
                 return
-            
+
             per_page = 8
             paginated_logs = paginate_list(all_logs, page=page, per_page=per_page)
-            
-            text = texts.t("ADMIN_MON_LOGS_TITLE", "📋 <b>Monitoring logs</b> (page {page}/{total})\n\n").format(page=page, total=paginated_logs.total_pages)
-            
+
+            text = texts.t("ADMIN_MON_LOGS_TITLE", "📋 <b>Monitoring logs</b> (page {page}/{total})\n\n").format(
+                page=page, total=paginated_logs.total_pages
+            )
+
             for log in paginated_logs.items:
-                icon = "✅" if log['is_success'] else "❌"
-                time_str = log['created_at'].strftime('%m-%d %H:%M')
-                event_type = log['event_type'].replace('_', ' ').title()
-                
-                message = log['message']
+                icon = "✅" if log["is_success"] else "❌"
+                time_str = log["created_at"].strftime("%m-%d %H:%M")
+                event_type = log["event_type"].replace("_", " ").title()
+
+                message = log["message"]
                 if len(message) > 45:
                     message = message[:45] + "..."
-                
+
                 text += f"{icon} <code>{time_str}</code> {event_type}\n"
                 text += f"   📄 {message}\n\n"
-            
-            total_success = sum(1 for log in all_logs if log['is_success'])
+
+            total_success = sum(1 for log in all_logs if log["is_success"])
             total_failed = len(all_logs) - total_success
             success_rate = round(total_success / len(all_logs) * 100, 1) if all_logs else 0
-            
+
             text += texts.t(
                 "ADMIN_MON_LOGS_STATS",
-                "📊 <b>Overall statistics:</b>\n• Total events: {total}\n• Successful: {success}\n• Errors: {failed}\n• Success rate: {rate}%"
+                "📊 <b>Overall statistics:</b>\n• Total events: {total}\n• Successful: {success}\n• Errors: {failed}\n• Success rate: {rate}%",
             ).format(total=len(all_logs), success=total_success, failed=total_failed, rate=success_rate)
-            
+
             keyboard = get_monitoring_logs_keyboard(page, paginated_logs.total_pages, language)
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
             break
-            
+
     except Exception as e:
         logger.error(f"Error getting logs: {e}")
         await callback.answer(texts.t("ADMIN_MON_LOGS_ERROR", "❌ Error getting logs"), show_alert=True)
@@ -888,19 +1035,23 @@ async def clear_logs_callback(callback: CallbackQuery):
     texts = get_texts(language)
     try:
         async for db in get_db():
-            deleted_count = await monitoring_service.cleanup_old_logs(db, days=0) 
-            
+            deleted_count = await monitoring_service.cleanup_old_logs(db, days=0)
+
             if deleted_count > 0:
-                await callback.answer(texts.t("ADMIN_MON_LOGS_DELETED", "🗑️ Deleted {count} log entries").format(count=deleted_count))
+                await callback.answer(
+                    texts.t("ADMIN_MON_LOGS_DELETED", "🗑️ Deleted {count} log entries").format(count=deleted_count)
+                )
             else:
                 await callback.answer(texts.t("ADMIN_MON_LOGS_ALREADY_EMPTY", "ℹ️ Logs are already empty"))
-            
+
             await monitoring_logs_callback(callback)
             break
-            
+
     except Exception as e:
         logger.error(f"Error clearing logs: {e}")
-        await callback.answer(texts.t("ADMIN_MON_LOGS_CLEAR_ERROR", "❌ Clear error: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_LOGS_CLEAR_ERROR", "❌ Clear error: {error}").format(error=str(e)), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_test_notifications")
@@ -909,9 +1060,15 @@ async def test_notifications_callback(callback: CallbackQuery):
     language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
     texts = get_texts(language)
     try:
-        running_status = texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running") if monitoring_service.is_running else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
-        notif_status = texts.t("ENABLED", "🟢 Enabled") if settings.ENABLE_NOTIFICATIONS else texts.t("DISABLED", "🔴 Disabled")
-        
+        running_status = (
+            texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running")
+            if monitoring_service.is_running
+            else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
+        )
+        notif_status = (
+            texts.t("ENABLED", "🟢 Enabled") if settings.ENABLE_NOTIFICATIONS else texts.t("DISABLED", "🔴 Disabled")
+        )
+
         test_message = texts.t(
             "ADMIN_MON_TEST_MESSAGE",
             """
@@ -925,24 +1082,20 @@ This is a test message to check the notification system.
 • Test time: {time}
 
 ✅ If you received this message, the notification system is working correctly!
-"""
+""",
         ).format(
-            running_status=running_status,
-            notif_status=notif_status,
-            time=datetime.now().strftime('%H:%M:%S %d.%m.%Y')
+            running_status=running_status, notif_status=notif_status, time=datetime.now().strftime("%H:%M:%S %d.%m.%Y")
         )
-        
-        await callback.bot.send_message(
-            callback.from_user.id,
-            test_message,
-            parse_mode="HTML"
-        )
-        
+
+        await callback.bot.send_message(callback.from_user.id, test_message, parse_mode="HTML")
+
         await callback.answer(texts.t("ADMIN_MON_TEST_SENT", "✅ Test notification sent!"))
-        
+
     except Exception as e:
         logger.error(f"Error sending test notification: {e}")
-        await callback.answer(texts.t("ADMIN_MON_TEST_ERROR", "❌ Send error: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_TEST_ERROR", "❌ Send error: {error}").format(error=str(e)), show_alert=True
+        )
 
 
 @router.callback_query(F.data == "admin_mon_statistics")
@@ -953,19 +1106,24 @@ async def monitoring_statistics_callback(callback: CallbackQuery):
     try:
         async for db in get_db():
             from app.database.crud.subscription import get_subscriptions_statistics
+
             sub_stats = await get_subscriptions_statistics(db)
-            
+
             mon_status = await monitoring_service.get_monitoring_status(db)
-            
+
             week_ago = datetime.now() - timedelta(days=7)
             week_logs = await monitoring_service.get_monitoring_logs(db, limit=1000)
-            week_logs = [log for log in week_logs if log['created_at'] >= week_ago]
-            
-            week_success = sum(1 for log in week_logs if log['is_success'])
+            week_logs = [log for log in week_logs if log["created_at"] >= week_ago]
+
+            week_success = sum(1 for log in week_logs if log["is_success"])
             week_errors = len(week_logs) - week_success
-            
-            notif_status = texts.t("ENABLED_SHORT", "On") if getattr(settings, 'ENABLE_NOTIFICATIONS', True) else texts.t("DISABLED_SHORT", "Off")
-            
+
+            notif_status = (
+                texts.t("ENABLED_SHORT", "On")
+                if getattr(settings, "ENABLE_NOTIFICATIONS", True)
+                else texts.t("DISABLED_SHORT", "Off")
+            )
+
             text = texts.t(
                 "ADMIN_MON_STATISTICS_TEXT",
                 """
@@ -992,90 +1150,101 @@ async def monitoring_statistics_callback(callback: CallbackQuery):
 • Interval: {interval} min
 • Notifications: {notif_status}
 • Autopay: {autopay_days} days
-"""
+""",
             ).format(
-                total_subs=sub_stats['total_subscriptions'],
-                active_subs=sub_stats['active_subscriptions'],
-                trial_subs=sub_stats['trial_subscriptions'],
-                paid_subs=sub_stats['paid_subscriptions'],
-                today_success=mon_status['stats_24h']['successful'],
-                today_errors=mon_status['stats_24h']['failed'],
-                today_rate=mon_status['stats_24h']['success_rate'],
+                total_subs=sub_stats["total_subscriptions"],
+                active_subs=sub_stats["active_subscriptions"],
+                trial_subs=sub_stats["trial_subscriptions"],
+                paid_subs=sub_stats["paid_subscriptions"],
+                today_success=mon_status["stats_24h"]["successful"],
+                today_errors=mon_status["stats_24h"]["failed"],
+                today_rate=mon_status["stats_24h"]["success_rate"],
                 week_total=len(week_logs),
                 week_success=week_success,
                 week_errors=week_errors,
-                week_rate=round(week_success/len(week_logs)*100, 1) if week_logs else 0,
+                week_rate=round(week_success / len(week_logs) * 100, 1) if week_logs else 0,
                 interval=settings.MONITORING_INTERVAL,
                 notif_status=notif_status,
-                autopay_days=', '.join(map(str, settings.get_autopay_warning_days()))
+                autopay_days=", ".join(map(str, settings.get_autopay_warning_days())),
             )
-            
+
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]
-            ])
-            
+
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]]
+            )
+
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
             break
-            
+
     except Exception as e:
         logger.error(f"Error getting statistics: {e}")
-        await callback.answer(texts.t("ADMIN_MON_STATS_ERROR", "❌ Error getting statistics: {error}").format(error=str(e)), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_MON_STATS_ERROR", "❌ Error getting statistics: {error}").format(error=str(e)),
+            show_alert=True,
+        )
 
 
 def get_monitoring_logs_keyboard(current_page: int, total_pages: int, language: str = "en"):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
     texts = get_texts(language)
-    
+
     keyboard = []
-    
+
     if total_pages > 1:
         nav_row = []
-        
+
         if current_page > 1:
-            nav_row.append(InlineKeyboardButton(
-                text="⬅️", 
-                callback_data=f"admin_mon_logs_page_{current_page - 1}"
-            ))
-        
-        nav_row.append(InlineKeyboardButton(
-            text=f"{current_page}/{total_pages}", 
-            callback_data="current_page"
-        ))
-        
+            nav_row.append(InlineKeyboardButton(text="⬅️", callback_data=f"admin_mon_logs_page_{current_page - 1}"))
+
+        nav_row.append(InlineKeyboardButton(text=f"{current_page}/{total_pages}", callback_data="current_page"))
+
         if current_page < total_pages:
-            nav_row.append(InlineKeyboardButton(
-                text="➡️", 
-                callback_data=f"admin_mon_logs_page_{current_page + 1}"
-            ))
-        
+            nav_row.append(InlineKeyboardButton(text="➡️", callback_data=f"admin_mon_logs_page_{current_page + 1}"))
+
         keyboard.append(nav_row)
-    
-    keyboard.extend([
+
+    keyboard.extend(
         [
-            InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_mon_logs"),
-            InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_CLEAR", "🗑️ Clear"), callback_data="admin_mon_clear_logs")
-        ],
-        [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]
-    ])
-    
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_mon_logs"
+                ),
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_BTN_CLEAR", "🗑️ Clear"), callback_data="admin_mon_clear_logs"
+                ),
+            ],
+            [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")],
+        ]
+    )
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def get_monitoring_logs_back_keyboard(language: str = "en"):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
     texts = get_texts(language)
-    
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_mon_logs"),
-            InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_FILTERS", "🔍 Filters"), callback_data="admin_mon_logs_filters")
-        ],
-        [
-            InlineKeyboardButton(text=texts.t("ADMIN_MON_BTN_CLEAR_LOGS", "🗑️ Clear logs"), callback_data="admin_mon_clear_logs")
-        ],
-        [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")]
-    ])
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_mon_logs"
+                ),
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_BTN_FILTERS", "🔍 Filters"), callback_data="admin_mon_logs_filters"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_MON_BTN_CLEAR_LOGS", "🗑️ Clear logs"), callback_data="admin_mon_clear_logs"
+                )
+            ],
+            [InlineKeyboardButton(text=texts.BACK, callback_data="admin_monitoring")],
+        ]
+    )
 
 
 @router.message(Command("monitoring"))
@@ -1086,9 +1255,13 @@ async def monitoring_command(message: Message):
     try:
         async for db in get_db():
             status = await monitoring_service.get_monitoring_status(db)
-            
-            running_status = texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running") if status['is_running'] else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
-            
+
+            running_status = (
+                texts.t("ADMIN_MON_STATUS_RUNNING", "🟢 Running")
+                if status["is_running"]
+                else texts.t("ADMIN_MON_STATUS_STOPPED", "🔴 Stopped")
+            )
+
             text = texts.t(
                 "ADMIN_MON_QUICK_STATUS",
                 """
@@ -1099,16 +1272,16 @@ async def monitoring_command(message: Message):
 ✅ <b>Success rate:</b> {success_rate}%
 
 Use admin panel for detailed management.
-"""
+""",
             ).format(
                 running_status=running_status,
-                total_events=status['stats_24h']['total_events'],
-                success_rate=status['stats_24h']['success_rate']
+                total_events=status["stats_24h"]["total_events"],
+                success_rate=status["stats_24h"]["success_rate"],
             )
-            
+
             await message.answer(text, parse_mode="HTML")
             break
-            
+
     except Exception as e:
         logger.error(f"Error in /monitoring command: {e}")
         await message.answer(texts.t("ERROR_GENERIC", "❌ Error: {error}").format(error=str(e)))
@@ -1119,7 +1292,7 @@ async def process_notification_value_input(message: Message, state: FSMContext):
     data = await state.get_data()
     language = data.get("settings_language") or message.from_user.language_code or settings.DEFAULT_LANGUAGE
     texts = get_texts(language)
-    
+
     if not data:
         await state.clear()
         await message.answer(texts.t("ADMIN_MON_CONTEXT_LOST", "ℹ️ Context lost, please try again from settings menu."))
@@ -1137,7 +1310,9 @@ async def process_notification_value_input(message: Message, state: FSMContext):
 
     if (key == "expired_second_wave" and field == "percent") or (key == "expired_third_wave" and field == "percent"):
         if value < 0 or value > 100:
-            await message.answer(texts.t("ADMIN_MON_PERCENT_RANGE_ERROR", "❌ Discount percent must be between 0 and 100."))
+            await message.answer(
+                texts.t("ADMIN_MON_PERCENT_RANGE_ERROR", "❌ Discount percent must be between 0 and 100.")
+            )
             return
     elif (key == "expired_second_wave" and field == "hours") or (key == "expired_third_wave" and field == "hours"):
         if value < 1 or value > 168:

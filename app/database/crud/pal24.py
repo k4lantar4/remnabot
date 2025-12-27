@@ -61,23 +61,17 @@ async def create_pal24_payment(
 
 
 async def get_pal24_payment_by_id(db: AsyncSession, payment_id: int) -> Optional[Pal24Payment]:
-    result = await db.execute(
-        select(Pal24Payment).where(Pal24Payment.id == payment_id)
-    )
+    result = await db.execute(select(Pal24Payment).where(Pal24Payment.id == payment_id))
     return result.scalar_one_or_none()
 
 
 async def get_pal24_payment_by_bill_id(db: AsyncSession, bill_id: str) -> Optional[Pal24Payment]:
-    result = await db.execute(
-        select(Pal24Payment).where(Pal24Payment.bill_id == bill_id)
-    )
+    result = await db.execute(select(Pal24Payment).where(Pal24Payment.bill_id == bill_id))
     return result.scalar_one_or_none()
 
 
 async def get_pal24_payment_by_order_id(db: AsyncSession, order_id: str) -> Optional[Pal24Payment]:
-    result = await db.execute(
-        select(Pal24Payment).where(Pal24Payment.order_id == order_id)
-    )
+    result = await db.execute(select(Pal24Payment).where(Pal24Payment.order_id == order_id))
     return result.scalar_one_or_none()
 
 
@@ -127,11 +121,7 @@ async def update_pal24_payment_status(
 
     update_values["last_status"] = status
 
-    await db.execute(
-        update(Pal24Payment)
-        .where(Pal24Payment.id == payment.id)
-        .values(**update_values)
-    )
+    await db.execute(update(Pal24Payment).where(Pal24Payment.id == payment.id).values(**update_values))
 
     await db.commit()
     await db.refresh(payment)
@@ -151,11 +141,7 @@ async def link_pal24_payment_to_transaction(
     payment: Pal24Payment,
     transaction_id: int,
 ) -> Pal24Payment:
-    await db.execute(
-        update(Pal24Payment)
-        .where(Pal24Payment.id == payment.id)
-        .values(transaction_id=transaction_id)
-    )
+    await db.execute(update(Pal24Payment).where(Pal24Payment.id == payment.id).values(transaction_id=transaction_id))
     await db.commit()
     await db.refresh(payment)
     logger.info(
@@ -164,4 +150,3 @@ async def link_pal24_payment_to_transaction(
         transaction_id,
     )
     return payment
-

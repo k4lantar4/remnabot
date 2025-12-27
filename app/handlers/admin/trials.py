@@ -25,15 +25,17 @@ async def show_trials_panel(
     texts = get_texts(db_user.language)
 
     stats = await get_trial_statistics(db)
-    message = texts.get_text("ADMIN_TRIALS_TITLE", "🧪 Trial management") + "\n\n" + texts.get_text(
-        "ADMIN_TRIALS_STATS",
-        "• Total trials used: {used}\n"
-        "• Active now: {active}\n"
-        "• Eligible for reset: {resettable}",
-    ).format(
-        used=stats.get("used_trials", 0),
-        active=stats.get("active_trials", 0),
-        resettable=stats.get("resettable_trials", 0),
+    message = (
+        texts.get_text("ADMIN_TRIALS_TITLE", "🧪 Trial management")
+        + "\n\n"
+        + texts.get_text(
+            "ADMIN_TRIALS_STATS",
+            "• Total trials used: {used}\n• Active now: {active}\n• Eligible for reset: {resettable}",
+        ).format(
+            used=stats.get("used_trials", 0),
+            active=stats.get("active_trials", 0),
+            resettable=stats.get("resettable_trials", 0),
+        )
     )
 
     await callback.message.edit_text(

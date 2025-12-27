@@ -144,7 +144,7 @@ def _build_log_response(entry: PromoOfferLog) -> PromoOfferLogResponse:
 async def _resolve_target_users(db: AsyncSession, target: str) -> list[User]:
     normalized = target.strip().lower()
     if normalized.startswith("custom_"):
-        criteria = normalized[len("custom_"):]
+        criteria = normalized[len("custom_") :]
         return await get_custom_users(db, criteria)
     return await get_target_users(db, normalized)
 

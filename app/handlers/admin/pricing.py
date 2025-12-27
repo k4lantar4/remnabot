@@ -42,9 +42,7 @@ TRAFFIC_PACKAGE_FIELDS: Tuple[Tuple[int, str], ...] = (
 
 TRAFFIC_PACKAGE_FIELD_MAP: Dict[int, str] = {gb: field for gb, field in TRAFFIC_PACKAGE_FIELDS}
 TRAFFIC_PACKAGE_ORDER: Tuple[int, ...] = tuple(gb for gb, _ in TRAFFIC_PACKAGE_FIELDS)
-TRAFFIC_PACKAGE_ORDER_INDEX: Dict[int, int] = {
-    gb: index for index, gb in enumerate(TRAFFIC_PACKAGE_ORDER)
-}
+TRAFFIC_PACKAGE_ORDER_INDEX: Dict[int, int] = {gb: index for index, gb in enumerate(TRAFFIC_PACKAGE_ORDER)}
 
 
 @dataclass(slots=True)
@@ -238,13 +236,9 @@ SETTING_ENTRIES: Tuple[SettingEntry, ...] = tuple(
     entry for entries in SETTING_ENTRIES_BY_SECTION.values() for entry in entries
 )
 
-SETTING_KEY_TO_TOKEN: Dict[str, str] = {
-    entry.key: f"s{index}" for index, entry in enumerate(SETTING_ENTRIES)
-}
+SETTING_KEY_TO_TOKEN: Dict[str, str] = {entry.key: f"s{index}" for index, entry in enumerate(SETTING_ENTRIES)}
 
-SETTING_TOKEN_TO_KEY: Dict[str, str] = {
-    token: key for key, token in SETTING_KEY_TO_TOKEN.items()
-}
+SETTING_TOKEN_TO_KEY: Dict[str, str] = {token: key for key, token in SETTING_KEY_TO_TOKEN.items()}
 
 
 def _encode_setting_callback_key(key: str) -> str:
@@ -429,9 +423,11 @@ def _build_period_summary(items: Iterable[PriceItem], lang_code: str, fallback: 
         else:
             short_label = label
 
-        parts.append(texts.t("ADMIN_PRICING_SUMMARY_ITEM", "{label}: {price}").format(
-            label=short_label, price=settings.format_price(price)
-        ))
+        parts.append(
+            texts.t("ADMIN_PRICING_SUMMARY_ITEM", "{label}: {price}").format(
+                label=short_label, price=settings.format_price(price)
+            )
+        )
 
     return ", ".join(parts) if parts else fallback
 
@@ -447,9 +443,11 @@ def _build_traffic_summary(lang_code: str, fallback: str) -> str:
     parts: List[str] = []
     for package in enabled_packages:
         short_label = _format_traffic_label(package["gb"], lang_code, short=True)
-        parts.append(texts.t("ADMIN_PRICING_SUMMARY_ITEM", "{label}: {price}").format(
-            label=short_label, price=settings.format_price(int(package['price']))
-        ))
+        parts.append(
+            texts.t("ADMIN_PRICING_SUMMARY_ITEM", "{label}: {price}").format(
+                label=short_label, price=settings.format_price(int(package["price"]))
+            )
+        )
 
     return ", ".join(parts) if parts else fallback
 
@@ -513,9 +511,7 @@ def _build_settings_section(
                 [
                     types.InlineKeyboardButton(
                         text=button_text,
-                        callback_data=(
-                            f"admin_pricing_toggle:{section}:{_encode_setting_callback_key(entry.key)}"
-                        ),
+                        callback_data=(f"admin_pricing_toggle:{section}:{_encode_setting_callback_key(entry.key)}"),
                     )
                 ]
             )
@@ -545,9 +541,7 @@ def _build_settings_section(
                 [
                     types.InlineKeyboardButton(
                         text=button_text,
-                        callback_data=(
-                            f"admin_pricing_setting:{section}:{_encode_setting_callback_key(entry.key)}"
-                        ),
+                        callback_data=(f"admin_pricing_setting:{section}:{_encode_setting_callback_key(entry.key)}"),
                     )
                 ]
             )
@@ -580,9 +574,7 @@ def _build_traffic_options_section(language: str) -> Tuple[str, types.InlineKeyb
     lines: List[str] = [title, ""]
 
     enabled_labels = [
-        _format_traffic_label(package["gb"], lang_code, short=True)
-        for package in packages
-        if package["enabled"]
+        _format_traffic_label(package["gb"], lang_code, short=True) for package in packages if package["enabled"]
     ]
 
     if enabled_labels:
@@ -717,8 +709,8 @@ def _build_overview(language: str) -> Tuple[str, types.InlineKeyboardMarkup]:
     lines = [
         f"💰 <b>{texts.t('ADMIN_PRICING_MENU_TITLE', 'Pricing management')}</b>",
         texts.t(
-            'ADMIN_PRICING_MENU_DESCRIPTION',
-            'Quick access to subscription plans, traffic bundles and extra services.',
+            "ADMIN_PRICING_MENU_DESCRIPTION",
+            "Quick access to subscription plans, traffic bundles and extra services.",
         ),
         "",
         f"<b>{texts.t('ADMIN_PRICING_MENU_SUMMARY', 'Quick summary:')}</b>",
@@ -729,7 +721,7 @@ def _build_overview(language: str) -> Tuple[str, types.InlineKeyboardMarkup]:
         f"📦 {texts.t('ADMIN_PRICING_MENU_SUMMARY_TRAFFIC', 'Traffic: {summary}').format(summary=summary_traffic)}",
         f"➕ {texts.t('ADMIN_PRICING_MENU_SUMMARY_EXTRA', 'Extras: {summary}').format(summary=summary_extra)}",
         "",
-        texts.t('ADMIN_PRICING_MENU_PROMPT', 'Choose a section to edit:'),
+        texts.t("ADMIN_PRICING_MENU_PROMPT", "Choose a section to edit:"),
     ]
 
     keyboard = types.InlineKeyboardMarkup(
@@ -825,9 +817,7 @@ def _build_section(
             ]
         )
 
-    keyboard_rows.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_pricing")]
-    )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_pricing")])
 
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
     return "\n".join(lines), keyboard
@@ -841,11 +831,11 @@ def _build_price_prompt(texts: Any, label: str, current_price: str) -> str:
         f"{texts.t('ADMIN_PRICING_EDIT_CURRENT', 'Current value')}: <b>{current_price}</b>",
         "",
         texts.t(
-            'ADMIN_PRICING_EDIT_PROMPT',
-            'Enter a new price in RUB (e.g. 990 or 990.50). Use 0 for a free plan.',
+            "ADMIN_PRICING_EDIT_PROMPT",
+            "Enter a new price in RUB (e.g. 990 or 990.50). Use 0 for a free plan.",
         ),
         texts.t(
-            'ADMIN_PRICING_EDIT_CANCEL_HINT',
+            "ADMIN_PRICING_EDIT_CANCEL_HINT",
             'Send "Cancel" to return without changes.',
         ),
     ]
@@ -923,7 +913,7 @@ def _resolve_label(section: str, key: str, language: str) -> str:
     if section == "traffic" and key.startswith("PRICE_TRAFFIC_"):
         if key.endswith("UNLIMITED"):
             return _format_traffic_label(0, lang_code)
-        digits = ''.join(ch for ch in key if ch.isdigit())
+        digits = "".join(ch for ch in key if ch.isdigit())
         try:
             gb = int(digits)
         except ValueError:
@@ -1064,18 +1054,16 @@ async def start_setting_edit(
             ]
         )
         if warning:
-            prompt_parts.append(
-                f"⚠️ {texts.t('ADMIN_PRICING_SETTING_WARNING', 'Important')}: {warning}"
-            )
+            prompt_parts.append(f"⚠️ {texts.t('ADMIN_PRICING_SETTING_WARNING', 'Important')}: {warning}")
         prompt_parts.extend(
             [
                 "",
                 texts.t(
-                    'ADMIN_PRICING_SETTING_PROMPT',
+                    "ADMIN_PRICING_SETTING_PROMPT",
                     'Send a new value or type "Cancel". Use none to clear.',
                 ),
                 texts.t(
-                    'ADMIN_PRICING_SETTING_CANCEL_HINT',
+                    "ADMIN_PRICING_SETTING_CANCEL_HINT",
                     'Reply "Cancel" to go back without changes.',
                 ),
             ]

@@ -66,9 +66,7 @@ async def get_wata_payment_by_id(
     db: AsyncSession,
     payment_id: int,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.id == payment_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.id == payment_id))
     return result.scalar_one_or_none()
 
 
@@ -76,9 +74,7 @@ async def get_wata_payment_by_link_id(
     db: AsyncSession,
     payment_link_id: str,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.payment_link_id == payment_link_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.payment_link_id == payment_link_id))
     return result.scalar_one_or_none()
 
 
@@ -86,9 +82,7 @@ async def get_wata_payment_by_order_id(
     db: AsyncSession,
     order_id: str,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.order_id == order_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.order_id == order_id))
     return result.scalar_one_or_none()
 
 
@@ -127,11 +121,7 @@ async def update_wata_payment_status(
     if not update_values:
         return payment
 
-    await db.execute(
-        update(WataPayment)
-        .where(WataPayment.id == payment.id)
-        .values(**update_values)
-    )
+    await db.execute(update(WataPayment).where(WataPayment.id == payment.id).values(**update_values))
 
     await db.commit()
     await db.refresh(payment)
@@ -151,11 +141,7 @@ async def link_wata_payment_to_transaction(
     payment: WataPayment,
     transaction_id: int,
 ) -> WataPayment:
-    await db.execute(
-        update(WataPayment)
-        .where(WataPayment.id == payment.id)
-        .values(transaction_id=transaction_id)
-    )
+    await db.execute(update(WataPayment).where(WataPayment.id == payment.id).values(transaction_id=transaction_id))
     await db.commit()
     await db.refresh(payment)
 

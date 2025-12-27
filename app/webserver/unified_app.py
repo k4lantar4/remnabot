@@ -92,7 +92,7 @@ def create_unified_app(
 ) -> FastAPI:
     """
     Create unified FastAPI app.
-    
+
     Args:
         bot: Primary bot (for backward compatibility)
         dispatcher: Primary dispatcher (for backward compatibility)
@@ -123,7 +123,7 @@ def create_unified_app(
         # For multi-bot support, register all bots
         if initialized_bots:
             from app.bot import active_bots, active_dispatchers
-            
+
             processors = {}
             for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
                 telegram_processor = telegram.TelegramWebhookProcessor(
@@ -135,33 +135,30 @@ def create_unified_app(
                     shutdown_timeout=settings.get_webhook_shutdown_timeout(),
                 )
                 processors[bot_id] = telegram_processor
-                
+
                 # Register bot in webhook registry
                 telegram.register_bot_for_webhook(bot_id, bot_instance, dp_instance, telegram_processor)
-                
+
                 # Create bot-specific webhook router
                 app.include_router(
                     telegram.create_telegram_router(
-                        bot_instance, 
-                        dp_instance, 
-                        processor=telegram_processor,
-                        bot_id=bot_id
+                        bot_instance, dp_instance, processor=telegram_processor, bot_id=bot_id
                     )
                 )
                 logger.info(f"✅ Webhook router registered for bot {bot_id}")
-            
+
             app.state.telegram_webhook_processors = processors
-            
+
             # Include unified multi-bot webhook router for dynamic bot support
             app.include_router(telegram.create_multi_bot_webhook_router())
             logger.info("✅ Unified multi-bot webhook router registered")
-            
+
             @app.on_event("startup")
             async def start_all_telegram_webhook_processors() -> None:
                 for bot_id, processor in processors.items():
                     await processor.start()
                     logger.info(f"🚀 Webhook processor started for bot {bot_id}")
-            
+
             @app.on_event("shutdown")
             async def stop_all_telegram_webhook_processors() -> None:
                 for bot_id, processor in processors.items():

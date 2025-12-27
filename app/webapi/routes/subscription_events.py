@@ -28,9 +28,7 @@ async def _get_user_or_error(db: AsyncSession, user_id: int) -> User:
     return user
 
 
-async def _ensure_subscription_exists(
-    db: AsyncSession, subscription_id: Optional[int]
-) -> None:
+async def _ensure_subscription_exists(db: AsyncSession, subscription_id: Optional[int]) -> None:
     if not subscription_id:
         return
 
@@ -46,9 +44,7 @@ async def _ensure_transaction_exists(db: AsyncSession, transaction_id: Optional[
     if not transaction_id:
         return
 
-    transaction_exists = await db.scalar(
-        select(Transaction.id).where(Transaction.id == transaction_id)
-    )
+    transaction_exists = await db.scalar(select(Transaction.id).where(Transaction.id == transaction_id))
     if not transaction_exists:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

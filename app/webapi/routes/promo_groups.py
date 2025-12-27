@@ -110,12 +110,12 @@ async def create_promo_group_endpoint(
             name=payload.name,
             server_discount_percent=payload.server_discount_percent,
             traffic_discount_percent=payload.traffic_discount_percent,
-        device_discount_percent=payload.device_discount_percent,
-        period_discounts=payload.period_discounts,
-        auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
-        apply_discounts_to_addons=payload.apply_discounts_to_addons,
-        is_default=payload.is_default,
-    )
+            device_discount_percent=payload.device_discount_percent,
+            period_discounts=payload.period_discounts,
+            auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
+            apply_discounts_to_addons=payload.apply_discounts_to_addons,
+            is_default=payload.is_default,
+        )
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(
@@ -147,12 +147,12 @@ async def update_promo_group_endpoint(
             name=payload.name,
             server_discount_percent=payload.server_discount_percent,
             traffic_discount_percent=payload.traffic_discount_percent,
-        device_discount_percent=payload.device_discount_percent,
-        period_discounts=payload.period_discounts,
-        auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
-        apply_discounts_to_addons=payload.apply_discounts_to_addons,
-        is_default=payload.is_default,
-    )
+            device_discount_percent=payload.device_discount_percent,
+            period_discounts=payload.period_discounts,
+            auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
+            apply_discounts_to_addons=payload.apply_discounts_to_addons,
+            is_default=payload.is_default,
+        )
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(

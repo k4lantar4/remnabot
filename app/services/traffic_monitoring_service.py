@@ -2,6 +2,7 @@
 Сервис для мониторинга трафика пользователей
 Проверяет, не превышает ли пользователь заданный порог трафика за сутки
 """
+
 import logging
 import asyncio
 from datetime import datetime, timedelta
@@ -25,26 +26,26 @@ class TrafficMonitoringService:
     """
     Сервис для мониторинга трафика пользователей
     """
-    
+
     def __init__(self):
         self.remnawave_service = RemnaWaveService()
         self.lock = asyncio.Lock()  # Блокировка для предотвращения одновременных проверок
 
     def is_traffic_monitoring_enabled(self) -> bool:
         """Проверяет, включен ли мониторинг трафика"""
-        return getattr(settings, 'TRAFFIC_MONITORING_ENABLED', False)
+        return getattr(settings, "TRAFFIC_MONITORING_ENABLED", False)
 
     def get_traffic_threshold_gb(self) -> float:
         """Получает порог трафика в ГБ за сутки"""
-        return getattr(settings, 'TRAFFIC_THRESHOLD_GB_PER_DAY', 10.0)
+        return getattr(settings, "TRAFFIC_THRESHOLD_GB_PER_DAY", 10.0)
 
     def get_monitoring_interval_hours(self) -> int:
         """Получает интервал мониторинга в часах"""
-        return getattr(settings, 'TRAFFIC_MONITORING_INTERVAL_HOURS', 24)
+        return getattr(settings, "TRAFFIC_MONITORING_INTERVAL_HOURS", 24)
 
     def get_suspicious_notifications_topic_id(self) -> Optional[int]:
         """Получает ID топика для уведомлений о подозрительной активности"""
-        return getattr(settings, 'SUSPICIOUS_NOTIFICATIONS_TOPIC_ID', None)
+        return getattr(settings, "SUSPICIOUS_NOTIFICATIONS_TOPIC_ID", None)
 
     async def get_user_daily_traffic(self, user_uuid: str) -> Dict:
         """
@@ -71,8 +72,8 @@ class TrafficMonitoringService:
                 traffic_data = await api.get_user_stats_usage(user_uuid, start_date, end_date)
 
             # Обрабатываем ответ API
-            if traffic_data and 'response' in traffic_data:
-                response = traffic_data['response']
+            if traffic_data and "response" in traffic_data:
+                response = traffic_data["response"]
 
                 # Вычисляем общий трафик
                 total_gb = 0
@@ -80,64 +81,37 @@ class TrafficMonitoringService:
 
                 if isinstance(response, list):
                     for item in response:
-                        node_name = item.get('nodeName', 'Unknown')
-                        total_bytes = item.get('total', 0)
+                        node_name = item.get("nodeName", "Unknown")
+                        total_bytes = item.get("total", 0)
                         total_gb_item = round(total_bytes / (1024**3), 2)  # Конвертируем в ГБ
                         total_gb += total_gb_item
 
-                        nodes_info.append({
-                            'node': node_name,
-                            'gb': total_gb_item
-                        })
+                        nodes_info.append({"node": node_name, "gb": total_gb_item})
                 else:
                     # Если response - это уже результат обработки (как в примере)
-                    total_gb = response.get('total_gb', 0)
-                    nodes_info = response.get('nodes', [])
+                    total_gb = response.get("total_gb", 0)
+                    nodes_info = response.get("nodes", [])
 
-                return {
-                    'total_gb': total_gb,
-                    'nodes': nodes_info,
-                    'date_range': {
-                        'start': start_date,
-                        'end': end_date
-                    }
-                }
+                return {"total_gb": total_gb, "nodes": nodes_info, "date_range": {"start": start_date, "end": end_date}}
             else:
                 logger.warning(f"Нет данных о трафике для пользователя {user_uuid}")
-                return {
-                    'total_gb': 0,
-                    'nodes': [],
-                    'date_range': {
-                        'start': start_date,
-                        'end': end_date
-                    }
-                }
+                return {"total_gb": 0, "nodes": [], "date_range": {"start": start_date, "end": end_date}}
 
         except Exception as e:
             logger.error(f"Ошибка при получении статистики трафика для {user_uuid}: {e}")
-            return {
-                'total_gb': 0,
-                'nodes': [],
-                'date_range': {
-                    'start': None,
-                    'end': None
-                }
-            }
+            return {"total_gb": 0, "nodes": [], "date_range": {"start": None, "end": None}}
 
     async def check_user_traffic_threshold(
-        self, 
-        db: AsyncSession, 
-        user_uuid: str, 
-        user_telegram_id: int = None
+        self, db: AsyncSession, user_uuid: str, user_telegram_id: int = None
     ) -> Tuple[bool, Dict]:
         """
         Проверяет, превышает ли трафик пользователя заданный порог
-        
+
         Args:
             db: Сессия базы данных
             user_uuid: UUID пользователя в Remnawave
             user_telegram_id: Telegram ID пользователя (для логирования)
-            
+
         Returns:
             Кортеж (превышен ли порог, информация о трафике)
         """
@@ -146,7 +120,7 @@ class TrafficMonitoringService:
 
         # Получаем статистику трафика
         traffic_info = await self.get_user_daily_traffic(user_uuid)
-        total_gb = traffic_info.get('total_gb', 0)
+        total_gb = traffic_info.get("total_gb", 0)
 
         # Получаем порог для сравнения
         threshold_gb = self.get_traffic_threshold_gb()
@@ -158,19 +132,12 @@ class TrafficMonitoringService:
         user_id_info = f"telegram_id={user_telegram_id}" if user_telegram_id else f"uuid={user_uuid}"
         status = "ПРЕВЫШЕНИЕ" if is_exceeded else "норма"
         logger.info(
-            f"📊 Проверка трафика для {user_id_info}: {total_gb} ГБ, "
-            f"порог: {threshold_gb} ГБ, статус: {status}"
+            f"📊 Проверка трафика для {user_id_info}: {total_gb} ГБ, порог: {threshold_gb} ГБ, статус: {status}"
         )
 
         return is_exceeded, traffic_info
 
-    async def process_suspicious_traffic(
-        self,
-        db: AsyncSession,
-        user_uuid: str,
-        traffic_info: Dict,
-        bot
-    ):
+    async def process_suspicious_traffic(self, db: AsyncSession, user_uuid: str, traffic_info: Dict, bot):
         """
         Обрабатывает подозрительный трафик - отправляет уведомление администраторам
         """
@@ -182,7 +149,7 @@ class TrafficMonitoringService:
                 return
 
             # Формируем сообщение для администраторов
-            total_gb = traffic_info.get('total_gb', 0)
+            total_gb = traffic_info.get("total_gb", 0)
             threshold_gb = self.get_traffic_threshold_gb()
 
             message = (
@@ -195,7 +162,7 @@ class TrafficMonitoringService:
             )
 
             # Добавляем информацию по нодам, если есть
-            nodes = traffic_info.get('nodes', [])
+            nodes = traffic_info.get("nodes", [])
             if nodes:
                 message += "<b>Разбивка по нодам:</b>\n"
                 for node_info in nodes[:5]:  # Показываем первые 5 нод
@@ -211,15 +178,9 @@ class TrafficMonitoringService:
             # Отправляем уведомление администраторам
             topic_id = self.get_suspicious_notifications_topic_id()
 
-            await admin_notification_service.send_suspicious_traffic_notification(
-                message,
-                bot,
-                topic_id
-            )
+            await admin_notification_service.send_suspicious_traffic_notification(message, bot, topic_id)
 
-            logger.info(
-                f"✅ Уведомление о подозрительном трафике отправлено для пользователя {user.telegram_id}"
-            )
+            logger.info(f"✅ Уведомление о подозрительном трафике отправлено для пользователя {user.telegram_id}")
 
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке подозрительного трафика для {user_uuid}: {e}")
@@ -244,18 +205,11 @@ class TrafficMonitoringService:
             for user in users:
                 if user.remnawave_uuid:  # Проверяем только пользователей с UUID
                     is_exceeded, traffic_info = await self.check_user_traffic_threshold(
-                        db, 
-                        user.remnawave_uuid, 
-                        user.telegram_id
+                        db, user.remnawave_uuid, user.telegram_id
                     )
 
                     if is_exceeded:
-                        await self.process_suspicious_traffic(
-                            db, 
-                            user.remnawave_uuid, 
-                            traffic_info,
-                            bot
-                        )
+                        await self.process_suspicious_traffic(db, user.remnawave_uuid, traffic_info, bot)
 
             logger.info("Завершена проверка трафика всех пользователей")
 
@@ -267,6 +221,7 @@ class TrafficMonitoringScheduler:
     """
     Класс для планирования периодических проверок трафика
     """
+
     def __init__(self, traffic_service: TrafficMonitoringService):
         self.traffic_service = traffic_service
         self.check_task = None

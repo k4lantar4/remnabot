@@ -26,12 +26,12 @@ async def create_card_payment(
     receipt_type: Optional[str] = None,
     receipt_text: Optional[str] = None,
     receipt_image_file_id: Optional[str] = None,
-    status: str = 'pending'
+    status: str = "pending",
 ) -> CardToCardPayment:
     """Create a new card-to-card payment record."""
     if not tracking_number:
         tracking_number = generate_tracking_number()
-    
+
     payment = CardToCardPayment(
         bot_id=bot_id,
         user_id=user_id,
@@ -41,51 +41,55 @@ async def create_card_payment(
         receipt_type=receipt_type,
         receipt_text=receipt_text,
         receipt_image_file_id=receipt_image_file_id,
-        status=status
+        status=status,
     )
-    
+
     db.add(payment)
     await db.commit()
     await db.refresh(payment)
-    
+
     logger.info(f"✅ Card payment created: {tracking_number} (ID: {payment.id})")
     return payment
 
 
 async def get_payment_by_id(
-    db: AsyncSession,
-    payment_id: int,
-    bot_id: Optional[int] = None
+    db: AsyncSession, payment_id: int, bot_id: Optional[int] = None
 ) -> Optional[CardToCardPayment]:
     """Get card payment by ID."""
-    query = select(CardToCardPayment).options(
-        selectinload(CardToCardPayment.user),
-        selectinload(CardToCardPayment.card),
-        selectinload(CardToCardPayment.transaction)
-    ).where(CardToCardPayment.id == payment_id)
-    
+    query = (
+        select(CardToCardPayment)
+        .options(
+            selectinload(CardToCardPayment.user),
+            selectinload(CardToCardPayment.card),
+            selectinload(CardToCardPayment.transaction),
+        )
+        .where(CardToCardPayment.id == payment_id)
+    )
+
     if bot_id is not None:
         query = query.where(CardToCardPayment.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
 
 async def get_payment_by_tracking(
-    db: AsyncSession,
-    tracking_number: str,
-    bot_id: Optional[int] = None
+    db: AsyncSession, tracking_number: str, bot_id: Optional[int] = None
 ) -> Optional[CardToCardPayment]:
     """Get card payment by tracking number."""
-    query = select(CardToCardPayment).options(
-        selectinload(CardToCardPayment.user),
-        selectinload(CardToCardPayment.card),
-        selectinload(CardToCardPayment.transaction)
-    ).where(CardToCardPayment.tracking_number == tracking_number)
-    
+    query = (
+        select(CardToCardPayment)
+        .options(
+            selectinload(CardToCardPayment.user),
+            selectinload(CardToCardPayment.card),
+            selectinload(CardToCardPayment.transaction),
+        )
+        .where(CardToCardPayment.tracking_number == tracking_number)
+    )
+
     if bot_id is not None:
         query = query.where(CardToCardPayment.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -96,43 +100,42 @@ async def get_user_payments(
     bot_id: Optional[int] = None,
     status: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
 ) -> List[CardToCardPayment]:
     """Get card payments for a user."""
-    query = select(CardToCardPayment).options(
-        selectinload(CardToCardPayment.card),
-        selectinload(CardToCardPayment.transaction)
-    ).where(CardToCardPayment.user_id == user_id)
-    
+    query = (
+        select(CardToCardPayment)
+        .options(selectinload(CardToCardPayment.card), selectinload(CardToCardPayment.transaction))
+        .where(CardToCardPayment.user_id == user_id)
+    )
+
     if bot_id is not None:
         query = query.where(CardToCardPayment.bot_id == bot_id)
-    
+
     if status:
         query = query.where(CardToCardPayment.status == status)
-    
+
     query = query.order_by(CardToCardPayment.created_at.desc()).offset(offset).limit(limit)
-    
+
     result = await db.execute(query)
     return result.scalars().all()
 
 
 async def get_pending_payments(
-    db: AsyncSession,
-    bot_id: Optional[int] = None,
-    limit: int = 50,
-    offset: int = 0
+    db: AsyncSession, bot_id: Optional[int] = None, limit: int = 50, offset: int = 0
 ) -> List[CardToCardPayment]:
     """Get pending card payments."""
-    query = select(CardToCardPayment).options(
-        selectinload(CardToCardPayment.user),
-        selectinload(CardToCardPayment.card)
-    ).where(CardToCardPayment.status == 'pending')
-    
+    query = (
+        select(CardToCardPayment)
+        .options(selectinload(CardToCardPayment.user), selectinload(CardToCardPayment.card))
+        .where(CardToCardPayment.status == "pending")
+    )
+
     if bot_id is not None:
         query = query.where(CardToCardPayment.bot_id == bot_id)
-    
+
     query = query.order_by(CardToCardPayment.created_at.asc()).offset(offset).limit(limit)
-    
+
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -144,35 +147,35 @@ async def update_payment_status(
     admin_reviewed_by: Optional[int] = None,
     admin_notes: Optional[str] = None,
     transaction_id: Optional[int] = None,
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = None,
 ) -> Optional[CardToCardPayment]:
     """Update payment status."""
     query = select(CardToCardPayment).where(CardToCardPayment.id == payment_id)
-    
+
     if bot_id is not None:
         query = query.where(CardToCardPayment.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     payment = result.scalar_one_or_none()
-    
+
     if not payment:
         return None
-    
+
     payment.status = status
     payment.updated_at = datetime.utcnow()
-    
+
     if admin_reviewed_by:
         payment.admin_reviewed_by = admin_reviewed_by
         payment.admin_reviewed_at = datetime.utcnow()
-    
+
     if admin_notes:
         payment.admin_notes = admin_notes
-    
+
     if transaction_id:
         payment.transaction_id = transaction_id
-    
+
     await db.commit()
     await db.refresh(payment)
-    
+
     logger.info(f"✅ Card payment {payment.tracking_number} status updated to {status}")
     return payment

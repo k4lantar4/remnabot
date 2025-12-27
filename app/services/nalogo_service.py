@@ -13,29 +13,28 @@ logger = logging.getLogger(__name__)
 class NaloGoService:
     """Сервис для работы с API NaloGO (налоговая служба самозанятых)."""
 
-    def __init__(self,
-                 inn: Optional[str] = None,
-                 password: Optional[str] = None,
-                 device_id: Optional[str] = None,
-                 storage_path: Optional[str] = None):
-
-        inn = inn or getattr(settings, 'NALOGO_INN', None)
-        password = password or getattr(settings, 'NALOGO_PASSWORD', None)
-        device_id = device_id or getattr(settings, 'NALOGO_DEVICE_ID', None)
-        storage_path = storage_path or getattr(settings, 'NALOGO_STORAGE_PATH', './nalogo_tokens.json')
+    def __init__(
+        self,
+        inn: Optional[str] = None,
+        password: Optional[str] = None,
+        device_id: Optional[str] = None,
+        storage_path: Optional[str] = None,
+    ):
+        inn = inn or getattr(settings, "NALOGO_INN", None)
+        password = password or getattr(settings, "NALOGO_PASSWORD", None)
+        device_id = device_id or getattr(settings, "NALOGO_DEVICE_ID", None)
+        storage_path = storage_path or getattr(settings, "NALOGO_STORAGE_PATH", "./nalogo_tokens.json")
 
         self.configured = False
 
         if not inn or not password:
-            logger.warning(
-                "NaloGO INN или PASSWORD не настроены в settings. "
-                "Функционал чеков будет ОТКЛЮЧЕН.")
+            logger.warning("NaloGO INN или PASSWORD не настроены в settings. Функционал чеков будет ОТКЛЮЧЕН.")
         else:
             try:
                 self.client = Client(
                     base_url="https://lknpd.nalog.ru/api",
                     storage_path=storage_path,
-                    device_id=device_id or "bot-device-123"
+                    device_id=device_id or "bot-device-123",
                 )
                 self.inn = inn
                 self.password = password
@@ -63,7 +62,9 @@ class NaloGoService:
             logger.error("Ошибка аутентификации в NaloGO: %s", error, exc_info=True)
             return False
 
-    async def create_receipt(self, name: str, amount: float, quantity: int = 1, client_info: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    async def create_receipt(
+        self, name: str, amount: float, quantity: int = 1, client_info: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
         """Создание чека о доходе.
 
         Args:
@@ -81,7 +82,7 @@ class NaloGoService:
 
         try:
             # Аутентифицируемся, если нужно
-            if not hasattr(self.client, '_access_token') or not self.client._access_token:
+            if not hasattr(self.client, "_access_token") or not self.client._access_token:
                 auth_success = await self.authenticate()
                 if not auth_success:
                     return None
@@ -95,14 +96,11 @@ class NaloGoService:
                     contact_phone=client_info.get("phone"),
                     display_name=client_info.get("name"),
                     income_type=client_info.get("income_type", IncomeType.FROM_INDIVIDUAL),
-                    inn=client_info.get("inn")
+                    inn=client_info.get("inn"),
                 )
 
             result = await income_api.create(
-                name=name,
-                amount=Decimal(str(amount)),
-                quantity=quantity,
-                client=income_client
+                name=name, amount=Decimal(str(amount)), quantity=quantity, client=income_client
             )
 
             receipt_uuid = result.get("approvedReceiptUuid")

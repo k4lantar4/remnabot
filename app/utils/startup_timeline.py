@@ -65,9 +65,7 @@ class StartupTimeline:
         self.app_name = app_name
         self.steps: List[StepRecord] = []
 
-    def _record_step(
-        self, title: str, icon: str, status_label: str, message: str, duration: float
-    ) -> None:
+    def _record_step(self, title: str, icon: str, status_label: str, message: str, duration: float) -> None:
         self.steps.append(
             StepRecord(
                 title=title,
@@ -144,9 +142,7 @@ class StartupTimeline:
             duration = time.perf_counter() - start_time
             if not handle._explicit_status:
                 handle.success(handle.message or "Ready")
-            self.logger.info(
-                f"┗ {handle.status_icon} {title} — {handle.message} [{duration:.2f}s]"
-            )
+            self.logger.info(f"┗ {handle.status_icon} {title} — {handle.message} [{duration:.2f}s]")
             self._record_step(
                 title=title,
                 icon=handle.status_icon,
@@ -161,10 +157,7 @@ class StartupTimeline:
 
         lines = []
         for step in self.steps:
-            base = (
-                f"{step.icon} {step.title} — {step.status_label}"
-                f" [{step.duration:.2f}s]"
-            )
+            base = f"{step.icon} {step.title} — {step.status_label} [{step.duration:.2f}s]"
             if step.message:
                 base += f" :: {step.message}"
             lines.append(base)
@@ -181,4 +174,3 @@ class StartupTimeline:
         for line in lines:
             self.logger.info("┃ " + line.ljust(width) + " ┃")
         self.logger.info(border_bottom)
-

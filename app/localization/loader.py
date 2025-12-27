@@ -256,9 +256,7 @@ def ensure_locale_templates() -> None:
             continue
 
         if not source_path.exists():
-            _logger.debug(
-                "Default locale template %s is missing at %s", locale_code, source_path
-            )
+            _logger.debug("Default locale template %s is missing at %s", locale_code, source_path)
             continue
 
         _copy_locale(source_path, target_path)
@@ -304,11 +302,7 @@ def _load_locale_file(path: Path) -> Dict[str, Any]:
 def _merge_dicts(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
     result = dict(base)
     for key, value in overrides.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _merge_dicts(result[key], value)
         else:
             result[key] = value

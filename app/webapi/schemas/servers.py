@@ -29,9 +29,7 @@ class ServerResponse(BaseModel):
     current_users: int = Field(default=0, alias="currentUsers")
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
     updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
-    promo_groups: List[PromoGroupSummary] = Field(
-        default_factory=list, alias="promoGroups"
-    )
+    promo_groups: List[PromoGroupSummary] = Field(default_factory=list, alias="promoGroups")
 
 
 class ServerListResponse(BaseModel):
@@ -73,9 +71,7 @@ class ServerUpdateRequest(BaseModel):
     description: Optional[str] = None
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     is_available: Optional[bool] = Field(default=None, alias="isAvailable")
-    is_trial_eligible: Optional[bool] = Field(
-        default=None, alias="isTrialEligible"
-    )
+    is_trial_eligible: Optional[bool] = Field(default=None, alias="isTrialEligible")
     sort_order: Optional[int] = Field(default=None, alias="sortOrder")
     promo_group_ids: Optional[List[int]] = Field(
         default=None,
@@ -128,12 +124,8 @@ class ServerConnectedUser(BaseModel):
     status: str
     balance_toman: int = Field(alias="balanceToman")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
-    subscription_status: Optional[str] = Field(
-        default=None, alias="subscriptionStatus"
-    )
-    subscription_end_date: Optional[datetime] = Field(
-        default=None, alias="subscriptionEndDate"
-    )
+    subscription_status: Optional[str] = Field(default=None, alias="subscriptionStatus")
+    subscription_end_date: Optional[datetime] = Field(default=None, alias="subscriptionEndDate")
 
 
 class ServerConnectedUsersResponse(BaseModel):
@@ -154,4 +146,3 @@ class ServerDeleteResponse(BaseModel):
 
     success: bool
     message: str
-

@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -78,11 +89,8 @@ from app.utils.promo_offer import (
     get_user_active_promo_discount_percent,
 )
 
-async def handle_connect_subscription(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_connect_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
     subscription_link = get_display_subscription_link(subscription)
@@ -101,17 +109,16 @@ async def handle_connect_subscription(
     connect_mode = settings.CONNECT_BUTTON_MODE
 
     if connect_mode == "miniapp_subscription":
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
-                    web_app=types.WebAppInfo(url=subscription_link)
-                )
-            ],
-            [
-                InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=texts.t("CONNECT_BUTTON", "🔗 Connect"), web_app=types.WebAppInfo(url=subscription_link)
+                    )
+                ],
+                [InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")],
             ]
-        ])
+        )
 
         await callback.message.edit_text(
             texts.t(
@@ -121,7 +128,7 @@ async def handle_connect_subscription(
 🚀 Click the button below to open the subscription in Telegram mini-app:""",
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
 
     elif connect_mode == "miniapp_custom":
@@ -135,17 +142,17 @@ async def handle_connect_subscription(
             )
             return
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
-                    web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL)
-                )
-            ],
-            [
-                InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
+                        web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
+                    )
+                ],
+                [InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")],
             ]
-        ])
+        )
 
         await callback.message.edit_text(
             texts.t(
@@ -155,24 +162,15 @@ async def handle_connect_subscription(
 📱 Click the button below to open the app:""",
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
 
     elif connect_mode == "link":
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
-                    url=subscription_link
-                )
-            ]
-        ]
+        rows = [[InlineKeyboardButton(text=texts.t("CONNECT_BUTTON", "🔗 Connect"), url=subscription_link)]]
         happ_row = get_happ_download_button_row(texts)
         if happ_row:
             rows.append(happ_row)
-        rows.append([
-            InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")
-        ])
+        rows.append([InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")])
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -184,7 +182,7 @@ async def handle_connect_subscription(
 🔗 Click the button below to open the subscription link:""",
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
     elif connect_mode == "happ_cryptolink":
         rows = [
@@ -198,9 +196,7 @@ async def handle_connect_subscription(
         happ_row = get_happ_download_button_row(texts)
         if happ_row:
             rows.append(happ_row)
-        rows.append([
-            InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")
-        ])
+        rows.append([InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")])
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -212,7 +208,7 @@ async def handle_connect_subscription(
 🔗 Click the button below to open the subscription link:""",
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
     else:
         if hide_subscription_link:
@@ -236,18 +232,13 @@ async def handle_connect_subscription(
             ).format(subscription_url=subscription_link)
 
         await callback.message.edit_text(
-            device_text,
-            reply_markup=get_device_selection_keyboard(db_user.language),
-            parse_mode="HTML"
+            device_text, reply_markup=get_device_selection_keyboard(db_user.language), parse_mode="HTML"
         )
 
     await callback.answer()
 
-async def handle_open_subscription_link(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_open_subscription_link(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
     subscription_link = get_display_subscription_link(subscription)
@@ -263,26 +254,26 @@ async def handle_open_subscription_link(
         redirect_link = get_happ_cryptolink_redirect_link(subscription_link)
         happ_scheme_link = convert_subscription_link_to_happ_scheme(subscription_link)
         happ_message = (
-                texts.t(
-                    "SUBSCRIPTION_HAPP_OPEN_TITLE",
-                    "🔗 <b>Connection via Happ</b>",
-                )
-                + "\n\n"
-                + texts.t(
-            "SUBSCRIPTION_HAPP_OPEN_LINK",
-            "<a href=\"{subscription_link}\">🔓 Open link in Happ</a>",
-        ).format(subscription_link=happ_scheme_link)
-                + "\n\n"
-                + texts.t(
-            "SUBSCRIPTION_HAPP_OPEN_HINT",
-            "💡 If the link doesn't open automatically, copy it manually:",
-        )
+            texts.t(
+                "SUBSCRIPTION_HAPP_OPEN_TITLE",
+                "🔗 <b>Connection via Happ</b>",
+            )
+            + "\n\n"
+            + texts.t(
+                "SUBSCRIPTION_HAPP_OPEN_LINK",
+                '<a href="{subscription_link}">🔓 Open link in Happ</a>',
+            ).format(subscription_link=happ_scheme_link)
+            + "\n\n"
+            + texts.t(
+                "SUBSCRIPTION_HAPP_OPEN_HINT",
+                "💡 If the link doesn't open automatically, copy it manually:",
+            )
         )
 
         if redirect_link:
             happ_message += "\n\n" + texts.t(
                 "SUBSCRIPTION_HAPP_OPEN_BUTTON_HINT",
-                "▶️ Click the \"Connect\" button below to open Happ and add the subscription automatically.",
+                '▶️ Click the "Connect" button below to open Happ and add the subscription automatically.',
             )
 
         happ_message += "\n\n" + texts.t(
@@ -306,49 +297,50 @@ async def handle_open_subscription_link(
         return
 
     link_text = (
-            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
-            + "\n\n"
-            + f"<code>{subscription_link}</code>\n\n"
-            + texts.t("SUBSCRIPTION_LINK_USAGE_TITLE", "📱 <b>How to use:</b>")
-            + "\n"
-            + "\n".join(
-        [
-            texts.t(
-                "SUBSCRIPTION_LINK_STEP1",
-                "1. Click the link above to copy it",
-            ),
-            texts.t(
-                "SUBSCRIPTION_LINK_STEP2",
-                "2. Open your VPN app",
-            ),
-            texts.t(
-                "SUBSCRIPTION_LINK_STEP3",
-                "3. Find the \"Add subscription\" or \"Import\" function",
-            ),
-            texts.t(
-                "SUBSCRIPTION_LINK_STEP4",
-                "4. Paste the copied link",
-            ),
-        ]
-    )
-            + "\n\n"
-            + texts.t(
-        "SUBSCRIPTION_LINK_HINT",
-        "💡 If the link wasn't copied, select it manually and copy.",
-    )
+        texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
+        + "\n\n"
+        + f"<code>{subscription_link}</code>\n\n"
+        + texts.t("SUBSCRIPTION_LINK_USAGE_TITLE", "📱 <b>How to use:</b>")
+        + "\n"
+        + "\n".join(
+            [
+                texts.t(
+                    "SUBSCRIPTION_LINK_STEP1",
+                    "1. Click the link above to copy it",
+                ),
+                texts.t(
+                    "SUBSCRIPTION_LINK_STEP2",
+                    "2. Open your VPN app",
+                ),
+                texts.t(
+                    "SUBSCRIPTION_LINK_STEP3",
+                    '3. Find the "Add subscription" or "Import" function',
+                ),
+                texts.t(
+                    "SUBSCRIPTION_LINK_STEP4",
+                    "4. Paste the copied link",
+                ),
+            ]
+        )
+        + "\n\n"
+        + texts.t(
+            "SUBSCRIPTION_LINK_HINT",
+            "💡 If the link wasn't copied, select it manually and copy.",
+        )
     )
 
     await callback.message.edit_text(
         link_text,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
-                                     callback_data="subscription_connect")
-            ],
-            [
-                InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=texts.t("CONNECT_BUTTON", "🔗 Connect"), callback_data="subscription_connect"
+                    )
+                ],
+                [InlineKeyboardButton(text=texts.BACK, callback_data="menu_subscription")],
             ]
-        ]),
-        parse_mode="HTML"
+        ),
+        parse_mode="HTML",
     )
     await callback.answer()

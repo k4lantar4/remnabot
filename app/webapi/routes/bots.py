@@ -75,7 +75,7 @@ async def list_bots(
         total = len(bots)
         # Apply pagination
         bots = bots[offset : offset + limit]
-    
+
     return BotListResponse(
         items=[_serialize_bot(bot) for bot in bots],
         total=total,
@@ -97,7 +97,7 @@ async def get_bot(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     return _serialize_bot(bot)
 
 
@@ -110,13 +110,14 @@ async def create_bot_endpoint(
     """Create a new bot (tenant)."""
     # Check if token already exists
     from app.database.crud.bot import get_bot_by_token
+
     existing = await get_bot_by_token(db, request.telegram_bot_token)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Bot with this Telegram token already exists",
         )
-    
+
     # Create bot
     bot, api_token = await create_bot(
         db=db,
@@ -136,7 +137,7 @@ async def create_bot_endpoint(
         notification_group_id=request.notification_group_id,
         notification_topic_id=request.notification_topic_id,
     )
-    
+
     return BotCreateResponse(
         bot=_serialize_bot(bot),
         api_token=api_token,
@@ -157,20 +158,21 @@ async def update_bot_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     # Check if token is being updated and if it's unique
     if request.telegram_bot_token:
         from app.database.crud.bot import get_bot_by_token
+
         existing = await get_bot_by_token(db, request.telegram_bot_token)
         if existing and existing.id != bot_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Bot with this Telegram token already exists",
             )
-    
+
     # Prepare update data
     update_data = request.model_dump(exclude_unset=True)
-    
+
     # Update bot
     updated_bot = await update_bot(db, bot_id, **update_data)
     if not updated_bot:
@@ -178,7 +180,7 @@ async def update_bot_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update bot",
         )
-    
+
     return _serialize_bot(updated_bot)
 
 
@@ -195,14 +197,14 @@ async def activate_bot_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     success = await activate_bot(db, bot_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to activate bot",
         )
-    
+
     # Refresh bot
     bot = await get_bot_by_id(db, bot_id)
     return _serialize_bot(bot)
@@ -221,21 +223,21 @@ async def deactivate_bot_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     # Prevent deactivating master bot
     if bot.is_master:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot deactivate master bot",
         )
-    
+
     success = await deactivate_bot(db, bot_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to deactivate bot",
         )
-    
+
     # Refresh bot
     bot = await get_bot_by_id(db, bot_id)
     return _serialize_bot(bot)
@@ -256,27 +258,24 @@ async def update_card_to_card_settings(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     update_data = {}
     if card_to_card_enabled is not None:
         update_data["card_to_card_enabled"] = card_to_card_enabled
     if card_receipt_topic_id is not None:
         update_data["card_receipt_topic_id"] = card_receipt_topic_id
-    
+
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field must be provided",
         )
-    
+
     updated_bot = await update_bot(db, bot_id, **update_data)
     if not updated_bot:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update card-to-card settings",
         )
-    
+
     return _serialize_bot(updated_bot)
-
-
-

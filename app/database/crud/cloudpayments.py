@@ -78,11 +78,7 @@ async def get_cloudpayments_payment_by_invoice_id(
     invoice_id: str,
 ) -> Optional[CloudPaymentsPayment]:
     """Get CloudPayments payment by invoice ID."""
-    result = await db.execute(
-        select(CloudPaymentsPayment).where(
-            CloudPaymentsPayment.invoice_id == invoice_id
-        )
-    )
+    result = await db.execute(select(CloudPaymentsPayment).where(CloudPaymentsPayment.invoice_id == invoice_id))
     return result.scalars().first()
 
 
@@ -91,9 +87,7 @@ async def get_cloudpayments_payment_by_id(
     payment_id: int,
 ) -> Optional[CloudPaymentsPayment]:
     """Get CloudPayments payment by internal ID."""
-    result = await db.execute(
-        select(CloudPaymentsPayment).where(CloudPaymentsPayment.id == payment_id)
-    )
+    result = await db.execute(select(CloudPaymentsPayment).where(CloudPaymentsPayment.id == payment_id))
     return result.scalars().first()
 
 
@@ -103,9 +97,7 @@ async def get_cloudpayments_payment_by_transaction_id(
 ) -> Optional[CloudPaymentsPayment]:
     """Get CloudPayments payment by CloudPayments transaction ID."""
     result = await db.execute(
-        select(CloudPaymentsPayment).where(
-            CloudPaymentsPayment.transaction_id_cp == transaction_id_cp
-        )
+        select(CloudPaymentsPayment).where(CloudPaymentsPayment.transaction_id_cp == transaction_id_cp)
     )
     return result.scalars().first()
 

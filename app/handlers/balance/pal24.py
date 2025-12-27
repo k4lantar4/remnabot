@@ -63,15 +63,9 @@ async def _send_pal24_payment_message(
             await state.clear()
             return
 
-        sbp_url = (
-            payment_result.get("sbp_url")
-            or payment_result.get("transfer_url")
-        )
+        sbp_url = payment_result.get("sbp_url") or payment_result.get("transfer_url")
         card_url = payment_result.get("card_url")
-        fallback_url = (
-            payment_result.get("link_page_url")
-            or payment_result.get("link_url")
-        )
+        fallback_url = payment_result.get("link_page_url") or payment_result.get("link_url")
 
         if not (sbp_url or card_url or fallback_url):
             await message.answer(
@@ -241,7 +235,7 @@ async def _send_pal24_payment_message(
         logger.info(
             "Created PayPalych invoice for user %s: %s Toman, ID: %s, method: %s",
             db_user.telegram_id,
-            amount_toman ,
+            amount_toman,
             bill_id,
             payment_method,
         )
@@ -255,6 +249,7 @@ async def _send_pal24_payment_message(
             )
         )
         await state.clear()
+
 
 @error_handler
 async def start_pal24_payment(
@@ -301,6 +296,7 @@ async def start_pal24_payment(
 
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
+
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
@@ -355,7 +351,9 @@ async def process_pal24_payment_amount(
             texts.t(
                 "PAL24_MAX_AMOUNT",
                 "❌ Maximum amount for PayPalych payment: {amount:,.0f}  Toman",
-            ).format(amount=max_toman).replace(',', ' ')
+            )
+            .format(amount=max_toman)
+            .replace(",", " ")
         )
         return
 
@@ -472,7 +470,7 @@ async def check_pal24_payment_status(
     db: AsyncSession,
 ):
     try:
-        local_payment_id = int(callback.data.split('_')[-1])
+        local_payment_id = int(callback.data.split("_")[-1])
         payment_service = PaymentService(callback.bot)
         status_info = await payment_service.get_pal24_payment_status(db, local_payment_id)
 
@@ -558,19 +556,11 @@ async def check_pal24_payment_status(
             "url",
         )
 
-        extra_sbp_link = (
-            _extract_link(raw_response, transfer_keys)
-            if raw_response
-            else None
-        )
+        extra_sbp_link = _extract_link(raw_response, transfer_keys) if raw_response else None
         if not extra_sbp_link and remote_data:
             extra_sbp_link = _extract_link(remote_data, transfer_keys)
 
-        extra_card_link = (
-            _extract_link(raw_response, card_keys)
-            if raw_response
-            else None
-        )
+        extra_card_link = _extract_link(raw_response, card_keys) if raw_response else None
         if not extra_card_link and remote_data:
             extra_card_link = _extract_link(remote_data, card_keys)
 
@@ -581,12 +571,7 @@ async def check_pal24_payment_status(
             or extra_sbp_link
             or payment.link_url
         )
-        card_link = (
-            links_info.get("card")
-            or links_meta.get("card")
-            or status_info.get("card_url")
-            or extra_card_link
-        )
+        card_link = links_info.get("card") or links_meta.get("card") or status_info.get("card_url") or extra_card_link
 
         if not card_link and payment.link_page_url and payment.link_page_url != sbp_link:
             card_link = payment.link_page_url
@@ -594,17 +579,13 @@ async def check_pal24_payment_status(
         message_lines = [
             texts.t("PAL24_STATUS_TITLE", "🏦 PayPalych payment status:"),
             "",
-            texts.t("PAL24_STATUS_BILL_ID", "🆔 Invoice ID: {bill_id}").format(
-                bill_id=payment.bill_id
-            ),
+            texts.t("PAL24_STATUS_BILL_ID", "🆔 Invoice ID: {bill_id}").format(bill_id=payment.bill_id),
             texts.t("PAL24_STATUS_AMOUNT", "💰 Amount: {amount}").format(
                 amount=settings.format_price(payment.amount_toman)
             ),
-            texts.t("PAL24_STATUS_STATE", "📊 Status: {emoji} {status}").format(
-                emoji=emoji, status=status_text
-            ),
+            texts.t("PAL24_STATUS_STATE", "📊 Status: {emoji} {status}").format(emoji=emoji, status=status_text),
             texts.t("PAL24_STATUS_CREATED_AT", "📅 Created: {date}").format(
-                date=payment.created_at.strftime('%d.%m.%Y %H:%M')
+                date=payment.created_at.strftime("%d.%m.%Y %H:%M")
             ),
         ]
 
@@ -626,15 +607,9 @@ async def check_pal24_payment_status(
             )
             if sbp_link:
                 message_lines.append("")
-                message_lines.append(
-                    texts.t("PAL24_STATUS_SBP_LINK", "🏦 SBP: {link}").format(link=sbp_link)
-                )
+                message_lines.append(texts.t("PAL24_STATUS_SBP_LINK", "🏦 SBP: {link}").format(link=sbp_link))
             if card_link and card_link != sbp_link:
-                message_lines.append(
-                    texts.t("PAL24_STATUS_CARD_LINK", "💳 Bank card: {link}").format(
-                        link=card_link
-                    )
-                )
+                message_lines.append(texts.t("PAL24_STATUS_CARD_LINK", "💳 Bank card: {link}").format(link=card_link))
         elif payment.status in {"FAIL", "UNDERPAID", "OVERPAID"}:
             message_lines.append("")
             message_lines.append(
@@ -691,7 +666,7 @@ async def check_pal24_payment_status(
         ]
 
         keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-        
+
         await callback.answer()
         try:
             await callback.message.edit_text(
@@ -701,9 +676,7 @@ async def check_pal24_payment_status(
             )
         except TelegramBadRequest as error:
             if "message is not modified" in str(error).lower():
-                await callback.answer(
-                    texts.t("CHECK_STATUS_NO_CHANGES", "Status has not changed")
-                )
+                await callback.answer(texts.t("CHECK_STATUS_NO_CHANGES", "Status has not changed"))
             else:
                 raise
 

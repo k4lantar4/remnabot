@@ -213,11 +213,7 @@ class PurchasePeriodConfig:
         }
         if self.discount_percent:
             payload["discount_percent"] = self.discount_percent
-        if (
-            self.base_price_original
-            and self.base_price_original_label
-            and self.base_price_original != self.base_price
-        ):
+        if self.base_price_original and self.base_price_original_label and self.base_price_original != self.base_price:
             payload["original_price_toman"] = self.base_price_original
             payload["original_price_label"] = self.base_price_original_label
         return payload
@@ -394,9 +390,7 @@ class MiniAppSubscriptionPurchaseService:
 
             base_price_original = PERIOD_PRICES.get(period_days, 0)
             period_discount_percent = user.get_promo_discount("period", period_days)
-            base_price, base_discount_total = _apply_percentage_discount(
-                base_price_original, period_discount_percent
-            )
+            base_price, base_discount_total = _apply_percentage_discount(base_price_original, period_discount_percent)
             base_price_label = texts.format_price(base_price)
             base_price_original_label = (
                 texts.format_price(base_price_original)
@@ -604,9 +598,7 @@ class MiniAppSubscriptionPurchaseService:
         discounted_unit_price, unit_discount_value = _apply_percentage_discount(unit_price, discount_percent)
         price_label = texts.format_price(discounted_unit_price)
         original_label = (
-            texts.format_price(unit_price)
-            if unit_discount_value and unit_price != discounted_unit_price
-            else None
+            texts.format_price(unit_price) if unit_discount_value and unit_price != discounted_unit_price else None
         )
 
         max_devices_setting = settings.MAX_DEVICES_LIMIT if settings.MAX_DEVICES_LIMIT > 0 else None
@@ -753,18 +745,9 @@ class MiniAppSubscriptionPurchaseService:
 
         is_valid = validate_pricing_calculation(
             details.get("base_price", 0),
-            (
-                details.get("traffic_price_per_month", 0)
-                - details.get("traffic_discount_total", 0) // max(1, months)
-            )
-            + (
-                details.get("servers_price_per_month", 0)
-                - details.get("servers_discount_total", 0) // max(1, months)
-            )
-            + (
-                details.get("devices_price_per_month", 0)
-                - details.get("devices_discount_total", 0) // max(1, months)
-            ),
+            (details.get("traffic_price_per_month", 0) - details.get("traffic_discount_total", 0) // max(1, months))
+            + (details.get("servers_price_per_month", 0) - details.get("servers_discount_total", 0) // max(1, months))
+            + (details.get("devices_price_per_month", 0) - details.get("devices_discount_total", 0) // max(1, months)),
             months,
             discounted_total,
         )
@@ -984,12 +967,8 @@ class MiniAppSubscriptionPurchaseService:
             "totalPriceLabel": texts.format_price(pricing.final_total),
             "original_price_toman": pricing.base_original_total if total_discount else None,
             "originalPriceToman": pricing.base_original_total if total_discount else None,
-            "original_price_label": texts.format_price(pricing.base_original_total)
-            if total_discount
-            else None,
-            "originalPriceLabel": texts.format_price(pricing.base_original_total)
-            if total_discount
-            else None,
+            "original_price_label": texts.format_price(pricing.base_original_total) if total_discount else None,
+            "originalPriceLabel": texts.format_price(pricing.base_original_total) if total_discount else None,
             "discount_percent": overall_discount_percent,
             "discountPercent": overall_discount_percent,
             "discount_label": texts.t(
@@ -1010,10 +989,7 @@ class MiniAppSubscriptionPurchaseService:
             "perMonthPriceToman": per_month_price,
             "per_month_price_label": texts.format_price(per_month_price),
             "perMonthPriceLabel": texts.format_price(per_month_price),
-            "breakdown": [
-                {"label": item["label"], "value": item["value"]}
-                for item in breakdown
-            ],
+            "breakdown": [{"label": item["label"], "value": item["value"]} for item in breakdown],
             "balance_toman": context.balance_toman,
             "balanceToman": context.balance_toman,
             "balance_label": texts.format_price(context.balance_toman),
@@ -1077,9 +1053,7 @@ class MiniAppSubscriptionPurchaseService:
                     refresh_error,
                 )
         else:
-            result = await db.execute(
-                select(Subscription).where(Subscription.user_id == user.id)
-            )
+            result = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
             subscription = result.scalar_one_or_none()
             if subscription is not None:
                 context.subscription = subscription
@@ -1206,7 +1180,7 @@ class MiniAppSubscriptionPurchaseService:
 
 class SubscriptionPurchaseService:
     """Service for handling simple subscription purchases with predefined parameters."""
-    
+
     async def create_subscription_order(
         self,
         db: AsyncSession,
@@ -1216,12 +1190,12 @@ class SubscriptionPurchaseService:
         traffic_limit_gb: int,
         squad_uuid: str,
         payment_method: str,
-        total_price_toman: int
+        total_price_toman: int,
     ):
         """Creates a subscription order with predefined parameters."""
         from app.database.crud.subscription import create_pending_subscription
         from app.database.models import SubscriptionStatus
-        
+
         # Create a pending subscription
         subscription = await create_pending_subscription(
             db=db,
@@ -1231,9 +1205,9 @@ class SubscriptionPurchaseService:
             device_limit=device_limit,
             connected_squads=[squad_uuid] if squad_uuid else [],
             payment_method=payment_method,
-            total_price_toman=total_price_toman
+            total_price_toman=total_price_toman,
         )
-        
+
         return subscription
 
 

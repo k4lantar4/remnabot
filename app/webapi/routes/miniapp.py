@@ -248,6 +248,7 @@ def _load_app_config_data() -> Optional[Dict[str, Any]]:
 
     return None
 
+
 _DECIMAL_ONE_HUNDRED = Decimal(100)
 _DECIMAL_CENT = Decimal("0.01")
 
@@ -297,16 +298,12 @@ def _get_autopay_day_options(subscription: Optional[Subscription]) -> List[int]:
         if normalized is not None:
             options.add(normalized)
 
-    default_setting = _normalize_autopay_days(
-        getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None)
-    )
+    default_setting = _normalize_autopay_days(getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None))
     if default_setting is not None:
         options.add(default_setting)
 
     if subscription is not None:
-        current = _normalize_autopay_days(
-            getattr(subscription, "autopay_days_before", None)
-        )
+        current = _normalize_autopay_days(getattr(subscription, "autopay_days_before", None))
         if current is not None:
             options.add(current)
 
@@ -320,16 +317,12 @@ def _build_autopay_payload(
         return None
 
     enabled = bool(getattr(subscription, "autopay_enabled", False))
-    days_before = _normalize_autopay_days(
-        getattr(subscription, "autopay_days_before", None)
-    )
+    days_before = _normalize_autopay_days(getattr(subscription, "autopay_days_before", None))
     options = _get_autopay_day_options(subscription)
 
     default_days = days_before
     if default_days is None:
-        default_days = _normalize_autopay_days(
-            getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None)
-        )
+        default_days = _normalize_autopay_days(getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None))
     if default_days is None and options:
         default_days = options[0]
 
@@ -431,11 +424,7 @@ def _normalize_stars_amount(amount_toman: int) -> Tuple[int, int]:
         rounding=ROUND_HALF_UP,
     )
     # Convert back from rubles to toman
-    normalized_amount_toman = int(
-        (normalized_rubles * _DECIMAL_ONE_HUNDRED).to_integral_value(
-            rounding=ROUND_HALF_UP
-        )
-    )
+    normalized_amount_toman = int((normalized_rubles * _DECIMAL_ONE_HUNDRED).to_integral_value(rounding=ROUND_HALF_UP))
 
     return stars_amount, normalized_amount_toman
 
@@ -449,7 +438,7 @@ def _merge_purchase_selection_from_request(
     payload: Union[
         "MiniAppSubscriptionPurchasePreviewRequest",
         "MiniAppSubscriptionPurchaseRequest",
-    ]
+    ],
 ) -> Dict[str, Any]:
     base: Dict[str, Any] = {}
     if payload.selection:
@@ -580,6 +569,7 @@ def _classify_status(status: Optional[str], is_paid: bool) -> str:
         return "failed"
     return "pending"
 
+
 def _format_gb(value: Optional[float]) -> float:
     if value is None:
         return 0.0
@@ -664,9 +654,7 @@ def _normalize_amount_toman(
 
     try:
         # Convert rubles to toman (multiply by 100)
-        decimal_amount = Decimal(str(amount_rubles)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        decimal_amount = Decimal(str(amount_rubles)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError):
         return None
 
@@ -758,9 +746,7 @@ async def get_payment_methods(
     if settings.is_mulenpay_enabled():
         mulenpay_iframe_config = _build_mulenpay_iframe_config()
         mulenpay_integration = (
-            MiniAppPaymentIntegrationType.IFRAME
-            if mulenpay_iframe_config
-            else MiniAppPaymentIntegrationType.REDIRECT
+            MiniAppPaymentIntegrationType.IFRAME if mulenpay_iframe_config else MiniAppPaymentIntegrationType.REDIRECT
         )
         methods.append(
             MiniAppPaymentMethod(
@@ -1258,8 +1244,9 @@ async def create_payment_link(
 
         try:
             amount_usd = float(
-                (Decimal(amount_toman) / Decimal(100) / Decimal(str(rate)))
-                .quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                (Decimal(amount_toman) / Decimal(100) / Decimal(str(rate))).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
             )
         except (InvalidOperation, ValueError):
             raise HTTPException(
@@ -1280,9 +1267,7 @@ async def create_payment_link(
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to create payment")
 
         payment_url = (
-            result.get("bot_invoice_url")
-            or result.get("mini_app_invoice_url")
-            or result.get("web_app_invoice_url")
+            result.get("bot_invoice_url") or result.get("mini_app_invoice_url") or result.get("web_app_invoice_url")
         )
         if not payment_url:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail="Failed to obtain payment url")
@@ -2218,11 +2203,7 @@ def _format_offer_message(
         replacements.setdefault("server_name", server_name)
 
     for key, value in extra.items():
-        if (
-            isinstance(key, str)
-            and key not in replacements
-            and isinstance(value, (str, int, float))
-        ):
+        if isinstance(key, str) and key not in replacements and isinstance(value, (str, int, float)):
             replacements[key] = value
 
     try:
@@ -2362,9 +2343,7 @@ async def _build_promo_offer_models(
         for uuid in _extract_offer_test_squad_uuids(offer):
             resolved = squad_map.get(uuid)
             if resolved:
-                test_squads.append(
-                    MiniAppConnectedServer(uuid=resolved.uuid, name=resolved.name)
-                )
+                test_squads.append(MiniAppConnectedServer(uuid=resolved.uuid, name=resolved.name))
             else:
                 test_squads.append(MiniAppConnectedServer(uuid=uuid, name=uuid))
         return test_squads
@@ -2457,9 +2436,7 @@ async def _build_promo_offer_models(
                 active_offer_record,
                 server_name=server_name,
             )
-            bonus_label = _format_bonus_label(
-                int(getattr(active_offer_record, "bonus_amount_toman", 0) or 0)
-            )
+            bonus_label = _format_bonus_label(int(getattr(active_offer_record, "bonus_amount_toman", 0) or 0))
 
             started_at = getattr(active_offer_record, "claimed_at", None)
             expires_at = expires_override or getattr(active_offer_record, "expires_at", None)
@@ -2521,7 +2498,7 @@ async def _build_promo_offer_models(
 def _bytes_to_gb(bytes_value: Optional[int]) -> float:
     if not bytes_value:
         return 0.0
-    return round(bytes_value / (1024 ** 3), 2)
+    return round(bytes_value / (1024**3), 2)
 
 
 def _status_label(status: str) -> str:
@@ -2628,10 +2605,7 @@ async def _load_devices_info(user: User) -> Tuple[int, List[MiniAppDevice]]:
         model = device.get("deviceModel") or device.get("model") or device.get("name")
         app_version = device.get("appVersion") or device.get("version")
         last_seen_raw = (
-            device.get("updatedAt")
-            or device.get("lastSeen")
-            or device.get("lastActiveAt")
-            or device.get("createdAt")
+            device.get("updatedAt") or device.get("lastSeen") or device.get("lastActiveAt") or device.get("createdAt")
         )
         last_ip = device.get("ip") or device.get("ipAddress")
 
@@ -2731,10 +2705,7 @@ async def _build_referral_info(
     first_topup_bonus_toman = int(referral_settings.get("first_topup_bonus_toman") or 0)
     inviter_bonus_toman = int(referral_settings.get("inviter_bonus_toman") or 0)
     commission_percent = float(
-        get_effective_referral_commission_percent(user)
-        if user
-        else referral_settings.get("commission_percent")
-        or 0
+        get_effective_referral_commission_percent(user) if user else referral_settings.get("commission_percent") or 0
     )
 
     terms = MiniAppReferralTerms(
@@ -2926,10 +2897,7 @@ async def get_subscription_details(
     lifetime_used = _bytes_to_gb(getattr(user, "lifetime_used_traffic_bytes", 0))
 
     transactions_query = (
-        select(Transaction)
-        .where(Transaction.user_id == user.id)
-        .order_by(Transaction.created_at.desc())
-        .limit(10)
+        select(Transaction).where(Transaction.user_id == user.id).order_by(Transaction.created_at.desc()).limit(10)
     )
     transactions_result = await db.execute(transactions_query)
     transactions = list(transactions_result.scalars().all())
@@ -2993,9 +2961,7 @@ async def get_subscription_details(
             )
 
     if subscription:
-        active_offer_contexts.extend(
-            await _find_active_test_access_offers(db, subscription)
-        )
+        active_offer_contexts.extend(await _find_active_test_access_offers(db, subscription))
 
     promo_offers = await _build_promo_offer_models(
         db,
@@ -3049,13 +3015,11 @@ async def get_subscription_details(
                         content=page.content or "",
                         display_order=getattr(page, "display_order", None),
                     )
-            )
+                )
 
             if faq_items:
                 resolved_language = (
-                    faq_setting.language
-                    if faq_setting and faq_setting.language
-                    else ordered_pages[0].language
+                    faq_setting.language if faq_setting and faq_setting.language else ordered_pages[0].language
                 )
                 faq_payload = MiniAppFaq(
                     requested_language=requested_faq_language,
@@ -3084,9 +3048,7 @@ async def get_subscription_details(
             updated_at=public_offer.updated_at,
         )
 
-    requested_policy_language = PrivacyPolicyService.normalize_language(
-        content_language_preference
-    )
+    requested_policy_language = PrivacyPolicyService.normalize_language(content_language_preference)
     privacy_policy = await PrivacyPolicyService.get_active_policy(
         db,
         requested_policy_language,
@@ -3143,13 +3105,8 @@ async def get_subscription_details(
         status_actual = subscription.actual_status
         subscription_status_value = subscription.status
         links_payload = await _load_subscription_links(subscription)
-        subscription_url = (
-            links_payload.get("subscription_url") or subscription.subscription_url
-        )
-        subscription_crypto_link = (
-            links_payload.get("happ_crypto_link")
-            or subscription.subscription_crypto_link
-        )
+        subscription_url = links_payload.get("subscription_url") or subscription.subscription_url
+        subscription_crypto_link = links_payload.get("happ_crypto_link") or subscription.subscription_crypto_link
         happ_redirect_link = get_happ_cryptolink_redirect_link(subscription_crypto_link)
         connected_squads = list(subscription.connected_squads or [])
         connected_servers = await _resolve_connected_servers(db, connected_squads)
@@ -3160,16 +3117,8 @@ async def get_subscription_details(
         autopay_enabled = bool(subscription.autopay_enabled)
 
     autopay_payload = _build_autopay_payload(subscription)
-    autopay_days_before = (
-        getattr(autopay_payload, "autopay_days_before", None)
-        if autopay_payload
-        else None
-    )
-    autopay_days_options = (
-        list(getattr(autopay_payload, "autopay_days_options", []) or [])
-        if autopay_payload
-        else []
-    )
+    autopay_days_before = getattr(autopay_payload, "autopay_days_before", None) if autopay_payload else None
+    autopay_days_options = list(getattr(autopay_payload, "autopay_days_options", []) or []) if autopay_payload else []
     autopay_extras = _autopay_response_extras(
         autopay_enabled,
         autopay_days_before,
@@ -3213,16 +3162,10 @@ async def get_subscription_details(
     referral_info = await _build_referral_info(db, user)
 
     trial_available = _is_trial_available_for_user(user)
-    trial_duration_days = (
-        settings.TRIAL_DURATION_DAYS if settings.TRIAL_DURATION_DAYS > 0 else None
-    )
+    trial_duration_days = settings.TRIAL_DURATION_DAYS if settings.TRIAL_DURATION_DAYS > 0 else None
     trial_price_toman = settings.get_trial_activation_price()
-    trial_payment_required = (
-        settings.is_trial_paid_activation_enabled() and trial_price_toman > 0
-    )
-    trial_price_label = (
-        settings.format_price(trial_price_toman) if trial_payment_required else None
-    )
+    trial_payment_required = settings.is_trial_paid_activation_enabled() and trial_price_toman > 0
+    trial_price_label = settings.format_price(trial_price_toman) if trial_payment_required else None
 
     subscription_missing_reason = None
     if subscription is None:
@@ -3267,11 +3210,7 @@ async def get_subscription_details(
         total_spent_toman=total_spent_toman,
         total_spent_rubles=round(total_spent_toman / 100, 2),
         total_spent_label=settings.format_price(total_spent_toman),
-        subscription_type=(
-            "trial"
-            if subscription and subscription.is_trial
-            else ("paid" if subscription else "none")
-        ),
+        subscription_type=("trial" if subscription and subscription.is_trial else ("paid" if subscription else "none")),
         autopay_enabled=autopay_enabled,
         autopay_days_before=autopay_days_before,
         autopay_days_options=autopay_days_options,
@@ -3305,24 +3244,16 @@ async def update_subscription_autopay_endpoint(
     subscription = _ensure_paid_subscription(user)
     _validate_subscription_id(payload.subscription_id, subscription)
 
-    target_enabled = (
-        bool(payload.enabled)
-        if payload.enabled is not None
-        else bool(subscription.autopay_enabled)
-    )
+    target_enabled = bool(payload.enabled) if payload.enabled is not None else bool(subscription.autopay_enabled)
 
     requested_days = payload.days_before
     normalized_days = _normalize_autopay_days(requested_days)
-    current_days = _normalize_autopay_days(
-        getattr(subscription, "autopay_days_before", None)
-    )
+    current_days = _normalize_autopay_days(getattr(subscription, "autopay_days_before", None))
     if normalized_days is None:
         normalized_days = current_days
 
     options = _get_autopay_day_options(subscription)
-    default_day = _normalize_autopay_days(
-        getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None)
-    )
+    default_day = _normalize_autopay_days(getattr(settings, "DEFAULT_AUTOPAY_DAYS_BEFORE", None))
     if default_day is None and options:
         default_day = options[0]
 
@@ -3340,20 +3271,11 @@ async def update_subscription_autopay_endpoint(
     if normalized_days is None:
         normalized_days = default_day or (options[0] if options else 1)
 
-    if (
-        bool(subscription.autopay_enabled) == target_enabled
-        and current_days == normalized_days
-    ):
+    if bool(subscription.autopay_enabled) == target_enabled and current_days == normalized_days:
         autopay_payload = _build_autopay_payload(subscription)
-        autopay_days_before = (
-            getattr(autopay_payload, "autopay_days_before", None)
-            if autopay_payload
-            else None
-        )
+        autopay_days_before = getattr(autopay_payload, "autopay_days_before", None) if autopay_payload else None
         autopay_days_options = (
-            list(getattr(autopay_payload, "autopay_days_options", []) or [])
-            if autopay_payload
-            else options
+            list(getattr(autopay_payload, "autopay_days_options", []) or []) if autopay_payload else options
         )
         extras = _autopay_response_extras(
             target_enabled,
@@ -3379,11 +3301,7 @@ async def update_subscription_autopay_endpoint(
     )
 
     autopay_payload = _build_autopay_payload(updated_subscription)
-    autopay_days_before = (
-        getattr(autopay_payload, "autopay_days_before", None)
-        if autopay_payload
-        else None
-    )
+    autopay_days_before = getattr(autopay_payload, "autopay_days_before", None) if autopay_payload else None
     autopay_days_options = (
         list(getattr(autopay_payload, "autopay_days_options", []) or [])
         if autopay_payload
@@ -3626,9 +3544,7 @@ async def activate_subscription_trial_endpoint(
     if not duration_days and settings.TRIAL_DURATION_DAYS > 0:
         duration_days = settings.TRIAL_DURATION_DAYS
 
-    charged_amount_label = (
-        settings.format_price(charged_amount) if charged_amount > 0 else None
-    )
+    charged_amount_label = settings.format_price(charged_amount) if charged_amount > 0 else None
     if duration_days:
         message = f"Trial activated for {duration_days} days. Enjoy!"
     else:
@@ -4002,9 +3918,7 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
-def _normalize_period_discounts(
-    raw: Optional[Dict[Any, Any]]
-) -> Dict[int, int]:
+def _normalize_period_discounts(raw: Optional[Dict[Any, Any]]) -> Dict[int, int]:
     if not isinstance(raw, dict):
         return {}
 
@@ -4034,9 +3948,7 @@ def _extract_promo_discounts(group: Optional[PromoGroup]) -> Dict[str, Any]:
         "traffic_discount_percent": max(0, _safe_int(getattr(group, "traffic_discount_percent", 0))),
         "device_discount_percent": max(0, _safe_int(getattr(group, "device_discount_percent", 0))),
         "period_discounts": _normalize_period_discounts(getattr(group, "period_discounts", None)),
-        "apply_discounts_to_addons": bool(
-            getattr(group, "apply_discounts_to_addons", True)
-        ),
+        "apply_discounts_to_addons": bool(getattr(group, "apply_discounts_to_addons", True)),
     }
 
 
@@ -4090,11 +4002,7 @@ def _build_renewal_success_message(
     promo_discount_value: int = 0,
 ) -> str:
     amount_label = settings.format_price(max(0, charged_amount))
-    date_label = (
-        format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M")
-        if subscription.end_date
-        else ""
-    )
+    date_label = format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M") if subscription.end_date else ""
 
     _normalize_language_code(user)
     if charged_amount > 0:
@@ -4102,11 +4010,7 @@ def _build_renewal_success_message(
             f"Subscription renewed until {date_label}. " if date_label else "Subscription renewed. "
         ) + f"Charged {amount_label}."
     else:
-        message = (
-            f"Subscription renewed until {date_label}."
-            if date_label
-            else "Subscription renewed successfully."
-        )
+        message = f"Subscription renewed until {date_label}." if date_label else "Subscription renewed successfully."
 
     if promo_discount_value > 0:
         discount_label = settings.format_price(promo_discount_value)
@@ -4125,10 +4029,10 @@ def _build_renewal_pending_message(
 
     _normalize_language_code(user)
     if method_title:
-        return (
-            f"Not enough balance. Pay the remaining {amount_label} via {method_title} to finish the renewal."
-        )
+        return f"Not enough balance. Pay the remaining {amount_label} via {method_title} to finish the renewal."
     return f"Not enough balance. Pay the remaining {amount_label} to finish the renewal."
+
+
 def _parse_period_identifier(identifier: Optional[str]) -> Optional[int]:
     if not identifier:
         return None
@@ -4162,9 +4066,7 @@ async def _prepare_subscription_renewal_options(
     user: User,
     subscription: Subscription,
 ) -> Tuple[List[MiniAppSubscriptionRenewalPeriod], Dict[Union[str, int], Dict[str, Any]], Optional[str]]:
-    available_periods = [
-        period for period in settings.get_available_renewal_periods() if period > 0
-    ]
+    available_periods = [period for period in settings.get_available_renewal_periods() if period > 0]
 
     option_payloads: List[Tuple[MiniAppSubscriptionRenewalPeriod, Dict[str, Any]]] = []
 
@@ -4704,14 +4606,10 @@ async def get_subscription_renewal_options_endpoint(
 
     renewal_autopay_payload = _build_autopay_payload(subscription)
     renewal_autopay_days_before = (
-        getattr(renewal_autopay_payload, "autopay_days_before", None)
-        if renewal_autopay_payload
-        else None
+        getattr(renewal_autopay_payload, "autopay_days_before", None) if renewal_autopay_payload else None
     )
     renewal_autopay_days_options = (
-        list(getattr(renewal_autopay_payload, "autopay_days_options", []) or [])
-        if renewal_autopay_payload
-        else []
+        list(getattr(renewal_autopay_payload, "autopay_days_options", []) or []) if renewal_autopay_payload else []
     )
     renewal_autopay_extras = _autopay_response_extras(
         bool(subscription.autopay_enabled),
@@ -4774,9 +4672,7 @@ async def submit_subscription_renewal_endpoint(
             detail={"code": "invalid_period", "message": "Invalid renewal period"},
         )
 
-    available_periods = [
-        period for period in settings.get_available_renewal_periods() if period > 0
-    ]
+    available_periods = [period for period in settings.get_available_renewal_periods() if period > 0]
     if period_days not in available_periods:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -4899,10 +4795,8 @@ async def submit_subscription_renewal_endpoint(
             )
 
         try:
-            decimal_amount = (Decimal(missing_amount) / Decimal(100) / Decimal(str(rate)))
-            amount_usd = float(
-                decimal_amount.quantize(Decimal("0.01"), rounding=ROUND_UP)
-            )
+            decimal_amount = Decimal(missing_amount) / Decimal(100) / Decimal(str(rate))
+            amount_usd = float(decimal_amount.quantize(Decimal("0.01"), rounding=ROUND_UP))
         except (InvalidOperation, ValueError) as error:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
@@ -4910,9 +4804,7 @@ async def submit_subscription_renewal_endpoint(
             ) from error
 
         if amount_usd <= 0:
-            amount_usd = float(
-                decimal_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            )
+            amount_usd = float(decimal_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
         descriptor = build_payment_descriptor(
             user.id,
@@ -4940,9 +4832,7 @@ async def submit_subscription_renewal_endpoint(
             )
 
         payment_url = (
-            result.get("mini_app_invoice_url")
-            or result.get("bot_invoice_url")
-            or result.get("web_app_invoice_url")
+            result.get("mini_app_invoice_url") or result.get("bot_invoice_url") or result.get("web_app_invoice_url")
         )
         if not payment_url:
             raise HTTPException(
@@ -5235,11 +5125,7 @@ async def update_subscription_servers_endpoint(
     else:
         charged_months = get_remaining_months(subscription.end_date)
 
-    added_server_ids = [
-        catalog[uuid].get("server_id")
-        for uuid in added
-        if catalog[uuid].get("server_id") is not None
-    ]
+    added_server_ids = [catalog[uuid].get("server_id") for uuid in added if catalog[uuid].get("server_id") is not None]
     added_server_prices = [
         int(catalog[uuid].get("discounted_per_month", 0)) * charged_months
         for uuid in added
@@ -5252,10 +5138,7 @@ async def update_subscription_servers_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 "code": "insufficient_funds",
-                "message": (
-                    "Insufficient balance. "
-                    f"Missing {settings.format_price(missing)}"
-                ),
+                "message": (f"Insufficient balance. Missing {settings.format_price(missing)}"),
             },
         )
 
@@ -5295,9 +5178,7 @@ async def update_subscription_servers_endpoint(
         await add_user_to_servers(db, added_server_ids)
 
     removed_server_ids = [
-        catalog[uuid].get("server_id")
-        for uuid in removed
-        if catalog[uuid].get("server_id") is not None
+        catalog[uuid].get("server_id") for uuid in removed if catalog[uuid].get("server_id") is not None
     ]
 
     if removed_server_ids:
@@ -5355,11 +5236,7 @@ async def update_subscription_traffic_endpoint(
     _validate_subscription_id(payload.subscription_id, subscription)
     old_traffic = subscription.traffic_limit_gb
 
-    raw_value = (
-        payload.traffic
-        if payload.traffic is not None
-        else payload.traffic_gb
-    )
+    raw_value = payload.traffic if payload.traffic is not None else payload.traffic_gb
     if raw_value is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -5444,17 +5321,11 @@ async def update_subscription_traffic_endpoint(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     "code": "insufficient_funds",
-                    "message": (
-                        "Insufficient balance. "
-                        f"Missing {settings.format_price(missing)}"
-                    ),
+                    "message": (f"Insufficient balance. Missing {settings.format_price(missing)}"),
                 },
             )
 
-        description = (
-            "Traffic change from "
-            f"{subscription.traffic_limit_gb}GB to {new_traffic}GB"
-        )
+        description = f"Traffic change from {subscription.traffic_limit_gb}GB to {new_traffic}GB"
 
         success = await subtract_user_balance(
             db,
@@ -5547,10 +5418,7 @@ async def update_subscription_devices_endpoint(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 "code": "devices_limit_exceeded",
-                "message": (
-                    "Maximum device limit exceeded "
-                    f"({settings.MAX_DEVICES_LIMIT})"
-                ),
+                "message": (f"Maximum device limit exceeded ({settings.MAX_DEVICES_LIMIT})"),
             },
         )
 
@@ -5598,18 +5466,12 @@ async def update_subscription_devices_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 "code": "insufficient_funds",
-                "message": (
-                    "Insufficient balance. "
-                    f"Missing {settings.format_price(missing)}"
-                ),
+                "message": (f"Insufficient balance. Missing {settings.format_price(missing)}"),
             },
         )
 
     if price_to_charge > 0:
-        description = (
-            "Changing device count from "
-            f"{current_devices} to {new_devices}"
-        )
+        description = f"Changing device count from {current_devices} to {new_devices}"
         success = await subtract_user_balance(
             db,
             user,

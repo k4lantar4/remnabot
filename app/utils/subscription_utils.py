@@ -12,38 +12,34 @@ logger = logging.getLogger(__name__)
 
 async def ensure_single_subscription(db: AsyncSession, user_id: int) -> Optional[Subscription]:
     result = await db.execute(
-        select(Subscription)
-        .where(Subscription.user_id == user_id)
-        .order_by(Subscription.created_at.desc())
+        select(Subscription).where(Subscription.user_id == user_id).order_by(Subscription.created_at.desc())
     )
     subscriptions = result.scalars().all()
-    
+
     if len(subscriptions) <= 1:
         return subscriptions[0] if subscriptions else None
-    
+
     latest_subscription = subscriptions[0]
     old_subscriptions = subscriptions[1:]
-    
-    logger.warning(f"🚨 Found {len(subscriptions)} subscriptions for user {user_id}. Removing {len(old_subscriptions)} old ones.")
-    
+
+    logger.warning(
+        f"🚨 Found {len(subscriptions)} subscriptions for user {user_id}. Removing {len(old_subscriptions)} old ones."
+    )
+
     for old_sub in old_subscriptions:
         await db.delete(old_sub)
         logger.info(f"🗑️ Deleted subscription ID {old_sub.id} from {old_sub.created_at}")
-    
+
     await db.commit()
     await db.refresh(latest_subscription)
-    
+
     logger.info(f"✅ Kept subscription ID {latest_subscription.id} from {latest_subscription.created_at}")
     return latest_subscription
 
 
-async def update_or_create_subscription(
-    db: AsyncSession,
-    user_id: int,
-    **subscription_data
-) -> Subscription:
+async def update_or_create_subscription(db: AsyncSession, user_id: int, **subscription_data) -> Subscription:
     existing_subscription = await ensure_single_subscription(db, user_id)
-    
+
     if existing_subscription:
         for key, value in subscription_data.items():
             if hasattr(existing_subscription, key):
@@ -58,59 +54,45 @@ async def update_or_create_subscription(
 
     else:
         subscription_defaults = dict(subscription_data)
-        autopay_enabled = subscription_defaults.pop(
-            "autopay_enabled", None
-        )
-        autopay_days_before = subscription_defaults.pop(
-            "autopay_days_before", None
-        )
+        autopay_enabled = subscription_defaults.pop("autopay_enabled", None)
+        autopay_days_before = subscription_defaults.pop("autopay_days_before", None)
 
         new_subscription = Subscription(
             user_id=user_id,
-            autopay_enabled=(
-                settings.is_autopay_enabled_by_default()
-                if autopay_enabled is None
-                else autopay_enabled
-            ),
+            autopay_enabled=(settings.is_autopay_enabled_by_default() if autopay_enabled is None else autopay_enabled),
             autopay_days_before=(
-                settings.DEFAULT_AUTOPAY_DAYS_BEFORE
-                if autopay_days_before is None
-                else autopay_days_before
+                settings.DEFAULT_AUTOPAY_DAYS_BEFORE if autopay_days_before is None else autopay_days_before
             ),
-            **subscription_defaults
+            **subscription_defaults,
         )
-        
+
         db.add(new_subscription)
         await db.commit()
         await db.refresh(new_subscription)
-        
+
         logger.info(f"🆕 Created new subscription ID {new_subscription.id}")
         return new_subscription
 
 
 async def cleanup_duplicate_subscriptions(db: AsyncSession) -> int:
     result = await db.execute(
-        select(Subscription.user_id)
-        .group_by(Subscription.user_id)
-        .having(func.count(Subscription.id) > 1)
+        select(Subscription.user_id).group_by(Subscription.user_id).having(func.count(Subscription.id) > 1)
     )
     users_with_duplicates = result.scalars().all()
-    
+
     total_deleted = 0
-    
+
     for user_id in users_with_duplicates:
         subscriptions_result = await db.execute(
-            select(Subscription)
-            .where(Subscription.user_id == user_id)
-            .order_by(Subscription.created_at.desc())
+            select(Subscription).where(Subscription.user_id == user_id).order_by(Subscription.created_at.desc())
         )
         subscriptions = subscriptions_result.scalars().all()
-        
+
         for old_subscription in subscriptions[1:]:
             await db.delete(old_subscription)
             total_deleted += 1
             logger.info(f"🗑️ Deleted duplicate subscription ID {old_subscription.id} for user {user_id}")
-    
+
     await db.commit()
     logger.info(f"🧹 Cleaned up {total_deleted} duplicate subscriptions")
 

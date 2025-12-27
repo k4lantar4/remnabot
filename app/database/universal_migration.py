@@ -12,6 +12,7 @@ from app.utils.security import hash_api_token
 
 logger = logging.getLogger(__name__)
 
+
 async def get_database_type():
     return engine.dialect.name
 
@@ -56,25 +57,20 @@ async def sync_postgres_sequences() -> bool:
                     continue
 
                 max_result = await conn.execute(
-                    text(
-                        f'SELECT COALESCE(MAX("{column_name}"), 0) '
-                        f'FROM "{table_schema}"."{table_name}"'
-                    )
+                    text(f'SELECT COALESCE(MAX("{column_name}"), 0) FROM "{table_schema}"."{table_name}"')
                 )
                 max_value = max_result.scalar() or 0
 
-                parts = sequence_path.split('.')
+                parts = sequence_path.split(".")
                 if len(parts) == 2:
                     seq_schema, seq_name = parts
                 else:
-                    seq_schema, seq_name = 'public', parts[-1]
+                    seq_schema, seq_name = "public", parts[-1]
 
                 seq_schema = seq_schema.strip('"')
                 seq_name = seq_name.strip('"')
                 current_result = await conn.execute(
-                    text(
-                        f'SELECT last_value, is_called FROM "{seq_schema}"."{seq_name}"'
-                    )
+                    text(f'SELECT last_value, is_called FROM "{seq_schema}"."{seq_name}"')
                 )
                 current_row = current_result.fetchone()
 
@@ -105,68 +101,84 @@ async def sync_postgres_sequences() -> bool:
         logger.error("❌ PostgreSQL sequence sync error: %s", error)
         return False
 
+
 async def check_table_exists(table_name: str) -> bool:
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
-                result = await conn.execute(text(f"""
+
+            if db_type == "sqlite":
+                result = await conn.execute(
+                    text(f"""
                     SELECT name FROM sqlite_master 
                     WHERE type='table' AND name='{table_name}'
-                """))
+                """)
+                )
                 return result.fetchone() is not None
-                
-            elif db_type == 'postgresql':
-                result = await conn.execute(text("""
+
+            elif db_type == "postgresql":
+                result = await conn.execute(
+                    text("""
                     SELECT table_name FROM information_schema.tables 
                     WHERE table_schema = 'public' AND table_name = :table_name
-                """), {"table_name": table_name})
+                """),
+                    {"table_name": table_name},
+                )
                 return result.fetchone() is not None
-                
-            elif db_type == 'mysql':
-                result = await conn.execute(text("""
+
+            elif db_type == "mysql":
+                result = await conn.execute(
+                    text("""
                     SELECT table_name FROM information_schema.tables 
                     WHERE table_schema = DATABASE() AND table_name = :table_name
-                """), {"table_name": table_name})
+                """),
+                    {"table_name": table_name},
+                )
                 return result.fetchone() is not None
-                
+
             return False
-            
+
     except Exception as e:
         logger.error(f"Error checking table existence {table_name}: {e}")
         return False
+
 
 async def check_column_exists(table_name: str, column_name: str) -> bool:
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 result = await conn.execute(text(f"PRAGMA table_info({table_name})"))
                 columns = result.fetchall()
                 return any(col[1] == column_name for col in columns)
-                
-            elif db_type == 'postgresql':
-                result = await conn.execute(text("""
+
+            elif db_type == "postgresql":
+                result = await conn.execute(
+                    text("""
                     SELECT column_name 
                     FROM information_schema.columns 
                     WHERE table_name = :table_name 
                     AND column_name = :column_name
-                """), {"table_name": table_name, "column_name": column_name})
+                """),
+                    {"table_name": table_name, "column_name": column_name},
+                )
                 return result.fetchone() is not None
-                
-            elif db_type == 'mysql':
-                result = await conn.execute(text("""
+
+            elif db_type == "mysql":
+                result = await conn.execute(
+                    text("""
                     SELECT COLUMN_NAME 
                     FROM information_schema.COLUMNS 
                     WHERE TABLE_NAME = :table_name 
                     AND COLUMN_NAME = :column_name
-                """), {"table_name": table_name, "column_name": column_name})
+                """),
+                    {"table_name": table_name, "column_name": column_name},
+                )
                 return result.fetchone() is not None
-                
+
             return False
-            
+
     except Exception as e:
         logger.error(f"Error checking column existence {column_name}: {e}")
         return False
@@ -215,9 +227,7 @@ async def check_constraint_exists(table_name: str, constraint_name: str) -> bool
             return False
 
     except Exception as e:
-        logger.error(
-            f"Error checking constraint existence {constraint_name} for {table_name}: {e}"
-        )
+        logger.error(f"Error checking constraint existence {constraint_name} for {table_name}: {e}")
         return False
 
 
@@ -264,9 +274,7 @@ async def check_index_exists(table_name: str, index_name: str) -> bool:
             return False
 
     except Exception as e:
-        logger.error(
-            f"Error checking index existence {index_name} for {table_name}: {e}"
-        )
+        logger.error(f"Error checking index existence {index_name} for {table_name}: {e}")
         return False
 
 
@@ -306,11 +314,7 @@ async def resolve_duplicate_payment_links(conn, db_type: str) -> bool:
 
     for payment_link_id, _ in duplicates:
         result = await conn.execute(
-            text(
-                "SELECT id, payment_link_id FROM wata_payments "
-                "WHERE payment_link_id = :payment_link_id "
-                "ORDER BY id"
-            ),
+            text("SELECT id, payment_link_id FROM wata_payments WHERE payment_link_id = :payment_link_id ORDER BY id"),
             {"payment_link_id": payment_link_id},
         )
 
@@ -328,10 +332,7 @@ async def resolve_duplicate_payment_links(conn, db_type: str) -> bool:
             new_link = f"{new_base}{suffix}" if new_base else suffix
 
             await conn.execute(
-                text(
-                    "UPDATE wata_payments SET payment_link_id = :new_link "
-                    "WHERE id = :record_id"
-                ),
+                text("UPDATE wata_payments SET payment_link_id = :new_link WHERE id = :record_id"),
                 {"new_link": new_link, "record_id": record_id},
             )
 
@@ -369,10 +370,7 @@ async def enforce_wata_payment_link_constraints(
 
             if not unique_index_exists:
                 await conn.execute(
-                    text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_wata_payment_link "
-                        "ON wata_payments(payment_link_id)"
-                    )
+                    text("CREATE UNIQUE INDEX IF NOT EXISTS uq_wata_payment_link ON wata_payments(payment_link_id)")
                 )
                 logger.info("✅ Created unique index uq_wata_payment_link for payment_link_id")
                 unique_index_exists = True
@@ -395,12 +393,7 @@ async def enforce_wata_payment_link_constraints(
                 )
             )
 
-            await conn.execute(
-                text(
-                    "ALTER TABLE wata_payments "
-                    "ALTER COLUMN payment_link_id SET NOT NULL"
-                )
-            )
+            await conn.execute(text("ALTER TABLE wata_payments ALTER COLUMN payment_link_id SET NOT NULL"))
             logger.info("✅ Column payment_link_id is now NOT NULL")
 
             if not await resolve_duplicate_payment_links(conn, db_type):
@@ -408,10 +401,7 @@ async def enforce_wata_payment_link_constraints(
 
             if not unique_index_exists:
                 await conn.execute(
-                    text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_wata_payment_link "
-                        "ON wata_payments(payment_link_id)"
-                    )
+                    text("CREATE UNIQUE INDEX IF NOT EXISTS uq_wata_payment_link ON wata_payments(payment_link_id)")
                 )
                 logger.info("✅ Created unique index uq_wata_payment_link for payment_link_id")
                 unique_index_exists = True
@@ -434,24 +424,14 @@ async def enforce_wata_payment_link_constraints(
                 )
             )
 
-            await conn.execute(
-                text(
-                    "ALTER TABLE wata_payments "
-                    "MODIFY COLUMN payment_link_id VARCHAR(64) NOT NULL"
-                )
-            )
+            await conn.execute(text("ALTER TABLE wata_payments MODIFY COLUMN payment_link_id VARCHAR(64) NOT NULL"))
             logger.info("✅ Column payment_link_id is now NOT NULL")
 
             if not await resolve_duplicate_payment_links(conn, db_type):
                 return unique_index_exists, legacy_index_exists
 
             if not unique_index_exists:
-                await conn.execute(
-                    text(
-                        "CREATE UNIQUE INDEX uq_wata_payment_link "
-                        "ON wata_payments(payment_link_id)"
-                    )
-                )
+                await conn.execute(text("CREATE UNIQUE INDEX uq_wata_payment_link ON wata_payments(payment_link_id)"))
                 logger.info("✅ Created unique index uq_wata_payment_link for payment_link_id")
                 unique_index_exists = True
             else:
@@ -464,26 +444,25 @@ async def enforce_wata_payment_link_constraints(
 
             return unique_index_exists, legacy_index_exists
 
-        logger.warning(
-            "⚠️ Unknown DB type %s — failed to enforce payment_link_id constraints", db_type
-        )
+        logger.warning("⚠️ Unknown DB type %s — failed to enforce payment_link_id constraints", db_type)
         return unique_index_exists, legacy_index_exists
 
     except Exception as e:
         logger.error(f"Error setting up payment_link_id constraints: {e}")
         return unique_index_exists, legacy_index_exists
 
+
 async def create_cryptobot_payments_table():
-    table_exists = await check_table_exists('cryptobot_payments')
+    table_exists = await check_table_exists("cryptobot_payments")
     if table_exists:
         logger.info("Table cryptobot_payments already exists")
         return True
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE cryptobot_payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -509,8 +488,8 @@ async def create_cryptobot_payments_table():
                 CREATE INDEX idx_cryptobot_payments_invoice_id ON cryptobot_payments(invoice_id);
                 CREATE INDEX idx_cryptobot_payments_status ON cryptobot_payments(status);
                 """
-                
-            elif db_type == 'postgresql':
+
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE cryptobot_payments (
                     id SERIAL PRIMARY KEY,
@@ -536,8 +515,8 @@ async def create_cryptobot_payments_table():
                 CREATE INDEX idx_cryptobot_payments_invoice_id ON cryptobot_payments(invoice_id);
                 CREATE INDEX idx_cryptobot_payments_status ON cryptobot_payments(status);
                 """
-                
-            elif db_type == 'mysql':
+
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE cryptobot_payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -566,18 +545,18 @@ async def create_cryptobot_payments_table():
             else:
                 logger.error(f"Unsupported DB type for table creation: {db_type}")
                 return False
-            
+
             await conn.execute(text(create_sql))
             logger.info("Table cryptobot_payments created successfully")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error creating table cryptobot_payments: {e}")
         return False
 
 
 async def create_heleket_payments_table():
-    table_exists = await check_table_exists('heleket_payments')
+    table_exists = await check_table_exists("heleket_payments")
     if table_exists:
         logger.info("Table heleket_payments already exists")
         return True
@@ -586,7 +565,7 @@ async def create_heleket_payments_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE heleket_payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -617,7 +596,7 @@ async def create_heleket_payments_table():
                 CREATE INDEX idx_heleket_payments_status ON heleket_payments(status);
                 """
 
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE heleket_payments (
                     id SERIAL PRIMARY KEY,
@@ -646,7 +625,7 @@ async def create_heleket_payments_table():
                 CREATE INDEX idx_heleket_payments_status ON heleket_payments(status);
                 """
 
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE heleket_payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -691,7 +670,7 @@ async def create_heleket_payments_table():
 
 
 async def create_mulenpay_payments_table():
-    table_exists = await check_table_exists('mulenpay_payments')
+    table_exists = await check_table_exists("mulenpay_payments")
     if table_exists:
         logger.info("Table mulenpay_payments already exists")
         return True
@@ -700,7 +679,7 @@ async def create_mulenpay_payments_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE mulenpay_payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -727,7 +706,7 @@ async def create_mulenpay_payments_table():
                 CREATE INDEX idx_mulenpay_payment_id ON mulenpay_payments(mulen_payment_id);
                 """
 
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE mulenpay_payments (
                     id SERIAL PRIMARY KEY,
@@ -752,7 +731,7 @@ async def create_mulenpay_payments_table():
                 CREATE INDEX idx_mulenpay_payment_id ON mulenpay_payments(mulen_payment_id);
                 """
 
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE mulenpay_payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -849,19 +828,14 @@ async def ensure_mulenpay_payment_schema() -> bool:
             if not index_exists:
                 if db_type == "sqlite":
                     create_index_sql = (
-                        "CREATE INDEX IF NOT EXISTS idx_mulenpay_payment_id "
-                        "ON mulenpay_payments(mulen_payment_id)"
+                        "CREATE INDEX IF NOT EXISTS idx_mulenpay_payment_id ON mulenpay_payments(mulen_payment_id)"
                     )
                 elif db_type == "postgresql":
                     create_index_sql = (
-                        "CREATE INDEX IF NOT EXISTS idx_mulenpay_payment_id "
-                        "ON mulenpay_payments(mulen_payment_id)"
+                        "CREATE INDEX IF NOT EXISTS idx_mulenpay_payment_id ON mulenpay_payments(mulen_payment_id)"
                     )
                 elif db_type == "mysql":
-                    create_index_sql = (
-                        "CREATE INDEX idx_mulenpay_payment_id "
-                        "ON mulenpay_payments(mulen_payment_id)"
-                    )
+                    create_index_sql = "CREATE INDEX idx_mulenpay_payment_id ON mulenpay_payments(mulen_payment_id)"
                 else:
                     logger.error(
                         "Unsupported DB type for creating mulenpay_payment_id index: %s",
@@ -882,7 +856,7 @@ async def ensure_mulenpay_payment_schema() -> bool:
 
 
 async def create_pal24_payments_table():
-    table_exists = await check_table_exists('pal24_payments')
+    table_exists = await check_table_exists("pal24_payments")
     if table_exists:
         logger.info("Table pal24_payments already exists")
         return True
@@ -891,7 +865,7 @@ async def create_pal24_payments_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE pal24_payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -932,7 +906,7 @@ async def create_pal24_payments_table():
                 CREATE INDEX idx_pal24_payment_id ON pal24_payments(payment_id);
                 """
 
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE pal24_payments (
                     id SERIAL PRIMARY KEY,
@@ -971,7 +945,7 @@ async def create_pal24_payments_table():
                 CREATE INDEX idx_pal24_payment_id ON pal24_payments(payment_id);
                 """
 
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE pal24_payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1026,7 +1000,7 @@ async def create_pal24_payments_table():
 
 
 async def create_wata_payments_table():
-    table_exists = await check_table_exists('wata_payments')
+    table_exists = await check_table_exists("wata_payments")
     if table_exists:
         logger.info("Table wata_payments already exists")
         return True
@@ -1035,7 +1009,7 @@ async def create_wata_payments_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE wata_payments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1068,7 +1042,7 @@ async def create_wata_payments_table():
                 CREATE INDEX idx_wata_order_id ON wata_payments(order_id);
                 """
 
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE wata_payments (
                     id SERIAL PRIMARY KEY,
@@ -1099,7 +1073,7 @@ async def create_wata_payments_table():
                 CREATE INDEX idx_wata_order_id ON wata_payments(order_id);
                 """
 
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE wata_payments (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1154,15 +1128,9 @@ async def ensure_wata_payment_schema() -> bool:
 
         db_type = await get_database_type()
 
-        legacy_link_index_exists = await check_index_exists(
-            "wata_payments", "idx_wata_link_id"
-        )
-        unique_link_index_exists = await check_index_exists(
-            "wata_payments", "uq_wata_payment_link"
-        )
-        builtin_unique_index_exists = await check_index_exists(
-            "wata_payments", "wata_payments_payment_link_id_key"
-        )
+        legacy_link_index_exists = await check_index_exists("wata_payments", "idx_wata_link_id")
+        unique_link_index_exists = await check_index_exists("wata_payments", "uq_wata_payment_link")
+        builtin_unique_index_exists = await check_index_exists("wata_payments", "wata_payments_payment_link_id_key")
         sqlite_auto_unique_exists = (
             await check_index_exists("wata_payments", "sqlite_autoindex_wata_payments_1")
             if db_type == "sqlite"
@@ -1170,40 +1138,26 @@ async def ensure_wata_payment_schema() -> bool:
         )
         order_index_exists = await check_index_exists("wata_payments", "idx_wata_order_id")
 
-        payment_link_column_exists = await check_column_exists(
-            "wata_payments", "payment_link_id"
-        )
+        payment_link_column_exists = await check_column_exists("wata_payments", "payment_link_id")
         order_id_column_exists = await check_column_exists("wata_payments", "order_id")
 
-        unique_index_exists = (
-            unique_link_index_exists
-            or builtin_unique_index_exists
-            or sqlite_auto_unique_exists
-        )
+        unique_index_exists = unique_link_index_exists or builtin_unique_index_exists or sqlite_auto_unique_exists
 
         async with engine.begin() as conn:
             if not payment_link_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE wata_payments "
-                            "ADD COLUMN payment_link_id VARCHAR(64) NOT NULL DEFAULT ''"
-                        )
+                        text("ALTER TABLE wata_payments ADD COLUMN payment_link_id VARCHAR(64) NOT NULL DEFAULT ''")
                     )
                     payment_link_column_exists = True
                     unique_index_exists = False
                 elif db_type == "postgresql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE wata_payments "
-                            "ADD COLUMN IF NOT EXISTS payment_link_id VARCHAR(64)"
-                        )
+                        text("ALTER TABLE wata_payments ADD COLUMN IF NOT EXISTS payment_link_id VARCHAR(64)")
                     )
                     payment_link_column_exists = True
                 elif db_type == "mysql":
-                    await conn.execute(
-                        text("ALTER TABLE wata_payments ADD COLUMN payment_link_id VARCHAR(64)")
-                    )
+                    await conn.execute(text("ALTER TABLE wata_payments ADD COLUMN payment_link_id VARCHAR(64)"))
                     payment_link_column_exists = True
                 else:
                     logger.warning(
@@ -1215,33 +1169,22 @@ async def ensure_wata_payment_schema() -> bool:
                     logger.info("✅ Added column payment_link_id to wata_payments")
 
             if payment_link_column_exists:
-                unique_index_exists, legacy_link_index_exists = (
-                    await enforce_wata_payment_link_constraints(
-                        conn,
-                        db_type,
-                        unique_index_exists,
-                        legacy_link_index_exists,
-                    )
+                unique_index_exists, legacy_link_index_exists = await enforce_wata_payment_link_constraints(
+                    conn,
+                    db_type,
+                    unique_index_exists,
+                    legacy_link_index_exists,
                 )
 
             if not order_id_column_exists:
                 if db_type == "sqlite":
-                    await conn.execute(
-                        text("ALTER TABLE wata_payments ADD COLUMN order_id VARCHAR(255)")
-                    )
+                    await conn.execute(text("ALTER TABLE wata_payments ADD COLUMN order_id VARCHAR(255)"))
                     order_id_column_exists = True
                 elif db_type == "postgresql":
-                    await conn.execute(
-                        text(
-                            "ALTER TABLE wata_payments "
-                            "ADD COLUMN IF NOT EXISTS order_id VARCHAR(255)"
-                        )
-                    )
+                    await conn.execute(text("ALTER TABLE wata_payments ADD COLUMN IF NOT EXISTS order_id VARCHAR(255)"))
                     order_id_column_exists = True
                 elif db_type == "mysql":
-                    await conn.execute(
-                        text("ALTER TABLE wata_payments ADD COLUMN order_id VARCHAR(255)")
-                    )
+                    await conn.execute(text("ALTER TABLE wata_payments ADD COLUMN order_id VARCHAR(255)"))
                     order_id_column_exists = True
                 else:
                     logger.warning(
@@ -1254,22 +1197,16 @@ async def ensure_wata_payment_schema() -> bool:
 
             if not order_index_exists:
                 if not order_id_column_exists:
-                    logger.warning(
-                        "⚠️ Skipped creating idx_wata_order_id index — column order_id missing"
-                    )
+                    logger.warning("⚠️ Skipped creating idx_wata_order_id index — column order_id missing")
                 else:
                     index_created = False
                     if db_type in {"sqlite", "postgresql"}:
                         await conn.execute(
-                            text(
-                                "CREATE INDEX IF NOT EXISTS idx_wata_order_id ON wata_payments(order_id)"
-                            )
+                            text("CREATE INDEX IF NOT EXISTS idx_wata_order_id ON wata_payments(order_id)")
                         )
                         index_created = True
                     elif db_type == "mysql":
-                        await conn.execute(
-                            text("CREATE INDEX idx_wata_order_id ON wata_payments(order_id)")
-                        )
+                        await conn.execute(text("CREATE INDEX idx_wata_order_id ON wata_payments(order_id)"))
                         index_created = True
                     else:
                         logger.warning(
@@ -1290,7 +1227,7 @@ async def ensure_wata_payment_schema() -> bool:
 
 
 async def create_discount_offers_table():
-    table_exists = await check_table_exists('discount_offers')
+    table_exists = await check_table_exists("discount_offers")
     if table_exists:
         logger.info("Table discount_offers already exists")
         return True
@@ -1299,8 +1236,9 @@ async def create_discount_offers_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
-                await conn.execute(text("""
+            if db_type == "sqlite":
+                await conn.execute(
+                    text("""
                     CREATE TABLE discount_offers (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER NOT NULL,
@@ -1318,14 +1256,18 @@ async def create_discount_offers_table():
                         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                         FOREIGN KEY(subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX IF NOT EXISTS ix_discount_offers_user_type
                     ON discount_offers (user_id, notification_type)
-                """))
+                """)
+                )
 
-            elif db_type == 'postgresql':
-                await conn.execute(text("""
+            elif db_type == "postgresql":
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS discount_offers (
                         id SERIAL PRIMARY KEY,
                         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1341,14 +1283,18 @@ async def create_discount_offers_table():
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX IF NOT EXISTS ix_discount_offers_user_type
                     ON discount_offers (user_id, notification_type)
-                """))
+                """)
+                )
 
-            elif db_type == 'mysql':
-                await conn.execute(text("""
+            elif db_type == "mysql":
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS discount_offers (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         user_id INTEGER NOT NULL,
@@ -1366,11 +1312,14 @@ async def create_discount_offers_table():
                         CONSTRAINT fk_discount_offers_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                         CONSTRAINT fk_discount_offers_subscription FOREIGN KEY(subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX ix_discount_offers_user_type
                     ON discount_offers (user_id, notification_type)
-                """))
+                """)
+                )
 
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
@@ -1394,7 +1343,8 @@ async def create_referral_contests_table() -> bool:
             db_type = await get_database_type()
 
             if db_type == "sqlite":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contests (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         title VARCHAR(255) NOT NULL,
@@ -1414,9 +1364,11 @@ async def create_referral_contests_table() -> bool:
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
+                """)
+                )
             elif db_type == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contests (
                         id SERIAL PRIMARY KEY,
                         title VARCHAR(255) NOT NULL,
@@ -1436,9 +1388,11 @@ async def create_referral_contests_table() -> bool:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
+                """)
+                )
             elif db_type == "mysql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contests (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         title VARCHAR(255) NOT NULL,
@@ -1459,7 +1413,8 @@ async def create_referral_contests_table() -> bool:
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         CONSTRAINT fk_referral_contest_creator FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
                     )
-                """))
+                """)
+                )
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
 
@@ -1481,7 +1436,8 @@ async def create_referral_contest_events_table() -> bool:
             db_type = await get_database_type()
 
             if db_type == "sqlite":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contest_events (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         contest_id INTEGER NOT NULL,
@@ -1495,13 +1451,17 @@ async def create_referral_contest_events_table() -> bool:
                         FOREIGN KEY(referral_id) REFERENCES users(id) ON DELETE CASCADE,
                         UNIQUE(contest_id, referral_id)
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX IF NOT EXISTS idx_referral_contest_referrer
                     ON referral_contest_events (contest_id, referrer_id)
-                """))
+                """)
+                )
             elif db_type == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contest_events (
                         id SERIAL PRIMARY KEY,
                         contest_id INTEGER NOT NULL REFERENCES referral_contests(id) ON DELETE CASCADE,
@@ -1512,13 +1472,17 @@ async def create_referral_contest_events_table() -> bool:
                         occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         CONSTRAINT uq_referral_contest_referral UNIQUE (contest_id, referral_id)
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX IF NOT EXISTS idx_referral_contest_referrer
                     ON referral_contest_events (contest_id, referrer_id)
-                """))
+                """)
+                )
             elif db_type == "mysql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE referral_contest_events (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         contest_id INTEGER NOT NULL,
@@ -1532,11 +1496,14 @@ async def create_referral_contest_events_table() -> bool:
                         CONSTRAINT fk_referral_contest_referral FOREIGN KEY(referral_id) REFERENCES users(id) ON DELETE CASCADE,
                         CONSTRAINT uq_referral_contest_referral UNIQUE (contest_id, referral_id)
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE INDEX idx_referral_contest_referrer
                     ON referral_contest_events (contest_id, referrer_id)
-                """))
+                """)
+                )
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
 
@@ -1589,7 +1556,8 @@ async def create_contest_templates_table() -> bool:
             db_type = await get_database_type()
 
             if db_type == "sqlite":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_templates (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name VARCHAR(100) NOT NULL,
@@ -1606,9 +1574,11 @@ async def create_contest_templates_table() -> bool:
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
+                """)
+                )
             elif db_type == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_templates (
                         id SERIAL PRIMARY KEY,
                         name VARCHAR(100) NOT NULL,
@@ -1625,9 +1595,11 @@ async def create_contest_templates_table() -> bool:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
+                """)
+                )
             elif db_type == "mysql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_templates (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         name VARCHAR(100) NOT NULL,
@@ -1644,7 +1616,8 @@ async def create_contest_templates_table() -> bool:
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
-                """))
+                """)
+                )
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
 
@@ -1666,7 +1639,8 @@ async def create_contest_rounds_table() -> bool:
             db_type = await get_database_type()
 
             if db_type == "sqlite":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_rounds (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         template_id INTEGER NOT NULL,
@@ -1683,11 +1657,17 @@ async def create_contest_rounds_table() -> bool:
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY(template_id) REFERENCES contest_templates(id) ON DELETE CASCADE
                     )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_round_status ON contest_rounds(status)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_round_template ON contest_rounds(template_id)"))
+                """)
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_round_status ON contest_rounds(status)")
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_round_template ON contest_rounds(template_id)")
+                )
             elif db_type == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_rounds (
                         id SERIAL PRIMARY KEY,
                         template_id INTEGER NOT NULL REFERENCES contest_templates(id) ON DELETE CASCADE,
@@ -1703,11 +1683,17 @@ async def create_contest_rounds_table() -> bool:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_round_status ON contest_rounds(status)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_round_template ON contest_rounds(template_id)"))
+                """)
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_round_status ON contest_rounds(status)")
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_round_template ON contest_rounds(template_id)")
+                )
             elif db_type == "mysql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_rounds (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         template_id INTEGER NOT NULL,
@@ -1724,7 +1710,8 @@ async def create_contest_rounds_table() -> bool:
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         CONSTRAINT fk_contest_round_template FOREIGN KEY(template_id) REFERENCES contest_templates(id) ON DELETE CASCADE
                     )
-                """))
+                """)
+                )
                 await conn.execute(text("CREATE INDEX idx_contest_round_status ON contest_rounds(status)"))
                 await conn.execute(text("CREATE INDEX idx_contest_round_template ON contest_rounds(template_id)"))
             else:
@@ -1748,7 +1735,8 @@ async def create_contest_attempts_table() -> bool:
             db_type = await get_database_type()
 
             if db_type == "sqlite":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_attempts (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         round_id INTEGER NOT NULL,
@@ -1760,10 +1748,14 @@ async def create_contest_attempts_table() -> bool:
                         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                         UNIQUE(round_id, user_id)
                     )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_attempt_round ON contest_attempts(round_id)"))
+                """)
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_attempt_round ON contest_attempts(round_id)")
+                )
             elif db_type == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_attempts (
                         id SERIAL PRIMARY KEY,
                         round_id INTEGER NOT NULL REFERENCES contest_rounds(id) ON DELETE CASCADE,
@@ -1773,10 +1765,14 @@ async def create_contest_attempts_table() -> bool:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         CONSTRAINT uq_round_user_attempt UNIQUE(round_id, user_id)
                     )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_contest_attempt_round ON contest_attempts(round_id)"))
+                """)
+                )
+                await conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_contest_attempt_round ON contest_attempts(round_id)")
+                )
             elif db_type == "mysql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE contest_attempts (
                         id INTEGER PRIMARY KEY AUTO_INCREMENT,
                         round_id INTEGER NOT NULL,
@@ -1788,7 +1784,8 @@ async def create_contest_attempts_table() -> bool:
                         CONSTRAINT fk_contest_attempt_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                         CONSTRAINT uq_round_user_attempt UNIQUE(round_id, user_id)
                     )
-                """))
+                """)
+                )
                 await conn.execute(text("CREATE INDEX idx_contest_attempt_round ON contest_attempts(round_id)"))
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
@@ -1843,8 +1840,8 @@ async def ensure_referral_contest_type_column() -> bool:
 
 async def ensure_discount_offer_columns():
     try:
-        effect_exists = await check_column_exists('discount_offers', 'effect_type')
-        extra_exists = await check_column_exists('discount_offers', 'extra_data')
+        effect_exists = await check_column_exists("discount_offers", "effect_type")
+        extra_exists = await check_column_exists("discount_offers", "extra_data")
 
         if effect_exists and extra_exists:
             return True
@@ -1853,34 +1850,34 @@ async def ensure_discount_offer_columns():
             db_type = await get_database_type()
 
             if not effect_exists:
-                if db_type == 'sqlite':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
-                    ))
-                elif db_type == 'postgresql':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
-                    ))
-                elif db_type == 'mysql':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
-                    ))
+                if db_type == "sqlite":
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
+                        )
+                    )
+                elif db_type == "postgresql":
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
+                        )
+                    )
+                elif db_type == "mysql":
+                    await conn.execute(
+                        text(
+                            "ALTER TABLE discount_offers ADD COLUMN effect_type VARCHAR(50) NOT NULL DEFAULT 'percent_discount'"
+                        )
+                    )
                 else:
                     raise ValueError(f"Unsupported database type: {db_type}")
 
             if not extra_exists:
-                if db_type == 'sqlite':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN extra_data TEXT NULL"
-                    ))
-                elif db_type == 'postgresql':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN extra_data JSON NULL"
-                    ))
-                elif db_type == 'mysql':
-                    await conn.execute(text(
-                        "ALTER TABLE discount_offers ADD COLUMN extra_data JSON NULL"
-                    ))
+                if db_type == "sqlite":
+                    await conn.execute(text("ALTER TABLE discount_offers ADD COLUMN extra_data TEXT NULL"))
+                elif db_type == "postgresql":
+                    await conn.execute(text("ALTER TABLE discount_offers ADD COLUMN extra_data JSON NULL"))
+                elif db_type == "mysql":
+                    await conn.execute(text("ALTER TABLE discount_offers ADD COLUMN extra_data JSON NULL"))
                 else:
                     raise ValueError(f"Unsupported database type: {db_type}")
 
@@ -1894,9 +1891,9 @@ async def ensure_discount_offer_columns():
 
 async def ensure_user_promo_offer_discount_columns():
     try:
-        percent_exists = await check_column_exists('users', 'promo_offer_discount_percent')
-        source_exists = await check_column_exists('users', 'promo_offer_discount_source')
-        expires_exists = await check_column_exists('users', 'promo_offer_discount_expires_at')
+        percent_exists = await check_column_exists("users", "promo_offer_discount_percent")
+        source_exists = await check_column_exists("users", "promo_offer_discount_source")
+        expires_exists = await check_column_exists("users", "promo_offer_discount_expires_at")
 
         if percent_exists and source_exists and expires_exists:
             return True
@@ -1905,40 +1902,34 @@ async def ensure_user_promo_offer_discount_columns():
             db_type = await get_database_type()
 
             if not percent_exists:
-                column_def = 'INTEGER NOT NULL DEFAULT 0'
-                if db_type == 'mysql':
-                    column_def = 'INT NOT NULL DEFAULT 0'
-                await conn.execute(text(
-                    f"ALTER TABLE users ADD COLUMN promo_offer_discount_percent {column_def}"
-                ))
+                column_def = "INTEGER NOT NULL DEFAULT 0"
+                if db_type == "mysql":
+                    column_def = "INT NOT NULL DEFAULT 0"
+                await conn.execute(text(f"ALTER TABLE users ADD COLUMN promo_offer_discount_percent {column_def}"))
 
             if not source_exists:
-                if db_type == 'sqlite':
-                    column_def = 'TEXT NULL'
-                elif db_type == 'postgresql':
-                    column_def = 'VARCHAR(100) NULL'
-                elif db_type == 'mysql':
-                    column_def = 'VARCHAR(100) NULL'
+                if db_type == "sqlite":
+                    column_def = "TEXT NULL"
+                elif db_type == "postgresql":
+                    column_def = "VARCHAR(100) NULL"
+                elif db_type == "mysql":
+                    column_def = "VARCHAR(100) NULL"
                 else:
                     raise ValueError(f"Unsupported database type: {db_type}")
 
-                await conn.execute(text(
-                    f"ALTER TABLE users ADD COLUMN promo_offer_discount_source {column_def}"
-                ))
+                await conn.execute(text(f"ALTER TABLE users ADD COLUMN promo_offer_discount_source {column_def}"))
 
             if not expires_exists:
-                if db_type == 'sqlite':
-                    column_def = 'DATETIME NULL'
-                elif db_type == 'postgresql':
-                    column_def = 'TIMESTAMP NULL'
-                elif db_type == 'mysql':
-                    column_def = 'DATETIME NULL'
+                if db_type == "sqlite":
+                    column_def = "DATETIME NULL"
+                elif db_type == "postgresql":
+                    column_def = "TIMESTAMP NULL"
+                elif db_type == "mysql":
+                    column_def = "DATETIME NULL"
                 else:
                     raise ValueError(f"Unsupported database type: {db_type}")
 
-                await conn.execute(text(
-                    f"ALTER TABLE users ADD COLUMN promo_offer_discount_expires_at {column_def}"
-                ))
+                await conn.execute(text(f"ALTER TABLE users ADD COLUMN promo_offer_discount_expires_at {column_def}"))
 
         logger.info("✅ Columns promo_offer_discount_* for users verified")
         return True
@@ -1949,31 +1940,33 @@ async def ensure_user_promo_offer_discount_columns():
 
 async def ensure_promo_offer_template_active_duration_column() -> bool:
     try:
-        column_exists = await check_column_exists('promo_offer_templates', 'active_discount_hours')
+        column_exists = await check_column_exists("promo_offer_templates", "active_discount_hours")
 
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
             if not column_exists:
-                if db_type == 'sqlite':
-                    column_def = 'INTEGER NULL'
-                elif db_type == 'postgresql':
-                    column_def = 'INTEGER NULL'
-                elif db_type == 'mysql':
-                    column_def = 'INT NULL'
+                if db_type == "sqlite":
+                    column_def = "INTEGER NULL"
+                elif db_type == "postgresql":
+                    column_def = "INTEGER NULL"
+                elif db_type == "mysql":
+                    column_def = "INT NULL"
                 else:
                     raise ValueError(f"Unsupported database type: {db_type}")
 
-                await conn.execute(text(
-                    f"ALTER TABLE promo_offer_templates ADD COLUMN active_discount_hours {column_def}"
-                ))
+                await conn.execute(
+                    text(f"ALTER TABLE promo_offer_templates ADD COLUMN active_discount_hours {column_def}")
+                )
 
-            await conn.execute(text(
-                "UPDATE promo_offer_templates "
-                "SET active_discount_hours = valid_hours "
-                "WHERE offer_type IN ('extend_discount', 'purchase_discount') "
-                "AND (active_discount_hours IS NULL OR active_discount_hours <= 0)"
-            ))
+            await conn.execute(
+                text(
+                    "UPDATE promo_offer_templates "
+                    "SET active_discount_hours = valid_hours "
+                    "WHERE offer_type IN ('extend_discount', 'purchase_discount') "
+                    "AND (active_discount_hours IS NULL OR active_discount_hours <= 0)"
+                )
+            )
 
         logger.info("✅ Column active_discount_hours in promo_offer_templates is up to date")
         return True
@@ -1985,10 +1978,9 @@ async def ensure_promo_offer_template_active_duration_column() -> bool:
 async def migrate_discount_offer_effect_types():
     try:
         async with engine.begin() as conn:
-            await conn.execute(text(
-                "UPDATE discount_offers SET effect_type = 'percent_discount' "
-                "WHERE effect_type = 'balance_bonus'"
-            ))
+            await conn.execute(
+                text("UPDATE discount_offers SET effect_type = 'percent_discount' WHERE effect_type = 'balance_bonus'")
+            )
         logger.info("✅ Effect types in discount_offers updated to percent_discount")
         return True
     except Exception as e:
@@ -1999,12 +1991,10 @@ async def migrate_discount_offer_effect_types():
 async def reset_discount_offer_bonuses():
     try:
         async with engine.begin() as conn:
-            await conn.execute(text(
-                "UPDATE discount_offers SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0"
-            ))
-            await conn.execute(text(
-                "UPDATE promo_offer_templates SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0"
-            ))
+            await conn.execute(text("UPDATE discount_offers SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0"))
+            await conn.execute(
+                text("UPDATE promo_offer_templates SET bonus_amount_toman = 0 WHERE bonus_amount_toman <> 0")
+            )
         logger.info("✅ Promo offer bonuses reset to zero")
         return True
     except Exception as e:
@@ -2013,7 +2003,7 @@ async def reset_discount_offer_bonuses():
 
 
 async def create_promo_offer_templates_table():
-    table_exists = await check_table_exists('promo_offer_templates')
+    table_exists = await check_table_exists("promo_offer_templates")
     if table_exists:
         logger.info("Table promo_offer_templates already exists")
         return True
@@ -2022,7 +2012,7 @@ async def create_promo_offer_templates_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE promo_offer_templates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2045,7 +2035,7 @@ async def create_promo_offer_templates_table():
 
                 CREATE INDEX ix_promo_offer_templates_type ON promo_offer_templates(offer_type);
                 """
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS promo_offer_templates (
                     id SERIAL PRIMARY KEY,
@@ -2067,7 +2057,7 @@ async def create_promo_offer_templates_table():
 
                 CREATE INDEX IF NOT EXISTS ix_promo_offer_templates_type ON promo_offer_templates(offer_type);
                 """
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS promo_offer_templates (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2104,7 +2094,7 @@ async def create_promo_offer_templates_table():
 
 
 async def create_main_menu_buttons_table() -> bool:
-    table_exists = await check_table_exists('main_menu_buttons')
+    table_exists = await check_table_exists("main_menu_buttons")
     if table_exists:
         logger.info("Table main_menu_buttons already exists")
         return True
@@ -2113,7 +2103,7 @@ async def create_main_menu_buttons_table() -> bool:
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE main_menu_buttons (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2129,7 +2119,7 @@ async def create_main_menu_buttons_table() -> bool:
 
                 CREATE INDEX IF NOT EXISTS ix_main_menu_buttons_order ON main_menu_buttons(display_order, id);
                 """
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS main_menu_buttons (
                     id SERIAL PRIMARY KEY,
@@ -2145,7 +2135,7 @@ async def create_main_menu_buttons_table() -> bool:
 
                 CREATE INDEX IF NOT EXISTS ix_main_menu_buttons_order ON main_menu_buttons(display_order, id);
                 """
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS main_menu_buttons (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2176,7 +2166,7 @@ async def create_main_menu_buttons_table() -> bool:
 
 
 async def create_promo_offer_logs_table() -> bool:
-    table_exists = await check_table_exists('promo_offer_logs')
+    table_exists = await check_table_exists("promo_offer_logs")
     if table_exists:
         logger.info("Table promo_offer_logs already exists")
         return True
@@ -2184,8 +2174,9 @@ async def create_promo_offer_logs_table() -> bool:
     try:
         db_type = await get_database_type()
         async with engine.begin() as conn:
-            if db_type == 'sqlite':
-                await conn.execute(text("""
+            if db_type == "sqlite":
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS promo_offer_logs (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
@@ -2200,9 +2191,11 @@ async def create_promo_offer_logs_table() -> bool:
 
                     CREATE INDEX IF NOT EXISTS ix_promo_offer_logs_created_at ON promo_offer_logs(created_at DESC);
                     CREATE INDEX IF NOT EXISTS ix_promo_offer_logs_user_id ON promo_offer_logs(user_id);
-                """))
-            elif db_type == 'postgresql':
-                await conn.execute(text("""
+                """)
+                )
+            elif db_type == "postgresql":
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS promo_offer_logs (
                         id SERIAL PRIMARY KEY,
                         user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -2217,9 +2210,11 @@ async def create_promo_offer_logs_table() -> bool:
 
                     CREATE INDEX IF NOT EXISTS ix_promo_offer_logs_created_at ON promo_offer_logs(created_at DESC);
                     CREATE INDEX IF NOT EXISTS ix_promo_offer_logs_user_id ON promo_offer_logs(user_id);
-                """))
-            elif db_type == 'mysql':
-                await conn.execute(text("""
+                """)
+                )
+            elif db_type == "mysql":
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS promo_offer_logs (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NULL,
@@ -2236,7 +2231,8 @@ async def create_promo_offer_logs_table() -> bool:
 
                     CREATE INDEX ix_promo_offer_logs_created_at ON promo_offer_logs(created_at DESC);
                     CREATE INDEX ix_promo_offer_logs_user_id ON promo_offer_logs(user_id);
-                """))
+                """)
+                )
             else:
                 logger.warning("Unknown DB type for creating promo_offer_logs: %s", db_type)
                 return False
@@ -2249,7 +2245,7 @@ async def create_promo_offer_logs_table() -> bool:
 
 
 async def create_subscription_temporary_access_table():
-    table_exists = await check_table_exists('subscription_temporary_access')
+    table_exists = await check_table_exists("subscription_temporary_access")
     if table_exists:
         logger.info("Table subscription_temporary_access already exists")
         return True
@@ -2258,7 +2254,7 @@ async def create_subscription_temporary_access_table():
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE subscription_temporary_access (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2278,7 +2274,7 @@ async def create_subscription_temporary_access_table():
                 CREATE INDEX ix_temp_access_offer ON subscription_temporary_access(offer_id);
                 CREATE INDEX ix_temp_access_active ON subscription_temporary_access(is_active, expires_at);
                 """
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS subscription_temporary_access (
                     id SERIAL PRIMARY KEY,
@@ -2296,7 +2292,7 @@ async def create_subscription_temporary_access_table():
                 CREATE INDEX IF NOT EXISTS ix_temp_access_offer ON subscription_temporary_access(offer_id);
                 CREATE INDEX IF NOT EXISTS ix_temp_access_active ON subscription_temporary_access(is_active, expires_at);
                 """
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE IF NOT EXISTS subscription_temporary_access (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2328,17 +2324,18 @@ async def create_subscription_temporary_access_table():
         logger.error(f"Error creating table subscription_temporary_access: {e}")
         return False
 
+
 async def create_user_messages_table():
-    table_exists = await check_table_exists('user_messages')
+    table_exists = await check_table_exists("user_messages")
     if table_exists:
         logger.info("Table user_messages already exists")
         return True
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE user_messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2354,8 +2351,8 @@ async def create_user_messages_table():
                 CREATE INDEX idx_user_messages_active ON user_messages(is_active);
                 CREATE INDEX idx_user_messages_sort ON user_messages(sort_order, created_at);
                 """
-                
-            elif db_type == 'postgresql':
+
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE user_messages (
                     id SERIAL PRIMARY KEY,
@@ -2371,8 +2368,8 @@ async def create_user_messages_table():
                 CREATE INDEX idx_user_messages_active ON user_messages(is_active);
                 CREATE INDEX idx_user_messages_sort ON user_messages(sort_order, created_at);
                 """
-                
-            elif db_type == 'mysql':
+
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE user_messages (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2391,11 +2388,11 @@ async def create_user_messages_table():
             else:
                 logger.error(f"Unsupported DB type for table creation: {db_type}")
                 return False
-            
+
             await conn.execute(text(create_sql))
             logger.info("Table user_messages created successfully")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error creating table user_messages: {e}")
         return False
@@ -2429,9 +2426,7 @@ async def ensure_promo_groups_setup():
                         )
                     )
                     await conn.execute(
-                        text(
-                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_promo_groups_name ON promo_groups(name)"
-                        )
+                        text("CREATE UNIQUE INDEX IF NOT EXISTS uq_promo_groups_name ON promo_groups(name)")
                     )
                 elif db_type == "postgresql":
                     await conn.execute(
@@ -2475,106 +2470,66 @@ async def ensure_promo_groups_setup():
 
                 logger.info("Created table promo_groups")
 
-            if db_type == "postgresql" and not await check_constraint_exists(
-                "promo_groups", "uq_promo_groups_name"
-            ):
+            if db_type == "postgresql" and not await check_constraint_exists("promo_groups", "uq_promo_groups_name"):
                 try:
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD CONSTRAINT uq_promo_groups_name UNIQUE (name)"
-                        )
+                        text("ALTER TABLE promo_groups ADD CONSTRAINT uq_promo_groups_name UNIQUE (name)")
                     )
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to add unique constraint uq_promo_groups_name: {e}"
-                    )
+                    logger.warning(f"Failed to add unique constraint uq_promo_groups_name: {e}")
 
-            period_discounts_column_exists = await check_column_exists(
-                "promo_groups", "period_discounts"
-            )
+            period_discounts_column_exists = await check_column_exists("promo_groups", "period_discounts")
 
             if not period_discounts_column_exists:
                 if db_type == "sqlite":
-                    await conn.execute(
-                        text("ALTER TABLE promo_groups ADD COLUMN period_discounts JSON")
-                    )
+                    await conn.execute(text("ALTER TABLE promo_groups ADD COLUMN period_discounts JSON"))
                     await conn.execute(
                         text("UPDATE promo_groups SET period_discounts = '{}' WHERE period_discounts IS NULL")
                     )
                 elif db_type == "postgresql":
+                    await conn.execute(text("ALTER TABLE promo_groups ADD COLUMN period_discounts JSONB"))
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD COLUMN period_discounts JSONB"
-                        )
-                    )
-                    await conn.execute(
-                        text(
-                            "UPDATE promo_groups SET period_discounts = '{}'::jsonb WHERE period_discounts IS NULL"
-                        )
+                        text("UPDATE promo_groups SET period_discounts = '{}'::jsonb WHERE period_discounts IS NULL")
                     )
                 elif db_type == "mysql":
+                    await conn.execute(text("ALTER TABLE promo_groups ADD COLUMN period_discounts JSON"))
                     await conn.execute(
-                        text("ALTER TABLE promo_groups ADD COLUMN period_discounts JSON")
-                    )
-                    await conn.execute(
-                        text(
-                            "UPDATE promo_groups SET period_discounts = JSON_OBJECT() WHERE period_discounts IS NULL"
-                        )
+                        text("UPDATE promo_groups SET period_discounts = JSON_OBJECT() WHERE period_discounts IS NULL")
                     )
                 else:
-                    logger.error(
-                        f"Unsupported DB type for promo_groups.period_discounts: {db_type}"
-                    )
+                    logger.error(f"Unsupported DB type for promo_groups.period_discounts: {db_type}")
                     return False
 
                 logger.info("Added column promo_groups.period_discounts")
 
-            auto_assign_column_exists = await check_column_exists(
-                "promo_groups", "auto_assign_total_spent_toman"
-            )
+            auto_assign_column_exists = await check_column_exists("promo_groups", "auto_assign_total_spent_toman")
 
             if not auto_assign_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0"
-                        )
+                        text("ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0")
                     )
                 elif db_type == "postgresql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0"
-                        )
+                        text("ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INTEGER DEFAULT 0")
                     )
                 elif db_type == "mysql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INT DEFAULT 0"
-                        )
+                        text("ALTER TABLE promo_groups ADD COLUMN auto_assign_total_spent_toman INT DEFAULT 0")
                     )
                 else:
-                    logger.error(
-                        f"Unsupported DB type for promo_groups.auto_assign_total_spent_toman: {db_type}"
-                    )
+                    logger.error(f"Unsupported DB type for promo_groups.auto_assign_total_spent_toman: {db_type}")
                     return False
 
-                logger.info(
-                    "Added column promo_groups.auto_assign_total_spent_toman"
-                )
+                logger.info("Added column promo_groups.auto_assign_total_spent_toman")
 
-            addon_discount_column_exists = await check_column_exists(
-                "promo_groups", "apply_discounts_to_addons"
-            )
-            priority_column_exists = await check_column_exists(
-                "promo_groups", "priority"
-            )
+            addon_discount_column_exists = await check_column_exists("promo_groups", "apply_discounts_to_addons")
+            priority_column_exists = await check_column_exists("promo_groups", "priority")
 
             if not addon_discount_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE promo_groups ADD COLUMN apply_discounts_to_addons BOOLEAN NOT NULL DEFAULT 1"
-                        )
+                        text("ALTER TABLE promo_groups ADD COLUMN apply_discounts_to_addons BOOLEAN NOT NULL DEFAULT 1")
                     )
                     await conn.execute(
                         text(
@@ -2604,14 +2559,10 @@ async def ensure_promo_groups_setup():
                         )
                     )
                 else:
-                    logger.error(
-                        f"Unsupported DB type for promo_groups.apply_discounts_to_addons: {db_type}"
-                    )
+                    logger.error(f"Unsupported DB type for promo_groups.apply_discounts_to_addons: {db_type}")
                     return False
 
-                logger.info(
-                    "Added column promo_groups.apply_discounts_to_addons"
-                )
+                logger.info("Added column promo_groups.apply_discounts_to_addons")
                 addon_discount_column_exists = True
 
             column_exists = await check_column_exists("users", "promo_group_id")
@@ -2629,69 +2580,45 @@ async def ensure_promo_groups_setup():
 
                 logger.info("Added column users.promo_group_id")
 
-            auto_promo_flag_exists = await check_column_exists(
-                "users", "auto_promo_group_assigned"
-            )
+            auto_promo_flag_exists = await check_column_exists("users", "auto_promo_group_assigned")
 
             if not auto_promo_flag_exists:
                 if db_type == "sqlite":
-                    await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_assigned BOOLEAN DEFAULT 0"
-                        )
-                    )
+                    await conn.execute(text("ALTER TABLE users ADD COLUMN auto_promo_group_assigned BOOLEAN DEFAULT 0"))
                 elif db_type == "postgresql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_assigned BOOLEAN DEFAULT FALSE"
-                        )
+                        text("ALTER TABLE users ADD COLUMN auto_promo_group_assigned BOOLEAN DEFAULT FALSE")
                     )
                 elif db_type == "mysql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_assigned TINYINT(1) DEFAULT 0"
-                        )
+                        text("ALTER TABLE users ADD COLUMN auto_promo_group_assigned TINYINT(1) DEFAULT 0")
                     )
                 else:
-                    logger.error(
-                        f"Unsupported DB type for users.auto_promo_group_assigned: {db_type}"
-                    )
+                    logger.error(f"Unsupported DB type for users.auto_promo_group_assigned: {db_type}")
                     return False
 
                 logger.info("Added column users.auto_promo_group_assigned")
 
-            threshold_column_exists = await check_column_exists(
-                "users", "auto_promo_group_threshold_toman"
-            )
+            threshold_column_exists = await check_column_exists("users", "auto_promo_group_threshold_toman")
 
             if not threshold_column_exists:
                 if db_type == "sqlite":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman INTEGER NOT NULL DEFAULT 0"
-                        )
+                        text("ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman INTEGER NOT NULL DEFAULT 0")
                     )
                 elif db_type == "postgresql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0"
-                        )
+                        text("ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0")
                     )
                 elif db_type == "mysql":
                     await conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0"
-                        )
+                        text("ALTER TABLE users ADD COLUMN auto_promo_group_threshold_toman BIGINT NOT NULL DEFAULT 0")
                     )
                 else:
-                    logger.error(
-                        f"Unsupported DB type for users.auto_promo_group_threshold_toman: {db_type}"
-                    )
+                    logger.error(f"Unsupported DB type for users.auto_promo_group_threshold_toman: {db_type}")
                     return False
 
-                logger.info(
-                    "Added column users.auto_promo_group_threshold_toman"
-                )
+                logger.info("Added column users.auto_promo_group_threshold_toman")
 
             index_exists = await check_index_exists("users", "ix_users_promo_group_id")
 
@@ -2706,9 +2633,7 @@ async def ensure_promo_groups_setup():
                             text("CREATE INDEX IF NOT EXISTS ix_users_promo_group_id ON users(promo_group_id)")
                         )
                     elif db_type == "mysql":
-                        await conn.execute(
-                            text("CREATE INDEX ix_users_promo_group_id ON users(promo_group_id)")
-                        )
+                        await conn.execute(text("CREATE INDEX ix_users_promo_group_id ON users(promo_group_id)"))
                     logger.info("Created index ix_users_promo_group_id")
                 except Exception as e:
                     logger.warning(f"Failed to create index ix_users_promo_group_id: {e}")
@@ -2717,9 +2642,7 @@ async def ensure_promo_groups_setup():
             default_group_id = None
 
             result = await conn.execute(
-                text(
-                    "SELECT id, is_default FROM promo_groups WHERE name = :name LIMIT 1"
-                ),
+                text("SELECT id, is_default FROM promo_groups WHERE name = :name LIMIT 1"),
                 {"name": default_group_name},
             )
             row = result.fetchone()
@@ -2728,16 +2651,12 @@ async def ensure_promo_groups_setup():
                 default_group_id = row[0]
                 if not row[1]:
                     await conn.execute(
-                        text(
-                            "UPDATE promo_groups SET is_default = :is_default WHERE id = :group_id"
-                        ),
+                        text("UPDATE promo_groups SET is_default = :is_default WHERE id = :group_id"),
                         {"is_default": True, "group_id": default_group_id},
                     )
             else:
                 result = await conn.execute(
-                    text(
-                        "SELECT id FROM promo_groups WHERE is_default = :is_default LIMIT 1"
-                    ),
+                    text("SELECT id FROM promo_groups WHERE is_default = :is_default LIMIT 1"),
                     {"is_default": True},
                 )
                 existing_default = result.fetchone()
@@ -2803,9 +2722,7 @@ async def ensure_promo_groups_setup():
                     await conn.execute(text(insert_sql), insert_params)
 
                     result = await conn.execute(
-                        text(
-                            "SELECT id FROM promo_groups WHERE name = :name LIMIT 1"
-                        ),
+                        text("SELECT id FROM promo_groups WHERE name = :name LIMIT 1"),
                         {"name": default_group_name},
                     )
                     row = result.fetchone()
@@ -2827,9 +2744,7 @@ async def ensure_promo_groups_setup():
             )
 
             if db_type == "postgresql":
-                constraint_exists = await check_constraint_exists(
-                    "users", "fk_users_promo_group_id_promo_groups"
-                )
+                constraint_exists = await check_constraint_exists("users", "fk_users_promo_group_id_promo_groups")
                 if not constraint_exists:
                     try:
                         await conn.execute(
@@ -2845,25 +2760,15 @@ async def ensure_promo_groups_setup():
                         )
                         logger.info("Added foreign key users -> promo_groups")
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to add foreign key users.promo_group_id: {e}"
-                        )
+                        logger.warning(f"Failed to add foreign key users.promo_group_id: {e}")
 
                 try:
-                    await conn.execute(
-                        text(
-                            "ALTER TABLE users ALTER COLUMN promo_group_id SET NOT NULL"
-                        )
-                    )
+                    await conn.execute(text("ALTER TABLE users ALTER COLUMN promo_group_id SET NOT NULL"))
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to make users.promo_group_id NOT NULL: {e}"
-                    )
+                    logger.warning(f"Failed to make users.promo_group_id NOT NULL: {e}")
 
             elif db_type == "mysql":
-                constraint_exists = await check_constraint_exists(
-                    "users", "fk_users_promo_group_id_promo_groups"
-                )
+                constraint_exists = await check_constraint_exists("users", "fk_users_promo_group_id_promo_groups")
                 if not constraint_exists:
                     try:
                         await conn.execute(
@@ -2879,20 +2784,12 @@ async def ensure_promo_groups_setup():
                         )
                         logger.info("Added foreign key users -> promo_groups")
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to add foreign key users.promo_group_id: {e}"
-                        )
+                        logger.warning(f"Failed to add foreign key users.promo_group_id: {e}")
 
                 try:
-                    await conn.execute(
-                        text(
-                            "ALTER TABLE users MODIFY promo_group_id INT NOT NULL"
-                        )
-                    )
+                    await conn.execute(text("ALTER TABLE users MODIFY promo_group_id INT NOT NULL"))
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to make users.promo_group_id NOT NULL: {e}"
-                    )
+                    logger.warning(f"Failed to make users.promo_group_id NOT NULL: {e}")
 
             logger.info("✅ Promo groups configured")
             return True
@@ -2901,55 +2798,57 @@ async def ensure_promo_groups_setup():
         logger.error(f"Error setting up promo groups: {e}")
         return False
 
+
 async def add_welcome_text_is_enabled_column():
-    column_exists = await check_column_exists('welcome_texts', 'is_enabled')
+    column_exists = await check_column_exists("welcome_texts", "is_enabled")
     if column_exists:
         logger.info("Column is_enabled already exists in welcome_texts table")
         return True
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 alter_sql = "ALTER TABLE welcome_texts ADD COLUMN is_enabled BOOLEAN DEFAULT 1 NOT NULL"
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 alter_sql = "ALTER TABLE welcome_texts ADD COLUMN is_enabled BOOLEAN DEFAULT TRUE NOT NULL"
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 alter_sql = "ALTER TABLE welcome_texts ADD COLUMN is_enabled BOOLEAN DEFAULT TRUE NOT NULL"
             else:
                 logger.error(f"Unsupported DB type for adding column: {db_type}")
                 return False
-            
+
             await conn.execute(text(alter_sql))
             logger.info("✅ Field is_enabled added to welcome_texts table")
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 update_sql = "UPDATE welcome_texts SET is_enabled = 1 WHERE is_enabled IS NULL"
             else:
                 update_sql = "UPDATE welcome_texts SET is_enabled = TRUE WHERE is_enabled IS NULL"
-            
+
             result = await conn.execute(text(update_sql))
             updated_count = result.rowcount
             logger.info(f"Updated {updated_count} existing welcome_texts records")
-            
+
             return True
-            
+
     except Exception as e:
         logger.error(f"Error adding is_enabled field: {e}")
         return False
 
+
 async def create_welcome_texts_table():
-    table_exists = await check_table_exists('welcome_texts')
+    table_exists = await check_table_exists("welcome_texts")
     if table_exists:
         logger.info("Table welcome_texts already exists")
         return await add_welcome_text_is_enabled_column()
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE welcome_texts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2966,8 +2865,8 @@ async def create_welcome_texts_table():
                 CREATE INDEX idx_welcome_texts_enabled ON welcome_texts(is_enabled);
                 CREATE INDEX idx_welcome_texts_updated ON welcome_texts(updated_at);
                 """
-                
-            elif db_type == 'postgresql':
+
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE welcome_texts (
                     id SERIAL PRIMARY KEY,
@@ -2984,8 +2883,8 @@ async def create_welcome_texts_table():
                 CREATE INDEX idx_welcome_texts_enabled ON welcome_texts(is_enabled);
                 CREATE INDEX idx_welcome_texts_updated ON welcome_texts(updated_at);
                 """
-                
-            elif db_type == 'mysql':
+
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE welcome_texts (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -3005,54 +2904,55 @@ async def create_welcome_texts_table():
             else:
                 logger.error(f"Unsupported DB type for table creation: {db_type}")
                 return False
-            
+
             await conn.execute(text(create_sql))
             logger.info("✅ Table welcome_texts created successfully with is_enabled field")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error creating table welcome_texts: {e}")
         return False
 
+
 async def add_media_fields_to_broadcast_history():
     logger.info("=== ADDING MEDIA FIELDS TO BROADCAST_HISTORY ===")
-    
+
     media_fields = {
-        'has_media': 'BOOLEAN DEFAULT FALSE',
-        'media_type': 'VARCHAR(20)',
-        'media_file_id': 'VARCHAR(255)', 
-        'media_caption': 'TEXT'
+        "has_media": "BOOLEAN DEFAULT FALSE",
+        "media_type": "VARCHAR(20)",
+        "media_file_id": "VARCHAR(255)",
+        "media_caption": "TEXT",
     }
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
+
             for field_name, field_type in media_fields.items():
-                field_exists = await check_column_exists('broadcast_history', field_name)
-                
+                field_exists = await check_column_exists("broadcast_history", field_name)
+
                 if not field_exists:
                     logger.info(f"Adding field {field_name} to broadcast_history table")
-                    
-                    if db_type == 'sqlite':
-                        if 'BOOLEAN' in field_type:
-                            field_type = field_type.replace('BOOLEAN DEFAULT FALSE', 'BOOLEAN DEFAULT 0')
-                    elif db_type == 'postgresql':
-                        if 'BOOLEAN' in field_type:
-                            field_type = field_type.replace('BOOLEAN DEFAULT FALSE', 'BOOLEAN DEFAULT FALSE')
-                    elif db_type == 'mysql':
-                        if 'BOOLEAN' in field_type:
-                            field_type = field_type.replace('BOOLEAN DEFAULT FALSE', 'BOOLEAN DEFAULT FALSE')
-                    
+
+                    if db_type == "sqlite":
+                        if "BOOLEAN" in field_type:
+                            field_type = field_type.replace("BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0")
+                    elif db_type == "postgresql":
+                        if "BOOLEAN" in field_type:
+                            field_type = field_type.replace("BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE")
+                    elif db_type == "mysql":
+                        if "BOOLEAN" in field_type:
+                            field_type = field_type.replace("BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE")
+
                     alter_sql = f"ALTER TABLE broadcast_history ADD COLUMN {field_name} {field_type}"
                     await conn.execute(text(alter_sql))
                     logger.info(f"✅ Field {field_name} added successfully")
                 else:
                     logger.info(f"Field {field_name} already exists in broadcast_history")
-            
+
             logger.info("✅ All media fields in broadcast_history are ready")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error adding media fields to broadcast_history: {e}")
         return False
@@ -3060,8 +2960,8 @@ async def add_media_fields_to_broadcast_history():
 
 async def add_ticket_reply_block_columns():
     try:
-        col_perm_exists = await check_column_exists('tickets', 'user_reply_block_permanent')
-        col_until_exists = await check_column_exists('tickets', 'user_reply_block_until')
+        col_perm_exists = await check_column_exists("tickets", "user_reply_block_permanent")
+        col_until_exists = await check_column_exists("tickets", "user_reply_block_until")
 
         if col_perm_exists and col_until_exists:
             return True
@@ -3070,12 +2970,16 @@ async def add_ticket_reply_block_columns():
             db_type = await get_database_type()
 
             if not col_perm_exists:
-                if db_type == 'sqlite':
+                if db_type == "sqlite":
                     alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_permanent BOOLEAN DEFAULT 0 NOT NULL"
-                elif db_type == 'postgresql':
-                    alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_permanent BOOLEAN DEFAULT FALSE NOT NULL"
-                elif db_type == 'mysql':
-                    alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_permanent BOOLEAN DEFAULT FALSE NOT NULL"
+                elif db_type == "postgresql":
+                    alter_sql = (
+                        "ALTER TABLE tickets ADD COLUMN user_reply_block_permanent BOOLEAN DEFAULT FALSE NOT NULL"
+                    )
+                elif db_type == "mysql":
+                    alter_sql = (
+                        "ALTER TABLE tickets ADD COLUMN user_reply_block_permanent BOOLEAN DEFAULT FALSE NOT NULL"
+                    )
                 else:
                     logger.error(f"Unsupported DB type for adding user_reply_block_permanent: {db_type}")
                     return False
@@ -3083,11 +2987,11 @@ async def add_ticket_reply_block_columns():
                 logger.info("✅ Added column tickets.user_reply_block_permanent")
 
             if not col_until_exists:
-                if db_type == 'sqlite':
+                if db_type == "sqlite":
                     alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_until DATETIME NULL"
-                elif db_type == 'postgresql':
+                elif db_type == "postgresql":
                     alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_until TIMESTAMP NULL"
-                elif db_type == 'mysql':
+                elif db_type == "mysql":
                     alter_sql = "ALTER TABLE tickets ADD COLUMN user_reply_block_until DATETIME NULL"
                 else:
                     logger.error(f"Unsupported DB type for adding user_reply_block_until: {db_type}")
@@ -3103,16 +3007,16 @@ async def add_ticket_reply_block_columns():
 
 async def add_ticket_sla_columns():
     try:
-        col_exists = await check_column_exists('tickets', 'last_sla_reminder_at')
+        col_exists = await check_column_exists("tickets", "last_sla_reminder_at")
         if col_exists:
             return True
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 alter_sql = "ALTER TABLE tickets ADD COLUMN last_sla_reminder_at DATETIME NULL"
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 alter_sql = "ALTER TABLE tickets ADD COLUMN last_sla_reminder_at TIMESTAMP NULL"
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 alter_sql = "ALTER TABLE tickets ADD COLUMN last_sla_reminder_at DATETIME NULL"
             else:
                 logger.error(f"Unsupported DB type for adding last_sla_reminder_at: {db_type}")
@@ -3126,7 +3030,7 @@ async def add_ticket_sla_columns():
 
 
 async def add_subscription_crypto_link_column() -> bool:
-    column_exists = await check_column_exists('subscriptions', 'subscription_crypto_link')
+    column_exists = await check_column_exists("subscriptions", "subscription_crypto_link")
     if column_exists:
         logger.info("ℹ️ Column subscription_crypto_link already exists")
         return True
@@ -3135,20 +3039,22 @@ async def add_subscription_crypto_link_column() -> bool:
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN subscription_crypto_link TEXT"))
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN subscription_crypto_link VARCHAR"))
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 await conn.execute(text("ALTER TABLE subscriptions ADD COLUMN subscription_crypto_link VARCHAR(512)"))
             else:
                 logger.error(f"Unsupported DB type for adding subscription_crypto_link: {db_type}")
                 return False
 
-            await conn.execute(text(
-                "UPDATE subscriptions SET subscription_crypto_link = subscription_url "
-                "WHERE subscription_crypto_link IS NULL OR subscription_crypto_link = ''"
-            ))
+            await conn.execute(
+                text(
+                    "UPDATE subscriptions SET subscription_crypto_link = subscription_url "
+                    "WHERE subscription_crypto_link IS NULL OR subscription_crypto_link = ''"
+                )
+            )
 
         logger.info("✅ Added column subscription_crypto_link to subscriptions table")
         return True
@@ -3161,47 +3067,56 @@ async def fix_foreign_keys_for_user_deletion():
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'postgresql':
+
+            if db_type == "postgresql":
                 try:
-                    await conn.execute(text("""
+                    await conn.execute(
+                        text("""
                         ALTER TABLE user_messages 
                         DROP CONSTRAINT IF EXISTS user_messages_created_by_fkey;
-                    """))
-                    
-                    await conn.execute(text("""
+                    """)
+                    )
+
+                    await conn.execute(
+                        text("""
                         ALTER TABLE user_messages 
                         ADD CONSTRAINT user_messages_created_by_fkey 
                         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
-                    """))
+                    """)
+                    )
                     logger.info("Updated foreign key user_messages.created_by")
                 except Exception as e:
                     logger.warning(f"Error updating FK user_messages: {e}")
-                
+
                 try:
-                    await conn.execute(text("""
+                    await conn.execute(
+                        text("""
                         ALTER TABLE promocodes 
                         DROP CONSTRAINT IF EXISTS promocodes_created_by_fkey;
-                    """))
-                    
-                    await conn.execute(text("""
+                    """)
+                    )
+
+                    await conn.execute(
+                        text("""
                         ALTER TABLE promocodes 
                         ADD CONSTRAINT promocodes_created_by_fkey 
                         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
-                    """))
+                    """)
+                    )
                     logger.info("Updated foreign key promocodes.created_by")
                 except Exception as e:
                     logger.warning(f"Error updating FK promocodes: {e}")
-            
+
             logger.info("Foreign keys updated for safe user deletion")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error updating foreign keys: {e}")
         return False
 
+
 async def add_referral_commission_percent_column() -> bool:
-    column_exists = await check_column_exists('users', 'referral_commission_percent')
+    column_exists = await check_column_exists("users", "referral_commission_percent")
     if column_exists:
         logger.info("ℹ️ Column referral_commission_percent already exists")
         return True
@@ -3210,11 +3125,11 @@ async def add_referral_commission_percent_column() -> bool:
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
+            if db_type == "sqlite":
                 alter_sql = "ALTER TABLE users ADD COLUMN referral_commission_percent INTEGER NULL"
-            elif db_type == 'postgresql':
+            elif db_type == "postgresql":
                 alter_sql = "ALTER TABLE users ADD COLUMN referral_commission_percent INTEGER NULL"
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 alter_sql = "ALTER TABLE users ADD COLUMN referral_commission_percent INT NULL"
             else:
                 logger.error(f"Unsupported DB type for adding referral_commission_percent: {db_type}")
@@ -3231,27 +3146,27 @@ async def add_referral_commission_percent_column() -> bool:
 
 async def add_referral_system_columns():
     logger.info("=== REFERRAL SYSTEM MIGRATION ===")
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            column_exists = await check_column_exists('users', 'has_made_first_topup')
-            
+
+            column_exists = await check_column_exists("users", "has_made_first_topup")
+
             if not column_exists:
                 logger.info("Adding column has_made_first_topup to users table")
-                
-                if db_type == 'sqlite':
-                    column_def = 'BOOLEAN DEFAULT 0'
+
+                if db_type == "sqlite":
+                    column_def = "BOOLEAN DEFAULT 0"
                 else:
-                    column_def = 'BOOLEAN DEFAULT FALSE'
-                
+                    column_def = "BOOLEAN DEFAULT FALSE"
+
                 await conn.execute(text(f"ALTER TABLE users ADD COLUMN has_made_first_topup {column_def}"))
                 logger.info("Column has_made_first_topup added successfully")
-                
+
                 logger.info("Updating existing users...")
-                
-                if db_type == 'sqlite':
+
+                if db_type == "sqlite":
                     update_sql = """
                         UPDATE users 
                         SET has_made_first_topup = 1 
@@ -3263,33 +3178,34 @@ async def add_referral_system_columns():
                         SET has_made_first_topup = TRUE 
                         WHERE balance_toman > 0 OR has_had_paid_subscription = TRUE
                     """
-                
+
                 result = await conn.execute(text(update_sql))
                 updated_count = result.rowcount
-                
+
                 logger.info(f"Updated {updated_count} users with has_made_first_topup = TRUE")
                 logger.info("✅ Referral system migration completed")
-                
+
                 return True
             else:
                 logger.info("Column has_made_first_topup already exists")
                 return True
-                
+
     except Exception as e:
         logger.error(f"Referral system migration error: {e}")
         return False
 
+
 async def create_subscription_conversions_table():
-    table_exists = await check_table_exists('subscription_conversions')
+    table_exists = await check_table_exists("subscription_conversions")
     if table_exists:
         logger.info("Table subscription_conversions already exists")
         return True
-    
+
     try:
         async with engine.begin() as conn:
             db_type = await get_database_type()
-            
-            if db_type == 'sqlite':
+
+            if db_type == "sqlite":
                 create_sql = """
                 CREATE TABLE subscription_conversions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3306,8 +3222,8 @@ async def create_subscription_conversions_table():
                 CREATE INDEX idx_subscription_conversions_user_id ON subscription_conversions(user_id);
                 CREATE INDEX idx_subscription_conversions_converted_at ON subscription_conversions(converted_at);
                 """
-                
-            elif db_type == 'postgresql':
+
+            elif db_type == "postgresql":
                 create_sql = """
                 CREATE TABLE subscription_conversions (
                     id SERIAL PRIMARY KEY,
@@ -3324,8 +3240,8 @@ async def create_subscription_conversions_table():
                 CREATE INDEX idx_subscription_conversions_user_id ON subscription_conversions(user_id);
                 CREATE INDEX idx_subscription_conversions_converted_at ON subscription_conversions(converted_at);
                 """
-                
-            elif db_type == 'mysql':
+
+            elif db_type == "mysql":
                 create_sql = """
                 CREATE TABLE subscription_conversions (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -3345,11 +3261,11 @@ async def create_subscription_conversions_table():
             else:
                 logger.error(f"Unsupported DB type for table creation: {db_type}")
                 return False
-            
+
             await conn.execute(text(create_sql))
             logger.info("✅ Table subscription_conversions created successfully")
             return True
-            
+
     except Exception as e:
         logger.error(f"Error creating table subscription_conversions: {e}")
         return False
@@ -3442,44 +3358,51 @@ async def create_subscription_events_table():
         logger.error(f"Error creating table subscription_events: {e}")
         return False
 
+
 async def fix_subscription_duplicates_universal():
     async with engine.begin() as conn:
         db_type = await get_database_type()
         logger.info(f"Detected database type: {db_type}")
-        
+
         try:
-            result = await conn.execute(text("""
+            result = await conn.execute(
+                text("""
                 SELECT user_id, COUNT(*) as count 
                 FROM subscriptions 
                 GROUP BY user_id 
                 HAVING COUNT(*) > 1
-            """))
-            
+            """)
+            )
+
             duplicates = result.fetchall()
-            
+
             if not duplicates:
                 logger.info("No duplicate subscriptions found")
                 return 0
-                
+
             logger.info(f"Found {len(duplicates)} users with duplicate subscriptions")
-            
+
             total_deleted = 0
-            
+
             for user_id_row, count in duplicates:
                 user_id = user_id_row
-                
-                if db_type == 'sqlite':
-                    delete_result = await conn.execute(text("""
+
+                if db_type == "sqlite":
+                    delete_result = await conn.execute(
+                        text("""
                         DELETE FROM subscriptions 
                         WHERE user_id = :user_id AND id NOT IN (
                             SELECT MAX(id) 
                             FROM subscriptions 
                             WHERE user_id = :user_id
                         )
-                    """), {"user_id": user_id})
-                    
-                elif db_type in ['postgresql', 'mysql']:
-                    delete_result = await conn.execute(text("""
+                    """),
+                        {"user_id": user_id},
+                    )
+
+                elif db_type in ["postgresql", "mysql"]:
+                    delete_result = await conn.execute(
+                        text("""
                         DELETE FROM subscriptions 
                         WHERE user_id = :user_id AND id NOT IN (
                             SELECT max_id FROM (
@@ -3488,27 +3411,35 @@ async def fix_subscription_duplicates_universal():
                                 WHERE user_id = :user_id
                             ) as subquery
                         )
-                    """), {"user_id": user_id})
-                
+                    """),
+                        {"user_id": user_id},
+                    )
+
                 else:
-                    subs_result = await conn.execute(text("""
+                    subs_result = await conn.execute(
+                        text("""
                         SELECT id FROM subscriptions 
                         WHERE user_id = :user_id 
                         ORDER BY created_at DESC, id DESC
-                    """), {"user_id": user_id})
-                    
+                    """),
+                        {"user_id": user_id},
+                    )
+
                     sub_ids = [row[0] for row in subs_result.fetchall()]
-                    
+
                     if len(sub_ids) > 1:
                         ids_to_delete = sub_ids[1:]
                         for sub_id in ids_to_delete:
-                            await conn.execute(text("""
+                            await conn.execute(
+                                text("""
                                 DELETE FROM subscriptions WHERE id = :id
-                            """), {"id": sub_id})
-                        delete_result = type('Result', (), {'rowcount': len(ids_to_delete)})()
+                            """),
+                                {"id": sub_id},
+                            )
+                        delete_result = type("Result", (), {"rowcount": len(ids_to_delete)})()
                     else:
-                        delete_result = type('Result', (), {'rowcount': 0})()
-                
+                        delete_result = type("Result", (), {"rowcount": 0})()
+
                 deleted_count = delete_result.rowcount
                 total_deleted += deleted_count
                 logger.info(f"Deleted {deleted_count} duplicate subscriptions for user {user_id}")
@@ -3595,41 +3526,32 @@ async def ensure_server_promo_groups_setup() -> bool:
             assigned_count = 0
             for server_id in server_ids:
                 existing = await conn.execute(
-                    text(
-                        "SELECT 1 FROM server_squad_promo_groups WHERE server_squad_id = :sid LIMIT 1"
-                    ),
+                    text("SELECT 1 FROM server_squad_promo_groups WHERE server_squad_id = :sid LIMIT 1"),
                     {"sid": server_id},
                 )
                 if existing.fetchone():
                     continue
 
                 await conn.execute(
-                    text(
-                        "INSERT INTO server_squad_promo_groups (server_squad_id, promo_group_id) "
-                        "VALUES (:sid, :gid)"
-                    ),
+                    text("INSERT INTO server_squad_promo_groups (server_squad_id, promo_group_id) VALUES (:sid, :gid)"),
                     {"sid": server_id, "gid": default_group_id},
                 )
                 assigned_count += 1
 
             if assigned_count:
-                logger.info(
-                    f"✅ Default promo group assigned to {assigned_count} servers"
-                )
+                logger.info(f"✅ Default promo group assigned to {assigned_count} servers")
             else:
                 logger.info("ℹ️ All servers already have assigned promo groups")
 
         return True
 
     except Exception as e:
-        logger.error(
-            f"Error setting up server_squad_promo_groups table: {e}"
-        )
+        logger.error(f"Error setting up server_squad_promo_groups table: {e}")
         return False
 
 
 async def add_server_trial_flag_column() -> bool:
-    column_exists = await check_column_exists('server_squads', 'is_trial_eligible')
+    column_exists = await check_column_exists("server_squads", "is_trial_eligible")
     if column_exists:
         logger.info("Column is_trial_eligible already exists in server_squads")
         return True
@@ -3638,21 +3560,17 @@ async def add_server_trial_flag_column() -> bool:
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
-                column_def = 'BOOLEAN NOT NULL DEFAULT 0'
-            elif db_type == 'postgresql':
-                column_def = 'BOOLEAN NOT NULL DEFAULT FALSE'
+            if db_type == "sqlite":
+                column_def = "BOOLEAN NOT NULL DEFAULT 0"
+            elif db_type == "postgresql":
+                column_def = "BOOLEAN NOT NULL DEFAULT FALSE"
             else:
-                column_def = 'BOOLEAN NOT NULL DEFAULT FALSE'
+                column_def = "BOOLEAN NOT NULL DEFAULT FALSE"
 
-            await conn.execute(
-                text(f"ALTER TABLE server_squads ADD COLUMN is_trial_eligible {column_def}")
-            )
+            await conn.execute(text(f"ALTER TABLE server_squads ADD COLUMN is_trial_eligible {column_def}"))
 
-            if db_type == 'postgresql':
-                await conn.execute(
-                    text("ALTER TABLE server_squads ALTER COLUMN is_trial_eligible SET DEFAULT FALSE")
-                )
+            if db_type == "postgresql":
+                await conn.execute(text("ALTER TABLE server_squads ALTER COLUMN is_trial_eligible SET DEFAULT FALSE"))
 
         logger.info("✅ Added column is_trial_eligible to server_squads")
         return True
@@ -4025,9 +3943,7 @@ async def ensure_default_web_api_token() -> bool:
     try:
         async with AsyncSessionLocal() as session:
             token_hash = hash_api_token(default_token, settings.WEB_API_TOKEN_HASH_ALGORITHM)
-            result = await session.execute(
-                select(WebApiToken).where(WebApiToken.token_hash == token_hash)
-            )
+            result = await session.execute(select(WebApiToken).where(WebApiToken.token_hash == token_hash))
             existing = result.scalar_one_or_none()
 
             if existing:
@@ -4066,7 +3982,7 @@ async def ensure_default_web_api_token() -> bool:
 
 async def add_promo_group_priority_column() -> bool:
     """Adds priority column to promo_groups table."""
-    column_exists = await check_column_exists('promo_groups', 'priority')
+    column_exists = await check_column_exists("promo_groups", "priority")
     if column_exists:
         logger.info("Column priority already exists in promo_groups")
         return True
@@ -4075,30 +3991,26 @@ async def add_promo_group_priority_column() -> bool:
         async with engine.begin() as conn:
             db_type = await get_database_type()
 
-            if db_type == 'sqlite':
-                column_def = 'INTEGER NOT NULL DEFAULT 0'
-            elif db_type == 'postgresql':
-                column_def = 'INTEGER NOT NULL DEFAULT 0'
+            if db_type == "sqlite":
+                column_def = "INTEGER NOT NULL DEFAULT 0"
+            elif db_type == "postgresql":
+                column_def = "INTEGER NOT NULL DEFAULT 0"
             else:
-                column_def = 'INT NOT NULL DEFAULT 0'
+                column_def = "INT NOT NULL DEFAULT 0"
 
-            await conn.execute(
-                text(f"ALTER TABLE promo_groups ADD COLUMN priority {column_def}")
-            )
+            await conn.execute(text(f"ALTER TABLE promo_groups ADD COLUMN priority {column_def}"))
 
             # Create index for sorting optimization
-            if db_type == 'postgresql':
+            if db_type == "postgresql":
                 await conn.execute(
                     text("CREATE INDEX IF NOT EXISTS idx_promo_groups_priority ON promo_groups(priority DESC)")
                 )
-            elif db_type == 'sqlite':
+            elif db_type == "sqlite":
                 await conn.execute(
                     text("CREATE INDEX IF NOT EXISTS idx_promo_groups_priority ON promo_groups(priority DESC)")
                 )
             else:  # MySQL
-                await conn.execute(
-                    text("CREATE INDEX idx_promo_groups_priority ON promo_groups(priority DESC)")
-                )
+                await conn.execute(text("CREATE INDEX idx_promo_groups_priority ON promo_groups(priority DESC)"))
 
         logger.info("✅ Added column priority to promo_groups with index")
         return True
@@ -4177,7 +4089,7 @@ async def migrate_existing_user_promo_groups_data() -> bool:
             logger.warning("⚠️ Table user_promo_groups does not exist, skipping data migration")
             return False
 
-        column_exists = await check_column_exists('users', 'promo_group_id')
+        column_exists = await check_column_exists("users", "promo_group_id")
         if not column_exists:
             logger.warning("⚠️ Column users.promo_group_id does not exist, skipping data migration")
             return True
@@ -4210,7 +4122,7 @@ async def migrate_existing_user_promo_groups_data() -> bool:
                 """
 
             result = await conn.execute(text(migrate_sql))
-            migrated_count = result.rowcount if hasattr(result, 'rowcount') else 0
+            migrated_count = result.rowcount if hasattr(result, "rowcount") else 0
 
             logger.info(f"✅ Migrated {migrated_count} user-promo group relationships")
             return True
@@ -4222,7 +4134,7 @@ async def migrate_existing_user_promo_groups_data() -> bool:
 
 async def add_promocode_promo_group_column() -> bool:
     """Adds promo_group_id column to promocodes table."""
-    column_exists = await check_column_exists('promocodes', 'promo_group_id')
+    column_exists = await check_column_exists("promocodes", "promo_group_id")
     if column_exists:
         logger.info("Column promo_group_id already exists in promocodes")
         return True
@@ -4232,14 +4144,10 @@ async def add_promocode_promo_group_column() -> bool:
             db_type = await get_database_type()
 
             # Add column
-            if db_type == 'sqlite':
-                await conn.execute(
-                    text("ALTER TABLE promocodes ADD COLUMN promo_group_id INTEGER")
-                )
-            elif db_type == 'postgresql':
-                await conn.execute(
-                    text("ALTER TABLE promocodes ADD COLUMN promo_group_id INTEGER")
-                )
+            if db_type == "sqlite":
+                await conn.execute(text("ALTER TABLE promocodes ADD COLUMN promo_group_id INTEGER"))
+            elif db_type == "postgresql":
+                await conn.execute(text("ALTER TABLE promocodes ADD COLUMN promo_group_id INTEGER"))
                 # Add foreign key
                 await conn.execute(
                     text("""
@@ -4254,7 +4162,7 @@ async def add_promocode_promo_group_column() -> bool:
                 await conn.execute(
                     text("CREATE INDEX IF NOT EXISTS idx_promocodes_promo_group_id ON promocodes(promo_group_id)")
                 )
-            elif db_type == 'mysql':
+            elif db_type == "mysql":
                 await conn.execute(
                     text("""
                         ALTER TABLE promocodes
@@ -4265,9 +4173,7 @@ async def add_promocode_promo_group_column() -> bool:
                         ON DELETE SET NULL
                     """)
                 )
-                await conn.execute(
-                    text("CREATE INDEX idx_promocodes_promo_group_id ON promocodes(promo_group_id)")
-                )
+                await conn.execute(text("CREATE INDEX idx_promocodes_promo_group_id ON promocodes(promo_group_id)"))
 
         logger.info("✅ Added column promo_group_id to promocodes")
         return True
@@ -4279,12 +4185,12 @@ async def add_promocode_promo_group_column() -> bool:
 
 async def run_universal_migration():
     logger.info("=== STARTING UNIVERSAL MIGRATION ===")
-    
+
     try:
         db_type = await get_database_type()
         logger.info(f"Database type: {db_type}")
 
-        if db_type == 'postgresql':
+        if db_type == "postgresql":
             logger.info("=== PostgreSQL SEQUENCE SYNCHRONIZATION ===")
             sequences_synced = await sync_postgres_sequences()
             if sequences_synced:
@@ -4555,7 +4461,7 @@ async def run_universal_migration():
             logger.info("✅ welcome_texts table ready with is_enabled field")
         else:
             logger.warning("⚠️ Issues with welcome_texts table")
-        
+
         logger.info("=== ADDING MEDIA FIELDS TO BROADCAST_HISTORY ===")
         media_fields_added = await add_media_fields_to_broadcast_history()
         if media_fields_added:
@@ -4588,8 +4494,8 @@ async def run_universal_migration():
         try:
             async with engine.begin() as conn:
                 db_type = await get_database_type()
-                if not await check_table_exists('support_audit_logs'):
-                    if db_type == 'sqlite':
+                if not await check_table_exists("support_audit_logs"):
+                    if db_type == "sqlite":
                         create_sql = """
                         CREATE TABLE support_audit_logs (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4609,7 +4515,7 @@ async def run_universal_migration():
                         CREATE INDEX idx_support_audit_logs_actor ON support_audit_logs(actor_telegram_id);
                         CREATE INDEX idx_support_audit_logs_action ON support_audit_logs(action);
                         """
-                    elif db_type == 'postgresql':
+                    elif db_type == "postgresql":
                         create_sql = """
                         CREATE TABLE support_audit_logs (
                             id SERIAL PRIMARY KEY,
@@ -4669,7 +4575,7 @@ async def run_universal_migration():
             logger.info("✅ Foreign keys updated")
         else:
             logger.warning("⚠️ Issues updating foreign keys")
-        
+
         logger.info("=== CREATING SUBSCRIPTION CONVERSIONS TABLE ===")
         conversions_created = await create_subscription_conversions_table()
         if conversions_created:
@@ -4687,30 +4593,32 @@ async def run_universal_migration():
         async with engine.begin() as conn:
             total_subs = await conn.execute(text("SELECT COUNT(*) FROM subscriptions"))
             unique_users = await conn.execute(text("SELECT COUNT(DISTINCT user_id) FROM subscriptions"))
-            
+
             total_count = total_subs.fetchone()[0]
             unique_count = unique_users.fetchone()[0]
-            
+
             logger.info(f"Total subscriptions: {total_count}")
             logger.info(f"Unique users: {unique_count}")
-            
+
             if total_count == unique_count:
                 logger.info("Database is already in correct state")
                 logger.info("=== MIGRATION COMPLETED SUCCESSFULLY ===")
                 return True
-        
+
         deleted_count = await fix_subscription_duplicates_universal()
-        
+
         async with engine.begin() as conn:
-            final_check = await conn.execute(text("""
+            final_check = await conn.execute(
+                text("""
                 SELECT user_id, COUNT(*) as count 
                 FROM subscriptions 
                 GROUP BY user_id 
                 HAVING COUNT(*) > 1
-            """))
-            
+            """)
+            )
+
             remaining_duplicates = final_check.fetchall()
-            
+
             if remaining_duplicates:
                 logger.warning(f"Duplicates remain for {len(remaining_duplicates)} users")
                 return False
@@ -4725,14 +4633,15 @@ async def run_universal_migration():
                 logger.info("✅ Media fields in broadcast_history added")
                 logger.info("✅ Subscription duplicates fixed")
                 return True
-                
+
     except Exception as e:
         logger.error(f"=== MIGRATION ERROR: {e} ===")
         return False
 
+
 async def check_migration_status():
     logger.info("=== CHECKING MIGRATION STATUS ===")
-    
+
     try:
         status = {
             "has_made_first_topup_column": False,
@@ -4777,70 +4686,96 @@ async def check_migration_status():
             "promo_offer_logs_table": False,
             "subscription_temporary_access_table": False,
         }
-        
-        status["has_made_first_topup_column"] = await check_column_exists('users', 'has_made_first_topup')
-        
-        status["cryptobot_table"] = await check_table_exists('cryptobot_payments')
-        status["heleket_table"] = await check_table_exists('heleket_payments')
-        status["user_messages_table"] = await check_table_exists('user_messages')
-        status["welcome_texts_table"] = await check_table_exists('welcome_texts')
-        status["privacy_policies_table"] = await check_table_exists('privacy_policies')
-        status["public_offers_table"] = await check_table_exists('public_offers')
-        status["subscription_conversions_table"] = await check_table_exists('subscription_conversions')
-        status["subscription_events_table"] = await check_table_exists('subscription_events')
-        status["promo_groups_table"] = await check_table_exists('promo_groups')
-        status["server_promo_groups_table"] = await check_table_exists('server_squad_promo_groups')
-        status["server_squads_trial_column"] = await check_column_exists('server_squads', 'is_trial_eligible')
 
-        status["discount_offers_table"] = await check_table_exists('discount_offers')
-        status["discount_offers_effect_column"] = await check_column_exists('discount_offers', 'effect_type')
-        status["discount_offers_extra_column"] = await check_column_exists('discount_offers', 'extra_data')
-        status["referral_contests_table"] = await check_table_exists('referral_contests')
-        status["referral_contest_events_table"] = await check_table_exists('referral_contest_events')
-        status["referral_contest_type_column"] = await check_column_exists('referral_contests', 'contest_type')
-        status["referral_contest_summary_times_column"] = await check_column_exists('referral_contests', 'daily_summary_times')
-        status["referral_contest_last_summary_at_column"] = await check_column_exists('referral_contests', 'last_daily_summary_at')
-        status["contest_templates_table"] = await check_table_exists('contest_templates')
-        status["contest_rounds_table"] = await check_table_exists('contest_rounds')
-        status["contest_attempts_table"] = await check_table_exists('contest_attempts')
-        status["promo_offer_templates_table"] = await check_table_exists('promo_offer_templates')
-        status["promo_offer_templates_active_discount_column"] = await check_column_exists('promo_offer_templates', 'active_discount_hours')
-        status["promo_offer_logs_table"] = await check_table_exists('promo_offer_logs')
-        status["subscription_temporary_access_table"] = await check_table_exists('subscription_temporary_access')
+        status["has_made_first_topup_column"] = await check_column_exists("users", "has_made_first_topup")
 
-        status["welcome_texts_is_enabled_column"] = await check_column_exists('welcome_texts', 'is_enabled')
-        status["users_promo_group_column"] = await check_column_exists('users', 'promo_group_id')
-        status["promo_groups_period_discounts_column"] = await check_column_exists('promo_groups', 'period_discounts')
-        status["promo_groups_auto_assign_column"] = await check_column_exists('promo_groups', 'auto_assign_total_spent_toman')
-        status["promo_groups_addon_discount_column"] = await check_column_exists('promo_groups', 'apply_discounts_to_addons')
-        status["users_auto_promo_group_assigned_column"] = await check_column_exists('users', 'auto_promo_group_assigned')
-        status["users_auto_promo_group_threshold_column"] = await check_column_exists('users', 'auto_promo_group_threshold_toman')
-        status["users_promo_offer_discount_percent_column"] = await check_column_exists('users', 'promo_offer_discount_percent')
-        status["users_promo_offer_discount_source_column"] = await check_column_exists('users', 'promo_offer_discount_source')
-        status["users_promo_offer_discount_expires_column"] = await check_column_exists('users', 'promo_offer_discount_expires_at')
-        status["users_referral_commission_percent_column"] = await check_column_exists('users', 'referral_commission_percent')
-        status["subscription_crypto_link_column"] = await check_column_exists('subscriptions', 'subscription_crypto_link')
-        
+        status["cryptobot_table"] = await check_table_exists("cryptobot_payments")
+        status["heleket_table"] = await check_table_exists("heleket_payments")
+        status["user_messages_table"] = await check_table_exists("user_messages")
+        status["welcome_texts_table"] = await check_table_exists("welcome_texts")
+        status["privacy_policies_table"] = await check_table_exists("privacy_policies")
+        status["public_offers_table"] = await check_table_exists("public_offers")
+        status["subscription_conversions_table"] = await check_table_exists("subscription_conversions")
+        status["subscription_events_table"] = await check_table_exists("subscription_events")
+        status["promo_groups_table"] = await check_table_exists("promo_groups")
+        status["server_promo_groups_table"] = await check_table_exists("server_squad_promo_groups")
+        status["server_squads_trial_column"] = await check_column_exists("server_squads", "is_trial_eligible")
+
+        status["discount_offers_table"] = await check_table_exists("discount_offers")
+        status["discount_offers_effect_column"] = await check_column_exists("discount_offers", "effect_type")
+        status["discount_offers_extra_column"] = await check_column_exists("discount_offers", "extra_data")
+        status["referral_contests_table"] = await check_table_exists("referral_contests")
+        status["referral_contest_events_table"] = await check_table_exists("referral_contest_events")
+        status["referral_contest_type_column"] = await check_column_exists("referral_contests", "contest_type")
+        status["referral_contest_summary_times_column"] = await check_column_exists(
+            "referral_contests", "daily_summary_times"
+        )
+        status["referral_contest_last_summary_at_column"] = await check_column_exists(
+            "referral_contests", "last_daily_summary_at"
+        )
+        status["contest_templates_table"] = await check_table_exists("contest_templates")
+        status["contest_rounds_table"] = await check_table_exists("contest_rounds")
+        status["contest_attempts_table"] = await check_table_exists("contest_attempts")
+        status["promo_offer_templates_table"] = await check_table_exists("promo_offer_templates")
+        status["promo_offer_templates_active_discount_column"] = await check_column_exists(
+            "promo_offer_templates", "active_discount_hours"
+        )
+        status["promo_offer_logs_table"] = await check_table_exists("promo_offer_logs")
+        status["subscription_temporary_access_table"] = await check_table_exists("subscription_temporary_access")
+
+        status["welcome_texts_is_enabled_column"] = await check_column_exists("welcome_texts", "is_enabled")
+        status["users_promo_group_column"] = await check_column_exists("users", "promo_group_id")
+        status["promo_groups_period_discounts_column"] = await check_column_exists("promo_groups", "period_discounts")
+        status["promo_groups_auto_assign_column"] = await check_column_exists(
+            "promo_groups", "auto_assign_total_spent_toman"
+        )
+        status["promo_groups_addon_discount_column"] = await check_column_exists(
+            "promo_groups", "apply_discounts_to_addons"
+        )
+        status["users_auto_promo_group_assigned_column"] = await check_column_exists(
+            "users", "auto_promo_group_assigned"
+        )
+        status["users_auto_promo_group_threshold_column"] = await check_column_exists(
+            "users", "auto_promo_group_threshold_toman"
+        )
+        status["users_promo_offer_discount_percent_column"] = await check_column_exists(
+            "users", "promo_offer_discount_percent"
+        )
+        status["users_promo_offer_discount_source_column"] = await check_column_exists(
+            "users", "promo_offer_discount_source"
+        )
+        status["users_promo_offer_discount_expires_column"] = await check_column_exists(
+            "users", "promo_offer_discount_expires_at"
+        )
+        status["users_referral_commission_percent_column"] = await check_column_exists(
+            "users", "referral_commission_percent"
+        )
+        status["subscription_crypto_link_column"] = await check_column_exists(
+            "subscriptions", "subscription_crypto_link"
+        )
+
         media_fields_exist = (
-            await check_column_exists('broadcast_history', 'has_media') and
-            await check_column_exists('broadcast_history', 'media_type') and
-            await check_column_exists('broadcast_history', 'media_file_id') and
-            await check_column_exists('broadcast_history', 'media_caption')
+            await check_column_exists("broadcast_history", "has_media")
+            and await check_column_exists("broadcast_history", "media_type")
+            and await check_column_exists("broadcast_history", "media_file_id")
+            and await check_column_exists("broadcast_history", "media_caption")
         )
         status["broadcast_history_media_fields"] = media_fields_exist
-        
+
         async with engine.begin() as conn:
-            duplicates_check = await conn.execute(text("""
+            duplicates_check = await conn.execute(
+                text("""
                 SELECT COUNT(*) FROM (
                     SELECT user_id, COUNT(*) as count 
                     FROM subscriptions 
                     GROUP BY user_id 
                     HAVING COUNT(*) > 1
                 ) as dups
-            """))
+            """)
+            )
             duplicates_count = duplicates_check.fetchone()[0]
-            status["subscription_duplicates"] = (duplicates_count == 0)
-        
+            status["subscription_duplicates"] = duplicates_count == 0
+
         check_names = {
             "has_made_first_topup_column": "Referral system column",
             "cryptobot_table": "CryptoBot payments table",
@@ -4884,39 +4819,41 @@ async def check_migration_status():
             "contest_rounds_table": "contest_rounds table",
             "contest_attempts_table": "contest_attempts table",
         }
-        
+
         for check_key, check_status in status.items():
             check_name = check_names.get(check_key, check_key)
             icon = "✅" if check_status else "❌"
             logger.info(f"{icon} {check_name}: {'OK' if check_status else 'NEEDS ATTENTION'}")
-        
+
         all_good = all(status.values())
         if all_good:
             logger.info("🎉 All migrations completed successfully!")
-            
+
             try:
                 async with engine.begin() as conn:
                     conversions_count = await conn.execute(text("SELECT COUNT(*) FROM subscription_conversions"))
                     users_count = await conn.execute(text("SELECT COUNT(*) FROM users"))
                     welcome_texts_count = await conn.execute(text("SELECT COUNT(*) FROM welcome_texts"))
                     broadcasts_count = await conn.execute(text("SELECT COUNT(*) FROM broadcast_history"))
-                    
+
                     conv_count = conversions_count.fetchone()[0]
                     usr_count = users_count.fetchone()[0]
                     welcome_count = welcome_texts_count.fetchone()[0]
                     broadcast_count = broadcasts_count.fetchone()[0]
-                    
-                    logger.info(f"📊 Statistics: {usr_count} users, {conv_count} conversions, {welcome_count} welcome texts, {broadcast_count} broadcasts")
+
+                    logger.info(
+                        f"📊 Statistics: {usr_count} users, {conv_count} conversions, {welcome_count} welcome texts, {broadcast_count} broadcasts"
+                    )
             except Exception as stats_error:
                 logger.debug(f"Failed to get additional statistics: {stats_error}")
-                
+
         else:
             logger.warning("⚠️ Some migrations need attention")
             missing_migrations = [check_names[k] for k, v in status.items() if not v]
             logger.warning(f"Require execution: {', '.join(missing_migrations)}")
-        
+
         return status
-        
+
     except Exception as e:
         logger.error(f"Error checking migration status: {e}")
         return None

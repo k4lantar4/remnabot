@@ -67,14 +67,14 @@ async def list_payment_cards(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     # Get cards
     cards = await get_payment_cards(db, bot_id, active_only=active_only)
     total = len(cards)
-    
+
     # Apply pagination
     cards = cards[offset : offset + limit]
-    
+
     return PaymentCardListResponse(
         items=[_serialize_payment_card(card) for card in cards],
         total=total,
@@ -96,11 +96,16 @@ async def get_payment_card_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment card with ID {card_id} not found",
         )
-    
+
     return _serialize_payment_card(card)
 
 
-@router.post("/bots/{bot_id}/payment-cards", response_model=PaymentCardResponse, status_code=status.HTTP_201_CREATED, tags=["payment-cards"])
+@router.post(
+    "/bots/{bot_id}/payment-cards",
+    response_model=PaymentCardResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["payment-cards"],
+)
 async def create_payment_card_endpoint(
     bot_id: int,
     request: PaymentCardCreateRequest,
@@ -115,14 +120,14 @@ async def create_payment_card_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bot with ID {bot_id} not found",
         )
-    
+
     # Ensure bot_id matches
     if request.bot_id != bot_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="bot_id in request body must match URL parameter",
         )
-    
+
     # Create card
     card = await create_payment_card(
         db=db,
@@ -134,7 +139,7 @@ async def create_payment_card_endpoint(
         weight=request.weight,
         is_active=request.is_active,
     )
-    
+
     return _serialize_payment_card(card)
 
 
@@ -152,16 +157,16 @@ async def update_payment_card_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment card with ID {card_id} not found",
         )
-    
+
     # Prepare update data
     update_data = request.model_dump(exclude_unset=True)
-    
+
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field must be provided",
         )
-    
+
     # Update card
     updated_card = await update_payment_card(db, card_id, **update_data)
     if not updated_card:
@@ -169,7 +174,7 @@ async def update_payment_card_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update payment card",
         )
-    
+
     return _serialize_payment_card(updated_card)
 
 
@@ -186,14 +191,14 @@ async def activate_payment_card_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment card with ID {card_id} not found",
         )
-    
+
     success = await activate_card(db, card_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to activate payment card",
         )
-    
+
     # Refresh card
     card = await get_payment_card(db, card_id)
     return _serialize_payment_card(card)
@@ -212,14 +217,14 @@ async def deactivate_payment_card_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment card with ID {card_id} not found",
         )
-    
+
     success = await deactivate_card(db, card_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to deactivate payment card",
         )
-    
+
     # Refresh card
     card = await get_payment_card(db, card_id)
     return _serialize_payment_card(card)
@@ -238,15 +243,12 @@ async def get_payment_card_statistics(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment card with ID {card_id} not found",
         )
-    
+
     stats = await get_card_statistics(db, card_id)
     if not stats:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get card statistics",
         )
-    
+
     return PaymentCardStatisticsResponse(**stats)
-
-
-

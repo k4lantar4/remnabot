@@ -150,4 +150,3 @@ class ServiceRulesHistoryResponse(BaseModel):
     language: str
     total: int
     items: List[ServiceRulesResponse]
-

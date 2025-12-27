@@ -20,14 +20,37 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database.database import get_db, engine
 from app.database.models import (
-    User, Subscription, Transaction, PromoCode, PromoCodeUse,
-    ReferralEarning, Squad, ServiceRule, SystemSetting, MonitoringLog,
-    SubscriptionConversion, SentNotification, BroadcastHistory,
-    ServerSquad, SubscriptionServer, UserMessage, YooKassaPayment,
-    CryptoBotPayment, WelcomeText, Base, PromoGroup, AdvertisingCampaign,
-    AdvertisingCampaignRegistration, SupportAuditLog, Ticket, TicketMessage,
-    MulenPayPayment, Pal24Payment, DiscountOffer, WebApiToken,
-    server_squad_promo_groups
+    User,
+    Subscription,
+    Transaction,
+    PromoCode,
+    PromoCodeUse,
+    ReferralEarning,
+    Squad,
+    ServiceRule,
+    SystemSetting,
+    MonitoringLog,
+    SubscriptionConversion,
+    SentNotification,
+    BroadcastHistory,
+    ServerSquad,
+    SubscriptionServer,
+    UserMessage,
+    YooKassaPayment,
+    CryptoBotPayment,
+    WelcomeText,
+    Base,
+    PromoGroup,
+    AdvertisingCampaign,
+    AdvertisingCampaignRegistration,
+    SupportAuditLog,
+    Ticket,
+    TicketMessage,
+    MulenPayPayment,
+    Pal24Payment,
+    DiscountOffer,
+    WebApiToken,
+    server_squad_promo_groups,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +81,6 @@ class BackupSettings:
 
 
 class BackupService:
-    
     def __init__(self, bot=None):
         self.bot = bot
         self.backup_dir = Path(settings.BACKUP_LOCATION).expanduser().resolve()
@@ -116,7 +138,7 @@ class BackupService:
             max_backups_keep=int(os.getenv("BACKUP_MAX_KEEP", "7")),
             compression_enabled=os.getenv("BACKUP_COMPRESSION", "true").lower() == "true",
             include_logs=os.getenv("BACKUP_INCLUDE_LOGS", "false").lower() == "true",
-            backup_location=os.getenv("BACKUP_LOCATION", "/app/data/backups")
+            backup_location=os.getenv("BACKUP_LOCATION", "/app/data/backups"),
         )
 
     def _parse_backup_time(self) -> Tuple[int, int]:
@@ -136,10 +158,7 @@ class BackupService:
 
         except ValueError:
             default_hours, default_minutes = 3, 0
-            logger.warning(
-                "Invalid BACKUP_TIME='%s'. Using default value 03:00.",
-                self._settings.backup_time
-            )
+            logger.warning("Invalid BACKUP_TIME='%s'. Using default value 03:00.", self._settings.backup_time)
             self._settings.backup_time = "03:00"
             return default_hours, default_minutes
 
@@ -157,10 +176,7 @@ class BackupService:
         hours = self._settings.backup_interval_hours
 
         if hours <= 0:
-            logger.warning(
-                "Invalid BACKUP_INTERVAL_HOURS=%s. Using default value 24.",
-                hours
-            )
+            logger.warning("Invalid BACKUP_INTERVAL_HOURS=%s. Using default value 24.", hours)
             hours = 24
             self._settings.backup_interval_hours = hours
 
@@ -196,10 +212,7 @@ class BackupService:
         return None
 
     async def create_backup(
-        self,
-        created_by: Optional[int] = None,
-        compress: bool = True,
-        include_logs: bool = None
+        self, created_by: Optional[int] = None, compress: bool = True, include_logs: bool = None
     ) -> Tuple[bool, str, Optional[str]]:
         try:
             logger.info("📄 Starting backup creation...")
@@ -219,10 +232,7 @@ class BackupService:
                 staging_dir = temp_path / "backup"
                 staging_dir.mkdir(parents=True, exist_ok=True)
 
-                database_info = await self._dump_database(
-                    staging_dir,
-                    include_logs=include_logs
-                )
+                database_info = await self._dump_database(staging_dir, include_logs=include_logs)
                 database_info.setdefault("tables_count", overview.get("tables_count", 0))
                 database_info.setdefault("total_records", overview.get("total_records", 0))
                 files_info = await self._collect_files(staging_dir, include_logs=include_logs)
@@ -257,18 +267,18 @@ class BackupService:
             await self._cleanup_old_backups()
 
             size_mb = file_size / 1024 / 1024
-            message = (f"✅ Backup successfully created!\n"
-                      f"📁 File: {filename}\n"
-                      f"📊 Tables: {overview.get('tables_count', 0)}\n"
-                      f"📈 Records: {overview.get('total_records', 0):,}\n"
-                      f"💾 Size: {size_mb:.2f} MB")
+            message = (
+                f"✅ Backup successfully created!\n"
+                f"📁 File: {filename}\n"
+                f"📊 Tables: {overview.get('tables_count', 0)}\n"
+                f"📈 Records: {overview.get('total_records', 0):,}\n"
+                f"💾 Size: {size_mb:.2f} MB"
+            )
 
             logger.info(message)
 
             if self.bot:
-                await self._send_backup_notification(
-                    "success", message, str(backup_path)
-                )
+                await self._send_backup_notification("success", message, str(backup_path))
 
                 await self._send_backup_file_to_chat(str(backup_path))
 
@@ -283,11 +293,7 @@ class BackupService:
 
             return False, error_msg, None
 
-    async def restore_backup(
-        self,
-        backup_file_path: str,
-        clear_existing: bool = False
-    ) -> Tuple[bool, str]:
+    async def restore_backup(self, backup_file_path: str, clear_existing: bool = False) -> Tuple[bool, str]:
         try:
             logger.info(f"📄 Starting restore from {backup_file_path}")
 
@@ -325,9 +331,7 @@ class BackupService:
 
         try:
             async with engine.begin() as conn:
-                table_names = await conn.run_sync(
-                    lambda sync_conn: inspect(sync_conn).get_table_names()
-                )
+                table_names = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
 
                 for table_name in table_names:
                     try:
@@ -361,9 +365,7 @@ class BackupService:
                     "tool": pg_dump_path,
                 }
 
-            logger.warning(
-                "pg_dump not found in PATH. Using ORM dump in JSON format"
-            )
+            logger.warning("pg_dump not found in PATH. Using ORM dump in JSON format")
             json_info = await self._dump_postgres_json(staging_dir, include_logs)
             return json_info
 
@@ -379,12 +381,14 @@ class BackupService:
 
     async def _dump_postgres(self, dump_path: Path, pg_dump_path: str):
         env = os.environ.copy()
-        env.update({
-            "PGHOST": settings.POSTGRES_HOST,
-            "PGPORT": str(settings.POSTGRES_PORT),
-            "PGUSER": settings.POSTGRES_USER,
-            "PGPASSWORD": settings.POSTGRES_PASSWORD,
-        })
+        env.update(
+            {
+                "PGHOST": settings.POSTGRES_HOST,
+                "PGPORT": str(settings.POSTGRES_PORT),
+                "PGUSER": settings.POSTGRES_USER,
+                "PGPASSWORD": settings.POSTGRES_PASSWORD,
+            }
+        )
 
         command = [
             pg_dump_path,
@@ -435,9 +439,7 @@ class BackupService:
         }
 
         async with aiofiles.open(dump_path, "w", encoding="utf-8") as dump_file:
-            await dump_file.write(
-                json_lib.dumps(dump_structure, ensure_ascii=False, indent=2)
-            )
+            await dump_file.write(json_lib.dumps(dump_structure, ensure_ascii=False, indent=2))
 
         size = dump_path.stat().st_size if dump_path.exists() else 0
 
@@ -502,9 +504,7 @@ class BackupService:
                             elif isinstance(value, datetime):
                                 record_dict[column.name] = value.isoformat()
                             elif isinstance(value, (list, dict)):
-                                record_dict[column.name] = (
-                                    json_lib.dumps(value) if value else None
-                                )
+                                record_dict[column.name] = json_lib.dumps(value) if value else None
                             elif hasattr(value, "__dict__"):
                                 record_dict[column.name] = str(value)
                             else:
@@ -547,20 +547,24 @@ class BackupService:
             if src.exists():
                 dest = files_dir / src.name
                 await asyncio.to_thread(shutil.copy2, src, dest)
-                files_info.append({
-                    "path": str(src),
-                    "relative_path": f"files/{src.name}",
-                })
+                files_info.append(
+                    {
+                        "path": str(src),
+                        "relative_path": f"files/{src.name}",
+                    }
+                )
 
         if include_logs and settings.LOG_FILE:
             log_path = Path(settings.LOG_FILE)
             if log_path.exists():
                 dest = files_dir / log_path.name
                 await asyncio.to_thread(shutil.copy2, log_path, dest)
-                files_info.append({
-                    "path": str(log_path),
-                    "relative_path": f"files/{log_path.name}",
-                })
+                files_info.append(
+                    {
+                        "path": str(log_path),
+                        "relative_path": f"files/{log_path.name}",
+                    }
+                )
 
         if not files_info and files_dir.exists():
             files_dir.rmdir()
@@ -650,10 +654,12 @@ class BackupService:
             if files_info:
                 await self._restore_files(files_info, temp_path)
 
-            message = (f"✅ Restore completed!\n"
-                       f"📊 Tables: {metadata.get('tables_count', 0)}\n"
-                       f"📈 Records: {metadata.get('total_records', 0):,}\n"
-                       f"📅 Backup date: {metadata.get('timestamp', 'unknown')}")
+            message = (
+                f"✅ Restore completed!\n"
+                f"📊 Tables: {metadata.get('tables_count', 0)}\n"
+                f"📈 Records: {metadata.get('total_records', 0):,}\n"
+                f"📅 Backup date: {metadata.get('timestamp', 'unknown')}"
+            )
 
             logger.info(message)
             return True, message
@@ -664,17 +670,17 @@ class BackupService:
 
         psql_path = self._resolve_command_path("psql", "PSQL_PATH")
         if not psql_path:
-            raise FileNotFoundError(
-                "psql not found in PATH. Install PostgreSQL client or restore from JSON dump"
-            )
+            raise FileNotFoundError("psql not found in PATH. Install PostgreSQL client or restore from JSON dump")
 
         env = os.environ.copy()
-        env.update({
-            "PGHOST": settings.POSTGRES_HOST,
-            "PGPORT": str(settings.POSTGRES_PORT),
-            "PGUSER": settings.POSTGRES_USER,
-            "PGPASSWORD": settings.POSTGRES_PASSWORD,
-        })
+        env.update(
+            {
+                "PGHOST": settings.POSTGRES_HOST,
+                "PGPORT": str(settings.POSTGRES_PORT),
+                "PGUSER": settings.POSTGRES_USER,
+                "PGPASSWORD": settings.POSTGRES_PASSWORD,
+            }
+        )
 
         if clear_existing:
             logger.info("🗑️ Full PostgreSQL schema cleanup before restore")
@@ -820,9 +826,7 @@ class BackupService:
                     await self._clear_database_tables(db)
 
                 models_for_restore = self._get_models_for_backup(True)
-                models_by_table = {
-                    model.__tablename__: model for model in models_for_restore
-                }
+                models_by_table = {model.__tablename__: model for model in models_for_restore}
 
                 pre_restore_tables = {"promo_groups"}
                 for table_name in pre_restore_tables:
@@ -914,13 +918,13 @@ class BackupService:
         backup_path: Path,
         clear_existing: bool,
     ) -> Tuple[bool, str]:
-        if backup_path.suffix == '.gz':
-            async with aiofiles.open(backup_path, 'rb') as f:
+        if backup_path.suffix == ".gz":
+            async with aiofiles.open(backup_path, "rb") as f:
                 compressed_data = await f.read()
-                uncompressed_data = gzip.decompress(compressed_data).decode('utf-8')
+                uncompressed_data = gzip.decompress(compressed_data).decode("utf-8")
                 backup_structure = json_lib.loads(uncompressed_data)
         else:
-            async with aiofiles.open(backup_path, 'r', encoding='utf-8') as f:
+            async with aiofiles.open(backup_path, "r", encoding="utf-8") as f:
                 file_content = await f.read()
                 backup_structure = json_lib.loads(file_content)
 
@@ -944,10 +948,12 @@ class BackupService:
             if restored_files:
                 logger.info(f"📁 Restored configuration files: {restored_files}")
 
-        message = (f"✅ Restore completed!\n"
-                   f"📊 Tables: {restored_tables}\n"
-                   f"📈 Records: {restored_records:,}\n"
-                   f"📅 Backup date: {metadata.get('timestamp', 'unknown')}")
+        message = (
+            f"✅ Restore completed!\n"
+            f"📊 Tables: {restored_tables}\n"
+            f"📈 Records: {restored_records:,}\n"
+            f"📅 Backup date: {metadata.get('timestamp', 'unknown')}"
+        )
 
         logger.info(message)
         return True, message
@@ -956,25 +962,23 @@ class BackupService:
         users_data = backup_data.get("users", [])
         if not users_data:
             return
-        
+
         logger.info(f"👥 Restoring {len(users_data)} users without referral relationships")
-        
+
         User = models_by_table["users"]
-        
+
         for user_data in users_data:
             try:
                 processed_data = self._process_record_data(user_data, User, "users")
-                processed_data['referred_by_id'] = None 
-                
-                if 'id' in processed_data:
-                    existing_user = await db.execute(
-                        select(User).where(User.id == processed_data['id'])
-                    )
+                processed_data["referred_by_id"] = None
+
+                if "id" in processed_data:
+                    existing_user = await db.execute(select(User).where(User.id == processed_data["id"]))
                     existing = existing_user.scalar_one_or_none()
-                    
+
                     if existing:
                         for key, value in processed_data.items():
-                            if key != 'id':
+                            if key != "id":
                                 setattr(existing, key, value)
                     else:
                         instance = User(**processed_data)
@@ -982,12 +986,12 @@ class BackupService:
                 else:
                     instance = User(**processed_data)
                     db.add(instance)
-                
+
             except Exception as e:
                 logger.error(f"Error restoring user: {e}")
                 await db.rollback()
                 raise e
-        
+
         await db.commit()
         logger.info("✅ Users without referral relationships restored")
 
@@ -995,77 +999,77 @@ class BackupService:
         users_data = backup_data.get("users", [])
         if not users_data:
             return
-        
+
         logger.info("🔗 Updating user referral relationships")
-        
+
         for user_data in users_data:
             try:
-                referred_by_id = user_data.get('referred_by_id')
-                user_id = user_data.get('id')
-                
+                referred_by_id = user_data.get("referred_by_id")
+                user_id = user_data.get("id")
+
                 if referred_by_id and user_id:
-                    referrer_result = await db.execute(
-                        select(User).where(User.id == referred_by_id)
-                    )
+                    referrer_result = await db.execute(select(User).where(User.id == referred_by_id))
                     referrer = referrer_result.scalar_one_or_none()
-                    
+
                     if referrer:
-                        user_result = await db.execute(
-                            select(User).where(User.id == user_id)
-                        )
+                        user_result = await db.execute(select(User).where(User.id == user_id))
                         user = user_result.scalar_one_or_none()
-                        
+
                         if user:
                             user.referred_by_id = referred_by_id
                         else:
                             logger.warning(f"User {user_id} not found for referral relationship update")
                     else:
                         logger.warning(f"Referrer {referred_by_id} not found for user {user_id}")
-                        
+
             except Exception as e:
                 logger.error(f"Error updating referral relationship: {e}")
                 continue
-        
+
         await db.commit()
         logger.info("✅ Referral relationships updated")
 
     def _process_record_data(self, record_data: dict, model, table_name: str) -> dict:
         processed_data = {}
-        
+
         for key, value in record_data.items():
             if value is None:
                 processed_data[key] = None
                 continue
-            
+
             column = getattr(model.__table__.columns, key, None)
             if column is None:
                 logger.warning(f"Column {key} not found in model {table_name}")
                 continue
-            
+
             column_type_str = str(column.type).upper()
-            
-            if ('DATETIME' in column_type_str or 'TIMESTAMP' in column_type_str) and isinstance(value, str):
+
+            if ("DATETIME" in column_type_str or "TIMESTAMP" in column_type_str) and isinstance(value, str):
                 try:
-                    if 'T' in value:
-                        processed_data[key] = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                    if "T" in value:
+                        processed_data[key] = datetime.fromisoformat(value.replace("Z", "+00:00"))
                     else:
-                        processed_data[key] = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+                        processed_data[key] = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
                 except (ValueError, TypeError) as e:
                     logger.warning(f"Failed to parse date {value} for field {key}: {e}")
                     processed_data[key] = datetime.utcnow()
-            elif ('BOOLEAN' in column_type_str or 'BOOL' in column_type_str) and isinstance(value, str):
-                processed_data[key] = value.lower() in ('true', '1', 'yes', 'on')
-            elif ('INTEGER' in column_type_str or 'INT' in column_type_str or 'BIGINT' in column_type_str) and isinstance(value, str):
+            elif ("BOOLEAN" in column_type_str or "BOOL" in column_type_str) and isinstance(value, str):
+                processed_data[key] = value.lower() in ("true", "1", "yes", "on")
+            elif (
+                "INTEGER" in column_type_str or "INT" in column_type_str or "BIGINT" in column_type_str
+            ) and isinstance(value, str):
                 try:
                     processed_data[key] = int(value)
                 except ValueError:
                     processed_data[key] = 0
-            elif ('FLOAT' in column_type_str or 'REAL' in column_type_str or 'NUMERIC' in column_type_str) and isinstance(value, str):
+            elif (
+                "FLOAT" in column_type_str or "REAL" in column_type_str or "NUMERIC" in column_type_str
+            ) and isinstance(value, str):
                 try:
                     processed_data[key] = float(value)
                 except ValueError:
                     processed_data[key] = 0.0
-            elif 'JSON' in column_type_str:
+            elif "JSON" in column_type_str:
                 if isinstance(value, str) and value.strip():
                     try:
                         processed_data[key] = json_lib.loads(value)
@@ -1077,7 +1081,7 @@ class BackupService:
                     processed_data[key] = None
             else:
                 processed_data[key] = value
-        
+
         return processed_data
 
     def _get_primary_key_column(self, model) -> Optional[str]:
@@ -1095,19 +1099,14 @@ class BackupService:
                 result = await db.execute(select(table_obj))
                 rows = result.mappings().all()
                 association_data[table_name] = [dict(row) for row in rows]
-                logger.info(
-                    f"✅ Exported {len(rows)} associations from {table_name}"
-                )
+                logger.info(f"✅ Exported {len(rows)} associations from {table_name}")
             except Exception as e:
                 logger.error(f"Error exporting association table {table_name}: {e}")
 
         return association_data
 
     async def _restore_association_tables(
-        self,
-        db: AsyncSession,
-        association_data: Dict[str, List[Dict[str, Any]]],
-        clear_existing: bool
+        self, db: AsyncSession, association_data: Dict[str, List[Dict[str, Any]]], clear_existing: bool
     ) -> Tuple[int, int]:
         if not association_data:
             return 0, 0
@@ -1117,9 +1116,7 @@ class BackupService:
 
         if "server_squad_promo_groups" in association_data:
             restored = await self._restore_server_squad_promo_groups(
-                db,
-                association_data["server_squad_promo_groups"],
-                clear_existing
+                db, association_data["server_squad_promo_groups"], clear_existing
             )
             restored_tables += 1
             restored_records += restored
@@ -1127,10 +1124,7 @@ class BackupService:
         return restored_tables, restored_records
 
     async def _restore_server_squad_promo_groups(
-        self,
-        db: AsyncSession,
-        records: List[Dict[str, Any]],
-        clear_existing: bool
+        self, db: AsyncSession, records: List[Dict[str, Any]], clear_existing: bool
     ) -> int:
         if not records:
             return 0
@@ -1145,10 +1139,7 @@ class BackupService:
             promo_id = record.get("promo_group_id")
 
             if server_id is None or promo_id is None:
-                logger.warning(
-                    "Skipped invalid server_squad_promo_groups record: %s",
-                    record
-                )
+                logger.warning("Skipped invalid server_squad_promo_groups record: %s", record)
                 continue
 
             try:
@@ -1171,18 +1162,12 @@ class BackupService:
                     continue
 
                 await db.execute(
-                    server_squad_promo_groups.insert().values(
-                        server_squad_id=server_id,
-                        promo_group_id=promo_id
-                    )
+                    server_squad_promo_groups.insert().values(server_squad_id=server_id, promo_group_id=promo_id)
                 )
                 restored += 1
             except Exception as e:
                 logger.error(
-                    "Error restoring server_squad_promo_groups relationship (%s, %s): %s",
-                    server_id,
-                    promo_id,
-                    e
+                    "Error restoring server_squad_promo_groups relationship (%s, %s): %s", server_id, promo_id, e
                 )
                 await db.rollback()
                 raise e
@@ -1190,12 +1175,7 @@ class BackupService:
         return restored
 
     async def _restore_table_records(
-        self,
-        db: AsyncSession,
-        model,
-        table_name: str,
-        records: List[Dict[str, Any]],
-        clear_existing: bool
+        self, db: AsyncSession, model, table_name: str, records: List[Dict[str, Any]], clear_existing: bool
     ) -> int:
         restored_count = 0
 
@@ -1207,9 +1187,7 @@ class BackupService:
 
                 if primary_key_col and primary_key_col in processed_data:
                     existing_record = await db.execute(
-                        select(model).where(
-                            getattr(model, primary_key_col) == processed_data[primary_key_col]
-                        )
+                        select(model).where(getattr(model, primary_key_col) == processed_data[primary_key_col])
                     )
                     existing = existing_record.scalar_one_or_none()
 
@@ -1237,19 +1215,37 @@ class BackupService:
     async def _clear_database_tables(self, db: AsyncSession):
         tables_order = [
             "server_squad_promo_groups",
-            "ticket_messages", "tickets", "support_audit_logs",
-            "advertising_campaign_registrations", "advertising_campaigns",
-            "subscription_servers", "sent_notifications",
-            "discount_offers", "user_messages", "broadcast_history", "subscription_conversions",
-            "referral_earnings", "promocode_uses",
-            "yookassa_payments", "cryptobot_payments",
-            "mulenpay_payments", "pal24_payments",
-            "transactions", "welcome_texts", "subscriptions",
-            "promocodes", "users", "promo_groups",
-            "server_squads", "squads", "service_rules",
-            "system_settings", "web_api_tokens", "monitoring_logs"
+            "ticket_messages",
+            "tickets",
+            "support_audit_logs",
+            "advertising_campaign_registrations",
+            "advertising_campaigns",
+            "subscription_servers",
+            "sent_notifications",
+            "discount_offers",
+            "user_messages",
+            "broadcast_history",
+            "subscription_conversions",
+            "referral_earnings",
+            "promocode_uses",
+            "yookassa_payments",
+            "cryptobot_payments",
+            "mulenpay_payments",
+            "pal24_payments",
+            "transactions",
+            "welcome_texts",
+            "subscriptions",
+            "promocodes",
+            "users",
+            "promo_groups",
+            "server_squads",
+            "squads",
+            "service_rules",
+            "system_settings",
+            "web_api_tokens",
+            "monitoring_logs",
         ]
-        
+
         for table_name in tables_order:
             try:
                 await db.execute(text(f"DELETE FROM {table_name}"))
@@ -1265,25 +1261,16 @@ class BackupService:
             path_obj = Path(app_config_path)
             if path_obj.exists() and path_obj.is_file():
                 try:
-                    async with aiofiles.open(path_obj, 'r', encoding='utf-8') as f:
+                    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
                         content = await f.read()
                     snapshots["app_config"] = {
                         "path": str(path_obj),
                         "content": content,
-                        "modified_at": datetime.fromtimestamp(
-                            path_obj.stat().st_mtime
-                        ).isoformat()
+                        "modified_at": datetime.fromtimestamp(path_obj.stat().st_mtime).isoformat(),
                     }
-                    logger.info(
-                        "📁 Added configuration file to backup: %s",
-                        path_obj
-                    )
+                    logger.info("📁 Added configuration file to backup: %s", path_obj)
                 except Exception as e:
-                    logger.error(
-                        "Error reading configuration file %s: %s",
-                        path_obj,
-                        e
-                    )
+                    logger.error("Error reading configuration file %s: %s", path_obj, e)
 
         return snapshots
 
@@ -1299,7 +1286,7 @@ class BackupService:
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             try:
-                async with aiofiles.open(target_path, 'w', encoding='utf-8') as f:
+                async with aiofiles.open(target_path, "w", encoding="utf-8") as f:
                     await f.write(app_config_snapshot.get("content", ""))
                 restored_files += 1
                 logger.info("📁 app-config file restored at path %s", target_path)
@@ -1310,7 +1297,7 @@ class BackupService:
 
     async def get_backup_list(self) -> List[Dict[str, Any]]:
         backups = []
-        
+
         try:
             for backup_file in sorted(self.backup_dir.glob("backup_*"), reverse=True):
                 if not backup_file.is_file():
@@ -1329,11 +1316,11 @@ class BackupService:
                             except KeyError:
                                 metadata = {}
                     else:
-                        if backup_file.suffix == '.gz':
-                            with gzip.open(backup_file, 'rt', encoding='utf-8') as f:
+                        if backup_file.suffix == ".gz":
+                            with gzip.open(backup_file, "rt", encoding="utf-8") as f:
                                 backup_structure = json_lib.load(f)
                         else:
-                            with open(backup_file, 'r', encoding='utf-8') as f:
+                            with open(backup_file, "r", encoding="utf-8") as f:
                                 backup_structure = json_lib.load(f)
                         metadata = backup_structure.get("metadata", {})
 
@@ -1343,13 +1330,19 @@ class BackupService:
                         "filename": backup_file.name,
                         "filepath": str(backup_file),
                         "timestamp": metadata.get("timestamp", datetime.fromtimestamp(file_stats.st_mtime).isoformat()),
-                        "tables_count": metadata.get("tables_count", metadata.get("database", {}).get("tables_count", 0)),
-                        "total_records": metadata.get("total_records", metadata.get("database", {}).get("total_records", 0)),
-                        "compressed": self._is_archive_backup(backup_file) or backup_file.suffix == '.gz',
+                        "tables_count": metadata.get(
+                            "tables_count", metadata.get("database", {}).get("tables_count", 0)
+                        ),
+                        "total_records": metadata.get(
+                            "total_records", metadata.get("database", {}).get("total_records", 0)
+                        ),
+                        "compressed": self._is_archive_backup(backup_file) or backup_file.suffix == ".gz",
                         "file_size_bytes": file_stats.st_size,
                         "file_size_mb": round(file_stats.st_size / 1024 / 1024, 2),
                         "created_by": metadata.get("created_by"),
-                        "database_type": metadata.get("database_type", metadata.get("database", {}).get("type", "unknown")),
+                        "database_type": metadata.get(
+                            "database_type", metadata.get("database", {}).get("type", "unknown")
+                        ),
                         "version": metadata.get("format_version", metadata.get("version", "1.0")),
                     }
 
@@ -1358,39 +1351,41 @@ class BackupService:
                 except Exception as e:
                     logger.error(f"Error reading metadata {backup_file}: {e}")
                     file_stats = backup_file.stat()
-                    backups.append({
-                        "filename": backup_file.name,
-                        "filepath": str(backup_file),
-                        "timestamp": datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
-                        "tables_count": "?",
-                        "total_records": "?",
-                        "compressed": backup_file.suffix == '.gz',
-                        "file_size_bytes": file_stats.st_size,
-                        "file_size_mb": round(file_stats.st_size / 1024 / 1024, 2),
-                        "created_by": None,
-                        "database_type": "unknown",
-                        "version": "unknown",
-                        "error": f"Read error: {str(e)}"
-                    })
-        
+                    backups.append(
+                        {
+                            "filename": backup_file.name,
+                            "filepath": str(backup_file),
+                            "timestamp": datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
+                            "tables_count": "?",
+                            "total_records": "?",
+                            "compressed": backup_file.suffix == ".gz",
+                            "file_size_bytes": file_stats.st_size,
+                            "file_size_mb": round(file_stats.st_size / 1024 / 1024, 2),
+                            "created_by": None,
+                            "database_type": "unknown",
+                            "version": "unknown",
+                            "error": f"Read error: {str(e)}",
+                        }
+                    )
+
         except Exception as e:
             logger.error(f"Error getting backup list: {e}")
-        
+
         return backups
 
     async def delete_backup(self, backup_filename: str) -> Tuple[bool, str]:
         try:
             backup_path = self.backup_dir / backup_filename
-            
+
             if not backup_path.exists():
                 return False, f"❌ Backup file not found: {backup_filename}"
-            
+
             backup_path.unlink()
             message = f"✅ Backup {backup_filename} deleted"
             logger.info(message)
-            
+
             return True, message
-            
+
         except Exception as e:
             error_msg = f"❌ Error deleting backup: {str(e)}"
             logger.error(error_msg)
@@ -1399,17 +1394,17 @@ class BackupService:
     async def _cleanup_old_backups(self):
         try:
             backups = await self.get_backup_list()
-            
+
             if len(backups) > self._settings.max_backups_keep:
                 backups.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-                
-                for backup in backups[self._settings.max_backups_keep:]:
+
+                for backup in backups[self._settings.max_backups_keep :]:
                     try:
                         await self.delete_backup(backup["filename"])
                         logger.info(f"🗑️ Deleted old backup: {backup['filename']}")
                     except Exception as e:
                         logger.error(f"Error deleting old backup {backup['filename']}: {e}")
-        
+
         except Exception as e:
             logger.error(f"Error cleaning up old backups: {e}")
 
@@ -1421,14 +1416,14 @@ class BackupService:
             for key, value in kwargs.items():
                 if hasattr(self._settings, key):
                     setattr(self._settings, key, value)
-            
+
             if self._settings.auto_backup_enabled:
                 await self.start_auto_backup()
             else:
                 await self.stop_auto_backup()
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error updating backup settings: {e}")
             return False
@@ -1444,7 +1439,7 @@ class BackupService:
             logger.info(
                 "📄 Auto-backups enabled, interval: %.2fh, next run: %s",
                 interval.total_seconds() / 3600,
-                next_run.strftime("%d.%m.%Y %H:%M:%S")
+                next_run.strftime("%d.%m.%Y %H:%M:%S"),
             )
 
     async def stop_auto_backup(self):
@@ -1465,13 +1460,13 @@ class BackupService:
                     logger.info(
                         "⏰ Next automatic backup scheduled for %s (in %.2f h)",
                         next_run.strftime("%d.%m.%Y %H:%M:%S"),
-                        delay / 3600
+                        delay / 3600,
                     )
                     await asyncio.sleep(delay)
                 else:
                     logger.info(
                         "⏰ Automatic backup time %s has arrived, starting immediately",
-                        next_run.strftime("%d.%m.%Y %H:%M:%S")
+                        next_run.strftime("%d.%m.%Y %H:%M:%S"),
                     )
 
                 logger.info("📄 Starting automatic backup...")
@@ -1490,38 +1485,29 @@ class BackupService:
                 logger.error(f"Error in auto-backup loop: {e}")
                 next_run = datetime.now() + interval
 
-    async def _send_backup_notification(
-        self,
-        event_type: str,
-        message: str,
-        file_path: str = None
-    ):
+    async def _send_backup_notification(self, event_type: str, message: str, file_path: str = None):
         try:
             if not settings.is_admin_notifications_enabled():
                 return
-            
-            icons = {
-                "success": "✅",
-                "error": "❌", 
-                "restore_success": "🔥",
-                "restore_error": "❌"
-            }
-            
+
+            icons = {"success": "✅", "error": "❌", "restore_success": "🔥", "restore_error": "❌"}
+
             icon = icons.get(event_type, "ℹ️")
             notification_text = f"{icon} <b>BACKUP SYSTEM</b>\n\n{message}"
-            
+
             if file_path:
                 notification_text += f"\n📁 <code>{Path(file_path).name}</code>"
-            
+
             notification_text += f"\n\n⏰ <i>{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</i>"
-            
+
             try:
                 from app.services.admin_notification_service import AdminNotificationService
+
                 admin_service = AdminNotificationService(self.bot)
                 await admin_service._send_message(notification_text)
             except Exception as e:
                 logger.error(f"Error sending notification via AdminNotificationService: {e}")
-        
+
         except Exception as e:
             logger.error(f"Error sending backup notification: {e}")
 
@@ -1535,17 +1521,14 @@ class BackupService:
                 return
 
             send_kwargs = {
-                'chat_id': chat_id,
-                'document': FSInputFile(file_path),
-                'caption': (
-                    f"📦 <b>Backup</b>\n\n"
-                    f"⏰ <i>{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</i>"
-                ),
-                'parse_mode': 'HTML'
+                "chat_id": chat_id,
+                "document": FSInputFile(file_path),
+                "caption": (f"📦 <b>Backup</b>\n\n⏰ <i>{datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</i>"),
+                "parse_mode": "HTML",
             }
 
             if settings.BACKUP_SEND_TOPIC_ID:
-                send_kwargs['message_thread_id'] = settings.BACKUP_SEND_TOPIC_ID
+                send_kwargs["message_thread_id"] = settings.BACKUP_SEND_TOPIC_ID
 
             await self.bot.send_document(**send_kwargs)
             logger.info(f"Backup sent to chat {chat_id}")

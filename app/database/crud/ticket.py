@@ -9,7 +9,7 @@ from app.database.models import Ticket, TicketMessage, TicketStatus, User, Suppo
 
 class TicketCRUD:
     """CRUD operations for working with tickets"""
-    
+
     @staticmethod
     async def create_ticket(
         db: AsyncSession,
@@ -23,15 +23,10 @@ class TicketCRUD:
         media_caption: Optional[str] = None,
     ) -> Ticket:
         """Create new ticket with first message"""
-        ticket = Ticket(
-            user_id=user_id,
-            title=title,
-            status=TicketStatus.OPEN.value,
-            priority=priority
-        )
+        ticket = Ticket(user_id=user_id, title=title, status=TicketStatus.OPEN.value, priority=priority)
         db.add(ticket)
         await db.flush()  # Get ticket ID
-        
+
         # Create first message
         message = TicketMessage(
             ticket_id=ticket.id,
@@ -44,55 +39,44 @@ class TicketCRUD:
             media_caption=media_caption,
         )
         db.add(message)
-        
+
         await db.commit()
         await db.refresh(ticket)
         return ticket
-    
+
     @staticmethod
     async def get_ticket_by_id(
-        db: AsyncSession,
-        ticket_id: int,
-        load_messages: bool = True,
-        load_user: bool = False
+        db: AsyncSession, ticket_id: int, load_messages: bool = True, load_user: bool = False
     ) -> Optional[Ticket]:
         """Get ticket by ID"""
         query = select(Ticket).where(Ticket.id == ticket_id)
-        
+
         if load_user:
             query = query.options(selectinload(Ticket.user))
-        
+
         if load_messages:
             query = query.options(selectinload(Ticket.messages))
-        
+
         result = await db.execute(query)
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_user_tickets(
-        db: AsyncSession,
-        user_id: int,
-        status: Optional[str] = None,
-        limit: int = 20,
-        offset: int = 0
+        db: AsyncSession, user_id: int, status: Optional[str] = None, limit: int = 20, offset: int = 0
     ) -> List[Ticket]:
         """Get user tickets"""
         query = select(Ticket).where(Ticket.user_id == user_id)
-        
+
         if status:
             query = query.where(Ticket.status == status)
-        
+
         query = query.order_by(desc(Ticket.updated_at)).offset(offset).limit(limit)
-        
+
         result = await db.execute(query)
         return result.scalars().all()
 
     @staticmethod
-    async def count_user_tickets_by_statuses(
-        db: AsyncSession,
-        user_id: int,
-        statuses: List[str]
-    ) -> int:
+    async def count_user_tickets_by_statuses(db: AsyncSession, user_id: int, statuses: List[str]) -> int:
         """Count number of user tickets by status list"""
         query = select(func.count()).select_from(Ticket).where(Ticket.user_id == user_id)
         if statuses:
@@ -102,11 +86,7 @@ class TicketCRUD:
 
     @staticmethod
     async def get_user_tickets_by_statuses(
-        db: AsyncSession,
-        user_id: int,
-        statuses: List[str],
-        limit: int = 20,
-        offset: int = 0
+        db: AsyncSession, user_id: int, statuses: List[str], limit: int = 20, offset: int = 0
     ) -> List[Ticket]:
         """Get user tickets by status list with pagination"""
         query = (
@@ -122,39 +102,36 @@ class TicketCRUD:
         return result.scalars().all()
 
     @staticmethod
-    async def user_has_active_ticket(
-        db: AsyncSession,
-        user_id: int
-    ) -> bool:
+    async def user_has_active_ticket(db: AsyncSession, user_id: int) -> bool:
         """Check if user has active (not closed) ticket"""
         query = (
             select(Ticket.id)
-            .where(
-                Ticket.user_id == user_id,
-                Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.ANSWERED.value])
-            )
+            .where(Ticket.user_id == user_id, Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.ANSWERED.value]))
             .limit(1)
         )
         result = await db.execute(query)
         return result.scalar_one_or_none() is not None
 
     @staticmethod
-    async def is_user_globally_blocked(
-        db: AsyncSession,
-        user_id: int
-    ) -> Optional[datetime]:
+    async def is_user_globally_blocked(db: AsyncSession, user_id: int) -> Optional[datetime]:
         """Check if user is blocked for creating/replying to any ticket.
         Returns block end date if active, or None.
         """
-        query = select(Ticket).where(
-            Ticket.user_id == user_id,
-            or_(Ticket.user_reply_block_permanent == True, Ticket.user_reply_block_until.isnot(None))
-        ).order_by(desc(Ticket.updated_at)).limit(10)
+        query = (
+            select(Ticket)
+            .where(
+                Ticket.user_id == user_id,
+                or_(Ticket.user_reply_block_permanent == True, Ticket.user_reply_block_until.isnot(None)),
+            )
+            .order_by(desc(Ticket.updated_at))
+            .limit(10)
+        )
         result = await db.execute(query)
         tickets = result.scalars().all()
         if not tickets:
             return None
         from datetime import datetime
+
         # If there is permanent block in any ticket — block is active without term
         for t in tickets:
             if t.user_reply_block_permanent:
@@ -165,38 +142,31 @@ class TicketCRUD:
             return None
         max_until = max(future_until)
         return max_until if max_until > datetime.utcnow() else None
-    
+
     @staticmethod
     async def get_all_tickets(
-        db: AsyncSession,
-        status: Optional[str] = None,
-        priority: Optional[str] = None,
-        limit: int = 50,
-        offset: int = 0
+        db: AsyncSession, status: Optional[str] = None, priority: Optional[str] = None, limit: int = 50, offset: int = 0
     ) -> List[Ticket]:
         """Get all tickets (for admins)"""
         query = select(Ticket).options(selectinload(Ticket.user))
-        
+
         conditions = []
         if status:
             conditions.append(Ticket.status == status)
         if priority:
             conditions.append(Ticket.priority == priority)
-        
+
         if conditions:
             query = query.where(and_(*conditions))
-        
+
         query = query.order_by(desc(Ticket.updated_at)).offset(offset).limit(limit)
-        
+
         result = await db.execute(query)
         return result.scalars().all()
 
     @staticmethod
     async def get_tickets_by_statuses(
-        db: AsyncSession,
-        statuses: List[str],
-        limit: int = 50,
-        offset: int = 0
+        db: AsyncSession, statuses: List[str], limit: int = 50, offset: int = 0
     ) -> List[Ticket]:
         query = select(Ticket).options(selectinload(Ticket.user))
         if statuses:
@@ -206,10 +176,7 @@ class TicketCRUD:
         return result.scalars().all()
 
     @staticmethod
-    async def count_tickets(
-        db: AsyncSession,
-        status: Optional[str] = None
-    ) -> int:
+    async def count_tickets(db: AsyncSession, status: Optional[str] = None) -> int:
         query = select(func.count()).select_from(Ticket)
         if status:
             query = query.where(Ticket.status == status)
@@ -217,43 +184,34 @@ class TicketCRUD:
         return int(result.scalar() or 0)
 
     @staticmethod
-    async def count_tickets_by_statuses(
-        db: AsyncSession,
-        statuses: List[str]
-    ) -> int:
+    async def count_tickets_by_statuses(db: AsyncSession, statuses: List[str]) -> int:
         query = select(func.count()).select_from(Ticket)
         if statuses:
             query = query.where(Ticket.status.in_(statuses))
         result = await db.execute(query)
         return int(result.scalar() or 0)
-    
+
     @staticmethod
     async def update_ticket_status(
-        db: AsyncSession,
-        ticket_id: int,
-        status: str,
-        closed_at: Optional[datetime] = None
+        db: AsyncSession, ticket_id: int, status: str, closed_at: Optional[datetime] = None
     ) -> bool:
         """Update ticket status"""
         ticket = await TicketCRUD.get_ticket_by_id(db, ticket_id, load_messages=False)
         if not ticket:
             return False
-        
+
         ticket.status = status
         ticket.updated_at = datetime.utcnow()
-        
+
         if status == TicketStatus.CLOSED.value and closed_at:
             ticket.closed_at = closed_at
-        
+
         await db.commit()
         return True
 
     @staticmethod
     async def set_user_reply_block(
-        db: AsyncSession,
-        ticket_id: int,
-        permanent: bool,
-        until: Optional[datetime]
+        db: AsyncSession, ticket_id: int, permanent: bool, until: Optional[datetime]
     ) -> bool:
         ticket = await TicketCRUD.get_ticket_by_id(db, ticket_id, load_messages=False)
         if not ticket:
@@ -263,16 +221,11 @@ class TicketCRUD:
         ticket.updated_at = datetime.utcnow()
         await db.commit()
         return True
-    
+
     @staticmethod
-    async def close_ticket(
-        db: AsyncSession,
-        ticket_id: int
-    ) -> bool:
+    async def close_ticket(db: AsyncSession, ticket_id: int) -> bool:
         """Close ticket"""
-        return await TicketCRUD.update_ticket_status(
-            db, ticket_id, TicketStatus.CLOSED.value, datetime.utcnow()
-        )
+        return await TicketCRUD.update_ticket_status(db, ticket_id, TicketStatus.CLOSED.value, datetime.utcnow())
 
     @staticmethod
     async def close_all_open_tickets(
@@ -280,9 +233,7 @@ class TicketCRUD:
     ) -> List[int]:
         """Close all open tickets. Returns list of closed ticket IDs."""
         open_statuses = [TicketStatus.OPEN.value, TicketStatus.ANSWERED.value]
-        result = await db.execute(
-            select(Ticket.id).where(Ticket.status.in_(open_statuses))
-        )
+        result = await db.execute(select(Ticket.id).where(Ticket.status.in_(open_statuses)))
         ticket_ids = result.scalars().all()
 
         if not ticket_ids:
@@ -369,21 +320,18 @@ class TicketCRUD:
         )
 
         return [row[0] for row in result.fetchall()]
-    
+
     @staticmethod
     async def get_open_tickets_count(db: AsyncSession) -> int:
         """Get number of open tickets"""
-        query = select(Ticket).where(Ticket.status.in_([
-            TicketStatus.OPEN.value,
-            TicketStatus.ANSWERED.value
-        ]))
+        query = select(Ticket).where(Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.ANSWERED.value]))
         result = await db.execute(query)
         return len(result.scalars().all())
 
 
 class TicketMessageCRUD:
     """CRUD operations for working with ticket messages"""
-    
+
     @staticmethod
     async def add_message(
         db: AsyncSession,
@@ -393,7 +341,7 @@ class TicketMessageCRUD:
         is_from_admin: bool = False,
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
-        media_caption: Optional[str] = None
+        media_caption: Optional[str] = None,
     ) -> TicketMessage:
         """Add message to ticket"""
         message = TicketMessage(
@@ -404,11 +352,11 @@ class TicketMessageCRUD:
             has_media=bool(media_type and media_file_id),
             media_type=media_type,
             media_file_id=media_file_id,
-            media_caption=media_caption
+            media_caption=media_caption,
         )
-        
+
         db.add(message)
-        
+
         # Update ticket status
         ticket = await TicketCRUD.get_ticket_by_id(db, ticket_id, load_messages=False)
         if ticket:
@@ -424,24 +372,22 @@ class TicketMessageCRUD:
                 # Reset last SLA reminder mark to remind again from new message time
                 try:
                     from sqlalchemy import inspect as sa_inspect
+
                     # if column exists in model
-                    if hasattr(ticket, 'last_sla_reminder_at'):
+                    if hasattr(ticket, "last_sla_reminder_at"):
                         ticket.last_sla_reminder_at = None
                 except Exception:
                     pass
-            
+
             ticket.updated_at = datetime.utcnow()
-        
+
         await db.commit()
         await db.refresh(message)
         return message
-    
+
     @staticmethod
     async def get_ticket_messages(
-        db: AsyncSession,
-        ticket_id: int,
-        limit: int = 50,
-        offset: int = 0
+        db: AsyncSession, ticket_id: int, limit: int = 50, offset: int = 0
     ) -> List[TicketMessage]:
         """Get ticket messages"""
         query = (
@@ -451,15 +397,12 @@ class TicketMessageCRUD:
             .offset(offset)
             .limit(limit)
         )
-        
+
         result = await db.execute(query)
         return result.scalars().all()
-    
+
     @staticmethod
-    async def get_last_message(
-        db: AsyncSession,
-        ticket_id: int
-    ) -> Optional[TicketMessage]:
+    async def get_last_message(db: AsyncSession, ticket_id: int) -> Optional[TicketMessage]:
         """Get last message in ticket"""
         query = (
             select(TicketMessage)
@@ -467,6 +410,6 @@ class TicketMessageCRUD:
             .order_by(desc(TicketMessage.created_at))
             .limit(1)
         )
-        
+
         result = await db.execute(query)
         return result.scalar_one_or_none()

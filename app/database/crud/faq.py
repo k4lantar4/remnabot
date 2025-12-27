@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_faq_setting(db: AsyncSession, language: str) -> Optional[FaqSetting]:
-    result = await db.execute(
-        select(FaqSetting).where(FaqSetting.language == language)
-    )
+    result = await db.execute(select(FaqSetting).where(FaqSetting.language == language))
     return result.scalar_one_or_none()
 
 
@@ -79,9 +77,7 @@ async def create_faq_page(
     is_active: bool = True,
 ) -> FaqPage:
     if display_order is None:
-        result = await db.execute(
-            select(func.max(FaqPage.display_order)).where(FaqPage.language == language)
-        )
+        result = await db.execute(select(func.max(FaqPage.display_order)).where(FaqPage.language == language))
         max_order = result.scalar() or 0
         display_order = max_order + 1
 
@@ -142,9 +138,6 @@ async def bulk_update_order(
 ) -> None:
     for page_id, order in pages:
         await db.execute(
-            update(FaqPage)
-            .where(FaqPage.id == page_id)
-            .values(display_order=order, updated_at=datetime.utcnow())
+            update(FaqPage).where(FaqPage.id == page_id).values(display_order=order, updated_at=datetime.utcnow())
         )
     await db.commit()
-

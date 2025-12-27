@@ -41,7 +41,7 @@ async def _build_overview(
 
     description = texts.t(
         "ADMIN_PRIVACY_POLICY_DESCRIPTION",
-        "Privacy policy is shown in the \"Info\" section.",
+        'Privacy policy is shown in the "Info" section.',
     )
 
     status_text = texts.t(
@@ -80,10 +80,7 @@ async def _build_overview(
         preview_trimmed = preview_raw[:400]
         if len(preview_raw) > 400:
             preview_trimmed += "..."
-        preview_block = (
-            f"{preview_title}\n"
-            f"<code>{html.escape(preview_trimmed)}</code>"
-        )
+        preview_block = f"{preview_title}\n<code>{html.escape(preview_trimmed)}</code>"
 
     language_block = texts.t(
         "ADMIN_PRIVACY_POLICY_LANGUAGE",
@@ -116,26 +113,30 @@ async def _build_overview(
 
     buttons: list[list[types.InlineKeyboardButton]] = []
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t(
-                "ADMIN_PRIVACY_POLICY_EDIT_BUTTON",
-                "✏️ Edit text",
-            ),
-            callback_data="admin_privacy_policy_edit",
-        )
-    ])
-
-    if has_content:
-        buttons.append([
+    buttons.append(
+        [
             types.InlineKeyboardButton(
                 text=texts.t(
-                    "ADMIN_PRIVACY_POLICY_VIEW_BUTTON",
-                    "👀 View current text",
+                    "ADMIN_PRIVACY_POLICY_EDIT_BUTTON",
+                    "✏️ Edit text",
                 ),
-                callback_data="admin_privacy_policy_view",
+                callback_data="admin_privacy_policy_edit",
             )
-        ])
+        ]
+    )
+
+    if has_content:
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t(
+                        "ADMIN_PRIVACY_POLICY_VIEW_BUTTON",
+                        "👀 View current text",
+                    ),
+                    callback_data="admin_privacy_policy_view",
+                )
+            ]
+        )
 
     toggle_text = texts.t(
         "ADMIN_PRIVACY_POLICY_ENABLE_BUTTON",
@@ -147,29 +148,35 @@ async def _build_overview(
             "🚫 Disable display",
         )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=toggle_text,
-            callback_data="admin_privacy_policy_toggle",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=toggle_text,
+                callback_data="admin_privacy_policy_toggle",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t(
-                "ADMIN_PRIVACY_POLICY_HTML_HELP",
-                "ℹ️ HTML help",
-            ),
-            callback_data="admin_privacy_policy_help",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t(
+                    "ADMIN_PRIVACY_POLICY_HTML_HELP",
+                    "ℹ️ HTML help",
+                ),
+                callback_data="admin_privacy_policy_help",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="admin_submenu_settings",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data="admin_submenu_settings",
+            )
+        ]
+    )
 
     return overview_text, types.InlineKeyboardMarkup(inline_keyboard=buttons), policy
 
@@ -453,25 +460,29 @@ async def show_privacy_policy_html_help(
     buttons: list[list[types.InlineKeyboardButton]] = []
 
     if current_state == AdminStates.editing_privacy_policy.state:
-        buttons.append([
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t(
+                        "ADMIN_PRIVACY_POLICY_RETURN_TO_EDIT",
+                        "⬅️ Back to editing",
+                    ),
+                    callback_data="admin_privacy_policy_edit",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
             types.InlineKeyboardButton(
                 text=texts.t(
-                    "ADMIN_PRIVACY_POLICY_RETURN_TO_EDIT",
-                    "⬅️ Back to editing",
-                ),
-                callback_data="admin_privacy_policy_edit",
-            )
-        ])
-
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t(
-                "ADMIN_PRIVACY_POLICY_BACK_BUTTON",
+                    "ADMIN_PRIVACY_POLICY_BACK_BUTTON",
                     "⬅️ Back to policy settings",
-            ),
-            callback_data="admin_privacy_policy",
-        )
-    ])
+                ),
+                callback_data="admin_privacy_policy",
+            )
+        ]
+    )
 
     await callback.message.edit_text(
         help_text,

@@ -40,9 +40,7 @@ class BackupTaskManager:
         state.updated_at = datetime.utcnow()
 
         try:
-            success, message, file_path = await backup_service.create_backup(
-                created_by=state.created_by
-            )
+            success, message, file_path = await backup_service.create_backup(created_by=state.created_by)
             state.message = message
             state.file_path = file_path
             state.status = "completed" if success else "failed"
@@ -61,11 +59,7 @@ class BackupTaskManager:
             states = list(self._tasks.values())
 
         if active_only:
-            return [
-                state
-                for state in states
-                if state.status in {"queued", "running"}
-            ]
+            return [state for state in states if state.status in {"queued", "running"}]
 
         return states
 

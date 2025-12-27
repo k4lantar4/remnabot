@@ -126,11 +126,7 @@ def _method_is_enabled(method: PaymentMethod) -> bool:
 
 
 def get_enabled_auto_methods() -> List[PaymentMethod]:
-    return [
-        method
-        for method in SUPPORTED_AUTO_CHECK_METHODS
-        if _method_is_enabled(method)
-    ]
+    return [method for method in SUPPORTED_AUTO_CHECK_METHODS if _method_is_enabled(method)]
 
 
 class AutoPaymentVerificationService:
@@ -154,21 +150,15 @@ class AutoPaymentVerificationService:
             return
 
         if not self._payment_service:
-            logger.warning(
-                "Автопроверка пополнений не запущена: PaymentService не инициализирован"
-            )
+            logger.warning("Автопроверка пополнений не запущена: PaymentService не инициализирован")
             return
 
         methods = get_enabled_auto_methods()
         if not methods:
-            logger.info(
-                "Автопроверка пополнений не запущена: нет активных провайдеров"
-            )
+            logger.info("Автопроверка пополнений не запущена: нет активных провайдеров")
             return
 
-        display_names = ", ".join(
-            sorted(method_display_name(method) for method in methods)
-        )
+        display_names = ", ".join(sorted(method_display_name(method) for method in methods))
         interval_minutes = settings.get_payment_verification_auto_check_interval()
 
         self._task = asyncio.create_task(self._auto_check_loop())
@@ -192,21 +182,14 @@ class AutoPaymentVerificationService:
             while True:
                 interval_minutes = settings.get_payment_verification_auto_check_interval()
                 try:
-                    if (
-                        settings.is_payment_verification_auto_check_enabled()
-                        and self._payment_service
-                    ):
+                    if settings.is_payment_verification_auto_check_enabled() and self._payment_service:
                         methods = get_enabled_auto_methods()
                         if methods:
                             await self._run_checks(methods)
                         else:
-                            logger.debug(
-                                "Автопроверка пополнений: активных провайдеров нет"
-                            )
+                            logger.debug("Автопроверка пополнений: активных провайдеров нет")
                     else:
-                        logger.debug(
-                            "Автопроверка пополнений: отключена настройками или сервис не готов"
-                        )
+                        logger.debug("Автопроверка пополнений: отключена настройками или сервис не готов")
                 except asyncio.CancelledError:
                     raise
                 except Exception as error:  # noqa: BLE001 - логируем непредвиденные ошибки
@@ -228,24 +211,16 @@ class AutoPaymentVerificationService:
         async with AsyncSessionLocal() as session:
             try:
                 pending = await list_recent_pending_payments(session)
-                candidates = [
-                    record
-                    for record in pending
-                    if record.method in methods and not record.is_paid
-                ]
+                candidates = [record for record in pending if record.method in methods and not record.is_paid]
 
                 if not candidates:
-                    logger.debug(
-                        "Автопроверка пополнений: подходящих ожидающих платежей нет"
-                    )
+                    logger.debug("Автопроверка пополнений: подходящих ожидающих платежей нет")
                     return
 
                 counts = Counter(record.method for record in candidates)
                 summary = ", ".join(
                     f"{method_display_name(method)}: {count}"
-                    for method, count in sorted(
-                        counts.items(), key=lambda item: method_display_name(item[0])
-                    )
+                    for method, count in sorted(counts.items(), key=lambda item: method_display_name(item[0]))
                 )
                 logger.info(
                     "🔄 Автопроверка пополнений: найдено %s инвойсов (%s)",
@@ -300,6 +275,7 @@ class AutoPaymentVerificationService:
 
 
 auto_payment_verification_service = AutoPaymentVerificationService()
+
 
 def _is_pal24_pending(payment: Pal24Payment) -> bool:
     if payment.is_paid:
@@ -379,8 +355,16 @@ def _metadata_is_balance(payment: YooKassaPayment) -> bool:
     return payment_type.startswith("balance_topup")
 
 
-def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amount_kopeks: int,
-                  status: str, is_paid: bool, expires_at: Optional[datetime] = None) -> Optional[PendingPayment]:
+def _build_record(
+    method: PaymentMethod,
+    payment: Any,
+    *,
+    identifier: str,
+    amount_kopeks: int,
+    status: str,
+    is_paid: bool,
+    expires_at: Optional[datetime] = None,
+) -> Optional[PendingPayment]:
     user = getattr(payment, "user", None)
     if user is None:
         logger.debug("Skipping %s payment %s without linked user", method.value, identifier)
@@ -848,9 +832,7 @@ async def run_manual_check(
             result = await payment_service.get_platega_payment_status(db, local_payment_id)
             payment = result.get("payment") if result else None
         elif method == PaymentMethod.HELEKET:
-            payment = await payment_service.sync_heleket_payment_status(
-                db, local_payment_id=local_payment_id
-            )
+            payment = await payment_service.sync_heleket_payment_status(db, local_payment_id=local_payment_id)
         elif method == PaymentMethod.YOOKASSA:
             result = await payment_service.get_yookassa_payment_status(db, local_payment_id)
             payment = result.get("payment") if result else None
@@ -882,4 +864,3 @@ async def run_manual_check(
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.services.payment_service import PaymentService
-

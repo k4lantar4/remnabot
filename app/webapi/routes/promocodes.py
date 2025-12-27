@@ -87,7 +87,10 @@ def _validate_create_payload(payload: PromoCodeCreateRequest) -> None:
     if payload.type == PromoCodeType.BALANCE and payload.balance_bonus_toman <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Balance bonus must be positive for balance promo codes")
 
-    if payload.type in {PromoCodeType.SUBSCRIPTION_DAYS, PromoCodeType.TRIAL_SUBSCRIPTION} and payload.subscription_days <= 0:
+    if (
+        payload.type in {PromoCodeType.SUBSCRIPTION_DAYS, PromoCodeType.TRIAL_SUBSCRIPTION}
+        and payload.subscription_days <= 0
+    ):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Subscription days must be positive for this promo code type")
 
     if normalized_valid_from and normalized_valid_until and normalized_valid_from > normalized_valid_until:
@@ -104,14 +107,10 @@ def _validate_update_payload(payload: PromoCodeUpdateRequest, promocode: PromoCo
         new_type = PromoCodeType(promocode.type)
 
     balance_bonus = (
-        payload.balance_bonus_toman
-        if payload.balance_bonus_toman is not None
-        else promocode.balance_bonus_toman
+        payload.balance_bonus_toman if payload.balance_bonus_toman is not None else promocode.balance_bonus_toman
     )
     subscription_days = (
-        payload.subscription_days
-        if payload.subscription_days is not None
-        else promocode.subscription_days
+        payload.subscription_days if payload.subscription_days is not None else promocode.subscription_days
     )
 
     if new_type == PromoCodeType.BALANCE and balance_bonus <= 0:
@@ -120,16 +119,8 @@ def _validate_update_payload(payload: PromoCodeUpdateRequest, promocode: PromoCo
     if new_type in {PromoCodeType.SUBSCRIPTION_DAYS, PromoCodeType.TRIAL_SUBSCRIPTION} and subscription_days <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Subscription days must be positive for this promo code type")
 
-    valid_from = (
-        _normalize_datetime(payload.valid_from)
-        if payload.valid_from is not None
-        else promocode.valid_from
-    )
-    valid_until = (
-        _normalize_datetime(payload.valid_until)
-        if payload.valid_until is not None
-        else promocode.valid_until
-    )
+    valid_from = _normalize_datetime(payload.valid_from) if payload.valid_from is not None else promocode.valid_from
+    valid_until = _normalize_datetime(payload.valid_until) if payload.valid_until is not None else promocode.valid_until
 
     if valid_from and valid_until and valid_from > valid_until:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "valid_from cannot be greater than valid_until")
@@ -169,10 +160,7 @@ async def get_promocode(
 
     stats = await get_promocode_statistics(db, promocode_id)
     base = _serialize_promocode(promocode)
-    recent_uses = [
-        _serialize_recent_use(use)
-        for use in stats.get("recent_uses", [])
-    ]
+    recent_uses = [_serialize_recent_use(use) for use in stats.get("recent_uses", [])]
 
     return PromoCodeDetailResponse(
         **base.dict(),
@@ -198,11 +186,7 @@ async def create_promocode_endpoint(
     if existing:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Promo code with this code already exists")
 
-    creator_id = (
-        payload.created_by
-        if payload.created_by is not None and payload.created_by > 0
-        else None
-    )
+    creator_id = payload.created_by if payload.created_by is not None and payload.created_by > 0 else None
 
     promocode = await create_promocode(
         db,

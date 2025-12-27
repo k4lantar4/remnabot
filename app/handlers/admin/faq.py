@@ -50,7 +50,7 @@ async def _build_overview(
 
     description = texts.t(
         "ADMIN_FAQ_DESCRIPTION",
-        "FAQ is shown in the \"Info\" section.",
+        'FAQ is shown in the "Info" section.',
     )
 
     if setting and not setting.is_enabled:
@@ -100,9 +100,7 @@ async def _build_overview(
 
             updated = _format_timestamp(getattr(page, "updated_at", None))
             updated_block = f" ({updated})" if updated else ""
-            rows.append(
-                f"{index}. {html.escape(title)} — {status_label}{updated_block}"
-            )
+            rows.append(f"{index}. {html.escape(title)} — {status_label}{updated_block}")
 
         pages_list_header = texts.t(
             "ADMIN_FAQ_PAGES_OVERVIEW",
@@ -140,15 +138,17 @@ async def _build_overview(
 
     buttons: list[list[types.InlineKeyboardButton]] = []
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t(
-                "ADMIN_FAQ_ADD_PAGE_BUTTON",
-                "➕ Add page",
-            ),
-            callback_data="admin_faq_create",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t(
+                    "ADMIN_FAQ_ADD_PAGE_BUTTON",
+                    "➕ Add page",
+                ),
+                callback_data="admin_faq_create",
+            )
+        ]
+    )
 
     for page in pages[:25]:
         title = (page.title or "").strip()
@@ -156,12 +156,14 @@ async def _build_overview(
             title = texts.t("FAQ_PAGE_UNTITLED", "Untitled")
         if len(title) > 40:
             title = f"{title[:37]}..."
-        buttons.append([
-            types.InlineKeyboardButton(
-                text=f"{page.display_order}. {title}",
-                callback_data=f"admin_faq_page:{page.id}",
-            )
-        ])
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=f"{page.display_order}. {title}",
+                    callback_data=f"admin_faq_page:{page.id}",
+                )
+            ]
+        )
 
     toggle_text = texts.t(
         "ADMIN_FAQ_ENABLE_BUTTON",
@@ -173,26 +175,32 @@ async def _build_overview(
             "🚫 Disable display",
         )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=toggle_text,
-            callback_data="admin_faq_toggle",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=toggle_text,
+                callback_data="admin_faq_toggle",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_HTML_HELP", "ℹ️ HTML help"),
-            callback_data="admin_faq_help",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_HTML_HELP", "ℹ️ HTML help"),
+                callback_data="admin_faq_help",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="admin_submenu_settings",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.BACK,
+                callback_data="admin_submenu_settings",
+            )
+        ]
+    )
 
     return overview_text, types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -473,9 +481,8 @@ async def show_faq_page_details(
         preview_trimmed = preview[:400]
         if len(preview) > 400:
             preview_trimmed += "..."
-        preview_text = (
-            texts.t("ADMIN_FAQ_PAGE_PREVIEW", "<b>Preview:</b>\n{content}")
-            .format(content=html.escape(preview_trimmed))
+        preview_text = texts.t("ADMIN_FAQ_PAGE_PREVIEW", "<b>Preview:</b>\n{content}").format(
+            content=html.escape(preview_trimmed)
         )
 
     message_parts = [
@@ -496,18 +503,22 @@ async def show_faq_page_details(
 
     buttons: list[list[types.InlineKeyboardButton]] = []
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_EDIT_TITLE_BUTTON", "✏️ Edit title"),
-            callback_data=f"admin_faq_edit_title:{page.id}",
-        )
-    ])
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_EDIT_CONTENT_BUTTON", "📝 Edit text"),
-            callback_data=f"admin_faq_edit_content:{page.id}",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_EDIT_TITLE_BUTTON", "✏️ Edit title"),
+                callback_data=f"admin_faq_edit_title:{page.id}",
+            )
+        ]
+    )
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_EDIT_CONTENT_BUTTON", "📝 Edit text"),
+                callback_data=f"admin_faq_edit_content:{page.id}",
+            )
+        ]
+    )
 
     toggle_text = texts.t("ADMIN_FAQ_PAGE_ENABLE_BUTTON", "✅ Enable page")
     if page.is_active:
@@ -516,37 +527,45 @@ async def show_faq_page_details(
             "🚫 Disable page",
         )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=toggle_text,
-            callback_data=f"admin_faq_toggle_page:{page.id}",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=toggle_text,
+                callback_data=f"admin_faq_toggle_page:{page.id}",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_PAGE_MOVE_UP", "⬆️ Up"),
-            callback_data=f"admin_faq_move:{page.id}:up",
-        ),
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_PAGE_MOVE_DOWN", "⬇️ Down"),
-            callback_data=f"admin_faq_move:{page.id}:down",
-        ),
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_PAGE_MOVE_UP", "⬆️ Up"),
+                callback_data=f"admin_faq_move:{page.id}:up",
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_PAGE_MOVE_DOWN", "⬇️ Down"),
+                callback_data=f"admin_faq_move:{page.id}:down",
+            ),
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_PAGE_DELETE_BUTTON", "🗑️ Delete"),
-            callback_data=f"admin_faq_delete:{page.id}",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_PAGE_DELETE_BUTTON", "🗑️ Delete"),
+                callback_data=f"admin_faq_delete:{page.id}",
+            )
+        ]
+    )
 
-    buttons.append([
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
-            callback_data="admin_faq",
-        )
-    ])
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
+                callback_data="admin_faq",
+            )
+        ]
+    )
 
     await callback.message.edit_text(
         message_text,
@@ -673,10 +692,14 @@ async def process_edit_faq_title(
     await message.answer(
         texts.t("ADMIN_FAQ_TITLE_UPDATED", "✅ Title updated."),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(
-                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
-                callback_data="admin_faq",
-            )]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
+                        callback_data="admin_faq",
+                    )
+                ]
+            ]
         ),
     )
 
@@ -806,10 +829,14 @@ async def process_edit_faq_content(
     await message.answer(
         texts.t("ADMIN_FAQ_CONTENT_UPDATED", "✅ Page text updated."),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(
-                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
-                callback_data="admin_faq",
-            )]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
+                        callback_data="admin_faq",
+                    )
+                ]
+            ]
         ),
     )
 
@@ -986,12 +1013,14 @@ async def show_faq_html_help(
     texts = get_texts(db_user.language)
     help_text = get_html_help_text()
 
-    buttons = [[
-        types.InlineKeyboardButton(
-            text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
-            callback_data="admin_faq",
-        )
-    ]]
+    buttons = [
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_FAQ_BACK_TO_LIST", "⬅️ Back to FAQ settings"),
+                callback_data="admin_faq",
+            )
+        ]
+    ]
 
     await callback.message.edit_text(
         help_text,
@@ -1062,4 +1091,3 @@ def register_handlers(dp: Dispatcher) -> None:
         process_edit_faq_content,
         AdminStates.editing_faq_content,
     )
-

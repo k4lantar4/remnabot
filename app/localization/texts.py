@@ -40,7 +40,7 @@ def _get_cached_rules_value(language: str) -> str:
 class Texts:
     def __init__(self, language: str = DEFAULT_LANGUAGE):
         self.language = language or DEFAULT_LANGUAGE
-        
+
         # Load raw data from JSON/YAML
         raw_data = load_locale(self.language)
         self._values = {key: value for key, value in raw_data.items()}
@@ -51,9 +51,7 @@ class Texts:
         else:
             fallback_data = self._values
 
-        self._fallback_values = {
-            key: value for key, value in fallback_data.items() if key not in self._values
-        }
+        self._fallback_values = {key: value for key, value in fallback_data.items() if key not in self._values}
 
         # Inject dynamic values (Traffic prices, Support info, etc.)
         self._inject_dynamic_values()
@@ -66,7 +64,7 @@ class Texts:
         # 1. Traffic Patterns
         # Try to get the pattern from locale, otherwise use English default
         traffic_pattern = self.get("TRAFFIC_PATTERN_TEMPLATE", "📊 {size} GB - {price}")
-        
+
         for key, size, price_attr in _TRAFFIC_TIERS:
             price_value = getattr(settings, price_attr, 0)
             self._values[key] = traffic_pattern.format(
@@ -89,16 +87,14 @@ class Texts:
             "• 📋 My Tickets — View history\n"
             "• 💬 Contact — Direct message (if urgent)\n"
         )
-        
+
         support_template = self.get("SUPPORT_INFO_TEMPLATE", default_support)
-        
+
         # Format if the template expects a username placeholder
         try:
             # Check if {support_username} is present in the string to avoid KeyError
             if "{support_username}" in support_template:
-                self._values["SUPPORT_INFO"] = support_template.format(
-                    support_username=settings.SUPPORT_USERNAME
-                )
+                self._values["SUPPORT_INFO"] = support_template.format(support_username=settings.SUPPORT_USERNAME)
             else:
                 self._values["SUPPORT_INFO"] = support_template
         except Exception as e:
@@ -136,7 +132,7 @@ class Texts:
                 return default
             # If no default provided, return the key itself or raise
             # Returning key helps debugging missing translations
-            return key 
+            return key
 
     def _get_value(self, item: str) -> Any:
         if item == "RULES_TEXT":

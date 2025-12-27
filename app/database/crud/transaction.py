@@ -19,9 +19,8 @@ async def create_transaction(
     payment_method: Optional[PaymentMethod] = None,
     external_id: Optional[str] = None,
     is_completed: bool = True,
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = None,
 ) -> Transaction:
-    
     transaction = Transaction(
         user_id=user_id,
         type=type.value,
@@ -31,13 +30,13 @@ async def create_transaction(
         external_id=external_id,
         is_completed=is_completed,
         completed_at=datetime.utcnow() if is_completed else None,
-        bot_id=bot_id
+        bot_id=bot_id,
     )
-    
+
     db.add(transaction)
     await db.commit()
     await db.refresh(transaction)
-    
+
     logger.info(f"💳 Transaction created: {type.value} for {amount_toman} Toman for user {user_id}")
 
     try:
@@ -73,37 +72,23 @@ async def create_transaction(
 
 async def get_transaction_by_id(db: AsyncSession, transaction_id: int) -> Optional[Transaction]:
     result = await db.execute(
-        select(Transaction)
-        .options(selectinload(Transaction.user))
-        .where(Transaction.id == transaction_id)
+        select(Transaction).options(selectinload(Transaction.user)).where(Transaction.id == transaction_id)
     )
     return result.scalar_one_or_none()
 
 
 async def get_transaction_by_external_id(
-    db: AsyncSession, 
-    external_id: str, 
-    payment_method: PaymentMethod
+    db: AsyncSession, external_id: str, payment_method: PaymentMethod
 ) -> Optional[Transaction]:
     result = await db.execute(
-        select(Transaction)
-        .where(
-            and_(
-                Transaction.external_id == external_id,
-                Transaction.payment_method == payment_method.value
-            )
+        select(Transaction).where(
+            and_(Transaction.external_id == external_id, Transaction.payment_method == payment_method.value)
         )
     )
     return result.scalar_one_or_none()
 
 
-async def get_user_transactions(
-    db: AsyncSession, 
-    user_id: int, 
-    limit: int = 50,
-    offset: int = 0
-) -> List[Transaction]:
-    
+async def get_user_transactions(db: AsyncSession, user_id: int, limit: int = 50, offset: int = 0) -> List[Transaction]:
     result = await db.execute(
         select(Transaction)
         .where(Transaction.user_id == user_id)
@@ -115,16 +100,13 @@ async def get_user_transactions(
 
 
 async def get_user_transactions_count(
-    db: AsyncSession,
-    user_id: int,
-    transaction_type: Optional[TransactionType] = None
+    db: AsyncSession, user_id: int, transaction_type: Optional[TransactionType] = None
 ) -> int:
-    
     query = select(func.count(Transaction.id)).where(Transaction.user_id == user_id)
-    
+
     if transaction_type:
         query = query.where(Transaction.type == transaction_type.value)
-    
+
     result = await db.execute(query)
     return result.scalar()
 
@@ -143,7 +125,6 @@ async def get_user_total_spent_toman(db: AsyncSession, user_id: int) -> int:
 
 
 async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Transaction:
-
     transaction.is_completed = True
     transaction.completed_at = datetime.utcnow()
 
@@ -169,7 +150,6 @@ async def complete_transaction(db: AsyncSession, transaction: Transaction) -> Tr
 
 
 async def get_pending_transactions(db: AsyncSession) -> List[Transaction]:
-    
     result = await db.execute(
         select(Transaction)
         .options(selectinload(Transaction.user))
@@ -180,238 +160,210 @@ async def get_pending_transactions(db: AsyncSession) -> List[Transaction]:
 
 
 async def get_transactions_statistics(
-    db: AsyncSession,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    db: AsyncSession, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
 ) -> dict:
-    
     if not start_date:
         start_date = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if not end_date:
         end_date = datetime.utcnow()
-    
+
     income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
-                Transaction.created_at <= end_date
+                Transaction.created_at <= end_date,
             )
         )
     )
     total_income = income_result.scalar()
-    
+
     expenses_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             and_(
                 Transaction.type == TransactionType.WITHDRAWAL.value,
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
-                Transaction.created_at <= end_date
+                Transaction.created_at <= end_date,
             )
         )
     )
     total_expenses = expenses_result.scalar()
-    
+
     subscription_income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             and_(
                 Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
-                Transaction.created_at <= end_date
+                Transaction.created_at <= end_date,
             )
         )
     )
     subscription_income = subscription_income_result.scalar()
-    
+
     transactions_count_result = await db.execute(
         select(
             Transaction.type,
-            func.count(Transaction.id).label('count'),
-            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total_amount')
+            func.count(Transaction.id).label("count"),
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label("total_amount"),
         )
         .where(
             and_(
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
-                Transaction.created_at <= end_date
+                Transaction.created_at <= end_date,
             )
         )
         .group_by(Transaction.type)
     )
-    transactions_by_type = {row.type: {"count": row.count, "amount": row.total_amount} 
-                           for row in transactions_count_result}
-    
+    transactions_by_type = {
+        row.type: {"count": row.count, "amount": row.total_amount} for row in transactions_count_result
+    }
+
     payment_methods_result = await db.execute(
         select(
             Transaction.payment_method,
-            func.count(Transaction.id).label('count'),
-            func.coalesce(func.sum(Transaction.amount_toman), 0).label('total_amount')
+            func.count(Transaction.id).label("count"),
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label("total_amount"),
         )
         .where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
-                Transaction.created_at <= end_date
+                Transaction.created_at <= end_date,
             )
         )
         .group_by(Transaction.payment_method)
     )
-    payment_methods = {row.payment_method: {"count": row.count, "amount": row.total_amount} 
-                      for row in payment_methods_result}
-    
+    payment_methods = {
+        row.payment_method: {"count": row.count, "amount": row.total_amount} for row in payment_methods_result
+    }
+
     today = datetime.utcnow().date()
     today_result = await db.execute(
-        select(func.count(Transaction.id))
-        .where(
-            and_(
-                Transaction.is_completed == True,
-                Transaction.created_at >= today
-            )
+        select(func.count(Transaction.id)).where(
+            and_(Transaction.is_completed == True, Transaction.created_at >= today)
         )
     )
     transactions_today = today_result.scalar()
-    
+
     today_income_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0))
-        .where(
+        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
                 Transaction.is_completed == True,
-                Transaction.created_at >= today
+                Transaction.created_at >= today,
             )
         )
     )
     income_today = today_income_result.scalar()
-    
+
     return {
-        "period": {
-            "start_date": start_date,
-            "end_date": end_date
-        },
+        "period": {"start_date": start_date, "end_date": end_date},
         "totals": {
             "income_toman": total_income,
             "expenses_toman": total_expenses,
             "profit_toman": total_income - total_expenses,
-            "subscription_income_toman": subscription_income
+            "subscription_income_toman": subscription_income,
         },
-        "today": {
-            "transactions_count": transactions_today,
-            "income_toman": income_today
-        },
+        "today": {"transactions_count": transactions_today, "income_toman": income_today},
         "by_type": transactions_by_type,
-        "by_payment_method": payment_methods
+        "by_payment_method": payment_methods,
     }
 
 
-async def get_revenue_by_period(
-    db: AsyncSession,
-    days: int = 30
-) -> List[dict]:
-    
+async def get_revenue_by_period(db: AsyncSession, days: int = 30) -> List[dict]:
     start_date = datetime.utcnow() - timedelta(days=days)
-    
+
     result = await db.execute(
         select(
-            func.date(Transaction.created_at).label('date'),
-            func.coalesce(func.sum(Transaction.amount_toman), 0).label('amount')
+            func.date(Transaction.created_at).label("date"),
+            func.coalesce(func.sum(Transaction.amount_toman), 0).label("amount"),
         )
         .where(
             and_(
                 Transaction.type == TransactionType.DEPOSIT.value,
                 Transaction.is_completed == True,
-                Transaction.created_at >= start_date
+                Transaction.created_at >= start_date,
             )
         )
         .group_by(func.date(Transaction.created_at))
         .order_by(func.date(Transaction.created_at))
     )
-    
+
     return [{"date": row.date, "amount_toman": row.amount} for row in result]
 
 
 async def find_tribute_transactions_by_payment_id(
-    db: AsyncSession, 
-    payment_id: str, 
-    user_telegram_id: Optional[int] = None
+    db: AsyncSession, payment_id: str, user_telegram_id: Optional[int] = None
 ) -> List[Transaction]:
-    
     query = select(Transaction).options(selectinload(Transaction.user))
-    
+
     conditions = [
         Transaction.external_id == f"donation_{payment_id}",
         Transaction.external_id == payment_id,
-        Transaction.external_id.like(f"%{payment_id}%")
+        Transaction.external_id.like(f"%{payment_id}%"),
     ]
-    
-    query = query.where(
-        and_(
-            Transaction.payment_method == PaymentMethod.TRIBUTE.value,
-            or_(*conditions)
-        )
-    )
-    
+
+    query = query.where(and_(Transaction.payment_method == PaymentMethod.TRIBUTE.value, or_(*conditions)))
+
     if user_telegram_id:
         from app.database.models import User
+
         query = query.join(User).where(User.telegram_id == user_telegram_id)
-    
+
     result = await db.execute(query.order_by(Transaction.created_at.desc()))
     return result.scalars().all()
 
 
 async def check_tribute_payment_duplicate(
-    db: AsyncSession,
-    payment_id: str,
-    amount_toman: int,
-    user_telegram_id: int
+    db: AsyncSession, payment_id: str, amount_toman: int, user_telegram_id: int
 ) -> Optional[Transaction]:
     cutoff_time = datetime.utcnow() - timedelta(hours=24)
-    
+
     exact_external_id = f"donation_{payment_id}"
-    
-    query = select(Transaction).options(selectinload(Transaction.user)).where(
-        and_(
-            Transaction.payment_method == PaymentMethod.TRIBUTE.value,
-            Transaction.external_id == exact_external_id, 
-            Transaction.amount_toman == amount_toman,
-            Transaction.is_completed == True,
-            Transaction.created_at >= cutoff_time  
+
+    query = (
+        select(Transaction)
+        .options(selectinload(Transaction.user))
+        .where(
+            and_(
+                Transaction.payment_method == PaymentMethod.TRIBUTE.value,
+                Transaction.external_id == exact_external_id,
+                Transaction.amount_toman == amount_toman,
+                Transaction.is_completed == True,
+                Transaction.created_at >= cutoff_time,
+            )
         )
-    ).join(User).where(User.telegram_id == user_telegram_id)
-    
+        .join(User)
+        .where(User.telegram_id == user_telegram_id)
+    )
+
     result = await db.execute(query)
     transaction = result.scalar_one_or_none()
-    
+
     if transaction:
         logger.info(f"🔍 Duplicate payment found within 24h: {transaction.id}")
-    
+
     return transaction
 
 
 async def create_unique_tribute_transaction(
-    db: AsyncSession,
-    user_id: int,
-    payment_id: str,
-    amount_toman: int,
-    description: str
+    db: AsyncSession, user_id: int, payment_id: str, amount_toman: int, description: str
 ) -> Transaction:
-    
     external_id = f"donation_{payment_id}"
-    
+
     existing = await get_transaction_by_external_id(db, external_id, PaymentMethod.TRIBUTE)
-    
+
     if existing:
         timestamp = int(datetime.utcnow().timestamp())
         external_id = f"donation_{payment_id}_{amount_toman}_{timestamp}"
-        
+
         logger.info(f"Created unique external_id to avoid duplicates: {external_id}")
-    
+
     return await create_transaction(
         db=db,
         user_id=user_id,
@@ -420,5 +372,5 @@ async def create_unique_tribute_transaction(
         description=description,
         payment_method=PaymentMethod.TRIBUTE,
         external_id=external_id,
-        is_completed=True
+        is_completed=True,
     )

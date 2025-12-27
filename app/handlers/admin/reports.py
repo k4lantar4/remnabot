@@ -29,7 +29,8 @@ async def show_reports_menu(
 ) -> None:
     texts = get_texts(db_user.language)
     await callback.message.edit_text(
-        texts.t("ADMIN_REPORTS_TITLE", "📊 <b>Reports</b>") + "\n\n"
+        texts.t("ADMIN_REPORTS_TITLE", "📊 <b>Reports</b>")
+        + "\n\n"
         + texts.t("ADMIN_REPORTS_HINT", "Select a period to send the report to the admin topic."),
         reply_markup=get_admin_reports_keyboard(db_user.language),
         parse_mode="HTML",
@@ -81,7 +82,9 @@ async def _send_report(
     except Exception as exc:  # noqa: BLE001
         logger.error("Unexpected error sending report: %s", exc)
         texts = get_texts(language)
-        await callback.answer(texts.t("ADMIN_REPORTS_ERROR_SEND", "Failed to send report. Please try later."), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_REPORTS_ERROR_SEND", "Failed to send report. Please try later."), show_alert=True
+        )
         return
 
     await callback.message.answer(
@@ -117,4 +120,3 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(send_weekly_report, F.data == "admin_reports_weekly")
     dp.callback_query.register(send_monthly_report, F.data == "admin_reports_monthly")
     dp.callback_query.register(close_report_message, F.data == "admin_close_report")
-

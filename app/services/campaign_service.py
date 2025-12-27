@@ -45,9 +45,7 @@ class AdvertisingCampaignService:
         campaign: AdvertisingCampaign,
     ) -> CampaignBonusResult:
         if not campaign.is_active:
-            logger.warning(
-                "⚠️ Attempt to grant a bonus for inactive campaign %s", campaign.id
-            )
+            logger.warning("⚠️ Attempt to grant a bonus for inactive campaign %s", campaign.id)
             return CampaignBonusResult(success=False)
 
         if campaign.is_balance_bonus:

@@ -3,12 +3,7 @@ import logging
 from functools import wraps
 from typing import AsyncGenerator, Callable, Optional, TypeVar
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    create_async_engine,
-    async_sessionmaker,
-    AsyncEngine
-)
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker, AsyncEngine
 from sqlalchemy.pool import NullPool, AsyncAdaptedQueuePool
 from sqlalchemy import event, text, bindparam, inspect
 from sqlalchemy.engine import Engine
@@ -24,6 +19,7 @@ T = TypeVar("T")
 # ============================================================================
 # PRODUCTION-GRADE CONNECTION POOLING
 # ============================================================================
+
 
 def _is_sqlite_url(url: str) -> bool:
     """Проверка на SQLite URL (поддерживает sqlite:// и sqlite+aiosqlite://)"""
@@ -76,25 +72,6 @@ engine = create_async_engine(
         "isolation_level": "READ COMMITTED",
     },
     **pool_kwargs,
-=======
-    **pool_kwargs,
-    
-    connect_args={
-        "server_settings": {
-            "application_name": "remnawave_bot",
-            "jit": "on",
-            "statement_timeout": "60000",  # 60 seconds
-            "idle_in_transaction_session_timeout": "300000",  # 5 minutes
-        },
-        "command_timeout": 60,
-        "timeout": 10,
-    } if not settings.get_database_url().startswith("sqlite") else {},
-    
-    execution_options={
-        "isolation_level": "READ COMMITTED",  # Optimal for most cases
-        "compiled_cache_size": 500,  # Cache for compiled queries
-    }
->>>>>>> origin/fix/replace-kopek-to-toman
 )
 
 # ============================================================================
@@ -105,11 +82,7 @@ AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
-<<<<<<< HEAD
-    autoflush=False,  # Критично для производительности
-=======
     autoflush=False,  # Critical for performance
->>>>>>> origin/fix/replace-kopek-to-toman
     autocommit=False,
 )
 
@@ -135,6 +108,7 @@ def with_db_retry(
         delay: Начальная задержка между попытками (секунды)
         backoff: Множитель задержки для каждой следующей попытки
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -149,18 +123,20 @@ def with_db_retry(
                     if attempt < attempts:
                         logger.warning(
                             "Ошибка БД (попытка %d/%d): %s. Повтор через %.1f сек...",
-                            attempt, attempts, str(e)[:100], current_delay
+                            attempt,
+                            attempts,
+                            str(e)[:100],
+                            current_delay,
                         )
                         await asyncio.sleep(current_delay)
                         current_delay *= backoff
                     else:
-                        logger.error(
-                            "Ошибка БД: все %d попыток исчерпаны. Последняя ошибка: %s",
-                            attempts, str(e)
-                        )
+                        logger.error("Ошибка БД: все %d попыток исчерпаны. Последняя ошибка: %s", attempts, str(e))
 
             raise last_exception
+
         return wrapper
+
     return decorator
 
 
@@ -179,10 +155,7 @@ async def execute_with_retry(
         except RETRYABLE_EXCEPTIONS as e:
             last_exception = e
             if attempt < attempts:
-                logger.warning(
-                    "SQL retry (попытка %d/%d): %s",
-                    attempt, attempts, str(e)[:100]
-                )
+                logger.warning("SQL retry (попытка %d/%d): %s", attempt, attempts, str(e)[:100])
                 await asyncio.sleep(delay)
                 delay *= 2
 
@@ -194,6 +167,7 @@ async def execute_with_retry(
 # ============================================================================
 
 if settings.DEBUG:
+
     @event.listens_for(Engine, "before_cursor_execute")
     def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
         conn.info.setdefault("query_start_time", []).append(time.time())
@@ -229,59 +203,38 @@ def _validate_database_url(url: Optional[str]) -> Optional[str]:
 
 
 class DatabaseManager:
-<<<<<<< HEAD
-    """Продвинутый менеджер БД с поддержкой реплик и кеширования"""
+    """Advanced DB manager with replica and caching support"""
 
     def __init__(self):
         self.engine = engine
         self.read_replica_engine: Optional[AsyncEngine] = None
         self._read_replica_session_factory: Optional[async_sessionmaker] = None
 
-        # Валидация и создание read replica engine
-        replica_url = _validate_database_url(
-            getattr(settings, 'DATABASE_READ_REPLICA_URL', None)
-        )
+        # Validation and creation of read replica engine
+        replica_url = _validate_database_url(getattr(settings, "DATABASE_READ_REPLICA_URL", None))
         if replica_url:
             try:
                 self.read_replica_engine = create_async_engine(
                     replica_url,
                     poolclass=poolclass,
-                    pool_size=30,  # Больше для read операций
+                    pool_size=30,  # More for read operations
                     max_overflow=50,
                     pool_pre_ping=True,
                     pool_recycle=3600,
                     echo=False,
                 )
-                # Создаём sessionmaker один раз (не при каждом вызове)
+                # Create sessionmaker once (not on every call)
                 self._read_replica_session_factory = async_sessionmaker(
                     bind=self.read_replica_engine,
                     class_=AsyncSession,
                     expire_on_commit=False,
                     autoflush=False,
                 )
-                logger.info("Read replica настроена: %s", replica_url[:30] + "...")
+                logger.info("Read replica configured: %s", replica_url[:30] + "...")
             except Exception as e:
-                logger.error("Не удалось настроить read replica: %s", e)
+                logger.error("Failed to configure read replica: %s", e)
                 self.read_replica_engine = None
 
-=======
-    """Advanced DB manager with replica and caching support"""
-    
-    def __init__(self):
-        self.engine = engine
-        self.read_replica_engine: Optional[AsyncEngine] = None
-        
-        if hasattr(settings, 'DATABASE_READ_REPLICA_URL') and settings.DATABASE_READ_REPLICA_URL:
-            self.read_replica_engine = create_async_engine(
-                settings.DATABASE_READ_REPLICA_URL,
-                poolclass=poolclass,
-                pool_size=30,  # More for read operations
-                max_overflow=50,
-                pool_pre_ping=True,
-                echo=False,
-            )
-    
->>>>>>> origin/fix/replace-kopek-to-toman
     @asynccontextmanager
     async def session(self, read_only: bool = False):
         """Контекстный менеджер для работы с сессией БД."""
@@ -365,6 +318,7 @@ db_manager = DatabaseManager()
 # SESSION DEPENDENCY FOR FASTAPI/AIOGRAM
 # ============================================================================
 
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Standard dependency for FastAPI"""
     async with AsyncSessionLocal() as session:
@@ -375,27 +329,30 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
 
+
 async def get_db_read_only() -> AsyncGenerator[AsyncSession, None]:
     """Read-only dependency for heavy SELECT queries"""
     async with db_manager.session(read_only=True) as session:
         yield session
 
+
 # ============================================================================
 # BATCH OPERATIONS FOR PERFORMANCE
 # ============================================================================
 
+
 class BatchOperations:
     """Utilities for bulk operations"""
-    
+
     @staticmethod
     async def bulk_insert(session: AsyncSession, model, data: list[dict], chunk_size: int = 1000):
         """Bulk insert with chunks"""
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
+            chunk = data[i : i + chunk_size]
             session.add_all([model(**item) for item in chunk])
             await session.flush()
         await session.commit()
-    
+
     @staticmethod
     async def bulk_update(session: AsyncSession, model, data: list[dict], chunk_size: int = 1000):
         """Bulk update with chunks"""
@@ -406,50 +363,33 @@ class BatchOperations:
         if not primary_keys:
             raise ValueError("Model must have a primary key for bulk_update")
 
-        updatable_columns = [
-            column.name
-            for column in model.__table__.columns
-            if column.name not in primary_keys
-        ]
+        updatable_columns = [column.name for column in model.__table__.columns if column.name not in primary_keys]
 
         if not updatable_columns:
             raise ValueError("No columns available for update in bulk_update")
 
         stmt = (
             model.__table__.update()
-            .where(
-                *[
-                    getattr(model.__table__.c, pk) == bindparam(pk)
-                    for pk in primary_keys
-                ]
-            )
-            .values(
-                **{
-                    column: bindparam(column, required=False)
-                    for column in updatable_columns
-                }
-            )
+            .where(*[getattr(model.__table__.c, pk) == bindparam(pk) for pk in primary_keys])
+            .values(**{column: bindparam(column, required=False) for column in updatable_columns})
         )
 
         for i in range(0, len(data), chunk_size):
-            chunk = data[i:i + chunk_size]
+            chunk = data[i : i + chunk_size]
             filtered_chunk = []
             for item in chunk:
                 missing_keys = [pk for pk in primary_keys if pk not in item]
                 if missing_keys:
-                    raise ValueError(
-                        f"Missing primary key values {missing_keys} for bulk_update"
-                    )
+                    raise ValueError(f"Missing primary key values {missing_keys} for bulk_update")
 
                 filtered_item = {
-                    key: value
-                    for key, value in item.items()
-                    if key in primary_keys or key in updatable_columns
+                    key: value for key, value in item.items() if key in primary_keys or key in updatable_columns
                 }
                 filtered_chunk.append(filtered_item)
 
             await session.execute(stmt, filtered_chunk)
         await session.commit()
+
 
 batch_ops = BatchOperations()
 
@@ -457,26 +397,16 @@ batch_ops = BatchOperations()
 # INITIALIZATION AND CLEANUP
 # ============================================================================
 
+
 async def init_db():
-<<<<<<< HEAD
-    """Инициализация БД с оптимизациями"""
-    logger.info("Создание таблиц базы данных...")
+    """DB initialization with optimizations"""
+    logger.info("🚀 Creating database tables...")
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     if not IS_SQLITE:
-        logger.info("Создание индексов для оптимизации...")
-=======
-    """DB initialization with optimizations"""
-    logger.info("🚀 Creating database tables...")
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    if not settings.get_database_url().startswith("sqlite"):
         logger.info("📊 Creating indexes for optimization...")
->>>>>>> origin/fix/replace-kopek-to-toman
 
         async with engine.begin() as conn:
             indexes = [
@@ -510,44 +440,29 @@ async def init_db():
                     await conn.execute(text(index_sql))
                 except Exception as e:
                     logger.debug("Index creation skipped for %s: %s", table_name, e)
-<<<<<<< HEAD
 
-    logger.info("База данных успешно инициализирована")
-
-=======
-    
     logger.info("✅ Database successfully initialized")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     health = await db_manager.health_check()
     logger.info("Database health: %s", health)
 
 
 async def close_db():
-<<<<<<< HEAD
-    """Корректное закрытие всех соединений"""
-    logger.info("Закрытие соединений с БД...")
-
-=======
     """Proper closure of all connections"""
     logger.info("🔄 Closing database connections...")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     await engine.dispose()
 
     if db_manager.read_replica_engine:
         await db_manager.read_replica_engine.dispose()
-<<<<<<< HEAD
 
-    logger.info("Все подключения к базе данных закрыты")
-=======
-    
     logger.info("✅ All database connections closed")
->>>>>>> origin/fix/replace-kopek-to-toman
+
 
 # ============================================================================
 # CONNECTION POOL METRICS (for monitoring)
 # ============================================================================
+
 
 def _pool_counters(pool):
     """Return basic pool counters or ``None`` when unsupported."""

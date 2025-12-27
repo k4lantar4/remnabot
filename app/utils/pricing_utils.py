@@ -19,8 +19,8 @@ def calculate_months_from_days(days: int) -> int:
 def get_remaining_months(end_date: datetime) -> int:
     current_time = datetime.utcnow()
     if end_date <= current_time:
-        return 1 
-    
+        return 1
+
     remaining_days = (end_date - current_time).days
     return max(1, round(remaining_days / 30))
 
@@ -28,24 +28,22 @@ def get_remaining_months(end_date: datetime) -> int:
 def calculate_period_multiplier(period_days: int) -> Tuple[int, float]:
     exact_months = period_days / 30
     months_count = max(1, round(exact_months))
-    
+
     logger.debug(f"Period {period_days} days = {exact_months:.2f} exact months ≈ {months_count} months for calculation")
-    
+
     return months_count, exact_months
 
 
-def calculate_prorated_price(
-    monthly_price: int,
-    end_date: datetime,
-    min_charge_months: int = 1
-) -> Tuple[int, int]:
+def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_months: int = 1) -> Tuple[int, int]:
     months_remaining = get_remaining_months(end_date)
     months_to_charge = max(min_charge_months, months_remaining)
-    
+
     total_price = monthly_price * months_to_charge
-    
-    logger.debug(f"Prorated price calculation: {monthly_price/100} Toman/mo × {months_to_charge} mo = {total_price/100} Toman")
-    
+
+    logger.debug(
+        f"Prorated price calculation: {monthly_price / 100} Toman/mo × {months_to_charge} mo = {total_price / 100} Toman"
+    )
+
     return total_price, months_to_charge
 
 
@@ -248,18 +246,10 @@ async def compute_simple_subscription_price(
         )
 
     total_before_discount = (
-        base_price_original
-        + traffic_price_original
-        + devices_price_original
-        + servers_price_original
+        base_price_original + traffic_price_original + devices_price_original + servers_price_original
     )
 
-    total_discount = (
-        base_discount
-        + traffic_discount
-        + devices_discount
-        + servers_discount_total
-    )
+    total_discount = base_discount + traffic_discount + devices_discount + servers_discount_total
 
     total_price = max(0, total_before_discount - total_discount)
 
@@ -289,26 +279,25 @@ async def compute_simple_subscription_price(
 
 def format_period_description(days: int, language: str = "en") -> str:
     months = calculate_months_from_days(days)
-    
+
     if days == 14:
         return "14 days"
     month_word = "month" if months == 1 else "months"
     return f"{days} days ({months} {month_word})"
 
 
-def validate_pricing_calculation(
-    base_price: int,
-    monthly_additions: int,
-    months: int,
-    total_calculated: int
-) -> bool:
+def validate_pricing_calculation(base_price: int, monthly_additions: int, months: int, total_calculated: int) -> bool:
     expected_total = base_price + (monthly_additions * months)
     is_valid = expected_total == total_calculated
-    
+
     if not is_valid:
-        logger.warning(f"Price calculation mismatch: expected {expected_total/100} Toman, got {total_calculated/100} Toman")
-        logger.warning(f"Details: base price {base_price/100} Toman + monthly additions {monthly_additions/100} Toman × {months} mo")
-    
+        logger.warning(
+            f"Price calculation mismatch: expected {expected_total / 100} Toman, got {total_calculated / 100} Toman"
+        )
+        logger.warning(
+            f"Details: base price {base_price / 100} Toman + monthly additions {monthly_additions / 100} Toman × {months} mo"
+        )
+
     return is_valid
 
 

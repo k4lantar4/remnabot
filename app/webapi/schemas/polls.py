@@ -170,10 +170,7 @@ class PollResponsesListResponse(BaseModel):
 class PollSendRequest(BaseModel):
     target: str = Field(
         ...,
-        description=(
-            "Audience to send the poll to (e.g., all, active, trial, "
-            "custom_today, etc.)"
-        ),
+        description=("Audience to send the poll to (e.g., all, active, trial, custom_today, etc.)"),
         max_length=100,
     )
 

@@ -7,96 +7,60 @@ from app.config import settings
 
 def get_main_reply_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
-    
-    keyboard = [
-        [
-            KeyboardButton(text=texts.MENU_BALANCE),
-            KeyboardButton(text=texts.MENU_SUBSCRIPTION)
-        ]
-    ]
-    
+
+    keyboard = [[KeyboardButton(text=texts.MENU_BALANCE), KeyboardButton(text=texts.MENU_SUBSCRIPTION)]]
+
     # Add promocode and referral buttons based on settings
     second_row = [KeyboardButton(text=texts.MENU_PROMOCODE)]
-    
+
     # Add referral button only if program is enabled
     if settings.is_referral_program_enabled():
         second_row.append(KeyboardButton(text=texts.MENU_REFERRALS))
-    
+
     keyboard.append(second_row)
-    
-    keyboard.append([
-        KeyboardButton(text=texts.MENU_SUPPORT),
-        KeyboardButton(text=texts.MENU_RULES)
-    ])
-    
-    return ReplyKeyboardMarkup(
-        keyboard=keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
+
+    keyboard.append([KeyboardButton(text=texts.MENU_SUPPORT), KeyboardButton(text=texts.MENU_RULES)])
+
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
 def get_admin_reply_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
-    
+
     return ReplyKeyboardMarkup(
         keyboard=[
-            [
-                KeyboardButton(text=texts.ADMIN_USERS),
-                KeyboardButton(text=texts.ADMIN_SUBSCRIPTIONS)
-            ],
-            [
-                KeyboardButton(text=texts.ADMIN_PROMOCODES),
-                KeyboardButton(text=texts.ADMIN_MESSAGES)
-            ],
-            [
-                KeyboardButton(text=texts.ADMIN_STATISTICS),
-                KeyboardButton(text=texts.ADMIN_MONITORING)
-            ],
-            [
-                KeyboardButton(text=texts.t("ADMIN_MAIN_MENU", "🏠 Main Menu"))
-            ]
+            [KeyboardButton(text=texts.ADMIN_USERS), KeyboardButton(text=texts.ADMIN_SUBSCRIPTIONS)],
+            [KeyboardButton(text=texts.ADMIN_PROMOCODES), KeyboardButton(text=texts.ADMIN_MESSAGES)],
+            [KeyboardButton(text=texts.ADMIN_STATISTICS), KeyboardButton(text=texts.ADMIN_MONITORING)],
+            [KeyboardButton(text=texts.t("ADMIN_MAIN_MENU", "🏠 Main Menu"))],
         ],
         resize_keyboard=True,
-        one_time_keyboard=False
+        one_time_keyboard=False,
     )
 
 
 def get_cancel_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
-    
+
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=texts.CANCEL)]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True
+        keyboard=[[KeyboardButton(text=texts.CANCEL)]], resize_keyboard=True, one_time_keyboard=True
     )
 
 
 def get_confirmation_reply_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
-    
+
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text=texts.YES),
-                KeyboardButton(text=texts.NO)
-            ]
-        ],
+        keyboard=[[KeyboardButton(text=texts.YES), KeyboardButton(text=texts.NO)]],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
 def get_skip_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     texts = get_texts(language)
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=texts.REFERRAL_CODE_SKIP)]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True
+        keyboard=[[KeyboardButton(text=texts.REFERRAL_CODE_SKIP)]], resize_keyboard=True, one_time_keyboard=True
     )
 
 
@@ -109,10 +73,10 @@ def get_contact_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=texts.t("SEND_CONTACT_BUTTON", "📱 Send Contact"), request_contact=True)],
-            [KeyboardButton(text=texts.CANCEL)]
+            [KeyboardButton(text=texts.CANCEL)],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )
 
 
@@ -121,8 +85,8 @@ def get_location_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=texts.t("SEND_LOCATION_BUTTON", "📍 Send Location"), request_location=True)],
-            [KeyboardButton(text=texts.CANCEL)]
+            [KeyboardButton(text=texts.CANCEL)],
         ],
         resize_keyboard=True,
-        one_time_keyboard=True
+        one_time_keyboard=True,
     )

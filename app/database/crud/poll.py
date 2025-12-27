@@ -71,9 +71,7 @@ async def create_poll(
 async def list_polls(db: AsyncSession) -> list[Poll]:
     result = await db.execute(
         select(Poll)
-        .options(
-            selectinload(Poll.questions).options(selectinload(PollQuestion.options))
-        )
+        .options(selectinload(Poll.questions).options(selectinload(PollQuestion.options)))
         .order_by(Poll.created_at.desc())
     )
     return result.scalars().all()
@@ -108,8 +106,7 @@ async def create_poll_response(
     user_id: int,
 ) -> PollResponse:
     result = await db.execute(
-        select(PollResponse)
-        .where(
+        select(PollResponse).where(
             and_(
                 PollResponse.poll_id == poll_id,
                 PollResponse.user_id == user_id,
@@ -137,8 +134,9 @@ async def get_poll_response_by_id(
     result = await db.execute(
         select(PollResponse)
         .options(
-            selectinload(PollResponse.poll)
-            .options(selectinload(Poll.questions).options(selectinload(PollQuestion.options))),
+            selectinload(PollResponse.poll).options(
+                selectinload(Poll.questions).options(selectinload(PollQuestion.options))
+            ),
             selectinload(PollResponse.answers),
             selectinload(PollResponse.user),
         )
@@ -155,8 +153,7 @@ async def record_poll_answer(
     option_id: int,
 ) -> PollAnswer:
     result = await db.execute(
-        select(PollAnswer)
-        .where(
+        select(PollAnswer).where(
             and_(
                 PollAnswer.response_id == response_id,
                 PollAnswer.question_id == question_id,
@@ -182,9 +179,7 @@ async def record_poll_answer(
 
 
 async def reset_poll_answers(db: AsyncSession, response_id: int) -> None:
-    await db.execute(
-        delete(PollAnswer).where(PollAnswer.response_id == response_id)
-    )
+    await db.execute(delete(PollAnswer).where(PollAnswer.response_id == response_id))
     await db.commit()
 
 

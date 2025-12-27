@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 def _format_rubles(amount_toman: int, language: str = "en") -> str:
     from app.localization.texts import get_texts
-    
+
     rubles = Decimal(amount_toman) / Decimal(100)
 
     if rubles == rubles.to_integral_value():
@@ -104,32 +104,18 @@ def _build_group_discount_lines(group: PromoGroup, texts, language: str) -> list
     lines: list[str] = []
 
     if getattr(group, "server_discount_percent", 0) > 0:
-        lines.append(
-            texts.t("PROMO_GROUP_DISCOUNT_SERVERS").format(
-                percent=group.server_discount_percent
-            )
-        )
+        lines.append(texts.t("PROMO_GROUP_DISCOUNT_SERVERS").format(percent=group.server_discount_percent))
 
     if getattr(group, "traffic_discount_percent", 0) > 0:
-        lines.append(
-            texts.t("PROMO_GROUP_DISCOUNT_TRAFFIC").format(
-                percent=group.traffic_discount_percent
-            )
-        )
+        lines.append(texts.t("PROMO_GROUP_DISCOUNT_TRAFFIC").format(percent=group.traffic_discount_percent))
 
     if getattr(group, "device_discount_percent", 0) > 0:
-        lines.append(
-            texts.t("PROMO_GROUP_DISCOUNT_DEVICES").format(
-                percent=group.device_discount_percent
-            )
-        )
+        lines.append(texts.t("PROMO_GROUP_DISCOUNT_DEVICES").format(percent=group.device_discount_percent))
 
     period_discounts = _collect_period_discounts(group)
 
     if period_discounts:
-        lines.append(
-            texts.t("PROMO_GROUP_PERIOD_DISCOUNTS_HEADER")
-        )
+        lines.append(texts.t("PROMO_GROUP_PERIOD_DISCOUNTS_HEADER"))
 
         for period_days, percent in period_discounts.items():
             lines.append(
@@ -185,9 +171,7 @@ async def show_main_menu(
         has_saved_cart = False
 
     is_admin = settings.is_admin(db_user.telegram_id)
-    is_moderator = (not is_admin) and SupportSettingsService.is_moderator(
-        db_user.telegram_id
-    )
+    is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
 
     custom_buttons = []
     if not settings.is_text_main_menu_mode():
@@ -217,23 +201,7 @@ async def show_main_menu(
     await edit_or_answer_photo(
         callback=callback,
         caption=menu_text,
-<<<<<<< HEAD
         keyboard=keyboard,
-=======
-        keyboard=get_main_menu_keyboard(
-            language=db_user.language,
-            is_admin=is_admin,
-            is_moderator=is_moderator,
-            has_had_paid_subscription=db_user.has_had_paid_subscription,
-            has_active_subscription=has_active_subscription,
-            subscription_is_active=subscription_is_active,
-            balance_toman=db_user.balance_toman,
-            subscription=db_user.subscription,
-            show_resume_checkout=show_resume_checkout,
-            has_saved_cart=has_saved_cart,  # Add parameter for displaying saved cart notification
-            custom_buttons=custom_buttons,
-        ),
->>>>>>> origin/fix/replace-kopek-to-toman
         parse_mode="HTML",
         force_text=settings.is_text_main_menu_mode(),
     )
@@ -254,11 +222,7 @@ async def handle_profile_unavailable(callback: types.CallbackQuery) -> None:
     )
 
 
-async def show_service_rules(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession
-):
+async def show_service_rules(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     if db_user is None:
         # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
@@ -278,9 +242,9 @@ async def show_service_rules(
 
     await callback.message.edit_text(
         f"{texts.t('RULES_HEADER')}\n\n{rules_text}",
-        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.BACK, callback_data="back_to_menu")]
-        ])
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="back_to_menu")]]
+        ),
     )
     await callback.answer()
 
@@ -384,11 +348,7 @@ async def show_promo_groups_info(
         current_group = achieved_groups[-1]
 
     next_group = next(
-        (
-            group
-            for group in sorted_groups
-            if (group.auto_assign_total_spent_toman or 0) > total_spent_toman
-        ),
+        (group for group in sorted_groups if (group.auto_assign_total_spent_toman or 0) > total_spent_toman),
         None,
     )
 
@@ -403,9 +363,7 @@ async def show_promo_groups_info(
             texts.t("PROMO_GROUPS_INFO_CURRENT_LEVEL").format(name=html.escape(current_group.name)),
         )
     else:
-        lines.append(
-            texts.t("PROMO_GROUPS_INFO_NO_LEVEL")
-        )
+        lines.append(texts.t("PROMO_GROUPS_INFO_NO_LEVEL"))
 
     if next_group:
         remaining_toman = (next_group.auto_assign_total_spent_toman or 0) - total_spent_toman
@@ -416,9 +374,7 @@ async def show_promo_groups_info(
             )
         )
     else:
-        lines.append(
-            texts.t("PROMO_GROUPS_INFO_MAX_LEVEL")
-        )
+        lines.append(texts.t("PROMO_GROUPS_INFO_MAX_LEVEL"))
 
     lines.extend(["", texts.t("PROMO_GROUPS_INFO_LEVELS_HEADER")])
 
@@ -488,16 +444,16 @@ async def show_faq_pages(
             raw_title = texts.t("FAQ_PAGE_UNTITLED")
         if len(raw_title) > 60:
             raw_title = f"{raw_title[:57]}..."
-        buttons.append([
-            types.InlineKeyboardButton(
-                text=f"{index}. {raw_title}",
-                callback_data=f"menu_faq_page:{page.id}:1",
-            )
-        ])
+        buttons.append(
+            [
+                types.InlineKeyboardButton(
+                    text=f"{index}. {raw_title}",
+                    callback_data=f"menu_faq_page:{page.id}:1",
+                )
+            ]
+        )
 
-    buttons.append([
-        types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")
-    ])
+    buttons.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")])
 
     await callback.message.edit_text(
         caption,
@@ -620,15 +576,15 @@ async def show_faq_page(
 
         keyboard_rows.append(nav_row)
 
-    keyboard_rows.append([
-        types.InlineKeyboardButton(
-            text=texts.t("FAQ_BACK_TO_LIST"),
-            callback_data="menu_faq",
-        )
-    ])
-    keyboard_rows.append([
-        types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")
-    ])
+    keyboard_rows.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("FAQ_BACK_TO_LIST"),
+                callback_data="menu_faq",
+            )
+        ]
+    )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")])
 
     await callback.message.edit_text(
         message_text,
@@ -636,6 +592,7 @@ async def show_faq_page(
         disable_web_page_preview=settings.DISABLE_WEB_PAGE_PREVIEW,
     )
     await callback.answer()
+
 
 async def show_privacy_policy(
     callback: types.CallbackQuery,
@@ -730,9 +687,7 @@ async def show_privacy_policy(
 
         keyboard_rows.append(nav_row)
 
-    keyboard_rows.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")]
-    )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")])
 
     await callback.message.edit_text(
         message_text,
@@ -835,9 +790,7 @@ async def show_public_offer(
 
         keyboard_rows.append(nav_row)
 
-    keyboard_rows.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")]
-    )
+    keyboard_rows.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_info")])
 
     await callback.message.edit_text(
         message_text,
@@ -943,12 +896,7 @@ async def process_language_change(
     await callback.answer(texts.t("LANGUAGE_SELECTED"))
 
 
-async def handle_back_to_menu(
-    callback: types.CallbackQuery,
-    state: FSMContext,
-    db_user: User,
-    db: AsyncSession
-):
+async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
     if db_user is None:
         # User not found, use default language
         texts = get_texts(settings.DEFAULT_LANGUAGE_CODE)
@@ -981,9 +929,7 @@ async def handle_back_to_menu(
         has_saved_cart = False
 
     is_admin = settings.is_admin(db_user.telegram_id)
-    is_moderator = (not is_admin) and SupportSettingsService.is_moderator(
-        db_user.telegram_id
-    )
+    is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
 
     custom_buttons = []
     if not settings.is_text_main_menu_mode():
@@ -1019,6 +965,7 @@ async def handle_back_to_menu(
     )
     await callback.answer()
 
+
 def _get_subscription_status(user: User, texts) -> str:
     subscription = getattr(user, "subscription", None)
     if not subscription:
@@ -1044,9 +991,7 @@ def _get_subscription_status(user: User, texts) -> str:
 
     is_trial_subscription = getattr(subscription, "is_trial", False)
 
-    is_trial_like_status = actual_status == "trial" or (
-        is_trial_subscription and actual_status in {"active", "trial"}
-    )
+    is_trial_like_status = actual_status == "trial" or (is_trial_subscription and actual_status in {"active", "trial"})
 
     if is_trial_like_status:
         if days_left > 1 and end_date_text:
@@ -1088,10 +1033,8 @@ def _insert_random_message(base_text: str, random_message: str, action_prompt: s
 
 
 async def get_main_menu_text(user, texts, db: AsyncSession):
-
     base_text = texts.MAIN_MENU.format(
-        user_name=user.full_name,
-        subscription_status=_get_subscription_status(user, texts)
+        user_name=user.full_name, subscription_status=_get_subscription_status(user, texts)
     )
 
     action_prompt = texts.t("MAIN_MENU_ACTION_PROMPT")
@@ -1135,60 +1078,55 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
     return base_text
 
 
-async def handle_activate_button(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession
-):
+async def handle_activate_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
-    
+
     # Получить подписку пользователя
     from app.database.crud.subscription import get_subscription_by_user_id
+
     subscription = await get_subscription_by_user_id(db, db_user.id)
-    
+
     if subscription and subscription.status == "ACTIVE" and subscription.end_date > datetime.utcnow():
         await callback.answer(
             texts.t("SUBSCRIPTION_ALREADY_ACTIVE", "✅ Подписка уже активна!"),
             show_alert=True,
         )
         return
-    
+
     # Параметры из подписки или дефолтные
     device_limit = subscription.device_limit if subscription else settings.DEFAULT_DEVICE_LIMIT
     traffic_limit_gb = subscription.traffic_limit_gb if subscription else 0
     connected_squads = subscription.connected_squads if subscription else []
-    
+
     # Получить IDs серверов из UUIDs
     from app.database.crud.server_squad import get_server_ids_by_uuids
+
     server_ids = await get_server_ids_by_uuids(db, connected_squads) if connected_squads else []
-    
+
     balance = db_user.balance_kopeks
     available_periods = [int(p) for p in settings.AVAILABLE_SUBSCRIPTION_PERIODS]
-    
+
     best_period = None
     best_price = 0
-    
+
     from app.services.subscription_service import SubscriptionService
+
     subscription_service = SubscriptionService()
-    
+
     # Найти максимальный период, цена которого <= баланса
     for period in sorted(available_periods, reverse=True):
         price, _ = await subscription_service.calculate_subscription_price_with_months(
-            period,
-            traffic_limit_gb,
-            server_ids,
-            device_limit,
-            db,
-            user=db_user
+            period, traffic_limit_gb, server_ids, device_limit, db, user=db_user
         )
         if price <= balance:
             best_period = period
             best_price = price
             break
-    
+
     if best_period:
         # Создать новую подписку
         from app.database.crud.subscription import create_paid_subscription
+
         new_subscription = await create_paid_subscription(
             db,
             db_user.id,
@@ -1196,15 +1134,17 @@ async def handle_activate_button(
             traffic_limit_gb=traffic_limit_gb,
             device_limit=device_limit,
             connected_squads=connected_squads,
-            update_server_counters=True
+            update_server_counters=True,
         )
-        
+
         # Списать деньги
         db_user.balance_kopeks -= best_price
         await db.commit()
-        
+
         await callback.answer(
-            texts.t("ACTIVATION_SUCCESS", f"✅ Подписка активирована на {best_period} дней за {best_price//100} руб!"),
+            texts.t(
+                "ACTIVATION_SUCCESS", f"✅ Подписка активирована на {best_period} дней за {best_price // 100} руб!"
+            ),
             show_alert=True,
         )
     else:
@@ -1215,21 +1155,14 @@ async def handle_activate_button(
 
 
 def register_handlers(dp: Dispatcher):
-
-    dp.callback_query.register(
-        handle_back_to_menu,
-        F.data == "back_to_menu"
-    )
+    dp.callback_query.register(handle_back_to_menu, F.data == "back_to_menu")
 
     dp.callback_query.register(
         handle_profile_unavailable,
         F.data == "menu_profile_unavailable",
     )
 
-    dp.callback_query.register(
-        show_service_rules,
-        F.data == "menu_rules"
-    )
+    dp.callback_query.register(show_service_rules, F.data == "menu_rules")
 
     dp.callback_query.register(
         show_info_menu,
@@ -1271,28 +1204,12 @@ def register_handlers(dp: Dispatcher):
         F.data.startswith("menu_public_offer:"),
     )
 
-    dp.callback_query.register(
-        show_language_menu,
-        F.data == "menu_language"
-    )
+    dp.callback_query.register(show_language_menu, F.data == "menu_language")
 
-    dp.callback_query.register(
-        process_language_change,
-        F.data.startswith("language_select:"),
-        StateFilter(None)
-    )
+    dp.callback_query.register(process_language_change, F.data.startswith("language_select:"), StateFilter(None))
 
-    dp.callback_query.register(
-        handle_add_traffic,
-        F.data == "buy_traffic"
-    )
+    dp.callback_query.register(handle_add_traffic, F.data == "buy_traffic")
 
-    dp.callback_query.register(
-        add_traffic,
-        F.data.startswith("add_traffic_")
-    )
+    dp.callback_query.register(add_traffic, F.data.startswith("add_traffic_"))
 
-    dp.callback_query.register(
-        handle_activate_button,
-        F.data == "activate_button"
-    )
+    dp.callback_query.register(handle_activate_button, F.data == "activate_button")

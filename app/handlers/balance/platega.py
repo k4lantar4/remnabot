@@ -57,11 +57,7 @@ async def _prompt_amount(
 
     min_amount_label = settings.format_price(settings.PLATEGA_MIN_AMOUNT_TOMAN)
     max_amount_toman = settings.PLATEGA_MAX_AMOUNT_TOMAN
-    max_amount_label = (
-        settings.format_price(max_amount_toman)
-        if max_amount_toman and max_amount_toman > 0
-        else ""
-    )
+    max_amount_label = settings.format_price(max_amount_toman) if max_amount_toman and max_amount_toman > 0 else ""
 
     default_prompt_body = (
         texts.t(
@@ -77,11 +73,7 @@ async def _prompt_amount(
 
     prompt_template = texts.t(
         "PLATEGA_TOPUP_PROMPT",
-        (
-            "💳 <b>Platega payment ({method_name})</b>\n\n"
-            f"{default_prompt_body}"
-            "Payment is processed via Platega."
-        ),
+        (f"💳 <b>Platega payment ({{method_name}})</b>\n\n{default_prompt_body}Payment is processed via Platega."),
     )
 
     keyboard = get_back_keyboard(db_user.language)
@@ -160,9 +152,7 @@ async def start_platega_payment(
             ]
         )
 
-    method_buttons.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
-    )
+    method_buttons.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")])
 
     await callback.message.edit_text(
         texts.t(

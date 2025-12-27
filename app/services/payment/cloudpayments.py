@@ -174,6 +174,7 @@ class CloudPaymentsPaymentMixin:
 
             # Get user by telegram_id
             from app.database.crud.user import get_user_by_telegram_id
+
             user = await get_user_by_telegram_id(db, telegram_id)
             if not user:
                 logger.error("Пользователь не найден: telegram_id=%s", telegram_id)
@@ -216,6 +217,7 @@ class CloudPaymentsPaymentMixin:
 
         # Get user
         from app.database.crud.user import get_user_by_id, add_user_balance
+
         user = await get_user_by_id(db, payment.user_id)
 
         if not user:
@@ -227,6 +229,7 @@ class CloudPaymentsPaymentMixin:
 
         # Create transaction record
         from app.database.crud.transaction import create_transaction
+
         transaction = await create_transaction(
             db=db,
             user_id=user.id,

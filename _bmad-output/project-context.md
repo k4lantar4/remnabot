@@ -34,15 +34,15 @@ _Critical rules and patterns for implementing code in remnabot multi-tenant tran
 ### Multi-Tenancy Rules (CRITICAL)
 
 - ✅ **ALWAYS** use `get_current_tenant()` to access tenant context
-- ✅ **ALWAYS** include `tenant_id` in database queries
+- ✅ **ALWAYS** include `bot_id` in database queries
 - ✅ **ALWAYS** use `get_tenant_session()` for database operations
 - ✅ **NEVER** query database without tenant context set
 - ✅ **ALWAYS** prefix Redis keys with `tenant:{id}:`
 
 ```python
 # ✅ CORRECT
-tenant_id = get_current_tenant()
-async with get_tenant_session(tenant_id) as session:
+bot_id = get_current_tenant()
+async with get_tenant_session(bot_id) as session:
     users = await session.execute(select(User))
 
 # ❌ WRONG - No tenant context
@@ -53,7 +53,7 @@ users = await session.execute(select(User))
 
 - Use `snake_case` for all table and column names
 - Tables are plural: `users`, `subscriptions`, `payments`
-- Foreign keys format: `{table}_id` (e.g., `tenant_id`, `user_id`)
+- Foreign keys format: `{table}_id` (e.g., `bot_id`, `user_id`)
 - Index naming: `idx_{table}_{columns}`
 - All tenant tables MUST have RLS policies enabled
 - Tenant identifier type: Integer (auto-increment)
@@ -67,7 +67,7 @@ users = await session.execute(select(User))
   {"success": false, "error": {"code": "...", "message": "..."}}
   ```
 - Webhook routing: `/webhook/{bot_token}`
-- JWT tokens MUST include `tenant_id` claim
+- JWT tokens MUST include `bot_id` claim
 
 ### Python Code Style
 
@@ -90,13 +90,13 @@ users = await session.execute(select(User))
 ### Logging Rules
 
 - Use `structlog` for all logging
-- **ALWAYS** include `tenant_id` in log context
+- **ALWAYS** include `bot_id` in log context
 - Log format: structured JSON
 
 ```python
 logger.info(
     "payment_processed",
-    tenant_id=get_current_tenant(),
+    bot_id=get_current_tenant(),
     user_id=user.id,
     amount=amount,
     payment_method="zarinpal"
@@ -173,17 +173,17 @@ current_tenant: ContextVar[Optional[int]] = ContextVar('current_tenant', default
 
 def get_current_tenant() -> int:
     """Get tenant from context - raises if not set"""
-    tenant_id = current_tenant.get()
-    if tenant_id is None:
+    bot_id = current_tenant.get()
+    if bot_id is None:
         raise RuntimeError("No tenant in context")
-    return tenant_id
+    return bot_id
 
-async def get_tenant_session(tenant_id: int) -> AsyncSession:
+async def get_tenant_session(bot_id: int) -> AsyncSession:
     """Create session with RLS context"""
     session = async_session_maker()
     await session.execute(
-        text("SET app.current_tenant = :tenant_id"),
-        {"tenant_id": tenant_id}
+        text("SET app.current_tenant = :bot_id"),
+        {"bot_id": bot_id}
     )
     return session
 ```

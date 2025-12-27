@@ -44,11 +44,7 @@ class CloudPaymentsService:
 
     @property
     def is_configured(self) -> bool:
-        return bool(
-            settings.is_cloudpayments_enabled()
-            and self.public_id
-            and self.api_secret
-        )
+        return bool(settings.is_cloudpayments_enabled() and self.public_id and self.api_secret)
 
     def _get_auth_header(self) -> str:
         """Generate Basic Auth header for CloudPayments API."""
@@ -89,20 +85,14 @@ class CloudPaymentsService:
                 data = response.json()
 
                 if response.status_code >= 400:
-                    logger.error(
-                        "CloudPayments API error %s: %s", response.status_code, data
-                    )
-                    raise CloudPaymentsAPIError(
-                        f"CloudPayments API returned status {response.status_code}"
-                    )
+                    logger.error("CloudPayments API error %s: %s", response.status_code, data)
+                    raise CloudPaymentsAPIError(f"CloudPayments API returned status {response.status_code}")
 
                 return data
 
         except httpx.RequestError as error:
             logger.error("Error communicating with CloudPayments API: %s", error)
-            raise CloudPaymentsAPIError(
-                "Failed to communicate with CloudPayments API"
-            ) from error
+            raise CloudPaymentsAPIError("Failed to communicate with CloudPayments API") from error
 
     @staticmethod
     def _amount_from_kopeks(amount_kopeks: int) -> float:

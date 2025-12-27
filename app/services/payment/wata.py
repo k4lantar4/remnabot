@@ -91,9 +91,7 @@ class WataPaymentMixin:
             try:
                 expires_at = service._parse_datetime(expiration_datetime_str)
             except Exception as error:
-                logger.warning(
-                    "Failed to parse WATA expiration datetime: %s", error
-                )
+                logger.warning("Failed to parse WATA expiration datetime: %s", error)
 
         metadata_payload = {
             "user_id": user_id,
@@ -156,13 +154,9 @@ class WataPaymentMixin:
 
             payment = None
             if order_id:
-                payment = await payment_module.get_wata_payment_by_order_id(
-                    db, order_id
-                )
+                payment = await payment_module.get_wata_payment_by_order_id(db, order_id)
             if not payment and payment_link_id:
-                payment = await payment_module.get_wata_payment_by_link_id(
-                    db, payment_link_id
-                )
+                payment = await payment_module.get_wata_payment_by_link_id(db, payment_link_id)
 
             if not payment:
                 logger.error(
@@ -173,9 +167,7 @@ class WataPaymentMixin:
                 return False
 
             if payment.is_paid:
-                logger.info(
-                    "WATA payment %s already processed", payment.payment_link_id
-                )
+                logger.info("WATA payment %s already processed", payment.payment_link_id)
                 return True
 
             terminal_public_id = payload.get("terminalPublicId")
@@ -288,9 +280,7 @@ class WataPaymentMixin:
             is_completed=True,
         )
 
-        await payment_module.link_wata_payment_to_transaction(
-            db, payment, transaction.id
-        )
+        await payment_module.link_wata_payment_to_transaction(db, payment, transaction.id)
 
         old_balance = user.balance_toman
         was_first_topup = not user.has_made_first_topup
@@ -308,9 +298,7 @@ class WataPaymentMixin:
         try:
             from app.services.referral_service import process_referral_topup
 
-            await process_referral_topup(
-                db, user.id, payment.amount_toman, getattr(self, "bot", None)
-            )
+            await process_referral_topup(db, user.id, payment.amount_toman, getattr(self, "bot", None))
         except Exception as error:
             logger.error(
                 "Error processing WATA referral top-up: %s",
@@ -480,9 +468,7 @@ class WataPaymentMixin:
         try:
             payment_module = import_module("app.services.payment_service")
 
-            payment = await payment_module.get_wata_payment_by_id(
-                db, local_payment_id
-            )
+            payment = await payment_module.get_wata_payment_by_id(db, local_payment_id)
             if not payment:
                 return None
 
@@ -494,9 +480,7 @@ class WataPaymentMixin:
                         trigger="status_check",
                     )
                     if finalized:
-                        payment = await payment_module.get_wata_payment_by_id(
-                            db, local_payment_id
-                        )
+                        payment = await payment_module.get_wata_payment_by_id(db, local_payment_id)
                 except Exception as error:
                     logger.error(
                         "Error during automatic credit by WATA status: %s",

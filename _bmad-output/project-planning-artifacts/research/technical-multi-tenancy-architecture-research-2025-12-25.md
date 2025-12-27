@@ -102,7 +102,7 @@ _منبع: fastapi.tiangolo.com, docs.aiogram.dev, sqlalchemy.org_
 
 | الگو | توضیح | مزایا | معایب |
 |------|--------|-------|-------|
-| **Row-Level (tenant_id)** | یک دیتابیس، یک schema، ستون tenant_id | ساده، کم‌هزینه، backup آسان | نیاز به فیلتر دقیق در همه queries |
+| **Row-Level (bot_id)** | یک دیتابیس، یک schema، ستون bot_id | ساده، کم‌هزینه، backup آسان | نیاز به فیلتر دقیق در همه queries |
 | **Schema-per-Tenant** | یک دیتابیس، schema جدا برای هر tenant | جداسازی بهتر، migration مستقل | پیچیدگی مدیریت، connection pooling |
 | **Database-per-Tenant** | دیتابیس مجزا برای هر tenant | جداسازی کامل، compliance | هزینه بالا، پیچیدگی عملیاتی |
 
@@ -115,14 +115,14 @@ _منبع: fastapi.tiangolo.com, docs.aiogram.dev, sqlalchemy.org_
 ```sql
 -- مثال پیاده‌سازی RLS
 CREATE POLICY tenant_isolation ON users
-    USING (tenant_id = current_setting('app.current_tenant')::uuid);
+    USING (bot_id = current_setting('app.current_tenant')::uuid);
 ```
 
 | ویژگی | توضیح |
 |-------|--------|
 | **Automatic Filtering** | دیتابیس خودش queries رو فیلتر می‌کنه |
 | **Security at DB Level** | حتی اگر application bug داشته باشه، داده‌ها امن هستن |
-| **Performance** | ایندکس روی tenant_id + query optimization |
+| **Performance** | ایندکس روی bot_id + query optimization |
 
 _منبع: postgresql.org/docs/current/ddl-rowsecurity.html_
 
@@ -271,14 +271,14 @@ _منبع: fastapi.tiangolo.com/fa/features, Python contextvars documentation_
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import event
 
-def get_tenant_session(tenant_id: uuid.UUID) -> Session:
+def get_tenant_session(bot_id: uuid.UUID) -> Session:
     """Create session with automatic tenant filtering"""
     session = SessionLocal()
     
     # Set PostgreSQL session variable for RLS
     session.execute(
-        text("SET app.current_tenant = :tenant_id"),
-        {"tenant_id": str(tenant_id)}
+        text("SET app.current_tenant = :bot_id"),
+        {"bot_id": str(bot_id)}
     )
     
     return session
@@ -300,13 +300,13 @@ from sqlalchemy import event
 
 @event.listens_for(Query, "before_compile", retval=True)
 def filter_by_tenant(query):
-    """Automatically add tenant_id filter to all queries"""
+    """Automatically add bot_id filter to all queries"""
     tenant = current_tenant.get()
     if tenant:
         for desc in query.column_descriptions:
             entity = desc['entity']
-            if hasattr(entity, 'tenant_id'):
-                query = query.filter(entity.tenant_id == tenant.id)
+            if hasattr(entity, 'bot_id'):
+                query = query.filter(entity.bot_id == tenant.id)
     return query
 ```
 
@@ -320,11 +320,11 @@ _منبع: docs.sqlalchemy.org, PostgreSQL RLS documentation_
 from jose import jwt
 from datetime import datetime, timedelta
 
-def create_tenant_token(user_id: int, tenant_id: uuid.UUID) -> str:
+def create_tenant_token(user_id: int, bot_id: uuid.UUID) -> str:
     """Create JWT with tenant claim"""
     payload = {
         "sub": str(user_id),
-        "tenant_id": str(tenant_id),
+        "bot_id": str(bot_id),
         "exp": datetime.utcnow() + timedelta(hours=24),
         "iat": datetime.utcnow()
     }
@@ -360,7 +360,7 @@ def require_role(required_role: UserRole):
     ):
         if current_user.role == UserRole.SUPER_ADMIN:
             return current_user
-        if current_user.tenant_id != tenant.id:
+        if current_user.bot_id != tenant.id:
             raise HTTPException(403, "Access denied")
         if current_user.role.value < required_role.value:
             raise HTTPException(403, "Insufficient permissions")
@@ -431,10 +431,10 @@ class TenantConfig(BaseModel):
     currency: str = "IRR"
 
 # Load from database instead of env
-async def get_tenant_config(tenant_id: uuid.UUID) -> TenantConfig:
+async def get_tenant_config(bot_id: uuid.UUID) -> TenantConfig:
     config_row = await db.execute(
         select(TenantConfigModel).where(
-            TenantConfigModel.tenant_id == tenant_id
+            TenantConfigModel.bot_id == bot_id
         )
     )
     return TenantConfig(**config_row.to_dict())
@@ -455,14 +455,14 @@ class TenantEventBus:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
     
-    async def publish(self, tenant_id: str, event_type: str, data: dict):
+    async def publish(self, bot_id: str, event_type: str, data: dict):
         """Publish event to tenant-specific channel"""
-        channel = f"tenant:{tenant_id}:{event_type}"
+        channel = f"tenant:{bot_id}:{event_type}"
         await self.redis.publish(channel, json.dumps(data))
     
-    async def subscribe(self, tenant_id: str, event_type: str):
+    async def subscribe(self, bot_id: str, event_type: str):
         """Subscribe to tenant-specific events"""
-        channel = f"tenant:{tenant_id}:{event_type}"
+        channel = f"tenant:{bot_id}:{event_type}"
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(channel)
         return pubsub
@@ -526,7 +526,7 @@ _منبع: fastapi.tiangolo.com, PostgreSQL documentation_
 
 ### Database Schema Design
 
-#### Core Tables با tenant_id
+#### Core Tables با bot_id
 
 ```sql
 -- Tenant Table (Master)
@@ -549,7 +549,7 @@ CREATE TABLE tenants (
 -- Users Table (per-tenant)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    bot_id UUID NOT NULL REFERENCES tenants(id),
     telegram_id BIGINT NOT NULL,
     username VARCHAR(255),
     balance_tomans INTEGER DEFAULT 0,
@@ -557,13 +557,13 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Unique per tenant
-    UNIQUE(tenant_id, telegram_id)
+    UNIQUE(bot_id, telegram_id)
 );
 
 -- Subscriptions Table (per-tenant)
 CREATE TABLE subscriptions (
     id SERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    bot_id UUID NOT NULL REFERENCES tenants(id),
     user_id INTEGER NOT NULL REFERENCES users(id),
     status VARCHAR(20) NOT NULL,
     start_date TIMESTAMP,
@@ -577,7 +577,7 @@ CREATE TABLE subscriptions (
 -- Payments Table (per-tenant)
 CREATE TABLE payments (
     id SERIAL PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    bot_id UUID NOT NULL REFERENCES tenants(id),
     user_id INTEGER NOT NULL REFERENCES users(id),
     amount_tomans INTEGER NOT NULL,
     payment_method VARCHAR(50) NOT NULL,
@@ -599,13 +599,13 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
 CREATE POLICY tenant_isolation_users ON users
-    USING (tenant_id = current_setting('app.current_tenant')::uuid);
+    USING (bot_id = current_setting('app.current_tenant')::uuid);
 
 CREATE POLICY tenant_isolation_subscriptions ON subscriptions
-    USING (tenant_id = current_setting('app.current_tenant')::uuid);
+    USING (bot_id = current_setting('app.current_tenant')::uuid);
 
 CREATE POLICY tenant_isolation_payments ON payments
-    USING (tenant_id = current_setting('app.current_tenant')::uuid);
+    USING (bot_id = current_setting('app.current_tenant')::uuid);
 
 -- Super admin bypass (for platform admin)
 CREATE POLICY super_admin_users ON users
@@ -616,9 +616,9 @@ CREATE POLICY super_admin_users ON users
 
 ```sql
 -- Composite indexes for common queries
-CREATE INDEX idx_users_tenant_telegram ON users(tenant_id, telegram_id);
-CREATE INDEX idx_subscriptions_tenant_user ON subscriptions(tenant_id, user_id);
-CREATE INDEX idx_payments_tenant_status ON payments(tenant_id, status);
+CREATE INDEX idx_users_tenant_telegram ON users(bot_id, telegram_id);
+CREATE INDEX idx_subscriptions_tenant_user ON subscriptions(bot_id, user_id);
+CREATE INDEX idx_payments_tenant_status ON payments(bot_id, status);
 CREATE INDEX idx_tenants_bot_token ON tenants(bot_token);
 ```
 
@@ -629,31 +629,31 @@ _منبع: postgresql.org/docs/current/ddl-rowsecurity.html_
 #### فاز ۱: آماده‌سازی (بدون تغییر رفتار)
 
 ```python
-# Step 1: Add tenant_id column as nullable
-ALTER TABLE users ADD COLUMN tenant_id UUID;
-ALTER TABLE subscriptions ADD COLUMN tenant_id UUID;
-ALTER TABLE payments ADD COLUMN tenant_id UUID;
+# Step 1: Add bot_id column as nullable
+ALTER TABLE users ADD COLUMN bot_id UUID;
+ALTER TABLE subscriptions ADD COLUMN bot_id UUID;
+ALTER TABLE payments ADD COLUMN bot_id UUID;
 
 # Step 2: Create default tenant for existing data
 INSERT INTO tenants (id, bot_token, bot_username, owner_telegram_id)
 VALUES ('00000000-0000-0000-0000-000000000001', 'EXISTING_BOT_TOKEN', 'existing_bot', 123456);
 
-# Step 3: Backfill tenant_id for existing data
-UPDATE users SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE subscriptions SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE payments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+# Step 3: Backfill bot_id for existing data
+UPDATE users SET bot_id = '00000000-0000-0000-0000-000000000001' WHERE bot_id IS NULL;
+UPDATE subscriptions SET bot_id = '00000000-0000-0000-0000-000000000001' WHERE bot_id IS NULL;
+UPDATE payments SET bot_id = '00000000-0000-0000-0000-000000000001' WHERE bot_id IS NULL;
 ```
 
-#### فاز ۲: اجباری کردن tenant_id
+#### فاز ۲: اجباری کردن bot_id
 
 ```python
-# Step 4: Make tenant_id NOT NULL
-ALTER TABLE users ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE subscriptions ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE payments ALTER COLUMN tenant_id SET NOT NULL;
+# Step 4: Make bot_id NOT NULL
+ALTER TABLE users ALTER COLUMN bot_id SET NOT NULL;
+ALTER TABLE subscriptions ALTER COLUMN bot_id SET NOT NULL;
+ALTER TABLE payments ALTER COLUMN bot_id SET NOT NULL;
 
 # Step 5: Add foreign key constraints
-ALTER TABLE users ADD CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE users ADD CONSTRAINT fk_users_tenant FOREIGN KEY (bot_id) REFERENCES tenants(id);
 ```
 
 #### فاز ۳: فعال‌سازی RLS
@@ -716,14 +716,14 @@ class TenantConfigCache:
         self.redis = redis
         self.ttl = 300  # 5 minutes
     
-    async def get_config(self, tenant_id: str) -> TenantConfig:
-        cached = await self.redis.get(f"tenant:{tenant_id}:config")
+    async def get_config(self, bot_id: str) -> TenantConfig:
+        cached = await self.redis.get(f"tenant:{bot_id}:config")
         if cached:
             return TenantConfig.parse_raw(cached)
         
-        config = await db_get_tenant_config(tenant_id)
+        config = await db_get_tenant_config(bot_id)
         await self.redis.setex(
-            f"tenant:{tenant_id}:config",
+            f"tenant:{bot_id}:config",
             self.ttl,
             config.json()
         )
@@ -754,7 +754,7 @@ _منبع: SQLAlchemy documentation, Redis best practices_
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                Layer 2: Application Level                    │
-│  - JWT with tenant_id claim                                  │
+│  - JWT with bot_id claim                                  │
 │  - Tenant context middleware                                 │
 │  - Input validation per tenant rules                         │
 └─────────────────────────────────────────────────────────────┘
@@ -773,7 +773,7 @@ _منبع: SQLAlchemy documentation, Redis best practices_
 | بررسی | وضعیت | توضیح |
 |-------|--------|--------|
 | RLS Policies | ✅ | همه جداول tenant-aware |
-| JWT Validation | ✅ | tenant_id در token |
+| JWT Validation | ✅ | bot_id در token |
 | Input Sanitization | ✅ | Pydantic validation |
 | SQL Injection | ✅ | SQLAlchemy ORM |
 | Audit Logging | ✅ | Log همه عملیات حساس |
@@ -869,7 +869,7 @@ _منبع: Docker documentation, PostgreSQL resource planning_
 
 ```
 Phase 1: Foundation (هفته ۱-۲)
-├── Add tenant table + tenant_id columns
+├── Add tenant table + bot_id columns
 ├── Create default tenant for existing data
 └── No behavior change yet
 
@@ -981,18 +981,18 @@ async def tenant_context(test_tenant):
 async def test_user_isolation(tenant_context, db_session):
     """Users from one tenant shouldn't see other tenant's users"""
     # Create user in current tenant
-    user = User(tenant_id=tenant_context.id, telegram_id=123)
+    user = User(bot_id=tenant_context.id, telegram_id=123)
     db_session.add(user)
     await db_session.commit()
     
     # Query should only return current tenant's users
     users = await db_session.execute(select(User))
-    assert all(u.tenant_id == tenant_context.id for u in users.scalars())
+    assert all(u.bot_id == tenant_context.id for u in users.scalars())
 
 async def test_rls_enforcement(db_session, test_tenant, other_tenant):
     """RLS should prevent cross-tenant access"""
     # Create user in other tenant
-    other_user = User(tenant_id=other_tenant.id, telegram_id=456)
+    other_user = User(bot_id=other_tenant.id, telegram_id=456)
     db_session.add(other_user)
     await db_session.commit()
     
@@ -1076,25 +1076,25 @@ from prometheus_client import Counter, Histogram
 requests_total = Counter(
     'requests_total',
     'Total requests',
-    ['tenant_id', 'endpoint', 'status']
+    ['bot_id', 'endpoint', 'status']
 )
 
 request_latency = Histogram(
     'request_latency_seconds',
     'Request latency',
-    ['tenant_id', 'endpoint']
+    ['bot_id', 'endpoint']
 )
 
 # Structured logging
 logger = structlog.get_logger()
 
-async def log_request(tenant_id: str, endpoint: str, status: int, duration: float):
-    requests_total.labels(tenant_id, endpoint, status).inc()
-    request_latency.labels(tenant_id, endpoint).observe(duration)
+async def log_request(bot_id: str, endpoint: str, status: int, duration: float):
+    requests_total.labels(bot_id, endpoint, status).inc()
+    request_latency.labels(bot_id, endpoint).observe(duration)
     
     logger.info(
         "request_processed",
-        tenant_id=tenant_id,
+        bot_id=bot_id,
         endpoint=endpoint,
         status=status,
         duration_ms=duration * 1000
@@ -1192,9 +1192,9 @@ pg_restore -d remnabot backup_before_phase_X.sql
 ┌─────────────────────────────────────────────────────────────┐
 │  Week 1-2: FOUNDATION                                        │
 │  ├── Create tenants table                                    │
-│  ├── Add tenant_id to all models                             │
+│  ├── Add bot_id to all models                             │
 │  ├── Backfill existing data                                  │
-│  └── ✅ Checkpoint: All data has tenant_id                   │
+│  └── ✅ Checkpoint: All data has bot_id                   │
 ├─────────────────────────────────────────────────────────────┤
 │  Week 3-4: ISOLATION                                         │
 │  ├── Implement TenantMiddleware                              │

@@ -64,45 +64,23 @@ async def create_platega_payment(
     return payment
 
 
-async def get_platega_payment_by_id(
-    db: AsyncSession, payment_id: int
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(PlategaPayment.id == payment_id)
-    )
+async def get_platega_payment_by_id(db: AsyncSession, payment_id: int) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.id == payment_id))
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_id_for_update(
-    db: AsyncSession, payment_id: int
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment)
-        .where(PlategaPayment.id == payment_id)
-        .with_for_update()
-    )
+async def get_platega_payment_by_id_for_update(db: AsyncSession, payment_id: int) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.id == payment_id).with_for_update())
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_transaction_id(
-    db: AsyncSession, transaction_id: str
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(
-            PlategaPayment.platega_transaction_id == transaction_id
-        )
-    )
+async def get_platega_payment_by_transaction_id(db: AsyncSession, transaction_id: str) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.platega_transaction_id == transaction_id))
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_correlation_id(
-    db: AsyncSession, correlation_id: str
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(
-            PlategaPayment.correlation_id == correlation_id
-        )
-    )
+async def get_platega_payment_by_correlation_id(db: AsyncSession, correlation_id: str) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.correlation_id == correlation_id))
     return result.scalar_one_or_none()
 
 

@@ -69,9 +69,9 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Concern | Scope | Implementation Approach |
 |---------|-------|------------------------|
 | **Tenant Isolation** | All layers | RLS + ContextVar + Cache prefixing |
-| **Authentication** | API + Bot | JWT with tenant_id + Telegram Auth |
+| **Authentication** | API + Bot | JWT with bot_id + Telegram Auth |
 | **Localization** | UI + Messages | Persian (primary) + English (secondary) |
-| **Logging & Monitoring** | All services | Structured logs with tenant_id |
+| **Logging & Monitoring** | All services | Structured logs with bot_id |
 | **Configuration** | Per-tenant | Database-stored TenantConfig |
 | **Error Handling** | All layers | User-friendly + Admin alerts in channel |
 | **Caching** | Redis | Tenant-prefixed keys |
@@ -163,10 +163,10 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 | Aspect | Decision |
 |--------|----------|
-| Pattern | Single database, single schema, `tenant_id` column |
+| Pattern | Single database, single schema, `bot_id` column |
 | Identifier | Integer (auto-increment) - simple, fast, sufficient for 200 tenants |
 | Isolation | PostgreSQL RLS policies on all tenant tables |
-| Session Variable | `SET app.current_tenant = :tenant_id` |
+| Session Variable | `SET app.current_tenant = :bot_id` |
 
 **Tenant Table Structure:**
 
@@ -189,7 +189,7 @@ CREATE TABLE tenants (
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_users ON users
-    USING (tenant_id = current_setting('app.current_tenant')::integer);
+    USING (bot_id = current_setting('app.current_tenant')::integer);
 ```
 
 ### Authentication & Security
@@ -197,7 +197,7 @@ CREATE POLICY tenant_isolation_users ON users
 | Layer | Method | Use Case |
 |-------|--------|----------|
 | **Bot Webhook** | bot_token in URL | Telegram → App |
-| **REST API** | JWT with tenant_id claim | Admin panel, integrations |
+| **REST API** | JWT with bot_id claim | Admin panel, integrations |
 | **External** | API Key | Third-party integrations |
 | **Super Admin** | RLS Bypass | Platform management |
 
@@ -206,7 +206,7 @@ CREATE POLICY tenant_isolation_users ON users
 ```python
 {
     "sub": "user_id",
-    "tenant_id": 1,
+    "bot_id": 1,
     "role": "tenant_admin",
     "exp": "...",
     "iat": "..."
@@ -276,7 +276,7 @@ POST https://api.example.com/webhook/{bot_token}
 | Aspect | Decision |
 |--------|----------|
 | Format | Structured JSON |
-| Fields | timestamp, level, tenant_id, message, context |
+| Fields | timestamp, level, bot_id, message, context |
 | Storage | File (`logs/bot.log`) |
 | Rotation | Daily, 7 days retention |
 
@@ -286,7 +286,7 @@ POST https://api.example.com/webhook/{bot_token}
 {
     "timestamp": "2025-12-25T10:30:00Z",
     "level": "INFO",
-    "tenant_id": 1,
+    "bot_id": 1,
     "message": "Payment processed",
     "context": {"user_id": 123, "amount": 50000}
 }
@@ -295,12 +295,12 @@ POST https://api.example.com/webhook/{bot_token}
 ### Decision Impact Analysis
 
 **Implementation Sequence:**
-1. Add `tenants` table and `tenant_id` to existing tables
+1. Add `tenants` table and `bot_id` to existing tables
 2. Implement TenantMiddleware for context extraction
 3. Enable PostgreSQL RLS policies
 4. Update all queries to use tenant context
 5. Implement JWT authentication for API
-6. Add structured logging with tenant_id
+6. Add structured logging with bot_id
 
 **Cross-Component Dependencies:**
 - TenantMiddleware → affects all handlers and services
@@ -324,7 +324,7 @@ POST https://api.example.com/webhook/{bot_token}
 |---------|------------|---------|
 | Tables | snake_case, plural | `users`, `subscriptions`, `tenant_configs` |
 | Columns | snake_case | `user_id`, `created_at`, `is_active` |
-| Foreign Keys | `{table}_id` | `tenant_id`, `user_id` |
+| Foreign Keys | `{table}_id` | `bot_id`, `user_id` |
 | Indexes | `idx_{table}_{columns}` | `idx_users_tenant_telegram` |
 | Constraints | `{table}_{type}_{columns}` | `users_uq_tenant_telegram` |
 
@@ -334,7 +334,7 @@ POST https://api.example.com/webhook/{bot_token}
 |---------|------------|---------|
 | Endpoints | snake_case, plural | `/api/v1/users`, `/api/v1/subscriptions` |
 | Path params | snake_case | `/users/{user_id}` |
-| Query params | snake_case | `?tenant_id=1&is_active=true` |
+| Query params | snake_case | `?bot_id=1&is_active=true` |
 | JSON fields | snake_case | `{"user_id": 123, "amount_tomans": 50000}` |
 
 #### Code Naming Conventions (Python)
@@ -392,7 +392,7 @@ logger = structlog.get_logger()
 # Standard log call with tenant context
 logger.info(
     "payment_processed",
-    tenant_id=get_current_tenant(),
+    bot_id=get_current_tenant(),
     user_id=user.id,
     amount=amount,
     payment_method="zarinpal"
@@ -412,25 +412,25 @@ current_tenant: ContextVar[Optional[int]] = ContextVar('current_tenant', default
 
 def get_current_tenant() -> int:
     """Get tenant from context - raises if not set"""
-    tenant_id = current_tenant.get()
-    if tenant_id is None:
+    bot_id = current_tenant.get()
+    if bot_id is None:
         raise RuntimeError("No tenant in context")
-    return tenant_id
+    return bot_id
 
-def set_current_tenant(tenant_id: int) -> None:
+def set_current_tenant(bot_id: int) -> None:
     """Set tenant in context"""
-    current_tenant.set(tenant_id)
+    current_tenant.set(bot_id)
 ```
 
 #### Database Session Pattern
 
 ```python
-async def get_tenant_session(tenant_id: int) -> AsyncSession:
+async def get_tenant_session(bot_id: int) -> AsyncSession:
     """Create session with RLS context"""
     session = async_session_maker()
     await session.execute(
-        text("SET app.current_tenant = :tenant_id"),
-        {"tenant_id": tenant_id}
+        text("SET app.current_tenant = :bot_id"),
+        {"bot_id": bot_id}
     )
     return session
 ```
@@ -457,7 +457,7 @@ class InternalError(Exception):
 **All AI Agents MUST:**
 
 1. ✅ Use snake_case for all Python code, database, and API naming
-2. ✅ Always include `tenant_id` in logs and database queries
+2. ✅ Always include `bot_id` in logs and database queries
 3. ✅ Use `get_current_tenant()` to access tenant context
 4. ✅ Follow the established directory structure
 5. ✅ Use localization keys for user-facing messages
@@ -497,11 +497,11 @@ app/
 │   └── exceptions.py               # TenantError, UserError
 ├── database/
 │   ├── database.py                 # 🔄 Add RLS setup
-│   ├── models.py                   # 🔄 Add tenant_id to models
+│   ├── models.py                   # 🔄 Add bot_id to models
 │   ├── tenant_models.py            # 🆕 Tenant, TenantConfig models
 │   └── crud/
 │       ├── tenant.py               # 🆕 Tenant CRUD
-│       └── ... (modify existing for tenant_id)
+│       └── ... (modify existing for bot_id)
 ├── external/
 │   ├── zarinpal.py                 # 🆕 ZarinPal integration
 │   ├── card_to_card.py             # 🆕 Card-to-card system
@@ -526,7 +526,7 @@ app/
 
 migrations/alembic/versions/
 ├── xxx_add_tenants_table.py        # 🆕
-├── xxx_add_tenant_id_to_all.py     # 🆕
+├── xxx_add_bot_id_to_all.py     # 🆕
 └── xxx_enable_rls_policies.py      # 🆕
 
 tests/
@@ -539,7 +539,7 @@ tests/
 | Boundary | Entry Point | Auth Method |
 |----------|-------------|-------------|
 | Telegram Webhook | `/webhook/{bot_token}` | bot_token in URL |
-| REST API | `/api/v1/*` | JWT with tenant_id |
+| REST API | `/api/v1/*` | JWT with bot_id |
 | Payment Callbacks | `/callback/*` | Signature verification |
 
 | Layer | Responsibility | Depends On |
@@ -578,7 +578,7 @@ tests/
 ### Architecture Completeness: ✅ COMPLETE
 
 All critical architectural decisions documented:
-- Multi-tenancy: PostgreSQL RLS with Integer tenant_id
+- Multi-tenancy: PostgreSQL RLS with Integer bot_id
 - Authentication: JWT + Telegram Auth + API Key
 - Payments: ZarinPal + Card-to-Card + CryptoBot
 - Deployment: Single Docker instance for MVP
@@ -646,10 +646,10 @@ This architecture document is your complete guide for implementing dev5-from-ups
 2. Add `tenants` table via Alembic migration
 3. Implement TenantMiddleware for aiogram
 4. Enable PostgreSQL RLS policies
-5. Add `tenant_id` to existing tables
+5. Add `bot_id` to existing tables
 
 **Development Sequence:**
-1. Phase 1 (Foundation): Tenant table, tenant_id columns, backfill existing data
+1. Phase 1 (Foundation): Tenant table, bot_id columns, backfill existing data
 2. Phase 2 (Isolation): TenantMiddleware, RLS policies, query updates
 3. Phase 3 (Multi-bot): Webhook routing, per-tenant config
 4. Phase 4 (Payments): ZarinPal, Card-to-Card, remove Russian gateways

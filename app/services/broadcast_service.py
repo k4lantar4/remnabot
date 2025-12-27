@@ -141,9 +141,7 @@ class BroadcastService:
             keyboard = self._build_keyboard(config.selected_buttons)
 
             if len(recipients) > LARGE_BROADCAST_THRESHOLD:
-                logger.info(
-                    "Starting resilient broadcast mode for %s recipients", len(recipients)
-                )
+                logger.info("Starting resilient broadcast mode for %s recipients", len(recipients))
                 (
                     sent_count,
                     failed_count,
@@ -198,7 +196,7 @@ class BroadcastService:
     async def _fetch_recipients(self, target: str):
         async with AsyncSessionLocal() as session:
             if target.startswith("custom_"):
-                criteria = target[len("custom_"):]
+                criteria = target[len("custom_") :]
                 return await get_custom_users(session, criteria)
             return await get_target_users(session, target)
 
@@ -247,7 +245,7 @@ class BroadcastService:
                 await self._mark_cancelled(broadcast_id, sent_count, failed_count)
                 return sent_count, failed_count, True
 
-            batch = recipients[i:i + batch_size]
+            batch = recipients[i : i + batch_size]
             tasks = [send_single_message(user) for user in batch]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -305,7 +303,7 @@ class BroadcastService:
                 await self._mark_cancelled(broadcast_id, sent_count, failed_count)
                 return sent_count, failed_count, True
 
-            batch = recipients[i:i + batch_size]
+            batch = recipients[i : i + batch_size]
             tasks = [send_single_message(user) for user in batch]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -380,9 +378,7 @@ class BroadcastService:
             broadcast_id,
             sent_count,
             failed_count,
-            status="cancelled" if cancelled else (
-                "completed" if failed_count == 0 else "partial"
-            ),
+            status="cancelled" if cancelled else ("completed" if failed_count == 0 else "partial"),
         )
 
     async def _mark_cancelled(
@@ -464,11 +460,8 @@ class BroadcastService:
                 )
                 await asyncio.sleep(0.2)
             except SQLAlchemyError:
-                logger.exception(
-                    "Failed to update broadcast status %s", broadcast_id
-                )
+                logger.exception("Failed to update broadcast status %s", broadcast_id)
                 return
 
 
 broadcast_service = BroadcastService()
-

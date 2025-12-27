@@ -25,6 +25,7 @@ def _normalize_period_discounts(period_discounts: Optional[Dict[int, int]]) -> D
 
     return normalized
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,9 +80,7 @@ async def count_promo_groups(db: AsyncSession) -> int:
 
 
 async def get_default_promo_group(db: AsyncSession) -> Optional[PromoGroup]:
-    result = await db.execute(
-        select(PromoGroup).where(PromoGroup.is_default.is_(True))
-    )
+    result = await db.execute(select(PromoGroup).where(PromoGroup.is_default.is_(True)))
     return result.scalars().first()
 
 
@@ -101,9 +100,7 @@ async def create_promo_group(
     normalized_period_discounts = _normalize_period_discounts(period_discounts)
 
     auto_assign_total_spent_toman = (
-        max(0, auto_assign_total_spent_toman)
-        if auto_assign_total_spent_toman is not None
-        else None
+        max(0, auto_assign_total_spent_toman) if auto_assign_total_spent_toman is not None else None
     )
 
     existing_default = await get_default_promo_group(db)
@@ -125,11 +122,7 @@ async def create_promo_group(
     await db.flush()
 
     if should_be_default and existing_default and existing_default.id != promo_group.id:
-        await db.execute(
-            update(PromoGroup)
-            .where(PromoGroup.id != promo_group.id)
-            .values(is_default=False)
-        )
+        await db.execute(update(PromoGroup).where(PromoGroup.id != promo_group.id).values(is_default=False))
 
     await db.commit()
     await db.refresh(promo_group)
@@ -142,7 +135,7 @@ async def create_promo_group(
         promo_group.traffic_discount_percent,
         promo_group.device_discount_percent,
         normalized_period_discounts,
-        (auto_assign_total_spent_toman or 0) ,
+        (auto_assign_total_spent_toman or 0),
         "on" if promo_group.apply_discounts_to_addons else "off",
     )
 
@@ -185,28 +178,17 @@ async def update_promo_group(
         if is_default:
             group.is_default = True
             await db.flush()
-            await db.execute(
-                update(PromoGroup)
-                .where(PromoGroup.id != group.id)
-                .values(is_default=False)
-            )
+            await db.execute(update(PromoGroup).where(PromoGroup.id != group.id).values(is_default=False))
         else:
             if group.is_default:
                 group.is_default = False
                 await db.flush()
                 replacement = await db.execute(
-                    select(PromoGroup)
-                    .where(PromoGroup.id != group.id)
-                    .order_by(PromoGroup.id)
-                    .limit(1)
+                    select(PromoGroup).where(PromoGroup.id != group.id).order_by(PromoGroup.id).limit(1)
                 )
                 new_default = replacement.scalars().first()
                 if new_default:
-                    await db.execute(
-                        update(PromoGroup)
-                        .where(PromoGroup.id == new_default.id)
-                        .values(is_default=True)
-                    )
+                    await db.execute(update(PromoGroup).where(PromoGroup.id == new_default.id).values(is_default=True))
                 else:
                     # Don't allow state without base promo group
                     group.is_default = True
@@ -232,13 +214,10 @@ async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
         logger.error("Default promo group not found for reassignment")
         return False
 
-
     # Get list of users linked to promo group being deleted
     affected_user_ids: Set[int] = set()
 
-    user_ids_result = await db.execute(
-        select(User.id).where(User.promo_group_id == group.id)
-    )
+    user_ids_result = await db.execute(select(User.id).where(User.promo_group_id == group.id))
     affected_user_ids.update(user_ids_result.scalars().all())
 
     promo_group_links_result = await db.execute(
@@ -246,11 +225,7 @@ async def delete_promo_group(db: AsyncSession, group: PromoGroup) -> bool:
     )
     affected_user_ids.update(promo_group_links_result.scalars().all())
 
-    await db.execute(
-        update(User)
-        .where(User.promo_group_id == group.id)
-        .values(promo_group_id=default_group.id)
-    )
+    await db.execute(update(User).where(User.promo_group_id == group.id).values(promo_group_id=default_group.id))
 
     if affected_user_ids:
         existing_defaults_result = await db.execute(
@@ -300,7 +275,5 @@ async def get_promo_group_members(
 
 
 async def count_promo_group_members(db: AsyncSession, group_id: int) -> int:
-    result = await db.execute(
-        select(func.count(User.id)).where(User.promo_group_id == group_id)
-    )
+    result = await db.execute(select(func.count(User.id)).where(User.promo_group_id == group_id))
     return result.scalar_one()

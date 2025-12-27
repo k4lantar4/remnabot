@@ -36,9 +36,7 @@ class Pal24Response:
     def raise_for_status(self, endpoint: str) -> None:
         if not self.success:
             detail = self.data.get("message") or self.data.get("error")
-            raise Pal24APIError(
-                f"Pal24 API error at {endpoint}: status={self.status}, detail={detail or self.data}"
-            )
+            raise Pal24APIError(f"Pal24 API error at {endpoint}: status={self.status}, detail={detail or self.data}")
 
 
 class Pal24Client:
@@ -101,9 +99,7 @@ class Pal24Client:
                             endpoint,
                             text_body,
                         )
-                        raise Pal24APIError(
-                            f"Pal24 API returned non-JSON response: {text_body}"
-                        ) from None
+                        raise Pal24APIError(f"Pal24 API returned non-JSON response: {text_body}") from None
 
                     result = Pal24Response.from_payload(payload, status)
                     if status >= 400 or not result.success:
@@ -214,4 +210,3 @@ class Pal24Client:
             return (Decimal(amount_toman) / Decimal("100")).quantize(Decimal("0.01"))
         except (InvalidOperation, TypeError) as error:
             raise Pal24APIError(f"Invalid amount: {amount_toman}") from error
-

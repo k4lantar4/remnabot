@@ -59,7 +59,7 @@ def _calculate_subscription_flags(subscription):
     if not subscription:
         return False, False
 
-    actual_status = getattr(subscription, "actual_status", None)
+    actual_status: Any | None = getattr(subscription, "actual_status", None)
     has_active_subscription = actual_status in {"active", "trial"}
     subscription_is_active = bool(getattr(subscription, "is_active", False))
 
@@ -337,7 +337,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
 
     if referral_code:
         await state.update_data(referral_code=referral_code)
-    
+
     user = db_user if db_user else await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
 
     if campaign and not campaign_notification_sent:
@@ -355,7 +355,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
                 campaign.id,
                 notify_error,
             )
-    
+
     if user and user.status != UserStatus.DELETED.value:
         logger.info(f"✅ Active user found: {user.telegram_id}")
         profile_updated = False
@@ -455,13 +455,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         return
 
     if user and user.status == UserStatus.DELETED.value:
-<<<<<<< HEAD
-        logger.info(f"🔄 Удаленный пользователь {user.telegram_id} начинает повторную регистрацию")
-
-=======
         logger.info(f"🔄 Deleted user {user.telegram_id} starting re-registration")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
         try:
             from app.services.user_service import UserService
             from app.database.models import (
@@ -477,21 +471,11 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
                         SubscriptionServer.subscription_id == user.subscription.id
                     )
                 )
-<<<<<<< HEAD
-                logger.info(f"🗑️ Удалены записи SubscriptionServer")
-
-            if user.subscription:
-                await db.delete(user.subscription)
-                logger.info(f"🗑️ Удалена подписка пользователя")
-
-=======
                 logger.info(f"🗑️ SubscriptionServer records deleted")
-            
+
             if user.subscription:
                 await db.delete(user.subscription)
                 logger.info(f"🗑️ User subscription deleted")
-            
->>>>>>> origin/fix/replace-kopek-to-toman
             await db.execute(
                 delete(PromoCodeUse).where(PromoCodeUse.user_id == user.id)
             )
@@ -523,26 +507,12 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
             user.referral_code = await generate_unique_referral_code(db, user.telegram_id)
 
             await db.commit()
-<<<<<<< HEAD
-
-            logger.info(f"✅ Пользователь {user.telegram_id} подготовлен к восстановлению")
-
-=======
-            
             logger.info(f"✅ User {user.telegram_id} prepared for restoration")
-            
->>>>>>> origin/fix/replace-kopek-to-toman
         except Exception as e:
             logger.error(f"❌ Error preparing for restoration: {e}")
             await db.rollback()
     else:
-<<<<<<< HEAD
-        logger.info(f"🆕 Новый пользователь, начинаем регистрацию")
-
-=======
         logger.info(f"🆕 New user, starting registration")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
     data = await state.get_data() or {}
     if not data.get('language'):
         if settings.is_language_selection_enabled():
@@ -596,7 +566,7 @@ async def process_language_selection(
 
         try:
             await callback.message.edit_text(
-                texts.t("LANGUAGE_SELECTION_DISABLED")
+                texts.t(key="LANGUAGE_SELECTION_DISABLED")
             )
         except Exception:
             await callback.message.answer(
@@ -690,13 +660,7 @@ async def _show_privacy_policy_after_rules(
         logger.info(f"🔒 Using default privacy policy text from localization for language {language}")
     else:
         privacy_policy_text = policy.content
-<<<<<<< HEAD
-        logger.info(f"🔒 Используется политика конфиденциальности из БД для языка {language}")
-
-=======
         logger.info(f"🔒 Using privacy policy from DB for language {language}")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
     try:
         await callback.message.edit_text(
             privacy_policy_text,
@@ -774,13 +738,7 @@ async def process_rules_accept(
     logger.info(f"👤 User: {callback.from_user.id}")
 
     current_state = await state.get_state()
-<<<<<<< HEAD
-    logger.info(f"📊 Текущее состояние: {current_state}")
-
-=======
     logger.info(f"📊 Current state: {current_state}")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
     language = DEFAULT_LANGUAGE
     texts = get_texts(language)
 
@@ -792,43 +750,23 @@ async def process_rules_accept(
         texts = get_texts(language)
 
         if callback.data == 'rules_accept':
-<<<<<<< HEAD
-            logger.info(f"✅ Правила приняты пользователем {callback.from_user.id}")
-
-            # Пытаемся показать политику конфиденциальности
-            policy_shown = await _show_privacy_policy_after_rules(
-                callback, state, db, language
-            )
-
-            # Если политика не была показана, продолжаем регистрацию
-=======
             logger.info(f"✅ Rules accepted by user {callback.from_user.id}")
-            
+
             # Try to show privacy policy
             policy_shown = await _show_privacy_policy_after_rules(
                 callback, state, db, language
             )
-            
+
             # If policy was not shown, continue registration
->>>>>>> origin/fix/replace-kopek-to-toman
             if not policy_shown:
                 await _continue_registration_after_rules(
                     callback, state, db, language, bot_id=bot_id
                 )
 
         else:
-<<<<<<< HEAD
-            logger.info(f"❌ Правила отклонены пользователем {callback.from_user.id}")
-
-            rules_required_text = texts.t(
-                "RULES_REQUIRED",
-                "Для использования бота необходимо принять правила сервиса.",
-            )
-=======
             logger.info(f"❌ Rules declined by user {callback.from_user.id}")
-            
+
             rules_required_text = texts.t("RULES_REQUIRED")
->>>>>>> origin/fix/replace-kopek-to-toman
 
             try:
                 await callback.message.edit_text(
@@ -844,15 +782,8 @@ async def process_rules_accept(
                     )
                 except:
                     pass
-<<<<<<< HEAD
 
-        logger.info(f"✅ Правила обработаны для пользователя {callback.from_user.id}")
-
-=======
-        
         logger.info(f"✅ Rules processed for user {callback.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
     except Exception as e:
         logger.error(f"❌ Error processing rules: {e}", exc_info=True)
         await callback.answer(
@@ -879,24 +810,12 @@ async def process_privacy_policy_accept(
     db: AsyncSession,
     bot_id: int = None,
 ):
-<<<<<<< HEAD
-
-    logger.info(f"🔒 PRIVACY POLICY: Начало обработки политики конфиденциальности")
-=======
-    
     logger.info(f"🔒 PRIVACY POLICY: Starting privacy policy processing")
->>>>>>> origin/fix/replace-kopek-to-toman
     logger.info(f"📊 Callback data: {callback.data}")
     logger.info(f"👤 User: {callback.from_user.id}")
 
     current_state = await state.get_state()
-<<<<<<< HEAD
-    logger.info(f"📊 Текущее состояние: {current_state}")
-
-=======
     logger.info(f"📊 Current state: {current_state}")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
     language = DEFAULT_LANGUAGE
     texts = get_texts(language)
 
@@ -908,13 +827,7 @@ async def process_privacy_policy_accept(
         texts = get_texts(language)
 
         if callback.data == 'privacy_policy_accept':
-<<<<<<< HEAD
-            logger.info(f"✅ Политика конфиденциальности принята пользователем {callback.from_user.id}")
-
-=======
             logger.info(f"✅ Privacy policy accepted by user {callback.from_user.id}")
-            
->>>>>>> origin/fix/replace-kopek-to-toman
             try:
                 await callback.message.delete()
                 logger.info(f"🗑️ Privacy policy message deleted")
@@ -954,26 +867,13 @@ async def process_privacy_policy_accept(
                         )
                         logger.info(f"🔍 Waiting for referral code input")
                     except Exception as e:
-<<<<<<< HEAD
-                        logger.error(f"Ошибка при показе вопроса о реферальном коде: {e}")
-                        await complete_registration_from_callback(callback, state, db)
-
-        else:
-            logger.info(f"❌ Политика конфиденциальности отклонена пользователем {callback.from_user.id}")
-
-            privacy_policy_required_text = texts.t(
-                "PRIVACY_POLICY_REQUIRED",
-                "Для использования бота необходимо принять политику конфиденциальности.",
-            )
-=======
                         logger.error(f"Error showing referral code question: {e}")
                         await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
-                    
+
         else:
             logger.info(f"❌ Privacy policy declined by user {callback.from_user.id}")
-            
+
             privacy_policy_required_text = texts.t("PRIVACY_POLICY_REQUIRED")
->>>>>>> origin/fix/replace-kopek-to-toman
 
             try:
                 await callback.message.edit_text(
@@ -989,15 +889,6 @@ async def process_privacy_policy_accept(
                     )
                 except:
                     pass
-<<<<<<< HEAD
-
-        logger.info(f"✅ Политика конфиденциальности обработана для пользователя {callback.from_user.id}")
-
-=======
-        
-        logger.info(f"✅ Privacy policy processed for user {callback.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
     except Exception as e:
         logger.error(f"❌ Error processing privacy policy: {e}", exc_info=True)
         await callback.answer(
@@ -1094,17 +985,13 @@ async def process_referral_code_skip(
         except:
             pass
 
-<<<<<<< HEAD
-    await complete_registration_from_callback(callback, state, db)
-=======
     await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
->>>>>>> origin/fix/replace-kopek-to-toman
 
 
 
 async def complete_registration_from_callback(
     callback: types.CallbackQuery,
-    state: FSMContext, 
+    state: FSMContext,
     db: AsyncSession,
     bot_id: int = None,
 ):
@@ -1124,7 +1011,7 @@ async def complete_registration_from_callback(
             language = data.get('language', DEFAULT_LANGUAGE)
             texts = get_texts(language)
             await callback.message.answer(
-                texts.t("BLACKLIST_REGISTRATION_BLOCKED", 
+                texts.t("BLACKLIST_REGISTRATION_BLOCKED",
                     f"🚫 Registration is not possible\n\n"
                     f"Reason: {blacklist_reason}\n\n"
                     f"If you believe this is an error, please contact support.")
@@ -1136,15 +1023,8 @@ async def complete_registration_from_callback(
         return
 
     from sqlalchemy.orm import selectinload
-<<<<<<< HEAD
-
-    existing_user = await get_user_by_telegram_id(db, callback.from_user.id)
-
-=======
-    
     existing_user = await get_user_by_telegram_id(db, callback.from_user.id, bot_id=bot_id)
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning(f"⚠️ User {callback.from_user.id} already active! Showing main menu.")
         texts = get_texts(existing_user.language)
@@ -1179,24 +1059,8 @@ async def complete_registration_from_callback(
             )
 
         try:
-            keyboard = await get_main_menu_keyboard_async(
-                db=db,
-                user=existing_user,
-                language=existing_user.language,
-                is_admin=is_admin,
-                has_had_paid_subscription=existing_user.has_had_paid_subscription,
-                has_active_subscription=has_active_subscription,
-                subscription_is_active=subscription_is_active,
-                balance_kopeks=existing_user.balance_kopeks,
-                subscription=existing_user.subscription,
-                is_moderator=is_moderator,
-                custom_buttons=custom_buttons,
-            )
             await callback.message.answer(
                 menu_text,
-<<<<<<< HEAD
-                reply_markup=keyboard,
-=======
                 reply_markup=get_main_menu_keyboard(
                     language=existing_user.language,
                     is_admin=is_admin,
@@ -1208,7 +1072,6 @@ async def complete_registration_from_callback(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
->>>>>>> origin/fix/replace-kopek-to-toman
                 parse_mode="HTML"
             )
             await _send_pinned_message(callback.bot, db, existing_user)
@@ -1241,13 +1104,8 @@ async def complete_registration_from_callback(
             referrer_id = referrer.id
 
     if existing_user and existing_user.status == UserStatus.DELETED.value:
-<<<<<<< HEAD
-        logger.info(f"🔄 Восстанавливаем удаленного пользователя {callback.from_user.id}")
-
-=======
         logger.info(f"🔄 Restoring deleted user {callback.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         existing_user.username = callback.from_user.username
         existing_user.first_name = callback.from_user.first_name
         existing_user.last_name = callback.from_user.last_name
@@ -1265,19 +1123,11 @@ async def complete_registration_from_callback(
         await db.refresh(existing_user, ['subscription'])
 
         user = existing_user
-<<<<<<< HEAD
-        logger.info(f"✅ Пользователь {callback.from_user.id} восстановлен")
-
-    elif not existing_user:
-        logger.info(f"🆕 Создаем нового пользователя {callback.from_user.id}")
-
-=======
         logger.info(f"✅ User {callback.from_user.id} restored")
-        
+
     elif not existing_user:
         logger.info(f"🆕 Creating new user {callback.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         referral_code = await generate_unique_referral_code(db, callback.from_user.id)
 
         user = await create_user(
@@ -1288,12 +1138,8 @@ async def complete_registration_from_callback(
             last_name=callback.from_user.last_name,
             language=language,
             referred_by_id=referrer_id,
-<<<<<<< HEAD
-            referral_code=referral_code
-=======
             referral_code=referral_code,
             bot_id=bot_id,
->>>>>>> origin/fix/replace-kopek-to-toman
         )
         await db.refresh(user, ['subscription'])
     else:
@@ -1364,22 +1210,12 @@ async def complete_registration_from_callback(
                 offer_text,
                 reply_markup=get_post_registration_keyboard(user.language),
             )
-<<<<<<< HEAD
-            logger.info(f"✅ Приветственное сообщение отправлено пользователю {user.telegram_id}")
-            await _send_pinned_message(callback.bot, db, user)
-=======
             logger.info(f"✅ Welcome message sent to user {user.telegram_id}")
->>>>>>> origin/fix/replace-kopek-to-toman
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
     else:
-<<<<<<< HEAD
-        logger.info(f"ℹ️ Приветственные сообщения отключены, показываем главное меню для пользователя {user.telegram_id}")
-
-=======
         logger.info(f"ℹ️ Welcome messages disabled, showing main menu for user {user.telegram_id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         has_active_subscription, subscription_is_active = _calculate_subscription_flags(
             getattr(user, "subscription", None)
         )
@@ -1402,28 +1238,8 @@ async def complete_registration_from_callback(
             )
 
         try:
-            keyboard = await get_main_menu_keyboard_async(
-                db=db,
-                user=user,
-                language=user.language,
-                is_admin=is_admin,
-                has_had_paid_subscription=user.has_had_paid_subscription,
-                has_active_subscription=has_active_subscription,
-                subscription_is_active=subscription_is_active,
-                balance_kopeks=user.balance_kopeks,
-                subscription=user.subscription,
-                is_moderator=is_moderator,
-                custom_buttons=custom_buttons,
-            )
             await callback.message.answer(
                 menu_text,
-<<<<<<< HEAD
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
-            await _send_pinned_message(callback.bot, db, user)
-            logger.info(f"✅ Главное меню показано пользователю {user.telegram_id}")
-=======
                 reply_markup=get_main_menu_keyboard(
                     language=user.language,
                     is_admin=is_admin,
@@ -1438,7 +1254,6 @@ async def complete_registration_from_callback(
                 parse_mode="HTML"
             )
             logger.info(f"✅ Main menu shown to user {user.telegram_id}")
->>>>>>> origin/fix/replace-kopek-to-toman
         except Exception as e:
             logger.error(f"Error showing main menu: {e}")
             await callback.message.answer(
@@ -1449,8 +1264,8 @@ async def complete_registration_from_callback(
 
 
 async def complete_registration(
-    message: types.Message, 
-    state: FSMContext, 
+    message: types.Message,
+    state: FSMContext,
     db: AsyncSession,
     bot_id: int = None,
 ):
@@ -1469,7 +1284,7 @@ async def complete_registration(
             language = data.get('language', DEFAULT_LANGUAGE)
             texts = get_texts(language)
             await message.answer(
-                texts.t("BLACKLIST_REGISTRATION_BLOCKED", 
+                texts.t("BLACKLIST_REGISTRATION_BLOCKED",
                     f"🚫 Registration is not possible\n\n"
                     f"Reason: {blacklist_reason}\n\n"
                     f"If you believe this is an error, please contact support.")
@@ -1479,15 +1294,9 @@ async def complete_registration(
 
         await state.clear()
         return
-<<<<<<< HEAD
 
-    existing_user = await get_user_by_telegram_id(db, message.from_user.id)
-
-=======
-    
     existing_user = await get_user_by_telegram_id(db, message.from_user.id, bot_id=bot_id)
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning(f"⚠️ User {message.from_user.id} already active! Showing main menu.")
         texts = get_texts(existing_user.language)
@@ -1537,9 +1346,6 @@ async def complete_registration(
             )
             await message.answer(
                 menu_text,
-<<<<<<< HEAD
-                reply_markup=keyboard,
-=======
                 reply_markup=get_main_menu_keyboard(
                     language=existing_user.language,
                     is_admin=is_admin,
@@ -1551,7 +1357,6 @@ async def complete_registration(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
->>>>>>> origin/fix/replace-kopek-to-toman
                 parse_mode="HTML"
             )
             await _send_pinned_message(message.bot, db, existing_user)
@@ -1584,13 +1389,8 @@ async def complete_registration(
             referrer_id = referrer.id
 
     if existing_user and existing_user.status == UserStatus.DELETED.value:
-<<<<<<< HEAD
-        logger.info(f"🔄 Восстанавливаем удаленного пользователя {message.from_user.id}")
-
-=======
         logger.info(f"🔄 Restoring deleted user {message.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         existing_user.username = message.from_user.username
         existing_user.first_name = message.from_user.first_name
         existing_user.last_name = message.from_user.last_name
@@ -1608,19 +1408,11 @@ async def complete_registration(
         await db.refresh(existing_user, ['subscription'])
 
         user = existing_user
-<<<<<<< HEAD
-        logger.info(f"✅ Пользователь {message.from_user.id} восстановлен")
-
-    elif not existing_user:
-        logger.info(f"🆕 Создаем нового пользователя {message.from_user.id}")
-
-=======
         logger.info(f"✅ User {message.from_user.id} restored")
-        
+
     elif not existing_user:
         logger.info(f"🆕 Creating new user {message.from_user.id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         referral_code = await generate_unique_referral_code(db, message.from_user.id)
 
         user = await create_user(
@@ -1723,22 +1515,12 @@ async def complete_registration(
                 offer_text,
                 reply_markup=get_post_registration_keyboard(user.language),
             )
-<<<<<<< HEAD
-            logger.info(f"✅ Приветственное сообщение отправлено пользователю {user.telegram_id}")
-            await _send_pinned_message(message.bot, db, user)
-=======
             logger.info(f"✅ Welcome message sent to user {user.telegram_id}")
->>>>>>> origin/fix/replace-kopek-to-toman
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
     else:
-<<<<<<< HEAD
-        logger.info(f"ℹ️ Приветственные сообщения отключены, показываем главное меню для пользователя {user.telegram_id}")
-
-=======
         logger.info(f"ℹ️ Welcome messages disabled, showing main menu for user {user.telegram_id}")
-        
->>>>>>> origin/fix/replace-kopek-to-toman
+
         has_active_subscription, subscription_is_active = _calculate_subscription_flags(
             getattr(user, "subscription", None)
         )
@@ -1761,28 +1543,8 @@ async def complete_registration(
             )
 
         try:
-            keyboard = await get_main_menu_keyboard_async(
-                db=db,
-                user=user,
-                language=user.language,
-                is_admin=is_admin,
-                has_had_paid_subscription=user.has_had_paid_subscription,
-                has_active_subscription=has_active_subscription,
-                subscription_is_active=subscription_is_active,
-                balance_kopeks=user.balance_kopeks,
-                subscription=user.subscription,
-                is_moderator=is_moderator,
-                custom_buttons=custom_buttons,
-            )
             await message.answer(
                 menu_text,
-<<<<<<< HEAD
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
-            logger.info(f"✅ Главное меню показано пользователю {user.telegram_id}")
-            await _send_pinned_message(message.bot, db, user)
-=======
                 reply_markup=get_main_menu_keyboard(
                     language=user.language,
                     is_admin=is_admin,
@@ -1797,7 +1559,6 @@ async def complete_registration(
                 parse_mode="HTML"
             )
             logger.info(f"✅ Main menu shown to user {user.telegram_id}")
->>>>>>> origin/fix/replace-kopek-to-toman
         except Exception as e:
             logger.error(f"Error showing main menu: {e}")
             await message.answer(
@@ -2176,50 +1937,28 @@ async def required_sub_channel_check(
         await query.answer(f"{texts.ERROR}!", show_alert=True)
 
 def register_handlers(dp: Dispatcher):
-<<<<<<< HEAD
-
-    logger.info("🔧 === НАЧАЛО регистрации обработчиков start.py ===")
-
-=======
-    
     logger.info("🔧 === START of start.py handler registration ===")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.message.register(
         cmd_start,
         Command("start")
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован cmd_start")
-
-=======
     logger.info("✅ Registered cmd_start")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.callback_query.register(
         process_rules_accept,
         F.data.in_(["rules_accept", "rules_decline"]),
         StateFilter(RegistrationStates.waiting_for_rules_accept)
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован process_rules_accept")
-
-=======
     logger.info("✅ Registered process_rules_accept")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.callback_query.register(
         process_privacy_policy_accept,
         F.data.in_(["privacy_policy_accept", "privacy_policy_decline"]),
         StateFilter(RegistrationStates.waiting_for_privacy_policy_accept)
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован process_privacy_policy_accept")
-
-=======
     logger.info("✅ Registered process_privacy_policy_accept")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.callback_query.register(
         process_language_selection,
         F.data.startswith("language_select:"),
@@ -2232,24 +1971,14 @@ def register_handlers(dp: Dispatcher):
         F.data == "referral_skip",
         StateFilter(RegistrationStates.waiting_for_referral_code)
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован process_referral_code_skip")
-
-=======
     logger.info("✅ Registered process_referral_code_skip")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.message.register(
         process_referral_code_input,
         StateFilter(RegistrationStates.waiting_for_referral_code)
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован process_referral_code_input")
-
-=======
     logger.info("✅ Registered process_referral_code_input")
-    
->>>>>>> origin/fix/replace-kopek-to-toman
+
     dp.message.register(
         handle_potential_referral_code,
         StateFilter(
@@ -2263,14 +1992,6 @@ def register_handlers(dp: Dispatcher):
         required_sub_channel_check,
         F.data.in_(["sub_channel_check"])
     )
-<<<<<<< HEAD
-    logger.info("✅ Зарегистрирован required_sub_channel_check")
-
-    logger.info("🔧 === КОНЕЦ регистрации обработчиков start.py ===")
-
-=======
     logger.info("✅ Registered required_sub_channel_check")
-    
+
     logger.info("🔧 === END of start.py handler registration ===")
- 
->>>>>>> origin/fix/replace-kopek-to-toman

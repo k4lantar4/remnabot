@@ -50,29 +50,21 @@ class PaymentCommonMixin:
                 )
             except MissingGreenlet as error:
                 logger.warning(
-                    "Failed to lazy-load subscription for user %s "
-                    "while building keyboard after top-up: %s",
+                    "Failed to lazy-load subscription for user %s while building keyboard after top-up: %s",
                     getattr(user, "id", None),
                     error,
                 )
             except Exception as error:  # pragma: no cover - defensive code
                 logger.error(
-                    "Error loading subscription for user %s while building keyboard "
-                    "after top-up: %s",
+                    "Error loading subscription for user %s while building keyboard after top-up: %s",
                     getattr(user, "id", None),
                     error,
                 )
 
         # Build the primary button: extend if subscription is active, otherwise buy
         first_button = build_miniapp_or_callback_button(
-            text=(
-                texts.MENU_EXTEND_SUBSCRIPTION
-                if has_active_subscription
-                else texts.MENU_BUY_SUBSCRIPTION
-            ),
-            callback_data=(
-                "subscription_extend" if has_active_subscription else "menu_buy"
-            ),
+            text=(texts.MENU_EXTEND_SUBSCRIPTION if has_active_subscription else texts.MENU_BUY_SUBSCRIPTION),
+            callback_data=("subscription_extend" if has_active_subscription else "menu_buy"),
         )
 
         # Subscription activation button (always shown)
@@ -81,10 +73,7 @@ class PaymentCommonMixin:
             callback_data="menu_buy",  # Use same callback_data as for 'Buy subscription'
         )
 
-        keyboard_rows: list[list[InlineKeyboardButton]] = [
-            [first_button],
-            [activate_subscription_button]
-        ]
+        keyboard_rows: list[list[InlineKeyboardButton]] = [[first_button], [activate_subscription_button]]
 
         # If the user has an unfinished checkout, offer to return to it.
         if user:
@@ -99,35 +88,43 @@ class PaymentCommonMixin:
                 has_saved_cart = False
 
             if has_saved_cart:
-                keyboard_rows.append([
-                    build_miniapp_or_callback_button(
-                        text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                        callback_data="return_to_saved_cart",
-                    )
-                ])
+                keyboard_rows.append(
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
+                            callback_data="return_to_saved_cart",
+                        )
+                    ]
+                )
             else:
                 draft_exists = await has_subscription_checkout_draft(user.id)
                 if should_offer_checkout_resume(user, draft_exists, subscription=subscription):
-                    keyboard_rows.append([
-                        build_miniapp_or_callback_button(
-                            text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                            callback_data="subscription_resume_checkout",
-                        )
-                    ])
+                    keyboard_rows.append(
+                        [
+                            build_miniapp_or_callback_button(
+                                text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
+                                callback_data="subscription_resume_checkout",
+                            )
+                        ]
+                    )
 
         # Standard quick-access buttons to balance and main menu.
-        keyboard_rows.append([
-            build_miniapp_or_callback_button(
-                text="💰 My balance",
-                callback_data="menu_balance",
-            )
-        ])
-        keyboard_rows.append([
-            InlineKeyboardButton(
-                text="🏠 Main menu",
-                callback_data="back_to_menu",
-            )
-        ])
+        keyboard_rows.append(
+            [
+                build_miniapp_or_callback_button(
+                    text="💰 My balance",
+                    callback_data="menu_balance",
+                )
+            ]
+        )
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text="🏠 Main menu",
+                    callback_data="back_to_menu",
+                )
+            ]
+        )
 
         return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 

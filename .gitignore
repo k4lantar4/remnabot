@@ -22,6 +22,7 @@ docker-compose.override.yml
 !tests/**
 !_bmad-output
 !_bmad-output/**
+.vscode/
 # Дополнительно разрешаем README и лицензию (опционально)
 !README.md
 !LICENSE

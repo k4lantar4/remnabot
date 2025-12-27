@@ -247,24 +247,26 @@ async def process_heleket_payment_amount(
         ]
     )
 
-    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-        [
-            types.InlineKeyboardButton(
-                text=texts.get_text(
-                    "balance.heleket.pay_button",
-                    "🪙 Pay via Heleket",
-                ),
-                url=payment_url,
-            )
-        ],
-        [
-            types.InlineKeyboardButton(
-                text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"),
-                callback_data=f"check_heleket_{result['local_payment_id']}"
-            )
-        ],
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")],
-    ])
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.get_text(
+                        "balance.heleket.pay_button",
+                        "🪙 Pay via Heleket",
+                    ),
+                    url=payment_url,
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("CHECK_STATUS_BUTTON", "📊 Check status"),
+                    callback_data=f"check_heleket_{result['local_payment_id']}",
+                )
+            ],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")],
+        ]
+    )
 
     state_data = await state.get_data()
     prompt_message_id = state_data.get("heleket_prompt_message_id")
@@ -287,9 +289,7 @@ async def process_heleket_payment_amount(
                 delete_error,
             )
 
-    invoice_message = await message.answer(
-        "\n".join(details), parse_mode="HTML", reply_markup=keyboard
-    )
+    invoice_message = await message.answer("\n".join(details), parse_mode="HTML", reply_markup=keyboard)
 
     try:
         from app.services import payment_service as payment_module

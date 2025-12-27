@@ -18,63 +18,50 @@ from app.utils.validators import sanitize_telegram_name
 logger = logging.getLogger(__name__)
 
 
-async def _refresh_remnawave_description(
-    remnawave_uuid: str,
-    description: str,
-    telegram_id: int
-) -> None:
+async def _refresh_remnawave_description(remnawave_uuid: str, description: str, telegram_id: int) -> None:
     try:
         remnawave_service = RemnaWaveService()
         async with remnawave_service.get_api_client() as api:
             await api.update_user(uuid=remnawave_uuid, description=description)
-        logger.info(
-            f"✅ [Middleware] User {telegram_id} description updated in RemnaWave"
-        )
+        logger.info(f"✅ [Middleware] User {telegram_id} description updated in RemnaWave")
     except Exception as remnawave_error:
-        logger.error(
-            f"❌ [Middleware] Error updating RemnaWave for {telegram_id}: {remnawave_error}"
-        )
+        logger.error(f"❌ [Middleware] Error updating RemnaWave for {telegram_id}: {remnawave_error}")
 
 
 class AuthMiddleware(BaseMiddleware):
-    
     async def __call__(
         self,
         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
     ) -> Any:
-
         user: TgUser = None
         if isinstance(event, (Message, CallbackQuery)):
             user = event.from_user
-        
+
         if not user:
             return await handler(event, data)
-        
+
         if user.is_bot:
             return await handler(event, data)
-        
+
         async for db in get_db():
             try:
                 db_user = await get_user_by_telegram_id(db, user.id)
-                
+
                 if not db_user:
-                    state: FSMContext = data.get('state')
+                    state: FSMContext = data.get("state")
                     current_state = None
-                    
+
                     if state:
                         current_state = await state.get_state()
 
                     is_reg_process = is_registration_process(event, current_state)
-                    
-                    is_channel_check = (isinstance(event, CallbackQuery) 
-                                       and event.data == "sub_channel_check")
-                    
-                    is_start_command = (isinstance(event, Message) 
-                                       and event.text 
-                                       and event.text.startswith('/start'))
-                    
+
+                    is_channel_check = isinstance(event, CallbackQuery) and event.data == "sub_channel_check"
+
+                    is_start_command = isinstance(event, Message) and event.text and event.text.startswith("/start")
+
                     if is_reg_process or is_channel_check or is_start_command:
                         if is_start_command:
                             logger.info(f"🚀 Skipping /start command from user {user.id}")
@@ -82,118 +69,123 @@ class AuthMiddleware(BaseMiddleware):
                             logger.info(f"🔍 Skipping unregistered user {user.id} for channel check")
                         else:
                             logger.info(f"🔍 Skipping user {user.id} in registration process")
-                        data['db'] = db
-                        data['db_user'] = None
-                        data['is_admin'] = False
+                        data["db"] = db
+                        data["db_user"] = None
+                        data["is_admin"] = False
                         return await handler(event, data)
                     else:
-                        user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                        user_lang = user.language_code.split("-")[0] if user.language_code else "en"
                         texts = get_texts(user_lang)
                         if isinstance(event, Message):
                             message = texts.get(
-                                "START_REQUIRED_MESSAGE",
-                                "▶️ To get started, please use the /start command"
+                                "START_REQUIRED_MESSAGE", "▶️ To get started, please use the /start command"
                             )
                             await event.answer(message)
                         elif isinstance(event, CallbackQuery):
-                            message = texts.get(
-                                "START_REQUIRED_ALERT",
-                                "▶️ You need to start with the /start command"
-                            )
+                            message = texts.get("START_REQUIRED_ALERT", "▶️ You need to start with the /start command")
                             await event.answer(message, show_alert=True)
                         logger.info(f"🚫 Blocked unregistered user {user.id}")
                         return
                 else:
                     from app.database.models import UserStatus
-                    
+
                     if db_user.status == UserStatus.BLOCKED.value:
-                        user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                        user_lang = user.language_code.split("-")[0] if user.language_code else "en"
                         texts = get_texts(user_lang)
-                        message = texts.get(
-                            "ACCOUNT_BLOCKED",
-                            "🚫 Your account has been blocked by an administrator."
-                        )
+                        message = texts.get("ACCOUNT_BLOCKED", "🚫 Your account has been blocked by an administrator.")
                         if isinstance(event, Message):
                             await event.answer(message)
                         elif isinstance(event, CallbackQuery):
                             await event.answer(message, show_alert=True)
                         logger.info(f"🚫 Blocked user {user.id} attempted to use bot")
                         return
-                    
+
                     if db_user.status == UserStatus.DELETED.value:
-                        state: FSMContext = data.get('state')
+                        state: FSMContext = data.get("state")
                         current_state = None
-                        
+
                         if state:
                             current_state = await state.get_state()
-                        
+
                         registration_states = [
                             RegistrationStates.waiting_for_language.state,
                             RegistrationStates.waiting_for_rules_accept.state,
                             RegistrationStates.waiting_for_privacy_policy_accept.state,
-                            RegistrationStates.waiting_for_referral_code.state
+                            RegistrationStates.waiting_for_referral_code.state,
                         ]
 
                         is_start_or_registration = (
-                            (isinstance(event, Message) and event.text and event.text.startswith('/start'))
+                            (isinstance(event, Message) and event.text and event.text.startswith("/start"))
                             or (current_state in registration_states)
                             or (
                                 isinstance(event, CallbackQuery)
                                 and event.data
                                 and (
-                                    event.data in ['rules_accept', 'rules_decline', 'privacy_policy_accept', 'privacy_policy_decline', 'referral_skip']
-                                    or event.data.startswith('language_select:')
+                                    event.data
+                                    in [
+                                        "rules_accept",
+                                        "rules_decline",
+                                        "privacy_policy_accept",
+                                        "privacy_policy_decline",
+                                        "referral_skip",
+                                    ]
+                                    or event.data.startswith("language_select:")
                                 )
                             )
                         )
-                        
+
                         if is_start_or_registration:
                             logger.info(f"🔄 Deleted user {user.id} starting re-registration")
-                            data['db'] = db
-                            data['db_user'] = None 
-                            data['is_admin'] = False
+                            data["db"] = db
+                            data["db_user"] = None
+                            data["is_admin"] = False
                             return await handler(event, data)
                         else:
-                            user_lang = user.language_code.split('-')[0] if user.language_code else "en"
+                            user_lang = user.language_code.split("-")[0] if user.language_code else "en"
                             texts = get_texts(user_lang)
                             if isinstance(event, Message):
                                 message = texts.get(
                                     "ACCOUNT_DELETED_MESSAGE",
-                                    "❌ Your account has been deleted.\n🔄 To re-register, please use the /start command"
+                                    "❌ Your account has been deleted.\n🔄 To re-register, please use the /start command",
                                 )
                                 await event.answer(message)
                             elif isinstance(event, CallbackQuery):
                                 message = texts.get(
                                     "ACCOUNT_DELETED_ALERT",
-                                    "❌ Your account has been deleted. To re-register, please use /start"
+                                    "❌ Your account has been deleted. To re-register, please use /start",
                                 )
                                 await event.answer(message, show_alert=True)
                             logger.info(f"❌ Deleted user {user.id} attempted to use bot without /start")
                             return
-                    
-                    
+
                     profile_updated = False
-                    
+
                     if db_user.username != user.username:
                         old_username = db_user.username
                         db_user.username = user.username
-                        logger.info(f"🔄 [Middleware] Username updated for {user.id}: '{old_username}' → '{db_user.username}'")
+                        logger.info(
+                            f"🔄 [Middleware] Username updated for {user.id}: '{old_username}' → '{db_user.username}'"
+                        )
                         profile_updated = True
-                    
+
                     safe_first = sanitize_telegram_name(user.first_name)
                     safe_last = sanitize_telegram_name(user.last_name)
                     if db_user.first_name != safe_first:
                         old_first_name = db_user.first_name
                         db_user.first_name = safe_first
-                        logger.info(f"🔄 [Middleware] First name updated for {user.id}: '{old_first_name}' → '{db_user.first_name}'")
+                        logger.info(
+                            f"🔄 [Middleware] First name updated for {user.id}: '{old_first_name}' → '{db_user.first_name}'"
+                        )
                         profile_updated = True
-                    
+
                     if db_user.last_name != safe_last:
                         old_last_name = db_user.last_name
                         db_user.last_name = safe_last
-                        logger.info(f"🔄 [Middleware] Last name updated for {user.id}: '{old_last_name}' → '{db_user.last_name}'")
+                        logger.info(
+                            f"🔄 [Middleware] Last name updated for {user.id}: '{old_last_name}' → '{db_user.last_name}'"
+                        )
                         profile_updated = True
-                    
+
                     db_user.last_activity = datetime.utcnow()
 
                     if profile_updated:
@@ -202,30 +194,28 @@ class AuthMiddleware(BaseMiddleware):
 
                         if db_user.remnawave_uuid:
                             description = settings.format_remnawave_user_description(
-                                full_name=db_user.full_name,
-                                username=db_user.username,
-                                telegram_id=db_user.telegram_id
+                                full_name=db_user.full_name, username=db_user.username, telegram_id=db_user.telegram_id
                             )
                             asyncio.create_task(
                                 _refresh_remnawave_description(
                                     remnawave_uuid=db_user.remnawave_uuid,
                                     description=description,
-                                    telegram_id=db_user.telegram_id
+                                    telegram_id=db_user.telegram_id,
                                 )
                             )
 
                     await db.commit()
 
-                data['db'] = db
-                data['db_user'] = db_user
-                data['is_admin'] = settings.is_admin(user.id)
+                data["db"] = db
+                data["db_user"] = db_user
+                data["is_admin"] = settings.is_admin(user.id)
 
                 return await handler(event, data)
-                
+
             except Exception as e:
                 logger.error(f"Error in AuthMiddleware: {e}")
                 logger.error(f"Event type: {type(event)}")
-                if hasattr(event, 'data'):
+                if hasattr(event, "data"):
                     logger.error(f"Callback data: {event.data}")
                 await db.rollback()
                 raise

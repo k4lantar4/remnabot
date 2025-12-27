@@ -145,9 +145,7 @@ class ReferralContestUpdateRequest(BaseModel):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     daily_summary_time: Optional[time] = None
-    daily_summary_times: Optional[str] = Field(
-        default=None, description="Список времён ЧЧ:ММ через запятую"
-    )
+    daily_summary_times: Optional[str] = Field(default=None, description="Список времён ЧЧ:ММ через запятую")
     timezone: Optional[str] = None
     is_active: Optional[bool] = None
     final_summary_sent: Optional[bool] = None

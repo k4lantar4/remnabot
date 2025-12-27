@@ -127,11 +127,7 @@ async def ensure_default_templates(db: AsyncSession, *, created_by: Optional[int
                 await db.flush()
 
             target_active_hours = template_data.get("active_discount_hours")
-            if (
-                target_active_hours is not None
-                and target_active_hours > 0
-                and not existing.active_discount_hours
-            ):
+            if target_active_hours is not None and target_active_hours > 0 and not existing.active_discount_hours:
                 existing.active_discount_hours = target_active_hours
                 existing.updated_at = datetime.utcnow()
                 await db.flush()
@@ -163,23 +159,17 @@ async def ensure_default_templates(db: AsyncSession, *, created_by: Optional[int
 
 
 async def list_promo_offer_templates(db: AsyncSession) -> List[PromoOfferTemplate]:
-    result = await db.execute(
-        select(PromoOfferTemplate).order_by(PromoOfferTemplate.offer_type, PromoOfferTemplate.id)
-    )
+    result = await db.execute(select(PromoOfferTemplate).order_by(PromoOfferTemplate.offer_type, PromoOfferTemplate.id))
     return result.scalars().all()
 
 
 async def get_promo_offer_template_by_id(db: AsyncSession, template_id: int) -> Optional[PromoOfferTemplate]:
-    result = await db.execute(
-        select(PromoOfferTemplate).where(PromoOfferTemplate.id == template_id)
-    )
+    result = await db.execute(select(PromoOfferTemplate).where(PromoOfferTemplate.id == template_id))
     return result.scalar_one_or_none()
 
 
 async def get_promo_offer_template_by_type(db: AsyncSession, offer_type: str) -> Optional[PromoOfferTemplate]:
-    result = await db.execute(
-        select(PromoOfferTemplate).where(PromoOfferTemplate.offer_type == offer_type)
-    )
+    result = await db.execute(select(PromoOfferTemplate).where(PromoOfferTemplate.offer_type == offer_type))
     return result.scalar_one_or_none()
 
 

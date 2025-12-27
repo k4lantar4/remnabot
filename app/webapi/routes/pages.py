@@ -274,15 +274,11 @@ async def update_faq_status(
     _: object = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> FaqStatusResponse:
-    resolved_language = FaqService.normalize_language(
-        payload.language if payload and payload.language else language
-    )
+    resolved_language = FaqService.normalize_language(payload.language if payload and payload.language else language)
 
     enabled_status = payload.is_enabled if payload else is_enabled
     if enabled_status is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Parameter 'is_enabled' is required"
-        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Parameter 'is_enabled' is required")
 
     setting = await FaqService.set_enabled(db, resolved_language, enabled_status)
 
@@ -509,4 +505,3 @@ async def restore_service_rules_version(
     if not restored:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Rules version not found")
     return _serialize_rules(restored)
-

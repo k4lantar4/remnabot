@@ -107,10 +107,7 @@ async def list_categories(
     _: object = Security(require_api_token),
 ) -> list[SettingCategorySummary]:
     categories = bot_configuration_service.get_categories()
-    return [
-        SettingCategorySummary(key=key, label=label, items=count)
-        for key, label, count in categories
-    ]
+    return [SettingCategorySummary(key=key, label=label, items=count) for key, label, count in categories]
 
 
 @router.get("", response_model=list[SettingDefinition])

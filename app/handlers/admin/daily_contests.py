@@ -57,13 +57,29 @@ async def show_daily_contests(
     else:
         for tpl in templates:
             status = "🟢" if tpl.is_enabled else "⚪️"
-            lines.append(f"{status} <b>{tpl.name}</b> (slug: {tpl.slug}) — приз {tpl.prize_days}д, макс {tpl.max_winners}")
+            lines.append(
+                f"{status} <b>{tpl.name}</b> (slug: {tpl.slug}) — приз {tpl.prize_days}д, макс {tpl.max_winners}"
+            )
 
     keyboard_rows = []
     if templates:
-        keyboard_rows.append([types.InlineKeyboardButton(text="❌ Закрыть все активные раунды", callback_data="admin_daily_close_all")])
-        keyboard_rows.append([types.InlineKeyboardButton(text="� Сбросить попытки во всех активных раундах", callback_data="admin_daily_reset_all_attempts")])
-        keyboard_rows.append([types.InlineKeyboardButton(text="� Запустить все активные конкурсы", callback_data="admin_daily_start_all")])
+        keyboard_rows.append(
+            [types.InlineKeyboardButton(text="❌ Закрыть все активные раунды", callback_data="admin_daily_close_all")]
+        )
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text="� Сбросить попытки во всех активных раундах", callback_data="admin_daily_reset_all_attempts"
+                )
+            ]
+        )
+        keyboard_rows.append(
+            [
+                types.InlineKeyboardButton(
+                    text="� Запустить все активные конкурсы", callback_data="admin_daily_start_all"
+                )
+            ]
+        )
     for tpl in templates:
         keyboard_rows.append(
             [
@@ -103,7 +119,7 @@ async def show_daily_contest(
 
     lines = [
         f"🏷 <b>{tpl.name}</b> (slug: {tpl.slug})",
-        f"{texts.t('ADMIN_CONTEST_STATUS_ACTIVE','🟢 Активен') if tpl.is_enabled else texts.t('ADMIN_CONTEST_STATUS_INACTIVE','⚪️ Выключен')}",
+        f"{texts.t('ADMIN_CONTEST_STATUS_ACTIVE', '🟢 Активен') if tpl.is_enabled else texts.t('ADMIN_CONTEST_STATUS_INACTIVE', '⚪️ Выключен')}",
         f"Приз: {tpl.prize_days} дн. | Макс победителей: {tpl.max_winners}",
         f"Попыток/польз: {tpl.attempts_per_user}",
         f"Раундов в день: {tpl.times_per_day}",
@@ -190,6 +206,7 @@ async def manual_start_round(
 
     # Проверяем, есть ли уже активный раунд для этого шаблона
     from app.database.crud.contest import get_active_rounds
+
     exists = await get_active_rounds(db, tpl.id)
     if exists:
         await callback.answer(texts.t("ADMIN_ROUND_ALREADY_ACTIVE", "Раунд уже активен."), show_alert=True)
@@ -340,7 +357,8 @@ async def edit_payload(
         ]
     )
     await callback.message.edit_text(
-        texts.t("ADMIN_CONTEST_PAYLOAD_PROMPT", "Отправьте JSON payload для игры (словарь настроек):\n") + f"<code>{payload_json}</code>",
+        texts.t("ADMIN_CONTEST_PAYLOAD_PROMPT", "Отправьте JSON payload для игры (словарь настроек):\n")
+        + f"<code>{payload_json}</code>",
         reply_markup=kb,
     )
     await callback.answer()
@@ -408,6 +426,7 @@ async def start_all_contests(
     started_count = 0
     for tpl in templates:
         from app.database.crud.contest import get_active_round_by_template
+
         exists = await get_active_round_by_template(db, tpl.id)
         if exists:
             continue  # уже запущен
@@ -443,6 +462,7 @@ async def close_all_rounds(
 ):
     texts = get_texts(db_user.language)
     from app.database.crud.contest import get_active_rounds
+
     active_rounds = await get_active_rounds(db)
     if not active_rounds:
         await callback.answer("Нет активных раундов", show_alert=True)
@@ -465,6 +485,7 @@ async def reset_all_attempts(
 ):
     texts = get_texts(db_user.language)
     from app.database.crud.contest import get_active_rounds
+
     active_rounds = await get_active_rounds(db)
     if not active_rounds:
         await callback.answer("Нет активных раундов", show_alert=True)
@@ -494,6 +515,7 @@ async def reset_attempts(
         return
 
     from app.database.crud.contest import get_active_round_by_template, clear_attempts
+
     round_obj = await get_active_round_by_template(db, tpl.id)
     if not round_obj:
         await callback.answer("Нет активного раунда", show_alert=True)
@@ -519,6 +541,7 @@ async def close_round(
         return
 
     from app.database.crud.contest import get_active_round_by_template
+
     round_obj = await get_active_round_by_template(db, tpl.id)
     if not round_obj:
         await callback.answer("Нет активного раунда", show_alert=True)

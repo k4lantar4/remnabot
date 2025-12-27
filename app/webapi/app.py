@@ -7,6 +7,7 @@ from app.config import settings
 from app.webapi.docs import add_redoc_endpoint
 
 from .middleware import RequestLoggingMiddleware
+from app.middleware.tenant_middleware import TenantMiddleware
 from .routes import (
     broadcasts,
     backups,
@@ -89,8 +90,7 @@ OPENAPI_TAGS = [
     {
         "name": "servers",
         "description": (
-            "Управление серверами RemnaWave, их доступностью, промогруппами и "
-            "ручная синхронизация данных.",
+            "Управление серверами RemnaWave, их доступностью, промогруппами и ручная синхронизация данных.",
         ),
     },
     {
@@ -99,9 +99,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "logs",
-        "description": (
-            "Журналы мониторинга бота, действий модераторов поддержки и системный лог-файл."
-        ),
+        "description": ("Журналы мониторинга бота, действий модераторов поддержки и системный лог-файл."),
     },
     {
         "name": "auth",
@@ -149,8 +147,7 @@ OPENAPI_TAGS = [
     {
         "name": "pinned-messages",
         "description": (
-            "Управление закреплёнными сообщениями: создание, обновление, рассылка и "
-            "настройка показа при /start."
+            "Управление закреплёнными сообщениями: создание, обновление, рассылка и настройка показа при /start."
         ),
     },
 ]
@@ -187,6 +184,10 @@ def create_web_api_app() -> FastAPI:
 
     if settings.WEB_API_REQUEST_LOGGING:
         app.add_middleware(RequestLoggingMiddleware)
+
+    # Add TenantMiddleware for multi-tenant isolation
+    # This middleware extracts tenant from bot_token in URL and sets tenant context
+    app.add_middleware(TenantMiddleware)
 
     app.include_router(health.router)
     app.include_router(stats.router, prefix="/stats", tags=["stats"])

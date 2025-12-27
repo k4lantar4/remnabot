@@ -37,10 +37,7 @@ class PriceInfo:
 
 
 def calculate_user_price(
-    user: Optional[User],
-    base_price: int,
-    period_days: int,
-    category: str = "period"
+    user: Optional[User], base_price: int, period_days: int, category: str = "period"
 ) -> PriceInfo:
     """
     Calculate final price for a user with all applicable discounts.
@@ -94,19 +91,11 @@ def calculate_user_price(
         f"[category={category}, period={period_days}]"
     )
 
-    return PriceInfo(
-        base_price=base_price,
-        final_price=final_price,
-        discount_percent=discount_percent
-    )
+    return PriceInfo(base_price=base_price, final_price=final_price, discount_percent=discount_percent)
 
 
 def format_price_button(
-    period_label: str,
-    price_info: PriceInfo,
-    format_price_func,
-    emphasize: bool = False,
-    add_exclamation: bool = True
+    period_label: str, price_info: PriceInfo, format_price_func, emphasize: bool = False, add_exclamation: bool = True
 ) -> str:
     """
     Format a price button text with unified discount display.
@@ -156,11 +145,7 @@ def format_price_button(
     return button_text
 
 
-def format_price_text(
-    period_label: str,
-    price_info: PriceInfo,
-    format_price_func
-) -> str:
+def format_price_text(period_label: str, price_info: PriceInfo, format_price_func) -> str:
     """
     Format a price for message text (not button) with unified discount display.
 
@@ -178,7 +163,7 @@ def format_price_text(
 
         Without discount:
             "📅 30 days - 990 Toman"
-            
+
         With zero price:
             "📅 30 days"
     """

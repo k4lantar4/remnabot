@@ -243,10 +243,7 @@ def _build_detail_keyboard(
         payment_url = getattr(payment, "confirmation_url", None) or payment_url
     elif record.method == PaymentMethod.CRYPTOBOT:
         payment_url = (
-            payment.bot_invoice_url
-            or payment.mini_app_invoice_url
-            or payment.web_app_invoice_url
-            or payment_url
+            payment.bot_invoice_url or payment.mini_app_invoice_url or payment.web_app_invoice_url or payment_url
         )
 
     if payment_url:
@@ -295,9 +292,7 @@ def _build_record_lines(
     emoji, status_text = _status_info(record, texts=texts)
     created = format_datetime(record.created_at)
     age = format_time_ago(record.created_at, language)
-    identifier = (
-        html.escape(str(record.identifier)) if record.identifier else ""
-    )
+    identifier = html.escape(str(record.identifier)) if record.identifier else ""
     display_number = html.escape(_record_display_number(record))
 
     lines = [
@@ -354,8 +349,7 @@ def _build_payment_details_text(record: PendingPayment, *, texts, language: str)
             )
         if getattr(payment, "payment_method", None):
             lines.append(
-                f"🏦 {texts.t('ADMIN_PAYMENT_GATEWAY_METHOD', 'Method')}: "
-                f"{html.escape(str(payment.payment_method))}"
+                f"🏦 {texts.t('ADMIN_PAYMENT_GATEWAY_METHOD', 'Method')}: {html.escape(str(payment.payment_method))}"
             )
         if getattr(payment, "balance_amount", None):
             lines.append(
@@ -371,26 +365,21 @@ def _build_payment_details_text(record: PendingPayment, *, texts, language: str)
     if record.method == PaymentMethod.MULENPAY:
         if getattr(payment, "mulen_payment_id", None):
             lines.append(
-                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: "
-                f"{html.escape(str(payment.mulen_payment_id))}"
+                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: {html.escape(str(payment.mulen_payment_id))}"
             )
 
     if record.method == PaymentMethod.WATA:
         if getattr(payment, "order_id", None):
             lines.append(
-                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: "
-                f"{html.escape(str(payment.order_id))}"
+                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: {html.escape(str(payment.order_id))}"
             )
         if getattr(payment, "terminal_public_id", None):
-            lines.append(
-                f"🏦 Terminal: {html.escape(str(payment.terminal_public_id))}"
-            )
+            lines.append(f"🏦 Terminal: {html.escape(str(payment.terminal_public_id))}")
 
     if record.method == PaymentMethod.HELEKET:
         if getattr(payment, "order_id", None):
             lines.append(
-                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: "
-                f"{html.escape(str(payment.order_id))}"
+                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: {html.escape(str(payment.order_id))}"
             )
         if getattr(payment, "payer_amount", None) and getattr(payment, "payer_currency", None):
             lines.append(
@@ -414,13 +403,10 @@ def _build_payment_details_text(record: PendingPayment, *, texts, language: str)
                 f"{html.escape(str(payment.amount))} {html.escape(str(payment.asset))}"
             )
         if getattr(payment, "bot_invoice_url", None) or getattr(payment, "mini_app_invoice_url", None):
-            lines.append(
-                texts.t("ADMIN_PAYMENT_HAS_LINK", "🔗 Payment link is available above.")
-            )
+            lines.append(texts.t("ADMIN_PAYMENT_HAS_LINK", "🔗 Payment link is available above."))
         if getattr(payment, "status", None):
             lines.append(
-                f"📊 {texts.t('ADMIN_PAYMENT_GATEWAY_STATUS', 'Gateway status')}: "
-                f"{html.escape(str(payment.status))}"
+                f"📊 {texts.t('ADMIN_PAYMENT_GATEWAY_STATUS', 'Gateway status')}: {html.escape(str(payment.status))}"
             )
 
     if record.method == PaymentMethod.TELEGRAM_STARS:
@@ -429,8 +415,7 @@ def _build_payment_details_text(record: PendingPayment, *, texts, language: str)
             lines.append(f"📝 {html.escape(description)}")
         if getattr(payment, "external_id", None):
             lines.append(
-                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: "
-                f"{html.escape(str(payment.external_id))}"
+                f"🧾 {texts.t('ADMIN_PAYMENT_GATEWAY_ID', 'Gateway ID')}: {html.escape(str(payment.external_id))}"
             )
 
     if _is_checkable(record):

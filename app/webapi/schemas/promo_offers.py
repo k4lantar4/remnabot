@@ -120,7 +120,7 @@ class PromoOfferBroadcastRequest(PromoOfferCreateRequest):
             return normalized
 
         if normalized.startswith("custom_"):
-            criteria = normalized[len("custom_"):]
+            criteria = normalized[len("custom_") :]
             if criteria in cls._CUSTOM_TARGETS:
                 return normalized
 

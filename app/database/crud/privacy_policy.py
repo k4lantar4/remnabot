@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_privacy_policy(db: AsyncSession, language: str) -> Optional[PrivacyPolicy]:
-    result = await db.execute(
-        select(PrivacyPolicy).where(PrivacyPolicy.language == language)
-    )
+    result = await db.execute(select(PrivacyPolicy).where(PrivacyPolicy.language == language))
     return result.scalar_one_or_none()
 
 

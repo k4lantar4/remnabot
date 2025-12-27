@@ -16,11 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @error_handler
-async def start_stars_payment(
-    callback: types.CallbackQuery,
-    db_user: User,
-    state: FSMContext
-):
+async def start_stars_payment(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
@@ -36,14 +32,12 @@ async def start_stars_payment(
 
     if settings.YOOKASSA_QUICK_AMOUNT_SELECTION_ENABLED and not settings.DISABLE_TOPUP_BUTTONS:
         from .main import get_quick_amount_buttons
+
         quick_amount_buttons = get_quick_amount_buttons(db_user.language, db_user)
         if quick_amount_buttons:
             keyboard.inline_keyboard = quick_amount_buttons + keyboard.inline_keyboard
 
-    await callback.message.edit_text(
-        message_text,
-        reply_markup=keyboard
-    )
+    await callback.message.edit_text(message_text, reply_markup=keyboard)
 
     await state.update_data(
         stars_prompt_message_id=callback.message.message_id,
@@ -56,16 +50,10 @@ async def start_stars_payment(
 
 
 @error_handler
-async def process_stars_payment_amount(
-    message: types.Message,
-    db_user: User,
-    amount_toman: int,
-    state: FSMContext
-):
+async def process_stars_payment_amount(message: types.Message, db_user: User, amount_toman: int, state: FSMContext):
     # Проверяем, находится ли пользователь в черном списке
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        message.from_user.id,
-        message.from_user.username
+        message.from_user.id, message.from_user.username
     )
 
     if is_blacklisted:
@@ -95,13 +83,15 @@ async def process_stars_payment_amount(
         invoice_link = await payment_service.create_stars_invoice(
             amount_toman=amount_toman,
             description=f"Balance top-up {texts.format_price(amount_toman)}",
-            payload=f"balance_{db_user.id}_{amount_toman}"
+            payload=f"balance_{db_user.id}_{amount_toman}",
         )
 
-        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.t("STARS_PAY_BUTTON"), url=invoice_link)],
-            [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")]
-        ])
+        keyboard = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [types.InlineKeyboardButton(text=texts.t("STARS_PAY_BUTTON"), url=invoice_link)],
+                [types.InlineKeyboardButton(text=texts.BACK, callback_data="balance_topup")],
+            ]
+        )
 
         state_data = await state.get_data()
 
@@ -124,12 +114,10 @@ async def process_stars_payment_amount(
 
         invoice_message = await message.answer(
             texts.t("STARS_INVOICE_MESSAGE").format(
-                amount=texts.format_price(amount_toman),
-                stars=stars_amount,
-                rate=f"{stars_rate} Toman"
+                amount=texts.format_price(amount_toman), stars=stars_amount, rate=f"{stars_rate} Toman"
             ),
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
 
         await state.update_data(

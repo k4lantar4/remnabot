@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -78,8 +89,17 @@ from app.utils.promo_offer import (
     get_user_active_promo_discount_percent,
 )
 
-from .common import _get_addon_discount_percent_for_user, _get_period_hint_from_subscription, format_additional_section, get_apps_for_device, get_device_name, get_step_description, logger
+from .common import (
+    _get_addon_discount_percent_for_user,
+    _get_period_hint_from_subscription,
+    format_additional_section,
+    get_apps_for_device,
+    get_device_name,
+    get_step_description,
+    logger,
+)
 from .countries import _get_available_countries
+
 
 async def get_current_devices_detailed(db_user: User) -> dict:
     try:
@@ -87,26 +107,25 @@ async def get_current_devices_detailed(db_user: User) -> dict:
             return {"count": 0, "devices": []}
 
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if response and 'response' in response:
-                devices_info = response['response']
-                total_devices = devices_info.get('total', 0)
-                devices_list = devices_info.get('devices', [])
+            if response and "response" in response:
+                devices_info = response["response"]
+                total_devices = devices_info.get("total", 0)
+                devices_list = devices_info.get("devices", [])
 
-                return {
-                    "count": total_devices,
-                    "devices": devices_list[:5]
-                }
+                return {"count": total_devices, "devices": devices_list[:5]}
             else:
                 return {"count": 0, "devices": []}
 
     except Exception as e:
         logger.error(f"Error fetching detailed device information: {e}")
         return {"count": 0, "devices": []}
+
 
 async def get_servers_display_names(squad_uuids: List[str]) -> str:
     texts = get_texts()
@@ -133,22 +152,23 @@ async def get_servers_display_names(squad_uuids: List[str]) -> str:
             countries = await _get_available_countries()
             for uuid in squad_uuids:
                 for country in countries:
-                    if country['uuid'] == uuid:
-                        server_names.append(country['name'])
+                    if country["uuid"] == uuid:
+                        server_names.append(country["name"])
                         logger.debug(f"Found server in cache: {uuid} -> {country['name']}")
                         break
 
         if not server_names:
             if len(squad_uuids) == 1:
                 return texts.t("TRIAL_SERVER_DEFAULT_NAME", "🎯 Test server")
-            return texts.t("subscription.countries.multiple_countries", "{count} countries").format(count=len(squad_uuids))
+            return texts.t("subscription.countries.multiple_countries", "{count} countries").format(
+                count=len(squad_uuids)
+            )
 
         if len(server_names) > 6:
             displayed = ", ".join(server_names[:6])
             remaining = len(server_names) - 6
             return texts.t("subscription.countries.more_servers", "{displayed} and {remaining} more").format(
-                displayed=displayed,
-                remaining=remaining
+                displayed=displayed, remaining=remaining
             )
         else:
             return ", ".join(server_names)
@@ -159,19 +179,21 @@ async def get_servers_display_names(squad_uuids: List[str]) -> str:
             return texts.t("TRIAL_SERVER_DEFAULT_NAME", "🎯 Test server")
         return texts.t("subscription.countries.multiple_countries", "{count} countries").format(count=len(squad_uuids))
 
+
 async def get_current_devices_count(db_user: User) -> str:
     try:
         if not db_user.remnawave_uuid:
             return "—"
 
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if response and 'response' in response:
-                total_devices = response['response'].get('total', 0)
+            if response and "response" in response:
+                total_devices = response["response"].get("total", 0)
                 return str(total_devices)
             else:
                 return "—"
@@ -180,11 +202,8 @@ async def get_current_devices_count(db_user: User) -> str:
         logger.error(f"Error fetching device count: {e}")
         return "—"
 
-async def handle_change_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_change_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -231,17 +250,14 @@ async def handle_change_devices(
             subscription.end_date,
             devices_discount_percent,
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
     await callback.answer()
 
-async def confirm_change_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    new_devices_count = int(callback.data.split('_')[2])
+
+async def confirm_change_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    new_devices_count = int(callback.data.split("_")[2])
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -267,7 +283,7 @@ async def confirm_change_devices(
                 "DEVICES_LIMIT_EXCEEDED",
                 "⚠️ Maximum device limit exceeded ({limit})",
             ).format(limit=settings.MAX_DEVICES_LIMIT),
-            show_alert=True
+            show_alert=True,
         )
         return
 
@@ -303,8 +319,7 @@ async def confirm_change_devices(
         if price > 0 and db_user.balance_toman < price:
             missing_toman = price - db_user.balance_toman
             required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
-                amount=texts.format_price(price),
-                months=charged_months
+                amount=texts.format_price(price), months=charged_months
             )
             message_text = texts.t(
                 "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
@@ -383,17 +398,14 @@ async def confirm_change_devices(
     await callback.message.edit_text(
         confirm_text,
         reply_markup=get_confirm_change_devices_keyboard(new_devices_count, price, db_user.language),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
     await callback.answer()
 
-async def execute_change_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    callback_parts = callback.data.split('_')
+
+async def execute_change_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    callback_parts = callback.data.split("_")
     new_devices_count = int(callback_parts[3])
     price = int(callback_parts[4])
 
@@ -411,11 +423,12 @@ async def execute_change_devices(
     try:
         if price > 0:
             success = await subtract_user_balance(
-                db, db_user, price,
-                texts.t("subscription.devices.change_transaction_desc", "Changing device count from {old} to {new}").format(
-                    old=current_devices,
-                    new=new_devices_count
-                )
+                db,
+                db_user,
+                price,
+                texts.t(
+                    "subscription.devices.change_transaction_desc", "Changing device count from {old} to {new}"
+                ).format(old=current_devices, new=new_devices_count),
             )
 
             if not success:
@@ -431,11 +444,10 @@ async def execute_change_devices(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_toman=price,
-                description=texts.t("subscription.devices.change_transaction_desc_full", "Changing devices from {old} to {new} for {months} months").format(
-                    old=current_devices,
-                    new=new_devices_count,
-                    months=charged_months
-                )
+                description=texts.t(
+                    "subscription.devices.change_transaction_desc_full",
+                    "Changing devices from {old} to {new} for {months} months",
+                ).format(old=current_devices, new=new_devices_count, months=charged_months),
             )
 
         subscription.device_limit = new_devices_count
@@ -451,6 +463,7 @@ async def execute_change_devices(
 
         try:
             from app.services.admin_notification_service import AdminNotificationService
+
             notification_service = AdminNotificationService(callback.bot)
             await notification_service.send_subscription_update_notification(
                 db, db_user, subscription, "devices", current_devices, new_devices_count, price
@@ -486,28 +499,20 @@ async def execute_change_devices(
                 "ℹ️ No refund provided",
             )
 
-        await callback.message.edit_text(
-            success_text,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
         logger.info(
-            f"✅ User {db_user.telegram_id} changed device count from {current_devices} to {new_devices_count}, additional payment: {price / 100} Toman")
+            f"✅ User {db_user.telegram_id} changed device count from {current_devices} to {new_devices_count}, additional payment: {price / 100} Toman"
+        )
 
     except Exception as e:
         logger.error(f"Error changing device count: {e}")
-        await callback.message.edit_text(
-            texts.ERROR,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(texts.ERROR, reply_markup=get_back_keyboard(db_user.language))
 
     await callback.answer()
 
-async def handle_device_management(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_device_management(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -527,20 +532,21 @@ async def handle_device_management(
 
     try:
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if response and 'response' in response:
-                devices_info = response['response']
-                total_devices = devices_info.get('total', 0)
-                devices_list = devices_info.get('devices', [])
+            if response and "response" in response:
+                devices_info = response["response"]
+                total_devices = devices_info.get("total", 0)
+                devices_list = devices_info.get("devices", [])
 
                 if total_devices == 0:
                     await callback.message.edit_text(
                         texts.t("DEVICE_NONE_CONNECTED", "ℹ️ You have no connected devices"),
-                        reply_markup=get_back_keyboard(db_user.language)
+                        reply_markup=get_back_keyboard(db_user.language),
                     )
                     await callback.answer()
                     return
@@ -567,12 +573,8 @@ async def handle_device_management(
 
     await callback.answer()
 
-async def show_devices_page(
-        callback: types.CallbackQuery,
-        db_user: User,
-        devices_list: List[dict],
-        page: int = 1
-):
+
+async def show_devices_page(callback: types.CallbackQuery, db_user: User, devices_list: List[dict], page: int = 1):
     texts = get_texts(db_user.language)
     devices_per_page = 5
 
@@ -580,11 +582,7 @@ async def show_devices_page(
 
     devices_text = texts.t(
         "DEVICE_MANAGEMENT_OVERVIEW",
-        (
-            "🔄 <b>Device management</b>\n\n"
-            "📊 Total connected: {total} devices\n"
-            "📄 Page {page} of {pages}\n\n"
-        ),
+        ("🔄 <b>Device management</b>\n\n📊 Total connected: {total} devices\n📄 Page {page} of {pages}\n\n"),
     ).format(total=len(devices_list), page=pagination.page, pages=pagination.total_pages)
 
     if pagination.items:
@@ -593,8 +591,8 @@ async def show_devices_page(
             "<b>Connected devices:</b>\n",
         )
         for i, device in enumerate(pagination.items, 1):
-            platform = device.get('platform', 'Unknown')
-            device_model = device.get('deviceModel', 'Unknown')
+            platform = device.get("platform", "Unknown")
+            device_model = device.get("deviceModel", "Unknown")
             device_info = f"{platform} - {device_model}"
 
             if len(device_info) > 35:
@@ -607,40 +605,30 @@ async def show_devices_page(
 
     devices_text += texts.t(
         "DEVICE_MANAGEMENT_ACTIONS",
-        (
-            "\n💡 <b>Actions:</b>\n"
-            "• Select a device to reset\n"
-            "• Or reset all devices at once"
-        ),
+        ("\n💡 <b>Actions:</b>\n• Select a device to reset\n• Or reset all devices at once"),
     )
 
     await callback.message.edit_text(
         devices_text,
-        reply_markup=get_devices_management_keyboard(
-            pagination.items,
-            pagination,
-            db_user.language
-        ),
-        parse_mode="HTML"
+        reply_markup=get_devices_management_keyboard(pagination.items, pagination, db_user.language),
+        parse_mode="HTML",
     )
 
-async def handle_devices_page(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    page = int(callback.data.split('_')[2])
+
+async def handle_devices_page(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    page = int(callback.data.split("_")[2])
     texts = get_texts(db_user.language)
 
     try:
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if response and 'response' in response:
-                devices_list = response['response'].get('devices', [])
+            if response and "response" in response:
+                devices_list = response["response"].get("devices", [])
                 await show_devices_page(callback, db_user, devices_list, page=page)
             else:
                 await callback.answer(
@@ -655,13 +643,10 @@ async def handle_devices_page(
             show_alert=True,
         )
 
-async def handle_single_device_reset(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_single_device_reset(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     try:
-        callback_parts = callback.data.split('_')
+        callback_parts = callback.data.split("_")
         if len(callback_parts) < 4:
             logger.error(f"Invalid callback_data format: {callback.data}")
             await callback.answer(
@@ -687,31 +672,29 @@ async def handle_single_device_reset(
 
     try:
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if response and 'response' in response:
-                devices_list = response['response'].get('devices', [])
+            if response and "response" in response:
+                devices_list = response["response"].get("devices", [])
 
                 devices_per_page = 5
                 pagination = paginate_list(devices_list, page=page, per_page=devices_per_page)
 
                 if device_index < len(pagination.items):
                     device = pagination.items[device_index]
-                    device_hwid = device.get('hwid')
+                    device_hwid = device.get("hwid")
 
                     if device_hwid:
-                        delete_data = {
-                            "userUuid": db_user.remnawave_uuid,
-                            "hwid": device_hwid
-                        }
+                        delete_data = {"userUuid": db_user.remnawave_uuid, "hwid": device_hwid}
 
-                        await api._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
+                        await api._make_request("POST", "/api/hwid/devices/delete", data=delete_data)
 
-                        platform = device.get('platform', 'Unknown')
-                        device_model = device.get('deviceModel', 'Unknown')
+                        platform = device.get("platform", "Unknown")
+                        device_model = device.get("deviceModel", "Unknown")
                         device_info = f"{platform} - {device_model}"
 
                         await callback.answer(
@@ -722,13 +705,14 @@ async def handle_single_device_reset(
                             show_alert=True,
                         )
 
-                        updated_response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
-                        if updated_response and 'response' in updated_response:
-                            updated_devices = updated_response['response'].get('devices', [])
+                        updated_response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
+                        if updated_response and "response" in updated_response:
+                            updated_devices = updated_response["response"].get("devices", [])
 
                             if updated_devices:
-                                updated_pagination = paginate_list(updated_devices, page=page,
-                                                                   per_page=devices_per_page)
+                                updated_pagination = paginate_list(
+                                    updated_devices, page=page, per_page=devices_per_page
+                                )
                                 if not updated_pagination.items and page > 1:
                                     page = page - 1
 
@@ -739,7 +723,7 @@ async def handle_single_device_reset(
                                         "DEVICE_RESET_ALL_DONE",
                                         "ℹ️ All devices have been reset",
                                     ),
-                                    reply_markup=get_back_keyboard(db_user.language)
+                                    reply_markup=get_back_keyboard(db_user.language),
                                 )
 
                         logger.info(f"✅ User {db_user.telegram_id} reset device {device_info}")
@@ -769,11 +753,8 @@ async def handle_single_device_reset(
             show_alert=True,
         )
 
-async def handle_all_devices_reset_from_management(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_all_devices_reset_from_management(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
 
     if not db_user.remnawave_uuid:
@@ -785,12 +766,13 @@ async def handle_all_devices_reset_from_management(
 
     try:
         from app.services.remnawave_service import RemnaWaveService
+
         service = RemnaWaveService()
 
         async with service.get_api_client() as api:
-            devices_response = await api._make_request('GET', f'/api/hwid/devices/{db_user.remnawave_uuid}')
+            devices_response = await api._make_request("GET", f"/api/hwid/devices/{db_user.remnawave_uuid}")
 
-            if not devices_response or 'response' not in devices_response:
+            if not devices_response or "response" not in devices_response:
                 await callback.answer(
                     texts.t(
                         "DEVICE_LIST_FETCH_ERROR",
@@ -800,11 +782,11 @@ async def handle_all_devices_reset_from_management(
                 )
                 return
 
-            devices_list = devices_response['response'].get('devices', [])
+            devices_list = devices_response["response"].get("devices", [])
 
             if not devices_list:
                 await callback.answer(
-                        texts.t("DEVICE_NONE_CONNECTED", "ℹ️ You have no connected devices"),
+                    texts.t("DEVICE_NONE_CONNECTED", "ℹ️ You have no connected devices"),
                     show_alert=True,
                 )
                 return
@@ -815,15 +797,12 @@ async def handle_all_devices_reset_from_management(
             failed_count = 0
 
             for device in devices_list:
-                device_hwid = device.get('hwid')
+                device_hwid = device.get("hwid")
                 if device_hwid:
                     try:
-                        delete_data = {
-                            "userUuid": db_user.remnawave_uuid,
-                            "hwid": device_hwid
-                        }
+                        delete_data = {"userUuid": db_user.remnawave_uuid, "hwid": device_hwid}
 
-                        await api._make_request('POST', '/api/hwid/devices/delete', data=delete_data)
+                        await api._make_request("POST", "/api/hwid/devices/delete", data=delete_data)
                         success_count += 1
                         logger.info(f"✅ Device {device_hwid} deleted")
 
@@ -847,7 +826,7 @@ async def handle_all_devices_reset_from_management(
                             ),
                         ).format(count=success_count),
                         reply_markup=get_back_keyboard(db_user.language),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     logger.info(f"✅ User {db_user.telegram_id} successfully reset {success_count} devices")
                 else:
@@ -862,10 +841,11 @@ async def handle_all_devices_reset_from_management(
                             ),
                         ).format(success=success_count, failed=failed_count),
                         reply_markup=get_back_keyboard(db_user.language),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     logger.warning(
-                        f"⚠️ Partial reset for user {db_user.telegram_id}: {success_count}/{len(devices_list)}")
+                        f"⚠️ Partial reset for user {db_user.telegram_id}: {success_count}/{len(devices_list)}"
+                    )
             else:
                 await callback.message.edit_text(
                     texts.t(
@@ -877,25 +857,19 @@ async def handle_all_devices_reset_from_management(
                         ),
                     ).format(total=len(devices_list)),
                     reply_markup=get_back_keyboard(db_user.language),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
                 logger.error(f"❌ Failed to reset any devices for user {db_user.telegram_id}")
 
     except Exception as e:
         logger.error(f"Error resetting all devices: {e}")
-        await callback.message.edit_text(
-            texts.ERROR,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(texts.ERROR, reply_markup=get_back_keyboard(db_user.language))
 
     await callback.answer()
 
-async def confirm_add_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    devices_count = int(callback.data.split('_')[2])
+
+async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    devices_count = int(callback.data.split("_")[2])
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -912,9 +886,11 @@ async def confirm_add_devices(
 
     if settings.MAX_DEVICES_LIMIT > 0 and new_total_devices > settings.MAX_DEVICES_LIMIT:
         await callback.answer(
-            texts.t("DEVICES_LIMIT_EXCEEDED", "⚠️ Maximum device limit exceeded ({limit})").format(limit=settings.MAX_DEVICES_LIMIT) +
-            f"\nCurrent: {subscription.device_limit}, adding: {devices_count}",
-            show_alert=True
+            texts.t("DEVICES_LIMIT_EXCEEDED", "⚠️ Maximum device limit exceeded ({limit})").format(
+                limit=settings.MAX_DEVICES_LIMIT
+            )
+            + f"\nCurrent: {subscription.device_limit}, adding: {devices_count}",
+            show_alert=True,
         )
         return
 
@@ -948,8 +924,7 @@ async def confirm_add_devices(
     if db_user.balance_toman < price:
         missing_toman = price - db_user.balance_toman
         required_text = texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
-            amount=texts.format_price(price),
-            months=charged_months
+            amount=texts.format_price(price), months=charged_months
         )
         message_text = texts.t(
             "ADDON_INSUFFICIENT_FUNDS_MESSAGE",
@@ -980,18 +955,16 @@ async def confirm_add_devices(
 
     try:
         success = await subtract_user_balance(
-            db, db_user, price,
+            db,
+            db_user,
+            price,
             texts.t("subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months").format(
-                count=devices_count,
-                months=charged_months
-            )
+                count=devices_count, months=charged_months
+            ),
         )
 
         if not success:
-            await callback.answer(
-                texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"),
-                show_alert=True
-            )
+            await callback.answer(texts.t("PAYMENT_CHARGE_ERROR", "⚠️ Payment charge error"), show_alert=True)
             return
 
         await add_subscription_devices(db, subscription, devices_count)
@@ -1004,66 +977,50 @@ async def confirm_add_devices(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_toman=price,
-            description=texts.t("subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months").format(
-                count=devices_count,
-                months=charged_months
-            )
+            description=texts.t(
+                "subscription.devices.add_transaction_desc", "Adding {count} devices for {months} months"
+            ).format(count=devices_count, months=charged_months),
         )
 
         await db.refresh(db_user)
         await db.refresh(subscription)
 
         success_text = (
-            texts.t("subscription.devices.add_success", "✅ Devices successfully added!\n\n") +
-            texts.t("subscription.devices.added_count", "📱 Added: {count} devices\n").format(count=devices_count) +
-            texts.t("subscription.devices.new_limit", "New limit: {limit} devices\n").format(limit=subscription.device_limit)
+            texts.t("subscription.devices.add_success", "✅ Devices successfully added!\n\n")
+            + texts.t("subscription.devices.added_count", "📱 Added: {count} devices\n").format(count=devices_count)
+            + texts.t("subscription.devices.new_limit", "New limit: {limit} devices\n").format(
+                limit=subscription.device_limit
+            )
         )
         success_text += texts.t("subscription.countries.charged_period", "{amount} (for {months} months)").format(
-            amount=texts.format_price(price),
-            months=charged_months
+            amount=texts.format_price(price), months=charged_months
         )
         if total_discount > 0:
             success_text += texts.t("DEVICE_CHANGE_DISCOUNT_INFO", " (discount {percent}%: -{amount})").format(
-                percent=devices_discount_percent,
-                amount=texts.format_price(total_discount)
+                percent=devices_discount_percent, amount=texts.format_price(total_discount)
             )
 
-        await callback.message.edit_text(
-            success_text,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
         logger.info(f"✅ User {db_user.telegram_id} added {devices_count} devices for {price / 100} Toman")
 
     except Exception as e:
         logger.error(f"Error adding devices: {e}")
-        await callback.message.edit_text(
-            texts.ERROR,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await callback.message.edit_text(texts.ERROR, reply_markup=get_back_keyboard(db_user.language))
 
     await callback.answer()
 
-async def handle_reset_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def handle_reset_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     await handle_device_management(callback, db_user, db)
 
-async def confirm_reset_devices(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def confirm_reset_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     await handle_device_management(callback, db_user, db)
 
-async def handle_device_guide(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    device_type = callback.data.split('_')[2]
+
+async def handle_device_guide(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    device_type = callback.data.split("_")[2]
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
     subscription_link = get_display_subscription_link(subscription)
@@ -1085,33 +1042,30 @@ async def handle_device_guide(
         )
         return
 
-    featured_app = next((app for app in apps if app.get('isFeatured', False)), apps[0])
-    featured_app_id = featured_app.get('id')
-    other_apps = [
-        app for app in apps
-        if isinstance(app, dict) and app.get('id') and app.get('id') != featured_app_id
-    ]
+    featured_app = next((app for app in apps if app.get("isFeatured", False)), apps[0])
+    featured_app_id = featured_app.get("id")
+    other_apps = [app for app in apps if isinstance(app, dict) and app.get("id") and app.get("id") != featured_app_id]
 
     other_app_names = ", ".join(
-        str(app.get('name')).strip()
+        str(app.get("name")).strip()
         for app in other_apps
-        if isinstance(app.get('name'), str) and app.get('name').strip()
+        if isinstance(app.get("name"), str) and app.get("name").strip()
     )
 
     if hide_subscription_link:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
-                + "\n"
-                + texts.t(
-            "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
-            "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
-        )
-                + "\n\n"
+            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
+            + "\n"
+            + texts.t(
+                "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
+                "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
+            )
+            + "\n\n"
         )
     else:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
-                + f"\n<code>{subscription_link}</code>\n\n"
+            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
+            + f"\n<code>{subscription_link}</code>\n\n"
         )
 
     installation_description = get_step_description(featured_app, "installationStep", db_user.language)
@@ -1129,16 +1083,16 @@ async def handle_device_guide(
     )
 
     guide_text = (
-            texts.t(
-                "SUBSCRIPTION_DEVICE_GUIDE_TITLE",
-                "📱 <b>Setup for {device_name}</b>",
-            ).format(device_name=get_device_name(device_type, db_user.language))
-            + "\n\n"
-            + link_section
-            + texts.t(
-        "SUBSCRIPTION_DEVICE_FEATURED_APP",
-        "📋 <b>Recommended app:</b> {app_name}",
-    ).format(app_name=featured_app.get('name', ''))
+        texts.t(
+            "SUBSCRIPTION_DEVICE_GUIDE_TITLE",
+            "📱 <b>Setup for {device_name}</b>",
+        ).format(device_name=get_device_name(device_type, db_user.language))
+        + "\n\n"
+        + link_section
+        + texts.t(
+            "SUBSCRIPTION_DEVICE_FEATURED_APP",
+            "📋 <b>Recommended app:</b> {app_name}",
+        ).format(app_name=featured_app.get("name", ""))
     )
 
     if other_app_names:
@@ -1200,16 +1154,13 @@ async def handle_device_guide(
             db_user.language,
             has_other_apps=bool(other_apps),
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
     await callback.answer()
 
-async def handle_app_selection(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    device_type = callback.data.split('_')[2]
+
+async def handle_app_selection(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    device_type = callback.data.split("_")[2]
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -1223,27 +1174,22 @@ async def handle_app_selection(
         return
 
     app_text = (
-            texts.t(
-                "SUBSCRIPTION_APPS_TITLE",
-                "📱 <b>Apps for {device_name}</b>",
-            ).format(device_name=get_device_name(device_type, db_user.language))
-            + "\n\n"
-            + texts.t("SUBSCRIPTION_APPS_PROMPT", "Choose an app to connect:")
+        texts.t(
+            "SUBSCRIPTION_APPS_TITLE",
+            "📱 <b>Apps for {device_name}</b>",
+        ).format(device_name=get_device_name(device_type, db_user.language))
+        + "\n\n"
+        + texts.t("SUBSCRIPTION_APPS_PROMPT", "Choose an app to connect:")
     )
 
     await callback.message.edit_text(
-        app_text,
-        reply_markup=get_app_selection_keyboard(device_type, apps, db_user.language),
-        parse_mode="HTML"
+        app_text, reply_markup=get_app_selection_keyboard(device_type, apps, db_user.language), parse_mode="HTML"
     )
     await callback.answer()
 
-async def handle_specific_app_guide(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
-    _, device_type, app_id = callback.data.split('_')
+
+async def handle_specific_app_guide(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    _, device_type, app_id = callback.data.split("_")
     texts = get_texts(db_user.language)
     subscription = db_user.subscription
 
@@ -1257,7 +1203,7 @@ async def handle_specific_app_guide(
         return
 
     apps = get_apps_for_device(device_type, db_user.language)
-    app = next((a for a in apps if a['id'] == app_id), None)
+    app = next((a for a in apps if a["id"] == app_id), None)
 
     if not app:
         await callback.answer(
@@ -1270,18 +1216,18 @@ async def handle_specific_app_guide(
 
     if hide_subscription_link:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
-                + "\n"
-                + texts.t(
-            "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
-            "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
-        )
-                + "\n\n"
+            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
+            + "\n"
+            + texts.t(
+                "SUBSCRIPTION_LINK_HIDDEN_NOTICE",
+                "ℹ️ Subscription link is available via buttons below or in the 'My subscription' section.",
+            )
+            + "\n\n"
         )
     else:
         link_section = (
-                texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
-                + f"\n<code>{subscription_link}</code>\n\n"
+            texts.t("SUBSCRIPTION_DEVICE_LINK_TITLE", "🔗 <b>Subscription link:</b>")
+            + f"\n<code>{subscription_link}</code>\n\n"
         )
 
     installation_description = get_step_description(app, "installationStep", db_user.language)
@@ -1299,12 +1245,12 @@ async def handle_specific_app_guide(
     )
 
     guide_text = (
-            texts.t(
-                "SUBSCRIPTION_SPECIFIC_APP_TITLE",
-                "📱 <b>{app_name} - {device_name}</b>",
-            ).format(app_name=app.get('name', ''), device_name=get_device_name(device_type, db_user.language))
-            + "\n\n"
-            + link_section
+        texts.t(
+            "SUBSCRIPTION_SPECIFIC_APP_TITLE",
+            "📱 <b>{app_name} - {device_name}</b>",
+        ).format(app_name=app.get("name", ""), device_name=get_device_name(device_type, db_user.language))
+        + "\n\n"
+        + link_section
     )
 
     guide_text += texts.t("SUBSCRIPTION_DEVICE_STEP_INSTALL_TITLE", "<b>Step 1 - Install:</b>")
@@ -1327,28 +1273,19 @@ async def handle_specific_app_guide(
 
     await callback.message.edit_text(
         guide_text,
-        reply_markup=get_specific_app_keyboard(
-            subscription_link,
-            app,
-            device_type,
-            db_user.language
-        ),
-        parse_mode="HTML"
+        reply_markup=get_specific_app_keyboard(subscription_link, app, device_type, db_user.language),
+        parse_mode="HTML",
     )
     await callback.answer()
 
-async def show_device_connection_help(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession
-):
+
+async def show_device_connection_help(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     subscription = db_user.subscription
     subscription_link = get_display_subscription_link(subscription)
 
     if not subscription_link:
         await callback.answer(
-            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"),
-            show_alert=True
+            texts.t("SUBSCRIPTION_LINK_UNAVAILABLE", "❌ Subscription link unavailable"), show_alert=True
         )
         return
 
@@ -1373,12 +1310,10 @@ After resetting a device you need to:
 <b>🔗 Your subscription link:</b>
 <code>{subscription_link}</code>
 
-💡 <b>Tip:</b> Save this link - you'll need it to connect new devices"""
+💡 <b>Tip:</b> Save this link - you'll need it to connect new devices""",
     ).format(subscription_link=subscription_link)
 
     await callback.message.edit_text(
-        help_text,
-        reply_markup=get_device_management_help_keyboard(db_user.language),
-        parse_mode="HTML"
+        help_text, reply_markup=get_device_management_help_keyboard(db_user.language), parse_mode="HTML"
     )
     await callback.answer()

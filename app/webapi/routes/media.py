@@ -155,4 +155,3 @@ async def download_media(
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to download media") from error
     finally:
         await bot.session.close()
-

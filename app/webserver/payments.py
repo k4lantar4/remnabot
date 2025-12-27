@@ -189,7 +189,9 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         async def tribute_webhook(request: Request) -> JSONResponse:
             raw_body = await request.body()
             if not raw_body:
-                return JSONResponse({"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(
+                    {"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST
+                )
 
             payload = raw_body.decode("utf-8")
 
@@ -235,7 +237,9 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         async def mulenpay_webhook(request: Request) -> JSONResponse:
             raw_body = await request.body()
             if not raw_body:
-                return JSONResponse({"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(
+                    {"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST
+                )
 
             if not _verify_mulenpay_signature(request, raw_body):
                 return JSONResponse(
@@ -276,7 +280,9 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         async def cryptobot_webhook(request: Request) -> JSONResponse:
             raw_body = await request.body()
             if not raw_body:
-                return JSONResponse({"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(
+                    {"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST
+                )
 
             payload_text = raw_body.decode("utf-8")
             try:
@@ -377,7 +383,9 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
 
             body_bytes = await request.body()
             if not body_bytes:
-                return JSONResponse({"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(
+                    {"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST
+                )
 
             body = body_bytes.decode("utf-8")
 
@@ -450,7 +458,9 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         async def wata_webhook(request: Request) -> JSONResponse:
             raw_body = await request.body()
             if not raw_body:
-                return JSONResponse({"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST)
+                return JSONResponse(
+                    {"status": "error", "reason": "empty_body"}, status_code=status.HTTP_400_BAD_REQUEST
+                )
 
             signature = request.headers.get("X-Signature") or ""
             if not await wata_handler._verify_signature(raw_body.decode("utf-8"), signature):  # type: ignore[attr-defined]
@@ -615,10 +625,7 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         async def platega_webhook(request: Request) -> JSONResponse:
             merchant_id = request.headers.get("X-MerchantId", "")
             secret = request.headers.get("X-Secret", "")
-            if (
-                merchant_id != (settings.PLATEGA_MERCHANT_ID or "")
-                or secret != (settings.PLATEGA_SECRET or "")
-            ):
+            if merchant_id != (settings.PLATEGA_MERCHANT_ID or "") or secret != (settings.PLATEGA_SECRET or ""):
                 return JSONResponse(
                     {"status": "error", "reason": "unauthorized"},
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -797,6 +804,7 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
         routes_registered = True
 
     if routes_registered:
+
         @router.get("/health/payment-webhooks")
         async def payment_webhooks_health() -> JSONResponse:
             return JSONResponse(

@@ -197,18 +197,12 @@ class PaymentService(
         # Bot is needed for sending notifications.
         self.bot = bot
         # Initialize wrapper services only for the enabled sample providers.
-        self.cryptobot_service = (
-            CryptoBotService() if settings.is_cryptobot_enabled() else None
-        )
-        self.pal24_service = (
-            Pal24Service() if settings.is_pal24_enabled() else None
-        )
+        self.cryptobot_service = CryptoBotService() if settings.is_cryptobot_enabled() else None
+        self.pal24_service = Pal24Service() if settings.is_pal24_enabled() else None
         self.wata_service = WataService() if settings.is_wata_enabled() else None
-        self.cloudpayments_service = (
-            CloudPaymentsService() if settings.is_cloudpayments_enabled() else None
-        )
+        self.cloudpayments_service = CloudPaymentsService() if settings.is_cloudpayments_enabled() else None
         self.nalogo_service = NaloGoService() if settings.is_nalogo_enabled() else None
-        
+
         logger.debug(
             "PaymentService initialized (CryptoBot=%s, Pal24=%s, Wata=%s, CloudPayments=%s, NaloGo=%s)",
             bool(self.cryptobot_service),

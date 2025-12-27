@@ -60,7 +60,7 @@ date: '2025-12-25'
 ### در محدوده (In Scope)
 
 #### فاز ۱ - Foundation
-- ✅ افزودن جدول tenants و tenant_id به تمام جداول موجود
+- ✅ افزودن جدول tenants و bot_id به تمام جداول موجود
 - ✅ TenantMiddleware برای استخراج tenant از bot_token
 - ✅ PostgreSQL RLS policies برای جداسازی داده
 - ✅ Tenant Context با ContextVar
@@ -103,9 +103,9 @@ date: '2025-12-25'
 | ID | Requirement | Priority | Acceptance Criteria |
 |----|-------------|----------|---------------------|
 | FR1.1 | سیستم باید جدول tenants با فیلدهای id, bot_token, bot_username, owner_telegram_id, status, plan, settings ایجاد کند | P0 | جدول با تمام فیلدها ایجاد شود |
-| FR1.2 | سیستم باید tenant_id را به تمام جداول موجود (users, subscriptions, payments, etc.) اضافه کند | P0 | تمام ۳۵+ جدول دارای tenant_id باشند |
-| FR1.3 | سیستم باید داده‌های موجود را به default tenant با id=1 migrate کند | P0 | تمام رکوردهای موجود tenant_id=1 داشته باشند |
-| FR1.4 | سیستم باید unique constraint روی (tenant_id, telegram_id) برای جدول users داشته باشد | P0 | کاربران unique per tenant باشند |
+| FR1.2 | سیستم باید bot_id را به تمام جداول موجود (users, subscriptions, payments, etc.) اضافه کند | P0 | تمام ۳۵+ جدول دارای bot_id باشند |
+| FR1.3 | سیستم باید داده‌های موجود را به default tenant با id=1 migrate کند | P0 | تمام رکوردهای موجود bot_id=1 داشته باشند |
+| FR1.4 | سیستم باید unique constraint روی (bot_id, telegram_id) برای جدول users داشته باشد | P0 | کاربران unique per tenant باشند |
 
 #### FR2: Tenant Context & Isolation
 
@@ -121,8 +121,8 @@ date: '2025-12-25'
 | ID | Requirement | Priority | Acceptance Criteria |
 |----|-------------|----------|---------------------|
 | FR3.1 | سیستم باید Alembic migrations برای تمام تغییرات schema ایجاد کند | P0 | Migration‌ها قابل rollback باشند |
-| FR3.2 | سیستم باید indexes بهینه روی (tenant_id, ...) ایجاد کند | P1 | Query performance مناسب باشد |
-| FR3.3 | سیستم باید foreign key از tenant_id به tenants.id اضافه کند | P0 | Referential integrity حفظ شود |
+| FR3.2 | سیستم باید indexes بهینه روی (bot_id, ...) ایجاد کند | P1 | Query performance مناسب باشد |
+| FR3.3 | سیستم باید foreign key از bot_id به tenants.id اضافه کند | P0 | Referential integrity حفظ شود |
 
 ---
 
@@ -151,7 +151,7 @@ date: '2025-12-25'
 |----|-------------|----------|---------------------|
 | FR6.1 | سیستم باید از merchant_id هر tenant برای ZarinPal استفاده کند | P0 | پول به حساب tenant واریز شود |
 | FR6.2 | سیستم باید callback URL شامل tenant identifier باشد | P0 | Callback به tenant صحیح route شود |
-| FR6.3 | سیستم باید پرداخت موفق را در جدول payments با tenant_id ثبت کند | P0 | تراکنش‌ها قابل ردیابی باشند |
+| FR6.3 | سیستم باید پرداخت موفق را در جدول payments با bot_id ثبت کند | P0 | تراکنش‌ها قابل ردیابی باشند |
 | FR6.4 | سیستم باید در صورت نبود merchant_id، ZarinPal را غیرفعال نشان دهد | P1 | UX واضح باشد |
 
 #### FR7: Payment - Card-to-Card
@@ -282,7 +282,7 @@ date: '2025-12-25'
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | NFR3.1 | Data isolation via PostgreSQL RLS | P0 |
-| NFR3.2 | JWT tokens with tenant_id claim | P0 |
+| NFR3.2 | JWT tokens with bot_id claim | P0 |
 | NFR3.3 | Bot token validation per request | P0 |
 | NFR3.4 | No cross-tenant data leakage | P0 |
 | NFR3.5 | Audit logging for Super Admin actions | P1 |
@@ -303,7 +303,7 @@ date: '2025-12-25'
 |----|-------------|--------|
 | NFR5.1 | Test coverage | 70% (MVP), 85% (6-month) |
 | NFR5.2 | Code documentation | English comments/docstrings |
-| NFR5.3 | Structured logging with tenant_id | All requests |
+| NFR5.3 | Structured logging with bot_id | All requests |
 | NFR5.4 | Database migrations rollback capability | All migrations |
 
 ### NFR6: Usability
@@ -453,7 +453,7 @@ date: '2025-12-25'
 
 **Deliverables:**
 - ✅ Tenants table created
-- ✅ tenant_id added to all tables
+- ✅ bot_id added to all tables
 - ✅ RLS policies enabled
 - ✅ TenantMiddleware implemented
 - ✅ Existing data migrated

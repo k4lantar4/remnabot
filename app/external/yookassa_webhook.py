@@ -84,7 +84,7 @@ def _parse_candidate_ip(candidate: str) -> Optional[IPAddress]:
         return None
 
     if value.startswith("[") and "]" in value:
-        value = value[1:value.index("]")]
+        value = value[1 : value.index("]")]
 
     if "%" in value:
         value = value.split("%", 1)[0]
@@ -108,8 +108,7 @@ def _should_trust_forwarded_headers(remote_ip: Optional[IPAddress]) -> bool:
         return True
 
     return any(
-        getattr(remote_ip, attribute)
-        for attribute in ("is_private", "is_loopback", "is_link_local", "is_reserved")
+        getattr(remote_ip, attribute) for attribute in ("is_private", "is_loopback", "is_link_local", "is_reserved")
     )
 
 
@@ -143,8 +142,7 @@ def _get_trusted_proxy_networks() -> Tuple[IPNetwork, ...]:
 
 def _is_trusted_proxy_ip(ip_object: IPAddress) -> bool:
     if any(
-        getattr(ip_object, attribute)
-        for attribute in ("is_private", "is_loopback", "is_link_local", "is_reserved")
+        getattr(ip_object, attribute) for attribute in ("is_private", "is_loopback", "is_link_local", "is_reserved")
     ):
         return True
 
@@ -161,11 +159,7 @@ def resolve_yookassa_ip(
 ) -> Optional[IPAddress]:
     remote_ip = _parse_candidate_ip(remote) if remote else None
 
-    if (
-        remote_ip is not None
-        and remote_ip.is_global
-        and not _is_trusted_proxy_ip(remote_ip)
-    ):
+    if remote_ip is not None and remote_ip.is_global and not _is_trusted_proxy_ip(remote_ip):
         return remote_ip
 
     candidate_list = list(candidates)
@@ -185,9 +179,13 @@ def resolve_yookassa_ip(
         if last_hop is not None and not _is_trusted_proxy_ip(last_hop):
             return last_hop
 
-    return remote_ip if remote_ip is not None else next(
-        (ip for ip in (_parse_candidate_ip(value) for value in candidate_list) if ip is not None),
-        None,
+    return (
+        remote_ip
+        if remote_ip is not None
+        else next(
+            (ip for ip in (_parse_candidate_ip(value) for value in candidate_list) if ip is not None),
+            None,
+        )
     )
 
 
@@ -196,12 +194,10 @@ def is_yookassa_ip_allowed(ip_object: IPAddress) -> bool:
 
 
 class YooKassaWebhookHandler:
-
     def __init__(self, payment_service: PaymentService):
         self.payment_service = payment_service
 
     async def handle_webhook(self, request: web.Request) -> web.Response:
-
         try:
             logger.info(f"Received YooKassa webhook: {request.method} {request.path}")
             logger.info(f"Headers: {dict(request.headers)}")
@@ -241,7 +237,7 @@ class YooKassaWebhookHandler:
 
             logger.info(f"Body: {body}")
 
-            signature = request.headers.get('Signature') or request.headers.get('X-YooKassa-Signature')
+            signature = request.headers.get("Signature") or request.headers.get("X-YooKassa-Signature")
             if signature:
                 logger.info("Received YooKassa signature: %s", signature)
 
@@ -272,21 +268,30 @@ class YooKassaWebhookHandler:
                 try:
                     from app.database.models import PaymentMethod
                     from app.database.crud.transaction import get_transaction_by_external_id
+
                     existing_transaction = None
                     if yookassa_payment_id and hasattr(db, "execute"):
-                        existing_transaction = await get_transaction_by_external_id(db, yookassa_payment_id, PaymentMethod.YOOKASSA)
+                        existing_transaction = await get_transaction_by_external_id(
+                            db, yookassa_payment_id, PaymentMethod.YOOKASSA
+                        )
 
                     if existing_transaction and event_type == "payment.succeeded":
-                        logger.info(f"YooKassa payment {yookassa_payment_id} already processed. Skipping duplicate webhook.")
+                        logger.info(
+                            f"YooKassa payment {yookassa_payment_id} already processed. Skipping duplicate webhook."
+                        )
                         return web.Response(status=200, text="OK")
-                    
+
                     success = await self.payment_service.process_yookassa_webhook(db, webhook_data)
 
                     if success:
-                        logger.info(f"Successfully processed YooKassa webhook: {event_type} for payment {yookassa_payment_id}")
+                        logger.info(
+                            f"Successfully processed YooKassa webhook: {event_type} for payment {yookassa_payment_id}"
+                        )
                         return web.Response(status=200, text="OK")
                     else:
-                        logger.error(f"Error processing YooKassa webhook: {event_type} for payment {yookassa_payment_id}")
+                        logger.error(
+                            f"Error processing YooKassa webhook: {event_type} for payment {yookassa_payment_id}"
+                        )
                         return web.Response(status=500, text="Processing error")
 
                 finally:
@@ -297,7 +302,6 @@ class YooKassaWebhookHandler:
             return web.Response(status=500, text="Internal server error")
 
     def setup_routes(self, app: web.Application) -> None:
-
         webhook_path = settings.YOOKASSA_WEBHOOK_PATH
         app.router.add_post(webhook_path, self.handle_webhook)
         app.router.add_get(webhook_path, self._get_handler)
@@ -306,40 +310,43 @@ class YooKassaWebhookHandler:
         logger.info(f"YooKassa webhook configured at path: POST {webhook_path}")
 
     async def _get_handler(self, request: web.Request) -> web.Response:
-        return web.json_response({
-            "status": "ok",
-            "message": "YooKassa webhook endpoint is working",
-            "method": "GET",
-            "path": request.path,
-            "note": "Use POST method for actual webhooks"
-        })
+        return web.json_response(
+            {
+                "status": "ok",
+                "message": "YooKassa webhook endpoint is working",
+                "method": "GET",
+                "path": request.path,
+                "note": "Use POST method for actual webhooks",
+            }
+        )
 
     async def _options_handler(self, request: web.Request) -> web.Response:
         return web.Response(
             status=200,
             headers={
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-YooKassa-Signature',
-            }
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, X-YooKassa-Signature",
+            },
         )
 
 
 def create_yookassa_webhook_app(payment_service: PaymentService) -> web.Application:
-
     app = web.Application()
 
     webhook_handler = YooKassaWebhookHandler(payment_service)
     webhook_handler.setup_routes(app)
 
     async def health_check(request):
-        return web.json_response({
-            "status": "ok",
-            "service": "yookassa_webhook",
-            "port": settings.YOOKASSA_WEBHOOK_PORT,
-            "path": settings.YOOKASSA_WEBHOOK_PATH,
-            "enabled": settings.is_yookassa_enabled()
-        })
+        return web.json_response(
+            {
+                "status": "ok",
+                "service": "yookassa_webhook",
+                "port": settings.YOOKASSA_WEBHOOK_PORT,
+                "path": settings.YOOKASSA_WEBHOOK_PATH,
+                "enabled": settings.is_yookassa_enabled(),
+            }
+        )
 
     app.router.add_get("/health", health_check)
 
@@ -347,7 +354,6 @@ def create_yookassa_webhook_app(payment_service: PaymentService) -> web.Applicat
 
 
 async def start_yookassa_webhook_server(payment_service: PaymentService) -> None:
-
     if not settings.is_yookassa_enabled():
         logger.info("YooKassa disabled, webhook server not starting")
         return
@@ -358,11 +364,7 @@ async def start_yookassa_webhook_server(payment_service: PaymentService) -> None
         runner = web.AppRunner(app)
         await runner.setup()
 
-        site = web.TCPSite(
-            runner,
-            host=settings.YOOKASSA_WEBHOOK_HOST,
-            port=settings.YOOKASSA_WEBHOOK_PORT
-        )
+        site = web.TCPSite(runner, host=settings.YOOKASSA_WEBHOOK_HOST, port=settings.YOOKASSA_WEBHOOK_PORT)
 
         await site.start()
 

@@ -1,4 +1,5 @@
 """Administrative API routes for viewing logs."""
+
 from __future__ import annotations
 
 import logging

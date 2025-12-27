@@ -1,4 +1,5 @@
 """Pydantic schemas for administrative API logs."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -81,9 +82,7 @@ class SystemLogPreviewResponse(BaseModel):
         description="Log file content fragment returned for preview",
     )
     preview_chars: int = Field(..., ge=0, description="Preview size in characters")
-    preview_truncated: bool = Field(
-        ..., description="Flag indicating preview is truncated relative to full file"
-    )
+    preview_truncated: bool = Field(..., description="Flag indicating preview is truncated relative to full file")
     download_url: Optional[str] = Field(
         default=None,
         description="Relative path to the endpoint for downloading the log file",

@@ -65,9 +65,7 @@ async def list_transactions(
     total_query = base_query.with_only_columns(func.count()).order_by(None)
     total = await db.scalar(total_query) or 0
 
-    result = await db.execute(
-        base_query.order_by(Transaction.created_at.desc()).offset(offset).limit(limit)
-    )
+    result = await db.execute(base_query.order_by(Transaction.created_at.desc()).offset(offset).limit(limit))
     transactions = result.scalars().all()
 
     return TransactionListResponse(

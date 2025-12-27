@@ -13,16 +13,12 @@ logger = logging.getLogger(__name__)
 
 # Templates
 async def get_template_by_id(db: AsyncSession, template_id: int) -> Optional[ContestTemplate]:
-    result = await db.execute(
-        select(ContestTemplate).where(ContestTemplate.id == template_id)
-    )
+    result = await db.execute(select(ContestTemplate).where(ContestTemplate.id == template_id))
     return result.scalar_one_or_none()
 
 
 async def get_template_by_slug(db: AsyncSession, slug: str) -> Optional[ContestTemplate]:
-    result = await db.execute(
-        select(ContestTemplate).where(ContestTemplate.slug == slug)
-    )
+    result = await db.execute(select(ContestTemplate).where(ContestTemplate.slug == slug))
     return result.scalar_one_or_none()
 
 

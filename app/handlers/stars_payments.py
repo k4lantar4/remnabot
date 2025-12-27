@@ -80,12 +80,7 @@ async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
         )
 
 
-async def handle_successful_payment(
-    message: types.Message,
-    db: AsyncSession,
-    state: FSMContext,
-    **kwargs
-):
+async def handle_successful_payment(message: types.Message, db: AsyncSession, state: FSMContext, **kwargs):
     texts = get_texts(DEFAULT_LANGUAGE)
 
     try:
@@ -140,7 +135,7 @@ async def handle_successful_payment(
             user_id=user.id,
             stars_amount=payment.total_amount,
             payload=payment.invoice_payload,
-            telegram_payment_charge_id=payment.telegram_payment_charge_id
+            telegram_payment_charge_id=payment.telegram_payment_charge_id,
         )
 
         await state.update_data(
@@ -200,22 +195,14 @@ async def handle_successful_payment(
         await message.answer(
             texts.t(
                 "STARS_PAYMENT_PROCESSING_ERROR",
-                "❌ Technical error while processing payment. "
-                "Contact support for assistance.",
+                "❌ Technical error while processing payment. Contact support for assistance.",
             )
         )
 
 
 def register_stars_handlers(dp: Dispatcher):
+    dp.pre_checkout_query.register(handle_pre_checkout_query, F.currency == "XTR")
 
-    dp.pre_checkout_query.register(
-        handle_pre_checkout_query,
-        F.currency == "XTR"
-    )
-
-    dp.message.register(
-        handle_successful_payment,
-        F.successful_payment
-    )
+    dp.message.register(handle_successful_payment, F.successful_payment)
 
     logger.info("🌟 Telegram Stars payment handlers registered")

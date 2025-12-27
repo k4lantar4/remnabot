@@ -145,6 +145,7 @@ OFFER_TYPE_CONFIG = {
     },
 }
 
+
 def _render_template_text(
     template: PromoOfferTemplate,
     language: str,
@@ -194,18 +195,22 @@ def _build_templates_keyboard(templates: Sequence[PromoOfferTemplate], language:
         config = OFFER_TYPE_CONFIG.get(template.offer_type, {})
         icon = config.get("icon", "📨")
         label = texts.get_text(config.get("label_key", ""), config.get("default_label", template.offer_type))
-        rows.append([
-            InlineKeyboardButton(
-                text=f"{icon} {label}",
-                callback_data=f"promo_offer_{template.id}",
-            )
-        ])
-    rows.append([
-        InlineKeyboardButton(
-            text=texts.get_text("ADMIN_PROMO_OFFER_LOGS", "📜 Operations log"),
-            callback_data="promo_offer_logs_page_1",
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{icon} {label}",
+                    callback_data=f"promo_offer_{template.id}",
+                )
+            ]
         )
-    ])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_PROMO_OFFER_LOGS", "📜 Operations log"),
+                callback_data="promo_offer_logs_page_1",
+            )
+        ]
+    )
     rows.append([InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_communications")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -215,31 +220,61 @@ def _build_offer_detail_keyboard(template: PromoOfferTemplate, language: str) ->
     config = OFFER_TYPE_CONFIG.get(template.offer_type, {})
     rows: List[List[InlineKeyboardButton]] = []
 
-    rows.append([
-        InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_TEXT", "✏️ Text"), callback_data=f"promo_offer_edit_message_{template.id}"),
-        InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_BUTTON", "🪄 Button"), callback_data=f"promo_offer_edit_button_{template.id}"),
-    ])
-    rows.append([
-        InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_TERM", "⏱️ Term"), callback_data=f"promo_offer_edit_valid_{template.id}"),
-    ])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_BTN_TEXT", "✏️ Text"), callback_data=f"promo_offer_edit_message_{template.id}"
+            ),
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_BTN_BUTTON", "🪄 Button"),
+                callback_data=f"promo_offer_edit_button_{template.id}",
+            ),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_BTN_TERM", "⏱️ Term"), callback_data=f"promo_offer_edit_valid_{template.id}"
+            ),
+        ]
+    )
 
     if template.offer_type != "test_access":
         rows[-1].append(InlineKeyboardButton(text="📉 %", callback_data=f"promo_offer_edit_discount_{template.id}"))
-        rows.append([
-            InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_ACTIVE", "⌛ Active"), callback_data=f"promo_offer_edit_active_{template.id}"),
-        ])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.get_text("ADMIN_BTN_ACTIVE", "⌛ Active"),
+                    callback_data=f"promo_offer_edit_active_{template.id}",
+                ),
+            ]
+        )
     else:
-        rows.append([
-            InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_DURATION", "⏳ Duration"), callback_data=f"promo_offer_edit_duration_{template.id}"),
-            InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_SQUADS", "🌍 Squads"), callback_data=f"promo_offer_edit_squads_{template.id}"),
-        ])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.get_text("ADMIN_BTN_DURATION", "⏳ Duration"),
+                    callback_data=f"promo_offer_edit_duration_{template.id}",
+                ),
+                InlineKeyboardButton(
+                    text=texts.get_text("ADMIN_BTN_SQUADS", "🌍 Squads"),
+                    callback_data=f"promo_offer_edit_squads_{template.id}",
+                ),
+            ]
+        )
 
-    rows.append([
-        InlineKeyboardButton(text=texts.get_text("ADMIN_BTN_SEND", "📬 Send"), callback_data=f"promo_offer_send_menu_{template.id}"),
-    ])
-    rows.append([
-        InlineKeyboardButton(text=texts.BACK, callback_data="admin_promo_offers"),
-    ])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_BTN_SEND", "📬 Send"), callback_data=f"promo_offer_send_menu_{template.id}"
+            ),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(text=texts.BACK, callback_data="admin_promo_offers"),
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -312,9 +347,7 @@ def _format_promo_offer_log_entry(
 
     if entry.percent:
         lines.append(
-            texts.get_text("ADMIN_PROMO_OFFER_LOGS_PERCENT", "📉 Discount: {percent}%").format(
-                percent=entry.percent
-            )
+            texts.get_text("ADMIN_PROMO_OFFER_LOGS_PERCENT", "📉 Discount: {percent}%").format(percent=entry.percent)
         )
 
     effect_type = (entry.effect_type or "").lower()
@@ -693,9 +726,7 @@ def _describe_offer(
         lines.append(texts.get_text("ADMIN_PROMO_OFFER_TEST_DURATION", "Access: {hours} h").format(hours=duration))
         squads = template.test_squad_uuids or []
         if server_name:
-            lines.append(
-                texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUAD_NAME", "Server: {name}").format(name=server_name)
-            )
+            lines.append(texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUAD_NAME", "Server: {name}").format(name=server_name))
         elif squads:
             lines.append(
                 texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUADS", "Squads: {squads}").format(
@@ -703,15 +734,15 @@ def _describe_offer(
                 )
             )
         elif server_uuid:
-            lines.append(
-                texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUADS", "Squads: {squads}").format(squads=server_uuid)
-            )
+            lines.append(texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUADS", "Squads: {squads}").format(squads=server_uuid))
         else:
             lines.append(texts.get_text("ADMIN_PROMO_OFFER_TEST_SQUADS_EMPTY", "Squads: not specified"))
 
     allowed_segments = config.get("allowed_segments", [])
     if allowed_segments:
-        segment_labels = [texts.get_text(label_key, SEGMENT_LABELS.get(label_key, label_key)) for _, label_key in allowed_segments]
+        segment_labels = [
+            texts.get_text(label_key, SEGMENT_LABELS.get(label_key, label_key)) for _, label_key in allowed_segments
+        ]
         lines.append("")
         lines.append(texts.get_text("ADMIN_PROMO_OFFER_ALLOWED", "Allowed categories:"))
         lines.extend(segment_labels)
@@ -953,7 +984,9 @@ async def _render_squad_selection(
         await callback.message.edit_text(
             texts.get_text("ADMIN_PROMO_OFFER_NO_SQUADS_AVAILABLE", "❌ No available servers found."),
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data=f"promo_offer_squad_back_{template.id}")]]
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=texts.BACK, callback_data=f"promo_offer_squad_back_{template.id}")]
+                ]
             ),
         )
         return
@@ -1010,12 +1043,14 @@ async def _render_squad_selection(
     for server in squads:
         emoji = "✅" if server.squad_uuid == selected_uuid else ("⚪" if server.is_available else "🔒")
         label = f"{emoji} {server.display_name}"
-        keyboard_rows.append([
-            InlineKeyboardButton(
-                text=label,
-                callback_data=f"promo_offer_select_squad_{template.id}_{server.id}_{page}",
-            )
-        ])
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"promo_offer_select_squad_{template.id}_{server.id}_{page}",
+                )
+            ]
+        )
 
     if total_pages > 1:
         nav_row: List[InlineKeyboardButton] = []
@@ -1087,7 +1122,9 @@ async def _handle_edit_field(
     template_id = data.get("selected_promo_offer")
     if not template_id:
         await _safe_delete_message(message)
-        await message.answer(texts.get_text("ADMIN_PROMO_OFFER_CANNOT_DETERMINE", "❌ Could not determine offer. Try again."))
+        await message.answer(
+            texts.get_text("ADMIN_PROMO_OFFER_CANNOT_DETERMINE", "❌ Could not determine offer. Try again.")
+        )
         await state.clear()
         return
 
@@ -1136,7 +1173,9 @@ async def _handle_edit_field(
     updated_template = await get_promo_offer_template_by_id(db, template.id)
     if not updated_template:
         await _safe_delete_message(message)
-        await message.answer(texts.get_text("ADMIN_PROMO_OFFER_NOT_FOUND_AFTER_UPDATE", "❌ Offer not found after update."))
+        await message.answer(
+            texts.get_text("ADMIN_PROMO_OFFER_NOT_FOUND_AFTER_UPDATE", "❌ Offer not found after update.")
+        )
         return
 
     squad_uuid, squad_name = await _resolve_template_squad(db, updated_template)
@@ -1184,9 +1223,7 @@ async def show_send_segments(callback: CallbackQuery, db_user: User, db: AsyncSe
         await callback.answer(texts.get_text("ADMIN_PROMO_OFFER_NOT_FOUND", "❌ Offer not found"), show_alert=True)
         return
 
-    await callback.message.edit_reply_markup(
-        reply_markup=_build_send_keyboard(template, db_user.language)
-    )
+    await callback.message.edit_reply_markup(reply_markup=_build_send_keyboard(template, db_user.language))
     await callback.answer()
 
 
@@ -1198,7 +1235,7 @@ async def show_send_user_list(callback: CallbackQuery, db_user: User, db: AsyncS
         prefix = "promo_offer_send_user_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, page_label, page_str = payload.split("_", 2)
         if page_label != "page":
             raise ValueError("invalid payload")
@@ -1418,7 +1455,7 @@ async def show_selected_user_details(
         prefix = "promo_offer_send_user_select_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, user_id_str = payload.split("_", 1)
         template_id = int(template_id_str)
         user_id = int(user_id_str)
@@ -1458,9 +1495,7 @@ async def show_selected_user_details(
         lines.append(texts.get_text("ADMIN_PROMO_OFFER_SEND_USER_USERNAME", "🔗 @{username}").format(username=username))
 
     status_label = status_map.get(user.status, texts.ADMIN_USER_STATUS_UNKNOWN)
-    lines.append(
-        texts.get_text("ADMIN_PROMO_OFFER_SEND_USER_STATUS", "Status: {status}").format(status=status_label)
-    )
+    lines.append(texts.get_text("ADMIN_PROMO_OFFER_SEND_USER_STATUS", "Status: {status}").format(status=status_label))
 
     if balance:
         lines.append(
@@ -1722,20 +1757,17 @@ async def show_selected_user_details(
             )
         )
 
-    stats_stmt = (
-        select(
-            func.count(DiscountOffer.id),
-            func.sum(
-                case(
-                    (DiscountOffer.claimed_at.isnot(None), 1),
-                    else_=0,
-                )
-            ),
-        )
-        .where(
-            DiscountOffer.user_id == user.id,
-            DiscountOffer.notification_type == f"promo_template_{template.id}",
-        )
+    stats_stmt = select(
+        func.count(DiscountOffer.id),
+        func.sum(
+            case(
+                (DiscountOffer.claimed_at.isnot(None), 1),
+                else_=0,
+            )
+        ),
+    ).where(
+        DiscountOffer.user_id == user.id,
+        DiscountOffer.notification_type == f"promo_template_{template.id}",
     )
     stats_result = await db.execute(stats_stmt)
     total_offers, accepted_offers = stats_result.one()
@@ -1864,36 +1896,36 @@ def _build_connect_button_rows(user: User, texts) -> List[List[InlineKeyboardBut
 
     if connect_mode == "miniapp_subscription":
         if subscription_link:
-            rows.append([
-                InlineKeyboardButton(
-                    text=button_text,
-                    web_app=types.WebAppInfo(url=subscription_link),
-                )
-            ])
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=button_text,
+                        web_app=types.WebAppInfo(url=subscription_link),
+                    )
+                ]
+            )
         else:
             rows.append([_fallback_button()])
     elif connect_mode == "miniapp_custom":
         if settings.MINIAPP_CUSTOM_URL:
-            rows.append([
-                InlineKeyboardButton(
-                    text=button_text,
-                    web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
-                )
-            ])
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=button_text,
+                        web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
+                    )
+                ]
+            )
         else:
             rows.append([_fallback_button()])
     elif connect_mode == "link":
         if subscription_link:
-            rows.append([
-                InlineKeyboardButton(text=button_text, url=subscription_link)
-            ])
+            rows.append([InlineKeyboardButton(text=button_text, url=subscription_link)])
         else:
             rows.append([_fallback_button()])
     elif connect_mode == "happ_cryptolink":
         if subscription_link:
-            rows.append([
-                InlineKeyboardButton(text=button_text, callback_data="open_subscription_link")
-            ])
+            rows.append([InlineKeyboardButton(text=button_text, callback_data="open_subscription_link")])
         else:
             rows.append([_fallback_button()])
     else:
@@ -1917,7 +1949,7 @@ async def _send_offer_to_users(
     effect_type: str,
 ) -> Tuple[int, int]:
     from app.database.database import AsyncSessionLocal
-    
+
     sent = 0
     failed = 0
 
@@ -1933,7 +1965,9 @@ async def _send_offer_to_users(
                     offer_record = await upsert_discount_offer(
                         new_db,
                         user_id=user.id,
-                        subscription_id=getattr(user, "subscription", None).id if getattr(user, "subscription", None) else None,
+                        subscription_id=getattr(user, "subscription", None).id
+                        if getattr(user, "subscription", None)
+                        else None,
                         notification_type=f"promo_template_{template.id}",
                         discount_percent=template.discount_percent,
                         bonus_amount_toman=0,
@@ -1958,12 +1992,14 @@ async def _send_offer_to_users(
                         ]
                     ]
 
-                    keyboard_rows.append([
-                        InlineKeyboardButton(
-                            text=user_texts.get_text("PROMO_OFFER_CLOSE", "❌ Close"),
-                            callback_data="promo_offer_close",
-                        )
-                    ])
+                    keyboard_rows.append(
+                        [
+                            InlineKeyboardButton(
+                                text=user_texts.get_text("PROMO_OFFER_CLOSE", "❌ Close"),
+                                callback_data="promo_offer_close",
+                            )
+                        ]
+                    )
 
                     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
@@ -1989,7 +2025,7 @@ async def _send_offer_to_users(
     # Send offers in batches for efficiency
     batch_size = 100
     for i in range(0, len(users), batch_size):
-        batch = users[i:i + batch_size]
+        batch = users[i : i + batch_size]
         tasks = [send_single_offer(user) for user in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -2016,7 +2052,7 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
         prefix = "promo_offer_send_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        data = callback.data[len(prefix):]
+        data = callback.data[len(prefix) :]
         template_id_str, segment = data.split("_", 1)
         template_id = int(template_id_str)
     except (ValueError, AttributeError):
@@ -2032,7 +2068,10 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
     squad_uuid, squad_name = await _resolve_template_squad(db, template)
     allowed_segments = {seg for seg, _ in config.get("allowed_segments", [])}
     if segment not in allowed_segments:
-        await callback.answer(texts.get_text("ADMIN_PROMO_OFFER_SEGMENT_NOT_ALLOWED", "⚠️ Cannot send this offer to selected category"), show_alert=True)
+        await callback.answer(
+            texts.get_text("ADMIN_PROMO_OFFER_SEGMENT_NOT_ALLOWED", "⚠️ Cannot send this offer to selected category"),
+            show_alert=True,
+        )
         return
 
     texts = get_texts(db_user.language)
@@ -2080,19 +2119,23 @@ async def send_offer_to_segment(callback: CallbackQuery, db_user: User, db: Asyn
     result_keyboard_rows: List[List[InlineKeyboardButton]] = []
 
     if refreshed:
-        result_keyboard_rows.append([
-            InlineKeyboardButton(
-                text=texts.get_text("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ To offer"),
-                callback_data=f"promo_offer_{refreshed.id}",
-            )
-        ])
-
-    result_keyboard_rows.append([
-        InlineKeyboardButton(
-            text=texts.get_text("ADMIN_PROMO_OFFER_BACK_TO_LIST", "⬅️ To promo offers"),
-            callback_data="admin_promo_offers",
+        result_keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.get_text("ADMIN_PROMO_OFFER_BACK_TO_TEMPLATE", "↩️ To offer"),
+                    callback_data=f"promo_offer_{refreshed.id}",
+                )
+            ]
         )
-    ])
+
+    result_keyboard_rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.get_text("ADMIN_PROMO_OFFER_BACK_TO_LIST", "⬅️ To promo offers"),
+                callback_data="admin_promo_offers",
+            )
+        ]
+    )
 
     await callback.message.edit_text(
         summary,
@@ -2109,7 +2152,7 @@ async def send_offer_to_user(callback: CallbackQuery, db_user: User, db: AsyncSe
         prefix = "promo_offer_send_user_confirm_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, user_id_str = payload.split("_", 1)
         template_id = int(template_id_str)
         user_id = int(user_id_str)
@@ -2259,7 +2302,7 @@ async def paginate_squad_selection(callback: CallbackQuery, db_user: User, db: A
         prefix = "promo_offer_squad_page_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, page_str = payload.split("_", 1)
         template_id = int(template_id_str)
         page = int(page_str)
@@ -2285,7 +2328,7 @@ async def select_squad_for_template(callback: CallbackQuery, db_user: User, db: 
         prefix = "promo_offer_select_squad_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, server_id_str, page_str = payload.split("_", 2)
         template_id = int(template_id_str)
         server_id = int(server_id_str)
@@ -2332,7 +2375,7 @@ async def clear_squad_for_template(callback: CallbackQuery, db_user: User, db: A
         prefix = "promo_offer_clear_squad_"
         if not callback.data.startswith(prefix):
             raise ValueError("invalid prefix")
-        payload = callback.data[len(prefix):]
+        payload = callback.data[len(prefix) :]
         template_id_str, page_str = payload.split("_", 1)
         template_id = int(template_id_str)
         page = int(page_str)

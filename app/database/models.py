@@ -34,9 +34,10 @@ Base = declarative_base()
 # Multi-Tenant Models (Increment 1.2)
 # ============================================================================
 
+
 class Bot(Base):
     __tablename__ = "bots"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     telegram_bot_token = Column(String(255), unique=True, nullable=False, index=True)
@@ -44,37 +45,48 @@ class Bot(Base):
     api_token_hash = Column(String(128), nullable=False, index=True)
     is_master = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    
+
     # Card-to-card settings
     card_to_card_enabled = Column(Boolean, default=False, nullable=False)
     card_receipt_topic_id = Column(Integer, nullable=True)
-    
+
     # Zarinpal settings
     zarinpal_enabled = Column(Boolean, default=False, nullable=False)
     zarinpal_merchant_id = Column(String(255), nullable=True)
     zarinpal_sandbox = Column(Boolean, default=False, nullable=False)
-    
+
     # General settings
-    default_language = Column(String(5), default='fa', nullable=False)
+    default_language = Column(String(5), default="fa", nullable=False)
     support_username = Column(String(255), nullable=True)
     admin_chat_id = Column(BigInteger, nullable=True)
     admin_topic_id = Column(Integer, nullable=True)
     notification_group_id = Column(BigInteger, nullable=True)
     notification_topic_id = Column(Integer, nullable=True)
-    
+
     # Wallet & billing
     wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
     traffic_sold_bytes = Column(BigInteger, default=0, nullable=False)
-    
+
+    # PRD FR1.1: Missing fields
+    bot_username = Column(String(255), nullable=True)  # Bot username for display in admin panel
+    owner_telegram_id = Column(BigInteger, nullable=True)  # Telegram ID of bot owner
+    plan = Column(String(50), default="free", nullable=False)  # Tenant plan (free, basic, premium, etc.)
+
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    
+
     # Relationships
-    users = relationship("User", primaryjoin="Bot.id == User.bot_id", back_populates="bot", cascade="all, delete-orphan")
-    subscriptions = relationship("Subscription", primaryjoin="Bot.id == Subscription.bot_id", back_populates="bot", cascade="all, delete-orphan")
-    transactions = relationship("Transaction", primaryjoin="Bot.id == Transaction.bot_id", back_populates="bot", cascade="all, delete-orphan")
+    users = relationship(
+        "User", primaryjoin="Bot.id == User.bot_id", back_populates="bot", cascade="all, delete-orphan"
+    )
+    subscriptions = relationship(
+        "Subscription", primaryjoin="Bot.id == Subscription.bot_id", back_populates="bot", cascade="all, delete-orphan"
+    )
+    transactions = relationship(
+        "Transaction", primaryjoin="Bot.id == Transaction.bot_id", back_populates="bot", cascade="all, delete-orphan"
+    )
     feature_flags = relationship("BotFeatureFlag", back_populates="bot", cascade="all, delete-orphan")
     configurations = relationship("BotConfiguration", back_populates="bot", cascade="all, delete-orphan")
     payment_cards = relationship("TenantPaymentCard", back_populates="bot", cascade="all, delete-orphan")
@@ -85,39 +97,39 @@ class Bot(Base):
 
 class BotFeatureFlag(Base):
     __tablename__ = "bot_feature_flags"
-    
+
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     feature_key = Column(String(100), primary_key=True, nullable=False)
     enabled = Column(Boolean, default=False, nullable=False)
     config = Column(JSONB, default={}, nullable=False)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="feature_flags")
 
 
 class BotConfiguration(Base):
     __tablename__ = "bot_configurations"
-    
+
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     config_key = Column(String(100), primary_key=True, nullable=False)
     config_value = Column(JSONB, nullable=False)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="configurations")
 
 
 class TenantPaymentCard(Base):
     __tablename__ = "tenant_payment_cards"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     card_number = Column(String(50), nullable=False)
     card_holder_name = Column(String(255), nullable=False)
-    rotation_strategy = Column(String(20), default='round_robin', nullable=False)
+    rotation_strategy = Column(String(20), default="round_robin", nullable=False)
     rotation_interval_minutes = Column(Integer, default=60, nullable=True)
     weight = Column(Integer, default=1, nullable=False)
     success_count = Column(Integer, default=0, nullable=False)
@@ -128,14 +140,14 @@ class TenantPaymentCard(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="payment_cards")
 
 
 class BotPlan(Base):
     __tablename__ = "bot_plans"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
@@ -147,14 +159,14 @@ class BotPlan(Base):
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="plans")
 
 
 class CardToCardPayment(Base):
     __tablename__ = "card_to_card_payments"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -165,13 +177,13 @@ class CardToCardPayment(Base):
     receipt_type = Column(String(20), nullable=True)  # 'image', 'text', 'both'
     receipt_text = Column(Text, nullable=True)
     receipt_image_file_id = Column(String(255), nullable=True)
-    status = Column(String(20), default='pending', nullable=False, index=True)  # pending, approved, rejected, cancelled
+    status = Column(String(20), default="pending", nullable=False, index=True)  # pending, approved, rejected, cancelled
     admin_reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     admin_reviewed_at = Column(DateTime, nullable=True)
     admin_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="card_payments")
     user = relationship("User", primaryjoin="CardToCardPayment.user_id == User.id")
@@ -182,7 +194,7 @@ class CardToCardPayment(Base):
 
 class ZarinpalPayment(Base):
     __tablename__ = "zarinpal_payments"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -190,11 +202,11 @@ class ZarinpalPayment(Base):
     amount_toman = Column(Integer, nullable=False)
     zarinpal_authority = Column(String(255), unique=True, nullable=True, index=True)
     zarinpal_ref_id = Column(String(255), nullable=True)
-    status = Column(String(20), default='pending', nullable=False)  # pending, paid, failed, cancelled
+    status = Column(String(20), default="pending", nullable=False)  # pending, paid, failed, cancelled
     callback_url = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
+
     # Relationships
     bot = relationship("Bot", back_populates="zarinpal_payments_rel")
     user = relationship("User")
@@ -278,96 +290,98 @@ class MainMenuButtonVisibility(Enum):
     ADMINS = "admins"
     SUBSCRIBERS = "subscribers"
 
+
 class YooKassaPayment(Base):
     __tablename__ = "yookassa_payments"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     yookassa_payment_id = Column(String(255), unique=True, nullable=False, index=True)
     amount_toman = Column(Integer, nullable=False)
     currency = Column(String(3), default="RUB", nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String(50), nullable=False)  
+    status = Column(String(50), nullable=False)
     is_paid = Column(Boolean, default=False)
     is_captured = Column(Boolean, default=False)
     confirmation_url = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    payment_method_type = Column(String(50), nullable=True) 
+    payment_method_type = Column(String(50), nullable=True)
     refundable = Column(Boolean, default=False)
     test_mode = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    yookassa_created_at = Column(DateTime, nullable=True) 
-    captured_at = Column(DateTime, nullable=True) 
+    yookassa_created_at = Column(DateTime, nullable=True)
+    captured_at = Column(DateTime, nullable=True)
     user = relationship("User", backref="yookassa_payments")
     transaction = relationship("Transaction", backref="yookassa_payment")
-    
+
     @property
     def is_pending(self) -> bool:
         return self.status == "pending"
-    
+
     @property
     def is_succeeded(self) -> bool:
         return self.status == "succeeded" and self.is_paid
-    
+
     @property
     def is_failed(self) -> bool:
         return self.status in ["canceled", "failed"]
-    
+
     @property
     def can_be_captured(self) -> bool:
         return self.status == "waiting_for_capture"
-    
+
     def __repr__(self):
         return f"<YooKassaPayment(id={self.id}, yookassa_id={self.yookassa_payment_id}, amount={self.amount_toman} Toman, status={self.status})>"
+
 
 class CryptoBotPayment(Base):
     __tablename__ = "cryptobot_payments"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     invoice_id = Column(String(255), unique=True, nullable=False, index=True)
     amount = Column(String(50), nullable=False)
     asset = Column(String(10), nullable=False)
-    
+
     status = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
     payload = Column(Text, nullable=True)
-    
+
     bot_invoice_url = Column(Text, nullable=True)
     mini_app_invoice_url = Column(Text, nullable=True)
     web_app_invoice_url = Column(Text, nullable=True)
-    
+
     paid_at = Column(DateTime, nullable=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     user = relationship("User", backref="cryptobot_payments")
     transaction = relationship("Transaction", backref="cryptobot_payment")
-    
+
     @property
     def amount_float(self) -> float:
         try:
             return float(self.amount)
         except (ValueError, TypeError):
             return 0.0
-    
+
     @property
     def is_paid(self) -> bool:
         return self.status == "paid"
-    
+
     @property
     def is_pending(self) -> bool:
         return self.status == "active"
-    
+
     @property
     def is_expired(self) -> bool:
         return self.status == "expired"
-    
+
     def __repr__(self):
         return f"<CryptoBotPayment(id={self.id}, invoice_id={self.invoice_id}, amount={self.amount} {self.asset}, status={self.status})>"
 
@@ -426,8 +440,7 @@ class HeleketPayment(Base):
 
     def __repr__(self):
         return (
-            "<HeleketPayment(id={id}, uuid={uuid}, order_id={order_id}, amount={amount}"
-            " {currency}, status={status})>"
+            "<HeleketPayment(id={id}, uuid={uuid}, order_id={order_id}, amount={amount} {currency}, status={status})>"
         ).format(
             id=self.id,
             uuid=self.uuid,
@@ -467,13 +480,11 @@ class MulenPayPayment(Base):
     transaction = relationship("Transaction", backref="mulenpay_payment")
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return (
-            "<MulenPayPayment(id={0}, mulen_id={1}, amount={2} Toman, status={3})>".format(
-                self.id,
-                self.mulen_payment_id,
-                self.amount_toman,
-                self.status,
-            )
+        return "<MulenPayPayment(id={0}, mulen_id={1}, amount={2} Toman, status={3})>".format(
+            self.id,
+            self.mulen_payment_id,
+            self.amount_toman,
+            self.status,
         )
 
 
@@ -525,13 +536,11 @@ class Pal24Payment(Base):
         return self.status in {"NEW", "PROCESS"}
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return (
-            "<Pal24Payment(id={0}, bill_id={1}, amount={2} Toman, status={3})>".format(
-                self.id,
-                self.bill_id,
-                self.amount_toman,
-                self.status,
-            )
+        return "<Pal24Payment(id={0}, bill_id={1}, amount={2} Toman, status={3})>".format(
+            self.id,
+            self.bill_id,
+            self.amount_toman,
+            self.status,
         )
 
 
@@ -571,13 +580,11 @@ class WataPayment(Base):
     transaction = relationship("Transaction", backref="wata_payment")
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return (
-            "<WataPayment(id={0}, link_id={1}, amount={2} Toman, status={3})>".format(
-                self.id,
-                self.payment_link_id,
-                self.amount_toman,
-                self.status,
-            )
+        return "<WataPayment(id={0}, link_id={1}, amount={2} Toman, status={3})>".format(
+            self.id,
+            self.payment_link_id,
+            self.amount_toman,
+            self.status,
         )
 
 
@@ -616,14 +623,12 @@ class PlategaPayment(Base):
     transaction = relationship("Transaction", backref="platega_payment")
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return (
-            "<PlategaPayment(id={0}, transaction_id={1}, amount={2} Toman, status={3}, method={4})>".format(
-                self.id,
-                self.platega_transaction_id,
-                self.amount_toman,
-                self.status,
-                self.payment_method_code,
-            )
+        return "<PlategaPayment(id={0}, transaction_id={1}, amount={2} Toman, status={3}, method={4})>".format(
+            self.id,
+            self.platega_transaction_id,
+            self.amount_toman,
+            self.status,
+            self.payment_method_code,
         )
 
 
@@ -693,13 +698,11 @@ class CloudPaymentsPayment(Base):
         return self.status == "failed"
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return (
-            "<CloudPaymentsPayment(id={0}, invoice={1}, amount={2}₽, status={3})>".format(
-                self.id,
-                self.invoice_id,
-                self.amount_rubles,
-                self.status,
-            )
+        return "<CloudPaymentsPayment(id={0}, invoice={1}, amount={2}₽, status={3})>".format(
+            self.id,
+            self.invoice_id,
+            self.amount_rubles,
+            self.status,
         )
 
 
@@ -723,13 +726,14 @@ class PromoGroup(Base):
     users = relationship("User", back_populates="promo_group")
     user_promo_groups = relationship("UserPromoGroup", back_populates="promo_group", cascade="all, delete-orphan")
     bot = relationship("Bot")
-    
+
     __table_args__ = (
         # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
         # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
         # This is acceptable for backward compatibility during migration
-        Index('ix_promo_group_bot_name_unique', 'bot_id', 'name', 
-              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
+        Index(
+            "ix_promo_group_bot_name_unique", "bot_id", "name", unique=True, postgresql_where=text("bot_id IS NOT NULL")
+        ),
     )
     server_squads = relationship(
         "ServerSquad",
@@ -800,6 +804,7 @@ class PromoGroup(Base):
 
 class UserPromoGroup(Base):
     """Many-to-Many relationship table between users and promo groups."""
+
     __tablename__ = "user_promo_groups"
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
@@ -826,7 +831,7 @@ class User(Base):
     status = Column(String(20), default=UserStatus.ACTIVE.value)
     language = Column(String(5), default="ru")
     balance_toman = Column(Integer, default=0)
-    used_promocodes = Column(Integer, default=0) 
+    used_promocodes = Column(Integer, default=0)
     has_had_paid_subscription = Column(Boolean, default=False, nullable=False)
     referred_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     referral_code = Column(String(20), unique=True, nullable=True)
@@ -859,15 +864,19 @@ class User(Base):
     poll_responses = relationship("PollResponse", back_populates="user")
     last_pinned_message_id = Column(Integer, nullable=True)
     bot = relationship("Bot", primaryjoin="User.bot_id == Bot.id", back_populates="users", foreign_keys="User.bot_id")
-    
+
     __table_args__ = (
         # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
         # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
         # This is acceptable for backward compatibility during migration
-        Index('ix_user_telegram_bot_unique', 'telegram_id', 'bot_id', 
-              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
+        Index(
+            "ix_user_telegram_bot_unique",
+            "telegram_id",
+            "bot_id",
+            unique=True,
+            postgresql_where=text("bot_id IS NOT NULL"),
+        ),
     )
-
 
     @property
     def full_name(self) -> str:
@@ -882,11 +891,8 @@ class User(Base):
         try:
             sorted_groups = sorted(
                 self.user_promo_groups,
-                key=lambda upg: (
-                    getattr(upg.promo_group, 'priority', 0) if upg.promo_group else 0,
-                    upg.promo_group_id
-                ),
-                reverse=True
+                key=lambda upg: (getattr(upg.promo_group, "priority", 0) if upg.promo_group else 0, upg.promo_group_id),
+                reverse=True,
             )
 
             if sorted_groups and sorted_groups[0].promo_group:
@@ -901,10 +907,10 @@ class User(Base):
         if not primary_group:
             return 0
         return primary_group.get_discount_percent(category, period_days)
-    
+
     def add_balance(self, toman: int) -> None:
         self.balance_toman += toman
-    
+
     def subtract_balance(self, toman: int) -> bool:
         if self.balance_toman >= toman:
             self.balance_toman -= toman
@@ -918,20 +924,25 @@ class Subscription(Base):
         # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
         # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
         # This is acceptable for backward compatibility during migration
-        Index('ix_subscription_user_bot_unique', 'user_id', 'bot_id', 
-              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
+        Index(
+            "ix_subscription_user_bot_unique",
+            "user_id",
+            "bot_id",
+            unique=True,
+            postgresql_where=text("bot_id IS NOT NULL"),
+        ),
     )
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
-    
+
     status = Column(String(20), default=SubscriptionStatus.TRIAL.value)
     is_trial = Column(Boolean, default=True)
-    
+
     start_date = Column(DateTime, default=func.now())
     end_date = Column(DateTime, nullable=False)
-    
+
     traffic_limit_gb = Column(Integer, default=0)
     traffic_used_gb = Column(Float, default=0.0)
 
@@ -939,30 +950,27 @@ class Subscription(Base):
     subscription_crypto_link = Column(String, nullable=True)
 
     device_limit = Column(Integer, default=1)
-    
+
     connected_squads = Column(JSON, default=list)
-    
+
     autopay_enabled = Column(Boolean, default=False)
     autopay_days_before = Column(Integer, default=3)
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     remnawave_short_uuid = Column(String(255), nullable=True)
 
     user = relationship("User", back_populates="subscription")
     bot = relationship("Bot", back_populates="subscriptions")
     discount_offers = relationship("DiscountOffer", back_populates="subscription")
     temporary_accesses = relationship("SubscriptionTemporaryAccess", back_populates="subscription")
-    
+
     @property
     def is_active(self) -> bool:
         current_time = datetime.utcnow()
-        return (
-            self.status == SubscriptionStatus.ACTIVE.value and 
-            self.end_date > current_time
-        )
-    
+        return self.status == SubscriptionStatus.ACTIVE.value and self.end_date > current_time
+
     @property
     def is_expired(self) -> bool:
         """Checks if the subscription has expired."""
@@ -971,40 +979,37 @@ class Subscription(Base):
     @property
     def should_be_expired(self) -> bool:
         current_time = datetime.utcnow()
-        return (
-            self.status == SubscriptionStatus.ACTIVE.value and 
-            self.end_date <= current_time
-        )
+        return self.status == SubscriptionStatus.ACTIVE.value and self.end_date <= current_time
 
     @property
     def actual_status(self) -> str:
         current_time = datetime.utcnow()
-        
+
         if self.status == SubscriptionStatus.EXPIRED.value:
             return "expired"
-        
+
         if self.status == SubscriptionStatus.DISABLED.value:
             return "disabled"
-        
+
         if self.status == SubscriptionStatus.ACTIVE.value:
             if self.end_date <= current_time:
                 return "expired"
             else:
                 return "active"
-        
+
         if self.status == SubscriptionStatus.TRIAL.value:
             if self.end_date <= current_time:
                 return "expired"
             else:
                 return "trial"
-        
+
         return self.status
 
     @property
     def status_display(self) -> str:
         actual_status = self.actual_status
         current_time = datetime.utcnow()
-        
+
         if actual_status == "expired":
             return "🔴 Expired"
         elif actual_status == "active":
@@ -1016,13 +1021,13 @@ class Subscription(Base):
             return "⚫ Disabled"
         elif actual_status == "trial":
             return "🎯 Trial"
-        
+
         return "❓ Unknown"
 
     @property
     def status_emoji(self) -> str:
         actual_status = self.actual_status
-        
+
         if actual_status == "expired":
             return "🔴"
         elif actual_status == "active":
@@ -1034,7 +1039,7 @@ class Subscription(Base):
             return "⚫"
         elif actual_status == "trial":
             return "🎁"
-        
+
         return "❓"
 
     @property
@@ -1050,111 +1055,111 @@ class Subscription(Base):
         current_time = datetime.utcnow()
         if self.end_date <= current_time:
             return "expired"
-        
+
         delta = self.end_date - current_time
         days = delta.days
         hours = delta.seconds // 3600
         minutes = (delta.seconds % 3600) // 60
-        
+
         if days > 0:
             return f"{days}d"
         elif hours > 0:
             return f"{hours}h"
         else:
             return f"{minutes}m"
-    
+
     @property
     def traffic_used_percent(self) -> float:
-        if self.traffic_limit_gb == 0: 
+        if self.traffic_limit_gb == 0:
             return 0.0
         if self.traffic_limit_gb > 0:
             return min((self.traffic_used_gb / self.traffic_limit_gb) * 100, 100.0)
         return 0.0
-    
-    def extend_subscription(self, days: int):
 
+    def extend_subscription(self, days: int):
         if self.end_date > datetime.utcnow():
             self.end_date = self.end_date + timedelta(days=days)
         else:
             self.end_date = datetime.utcnow() + timedelta(days=days)
-    
+
         if self.status == SubscriptionStatus.EXPIRED.value:
             self.status = SubscriptionStatus.ACTIVE.value
-    
+
     def add_traffic(self, gb: int):
-        if self.traffic_limit_gb == 0:  
+        if self.traffic_limit_gb == 0:
             return
         self.traffic_limit_gb += gb
 
 
 class Transaction(Base):
     __tablename__ = "transactions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
-    
+
     type = Column(String(50), nullable=False)
     amount_toman = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
-    
+
     payment_method = Column(String(50), nullable=True)
-    external_id = Column(String(255), nullable=True)  
-    
+    external_id = Column(String(255), nullable=True)
+
     is_completed = Column(Boolean, default=True)
-    
+
     created_at = Column(DateTime, default=func.now())
     completed_at = Column(DateTime, nullable=True)
-    
+
     user = relationship("User", back_populates="transactions")
     bot = relationship("Bot", back_populates="transactions")
-    
+
+
 class SubscriptionConversion(Base):
     __tablename__ = "subscription_conversions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     converted_at = Column(DateTime, default=func.now())
-    
+
     trial_duration_days = Column(Integer, nullable=True)
-    
+
     payment_method = Column(String(50), nullable=True)
-    
+
     first_payment_amount_toman = Column(Integer, nullable=True)
-    
+
     first_paid_period_days = Column(Integer, nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
-    
+
     user = relationship("User", backref="subscription_conversions")
-    
+
     @property
     def first_payment_amount_toman(self) -> int:
         return self.first_payment_amount_toman or 0
-    
+
     def __repr__(self):
         return f"<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>"
 
 
 class PromoCode(Base):
     __tablename__ = "promocodes"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    
+
     code = Column(String(50), nullable=False, index=True)  # Removed unique=True for multi-tenant
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
     type = Column(String(50), nullable=False)
-    
-    balance_bonus_toman = Column(Integer, default=0)  
-    subscription_days = Column(Integer, default=0) 
-    
-    max_uses = Column(Integer, default=1)  
+
+    balance_bonus_toman = Column(Integer, default=0)
+    subscription_days = Column(Integer, default=0)
+
+    max_uses = Column(Integer, default=1)
     current_uses = Column(Integer, default=0)
-    
+
     valid_from = Column(DateTime, default=func.now())
     valid_until = Column(DateTime, nullable=True)
-    
+
     is_active = Column(Boolean, default=True)
 
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -1166,25 +1171,26 @@ class PromoCode(Base):
     uses = relationship("PromoCodeUse", back_populates="promocode")
     promo_group = relationship("PromoGroup")
     bot = relationship("Bot")
-    
+
     __table_args__ = (
         # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
         # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
         # This is acceptable for backward compatibility during migration
-        Index('ix_promocode_bot_code_unique', 'bot_id', 'code', 
-              unique=True, postgresql_where=text('bot_id IS NOT NULL')),
+        Index(
+            "ix_promocode_bot_code_unique", "bot_id", "code", unique=True, postgresql_where=text("bot_id IS NOT NULL")
+        ),
     )
-    
+
     @property
     def is_valid(self) -> bool:
         now = datetime.utcnow()
         return (
-            self.is_active and
-            self.current_uses < self.max_uses and
-            self.valid_from <= now and
-            (self.valid_until is None or self.valid_until >= now)
+            self.is_active
+            and self.current_uses < self.max_uses
+            and self.valid_from <= now
+            and (self.valid_until is None or self.valid_until >= now)
         )
-    
+
     @property
     def uses_left(self) -> int:
         return max(0, self.max_uses - self.current_uses)
@@ -1192,35 +1198,35 @@ class PromoCode(Base):
 
 class PromoCodeUse(Base):
     __tablename__ = "promocode_uses"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     promocode_id = Column(Integer, ForeignKey("promocodes.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     used_at = Column(DateTime, default=func.now())
-    
+
     promocode = relationship("PromoCode", back_populates="uses")
     user = relationship("User")
 
 
 class ReferralEarning(Base):
     __tablename__ = "referral_earnings"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     referral_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     amount_toman = Column(Integer, nullable=False)
-    reason = Column(String(100), nullable=False) 
-    
+    reason = Column(String(100), nullable=False)
+
     referral_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
-    
+
     user = relationship("User", foreign_keys=[user_id], back_populates="referral_earnings")
     referral = relationship("User", foreign_keys=[referral_id])
     referral_transaction = relationship("Transaction")
-    
+
     @property
     def amount_toman(self) -> int:
         return self.amount_toman
@@ -1283,8 +1289,7 @@ class ReferralContestEvent(Base):
 
     def __repr__(self):
         return (
-            f"<ReferralContestEvent contest={self.contest_id} "
-            f"referrer={self.referrer_id} referral={self.referral_id}>"
+            f"<ReferralContestEvent contest={self.contest_id} referrer={self.referrer_id} referral={self.referral_id}>"
         )
 
 
@@ -1354,18 +1359,18 @@ class ContestAttempt(Base):
 
 class Squad(Base):
     __tablename__ = "squads"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    
+
     uuid = Column(String(255), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     country_code = Column(String(5), nullable=True)
-    
+
     is_available = Column(Boolean, default=True)
-    price_toman = Column(Integer, default=0) 
-    
+    price_toman = Column(Integer, default=0)
+
     description = Column(Text, nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -1377,13 +1382,13 @@ class ServiceRule(Base):
 
     order = Column(Integer, default=0)
     title = Column(String(255), nullable=False)
-    
+
     content = Column(Text, nullable=False)
-    
+
     is_active = Column(Boolean, default=True)
-    
+
     language = Column(String(5), default="ru")
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -1440,23 +1445,23 @@ class SystemSetting(Base):
     key = Column(String(255), unique=True, nullable=False)
     value = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
 class MonitoringLog(Base):
     __tablename__ = "monitoring_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    
+
     event_type = Column(String(100), nullable=False)
-    
+
     message = Column(Text, nullable=False)
     data = Column(JSON, nullable=True)
-    
+
     is_success = Column(Boolean, default=True)
-    
+
     created_at = Column(DateTime, default=func.now())
 
 
@@ -1480,12 +1485,8 @@ class SubscriptionEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     event_type = Column(String(50), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    subscription_id = Column(
-        Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True
-    )
-    transaction_id = Column(
-        Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
-    )
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     amount_toman = Column(Integer, nullable=True)
     currency = Column(String(16), nullable=True)
     message = Column(Text, nullable=True)
@@ -1500,9 +1501,7 @@ class SubscriptionEvent(Base):
 
 class DiscountOffer(Base):
     __tablename__ = "discount_offers"
-    __table_args__ = (
-        Index("ix_discount_offers_user_type", "user_id", "notification_type"),
-    )
+    __table_args__ = (Index("ix_discount_offers_user_type", "user_id", "notification_type"),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
@@ -1525,9 +1524,7 @@ class DiscountOffer(Base):
 
 class PromoOfferTemplate(Base):
     __tablename__ = "promo_offer_templates"
-    __table_args__ = (
-        Index("ix_promo_offer_templates_type", "offer_type"),
-    )
+    __table_args__ = (Index("ix_promo_offer_templates_type", "offer_type"),)
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
@@ -1581,22 +1578,23 @@ class PromoOfferLog(Base):
     user = relationship("User", back_populates="promo_offer_logs")
     offer = relationship("DiscountOffer", back_populates="logs")
 
+
 class BroadcastHistory(Base):
     __tablename__ = "broadcast_history"
 
     id = Column(Integer, primary_key=True, index=True)
     target_type = Column(String(100), nullable=False)
-    message_text = Column(Text, nullable=False)  
+    message_text = Column(Text, nullable=False)
     has_media = Column(Boolean, default=False)
-    media_type = Column(String(20), nullable=True) 
+    media_type = Column(String(20), nullable=True)
     media_file_id = Column(String(255), nullable=True)
     media_caption = Column(Text, nullable=True)
-    total_count = Column(Integer, default=0) 
-    sent_count = Column(Integer, default=0)  
-    failed_count = Column(Integer, default=0) 
+    total_count = Column(Integer, default=0)
+    sent_count = Column(Integer, default=0)
+    failed_count = Column(Integer, default=0)
     status = Column(String(50), default="in_progress")
-    admin_id = Column(Integer, ForeignKey("users.id")) 
-    admin_name = Column(String(255)) 
+    admin_id = Column(Integer, ForeignKey("users.id"))
+    admin_name = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     admin = relationship("User", back_populates="broadcasts")
@@ -1678,9 +1676,7 @@ class PollResponse(Base):
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (
-        UniqueConstraint("poll_id", "user_id", name="uq_poll_user"),
-    )
+    __table_args__ = (UniqueConstraint("poll_id", "user_id", name="uq_poll_user"),)
 
 
 class PollAnswer(Base):
@@ -1696,9 +1692,7 @@ class PollAnswer(Base):
     question = relationship("PollQuestion", back_populates="answers")
     option = relationship("PollOption", back_populates="answers")
 
-    __table_args__ = (
-        UniqueConstraint("response_id", "question_id", name="uq_poll_answer_unique"),
-    )
+    __table_args__ = (UniqueConstraint("response_id", "question_id", name="uq_poll_answer_unique"),)
 
 
 class ServerSquad(Base):
@@ -1707,23 +1701,23 @@ class ServerSquad(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     squad_uuid = Column(String(255), unique=True, nullable=False, index=True)
-    
+
     display_name = Column(String(255), nullable=False)
-    
+
     original_name = Column(String(255), nullable=True)
-    
+
     country_code = Column(String(5), nullable=True)
-    
+
     is_available = Column(Boolean, default=True)
     is_trial_eligible = Column(Boolean, default=False, nullable=False)
-    
+
     price_toman = Column(Integer, default=0)
-    
+
     description = Column(Text, nullable=True)
-    
+
     sort_order = Column(Integer, default=0)
-    
-    max_users = Column(Integer, nullable=True) 
+
+    max_users = Column(Integer, nullable=True)
     current_users = Column(Integer, default=0)
 
     created_at = Column(DateTime, default=func.now())
@@ -1735,13 +1729,13 @@ class ServerSquad(Base):
         back_populates="server_squads",
         lazy="selectin",
     )
-    
+
     @property
     def is_full(self) -> bool:
         if self.max_users is None:
             return False
         return self.current_users >= self.max_users
-    
+
     @property
     def availability_status(self) -> str:
         if not self.is_available:
@@ -1754,15 +1748,15 @@ class ServerSquad(Base):
 
 class SubscriptionServer(Base):
     __tablename__ = "subscription_servers"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=False)
     server_squad_id = Column(Integer, ForeignKey("server_squads.id"), nullable=False)
-    
+
     connected_at = Column(DateTime, default=func.now())
-    
+
     paid_price_toman = Column(Integer, default=0)
-    
+
     subscription = relationship("Subscription", backref="subscription_servers")
     server_squad = relationship("ServerSquad", backref="subscription_servers")
 
@@ -1783,19 +1777,21 @@ class SupportAuditLog(Base):
     actor = relationship("User", foreign_keys=[actor_user_id])
     ticket = relationship("Ticket", foreign_keys=[ticket_id])
 
+
 class UserMessage(Base):
     __tablename__ = "user_messages"
     id = Column(Integer, primary_key=True, index=True)
     message_text = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
-    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True) 
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     creator = relationship("User", backref="created_messages")
-    
+
     def __repr__(self):
         return f"<UserMessage(id={self.id}, active={self.is_active}, text='{self.message_text[:50]}...')>"
+
 
 class WelcomeText(Base):
     __tablename__ = "welcome_texts"
@@ -1862,9 +1858,7 @@ class AdvertisingCampaign(Base):
 
 class AdvertisingCampaignRegistration(Base):
     __tablename__ = "advertising_campaign_registrations"
-    __table_args__ = (
-        UniqueConstraint("campaign_id", "user_id", name="uq_campaign_user"),
-    )
+    __table_args__ = (UniqueConstraint("campaign_id", "user_id", name="uq_campaign_user"),)
 
     id = Column(Integer, primary_key=True, index=True)
     campaign_id = Column(Integer, ForeignKey("advertising_campaigns.id", ondelete="CASCADE"), nullable=False)
@@ -1880,7 +1874,6 @@ class AdvertisingCampaignRegistration(Base):
     user = relationship("User")
 
 
-
 class TicketStatus(Enum):
     OPEN = "open"
     ANSWERED = "answered"
@@ -1890,39 +1883,39 @@ class TicketStatus(Enum):
 
 class Ticket(Base):
     __tablename__ = "tickets"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     bot_id = Column(Integer, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True, index=True)
-    
+
     title = Column(String(255), nullable=False)
     status = Column(String(20), default=TicketStatus.OPEN.value, nullable=False)
     priority = Column(String(20), default="normal", nullable=False)  # low, normal, high, urgent
     user_reply_block_permanent = Column(Boolean, default=False, nullable=False)
     user_reply_block_until = Column(DateTime, nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     closed_at = Column(DateTime, nullable=True)
     # SLA reminders
     last_sla_reminder_at = Column(DateTime, nullable=True)
-    
+
     user = relationship("User", backref="tickets")
     bot = relationship("Bot")
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
-    
+
     @property
     def is_open(self) -> bool:
         return self.status == TicketStatus.OPEN.value
-    
+
     @property
     def is_answered(self) -> bool:
         return self.status == TicketStatus.ANSWERED.value
-    
+
     @property
     def is_closed(self) -> bool:
         return self.status == TicketStatus.CLOSED.value
-    
+
     @property
     def is_pending(self) -> bool:
         return self.status == TicketStatus.PENDING.value
@@ -1934,31 +1927,27 @@ class Ticket(Base):
         if self.user_reply_block_until:
             try:
                 from datetime import datetime
+
                 return self.user_reply_block_until > datetime.utcnow()
             except Exception:
                 return True
         return False
-    
+
     @property
     def status_emoji(self) -> str:
         status_emojis = {
             TicketStatus.OPEN.value: "🔴",
-            TicketStatus.ANSWERED.value: "🟡", 
+            TicketStatus.ANSWERED.value: "🟡",
             TicketStatus.CLOSED.value: "🟢",
-            TicketStatus.PENDING.value: "⏳"
+            TicketStatus.PENDING.value: "⏳",
         }
         return status_emojis.get(self.status, "❓")
-    
+
     @property
     def priority_emoji(self) -> str:
-        priority_emojis = {
-            "low": "🟢",
-            "normal": "🟡", 
-            "high": "🟠",
-            "urgent": "🔴"
-        }
+        priority_emojis = {"low": "🟢", "normal": "🟡", "high": "🟠", "urgent": "🔴"}
         return priority_emojis.get(self.priority, "🟡")
-    
+
     def __repr__(self):
         return f"<Ticket(id={self.id}, user_id={self.user_id}, status={self.status}, title='{self.title[:30]}...')>"
 
@@ -1969,24 +1958,24 @@ class TicketMessage(Base):
     id = Column(Integer, primary_key=True, index=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    
+
     message_text = Column(Text, nullable=False)
     is_from_admin = Column(Boolean, default=False, nullable=False)
-    
+
     has_media = Column(Boolean, default=False)
     media_type = Column(String(20), nullable=True)  # photo, video, document, voice, etc.
     media_file_id = Column(String(255), nullable=True)
     media_caption = Column(Text, nullable=True)
-    
+
     created_at = Column(DateTime, default=func.now())
-    
+
     ticket = relationship("Ticket", back_populates="messages")
     user = relationship("User")
-    
+
     @property
     def is_user_message(self) -> bool:
         return not self.is_from_admin
-    
+
     @property
     def is_admin_message(self) -> bool:
         return self.is_from_admin
@@ -2029,9 +2018,7 @@ class MainMenuButton(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
-    __table_args__ = (
-        Index("ix_main_menu_buttons_order", "display_order", "id"),
-    )
+    __table_args__ = (Index("ix_main_menu_buttons_order", "display_order", "id"),)
 
     @property
     def action_type_enum(self) -> MainMenuButtonActionType:
@@ -2056,6 +2043,7 @@ class MainMenuButton(Base):
 
 class MenuLayoutHistory(Base):
     """История изменений конфигурации меню."""
+
     __tablename__ = "menu_layout_history"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -2065,9 +2053,7 @@ class MenuLayoutHistory(Base):
     user_info = Column(String(255), nullable=True)  # Информация о пользователе/токене
     created_at = Column(DateTime, default=func.now(), index=True)
 
-    __table_args__ = (
-        Index("ix_menu_layout_history_created", "created_at"),
-    )
+    __table_args__ = (Index("ix_menu_layout_history_created", "created_at"),)
 
     def __repr__(self) -> str:
         return f"<MenuLayoutHistory id={self.id} action='{self.action}' created_at={self.created_at}>"
@@ -2075,6 +2061,7 @@ class MenuLayoutHistory(Base):
 
 class ButtonClickLog(Base):
     """Логи кликов по кнопкам меню."""
+
     __tablename__ = "button_click_logs"
 
     id = Column(Integer, primary_key=True, index=True)

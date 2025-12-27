@@ -3,114 +3,132 @@ from typing import List, Dict, Tuple
 from app.config import settings
 from app.localization.texts import get_texts
 
+
 def get_available_payment_methods() -> List[Dict[str, str]]:
     """
     Возвращает список доступных способов оплаты с их настройками
     """
     methods = []
-    
+
     if settings.TELEGRAM_STARS_ENABLED:
-        methods.append({
-            "id": "stars",
-            "name": "Telegram Stars",
-            "icon": "⭐",
-            "description": "быстро и удобно",
-            "callback": "topup_stars"
-        })
-    
+        methods.append(
+            {
+                "id": "stars",
+                "name": "Telegram Stars",
+                "icon": "⭐",
+                "description": "быстро и удобно",
+                "callback": "topup_stars",
+            }
+        )
+
     if settings.is_yookassa_enabled():
         if getattr(settings, "YOOKASSA_SBP_ENABLED", False):
-            methods.append({
-                "id": "yookassa_sbp",
-                "name": "СБП (YooKassa)",
-                "icon": "🏦",
-                "description": "моментальная оплата по QR",
-                "callback": "topup_yookassa_sbp",
-            })
+            methods.append(
+                {
+                    "id": "yookassa_sbp",
+                    "name": "СБП (YooKassa)",
+                    "icon": "🏦",
+                    "description": "моментальная оплата по QR",
+                    "callback": "topup_yookassa_sbp",
+                }
+            )
 
-        methods.append({
-            "id": "yookassa",
-            "name": "Банковская карта",
-            "icon": "💳",
-            "description": "через YooKassa",
-            "callback": "topup_yookassa",
-        })
-    
+        methods.append(
+            {
+                "id": "yookassa",
+                "name": "Банковская карта",
+                "icon": "💳",
+                "description": "через YooKassa",
+                "callback": "topup_yookassa",
+            }
+        )
+
     if settings.TRIBUTE_ENABLED:
-        methods.append({
-            "id": "tribute",
-            "name": "Банковская карта",
-            "icon": "💳",
-            "description": "через Tribute",
-            "callback": "topup_tribute"
-        })
+        methods.append(
+            {
+                "id": "tribute",
+                "name": "Банковская карта",
+                "icon": "💳",
+                "description": "через Tribute",
+                "callback": "topup_tribute",
+            }
+        )
 
     if settings.is_mulenpay_enabled():
         mulenpay_name = settings.get_mulenpay_display_name()
-        methods.append({
-            "id": "mulenpay",
-            "name": "Банковская карта",
-            "icon": "💳",
-            "description": f"через {mulenpay_name}",
-            "callback": "topup_mulenpay"
-        })
+        methods.append(
+            {
+                "id": "mulenpay",
+                "name": "Банковская карта",
+                "icon": "💳",
+                "description": f"через {mulenpay_name}",
+                "callback": "topup_mulenpay",
+            }
+        )
 
     if settings.is_wata_enabled():
-        methods.append({
-            "id": "wata",
-            "name": "Банковская карта",
-            "icon": "💳",
-            "description": "через WATA",
-            "callback": "topup_wata"
-        })
+        methods.append(
+            {
+                "id": "wata",
+                "name": "Банковская карта",
+                "icon": "💳",
+                "description": "через WATA",
+                "callback": "topup_wata",
+            }
+        )
 
     if settings.is_pal24_enabled():
-        methods.append({
-            "id": "pal24",
-            "name": "СБП",
-            "icon": "🏦",
-            "description": "через PayPalych",
-            "callback": "topup_pal24"
-        })
+        methods.append(
+            {"id": "pal24", "name": "СБП", "icon": "🏦", "description": "через PayPalych", "callback": "topup_pal24"}
+        )
 
     if settings.is_cryptobot_enabled():
-        methods.append({
-            "id": "cryptobot",
-            "name": "Криптовалюта",
-            "icon": "🪙",
-            "description": "через CryptoBot",
-            "callback": "topup_cryptobot"
-        })
+        methods.append(
+            {
+                "id": "cryptobot",
+                "name": "Криптовалюта",
+                "icon": "🪙",
+                "description": "через CryptoBot",
+                "callback": "topup_cryptobot",
+            }
+        )
 
     if settings.is_heleket_enabled():
-        methods.append({
-            "id": "heleket",
-            "name": "Криптовалюта",
-            "icon": "🪙",
-            "description": "через Heleket",
-            "callback": "topup_heleket"
-        })
+        methods.append(
+            {
+                "id": "heleket",
+                "name": "Криптовалюта",
+                "icon": "🪙",
+                "description": "через Heleket",
+                "callback": "topup_heleket",
+            }
+        )
 
     if settings.is_platega_enabled() and settings.get_platega_active_methods():
         platega_name = settings.get_platega_display_name()
-        methods.append({
-            "id": "platega",
-            "name": "Банковская карта",
-            "icon": "💳",
-            "description": f"через {platega_name} (карты + СБП)",
-            "callback": "topup_platega",
-        })
+        methods.append(
+            {
+                "id": "platega",
+                "name": "Банковская карта",
+                "icon": "💳",
+                "description": f"через {platega_name} (карты + СБП)",
+                "callback": "topup_platega",
+            }
+        )
 
     if settings.is_support_topup_enabled():
-        methods.append({
-            "id": "support",
-            "name": "Через поддержку",
-            "icon": "🛠️",
-            "description": "другие способы",
-            "callback": "topup_support"
-        })
-    
+        methods.append(
+            {
+                "id": "support",
+                "name": "Через поддержку",
+                "icon": "🛠️",
+                "description": "другие способы",
+                "callback": "topup_support",
+            }
+        )
+
     return methods
+
 
 def get_payment_methods_text(language: str) -> str:
     """
@@ -141,24 +159,30 @@ def get_payment_methods_text(language: str) -> str:
 Выберите способ пополнения:""",
         )
 
-    text = texts.t(
-        "PAYMENT_METHODS_TITLE",
-        "💳 <b>Способы пополнения баланса</b>",
-    ) + "\n\n"
-    text += texts.t(
-        "PAYMENT_METHODS_PROMPT",
-        "Выберите удобный для вас способ оплаты:",
-    ) + "\n\n"
+    text = (
+        texts.t(
+            "PAYMENT_METHODS_TITLE",
+            "💳 <b>Способы пополнения баланса</b>",
+        )
+        + "\n\n"
+    )
+    text += (
+        texts.t(
+            "PAYMENT_METHODS_PROMPT",
+            "Выберите удобный для вас способ оплаты:",
+        )
+        + "\n\n"
+    )
 
     for method in methods:
-        method_id = method['id'].upper()
+        method_id = method["id"].upper()
         name = texts.t(
             f"PAYMENT_METHOD_{method_id}_NAME",
             f"{method['icon']} <b>{method['name']}</b>",
         )
         description = texts.t(
             f"PAYMENT_METHOD_{method_id}_DESCRIPTION",
-            method['description'],
+            method["description"],
         )
         if method_id == "MULENPAY":
             mulenpay_name = settings.get_mulenpay_display_name()
@@ -179,6 +203,7 @@ def get_payment_methods_text(language: str) -> str:
     )
 
     return text
+
 
 def is_payment_method_available(method_id: str) -> bool:
     """
@@ -207,6 +232,7 @@ def is_payment_method_available(method_id: str) -> bool:
     else:
         return False
 
+
 def get_payment_method_status() -> Dict[str, bool]:
     """
     Возвращает статус всех способов оплаты
@@ -221,8 +247,9 @@ def get_payment_method_status() -> Dict[str, bool]:
         "cryptobot": settings.is_cryptobot_enabled(),
         "heleket": settings.is_heleket_enabled(),
         "platega": settings.is_platega_enabled() and bool(settings.get_platega_active_methods()),
-        "support": settings.is_support_topup_enabled()
+        "support": settings.is_support_topup_enabled(),
     }
+
 
 def get_enabled_payment_methods_count() -> int:
     """

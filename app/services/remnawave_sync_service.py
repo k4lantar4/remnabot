@@ -92,9 +92,7 @@ class RemnaWaveAutoSyncService:
 
             times = settings.get_remnawave_auto_sync_times()
             if not times:
-                logger.warning(
-                    "⚠️ Auto-sync is enabled, but schedule is empty. Specify run times."
-                )
+                logger.warning("⚠️ Auto-sync is enabled, but schedule is empty. Specify run times.")
                 self._next_run = None
                 return
 
@@ -224,9 +222,7 @@ class RemnaWaveAutoSyncService:
         service = self._refresh_service()
 
         if not service.is_configured:
-            raise RemnaWaveConfigurationError(
-                service.configuration_error or "RemnaWave API is not configured"
-            )
+            raise RemnaWaveConfigurationError(service.configuration_error or "RemnaWave API is not configured")
 
         async with AsyncSessionLocal() as session:
             user_stats = await service.sync_users_from_panel(session, "all")

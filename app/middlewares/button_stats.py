@@ -90,7 +90,7 @@ class ButtonStatsMiddleware(BaseMiddleware):
         self,
         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
     ) -> Any:
         """Перехватывает CallbackQuery и логирует клики по кнопкам."""
 
@@ -117,7 +117,7 @@ class ButtonStatsMiddleware(BaseMiddleware):
 
             # Получаем текст кнопки, если возможно
             button_text = None
-            if event.message and hasattr(event.message, 'reply_markup'):
+            if event.message and hasattr(event.message, "reply_markup"):
                 button_text = self._extract_button_text(event.message.reply_markup, callback_data)
 
             # Логируем в фоне, не блокируя обработку
@@ -127,16 +127,16 @@ class ButtonStatsMiddleware(BaseMiddleware):
                     user_id=user_id,
                     callback_data=callback_data,
                     button_type=button_type,
-                    button_text=button_text
+                    button_text=button_text,
                 )
             )
         except Exception as e:
             # Не прерываем обработку при ошибке логирования
             logger.error(f"Ошибка логирования клика по кнопке: {e}", exc_info=True)
-        
+
         # Продолжаем обработку
         return await handler(event, data)
-    
+
     def _determine_button_type(self, callback_data: str) -> str:
         """Определяет тип кнопки по callback_data.
 
@@ -163,29 +163,29 @@ class ButtonStatsMiddleware(BaseMiddleware):
 
         # Всё остальное - кастомные callback кнопки
         return "callback"
-    
+
     def _extract_button_text(self, reply_markup, callback_data: str) -> str:
         """Извлекает текст кнопки из клавиатуры."""
         try:
-            if not reply_markup or not hasattr(reply_markup, 'inline_keyboard'):
+            if not reply_markup or not hasattr(reply_markup, "inline_keyboard"):
                 return None
-            
+
             for row in reply_markup.inline_keyboard:
                 for button in row:
-                    if hasattr(button, 'callback_data') and button.callback_data == callback_data:
-                        if hasattr(button, 'text'):
+                    if hasattr(button, "callback_data") and button.callback_data == callback_data:
+                        if hasattr(button, "text"):
                             return button.text
         except Exception:
             pass
         return None
-    
+
     async def _log_button_click_async(
         self,
         button_id: str,
         user_id: int = None,
         callback_data: str = None,
         button_type: str = None,
-        button_text: str = None
+        button_text: str = None,
     ):
         """Асинхронно логирует клик по кнопке."""
         try:
@@ -199,10 +199,9 @@ class ButtonStatsMiddleware(BaseMiddleware):
                         user_id=user_id,
                         callback_data=callback_data,
                         button_type=button_type,
-                        button_text=button_text
+                        button_text=button_text,
                     )
                 except Exception as e:
                     logger.debug(f"Ошибка записи клика в БД {button_id}: {e}")
         except Exception as e:
             logger.debug(f"Ошибка создания сессии БД для логирования клика: {e}")
-

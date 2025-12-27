@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -82,9 +93,11 @@ logger = logging.getLogger(__name__)
 
 TRAFFIC_PRICES = get_traffic_prices()
 
+
 class _SafeFormatDict(dict):
     def __missing__(self, key: str) -> str:  # pragma: no cover - defensive fallback
         return "{" + key + "}"
+
 
 def _format_text_with_placeholders(template: str, values: Dict[str, Any]) -> str:
     if not isinstance(template, str):
@@ -99,10 +112,11 @@ def _format_text_with_placeholders(template: str, values: Dict[str, Any]) -> str
         logger.warning("Failed to format template '%s' with values %s", template, values)
         return template
 
+
 def _get_addon_discount_percent_for_user(
-        user: Optional[User],
-        category: str,
-        period_days_hint: Optional[int] = None,
+    user: Optional[User],
+    category: str,
+    period_days_hint: Optional[int] = None,
 ) -> int:
     if user is None:
         return 0
@@ -119,11 +133,12 @@ def _get_addon_discount_percent_for_user(
     except AttributeError:
         return 0
 
+
 def _apply_addon_discount(
-        user: Optional[User],
-        category: str,
-        amount: int,
-        period_days_hint: Optional[int] = None,
+    user: Optional[User],
+    category: str,
+    amount: int,
+    period_days_hint: Optional[int] = None,
 ) -> Dict[str, int]:
     percent = _get_addon_discount_percent_for_user(user, category, period_days_hint)
     discounted_amount, discount_value = apply_percentage_discount(amount, percent)
@@ -134,8 +149,10 @@ def _apply_addon_discount(
         "percent": percent,
     }
 
+
 def _get_promo_offer_discount_percent(user: Optional[User]) -> int:
     return get_user_active_promo_discount_percent(user)
+
 
 def _apply_promo_offer_discount(user: Optional[User], amount: int) -> Dict[str, int]:
     percent = _get_promo_offer_discount_percent(user)
@@ -145,6 +162,7 @@ def _apply_promo_offer_discount(user: Optional[User], amount: int) -> Dict[str, 
 
     discounted, discount_value = apply_percentage_discount(amount, percent)
     return {"discounted": discounted, "discount": discount_value, "percent": percent}
+
 
 def _get_period_hint_from_subscription(subscription: Optional[Subscription]) -> Optional[int]:
     if not subscription:
@@ -156,10 +174,11 @@ def _get_period_hint_from_subscription(subscription: Optional[Subscription]) -> 
 
     return months_remaining * 30
 
+
 def _apply_discount_to_monthly_component(
-        amount_per_month: int,
-        percent: int,
-        months: int,
+    amount_per_month: int,
+    percent: int,
+    months: int,
 ) -> Dict[str, int]:
     discounted_per_month, discount_per_month = apply_percentage_discount(amount_per_month, percent)
 
@@ -172,10 +191,13 @@ def _apply_discount_to_monthly_component(
         "discount_total": discount_per_month * months,
     }
 
+
 def update_traffic_prices():
     from app.config import refresh_traffic_prices
+
     refresh_traffic_prices()
     logger.info("🔄 TRAFFIC_PRICES updated from configuration")
+
 
 def format_traffic_display(traffic_gb: int, is_fixed_mode: bool = None) -> str:
     if is_fixed_mode is None:
@@ -186,6 +208,7 @@ def format_traffic_display(traffic_gb: int, is_fixed_mode: bool = None) -> str:
     else:
         return f"{traffic_gb} GB"
 
+
 def validate_traffic_price(gb: int) -> bool:
     from app.config import settings
 
@@ -195,12 +218,14 @@ def validate_traffic_price(gb: int) -> bool:
 
     return price > 0
 
+
 def load_app_config() -> Dict[str, Any]:
     try:
         from app.config import settings
+
         config_path = settings.get_app_config_path()
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
                 return data
@@ -209,6 +234,7 @@ def load_app_config() -> Dict[str, Any]:
         logger.error(f"Error loading app config: {e}")
 
     return {}
+
 
 def get_localized_value(values: Any, language: str, default_language: str = "en") -> str:
     if not isinstance(values, dict):
@@ -239,6 +265,7 @@ def get_localized_value(values: Any, language: str, default_language: str = "en"
 
     return ""
 
+
 def get_step_description(app: Dict[str, Any], step_key: str, language: str) -> str:
     if not isinstance(app, dict):
         return ""
@@ -249,6 +276,7 @@ def get_step_description(app: Dict[str, Any], step_key: str, language: str) -> s
 
     description = step.get("description")
     return get_localized_value(description, language)
+
 
 def format_additional_section(additional: Any, texts, language: str) -> str:
     if not isinstance(additional, dict):
@@ -271,6 +299,7 @@ def format_additional_section(additional: Any, texts, language: str) -> str:
         parts.append(description)
 
     return "\n".join(parts)
+
 
 def build_redirect_link(target_link: Optional[str], template: Optional[str]) -> Optional[str]:
     if not target_link or not template:
@@ -303,6 +332,7 @@ def build_redirect_link(target_link: Optional[str], template: Optional[str]) -> 
 
     return result
 
+
 def get_apps_for_device(device_type: str, language: str = "ru") -> List[Dict[str, Any]]:
     config = load_app_config()
     platforms = config.get("platforms", {}) if isinstance(config, dict) else {}
@@ -311,31 +341,33 @@ def get_apps_for_device(device_type: str, language: str = "ru") -> List[Dict[str
         return []
 
     device_mapping = {
-        'ios': 'ios',
-        'android': 'android',
-        'windows': 'windows',
-        'mac': 'macos',
-        'tv': 'androidTV',
-        'appletv': 'appleTV',
-        'apple_tv': 'appleTV',
+        "ios": "ios",
+        "android": "android",
+        "windows": "windows",
+        "mac": "macos",
+        "tv": "androidTV",
+        "appletv": "appleTV",
+        "apple_tv": "appleTV",
     }
 
     config_key = device_mapping.get(device_type, device_type)
     apps = platforms.get(config_key, [])
     return apps if isinstance(apps, list) else []
 
+
 def get_device_name(device_type: str, language: str = "ru") -> str:
     names = {
-        'ios': 'iPhone/iPad',
-        'android': 'Android',
-        'windows': 'Windows',
-        'mac': 'macOS',
-        'tv': 'Android TV',
-        'appletv': 'Apple TV',
-        'apple_tv': 'Apple TV',
+        "ios": "iPhone/iPad",
+        "android": "Android",
+        "windows": "Windows",
+        "mac": "macOS",
+        "tv": "Android TV",
+        "appletv": "Apple TV",
+        "apple_tv": "Apple TV",
     }
 
     return names.get(device_type, device_type)
+
 
 def create_deep_link(app: Dict[str, Any], subscription_url: str) -> Optional[str]:
     if not subscription_url:
@@ -371,32 +403,31 @@ def create_deep_link(app: Dict[str, Any], subscription_url: str) -> Optional[str
 
     return candidate
 
+
 def get_reset_devices_confirm_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text=texts.t("subscription.devices.reset_all_confirm", "✅ Yes, reset all devices"),
-                callback_data="confirm_reset_devices"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=texts.t("subscription.cancel", "❌ Cancel"),
-                callback_data="menu_subscription"
-            )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t("subscription.devices.reset_all_confirm", "✅ Yes, reset all devices"),
+                    callback_data="confirm_reset_devices",
+                )
+            ],
+            [InlineKeyboardButton(text=texts.t("subscription.cancel", "❌ Cancel"), callback_data="menu_subscription")],
         ]
-    ])
+    )
+
 
 def get_traffic_switch_keyboard(
-        current_traffic_gb: int,
-        language: str = "ru",
-        subscription_end_date: datetime = None,
-        discount_percent: int = 0,
+    current_traffic_gb: int,
+    language: str = "ru",
+    subscription_end_date: datetime = None,
+    discount_percent: int = 0,
 ) -> InlineKeyboardMarkup:
     from app.config import settings
     from app.localization.texts import get_texts
-    
+
     texts = get_texts(language)
 
     months_multiplier = 1
@@ -404,10 +435,12 @@ def get_traffic_switch_keyboard(
     if subscription_end_date:
         months_multiplier = get_remaining_months(subscription_end_date)
         if months_multiplier > 1:
-            period_text = texts.t("subscription.traffic.switch.period_suffix", f" (for {months_multiplier} months)").format(months=months_multiplier)
+            period_text = texts.t(
+                "subscription.traffic.switch.period_suffix", f" (for {months_multiplier} months)"
+            ).format(months=months_multiplier)
 
     packages = settings.get_traffic_packages()
-    enabled_packages = [pkg for pkg in packages if pkg['enabled']]
+    enabled_packages = [pkg for pkg in packages if pkg["enabled"]]
 
     current_price_per_month = settings.get_traffic_price(current_traffic_gb)
     discounted_current_per_month, _ = apply_percentage_discount(
@@ -418,8 +451,8 @@ def get_traffic_switch_keyboard(
     buttons = []
 
     for package in enabled_packages:
-        gb = package['gb']
-        price_per_month = package['price']
+        gb = package["gb"]
+        price_per_month = package["price"]
         discounted_price_per_month, _ = apply_percentage_discount(
             price_per_month,
             discount_percent,
@@ -436,18 +469,14 @@ def get_traffic_switch_keyboard(
             emoji = "⬆️"
             action_text = ""
             price_text = texts.t(
-                "subscription.traffic.switch.price_increase",
-                f" (+{total_price_diff // 100} Toman{period_text})"
+                "subscription.traffic.switch.price_increase", f" (+{total_price_diff // 100} Toman{period_text})"
             ).format(amount=total_price_diff // 100, period=period_text)
             if discount_percent > 0:
-                discount_total = (
-                        (price_per_month - current_price_per_month) * months_multiplier
-                        - total_price_diff
-                )
+                discount_total = (price_per_month - current_price_per_month) * months_multiplier - total_price_diff
                 if discount_total > 0:
                     price_text += texts.t(
                         "subscription.traffic.switch.discount_info",
-                        f" (discount {discount_percent}%: -{discount_total // 100} Toman)"
+                        f" (discount {discount_percent}%: -{discount_total // 100} Toman)",
                     ).format(percent=discount_percent, amount=discount_total // 100)
         elif total_price_diff < 0:
             emoji = "⬇️"
@@ -465,36 +494,29 @@ def get_traffic_switch_keyboard(
 
         button_text = f"{emoji} {traffic_text}{action_text}{price_text}"
 
-        buttons.append([
-            InlineKeyboardButton(text=button_text, callback_data=f"switch_traffic_{gb}")
-        ])
+        buttons.append([InlineKeyboardButton(text=button_text, callback_data=f"switch_traffic_{gb}")])
 
-    buttons.append([
-        InlineKeyboardButton(
-            text=texts.t("BACK_BUTTON", "⬅️ Back"),
-            callback_data="subscription_settings"
-        )
-    ])
+    buttons.append([InlineKeyboardButton(text=texts.t("BACK_BUTTON", "⬅️ Back"), callback_data="subscription_settings")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+
 def get_confirm_switch_traffic_keyboard(
-        new_traffic_gb: int,
-        price_difference: int,
-        language: str = "ru"
+    new_traffic_gb: int, price_difference: int, language: str = "ru"
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text=texts.t("subscription.traffic.switch.confirm", "✅ Confirm switch"),
-                callback_data=f"confirm_switch_traffic_{new_traffic_gb}_{price_difference}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=texts.t("subscription.cancel", "❌ Cancel"),
-                callback_data="subscription_settings"
-            )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t("subscription.traffic.switch.confirm", "✅ Confirm switch"),
+                    callback_data=f"confirm_switch_traffic_{new_traffic_gb}_{price_difference}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("subscription.cancel", "❌ Cancel"), callback_data="subscription_settings"
+                )
+            ],
         ]
-    ])
+    )

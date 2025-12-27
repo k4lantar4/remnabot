@@ -36,11 +36,7 @@ class WataService:
 
     @property
     def is_configured(self) -> bool:
-        return (
-            bool(self.access_token)
-            and bool(self.base_url)
-            and settings.is_wata_enabled()
-        )
+        return bool(self.access_token) and bool(self.base_url) and settings.is_wata_enabled()
 
     async def create_payment_link(
         self,
@@ -84,9 +80,7 @@ class WataService:
         if expiration_datetime:
             payload["expirationDateTime"] = self._format_datetime(expiration_datetime)
         elif settings.WATA_LINK_TTL_MINUTES:
-            expiration = datetime.utcnow() + timedelta(
-                minutes=settings.WATA_LINK_TTL_MINUTES
-            )
+            expiration = datetime.utcnow() + timedelta(minutes=settings.WATA_LINK_TTL_MINUTES)
             payload["expirationDateTime"] = self._format_datetime(expiration)
 
         url = f"{self.base_url}/payment-links"
@@ -138,6 +132,7 @@ class WataService:
         if value.tzinfo is not None:
             # Convert to UTC
             from datetime import timezone
+
             utc_dt = value.astimezone(timezone.utc)
             # Make naive (remove timezone info)
             value = utc_dt.replace(tzinfo=None)

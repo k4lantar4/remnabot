@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 async def present_subscription_summary(
-        callback: types.CallbackQuery,
-        state: FSMContext,
-        db_user,
-        texts: Optional = None,
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    db_user,
+    texts: Optional = None,
 ) -> bool:
     """Render the subscription purchase summary and switch to the confirmation state.
 
@@ -45,7 +45,7 @@ async def present_subscription_summary(
         )
         await callback.answer(
             texts.t("subscription.pricing.calculation_error", "Price calculation error. Please contact support."),
-            show_alert=True
+            show_alert=True,
         )
         return False
 

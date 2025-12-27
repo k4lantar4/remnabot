@@ -1,4 +1,5 @@
 """CRUD operations for administrative web API tokens."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -31,9 +32,7 @@ async def get_token_by_id(db: AsyncSession, token_id: int) -> Optional[WebApiTok
 
 
 async def get_token_by_hash(db: AsyncSession, token_hash: str) -> Optional[WebApiToken]:
-    query = select(WebApiToken).where(
-        WebApiToken.token_hash == token_hash
-    )
+    query = select(WebApiToken).where(WebApiToken.token_hash == token_hash)
     result = await db.execute(query)
     return result.scalar_one_or_none()
 

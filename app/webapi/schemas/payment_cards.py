@@ -22,7 +22,7 @@ class PaymentCardResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     created_by: Optional[int] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -62,6 +62,3 @@ class PaymentCardStatisticsResponse(BaseModel):
     current_usage_count: int
     last_used_at: Optional[datetime] = None
     is_active: bool
-
-
-

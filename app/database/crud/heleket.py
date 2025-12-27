@@ -65,9 +65,7 @@ async def get_heleket_payment_by_uuid(
     uuid: str,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.uuid == uuid)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.uuid == uuid)
     )
     return result.scalar_one_or_none()
 
@@ -77,9 +75,7 @@ async def get_heleket_payment_by_order_id(
     order_id: str,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.order_id == order_id)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.order_id == order_id)
     )
     return result.scalar_one_or_none()
 
@@ -89,9 +85,7 @@ async def get_heleket_payment_by_id(
     payment_id: int,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.id == payment_id)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.id == payment_id)
     )
     return result.scalar_one_or_none()
 

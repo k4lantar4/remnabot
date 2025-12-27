@@ -352,11 +352,7 @@ async def list_rounds(
             offset=offset,
         )
 
-    query = (
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .order_by(ContestRound.starts_at.desc())
-    )
+    query = select(ContestRound).options(selectinload(ContestRound.template)).order_by(ContestRound.starts_at.desc())
     count_query = select(func.count(ContestRound.id))
     if status_filter != "any":
         query = query.where(ContestRound.status == status_filter)
@@ -388,9 +384,7 @@ async def get_round(
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestRoundResponse:
     result = await db.execute(
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .where(ContestRound.id == round_id)
+        select(ContestRound).options(selectinload(ContestRound.template)).where(ContestRound.id == round_id)
     )
     round_obj = result.scalar_one_or_none()
     if not round_obj:
@@ -409,9 +403,7 @@ async def finish_round_now(
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestRoundResponse:
     result = await db.execute(
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .where(ContestRound.id == round_id)
+        select(ContestRound).options(selectinload(ContestRound.template)).where(ContestRound.id == round_id)
     )
     round_obj = result.scalar_one_or_none()
     if not round_obj:
@@ -438,9 +430,7 @@ async def list_attempts(
     if winners_only:
         conditions.append(ContestAttempt.is_winner.is_(True))
 
-    total = await db.scalar(
-        select(func.count(ContestAttempt.id)).where(and_(*conditions))
-    ) or 0
+    total = await db.scalar(select(func.count(ContestAttempt.id)).where(and_(*conditions))) or 0
 
     query = (
         select(ContestAttempt, User)
@@ -577,7 +567,9 @@ async def update_referral(
     if "end_at" in fields:
         fields["end_at"] = _to_utc_naive(fields["end_at"], fields.get("timezone") or contest.timezone)
     if "daily_summary_times" in fields:
-        fields["daily_summary_time"] = _primary_time(fields["daily_summary_times"], fields.get("daily_summary_time") or contest.daily_summary_time)
+        fields["daily_summary_time"] = _primary_time(
+            fields["daily_summary_times"], fields.get("daily_summary_time") or contest.daily_summary_time
+        )
     elif "daily_summary_time" in fields:
         # ensure type is time (pydantic provides time)
         pass
@@ -654,9 +646,7 @@ async def list_referral_events(
     referral_user = aliased(User)
 
     base_conditions = [ReferralContestEvent.contest_id == contest_id]
-    total = await db.scalar(
-        select(func.count(ReferralContestEvent.id)).where(and_(*base_conditions))
-    ) or 0
+    total = await db.scalar(select(func.count(ReferralContestEvent.id)).where(and_(*base_conditions))) or 0
 
     query = (
         select(ReferralContestEvent, referrer_user, referral_user)
@@ -693,5 +683,6 @@ async def get_referral_detailed_stats(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contest not found")
 
     from app.services.referral_contest_service import referral_contest_service
+
     stats = await referral_contest_service.get_detailed_contest_stats(db, contest_id)
     return ReferralContestDetailedStatsResponse(**stats)

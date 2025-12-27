@@ -36,7 +36,7 @@ async def _notify_admins_about_auto_assignment(
         reason = (
             f"Auto-assignment for spending {settings.format_price(total_spent_toman)}"
             if hasattr(settings, "format_price")
-            else f"Auto-assignment for spending {total_spent_toman :.2f} Toman"
+            else f"Auto-assignment for spending {total_spent_toman:.2f} Toman"
         )
         await notification_service.send_user_promo_group_change_notification(
             db,
@@ -78,11 +78,7 @@ async def _get_best_group_for_spending(
 
     for group in groups:
         threshold = group.auto_assign_total_spent_toman or 0
-        if (
-            threshold
-            and total_spent_toman >= threshold
-            and threshold > min_threshold_toman
-        ):
+        if threshold and total_spent_toman >= threshold and threshold > min_threshold_toman:
             return group
 
     return None
@@ -161,7 +157,7 @@ async def maybe_assign_promo_group_by_total_spent(
                 "Promo group '%s' added to user %s for spending %s Toman",
                 target_group.name,
                 user.telegram_id,
-                total_spent ,
+                total_spent,
             )
         else:
             logger.info(

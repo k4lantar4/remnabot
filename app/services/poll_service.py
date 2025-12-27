@@ -69,7 +69,7 @@ async def send_poll_to_users(
     users: Iterable[User],
 ) -> dict:
     from app.database.database import AsyncSessionLocal
-    
+
     sent = 0
     failed = 0
     skipped = 0
@@ -87,12 +87,7 @@ async def send_poll_to_users(
 
     user_ids = [user_snapshot.id for user_snapshot in user_snapshots]
     existing_responses_result = await db.execute(
-        select(PollResponse.user_id).where(
-            and_(
-                PollResponse.poll_id == poll_id,
-                PollResponse.user_id.in_(user_ids)
-            )
-        )
+        select(PollResponse.user_id).where(and_(PollResponse.poll_id == poll_id, PollResponse.user_id.in_(user_ids)))
     )
     existing_user_ids = set(existing_responses_result.scalars().all())
 
@@ -103,7 +98,7 @@ async def send_poll_to_users(
         async with semaphore:
             if user_snapshot.id in existing_user_ids:
                 return "skipped"
-                
+
             async with AsyncSessionLocal() as new_db:
                 try:
                     existing_response = await new_db.execute(
@@ -201,7 +196,7 @@ async def reward_user_for_poll(
         return response.reward_amount_toman
 
     user = response.user
-    description = f"Reward for participating in poll \"{poll.title}\""
+    description = f'Reward for participating in poll "{poll.title}"'
 
     response.reward_given = True
     response.reward_amount_toman = poll.reward_amount_toman

@@ -73,7 +73,6 @@ LOGO_PATH = Path(settings.LOGO_FILE)
 
 
 class MonitoringService:
-    
     def __init__(self, bot=None):
         self.is_running = False
         self.subscription_service = SubscriptionService()
@@ -94,11 +93,7 @@ class MonitoringService:
         if not self.bot:
             raise RuntimeError("Bot instance is not available")
 
-        if (
-            settings.ENABLE_LOGO_MODE
-            and LOGO_PATH.exists()
-            and (text is None or len(text) <= 1000)
-        ):
+        if settings.ENABLE_LOGO_MODE and LOGO_PATH.exists() and (text is None or len(text) <= 1000):
             try:
                 return await self.bot.send_photo(
                     chat_id=chat_id,
@@ -109,8 +104,7 @@ class MonitoringService:
                 )
             except TelegramBadRequest as exc:
                 logger.warning(
-                    "Failed to send message with logo to user %s: %s. "
-                    "Sending text message instead.",
+                    "Failed to send message with logo to user %s: %s. Sending text message instead.",
                     chat_id,
                     exc,
                 )
@@ -155,12 +149,12 @@ class MonitoringService:
             return True
 
         return False
-    
+
     async def start_monitoring(self):
         if self.is_running:
             logger.warning("Monitoring already running")
             return
-        
+
         self.is_running = True
         logger.info("🔄 Starting monitoring service")
         # Start dedicated SLA loop with its own interval for timely 5-min checks
@@ -169,16 +163,16 @@ class MonitoringService:
                 self._sla_task = asyncio.create_task(self._sla_loop())
         except Exception as e:
             logger.error(f"Failed to start SLA monitoring: {e}")
-        
+
         while self.is_running:
             try:
                 await self._monitoring_cycle()
-                await asyncio.sleep(settings.MONITORING_INTERVAL * 60) 
-                
+                await asyncio.sleep(settings.MONITORING_INTERVAL * 60)
+
             except Exception as e:
                 logger.error(f"Error in monitoring cycle: {e}")
-                await asyncio.sleep(60) 
-    
+                await asyncio.sleep(60)
+
     def stop_monitoring(self):
         self.is_running = False
         logger.info("ℹ️ Monitoring stopped")
@@ -187,7 +181,7 @@ class MonitoringService:
                 self._sla_task.cancel()
         except Exception:
             pass
-    
+
     async def _monitoring_cycle(self):
         async for db in get_db():
             try:
@@ -217,80 +211,77 @@ class MonitoringService:
                 await self._process_autopayments(db)
                 await self._cleanup_inactive_users(db)
                 await self._sync_with_remnawave(db)
-                
+
                 await self._log_monitoring_event(
-                    db, "monitoring_cycle_completed", 
-                    "Monitoring cycle completed successfully", 
-                    {"timestamp": datetime.utcnow().isoformat()}
+                    db,
+                    "monitoring_cycle_completed",
+                    "Monitoring cycle completed successfully",
+                    {"timestamp": datetime.utcnow().isoformat()},
                 )
-                
+
             except Exception as e:
                 logger.error(f"Error in monitoring cycle: {e}")
                 await self._log_monitoring_event(
-                    db, "monitoring_cycle_error", 
-                    f"Error in monitoring cycle: {str(e)}", 
+                    db,
+                    "monitoring_cycle_error",
+                    f"Error in monitoring cycle: {str(e)}",
                     {"error": str(e)},
-                    is_success=False
+                    is_success=False,
                 )
             finally:
-                break 
-    
+                break
+
     async def _cleanup_notification_cache(self):
         current_time = datetime.utcnow()
-        
+
         if (current_time - self._last_cleanup).total_seconds() >= 3600:
             old_count = len(self._notified_users)
             self._notified_users.clear()
             self._last_cleanup = current_time
             logger.info(f"🧹 Cleared notification cache ({old_count} entries)")
-    
+
     async def _check_expired_subscriptions(self, db: AsyncSession):
         try:
             expired_subscriptions = await get_expired_subscriptions(db)
-            
+
             for subscription in expired_subscriptions:
                 from app.database.crud.subscription import expire_subscription
+
                 await expire_subscription(db, subscription)
-                
+
                 user = await get_user_by_id(db, subscription.user_id)
                 if user and self.bot:
                     await self._send_subscription_expired_notification(user)
-                
+
                 logger.info(f"🔴 Subscription for user {subscription.user_id} expired and status changed to 'expired'")
-            
+
             if expired_subscriptions:
                 await self._log_monitoring_event(
-                    db, "expired_subscriptions_processed",
+                    db,
+                    "expired_subscriptions_processed",
                     f"Processed {len(expired_subscriptions)} expired subscriptions",
-                    {"count": len(expired_subscriptions)}
+                    {"count": len(expired_subscriptions)},
                 )
-                
+
         except Exception as e:
             logger.error(f"Error checking expired subscriptions: {e}")
 
-    async def update_remnawave_user(
-        self,
-        db: AsyncSession,
-        subscription: Subscription
-    ) -> Optional[RemnaWaveUser]:
-        
+    async def update_remnawave_user(self, db: AsyncSession, subscription: Subscription) -> Optional[RemnaWaveUser]:
         try:
             user = await get_user_by_id(db, subscription.user_id)
             if not user or not user.remnawave_uuid:
                 logger.error(f"RemnaWave UUID not found for user {subscription.user_id}")
                 return None
-            
+
             current_time = datetime.utcnow()
-            is_active = (subscription.status == SubscriptionStatus.ACTIVE.value and 
-                        subscription.end_date > current_time)
-            
-            if (subscription.status == SubscriptionStatus.ACTIVE.value and 
-                subscription.end_date <= current_time):
+            is_active = subscription.status == SubscriptionStatus.ACTIVE.value and subscription.end_date > current_time
+
+            if subscription.status == SubscriptionStatus.ACTIVE.value and subscription.end_date <= current_time:
                 subscription.status = SubscriptionStatus.EXPIRED.value
                 await db.commit()
                 is_active = False
                 logger.info(f"📝 Subscription {subscription.id} status updated to 'expired'")
-            
+
             if not self.subscription_service.is_configured:
                 logger.warning(
                     "RemnaWave API not configured. Skipping user update %s",
@@ -308,42 +299,40 @@ class MonitoringService:
                     traffic_limit_bytes=self._gb_to_bytes(subscription.traffic_limit_gb),
                     traffic_limit_strategy=TrafficLimitStrategy.MONTH,
                     description=settings.format_remnawave_user_description(
-                        full_name=user.full_name,
-                        username=user.username,
-                        telegram_id=user.telegram_id
+                        full_name=user.full_name, username=user.username, telegram_id=user.telegram_id
                     ),
                     active_internal_squads=subscription.connected_squads,
                 )
 
                 if hwid_limit is not None:
-                    update_kwargs['hwid_device_limit'] = hwid_limit
+                    update_kwargs["hwid_device_limit"] = hwid_limit
 
                 updated_user = await api.update_user(**update_kwargs)
-                
+
                 subscription.subscription_url = updated_user.subscription_url
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 await db.commit()
-                
+
                 status_text = "active" if is_active else "expired"
                 logger.info(f"✅ Updated RemnaWave user {user.remnawave_uuid} with status {status_text}")
                 return updated_user
-                
+
         except RemnaWaveAPIError as e:
             logger.error(f"Error updating RemnaWave user: {e}")
             return None
         except Exception as e:
             logger.error(f"Error updating RemnaWave user: {e}")
             return None
-    
+
     async def _check_expiring_subscriptions(self, db: AsyncSession):
         try:
             warning_days = settings.get_autopay_warning_days()
-            all_processed_users = set() 
-            
+            all_processed_users = set()
+
             for days in warning_days:
                 expiring_subscriptions = await self._get_expiring_paid_subscriptions(db, days)
                 sent_count = 0
-                
+
                 for subscription in expiring_subscriptions:
                     user = await get_user_by_id(db, subscription.user_id)
                     if not user:
@@ -351,8 +340,10 @@ class MonitoringService:
 
                     user_key = f"user_{user.telegram_id}_today"
 
-                    if (await notification_sent(db, user.id, subscription.id, "expiring", days) or
-                        user_key in all_processed_users):
+                    if (
+                        await notification_sent(db, user.id, subscription.id, "expiring", days)
+                        or user_key in all_processed_users
+                    ):
                         logger.debug(f"🔄 Skipping duplicate for user {user.telegram_id} for {days} days")
                         continue
 
@@ -362,7 +353,9 @@ class MonitoringService:
                             other_subs = await self._get_expiring_paid_subscriptions(db, other_days)
                             if any(s.user_id == user.id for s in other_subs):
                                 should_send = False
-                                logger.debug(f"🎯 Skipping {days} day notification for user {user.telegram_id}, more urgent {other_days} day notification exists")
+                                logger.debug(
+                                    f"🎯 Skipping {days} day notification for user {user.telegram_id}, more urgent {other_days} day notification exists"
+                                )
                                 break
 
                     if not should_send:
@@ -374,20 +367,23 @@ class MonitoringService:
                             await record_notification(db, user.id, subscription.id, "expiring", days)
                             all_processed_users.add(user_key)
                             sent_count += 1
-                            logger.info(f"✅ Sent subscription expiration notification to user {user.telegram_id} for {days} days")
+                            logger.info(
+                                f"✅ Sent subscription expiration notification to user {user.telegram_id} for {days} days"
+                            )
                         else:
                             logger.warning(f"❌ Failed to send notification to user {user.telegram_id}")
-                
+
                 if sent_count > 0:
                     await self._log_monitoring_event(
-                        db, "expiring_notifications_sent",
+                        db,
+                        "expiring_notifications_sent",
                         f"Sent {sent_count} expiration notifications for {days} days",
-                        {"days": days, "count": sent_count}
+                        {"days": days, "count": sent_count},
                     )
-                    
+
         except Exception as e:
             logger.error(f"Error checking expiring subscriptions: {e}")
-    
+
     async def _check_trial_expiring_soon(self, db: AsyncSession):
         try:
             threshold_time = datetime.utcnow() + timedelta(hours=2)
@@ -405,12 +401,12 @@ class MonitoringService:
                         Subscription.status == SubscriptionStatus.ACTIVE.value,
                         Subscription.is_trial == True,
                         Subscription.end_date <= threshold_time,
-                        Subscription.end_date > datetime.utcnow()
+                        Subscription.end_date > datetime.utcnow(),
                     )
                 )
             )
             trial_expiring = result.scalars().all()
-            
+
             for subscription in trial_expiring:
                 user = subscription.user
                 if not user:
@@ -423,15 +419,18 @@ class MonitoringService:
                     success = await self._send_trial_ending_notification(user, subscription)
                     if success:
                         await record_notification(db, user.id, subscription.id, "trial_2h")
-                        logger.info(f"🎁 Sent trial subscription ending notification to user {user.telegram_id} (2 hours remaining)")
-            
+                        logger.info(
+                            f"🎁 Sent trial subscription ending notification to user {user.telegram_id} (2 hours remaining)"
+                        )
+
             if trial_expiring:
                 await self._log_monitoring_event(
-                    db, "trial_expiring_notifications_sent",
+                    db,
+                    "trial_expiring_notifications_sent",
                     f"Sent {len(trial_expiring)} trial subscription ending notifications",
-                    {"count": len(trial_expiring)}
+                    {"count": len(trial_expiring)},
                 )
-                
+
         except Exception as e:
             logger.error(f"Error checking expiring trial subscriptions: {e}")
 
@@ -477,15 +476,18 @@ class MonitoringService:
 
                 time_since_start = now - start_date
 
-                if (NotificationSettingsService.is_trial_inactive_1h_enabled()
-                        and timedelta(hours=1) <= time_since_start < timedelta(hours=24)):
+                if NotificationSettingsService.is_trial_inactive_1h_enabled() and timedelta(
+                    hours=1
+                ) <= time_since_start < timedelta(hours=24):
                     if not await notification_sent(db, user.id, subscription.id, "trial_inactive_1h"):
                         success = await self._send_trial_inactive_notification(user, subscription, 1)
                         if success:
                             await record_notification(db, user.id, subscription.id, "trial_inactive_1h")
                             sent_1h += 1
 
-                if NotificationSettingsService.is_trial_inactive_24h_enabled() and time_since_start >= timedelta(hours=24):
+                if NotificationSettingsService.is_trial_inactive_24h_enabled() and time_since_start >= timedelta(
+                    hours=24
+                ):
                     if not await notification_sent(db, user.id, subscription.id, "trial_inactive_24h"):
                         success = await self._send_trial_inactive_notification(user, subscription, 24)
                         if success:
@@ -581,11 +583,7 @@ class MonitoringService:
                     )
                     continue
 
-                if (
-                    subscription.status == SubscriptionStatus.ACTIVE.value
-                    and subscription.is_trial
-                    and not is_member
-                ):
+                if subscription.status == SubscriptionStatus.ACTIVE.value and subscription.is_trial and not is_member:
                     subscription = await deactivate_subscription(db, subscription)
                     disabled_count += 1
                     logger.info(
@@ -619,11 +617,7 @@ class MonitoringService:
                                     subscription.id,
                                     "trial_channel_unsubscribed",
                                 )
-                elif (
-                    subscription.status == SubscriptionStatus.DISABLED.value
-                    and subscription.is_trial
-                    and is_member
-                ):
+                elif subscription.status == SubscriptionStatus.DISABLED.value and subscription.is_trial and is_member:
                     subscription.status = SubscriptionStatus.ACTIVE.value
                     subscription.updated_at = datetime.utcnow()
                     await db.commit()
@@ -658,10 +652,7 @@ class MonitoringService:
                 await self._log_monitoring_event(
                     db,
                     "trial_channel_subscription_check",
-                    (
-                        "Checked {total} trial subscriptions: disabled {disabled}, "
-                        "restored {restored}"
-                    ).format(
+                    ("Checked {total} trial subscriptions: disabled {disabled}, restored {restored}").format(
                         total=len(subscriptions),
                         disabled=disabled_count,
                         restored=restored_count,
@@ -804,29 +795,29 @@ class MonitoringService:
     async def _get_expiring_paid_subscriptions(self, db: AsyncSession, days_before: int) -> List[Subscription]:
         current_time = datetime.utcnow()
         threshold_date = current_time + timedelta(days=days_before)
-        
+
         result = await db.execute(
             select(Subscription)
             .options(selectinload(Subscription.user))
             .where(
                 and_(
                     Subscription.status == SubscriptionStatus.ACTIVE.value,
-                    Subscription.is_trial == False, 
+                    Subscription.is_trial == False,
                     Subscription.end_date > current_time,
-                    Subscription.end_date <= threshold_date
+                    Subscription.end_date <= threshold_date,
                 )
             )
         )
-        
+
         logger.debug(f"🔍 Searching for paid subscriptions expiring in {days_before} days")
         logger.debug(f"📅 Current time: {current_time}")
         logger.debug(f"📅 Threshold date: {threshold_date}")
-        
+
         subscriptions = result.scalars().all()
         logger.info(f"📊 Found {len(subscriptions)} paid subscriptions for notifications")
-        
+
         return subscriptions
-    
+
     @staticmethod
     def _get_user_promo_offer_discount_percent(user: Optional[User]) -> int:
         if not user:
@@ -909,7 +900,7 @@ class MonitoringService:
     async def _process_autopayments(self, db: AsyncSession):
         try:
             current_time = datetime.utcnow()
-            
+
             result = await db.execute(
                 select(Subscription)
                 .options(
@@ -922,30 +913,28 @@ class MonitoringService:
                     and_(
                         Subscription.status == SubscriptionStatus.ACTIVE.value,
                         Subscription.autopay_enabled == True,
-                        Subscription.is_trial == False
+                        Subscription.is_trial == False,
                     )
                 )
             )
             all_autopay_subscriptions = result.scalars().all()
-            
+
             autopay_subscriptions = []
             for sub in all_autopay_subscriptions:
                 days_before_expiry = (sub.end_date - current_time).days
                 if days_before_expiry <= sub.autopay_days_before:
                     autopay_subscriptions.append(sub)
-            
+
             processed_count = 0
             failed_count = 0
-            
+
             for subscription in autopay_subscriptions:
                 user = subscription.user
                 if not user:
                     continue
-                
+
                 # Correct renewal cost calculation considering all subscription parameters
-                renewal_cost = await self.subscription_service.calculate_renewal_price(
-                    subscription, 30, db, user=user
-                )
+                renewal_cost = await self.subscription_service.calculate_renewal_price(subscription, 30, db, user=user)
                 promo_discount_percent = self._get_user_promo_offer_discount_percent(user)
                 charge_amount = renewal_cost
                 promo_discount_value = 0
@@ -961,10 +950,7 @@ class MonitoringService:
                     continue
 
                 if user.balance_toman >= charge_amount:
-                    success = await subtract_user_balance(
-                        db, user, charge_amount,
-                        "Subscription auto-renewal"
-                    )
+                    success = await subtract_user_balance(db, user, charge_amount, "Subscription auto-renewal")
 
                     if success:
                         await extend_subscription(db, subscription, 30)
@@ -999,17 +985,18 @@ class MonitoringService:
                     if self.bot:
                         await self._send_autopay_failed_notification(user, user.balance_toman, charge_amount)
                     logger.warning(f"💳 Insufficient funds for auto-renewal for user {user.telegram_id}")
-            
+
             if processed_count > 0 or failed_count > 0:
                 await self._log_monitoring_event(
-                    db, "autopayments_processed",
+                    db,
+                    "autopayments_processed",
                     f"Auto-payments: successful {processed_count}, failed {failed_count}",
-                    {"processed": processed_count, "failed": failed_count}
+                    {"processed": processed_count, "failed": failed_count},
                 )
-                
+
         except Exception as e:
             logger.error(f"Error processing auto-payments: {e}")
-    
+
     async def _send_subscription_expired_notification(self, user: User) -> bool:
         try:
             texts = get_texts(user.language)
@@ -1020,21 +1007,25 @@ class MonitoringService:
 Your subscription has expired. To restore access, renew your subscription.
 
 🔧 Server access is blocked until renewal.
-"""
+""",
             )
-            
+
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"),
-                    callback_data="menu_buy"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
-                    callback_data="balance_topup"
-                )],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"), callback_data="menu_buy"
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"), callback_data="balance_topup"
+                        )
+                    ],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1060,21 +1051,21 @@ Your subscription has expired. To restore access, renew your subscription.
                 e,
             )
             return False
-    
+
     async def _send_subscription_expiring_notification(self, user: User, subscription: Subscription, days: int) -> bool:
         try:
             from app.utils.formatters import format_days_declension
-            
+
             texts = get_texts(user.language)
             days_text = format_days_declension(days, user.language)
-            
+
             if subscription.autopay_enabled:
                 autopay_status = "✅ Enabled - subscription will renew automatically"
                 action_text = f"💰 Make sure you have sufficient balance: {texts.format_price(user.balance_toman)}"
             else:
                 autopay_status = "❌ Disabled - don't forget to renew manually!"
                 action_text = "💡 Enable auto-payment or renew subscription manually"
-            
+
             message = f"""
 ⚠️ <b>Subscription expires in {days_text}!</b>
 
@@ -1084,23 +1075,30 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
 
 {action_text}
 """
-            
+
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "⏰ Extend subscription"),
-                    callback_data="subscription_extend"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
-                    callback_data="balance_topup"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
-                    callback_data="menu_subscription"
-                )],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "⏰ Extend subscription"),
+                            callback_data="subscription_extend",
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"), callback_data="balance_topup"
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
+                            callback_data="menu_subscription",
+                        )
+                    ],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1126,7 +1124,7 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
                 e,
             )
             return False
-    
+
     async def _send_trial_ending_notification(self, user: User, subscription: Subscription) -> bool:
         try:
             texts = get_texts(user.language)
@@ -1137,15 +1135,15 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
 
             # Base price for 30 days
             base_price_original = PERIOD_PRICES.get(30, settings.PRICE_30_DAYS)
-            
+
             # Apply promo group discount for "period" category
             promo_group_discount = user.get_promo_discount("period", 30) if user else 0
             # Apply user promo discount (if any)
             user_discount_percent = self._get_user_promo_offer_discount_percent(user)
-            
+
             # Total discount - maximum of promo group and user discount
             total_discount_percent = max(promo_group_discount, user_discount_percent)
-            
+
             base_price, _ = apply_percentage_discount(base_price_original, total_discount_percent)
 
             # Add traffic price (if fixed traffic is enabled)
@@ -1160,12 +1158,12 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
             # Add server price (assume minimum 1 server at minimum price)
             # Instead of complex DB query, use settings
             # For minimal configuration - one server with minimum price
-            min_server_price = getattr(settings, 'MIN_SERVER_PRICE', 0) or 0
+            min_server_price = getattr(settings, "MIN_SERVER_PRICE", 0) or 0
             if min_server_price == 0:
                 # If no explicit minimum price, use base price
                 # In real conditions, server price will be determined during subscription setup
                 min_server_price = 0
-            
+
             # Add device price (if more than base limit)
             # In minimal configuration - base limit, no additional devices
             device_limit = settings.DEFAULT_DEVICE_LIMIT
@@ -1175,7 +1173,7 @@ Your paid subscription expires on {format_local_datetime(subscription.end_date, 
             # For simplicity and correct operation without DB access, calculate minimum price as:
             # base price + minimum traffic price (if fixed traffic exists)
             min_server_price = 0  # for minimal configuration with 1 server use 0 or known minimum
-            
+
             # Try to get minimum server price from settings or use appropriate value
             # Find minimum possible price from possible server prices
             # In simplified version use base configuration: base price + traffic
@@ -1198,21 +1196,25 @@ Switch to a full subscription!
 • Speed up to 1 Gbit/s
 
 ⚡️ Complete your order before the trial period ends!
-"""
+""",
             )
-            
+
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"),
-                    callback_data="menu_buy"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💰 Top up balance"),
-                    callback_data="balance_topup"
-                )],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_BUY_SUBSCRIPTION", "💎 Buy subscription"), callback_data="menu_buy"
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💰 Top up balance"), callback_data="balance_topup"
+                        )
+                    ],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1267,17 +1269,23 @@ Switch to a full subscription!
 
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
-                    callback_data="subscription_connect",
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
-                    callback_data="menu_subscription",
-                )],
-                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("CONNECT_BUTTON", "🔗 Connect"),
+                            callback_data="subscription_connect",
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
+                            callback_data="menu_subscription",
+                        )
+                    ],
+                    [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1384,17 +1392,23 @@ Switch to a full subscription!
 
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
-                    callback_data="subscription_extend",
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
-                    callback_data="balance_topup",
-                )],
-                [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
+                            callback_data="subscription_extend",
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
+                            callback_data="balance_topup",
+                        )
+                    ],
+                    [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1461,24 +1475,29 @@ Switch to a full subscription!
 
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_CLAIM_DISCOUNT", "🎁 Claim discount"),
-                    callback_data=f"claim_discount_{offer_id}"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
-                    callback_data="subscription_extend",
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
-                    callback_data="balance_topup",
-                )],
-                [InlineKeyboardButton(
-                    text=texts.t("SUPPORT_BUTTON", "🆘 Support"),
-                    callback_data="menu_support"
-                )],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_CLAIM_DISCOUNT", "🎁 Claim discount"),
+                            callback_data=f"claim_discount_{offer_id}",
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_EXTEND_SUBSCRIPTION", "💎 Extend subscription"),
+                            callback_data="subscription_extend",
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
+                            callback_data="balance_topup",
+                        )
+                    ],
+                    [InlineKeyboardButton(text=texts.t("SUPPORT_BUTTON", "🆘 Support"), callback_data="menu_support")],
+                ]
+            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -1508,10 +1527,7 @@ Switch to a full subscription!
     async def _send_autopay_success_notification(self, user: User, amount: int, days: int):
         try:
             texts = get_texts(user.language)
-            message = texts.AUTOPAY_SUCCESS.format(
-                days=days,
-                amount=settings.format_price(amount)
-            )
+            message = texts.AUTOPAY_SUCCESS.format(days=days, amount=settings.format_price(amount))
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
@@ -1535,23 +1551,27 @@ Switch to a full subscription!
         try:
             texts = get_texts(user.language)
             message = texts.AUTOPAY_FAILED.format(
-                balance=settings.format_price(balance),
-                required=settings.format_price(required)
+                balance=settings.format_price(balance), required=settings.format_price(required)
             )
-            
+
             from aiogram.types import InlineKeyboardMarkup
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [build_miniapp_or_callback_button(
-                    text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"),
-                    callback_data="balance_topup"
-                )],
-                [build_miniapp_or_callback_button(
-                    text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
-                    callback_data="menu_subscription"
-                )],
-            ])
-            
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("BUTTON_TOPUP_BALANCE", "💳 Top up balance"), callback_data="balance_topup"
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t("MY_SUBSCRIPTION_BUTTON", "📱 My subscription"),
+                            callback_data="menu_subscription",
+                        )
+                    ],
+                ]
+            )
+
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
@@ -1572,70 +1592,71 @@ Switch to a full subscription!
                 user.telegram_id,
                 e,
             )
-    
+
     async def _cleanup_inactive_users(self, db: AsyncSession):
         try:
             now = datetime.utcnow()
-            if now.hour != 3: 
+            if now.hour != 3:
                 return
-            
+
             inactive_users = await get_inactive_users(db, settings.INACTIVE_USER_DELETE_MONTHS)
             deleted_count = 0
-            
+
             for user in inactive_users:
                 if not user.subscription or not user.subscription.is_active:
                     success = await delete_user(db, user)
                     if success:
                         deleted_count += 1
-            
+
             if deleted_count > 0:
                 await self._log_monitoring_event(
-                    db, "inactive_users_cleanup",
+                    db,
+                    "inactive_users_cleanup",
                     f"Deleted {deleted_count} inactive users",
-                    {"deleted_count": deleted_count}
+                    {"deleted_count": deleted_count},
                 )
                 logger.info(f"🗑️ Deleted {deleted_count} inactive users")
-                
+
         except Exception as e:
             logger.error(f"Error cleaning up inactive users: {e}")
-    
+
     async def _sync_with_remnawave(self, db: AsyncSession):
         try:
             now = datetime.utcnow()
             if now.minute != 0:
                 return
-            
+
             if not self.subscription_service.is_configured:
                 logger.warning("RemnaWave API not configured. Skipping synchronization")
                 return
 
             async with self.subscription_service.get_api_client() as api:
                 system_stats = await api.get_system_stats()
-                
+
                 await self._log_monitoring_event(
-                    db, "remnawave_sync",
-                    "Synchronization with RemnaWave completed",
-                    {"stats": system_stats}
+                    db, "remnawave_sync", "Synchronization with RemnaWave completed", {"stats": system_stats}
                 )
-                
+
         except Exception as e:
             logger.error(f"Error synchronizing with RemnaWave: {e}")
             await self._log_monitoring_event(
-                db, "remnawave_sync_error",
+                db,
+                "remnawave_sync_error",
                 f"Error synchronizing with RemnaWave: {str(e)}",
                 {"error": str(e)},
-                is_success=False
+                is_success=False,
             )
-    
+
     async def _check_ticket_sla(self, db: AsyncSession):
         try:
             # Quick guards
             # Allow runtime toggle from SupportSettingsService
             try:
                 from app.services.support_settings_service import SupportSettingsService
+
                 sla_enabled_runtime = SupportSettingsService.get_sla_enabled()
             except Exception:
-                sla_enabled_runtime = getattr(settings, 'SUPPORT_TICKET_SLA_ENABLED', True)
+                sla_enabled_runtime = getattr(settings, "SUPPORT_TICKET_SLA_ENABLED", True)
             if not sla_enabled_runtime:
                 return
             if not self.bot:
@@ -1644,12 +1665,14 @@ Switch to a full subscription!
                 return
 
             from datetime import datetime, timedelta
+
             try:
                 from app.services.support_settings_service import SupportSettingsService
+
                 sla_minutes = max(1, int(SupportSettingsService.get_sla_minutes()))
             except Exception:
-                sla_minutes = max(1, int(getattr(settings, 'SUPPORT_TICKET_SLA_MINUTES', 5)))
-            cooldown_minutes = max(1, int(getattr(settings, 'SUPPORT_TICKET_SLA_REMINDER_COOLDOWN_MINUTES', 15)))
+                sla_minutes = max(1, int(getattr(settings, "SUPPORT_TICKET_SLA_MINUTES", 5)))
+            cooldown_minutes = max(1, int(getattr(settings, "SUPPORT_TICKET_SLA_REMINDER_COOLDOWN_MINUTES", 15)))
             now = datetime.utcnow()
             stale_before = now - timedelta(minutes=sla_minutes)
             cooldown_before = now - timedelta(minutes=cooldown_minutes)
@@ -1679,9 +1702,9 @@ Switch to a full subscription!
             for ticket in tickets:
                 try:
                     waited_minutes = max(0, int((now - ticket.updated_at).total_seconds() // 60))
-                    title = (ticket.title or '').strip()
+                    title = (ticket.title or "").strip()
                     if len(title) > 60:
-                        title = title[:57] + '...'
+                        title = title[:57] + "..."
 
                     # User details: name, Telegram ID and username
                     full_name = ticket.user.full_name if ticket.user else "Unknown"
@@ -1719,7 +1742,7 @@ Switch to a full subscription!
 
     async def _sla_loop(self):
         try:
-            interval_seconds = max(10, int(getattr(settings, 'SUPPORT_TICKET_SLA_CHECK_INTERVAL_SECONDS', 60)))
+            interval_seconds = max(10, int(getattr(settings, "SUPPORT_TICKET_SLA_CHECK_INTERVAL_SECONDS", 60)))
         except Exception:
             interval_seconds = 60
         while self.is_running:
@@ -1736,49 +1759,34 @@ Switch to a full subscription!
             await asyncio.sleep(interval_seconds)
 
     async def _log_monitoring_event(
-        self,
-        db: AsyncSession,
-        event_type: str,
-        message: str,
-        data: Dict[str, Any] = None,
-        is_success: bool = True
+        self, db: AsyncSession, event_type: str, message: str, data: Dict[str, Any] = None, is_success: bool = True
     ):
         try:
-            log_entry = MonitoringLog(
-                event_type=event_type,
-                message=message,
-                data=data or {},
-                is_success=is_success
-            )
-            
+            log_entry = MonitoringLog(event_type=event_type, message=message, data=data or {}, is_success=is_success)
+
             db.add(log_entry)
             await db.commit()
-            
+
         except Exception as e:
             logger.error(f"Error logging monitoring event: {e}")
 
     async def get_monitoring_status(self, db: AsyncSession) -> Dict[str, Any]:
         try:
             from sqlalchemy import select, desc
-            
+
             recent_events_result = await db.execute(
-                select(MonitoringLog)
-                .order_by(desc(MonitoringLog.created_at))
-                .limit(10)
+                select(MonitoringLog).order_by(desc(MonitoringLog.created_at)).limit(10)
             )
             recent_events = recent_events_result.scalars().all()
-            
+
             yesterday = datetime.utcnow() - timedelta(days=1)
-            
-            events_24h_result = await db.execute(
-                select(MonitoringLog)
-                .where(MonitoringLog.created_at >= yesterday)
-            )
+
+            events_24h_result = await db.execute(select(MonitoringLog).where(MonitoringLog.created_at >= yesterday))
             events_24h = events_24h_result.scalars().all()
-            
+
             successful_events = sum(1 for event in events_24h if event.is_success)
             failed_events = sum(1 for event in events_24h if not event.is_success)
-            
+
             return {
                 "is_running": self.is_running,
                 "last_update": datetime.utcnow(),
@@ -1787,7 +1795,7 @@ Switch to a full subscription!
                         "type": event.event_type,
                         "message": event.message,
                         "success": event.is_success,
-                        "created_at": event.created_at
+                        "created_at": event.created_at,
                     }
                     for event in recent_events
                 ],
@@ -1795,89 +1803,72 @@ Switch to a full subscription!
                     "total_events": len(events_24h),
                     "successful": successful_events,
                     "failed": failed_events,
-                    "success_rate": round(successful_events / len(events_24h) * 100, 1) if events_24h else 0
-                }
+                    "success_rate": round(successful_events / len(events_24h) * 100, 1) if events_24h else 0,
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting monitoring status: {e}")
             return {
                 "is_running": self.is_running,
                 "last_update": datetime.utcnow(),
                 "recent_events": [],
-                "stats_24h": {
-                    "total_events": 0,
-                    "successful": 0,
-                    "failed": 0,
-                    "success_rate": 0
-                }
+                "stats_24h": {"total_events": 0, "successful": 0, "failed": 0, "success_rate": 0},
             }
-    
+
     async def force_check_subscriptions(self, db: AsyncSession) -> Dict[str, int]:
         try:
             expired_subscriptions = await get_expired_subscriptions(db)
             expired_count = 0
-            
+
             for subscription in expired_subscriptions:
                 await deactivate_subscription(db, subscription)
                 expired_count += 1
-            
+
             expiring_subscriptions = await get_expiring_subscriptions(db, 1)
             expiring_count = len(expiring_subscriptions)
-            
+
             autopay_subscriptions = await get_subscriptions_for_autopay(db)
             autopay_processed = 0
-            
+
             for subscription in autopay_subscriptions:
                 user = await get_user_by_id(db, subscription.user_id)
                 if user and user.balance_toman >= settings.PRICE_30_DAYS:
                     autopay_processed += 1
-            
+
             await self._log_monitoring_event(
-                db, "manual_check_subscriptions",
-                    f"Force check: expired {expired_count}, expiring {expiring_count}, auto-payments {autopay_processed}",
-                {
-                    "expired": expired_count,
-                    "expiring": expiring_count,
-                    "autopay_ready": autopay_processed
-                }
+                db,
+                "manual_check_subscriptions",
+                f"Force check: expired {expired_count}, expiring {expiring_count}, auto-payments {autopay_processed}",
+                {"expired": expired_count, "expiring": expiring_count, "autopay_ready": autopay_processed},
             )
-            
-            return {
-                "expired": expired_count,
-                "expiring": expiring_count,
-                "autopay_ready": autopay_processed
-            }
-            
+
+            return {"expired": expired_count, "expiring": expiring_count, "autopay_ready": autopay_processed}
+
         except Exception as e:
             logger.error(f"Error in force subscription check: {e}")
             return {"expired": 0, "expiring": 0, "autopay_ready": 0}
-    
+
     async def get_monitoring_logs(
-        self,
-        db: AsyncSession,
-        limit: int = 50,
-        event_type: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 20
+        self, db: AsyncSession, limit: int = 50, event_type: Optional[str] = None, page: int = 1, per_page: int = 20
     ) -> List[Dict[str, Any]]:
         try:
             from sqlalchemy import select, desc
-            
+
             query = select(MonitoringLog).order_by(desc(MonitoringLog.created_at))
-            
+
             if event_type:
                 query = query.where(MonitoringLog.event_type == event_type)
-            
+
             if page > 1 or per_page != 20:
                 offset = (page - 1) * per_page
                 query = query.offset(offset).limit(per_page)
             else:
                 query = query.limit(limit)
-            
+
             result = await db.execute(query)
             logs = result.scalars().all()
-            
+
             return [
                 {
                     "id": log.id,
@@ -1885,20 +1876,16 @@ Switch to a full subscription!
                     "message": log.message,
                     "data": log.data,
                     "is_success": log.is_success,
-                    "created_at": log.created_at
+                    "created_at": log.created_at,
                 }
                 for log in logs
             ]
-            
+
         except Exception as e:
             logger.error(f"Error getting monitoring logs: {e}")
             return []
 
-    async def get_monitoring_logs_count(
-        self,
-        db: AsyncSession,
-        event_type: Optional[str] = None
-    ) -> int:
+    async def get_monitoring_logs_count(self, db: AsyncSession, event_type: Optional[str] = None) -> int:
         try:
             from sqlalchemy import select, func
 
@@ -1932,29 +1919,27 @@ Switch to a full subscription!
         except Exception as e:
             logger.error(f"Error getting monitoring event types list: {e}")
             return []
-    
+
     async def cleanup_old_logs(self, db: AsyncSession, days: int = 30) -> int:
         try:
             from sqlalchemy import delete, select
-            
+
             if days == 0:
                 result = await db.execute(delete(MonitoringLog))
             else:
                 cutoff_date = datetime.utcnow() - timedelta(days=days)
-                result = await db.execute(
-                    delete(MonitoringLog).where(MonitoringLog.created_at < cutoff_date)
-                )
-            
+                result = await db.execute(delete(MonitoringLog).where(MonitoringLog.created_at < cutoff_date))
+
             deleted_count = result.rowcount
             await db.commit()
-            
+
             if days == 0:
                 logger.info(f"🗑️ Deleted all monitoring logs ({deleted_count} entries)")
             else:
                 logger.info(f"🗑️ Deleted {deleted_count} old log entries (older than {days} days)")
-                
+
             return deleted_count
-            
+
         except Exception as e:
             logger.error(f"Error cleaning up logs: {e}")
             await db.rollback()

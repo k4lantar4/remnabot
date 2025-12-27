@@ -43,30 +43,33 @@ DOMAIN_OBFUSCATION_PATTERN = re.compile(
 # Translation table: Cyrillic characters that visually resemble Latin letters (homoglyphs).
 # Used for spam detection to catch obfuscated links/usernames.
 # Each key is a Cyrillic Unicode character mapped to its Latin look-alike.
-CHAR_TRANSLATION = str.maketrans({
-    "\u0430": "a",  # Cyrillic Small Letter A -> Latin a
-    "\u0435": "e",  # Cyrillic Small Letter Ie -> Latin e
-    "\u043e": "o",  # Cyrillic Small Letter O -> Latin o
-    "\u0440": "p",  # Cyrillic Small Letter Er -> Latin p
-    "\u0441": "c",  # Cyrillic Small Letter Es -> Latin c
-    "\u0445": "x",  # Cyrillic Small Letter Ha -> Latin x
-    "\u0443": "y",  # Cyrillic Small Letter U -> Latin y
-    "\u043a": "k",  # Cyrillic Small Letter Ka -> Latin k
-    "\u0442": "t",  # Cyrillic Small Letter Te -> Latin t
-    "\u0433": "g",  # Cyrillic Small Letter Ghe -> Latin g
-    "\u043c": "m",  # Cyrillic Small Letter Em -> Latin m
-    "\u043d": "n",  # Cyrillic Small Letter En -> Latin n
-    "\u043b": "l",  # Cyrillic Small Letter El -> Latin l
-    "\u0456": "i",  # Cyrillic Small Letter Byelorussian-Ukrainian I -> Latin i
-    "\u0457": "i",  # Cyrillic Small Letter Yi -> Latin i
-    "\u0451": "e",  # Cyrillic Small Letter Io -> Latin e
-    "\u044c": "",   # Cyrillic Small Letter Soft Sign -> removed
-    "\u044a": "",   # Cyrillic Small Letter Hard Sign -> removed
-    "\u045e": "u",  # Cyrillic Small Letter Short U -> Latin u
-    "\uff20": "@",  # Fullwidth Commercial At -> ASCII @
-})
+CHAR_TRANSLATION = str.maketrans(
+    {
+        "\u0430": "a",  # Cyrillic Small Letter A -> Latin a
+        "\u0435": "e",  # Cyrillic Small Letter Ie -> Latin e
+        "\u043e": "o",  # Cyrillic Small Letter O -> Latin o
+        "\u0440": "p",  # Cyrillic Small Letter Er -> Latin p
+        "\u0441": "c",  # Cyrillic Small Letter Es -> Latin c
+        "\u0445": "x",  # Cyrillic Small Letter Ha -> Latin x
+        "\u0443": "y",  # Cyrillic Small Letter U -> Latin y
+        "\u043a": "k",  # Cyrillic Small Letter Ka -> Latin k
+        "\u0442": "t",  # Cyrillic Small Letter Te -> Latin t
+        "\u0433": "g",  # Cyrillic Small Letter Ghe -> Latin g
+        "\u043c": "m",  # Cyrillic Small Letter Em -> Latin m
+        "\u043d": "n",  # Cyrillic Small Letter En -> Latin n
+        "\u043b": "l",  # Cyrillic Small Letter El -> Latin l
+        "\u0456": "i",  # Cyrillic Small Letter Byelorussian-Ukrainian I -> Latin i
+        "\u0457": "i",  # Cyrillic Small Letter Yi -> Latin i
+        "\u0451": "e",  # Cyrillic Small Letter Io -> Latin e
+        "\u044c": "",  # Cyrillic Small Letter Soft Sign -> removed
+        "\u044a": "",  # Cyrillic Small Letter Hard Sign -> removed
+        "\u045e": "u",  # Cyrillic Small Letter Short U -> Latin u
+        "\uff20": "@",  # Fullwidth Commercial At -> ASCII @
+    }
+)
 
 COLLAPSE_PATTERN = re.compile(r"[\s\._\-/\\|,:;•·﹒․⋅··`~'\"!?()\[\]{}<>+=]+")
+
 
 class DisplayNameRestrictionMiddleware(BaseMiddleware):
     """Blocks users whose display name imitates links or official accounts."""
@@ -150,12 +153,8 @@ class DisplayNameRestrictionMiddleware(BaseMiddleware):
 
         banned_keywords = settings.get_display_name_banned_keywords()
 
-        return any(
-            keyword in normalized or keyword in collapsed
-            for keyword in banned_keywords
-        )
+        return any(keyword in normalized or keyword in collapsed for keyword in banned_keywords)
 
     @staticmethod
     def _normalize_text(value: str) -> str:
         return value.translate(CHAR_TRANSLATION)
-

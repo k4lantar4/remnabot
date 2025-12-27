@@ -152,9 +152,7 @@ async def _prepare_auto_extend_context(
 
     period_days = _safe_int(cart_data.get("period_days"))
     price_toman = _safe_int(
-        cart_data.get("total_price")
-        or cart_data.get("price")
-        or cart_data.get("final_price"),
+        cart_data.get("total_price") or cart_data.get("price") or cart_data.get("final_price"),
     )
 
     if period_days <= 0:
@@ -215,10 +213,7 @@ def _apply_extension_updates(context: AutoExtendContext) -> None:
     else:
         if context.traffic_limit_gb not in (None, 0):
             subscription.traffic_limit_gb = context.traffic_limit_gb
-        if (
-            context.device_limit is not None
-            and context.device_limit > subscription.device_limit
-        ):
+        if context.device_limit is not None and context.device_limit > subscription.device_limit:
             subscription.device_limit = context.device_limit
         if context.squad_uuid and context.squad_uuid not in (subscription.connected_squads or []):
             subscription.connected_squads = (subscription.connected_squads or []) + [context.squad_uuid]
@@ -390,9 +385,7 @@ async def _auto_extend_subscription(
             )
 
             full_message = "\n\n".join(
-                part.strip()
-                for part in [auto_message, details_message, hint_message]
-                if part and part.strip()
+                part.strip() for part in [auto_message, details_message, hint_message] if part and part.strip()
             )
 
             keyboard = InlineKeyboardMarkup(
@@ -452,9 +445,7 @@ async def auto_purchase_saved_cart_after_topup(
     if not cart_data:
         return False
 
-    logger.info(
-        "Auto-purchase: saved cart found for user %s", user.telegram_id
-    )
+    logger.info("Auto-purchase: saved cart found for user %s", user.telegram_id)
 
     cart_mode = cart_data.get("cart_mode") or cart_data.get("mode")
     if cart_mode == "extend":
@@ -574,9 +565,7 @@ async def auto_purchase_saved_cart_after_topup(
 
             purchase_message = purchase_result.get("message", "")
             full_message = "\n\n".join(
-                part.strip()
-                for part in [auto_message, purchase_message, hint_message]
-                if part and part.strip()
+                part.strip() for part in [auto_message, purchase_message, hint_message] if part and part.strip()
             )
 
             keyboard = InlineKeyboardMarkup(

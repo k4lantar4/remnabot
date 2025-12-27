@@ -124,4 +124,3 @@ class Pal24Service:
         if not ttl_seconds:
             return None
         return datetime.utcnow() + timedelta(seconds=ttl_seconds)
-

@@ -63,10 +63,7 @@ def _serialize_option(option: PollOption) -> PollQuestionOptionResponse:
 
 
 def _serialize_question(question: PollQuestion) -> PollQuestionResponse:
-    options = [
-        _serialize_option(option)
-        for option in sorted(question.options, key=lambda item: item.order)
-    ]
+    options = [_serialize_option(option) for option in sorted(question.options, key=lambda item: item.order)]
     return PollQuestionResponse(
         id=question.id,
         text=question.text,
@@ -97,10 +94,7 @@ def _serialize_poll_summary(
 
 
 def _serialize_poll_detail(poll: Poll) -> PollDetailResponse:
-    questions = [
-        _serialize_question(question)
-        for question in sorted(poll.questions, key=lambda item: item.order)
-    ]
+    questions = [_serialize_question(question) for question in sorted(poll.questions, key=lambda item: item.order)]
     return PollDetailResponse(
         id=poll.id,
         title=poll.title,
@@ -127,10 +121,7 @@ def _serialize_answer(answer: PollAnswer) -> PollAnswerResponse:
 
 def _serialize_user_response(response: PollResponse) -> PollUserResponse:
     user = getattr(response, "user", None)
-    answers = [
-        _serialize_answer(answer)
-        for answer in sorted(response.answers, key=lambda item: item.created_at)
-    ]
+    answers = [_serialize_answer(answer) for answer in sorted(response.answers, key=lambda item: item.created_at)]
     return PollUserResponse(
         id=response.id,
         user_id=getattr(user, "id", None),
@@ -159,11 +150,7 @@ async def list_polls(
         return PollListResponse(items=[], total=0, limit=limit, offset=offset)
 
     result = await db.execute(
-        select(Poll)
-        .options(selectinload(Poll.questions))
-        .order_by(Poll.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+        select(Poll).options(selectinload(Poll.questions)).order_by(Poll.created_at.desc()).offset(offset).limit(limit)
     )
     polls = result.scalars().unique().all()
 
@@ -179,12 +166,7 @@ async def list_polls(
     responses_counts = {poll_id: count for poll_id, count in counts_result.all()}
 
     return PollListResponse(
-        items=[
-            _serialize_poll_summary(
-                poll, responses_counts.get(poll.id, 0)
-            )
-            for poll in polls
-        ],
+        items=[_serialize_poll_summary(poll, responses_counts.get(poll.id, 0)) for poll in polls],
         total=total,
         limit=limit,
         offset=offset,

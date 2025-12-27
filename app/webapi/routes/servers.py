@@ -148,9 +148,7 @@ def _ensure_service_configured(service: "RemnaWaveServiceType") -> None:
         )
 
 
-async def _validate_promo_group_ids(
-    db: AsyncSession, promo_group_ids: Iterable[int]
-) -> List[int]:
+async def _validate_promo_group_ids(db: AsyncSession, promo_group_ids: Iterable[int]) -> List[int]:
     unique_ids = [int(pg_id) for pg_id in set(promo_group_ids)]
 
     if not unique_ids:
@@ -159,9 +157,7 @@ async def _validate_promo_group_ids(
             "At least one promo group must be selected",
         )
 
-    result = await db.execute(
-        select(PromoGroup.id).where(PromoGroup.id.in_(unique_ids))
-    )
+    result = await db.execute(select(PromoGroup.id).where(PromoGroup.id.in_(unique_ids)))
     found_ids = result.scalars().all()
 
     if not found_ids:
@@ -212,9 +208,7 @@ async def list_servers(
 
     total = await db.scalar(count_query) or 0
 
-    result = await db.execute(
-        base_query.offset((page - 1) * limit).limit(limit)
-    )
+    result = await db.execute(base_query.offset((page - 1) * limit).limit(limit))
     servers = result.scalars().unique().all()
 
     return ServerListResponse(
@@ -308,9 +302,7 @@ async def update_server_endpoint(
 
     validated_promo_group_ids: Optional[List[int]] = None
     if promo_group_ids is not None:
-        validated_promo_group_ids = await _validate_promo_group_ids(
-            db, promo_group_ids
-        )
+        validated_promo_group_ids = await _validate_promo_group_ids(db, promo_group_ids)
 
     if updates:
         server = await update_server_squad(db, server_id, **updates) or server
@@ -318,9 +310,7 @@ async def update_server_endpoint(
     if promo_group_ids is not None:
         try:
             assert validated_promo_group_ids is not None
-            server = await update_server_squad_promo_groups(
-                db, server_id, validated_promo_group_ids
-            ) or server
+            server = await update_server_squad_promo_groups(db, server_id, validated_promo_group_ids) or server
         except ValueError as error:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
 
@@ -412,4 +402,3 @@ async def sync_server_counts(
 ) -> ServerCountsSyncResponse:
     updated = await sync_server_user_counts(db)
     return ServerCountsSyncResponse(updated=updated)
-

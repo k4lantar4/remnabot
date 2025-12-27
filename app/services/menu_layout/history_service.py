@@ -45,10 +45,7 @@ class MenuLayoutHistoryService:
     ) -> List[Dict[str, Any]]:
         """Получить историю изменений."""
         result = await db.execute(
-            select(MenuLayoutHistory)
-            .order_by(desc(MenuLayoutHistory.created_at))
-            .limit(limit)
-            .offset(offset)
+            select(MenuLayoutHistory).order_by(desc(MenuLayoutHistory.created_at)).limit(limit).offset(offset)
         )
         entries = result.scalars().all()
 
@@ -66,9 +63,7 @@ class MenuLayoutHistoryService:
     @classmethod
     async def get_history_count(cls, db: AsyncSession) -> int:
         """Получить общее количество записей истории."""
-        result = await db.execute(
-            select(func.count(MenuLayoutHistory.id))
-        )
+        result = await db.execute(select(func.count(MenuLayoutHistory.id)))
         return result.scalar() or 0
 
     @classmethod
@@ -78,9 +73,7 @@ class MenuLayoutHistoryService:
         history_id: int,
     ) -> Optional[Dict[str, Any]]:
         """Получить конкретную запись истории с конфигурацией."""
-        result = await db.execute(
-            select(MenuLayoutHistory).where(MenuLayoutHistory.id == history_id)
-        )
+        result = await db.execute(select(MenuLayoutHistory).where(MenuLayoutHistory.id == history_id))
         entry = result.scalar_one_or_none()
 
         if not entry:
@@ -123,19 +116,13 @@ class MenuLayoutHistoryService:
         # Сохраняем текущую конфигурацию в историю перед откатом
         current_config = await get_config_func(db)
         await cls.save_history(
-            db, current_config, "rollback_backup",
-            f"Backup before rollback to history #{history_id}",
-            user_info
+            db, current_config, "rollback_backup", f"Backup before rollback to history #{history_id}", user_info
         )
 
         # Применяем конфигурацию из истории
         await save_config_func(db, config)
 
         # Сохраняем запись об откате
-        await cls.save_history(
-            db, config, "rollback",
-            f"Rollback to history #{history_id}",
-            user_info
-        )
+        await cls.save_history(db, config, "rollback", f"Rollback to history #{history_id}", user_info)
 
         return config

@@ -9,15 +9,16 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class UserCartService:
     """
     Service for working with the user's cart via Redis.
     """
-    
+
     def __init__(self):
         self.redis_client = None
         self._setup_redis()
-    
+
     def _setup_redis(self):
         """Initialize Redis client."""
         try:
@@ -25,7 +26,7 @@ class UserCartService:
         except Exception as e:
             logger.error("Redis connection error: %s", e)
             raise
-    
+
     async def save_user_cart(self, user_id: int, cart_data: Dict[str, Any], ttl: int = 3600) -> bool:
         """
         Save the user's cart to Redis.
@@ -47,7 +48,7 @@ class UserCartService:
         except Exception as e:
             logger.error("Failed to save cart for user %s: %s", user_id, e)
             return False
-    
+
     async def get_user_cart(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
         Get the user's cart from Redis.
@@ -69,7 +70,7 @@ class UserCartService:
         except Exception as e:
             logger.error("Failed to fetch cart for user %s: %s", user_id, e)
             return None
-    
+
     async def delete_user_cart(self, user_id: int) -> bool:
         """
         Delete the user's cart from Redis.
@@ -89,7 +90,7 @@ class UserCartService:
         except Exception as e:
             logger.error("Failed to delete cart for user %s: %s", user_id, e)
             return False
-    
+
     async def has_user_cart(self, user_id: int) -> bool:
         """
         Check whether the user has a saved cart.
@@ -107,6 +108,7 @@ class UserCartService:
         except Exception as e:
             logger.error("Failed to check cart existence for user %s: %s", user_id, e)
             return False
+
 
 # Global service instance
 user_cart_service = UserCartService()

@@ -82,9 +82,9 @@ The PRD has been comprehensively analyzed. It contains **17 major Functional Req
 
 **FR1: Tenant Management Core** (4 requirements)
 - FR1.1: Create tenants table with fields: id, bot_token, bot_username, owner_telegram_id, status, plan, settings (P0)
-- FR1.2: Add tenant_id to all existing tables (users, subscriptions, payments, etc.) - 35+ tables (P0)
+- FR1.2: Add bot_id to all existing tables (users, subscriptions, payments, etc.) - 35+ tables (P0)
 - FR1.3: Migrate existing data to default tenant with id=1 (P0)
-- FR1.4: Add unique constraint on (tenant_id, telegram_id) for users table (P0)
+- FR1.4: Add unique constraint on (bot_id, telegram_id) for users table (P0)
 
 **FR2: Tenant Context & Isolation** (4 requirements)
 - FR2.1: Implement TenantMiddleware to extract tenant from bot_token in URL path (P0)
@@ -94,8 +94,8 @@ The PRD has been comprehensively analyzed. It contains **17 major Functional Req
 
 **FR3: Database Migration** (3 requirements)
 - FR3.1: Create Alembic migrations for all schema changes with rollback capability (P0)
-- FR3.2: Create optimized indexes on (tenant_id, ...) (P1)
-- FR3.3: Add foreign key from tenant_id to tenants.id for referential integrity (P0)
+- FR3.2: Create optimized indexes on (bot_id, ...) (P1)
+- FR3.3: Add foreign key from bot_id to tenants.id for referential integrity (P0)
 
 #### Phase 2 - MVP (Week 3-6)
 
@@ -113,7 +113,7 @@ The PRD has been comprehensively analyzed. It contains **17 major Functional Req
 **FR6: Payment - ZarinPal Integration** (4 requirements)
 - FR6.1: Use each tenant's merchant_id for ZarinPal (P0)
 - FR6.2: Callback URL includes tenant identifier (P0)
-- FR6.3: Record successful payment in payments table with tenant_id (P0)
+- FR6.3: Record successful payment in payments table with bot_id (P0)
 - FR6.4: Disable ZarinPal if merchant_id is missing (P1)
 
 **FR7: Payment - Card-to-Card** (6 requirements)
@@ -202,7 +202,7 @@ The PRD has been comprehensively analyzed. It contains **17 major Functional Req
 
 **NFR3: Security** (6 requirements)
 - NFR3.1: Data isolation via PostgreSQL RLS (P0)
-- NFR3.2: JWT tokens with tenant_id claim (P0)
+- NFR3.2: JWT tokens with bot_id claim (P0)
 - NFR3.3: Bot token validation per request (P0)
 - NFR3.4: No cross-tenant data leakage (P0)
 - NFR3.5: Audit logging for Super Admin actions (P1)
@@ -217,7 +217,7 @@ The PRD has been comprehensively analyzed. It contains **17 major Functional Req
 **NFR5: Maintainability** (4 requirements)
 - NFR5.1: 70% test coverage (MVP), 85% (6-month)
 - NFR5.2: English comments/docstrings for code documentation
-- NFR5.3: Structured logging with tenant_id for all requests
+- NFR5.3: Structured logging with bot_id for all requests
 - NFR5.4: Database migrations with rollback capability
 
 **NFR6: Usability** (4 requirements)

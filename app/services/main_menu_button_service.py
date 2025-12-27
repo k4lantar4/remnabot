@@ -107,13 +107,10 @@ class MainMenuButtonService:
                 continue
 
             # Referral program check: hide buttons related to referrals if program is disabled
-            if (
-                not settings.is_referral_program_enabled()
-                and (
-                    "partner" in item.text.lower()
-                    or "referr" in item.text.lower()
-                    or "referral" in item.action_value.lower()
-                )
+            if not settings.is_referral_program_enabled() and (
+                "partner" in item.text.lower()
+                or "referr" in item.text.lower()
+                or "referral" in item.action_value.lower()
             ):
                 continue
 

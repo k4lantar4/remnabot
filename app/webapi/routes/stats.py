@@ -63,42 +63,56 @@ async def stats_overview(
     db: AsyncSession = Depends(get_db_session),
 ) -> dict[str, object]:
     total_users = await db.scalar(select(func.count()).select_from(User)) or 0
-    active_users = await db.scalar(
-        select(func.count()).select_from(User).where(User.status == UserStatus.ACTIVE.value)
-    ) or 0
-    blocked_users = await db.scalar(
-        select(func.count()).select_from(User).where(User.status == UserStatus.BLOCKED.value)
-    ) or 0
+    active_users = (
+        await db.scalar(select(func.count()).select_from(User).where(User.status == UserStatus.ACTIVE.value)) or 0
+    )
+    blocked_users = (
+        await db.scalar(select(func.count()).select_from(User).where(User.status == UserStatus.BLOCKED.value)) or 0
+    )
 
-    total_balance_toman = await db.scalar(
-        select(func.coalesce(func.sum(User.balance_toman), 0))
-    ) or 0
+    total_balance_toman = await db.scalar(select(func.coalesce(func.sum(User.balance_toman), 0))) or 0
 
-    active_subscriptions = await db.scalar(
-        select(func.count()).select_from(Subscription).where(
-            Subscription.status == SubscriptionStatus.ACTIVE.value,
+    active_subscriptions = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Subscription)
+            .where(
+                Subscription.status == SubscriptionStatus.ACTIVE.value,
+            )
         )
-    ) or 0
+        or 0
+    )
 
-    expired_subscriptions = await db.scalar(
-        select(func.count()).select_from(Subscription).where(
-            Subscription.status == SubscriptionStatus.EXPIRED.value,
+    expired_subscriptions = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Subscription)
+            .where(
+                Subscription.status == SubscriptionStatus.EXPIRED.value,
+            )
         )
-    ) or 0
+        or 0
+    )
 
-    pending_tickets = await db.scalar(
-        select(func.count()).select_from(Ticket).where(
-            Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.ANSWERED.value])
+    pending_tickets = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Ticket)
+            .where(Ticket.status.in_([TicketStatus.OPEN.value, TicketStatus.ANSWERED.value]))
         )
-    ) or 0
+        or 0
+    )
 
     today = datetime.utcnow().date()
-    today_transactions = await db.scalar(
-        select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
-            func.date(Transaction.created_at) == today,
-            Transaction.type == TransactionType.DEPOSIT.value,
+    today_transactions = (
+        await db.scalar(
+            select(func.coalesce(func.sum(Transaction.amount_toman), 0)).where(
+                func.date(Transaction.created_at) == today,
+                Transaction.type == TransactionType.DEPOSIT.value,
+            )
         )
-    ) or 0
+        or 0
+    )
 
     return {
         "users": {
@@ -228,9 +242,7 @@ async def stats_overview(
                                 "deposit": {"count": 123, "amount": 1234567},
                                 "withdrawal": {"count": 10, "amount": 21000},
                             },
-                            "by_payment_method": {
-                                "card": {"count": 100, "amount": 1000000}
-                            },
+                            "by_payment_method": {"card": {"count": 100, "amount": 1000000}},
                         },
                         "referrals": {
                             "users_with_referrals": 4321,
@@ -284,6 +296,7 @@ async def stats_full(
     }
 
     from app.config import settings
+
     transactions_today = {
         **transactions_today,
         "income_rubles": settings.toman_to_rubles(transactions_today.get("income_toman", 0)),

@@ -4,14 +4,15 @@ from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.crud.promocode import (
-    get_promocode_by_code, use_promocode, check_user_promocode_usage,
-    create_promocode_use, get_promocode_use_by_user_and_code
+    get_promocode_by_code,
+    use_promocode,
+    check_user_promocode_usage,
+    create_promocode_use,
+    get_promocode_use_by_user_and_code,
 )
 from app.database.crud.user import add_user_balance, get_user_by_id
 from app.database.crud.subscription import extend_subscription, get_subscription_by_user_id
-from app.database.crud.user_promo_group import (
-    has_user_promo_group, add_user_to_promo_group
-)
+from app.database.crud.user_promo_group import has_user_promo_group, add_user_to_promo_group
 from app.database.crud.promo_group import get_promo_group_by_id
 from app.database.models import PromoCodeType, SubscriptionStatus, User, PromoCode
 from app.localization.texts import get_texts
@@ -22,37 +23,30 @@ logger = logging.getLogger(__name__)
 
 
 class PromoCodeService:
-    
     def __init__(self):
         self.remnawave_service = RemnaWaveService()
         self.subscription_service = SubscriptionService()
-    
-    async def activate_promocode(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        code: str
-    ) -> Dict[str, Any]:
-        
+
+    async def activate_promocode(self, db: AsyncSession, user_id: int, code: str) -> Dict[str, Any]:
         try:
             user = await get_user_by_id(db, user_id)
             if not user:
                 return {"success": False, "error": "user_not_found"}
-            
+
             promocode = await get_promocode_by_code(db, code)
             if not promocode:
                 return {"success": False, "error": "not_found"}
-            
+
             if not promocode.is_valid:
                 if promocode.current_uses >= promocode.max_uses:
                     return {"success": False, "error": "used"}
                 else:
                     return {"success": False, "error": "expired"}
-            
+
             existing_use = await check_user_promocode_usage(db, user_id, promocode.id)
             if existing_use:
                 return {"success": False, "error": "already_used_by_user"}
-            
+
             balance_before_toman = user.balance_toman
 
             result_description = await self._apply_promocode_effects(db, user, promocode)
@@ -60,6 +54,7 @@ class PromoCodeService:
 
             if promocode.type == PromoCodeType.SUBSCRIPTION_DAYS.value and promocode.subscription_days > 0:
                 from app.utils.user_utils import mark_user_as_had_paid_subscription
+
                 await mark_user_as_had_paid_subscription(db, user)
 
                 logger.info(f"User {user.telegram_id} received paid subscription via promocode {code}")
@@ -77,10 +72,7 @@ class PromoCodeService:
                         if promo_group:
                             # Add promo group to user
                             await add_user_to_promo_group(
-                                db,
-                                user_id,
-                                promocode.promo_group_id,
-                                assigned_by="promocode"
+                                db, user_id, promocode.promo_group_id, assigned_by="promocode"
                             )
 
                             logger.info(
@@ -90,17 +82,12 @@ class PromoCodeService:
 
                             texts = get_texts(getattr(user, "language", "en"))
                             result_description += "\n" + texts.t(
-                                "PROMOCODE_PROMO_GROUP_ASSIGNED",
-                                "🎁 Assigned promo group: {name}"
+                                "PROMOCODE_PROMO_GROUP_ASSIGNED", "🎁 Assigned promo group: {name}"
                             ).format(name=promo_group.name)
                         else:
-                            logger.warning(
-                                f"Promo group ID {promocode.promo_group_id} not found for promocode {code}"
-                            )
+                            logger.warning(f"Promo group ID {promocode.promo_group_id} not found for promocode {code}")
                     else:
-                        logger.info(
-                            f"User {user.telegram_id} already has promo group ID {promocode.promo_group_id}"
-                        )
+                        logger.info(f"User {user.telegram_id} already has promo group ID {promocode.promo_group_id}")
                 except Exception as pg_error:
                     logger.error(
                         f"Error assigning promo group for user {user.telegram_id} "
@@ -133,7 +120,7 @@ class PromoCodeService:
                 "balance_before_toman": balance_before_toman,
                 "balance_after_toman": balance_after_toman,
             }
-            
+
         except Exception as e:
             logger.error(f"Error activating promocode {code} for user {user_id}: {e}")
             await db.rollback()
@@ -142,38 +129,39 @@ class PromoCodeService:
     async def _apply_promocode_effects(self, db: AsyncSession, user: User, promocode: PromoCode) -> str:
         effects = []
         texts = get_texts(getattr(user, "language", "en"))
-        
+
         if promocode.balance_bonus_toman > 0:
-            await add_user_balance(
-                db, user, promocode.balance_bonus_toman,
-                f"Bonus from promocode {promocode.code}"
-            )
-            
+            await add_user_balance(db, user, promocode.balance_bonus_toman, f"Bonus from promocode {promocode.code}")
+
             balance_bonus_toman = promocode.balance_bonus_toman
-            effects.append(texts.t(
-                "PROMOCODE_BALANCE_ADDED",
-                "💰 Balance topped up by {amount} Toman"
-            ).format(amount=balance_bonus_toman))
-        
+            effects.append(
+                texts.t("PROMOCODE_BALANCE_ADDED", "💰 Balance topped up by {amount} Toman").format(
+                    amount=balance_bonus_toman
+                )
+            )
+
         if promocode.subscription_days > 0:
             from app.config import settings
-            
+
             subscription = await get_subscription_by_user_id(db, user.id)
-            
+
             if subscription:
                 await extend_subscription(db, subscription, promocode.subscription_days)
-                
+
                 await self.subscription_service.update_remnawave_user(db, subscription)
-                
-                effects.append(texts.t(
-                    "PROMOCODE_SUBSCRIPTION_EXTENDED",
-                    "⏰ Subscription extended by {days} days"
-                ).format(days=promocode.subscription_days))
-                logger.info(f"User {user.telegram_id} subscription extended by {promocode.subscription_days} days in RemnaWave with current squads")
-                
+
+                effects.append(
+                    texts.t("PROMOCODE_SUBSCRIPTION_EXTENDED", "⏰ Subscription extended by {days} days").format(
+                        days=promocode.subscription_days
+                    )
+                )
+                logger.info(
+                    f"User {user.telegram_id} subscription extended by {promocode.subscription_days} days in RemnaWave with current squads"
+                )
+
             else:
                 from app.database.crud.subscription import create_paid_subscription
-                
+
                 trial_squads = []
                 try:
                     from app.database.crud.server_squad import get_random_trial_squad_uuid
@@ -187,7 +175,7 @@ class PromoCodeService:
                         promocode.code,
                         error,
                     )
-                
+
                 forced_devices = None
                 if not settings.is_devices_selection_enabled():
                     forced_devices = settings.get_disabled_mode_device_limit()
@@ -205,24 +193,29 @@ class PromoCodeService:
                     connected_squads=trial_squads,
                     update_server_counters=True,
                 )
-                
+
                 await self.subscription_service.create_remnawave_user(db, new_subscription)
-                
-                effects.append(texts.t(
-                    "PROMOCODE_SUBSCRIPTION_GRANTED",
-                    "🎉 Subscription granted for {days} days"
-                ).format(days=promocode.subscription_days))
-                logger.info(f"Created new subscription for user {user.telegram_id} for {promocode.subscription_days} days with trial squad {trial_squads}")
-        
+
+                effects.append(
+                    texts.t("PROMOCODE_SUBSCRIPTION_GRANTED", "🎉 Subscription granted for {days} days").format(
+                        days=promocode.subscription_days
+                    )
+                )
+                logger.info(
+                    f"Created new subscription for user {user.telegram_id} for {promocode.subscription_days} days with trial squad {trial_squads}"
+                )
+
         if promocode.type == PromoCodeType.TRIAL_SUBSCRIPTION.value:
             from app.database.crud.subscription import create_trial_subscription
             from app.config import settings
-            
+
             subscription = await get_subscription_by_user_id(db, user.id)
-            
+
             if not subscription:
-                trial_days = promocode.subscription_days if promocode.subscription_days > 0 else settings.TRIAL_DURATION_DAYS
-                
+                trial_days = (
+                    promocode.subscription_days if promocode.subscription_days > 0 else settings.TRIAL_DURATION_DAYS
+                )
+
                 forced_devices = None
                 if not settings.is_devices_selection_enabled():
                     forced_devices = settings.get_disabled_mode_device_limit()
@@ -233,21 +226,18 @@ class PromoCodeService:
                     duration_days=trial_days,
                     device_limit=forced_devices,
                 )
-                
+
                 await self.subscription_service.create_remnawave_user(db, trial_subscription)
-                
-                effects.append(texts.t(
-                    "PROMOCODE_TRIAL_ACTIVATED",
-                    "🎁 Trial subscription activated for {days} days"
-                ).format(days=trial_days))
+
+                effects.append(
+                    texts.t("PROMOCODE_TRIAL_ACTIVATED", "🎁 Trial subscription activated for {days} days").format(
+                        days=trial_days
+                    )
+                )
                 logger.info(f"Created trial subscription for user {user.telegram_id} for {trial_days} days")
             else:
-                effects.append(texts.t(
-                    "PROMOCODE_ALREADY_HAS_SUBSCRIPTION",
-                    "ℹ️ You already have an active subscription"
-                ))
-        
-        return "\n".join(effects) if effects else texts.t(
-            "PROMOCODE_ACTIVATED",
-            "✅ Promocode activated"
-        )
+                effects.append(
+                    texts.t("PROMOCODE_ALREADY_HAS_SUBSCRIPTION", "ℹ️ You already have an active subscription")
+                )
+
+        return "\n".join(effects) if effects else texts.t("PROMOCODE_ACTIVATED", "✅ Promocode activated")

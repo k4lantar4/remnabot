@@ -18,7 +18,9 @@ async def start_tribute_payment(
     texts = get_texts(db_user.language)
 
     if not settings.TRIBUTE_ENABLED:
-        await callback.answer(texts.t("CARD_PAYMENT_UNAVAILABLE", "❌ Card payment temporarily unavailable"), show_alert=True)
+        await callback.answer(
+            texts.t("CARD_PAYMENT_UNAVAILABLE", "❌ Card payment temporarily unavailable"), show_alert=True
+        )
         return
 
     try:

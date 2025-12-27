@@ -24,23 +24,15 @@ logger = logging.getLogger(__name__)
 
 class ChannelCheckerMiddleware(BaseMiddleware):
     def __init__(self):
-        self.BAD_MEMBER_STATUS = (
-            ChatMemberStatus.LEFT,
-            ChatMemberStatus.KICKED,
-            ChatMemberStatus.RESTRICTED
-        )
-        self.GOOD_MEMBER_STATUS = (
-            ChatMemberStatus.MEMBER,
-            ChatMemberStatus.ADMINISTRATOR,
-            ChatMemberStatus.CREATOR
-        )
+        self.BAD_MEMBER_STATUS = (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED, ChatMemberStatus.RESTRICTED)
+        self.GOOD_MEMBER_STATUS = (ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR)
         logger.info("🔧 ChannelCheckerMiddleware initialized")
 
     async def __call__(
         self,
         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
         event: TelegramObject,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
     ) -> Any:
         telegram_id = None
         if isinstance(event, (Message, CallbackQuery)):
@@ -55,7 +47,6 @@ class ChannelCheckerMiddleware(BaseMiddleware):
             logger.debug("❌ telegram_id not found, skipping")
             return await handler(event, data)
 
-
         # Allow admins to skip subscription check to avoid blocking
         # admin panel functionality even without subscription. Important to do
         # this before accessing state to avoid unnecessary operations.
@@ -66,12 +57,11 @@ class ChannelCheckerMiddleware(BaseMiddleware):
             )
             return await handler(event, data)
 
-        state: FSMContext = data.get('state')
+        state: FSMContext = data.get("state")
         current_state = None
 
         if state:
             current_state = await state.get_state()
-
 
         is_reg_process = is_registration_process(event, current_state)
 
@@ -96,9 +86,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
         channel_link = self._normalize_channel_link(settings.CHANNEL_LINK, channel_id)
 
         if not channel_link:
-            logger.warning(
-                "⚠️ CHANNEL_LINK not set or invalid, subscription button will be hidden"
-            )
+            logger.warning("⚠️ CHANNEL_LINK not set or invalid, subscription button will be hidden")
 
         try:
             member = await bot.get_chat_member(chat_id=channel_id, user_id=telegram_id)
@@ -119,11 +107,11 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                         user = event.from_user
                     language = DEFAULT_LANGUAGE
                     if user and user.language_code:
-                        language = user.language_code.split('-')[0]
+                        language = user.language_code.split("-")[0]
                     texts = get_texts(language)
                     message = texts.get(
                         "CHANNEL_NOT_SUBSCRIBED",
-                        "❌ You haven't subscribed to the channel yet! Subscribe and try again."
+                        "❌ You haven't subscribed to the channel yet! Subscribe and try again.",
                     )
                     await event.answer(message, show_alert=True)
                     return
@@ -283,8 +271,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
                     break
 
                 subscription = user.subscription
-                if (not subscription.is_trial or
-                        subscription.status != SubscriptionStatus.ACTIVE.value):
+                if not subscription.is_trial or subscription.status != SubscriptionStatus.ACTIVE.value:
                     logger.debug(
                         "ℹ️ User %s subscription does not require deactivation (trial=%s, status=%s)",
                         telegram_id,
@@ -338,7 +325,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
 
         language = DEFAULT_LANGUAGE
         if user and user.language_code:
-            language = user.language_code.split('-')[0]
+            language = user.language_code.split("-")[0]
 
         texts = get_texts(language)
         channel_sub_kb = get_channel_sub_keyboard(channel_link, language=language)

@@ -183,9 +183,7 @@ def _format_server_lines(
         latency_text: str
         if online:
             if server.latency_ms and server.latency_ms > 0:
-                latency_text = texts.t("SERVER_STATUS_LATENCY", "{latency} ms").format(
-                    latency=server.latency_ms
-                )
+                latency_text = texts.t("SERVER_STATUS_LATENCY", "{latency} ms").format(latency=server.latency_ms)
             else:
                 latency_text = texts.t("SERVER_STATUS_LATENCY_UNKNOWN", "no data")
         else:
@@ -209,4 +207,3 @@ def register_handlers(dp: Dispatcher) -> None:
         change_server_status_page,
         F.data.startswith("server_status_page:"),
     )
-

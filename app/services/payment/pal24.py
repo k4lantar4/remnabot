@@ -269,13 +269,9 @@ class Pal24PaymentMixin:
                         or metadata.get("selected_method")
                         or getattr(payment, "payment_method", None)
                     ),
-                    balance_amount=callback.get("BalanceAmount")
-                    or callback.get("balance_amount"),
-                    balance_currency=callback.get("BalanceCurrency")
-                    or callback.get("balance_currency"),
-                    payer_account=callback.get("AccountNumber")
-                    or callback.get("account")
-                    or callback.get("Account"),
+                    balance_amount=callback.get("BalanceAmount") or callback.get("balance_amount"),
+                    balance_currency=callback.get("BalanceCurrency") or callback.get("balance_currency"),
+                    payer_account=callback.get("AccountNumber") or callback.get("account") or callback.get("Account"),
                 )
 
                 return await self._finalize_pal24_payment(
@@ -302,13 +298,9 @@ class Pal24PaymentMixin:
                     or callback.get("PaymentMethod")
                     or getattr(payment, "payment_method", None)
                 ),
-                balance_amount=callback.get("BalanceAmount")
-                or callback.get("balance_amount"),
-                balance_currency=callback.get("BalanceCurrency")
-                or callback.get("balance_currency"),
-                payer_account=callback.get("AccountNumber")
-                or callback.get("account")
-                or callback.get("Account"),
+                balance_amount=callback.get("BalanceAmount") or callback.get("balance_amount"),
+                balance_currency=callback.get("BalanceCurrency") or callback.get("balance_currency"),
+                payer_account=callback.get("AccountNumber") or callback.get("account") or callback.get("Account"),
             )
             logger.info(
                 "Updated Pal24 payment %s to status %s",
@@ -415,9 +407,7 @@ class Pal24PaymentMixin:
         try:
             from app.services.referral_service import process_referral_topup
 
-            await process_referral_topup(
-                db, user.id, payment.amount_toman, getattr(self, "bot", None)
-            )
+            await process_referral_topup(db, user.id, payment.amount_toman, getattr(self, "bot", None))
         except Exception as error:
             logger.error(
                 "Error processing Pal24 referral top-up: %s",
@@ -578,7 +568,6 @@ class Pal24PaymentMixin:
 
         return True
 
-
     async def get_pal24_payment_status(
         self,
         db: AsyncSession,
@@ -644,7 +633,9 @@ class Pal24PaymentMixin:
 
             bill_success = getattr(service, "BILL_SUCCESS_STATES", {"SUCCESS"}) if service else {"SUCCESS"}
             bill_failed = getattr(service, "BILL_FAILED_STATES", {"FAIL"}) if service else {"FAIL"}
-            bill_pending = getattr(service, "BILL_PENDING_STATES", {"NEW", "PROCESS"}) if service else {"NEW", "PROCESS"}
+            bill_pending = (
+                getattr(service, "BILL_PENDING_STATES", {"NEW", "PROCESS"}) if service else {"NEW", "PROCESS"}
+            )
 
             update_status = payment.status or "NEW"
             update_kwargs: Dict[str, Any] = {}
@@ -742,16 +733,9 @@ class Pal24PaymentMixin:
 
             links_map, selected_method = self._build_links_map(payment, remote_payloads)
             primary_url = (
-                links_map.get(selected_method)
-                or links_map.get("sbp")
-                or links_map.get("page")
-                or links_map.get("card")
+                links_map.get(selected_method) or links_map.get("sbp") or links_map.get("page") or links_map.get("card")
             )
-            secondary_url = (
-                links_map.get("page")
-                or links_map.get("card")
-                or links_map.get("sbp")
-            )
+            secondary_url = links_map.get("page") or links_map.get("card") or links_map.get("sbp")
 
             return {
                 "payment": payment,
@@ -764,8 +748,7 @@ class Pal24PaymentMixin:
                 "secondary_url": secondary_url,
                 "sbp_url": links_map.get("sbp"),
                 "card_url": links_map.get("card"),
-                "link_page_url": links_map.get("page")
-                or getattr(payment, "link_page_url", None),
+                "link_page_url": links_map.get("page") or getattr(payment, "link_page_url", None),
                 "link_url": getattr(payment, "link_url", None),
                 "selected_method": selected_method,
             }
@@ -773,7 +756,6 @@ class Pal24PaymentMixin:
         except Exception as error:
             logger.error("Error getting Pal24 status: %s", error, exc_info=True)
             return None
-
 
     @staticmethod
     def _extract_remote_payment_info(remote_data: Any) -> Dict[str, Optional[str]]:
@@ -799,23 +781,13 @@ class Pal24PaymentMixin:
                 "status": _stringify(candidate.get("status")),
                 "method": _stringify(candidate.get("method") or candidate.get("payment_method")),
                 "balance_amount": _stringify(
-                    candidate.get("balance_amount")
-                    or candidate.get("amount")
-                    or candidate.get("BalanceAmount")
+                    candidate.get("balance_amount") or candidate.get("amount") or candidate.get("BalanceAmount")
                 ),
-                "balance_currency": _stringify(
-                    candidate.get("balance_currency") or candidate.get("BalanceCurrency")
-                ),
+                "balance_currency": _stringify(candidate.get("balance_currency") or candidate.get("BalanceCurrency")),
                 "account": _stringify(
-                    candidate.get("account")
-                    or candidate.get("payer_account")
-                    or candidate.get("AccountNumber")
+                    candidate.get("account") or candidate.get("payer_account") or candidate.get("AccountNumber")
                 ),
-                "bill_id": _stringify(
-                    candidate.get("bill_id")
-                    or candidate.get("BillId")
-                    or candidate.get("billId")
-                ),
+                "bill_id": _stringify(candidate.get("bill_id") or candidate.get("BillId") or candidate.get("billId")),
             }
 
         if not isinstance(remote_data, dict):
@@ -823,10 +795,10 @@ class Pal24PaymentMixin:
 
         lower_keys = {str(key).lower() for key in remote_data.keys()}
         has_status = any(key in lower_keys for key in ("status", "payment_status"))
-        has_identifier = any(
-            key in lower_keys
-            for key in ("payment_id", "from_card", "account_amount", "id")
-        ) or "bill_id" in lower_keys
+        has_identifier = (
+            any(key in lower_keys for key in ("payment_id", "from_card", "account_amount", "id"))
+            or "bill_id" in lower_keys
+        )
 
         if has_status and has_identifier and "bill" not in lower_keys:
             return _normalize(remote_data)
@@ -862,8 +834,7 @@ class Pal24PaymentMixin:
                 lower_keys = {str(key).lower() for key in value.keys()}
                 has_status = any(key in lower_keys for key in ("status", "payment_status"))
                 has_identifier = any(
-                    key in lower_keys
-                    for key in ("id", "payment_id", "bill_id", "from_card", "account_amount")
+                    key in lower_keys for key in ("id", "payment_id", "bill_id", "from_card", "account_amount")
                 )
                 if has_status and has_identifier and value not in candidates:
                     candidates.append(value)

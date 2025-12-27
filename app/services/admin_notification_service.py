@@ -27,17 +27,16 @@ logger = logging.getLogger(__name__)
 
 
 class AdminNotificationService:
-    
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.chat_id = getattr(settings, 'ADMIN_NOTIFICATIONS_CHAT_ID', None)
-        self.topic_id = getattr(settings, 'ADMIN_NOTIFICATIONS_TOPIC_ID', None)
-        self.ticket_topic_id = getattr(settings, 'ADMIN_NOTIFICATIONS_TICKET_TOPIC_ID', None)
-        self.enabled = getattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False)
+        self.chat_id = getattr(settings, "ADMIN_NOTIFICATIONS_CHAT_ID", None)
+        self.topic_id = getattr(settings, "ADMIN_NOTIFICATIONS_TOPIC_ID", None)
+        self.ticket_topic_id = getattr(settings, "ADMIN_NOTIFICATIONS_TICKET_TOPIC_ID", None)
+        self.enabled = getattr(settings, "ADMIN_NOTIFICATIONS_ENABLED", False)
         # Admin notifications use a single localization context
         default_locale = getattr(settings, "DEFAULT_LANGUAGE", "en")
         self.texts = get_texts(default_locale)
-    
+
     async def _get_referrer_info(self, db: AsyncSession, referred_by_id: Optional[int]) -> str:
         if not referred_by_id:
             return self.texts.t("service.notifications.admin.referrer_none", "None")
@@ -45,10 +44,9 @@ class AdminNotificationService:
         try:
             referrer = await get_user_by_id(db, referred_by_id)
             if not referrer:
-                return self.texts.t(
-                    "service.notifications.admin.referrer_not_found",
-                    "ID {id} (not found)"
-                ).format(id=referred_by_id)
+                return self.texts.t("service.notifications.admin.referrer_not_found", "ID {id} (not found)").format(
+                    id=referred_by_id
+                )
 
             if referrer.username:
                 return f"@{referrer.username} (ID: {referred_by_id})"
@@ -185,32 +183,24 @@ class AdminNotificationService:
 
         if period_items:
             formatted_periods = ", ".join(
-                self.texts.t(
-                    "service.notifications.admin.discount_period_item",
-                    "{days} days — -{percent}%"
-                ).format(days=days, percent=percent)
+                self.texts.t("service.notifications.admin.discount_period_item", "{days} days — -{percent}%").format(
+                    days=days, percent=percent
+                )
                 for days, percent in period_items
             )
             discount_lines.append(
-                self.texts.t(
-                    "service.notifications.admin.discount_periods",
-                    "• Periods: {formatted_periods}"
-                ).format(formatted_periods=formatted_periods)
+                self.texts.t("service.notifications.admin.discount_periods", "• Periods: {formatted_periods}").format(
+                    formatted_periods=formatted_periods
+                )
             )
 
         if promo_group.apply_discounts_to_addons:
             discount_lines.append(
-                self.texts.t(
-                    "service.notifications.admin.discount_addons_enabled",
-                    "• Add-ons: ✅ discount applies"
-                )
+                self.texts.t("service.notifications.admin.discount_addons_enabled", "• Add-ons: ✅ discount applies")
             )
         else:
             discount_lines.append(
-                self.texts.t(
-                    "service.notifications.admin.discount_addons_disabled",
-                    "• Add-ons: ❌ no discount"
-                )
+                self.texts.t("service.notifications.admin.discount_addons_disabled", "• Add-ons: ❌ no discount")
             )
 
         return discount_lines
@@ -224,7 +214,7 @@ class AdminNotificationService:
     ) -> str:
         if title is None:
             title = self.texts.t("service.notifications.admin.promo_group", "Promo group")
-        
+
         if not promo_group:
             return f"{icon} <b>{title}:</b> —"
 
@@ -232,88 +222,62 @@ class AdminNotificationService:
 
         discount_lines = self._format_promo_group_discounts(promo_group)
         if discount_lines:
-            lines.append(
-                self.texts.t(
-                    "service.notifications.admin.discounts_title",
-                    "💸 <b>Discounts:</b>"
-                )
-            )
+            lines.append(self.texts.t("service.notifications.admin.discounts_title", "💸 <b>Discounts:</b>"))
             lines.extend(discount_lines)
         else:
-            lines.append(
-                self.texts.t(
-                    "service.notifications.admin.discounts_none",
-                    "💸 <b>Discounts:</b> none"
-                )
-            )
+            lines.append(self.texts.t("service.notifications.admin.discounts_none", "💸 <b>Discounts:</b> none"))
 
         return "\n".join(lines)
 
     def _get_promocode_type_display(self, promo_type: Optional[str]) -> str:
         mapping = {
             PromoCodeType.BALANCE.value: self.texts.t(
-                "service.notifications.admin.promocode_type.balance",
-                "💰 Balance bonus"
+                "service.notifications.admin.promocode_type.balance", "💰 Balance bonus"
             ),
             PromoCodeType.SUBSCRIPTION_DAYS.value: self.texts.t(
-                "service.notifications.admin.promocode_type.subscription_days",
-                "⏰ Extra subscription days"
+                "service.notifications.admin.promocode_type.subscription_days", "⏰ Extra subscription days"
             ),
             PromoCodeType.TRIAL_SUBSCRIPTION.value: self.texts.t(
-                "service.notifications.admin.promocode_type.trial",
-                "🎁 Trial subscription"
+                "service.notifications.admin.promocode_type.trial", "🎁 Trial subscription"
             ),
         }
 
         if not promo_type:
-            return self.texts.t(
-                "service.notifications.admin.promocode_type.unspecified",
-                "ℹ️ Not specified"
-            )
+            return self.texts.t("service.notifications.admin.promocode_type.unspecified", "ℹ️ Not specified")
 
         return mapping.get(promo_type, f"ℹ️ {promo_type}")
 
     def _format_campaign_bonus(self, campaign: AdvertisingCampaign) -> List[str]:
         if campaign.is_balance_bonus:
             return [
-                self.texts.t(
-                    "service.notifications.admin.campaign_bonus.balance",
-                    "💰 Balance: {amount}"
-                ).format(amount=settings.format_price(campaign.balance_bonus_toman or 0)),
+                self.texts.t("service.notifications.admin.campaign_bonus.balance", "💰 Balance: {amount}").format(
+                    amount=settings.format_price(campaign.balance_bonus_toman or 0)
+                ),
             ]
 
         if campaign.is_subscription_bonus:
             default_devices = getattr(settings, "DEFAULT_DEVICE_LIMIT", 1)
             details = [
                 self.texts.t(
-                    "service.notifications.admin.campaign_bonus.subscription_days",
-                    "📅 Subscription days: {days}"
+                    "service.notifications.admin.campaign_bonus.subscription_days", "📅 Subscription days: {days}"
                 ).format(days=campaign.subscription_duration_days or 0),
-                self.texts.t(
-                    "service.notifications.admin.campaign_bonus.traffic",
-                    "📊 Traffic: {traffic} GB"
-                ).format(traffic=campaign.subscription_traffic_gb or 0),
-                self.texts.t(
-                    "service.notifications.admin.campaign_bonus.devices",
-                    "📱 Devices: {devices}"
-                ).format(devices=campaign.subscription_device_limit or default_devices),
+                self.texts.t("service.notifications.admin.campaign_bonus.traffic", "📊 Traffic: {traffic} GB").format(
+                    traffic=campaign.subscription_traffic_gb or 0
+                ),
+                self.texts.t("service.notifications.admin.campaign_bonus.devices", "📱 Devices: {devices}").format(
+                    devices=campaign.subscription_device_limit or default_devices
+                ),
             ]
             if campaign.subscription_squads:
                 details.append(
-                    self.texts.t(
-                        "service.notifications.admin.campaign_bonus.squads",
-                        "🌐 Squads: {count} pcs."
-                    ).format(count=len(campaign.subscription_squads))
+                    self.texts.t("service.notifications.admin.campaign_bonus.squads", "🌐 Squads: {count} pcs.").format(
+                        count=len(campaign.subscription_squads)
+                    )
                 )
             return details
 
-        return [
-            self.texts.t(
-                "service.notifications.admin.campaign_bonus.none",
-                "ℹ️ No bonuses provided"
-            )
-        ]
-    
+        return [self.texts.t("service.notifications.admin.campaign_bonus.none", "ℹ️ No bonuses provided")]
+
     async def send_trial_activation_notification(
         self,
         db: AsyncSession,
@@ -343,11 +307,7 @@ class AdminNotificationService:
             if not self._is_enabled():
                 return False
 
-            user_status = (
-                "🆕 New"
-                if not user.has_had_paid_subscription
-                else "🔄 Existing"
-            )
+            user_status = "🆕 New" if not user.has_had_paid_subscription else "🔄 Existing"
             referrer_info = await self._get_referrer_info(db, user.referred_by_id)
             promo_group = await self._get_user_promo_group(db, user)
             promo_block = self._format_promo_group_block(promo_group)
@@ -363,9 +323,7 @@ class AdminNotificationService:
 
             payment_block = ""
             if charged_amount_toman and charged_amount_toman > 0:
-                payment_block = (
-                    f"\n💳 <b>Activation payment:</b> {settings.format_price(charged_amount_toman)}"
-                )
+                payment_block = f"\n💳 <b>Activation payment:</b> {settings.format_price(charged_amount_toman)}"
             username = getattr(user, "username", None) or self.texts.t(
                 "service.notifications.admin.username_missing",
                 "not set",
@@ -410,21 +368,17 @@ class AdminNotificationService:
                     )
                 ),
                 payment_block=payment_block,
-                valid_until=format_local_datetime(
-                    subscription.end_date, "%d.%m.%Y %H:%M"
-                ),
+                valid_until=format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M"),
                 referrer_info=referrer_info,
-                timestamp=format_local_datetime(
-                    datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                ),
+                timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send trial notification: {e}")
             return False
-    
+
     async def send_subscription_purchase_notification(
         self,
         db: AsyncSession,
@@ -436,7 +390,9 @@ class AdminNotificationService:
         amount_toman: Optional[int] = None,
     ) -> bool:
         try:
-            total_amount = amount_toman if amount_toman is not None else (transaction.amount_toman if transaction else 0)
+            total_amount = (
+                amount_toman if amount_toman is not None else (transaction.amount_toman if transaction else 0)
+            )
 
             await self._record_subscription_event(
                 db,
@@ -450,16 +406,16 @@ class AdminNotificationService:
                 extra={
                     "period_days": period_days,
                     "was_trial_conversion": was_trial_conversion,
-                    "payment_method": self._get_payment_method_display(transaction.payment_method) if transaction else self.texts.t("service.notifications.admin.payment_method.balance", "Balance"),
+                    "payment_method": self._get_payment_method_display(transaction.payment_method)
+                    if transaction
+                    else self.texts.t("service.notifications.admin.payment_method.balance", "Balance"),
                 },
             )
 
             if not self._is_enabled():
                 return False
 
-            event_type = (
-                "🔄 TRIAL CONVERSION" if was_trial_conversion else "💎 SUBSCRIPTION PURCHASE"
-            )
+            event_type = "🔄 TRIAL CONVERSION" if was_trial_conversion else "💎 SUBSCRIPTION PURCHASE"
 
             if was_trial_conversion:
                 user_status = "🎯 Trial conversion"
@@ -469,7 +425,11 @@ class AdminNotificationService:
                 user_status = "🆕 First purchase"
 
             servers_info = await self._get_servers_info(subscription.connected_squads)
-            payment_method = self._get_payment_method_display(transaction.payment_method) if transaction else self.texts.t("service.notifications.admin.payment_method.balance", "Balance")
+            payment_method = (
+                self._get_payment_method_display(transaction.payment_method)
+                if transaction
+                else self.texts.t("service.notifications.admin.payment_method.balance", "Balance")
+            )
             referrer_info = await self._get_referrer_info(db, user.referred_by_id)
             promo_group = await self._get_user_promo_group(db, user)
             promo_block = self._format_promo_group_block(promo_group)
@@ -521,31 +481,22 @@ class AdminNotificationService:
                 traffic=self._format_traffic(subscription.traffic_limit_gb),
                 device_limit=subscription.device_limit,
                 servers_info=servers_info,
-                valid_until=format_local_datetime(
-                    subscription.end_date, "%d.%m.%Y %H:%M"
-                ),
+                valid_until=format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M"),
                 balance_after=settings.format_price(user.balance_toman),
                 referrer_info=referrer_info,
-                timestamp=format_local_datetime(
-                    datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                ),
+                timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send purchase notification: {e}")
             return False
 
-    async def send_version_update_notification(
-        self,
-        current_version: str,
-        latest_version, 
-        total_updates: int
-    ) -> bool:
+    async def send_version_update_notification(self, current_version: str, latest_version, total_updates: int) -> bool:
         if not self._is_enabled():
             return False
-        
+
         try:
             if latest_version.prerelease:
                 update_type = "🧪 PRERELEASE VERSION"
@@ -556,11 +507,11 @@ class AdminNotificationService:
             else:
                 update_type = "📦 NEW VERSION"
                 type_icon = "📦"
-            
+
             description = latest_version.short_description
             if len(description) > 200:
                 description = description[:197] + "..."
-            
+
             repo = getattr(self, "repo", "fr1ngg/remnawave-bedolaga-telegram-bot")
             template = self.texts.t(
                 "service.notifications.admin.version_update",
@@ -587,25 +538,19 @@ class AdminNotificationService:
                 description=description,
                 total_updates=total_updates,
                 repo=repo,
-                timestamp=format_local_datetime(
-                    datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                ),
+                timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send version update notification: {e}")
             return False
-    
-    async def send_version_check_error_notification(
-        self,
-        error_message: str,
-        current_version: str
-    ) -> bool:
+
+    async def send_version_check_error_notification(self, error_message: str, current_version: str) -> bool:
         if not self._is_enabled():
             return False
-        
+
         try:
             template = self.texts.t(
                 "service.notifications.admin.version_check_error",
@@ -622,17 +567,15 @@ class AdminNotificationService:
             message = template.format(
                 current_version=current_version,
                 error_message=error_message,
-                timestamp=format_local_datetime(
-                    datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                ),
+                timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send version check error notification: {e}")
             return False
-    
+
     def _build_balance_topup_message(
         self,
         user: User,
@@ -648,7 +591,7 @@ class AdminNotificationService:
         balance_change = user.balance_toman - old_balance
         subscription_status = self._get_subscription_status(subscription)
         promo_block = self._format_promo_group_block(promo_group)
-        timestamp = format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')
+        timestamp = format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S")
         user_display = self._get_user_display(user)
 
         username = getattr(user, "username", None) or self.texts.t(
@@ -704,15 +647,11 @@ class AdminNotificationService:
     ) -> tuple[User, Transaction, Subscription | None, PromoGroup | None]:
         refreshed_user = await get_user_by_id(db, user.id)
         if not refreshed_user:
-            raise ValueError(
-                f"Failed to reload user {user.id} for top-up notification"
-            )
+            raise ValueError(f"Failed to reload user {user.id} for top-up notification")
 
         refreshed_transaction = await get_transaction_by_id(db, transaction.id)
         if not refreshed_transaction:
-            raise ValueError(
-                f"Failed to reload transaction {transaction.id} for top-up notification"
-            )
+            raise ValueError(f"Failed to reload transaction {transaction.id} for top-up notification")
 
         subscription = getattr(refreshed_user, "subscription", None)
         promo_group = await self._get_user_promo_group(db, refreshed_user)
@@ -727,7 +666,6 @@ class AdminNotificationService:
             or "await_only" in message
             or "missinggreenlet" in message
         )
-
 
     async def send_balance_topup_notification(
         self,
@@ -853,7 +791,7 @@ class AdminNotificationService:
                 exc_info=True,
             )
             return False
-    
+
     async def send_subscription_extension_notification(
         self,
         db: AsyncSession,
@@ -942,9 +880,7 @@ class AdminNotificationService:
                 device_limit=subscription.device_limit,
                 servers_info=servers_info,
                 balance_after=settings.format_price(current_balance),
-                timestamp=format_local_datetime(
-                    datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                ),
+                timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S"),
             )
 
             return await self._send_message(message)
@@ -1072,11 +1008,7 @@ class AdminNotificationService:
                     self.texts.t(
                         "service.notifications.admin.promocode_activation.valid_until",
                         "⏳ Valid until: {valid_until}",
-                    ).format(
-                        valid_until=format_local_datetime(
-                            valid_until, "%d.%m.%Y %H:%M"
-                        )
-                    )
+                    ).format(valid_until=format_local_datetime(valid_until, "%d.%m.%Y %H:%M"))
                     if isinstance(valid_until, datetime)
                     else self.texts.t(
                         "service.notifications.admin.promocode_activation.valid_until",
@@ -1119,11 +1051,7 @@ class AdminNotificationService:
                     self.texts.t(
                         "service.notifications.admin.promocode_activation.timestamp",
                         "⏰ <i>{timestamp}</i>",
-                    ).format(
-                        timestamp=format_local_datetime(
-                            datetime.utcnow(), "%d.%m.%Y %H:%M:%S"
-                        )
-                    ),
+                    ).format(timestamp=format_local_datetime(datetime.utcnow(), "%d.%m.%Y %H:%M:%S")),
                 ]
             )
 
@@ -1268,26 +1196,18 @@ class AdminNotificationService:
 
         try:
             title = (
-                self.texts.t(
-                    "service.notifications.admin.promo_group_change.auto",
-                    "🤖 AUTOMATIC PROMO GROUP CHANGE"
-                )
+                self.texts.t("service.notifications.admin.promo_group_change.auto", "🤖 AUTOMATIC PROMO GROUP CHANGE")
                 if automatic
-                else self.texts.t(
-                    "service.notifications.admin.promo_group_change.manual",
-                    "👥 PROMO GROUP CHANGE"
-                )
+                else self.texts.t("service.notifications.admin.promo_group_change.manual", "👥 PROMO GROUP CHANGE")
             )
             initiator_line = None
             if initiator:
                 initiator_line = self.texts.t(
-                    "service.notifications.admin.promo_group_change.initiator",
-                    "👮 <b>Initiator:</b> {name} (ID: {id})"
+                    "service.notifications.admin.promo_group_change.initiator", "👮 <b>Initiator:</b> {name} (ID: {id})"
                 ).format(name=initiator.full_name, id=initiator.telegram_id)
             elif automatic:
                 initiator_line = self.texts.t(
-                    "service.notifications.admin.promo_group_change.auto_assignment",
-                    "🤖 Automatic assignment"
+                    "service.notifications.admin.promo_group_change.auto_assignment", "🤖 Automatic assignment"
                 )
             user_display = self._get_user_display(user)
 
@@ -1297,12 +1217,10 @@ class AdminNotificationService:
             )
 
             new_group_title = self.texts.t(
-                "service.notifications.admin.promo_group_change.new_group",
-                "New promo group"
+                "service.notifications.admin.promo_group_change.new_group", "New promo group"
             )
             old_group_title = self.texts.t(
-                "service.notifications.admin.promo_group_change.old_group",
-                "Previous promo group"
+                "service.notifications.admin.promo_group_change.old_group", "Previous promo group"
             )
 
             template = self.texts.t(
@@ -1323,15 +1241,12 @@ class AdminNotificationService:
 
             old_group_block = ""
             if old_group and old_group.id != new_group.id:
-                old_group_block = "\n\n" + self._format_promo_group_block(
-                    old_group, title=old_group_title, icon="♻️"
-                )
+                old_group_block = "\n\n" + self._format_promo_group_block(old_group, title=old_group_title, icon="♻️")
 
             reason_line = ""
             if reason:
                 reason_line = "\n" + self.texts.t(
-                    "service.notifications.admin.promo_group_change.reason",
-                    "📝 Reason: {reason}"
+                    "service.notifications.admin.promo_group_change.reason", "📝 Reason: {reason}"
                 ).format(reason=reason)
 
             message = template.format(
@@ -1339,9 +1254,7 @@ class AdminNotificationService:
                 user_display=user_display,
                 telegram_id=user.telegram_id,
                 username=username,
-                new_group_block=self._format_promo_group_block(
-                    new_group, title=new_group_title, icon="🏆"
-                ),
+                new_group_block=self._format_promo_group_block(new_group, title=new_group_title, icon="🏆"),
                 old_group_block=old_group_block,
                 initiator_line=("\n" + initiator_line) if initiator_line else "",
                 reason_line=reason_line,
@@ -1355,19 +1268,21 @@ class AdminNotificationService:
             logger.error(f"Failed to send promo group change notification: {e}")
             return False
 
-    async def _send_message(self, text: str, reply_markup: types.InlineKeyboardMarkup | None = None, *, ticket_event: bool = False) -> bool:
+    async def _send_message(
+        self, text: str, reply_markup: types.InlineKeyboardMarkup | None = None, *, ticket_event: bool = False
+    ) -> bool:
         if not self.chat_id:
             logger.warning("ADMIN_NOTIFICATIONS_CHAT_ID not configured")
             return False
-        
+
         try:
             message_kwargs = {
-                'chat_id': self.chat_id,
-                'text': text,
-                'parse_mode': 'HTML',
-                'disable_web_page_preview': True
+                "chat_id": self.chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
             }
-            
+
             # route to ticket-specific topic if provided
             thread_id = None
             if ticket_event and self.ticket_topic_id:
@@ -1375,14 +1290,14 @@ class AdminNotificationService:
             elif self.topic_id:
                 thread_id = self.topic_id
             if thread_id:
-                message_kwargs['message_thread_id'] = thread_id
+                message_kwargs["message_thread_id"] = thread_id
             if reply_markup is not None:
-                message_kwargs['reply_markup'] = reply_markup
-            
+                message_kwargs["reply_markup"] = reply_markup
+
             await self.bot.send_message(**message_kwargs)
             logger.info(f"Notification sent to chat {self.chat_id}")
             return True
-            
+
         except TelegramForbiddenError:
             logger.error(f"Bot does not have permission to send to chat {self.chat_id}")
             return False
@@ -1392,359 +1307,488 @@ class AdminNotificationService:
         except Exception as e:
             logger.error(f"Unexpected error sending notification: {e}")
             return False
-    
+
     def _is_enabled(self) -> bool:
         return self.enabled and bool(self.chat_id)
-    
+
     def _get_payment_method_display(self, payment_method: Optional[str]) -> str:
         mulenpay_name = settings.get_mulenpay_display_name()
         method_names = {
-            'telegram_stars': '⭐ Telegram Stars',
-            'yookassa': self.texts.t("service.notifications.admin.payment_method.yookassa", "💳 YooKassa (card)"),
-            'tribute': self.texts.t("service.notifications.admin.payment_method.tribute", "💎 Tribute (card)"),
-            'mulenpay': self.texts.t(
-                "service.notifications.admin.payment_method.mulenpay",
-                "💳 {name} (card)"
-            ).format(name=mulenpay_name),
-            'pal24': self.texts.t("service.notifications.admin.payment_method.pal24", "🏦 PayPalych (SBP)"),
-            'manual': self.texts.t("service.notifications.admin.payment_method.manual", "🛠️ Manual (admin)"),
-            'balance': self.texts.t("service.notifications.admin.payment_method.balance", "💰 From balance")
+            "telegram_stars": "⭐ Telegram Stars",
+            "yookassa": self.texts.t("service.notifications.admin.payment_method.yookassa", "💳 YooKassa (card)"),
+            "tribute": self.texts.t("service.notifications.admin.payment_method.tribute", "💎 Tribute (card)"),
+            "mulenpay": self.texts.t("service.notifications.admin.payment_method.mulenpay", "💳 {name} (card)").format(
+                name=mulenpay_name
+            ),
+            "pal24": self.texts.t("service.notifications.admin.payment_method.pal24", "🏦 PayPalych (SBP)"),
+            "manual": self.texts.t("service.notifications.admin.payment_method.manual", "🛠️ Manual (admin)"),
+            "balance": self.texts.t("service.notifications.admin.payment_method.balance", "💰 From balance"),
         }
-        
+
         default = self.texts.t("service.notifications.admin.payment_method.balance", "💰 From balance")
         if not payment_method:
             return default
-            
+
         return method_names.get(payment_method, default)
-    
+
     def _format_traffic(self, traffic_gb: int) -> str:
         if traffic_gb == 0:
             return self.texts.t("service.notifications.admin.traffic_unlimited", "∞ Unlimited")
         return self.texts.t("service.notifications.admin.traffic_gb", "{gb} GB").format(gb=traffic_gb)
-    
+
     def _get_subscription_status(self, subscription: Optional[Subscription]) -> str:
         if not subscription:
             return self.texts.t("service.notifications.admin.subscription_status.none", "❌ No subscription")
 
         if subscription.is_trial:
             return self.texts.t(
-                "service.notifications.admin.subscription_status.trial",
-                "🎯 Trial (until {date})"
+                "service.notifications.admin.subscription_status.trial", "🎯 Trial (until {date})"
             ).format(date=format_local_datetime(subscription.end_date, "%d.%m"))
         elif subscription.is_active:
             return self.texts.t(
-                "service.notifications.admin.subscription_status.active",
-                "✅ Active (until {date})"
+                "service.notifications.admin.subscription_status.active", "✅ Active (until {date})"
             ).format(date=format_local_datetime(subscription.end_date, "%d.%m"))
         else:
             return self.texts.t("service.notifications.admin.subscription_status.inactive", "❌ Inactive")
-    
+
     async def _get_servers_info(self, squad_uuids: list) -> str:
         if not squad_uuids:
             return self.texts.t("service.notifications.admin.servers_none", "❌ No servers")
-        
+
         try:
             from app.handlers.subscription import get_servers_display_names
+
             servers_names = await get_servers_display_names(squad_uuids)
-            return self.texts.t(
-                "service.notifications.admin.servers_with_names",
-                "{count} pcs. ({names})"
-            ).format(count=len(squad_uuids), names=servers_names)
+            return self.texts.t("service.notifications.admin.servers_with_names", "{count} pcs. ({names})").format(
+                count=len(squad_uuids), names=servers_names
+            )
         except Exception as e:
             logger.warning(f"Failed to get server names: {e}")
-            return self.texts.t(
-                "service.notifications.admin.servers_count",
-                "{count} pcs."
-            ).format(count=len(squad_uuids))
-
+            return self.texts.t("service.notifications.admin.servers_count", "{count} pcs.").format(
+                count=len(squad_uuids)
+            )
 
     async def send_maintenance_status_notification(
-        self,
-        event_type: str,
-        status: str,
-        details: Dict[str, Any] = None
+        self, event_type: str, status: str, details: Dict[str, Any] = None
     ) -> bool:
         if not self._is_enabled():
             return False
-        
+
         try:
             details = details or {}
-            
+
             if event_type == "enable":
                 if details.get("auto_enabled", False):
                     icon = "⚠️"
-                    title = self.texts.t("service.notifications.admin.maintenance.enable.auto", "AUTOMATIC MAINTENANCE ENABLED")
+                    title = self.texts.t(
+                        "service.notifications.admin.maintenance.enable.auto", "AUTOMATIC MAINTENANCE ENABLED"
+                    )
                 else:
                     icon = "🔧"
                     title = self.texts.t("service.notifications.admin.maintenance.enable.manual", "MAINTENANCE ENABLED")
-                    
+
             elif event_type == "disable":
                 icon = "✅"
                 title = self.texts.t("service.notifications.admin.maintenance.disable", "MAINTENANCE DISABLED")
-                
+
             elif event_type == "api_status":
                 if status == "online":
                     icon = "🟢"
                     title = self.texts.t("service.notifications.admin.maintenance.api.online", "API REMNAWAVE RESTORED")
                 else:
                     icon = "🔴"
-                    title = self.texts.t("service.notifications.admin.maintenance.api.offline", "API REMNAWAVE UNAVAILABLE")
-                    
+                    title = self.texts.t(
+                        "service.notifications.admin.maintenance.api.offline", "API REMNAWAVE UNAVAILABLE"
+                    )
+
             elif event_type == "monitoring":
                 if status == "started":
                     icon = "🔍"
-                    title = self.texts.t("service.notifications.admin.maintenance.monitoring.started", "MONITORING STARTED")
+                    title = self.texts.t(
+                        "service.notifications.admin.maintenance.monitoring.started", "MONITORING STARTED"
+                    )
                 else:
                     icon = "⏹️"
-                    title = self.texts.t("service.notifications.admin.maintenance.monitoring.stopped", "MONITORING STOPPED")
+                    title = self.texts.t(
+                        "service.notifications.admin.maintenance.monitoring.stopped", "MONITORING STOPPED"
+                    )
             else:
                 icon = "ℹ️"
                 title = self.texts.t("service.notifications.admin.maintenance.system", "MAINTENANCE SYSTEM")
-            
+
             message_parts = [f"{icon} <b>{title}</b>", ""]
-            
+
             if event_type == "enable":
                 if details.get("reason"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.maintenance.reason", "📋 <b>Reason:</b> {reason}").format(reason=details['reason'])
+                        self.texts.t(
+                            "service.notifications.admin.maintenance.reason", "📋 <b>Reason:</b> {reason}"
+                        ).format(reason=details["reason"])
                     )
-                
+
                 if details.get("enabled_at"):
                     enabled_at = details["enabled_at"]
                     if isinstance(enabled_at, str):
                         from datetime import datetime
+
                         enabled_at = datetime.fromisoformat(enabled_at)
                     message_parts.append(
                         self.texts.t(
-                            "service.notifications.admin.maintenance.enabled_at",
-                            "🕐 <b>Enabled at:</b> {time}"
-                        ).format(time=format_local_datetime(enabled_at, '%d.%m.%Y %H:%M:%S'))
+                            "service.notifications.admin.maintenance.enabled_at", "🕐 <b>Enabled at:</b> {time}"
+                        ).format(time=format_local_datetime(enabled_at, "%d.%m.%Y %H:%M:%S"))
                     )
-                
-                auto_text = self.texts.t("service.notifications.admin.yes", "Yes") if details.get('auto_enabled', False) else self.texts.t("service.notifications.admin.no", "No")
+
+                auto_text = (
+                    self.texts.t("service.notifications.admin.yes", "Yes")
+                    if details.get("auto_enabled", False)
+                    else self.texts.t("service.notifications.admin.no", "No")
+                )
                 message_parts.append(
-                    self.texts.t("service.notifications.admin.maintenance.automatic", "🤖 <b>Automatic:</b> {auto}").format(auto=auto_text)
+                    self.texts.t(
+                        "service.notifications.admin.maintenance.automatic", "🤖 <b>Automatic:</b> {auto}"
+                    ).format(auto=auto_text)
                 )
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.maintenance.users_blocked", "❗ Regular users temporarily cannot use the bot."))
-                
+                message_parts.append(
+                    self.texts.t(
+                        "service.notifications.admin.maintenance.users_blocked",
+                        "❗ Regular users temporarily cannot use the bot.",
+                    )
+                )
+
             elif event_type == "disable":
                 if details.get("disabled_at"):
                     disabled_at = details["disabled_at"]
                     if isinstance(disabled_at, str):
                         from datetime import datetime
+
                         disabled_at = datetime.fromisoformat(disabled_at)
                     message_parts.append(
                         self.texts.t(
-                            "service.notifications.admin.maintenance.disabled_at",
-                            "🕐 <b>Disabled at:</b> {time}"
-                        ).format(time=format_local_datetime(disabled_at, '%d.%m.%Y %H:%M:%S'))
+                            "service.notifications.admin.maintenance.disabled_at", "🕐 <b>Disabled at:</b> {time}"
+                        ).format(time=format_local_datetime(disabled_at, "%d.%m.%Y %H:%M:%S"))
                     )
-                
+
                 if details.get("duration"):
                     duration = details["duration"]
                     if isinstance(duration, (int, float)):
                         hours = int(duration // 3600)
                         minutes = int((duration % 3600) // 60)
                         if hours > 0:
-                            duration_str = self.texts.t("service.notifications.admin.duration.hours_minutes", "{hours}h {minutes}min").format(hours=hours, minutes=minutes)
+                            duration_str = self.texts.t(
+                                "service.notifications.admin.duration.hours_minutes", "{hours}h {minutes}min"
+                            ).format(hours=hours, minutes=minutes)
                         else:
-                            duration_str = self.texts.t("service.notifications.admin.duration.minutes", "{minutes}min").format(minutes=minutes)
+                            duration_str = self.texts.t(
+                                "service.notifications.admin.duration.minutes", "{minutes}min"
+                            ).format(minutes=minutes)
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.duration", "⏱️ <b>Duration:</b> {duration}").format(duration=duration_str)
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.duration", "⏱️ <b>Duration:</b> {duration}"
+                            ).format(duration=duration_str)
                         )
-                
-                was_auto_text = self.texts.t("service.notifications.admin.yes", "Yes") if details.get('was_auto', False) else self.texts.t("service.notifications.admin.no", "No")
+
+                was_auto_text = (
+                    self.texts.t("service.notifications.admin.yes", "Yes")
+                    if details.get("was_auto", False)
+                    else self.texts.t("service.notifications.admin.no", "No")
+                )
                 message_parts.append(
-                    self.texts.t("service.notifications.admin.maintenance.was_auto", "🤖 <b>Was automatic:</b> {was_auto}").format(was_auto=was_auto_text)
+                    self.texts.t(
+                        "service.notifications.admin.maintenance.was_auto", "🤖 <b>Was automatic:</b> {was_auto}"
+                    ).format(was_auto=was_auto_text)
                 )
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.maintenance.service_available", "✅ Service is available again for users."))
-                
-            elif event_type == "api_status":
-                api_url = details.get('api_url', self.texts.t("service.notifications.admin.unknown", "unknown"))
                 message_parts.append(
-                    self.texts.t("service.notifications.admin.maintenance.api_url", "🔗 <b>API URL:</b> {url}").format(url=api_url)
+                    self.texts.t(
+                        "service.notifications.admin.maintenance.service_available",
+                        "✅ Service is available again for users.",
+                    )
                 )
-                
+
+            elif event_type == "api_status":
+                api_url = details.get("api_url", self.texts.t("service.notifications.admin.unknown", "unknown"))
+                message_parts.append(
+                    self.texts.t("service.notifications.admin.maintenance.api_url", "🔗 <b>API URL:</b> {url}").format(
+                        url=api_url
+                    )
+                )
+
                 if status == "online":
                     if details.get("response_time"):
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.response_time", "⚡ <b>Response time:</b> {time} sec").format(time=details['response_time'])
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.response_time",
+                                "⚡ <b>Response time:</b> {time} sec",
+                            ).format(time=details["response_time"])
                         )
-                        
+
                     if details.get("consecutive_failures", 0) > 0:
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.failures_was", "🔄 <b>Failed attempts were:</b> {count}").format(count=details['consecutive_failures'])
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.failures_was",
+                                "🔄 <b>Failed attempts were:</b> {count}",
+                            ).format(count=details["consecutive_failures"])
                         )
-                        
+
                     message_parts.append("")
-                    message_parts.append(self.texts.t("service.notifications.admin.maintenance.api_responding", "API is responding to requests again."))
-                    
-                else: 
+                    message_parts.append(
+                        self.texts.t(
+                            "service.notifications.admin.maintenance.api_responding",
+                            "API is responding to requests again.",
+                        )
+                    )
+
+                else:
                     if details.get("consecutive_failures"):
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.attempt_number", "🔄 <b>Attempt #:</b> {count}").format(count=details['consecutive_failures'])
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.attempt_number", "🔄 <b>Attempt #:</b> {count}"
+                            ).format(count=details["consecutive_failures"])
                         )
-                        
+
                     if details.get("error"):
-                        error_msg = str(details["error"])[:100]  
+                        error_msg = str(details["error"])[:100]
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.error", "❌ <b>Error:</b> {error}").format(error=error_msg)
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.error", "❌ <b>Error:</b> {error}"
+                            ).format(error=error_msg)
                         )
-                        
+
                     message_parts.append("")
-                    message_parts.append(self.texts.t("service.notifications.admin.maintenance.api_failures_started", "⚠️ A series of failed API checks has started."))
-                    
+                    message_parts.append(
+                        self.texts.t(
+                            "service.notifications.admin.maintenance.api_failures_started",
+                            "⚠️ A series of failed API checks has started.",
+                        )
+                    )
+
             elif event_type == "monitoring":
                 if status == "started":
                     if details.get("check_interval"):
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.check_interval", "🔄 <b>Check interval:</b> {interval} sec").format(interval=details['check_interval'])
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.check_interval",
+                                "🔄 <b>Check interval:</b> {interval} sec",
+                            ).format(interval=details["check_interval"])
                         )
-                        
+
                     if details.get("auto_enable_configured") is not None:
-                        auto_enable = self.texts.t("service.notifications.admin.enabled", "Enabled") if details["auto_enable_configured"] else self.texts.t("service.notifications.admin.disabled", "Disabled")
-                        message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.auto_enable", "🤖 <b>Auto-enable:</b> {auto_enable}").format(auto_enable=auto_enable)
+                        auto_enable = (
+                            self.texts.t("service.notifications.admin.enabled", "Enabled")
+                            if details["auto_enable_configured"]
+                            else self.texts.t("service.notifications.admin.disabled", "Disabled")
                         )
-                        
+                        message_parts.append(
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.auto_enable",
+                                "🤖 <b>Auto-enable:</b> {auto_enable}",
+                            ).format(auto_enable=auto_enable)
+                        )
+
                     if details.get("max_failures"):
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.maintenance.max_failures", "🎯 <b>Error threshold:</b> {max}").format(max=details['max_failures'])
+                            self.texts.t(
+                                "service.notifications.admin.maintenance.max_failures",
+                                "🎯 <b>Error threshold:</b> {max}",
+                            ).format(max=details["max_failures"])
                         )
-                        
+
                     message_parts.append("")
-                    message_parts.append(self.texts.t("service.notifications.admin.maintenance.monitoring_will_watch", "System will monitor API availability."))
-                    
-                else:  
-                    message_parts.append(self.texts.t("service.notifications.admin.maintenance.monitoring_stopped", "Automatic API monitoring stopped."))
-            
+                    message_parts.append(
+                        self.texts.t(
+                            "service.notifications.admin.maintenance.monitoring_will_watch",
+                            "System will monitor API availability.",
+                        )
+                    )
+
+                else:
+                    message_parts.append(
+                        self.texts.t(
+                            "service.notifications.admin.maintenance.monitoring_stopped",
+                            "Automatic API monitoring stopped.",
+                        )
+                    )
+
             message_parts.append("")
-            message_parts.append(
-                f"⏰ <i>{format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')}</i>"
-            )
-            
+            message_parts.append(f"⏰ <i>{format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')}</i>")
+
             message = "\n".join(message_parts)
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send maintenance notification: {e}")
             return False
-    
-    async def send_remnawave_panel_status_notification(
-        self,
-        status: str,
-        details: Dict[str, Any] = None
-    ) -> bool:
+
+    async def send_remnawave_panel_status_notification(self, status: str, details: Dict[str, Any] = None) -> bool:
         if not self._is_enabled():
             return False
-        
+
         try:
             details = details or {}
-            
+
             status_config = {
-                "online": {"icon": "🟢", "title": self.texts.t("service.notifications.admin.panel_status.online", "REMNAWAVE PANEL AVAILABLE"), "alert_type": "success"},
-                "offline": {"icon": "🔴", "title": self.texts.t("service.notifications.admin.panel_status.offline", "REMNAWAVE PANEL UNAVAILABLE"), "alert_type": "error"},
-                "degraded": {"icon": "🟡", "title": self.texts.t("service.notifications.admin.panel_status.degraded", "REMNAWAVE PANEL WORKING WITH ISSUES"), "alert_type": "warning"},
-                "maintenance": {"icon": "🔧", "title": self.texts.t("service.notifications.admin.panel_status.maintenance", "REMNAWAVE PANEL UNDER MAINTENANCE"), "alert_type": "info"}
+                "online": {
+                    "icon": "🟢",
+                    "title": self.texts.t(
+                        "service.notifications.admin.panel_status.online", "REMNAWAVE PANEL AVAILABLE"
+                    ),
+                    "alert_type": "success",
+                },
+                "offline": {
+                    "icon": "🔴",
+                    "title": self.texts.t(
+                        "service.notifications.admin.panel_status.offline", "REMNAWAVE PANEL UNAVAILABLE"
+                    ),
+                    "alert_type": "error",
+                },
+                "degraded": {
+                    "icon": "🟡",
+                    "title": self.texts.t(
+                        "service.notifications.admin.panel_status.degraded", "REMNAWAVE PANEL WORKING WITH ISSUES"
+                    ),
+                    "alert_type": "warning",
+                },
+                "maintenance": {
+                    "icon": "🔧",
+                    "title": self.texts.t(
+                        "service.notifications.admin.panel_status.maintenance", "REMNAWAVE PANEL UNDER MAINTENANCE"
+                    ),
+                    "alert_type": "info",
+                },
             }
-            
+
             config = status_config.get(status, status_config["offline"])
-            
-            message_parts = [
-                f"{config['icon']} <b>{config['title']}</b>",
-                ""
-            ]
-            
+
+            message_parts = [f"{config['icon']} <b>{config['title']}</b>", ""]
+
             if details.get("api_url"):
                 message_parts.append(f"🔗 <b>URL:</b> {details['api_url']}")
-                
+
             if details.get("response_time"):
                 message_parts.append(
-                    self.texts.t("service.notifications.admin.panel_status.response_time", "⚡ <b>Response time:</b> {time} sec").format(time=details['response_time'])
+                    self.texts.t(
+                        "service.notifications.admin.panel_status.response_time", "⚡ <b>Response time:</b> {time} sec"
+                    ).format(time=details["response_time"])
                 )
-                
+
             if details.get("last_check"):
                 last_check = details["last_check"]
                 if isinstance(last_check, str):
                     from datetime import datetime
+
                     last_check = datetime.fromisoformat(last_check)
                 message_parts.append(
                     self.texts.t(
-                        "service.notifications.admin.panel_status.last_check",
-                        "🕐 <b>Last check:</b> {time}"
-                    ).format(time=format_local_datetime(last_check, '%H:%M:%S'))
+                        "service.notifications.admin.panel_status.last_check", "🕐 <b>Last check:</b> {time}"
+                    ).format(time=format_local_datetime(last_check, "%H:%M:%S"))
                 )
-                
+
             if status == "online":
                 if details.get("uptime"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.uptime", "⏱️ <b>Uptime:</b> {uptime}").format(uptime=details['uptime'])
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.uptime", "⏱️ <b>Uptime:</b> {uptime}"
+                        ).format(uptime=details["uptime"])
                     )
-                    
+
                 if details.get("users_online"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.users_online", "👥 <b>Users online:</b> {count}").format(count=details['users_online'])
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.users_online", "👥 <b>Users online:</b> {count}"
+                        ).format(count=details["users_online"])
                     )
-                    
+
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.panel_status.all_systems_ok", "✅ All systems working normally."))
-                
+                message_parts.append(
+                    self.texts.t(
+                        "service.notifications.admin.panel_status.all_systems_ok", "✅ All systems working normally."
+                    )
+                )
+
             elif status == "offline":
                 if details.get("error"):
                     error_msg = str(details["error"])[:150]
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.error", "❌ <b>Error:</b> {error}").format(error=error_msg)
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.error", "❌ <b>Error:</b> {error}"
+                        ).format(error=error_msg)
                     )
-                    
+
                 if details.get("consecutive_failures"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.failed_attempts", "🔄 <b>Failed attempts:</b> {count}").format(count=details['consecutive_failures'])
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.failed_attempts",
+                            "🔄 <b>Failed attempts:</b> {count}",
+                        ).format(count=details["consecutive_failures"])
                     )
-                    
+
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.panel_status.unavailable", "⚠️ Panel unavailable. Check connection and server status."))
-                
+                message_parts.append(
+                    self.texts.t(
+                        "service.notifications.admin.panel_status.unavailable",
+                        "⚠️ Panel unavailable. Check connection and server status.",
+                    )
+                )
+
             elif status == "degraded":
                 if details.get("issues"):
                     issues = details["issues"]
                     if isinstance(issues, list):
-                        message_parts.append(self.texts.t("service.notifications.admin.panel_status.issues_detected", "⚠️ <b>Detected issues:</b>"))
-                        for issue in issues[:3]: 
+                        message_parts.append(
+                            self.texts.t(
+                                "service.notifications.admin.panel_status.issues_detected", "⚠️ <b>Detected issues:</b>"
+                            )
+                        )
+                        for issue in issues[:3]:
                             message_parts.append(f"   • {issue}")
                     else:
                         message_parts.append(
-                            self.texts.t("service.notifications.admin.panel_status.issue", "⚠️ <b>Issue:</b> {issue}").format(issue=issues)
+                            self.texts.t(
+                                "service.notifications.admin.panel_status.issue", "⚠️ <b>Issue:</b> {issue}"
+                            ).format(issue=issues)
                         )
-                        
+
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.panel_status.degraded_message", "Panel is working but delays or failures may occur."))
-                
+                message_parts.append(
+                    self.texts.t(
+                        "service.notifications.admin.panel_status.degraded_message",
+                        "Panel is working but delays or failures may occur.",
+                    )
+                )
+
             elif status == "maintenance":
                 if details.get("maintenance_reason"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.maintenance_reason", "🔧 <b>Reason:</b> {reason}").format(reason=details['maintenance_reason'])
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.maintenance_reason", "🔧 <b>Reason:</b> {reason}"
+                        ).format(reason=details["maintenance_reason"])
                     )
-                    
+
                 if details.get("estimated_duration"):
                     message_parts.append(
-                        self.texts.t("service.notifications.admin.panel_status.estimated_duration", "⏰ <b>Estimated duration:</b> {duration}").format(duration=details['estimated_duration'])
+                        self.texts.t(
+                            "service.notifications.admin.panel_status.estimated_duration",
+                            "⏰ <b>Estimated duration:</b> {duration}",
+                        ).format(duration=details["estimated_duration"])
                     )
-                    
+
                 message_parts.append("")
-                message_parts.append(self.texts.t("service.notifications.admin.panel_status.maintenance_message", "Panel temporarily unavailable for maintenance."))
-            
+                message_parts.append(
+                    self.texts.t(
+                        "service.notifications.admin.panel_status.maintenance_message",
+                        "Panel temporarily unavailable for maintenance.",
+                    )
+                )
+
             message_parts.append("")
-            message_parts.append(
-                f"⏰ <i>{format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')}</i>"
-            )
-            
+            message_parts.append(f"⏰ <i>{format_local_datetime(datetime.utcnow(), '%d.%m.%Y %H:%M:%S')}</i>")
+
             message = "\n".join(message_parts)
-            
+
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send Remnawave panel status notification: {e}")
             return False
@@ -1757,11 +1801,11 @@ class AdminNotificationService:
         update_type: str,
         old_value: Any,
         new_value: Any,
-        price_paid: int = 0
+        price_paid: int = 0,
     ) -> bool:
         if not self._is_enabled():
             return False
-        
+
         try:
             referrer_info = await self._get_referrer_info(db, user.referred_by_id)
             promo_group = await self._get_user_promo_group(db, user)
@@ -1771,24 +1815,28 @@ class AdminNotificationService:
             update_types = {
                 "traffic": (
                     self.texts.t("service.notifications.admin.subscription_update.traffic.title", "📊 TRAFFIC CHANGE"),
-                    self.texts.t("service.notifications.admin.subscription_update.traffic.param", "traffic")
+                    self.texts.t("service.notifications.admin.subscription_update.traffic.param", "traffic"),
                 ),
                 "devices": (
-                    self.texts.t("service.notifications.admin.subscription_update.devices.title", "📱 DEVICE COUNT CHANGE"),
-                    self.texts.t("service.notifications.admin.subscription_update.devices.param", "device count")
+                    self.texts.t(
+                        "service.notifications.admin.subscription_update.devices.title", "📱 DEVICE COUNT CHANGE"
+                    ),
+                    self.texts.t("service.notifications.admin.subscription_update.devices.param", "device count"),
                 ),
                 "servers": (
                     self.texts.t("service.notifications.admin.subscription_update.servers.title", "🌐 SERVER CHANGE"),
-                    self.texts.t("service.notifications.admin.subscription_update.servers.param", "servers")
-                )
+                    self.texts.t("service.notifications.admin.subscription_update.servers.param", "servers"),
+                ),
             }
 
             title, param_name = update_types.get(
                 update_type,
                 (
-                    self.texts.t("service.notifications.admin.subscription_update.generic.title", "⚙️ SUBSCRIPTION CHANGE"),
-                    self.texts.t("service.notifications.admin.subscription_update.generic.param", "parameters")
-                )
+                    self.texts.t(
+                        "service.notifications.admin.subscription_update.generic.title", "⚙️ SUBSCRIPTION CHANGE"
+                    ),
+                    self.texts.t("service.notifications.admin.subscription_update.generic.param", "parameters"),
+                ),
             )
 
             username = getattr(user, "username", None) or self.texts.t(
@@ -1819,19 +1867,31 @@ class AdminNotificationService:
                 old_servers_info = await self._format_servers_detailed(old_value)
                 new_servers_info = await self._format_servers_detailed(new_value)
                 old_new_values = (
-                    self.texts.t("service.notifications.admin.subscription_update.old", "📉 Before: {old}").format(old=old_servers_info) + "\n" +
-                    self.texts.t("service.notifications.admin.subscription_update.new", "📈 After: {new}").format(new=new_servers_info)
+                    self.texts.t("service.notifications.admin.subscription_update.old", "📉 Before: {old}").format(
+                        old=old_servers_info
+                    )
+                    + "\n"
+                    + self.texts.t("service.notifications.admin.subscription_update.new", "📈 After: {new}").format(
+                        new=new_servers_info
+                    )
                 )
             else:
                 old_val = self._format_update_value(old_value, update_type)
                 new_val = self._format_update_value(new_value, update_type)
                 old_new_values = (
-                    self.texts.t("service.notifications.admin.subscription_update.old", "📉 Before: {old}").format(old=old_val) + "\n" +
-                    self.texts.t("service.notifications.admin.subscription_update.new", "📈 After: {new}").format(new=new_val)
+                    self.texts.t("service.notifications.admin.subscription_update.old", "📉 Before: {old}").format(
+                        old=old_val
+                    )
+                    + "\n"
+                    + self.texts.t("service.notifications.admin.subscription_update.new", "📈 After: {new}").format(
+                        new=new_val
+                    )
                 )
 
             price_line = (
-                self.texts.t("service.notifications.admin.subscription_update.price_paid", "💰 Extra paid: {price}").format(price=settings.format_price(price_paid))
+                self.texts.t(
+                    "service.notifications.admin.subscription_update.price_paid", "💰 Extra paid: {price}"
+                ).format(price=settings.format_price(price_paid))
                 if price_paid > 0
                 else self.texts.t("service.notifications.admin.subscription_update.free", "💸 Free")
             )
@@ -1852,7 +1912,7 @@ class AdminNotificationService:
             )
 
             return await self._send_message(message)
-            
+
         except Exception as e:
             logger.error(f"Failed to send subscription update notification: {e}")
             return False
@@ -1860,29 +1920,27 @@ class AdminNotificationService:
     async def _format_servers_detailed(self, server_uuids: List[str]) -> str:
         if not server_uuids:
             return self.texts.t("service.notifications.admin.servers_none", "No servers")
-        
+
         try:
             from app.handlers.subscription import get_servers_display_names
+
             servers_names = await get_servers_display_names(server_uuids)
-            
+
             none_text = self.texts.t("service.notifications.admin.servers_none", "No servers")
             if servers_names and servers_names != none_text:
                 return self.texts.t(
-                    "service.notifications.admin.servers_detailed_with_names",
-                    "{count} servers ({names})"
+                    "service.notifications.admin.servers_detailed_with_names", "{count} servers ({names})"
                 ).format(count=len(server_uuids), names=servers_names)
             else:
-                return self.texts.t(
-                    "service.notifications.admin.servers_detailed_count",
-                    "{count} servers"
-                ).format(count=len(server_uuids))
-                
+                return self.texts.t("service.notifications.admin.servers_detailed_count", "{count} servers").format(
+                    count=len(server_uuids)
+                )
+
         except Exception as e:
             logger.warning(f"Error getting server names for notification: {e}")
-            return self.texts.t(
-                "service.notifications.admin.servers_detailed_count",
-                "{count} servers"
-            ).format(count=len(server_uuids))
+            return self.texts.t("service.notifications.admin.servers_detailed_count", "{count} servers").format(
+                count=len(server_uuids)
+            )
 
     def _format_update_value(self, value: Any, update_type: str) -> str:
         if update_type == "traffic":
@@ -1893,7 +1951,9 @@ class AdminNotificationService:
             return self.texts.t("service.notifications.admin.devices_count", "{count} devices").format(count=value)
         elif update_type == "servers":
             if isinstance(value, list):
-                return self.texts.t("service.notifications.admin.servers_detailed_count", "{count} servers").format(count=len(value))
+                return self.texts.t("service.notifications.admin.servers_detailed_count", "{count} servers").format(
+                    count=len(value)
+                )
             return str(value)
         return str(value)
 
@@ -1903,7 +1963,7 @@ class AdminNotificationService:
         successfully_banned: int,
         not_found: int,
         errors: int,
-        admin_name: str = "Администратор"
+        admin_name: str = "Администратор",
     ) -> bool:
         """Отправляет уведомление о массовой блокировке пользователей"""
         if not self._is_enabled():
@@ -1919,7 +1979,7 @@ class AdminNotificationService:
                 "📊 <b>Результаты:</b>",
                 f"✅ Успешно заблокировано: {successfully_banned}",
                 f"❌ Не найдено: {not_found}",
-                f"💥 Ошибок: {errors}"
+                f"💥 Ошибок: {errors}",
             ]
 
             total_processed = successfully_banned + not_found + errors
@@ -1942,9 +2002,7 @@ class AdminNotificationService:
             return False
 
     async def send_ticket_event_notification(
-        self,
-        text: str,
-        keyboard: types.InlineKeyboardMarkup | None = None
+        self, text: str, keyboard: types.InlineKeyboardMarkup | None = None
     ) -> bool:
         """Public method for sending ticket notifications to admin topic.
         Respects enabled settings in settings.
@@ -1952,6 +2010,7 @@ class AdminNotificationService:
         # Respect runtime toggle for admin ticket notifications
         try:
             from app.services.support_settings_service import SupportSettingsService
+
             runtime_enabled = SupportSettingsService.get_admin_ticket_notifications_enabled()
         except Exception:
             runtime_enabled = True
@@ -1960,10 +2019,7 @@ class AdminNotificationService:
         return await self._send_message(text, reply_markup=keyboard, ticket_event=True)
 
     async def send_suspicious_traffic_notification(
-        self,
-        message: str,
-        bot: Bot,
-        topic_id: Optional[int] = None
+        self, message: str, bot: Bot, topic_id: Optional[int] = None
     ) -> bool:
         """
         Отправляет уведомление о подозрительной активности трафика
@@ -1982,17 +2038,19 @@ class AdminNotificationService:
 
         try:
             message_kwargs = {
-                'chat_id': self.chat_id,
-                'text': message,
-                'parse_mode': 'HTML',
-                'disable_web_page_preview': True
+                "chat_id": self.chat_id,
+                "text": message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
             }
 
             if notification_topic_id:
-                message_kwargs['message_thread_id'] = notification_topic_id
+                message_kwargs["message_thread_id"] = notification_topic_id
 
             await bot.send_message(**message_kwargs)
-            logger.info(f"Уведомление о подозрительной активности отправлено в чат {self.chat_id}, топик {notification_topic_id}")
+            logger.info(
+                f"Уведомление о подозрительной активности отправлено в чат {self.chat_id}, топик {notification_topic_id}"
+            )
             return True
 
         except TelegramForbiddenError:

@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -80,18 +91,20 @@ from app.utils.promo_offer import (
 
 from .common import _format_text_with_placeholders
 
+
 async def _get_promo_offer_hint(
-        db: AsyncSession,
-        db_user: User,
-        texts,
-        percent: Optional[int] = None,
+    db: AsyncSession,
+    db_user: User,
+    texts,
+    percent: Optional[int] = None,
 ) -> Optional[str]:
     return await build_promo_offer_hint(db, db_user, texts, percent)
 
+
 async def _build_promo_group_discount_text(
-        db_user: User,
-        periods: Optional[List[int]] = None,
-        texts=None,
+    db_user: User,
+    periods: Optional[List[int]] = None,
+    texts=None,
 ) -> str:
     promo_group = db_user.get_primary_promo_group()
 
@@ -104,25 +117,13 @@ async def _build_promo_group_discount_text(
     service_lines: List[str] = []
 
     if promo_group.server_discount_percent > 0:
-        service_lines.append(
-            texts.PROMO_GROUP_DISCOUNT_SERVERS.format(
-                percent=promo_group.server_discount_percent
-            )
-        )
+        service_lines.append(texts.PROMO_GROUP_DISCOUNT_SERVERS.format(percent=promo_group.server_discount_percent))
 
     if promo_group.traffic_discount_percent > 0:
-        service_lines.append(
-            texts.PROMO_GROUP_DISCOUNT_TRAFFIC.format(
-                percent=promo_group.traffic_discount_percent
-            )
-        )
+        service_lines.append(texts.PROMO_GROUP_DISCOUNT_TRAFFIC.format(percent=promo_group.traffic_discount_percent))
 
     if promo_group.device_discount_percent > 0:
-        service_lines.append(
-            texts.PROMO_GROUP_DISCOUNT_DEVICES.format(
-                percent=promo_group.device_discount_percent
-            )
-        )
+        service_lines.append(texts.PROMO_GROUP_DISCOUNT_DEVICES.format(percent=promo_group.device_discount_percent))
 
     period_lines: List[str] = []
 
@@ -167,10 +168,11 @@ async def _build_promo_group_discount_text(
 
     return "\n".join(lines)
 
+
 async def claim_discount_offer(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
 ):
     texts = get_texts(db_user.language)
 
@@ -331,9 +333,7 @@ async def claim_discount_offer(
         "🎉 {percent}% discount activated! It will be automatically applied to your next payment.",
     )
 
-    expires_text = (
-        discount_expires_at.strftime("%d.%m.%Y %H:%M") if discount_expires_at else ""
-    )
+    expires_text = discount_expires_at.strftime("%d.%m.%Y %H:%M") if discount_expires_at else ""
 
     format_values: Dict[str, Any] = {"percent": discount_percent}
 
@@ -419,9 +419,7 @@ async def claim_discount_offer(
         button_callback = "subscription_extend"
     else:
         has_active_paid_subscription = bool(
-            subscription
-            and getattr(subscription, "is_active", False)
-            and not getattr(subscription, "is_trial", False)
+            subscription and getattr(subscription, "is_active", False) and not getattr(subscription, "is_trial", False)
         )
 
         if has_active_paid_subscription:
@@ -443,10 +441,11 @@ async def claim_discount_offer(
     )
     await callback.message.answer(success_message, reply_markup=buy_keyboard)
 
+
 async def handle_promo_offer_close(
-        callback: types.CallbackQuery,
-        db_user: User,
-        db: AsyncSession,
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
 ):
     try:
         await callback.message.delete()

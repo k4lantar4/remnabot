@@ -2114,18 +2114,6 @@ async def confirm_purchase(
     price_difference = abs(final_price - cached_total_price)
     max_allowed_difference = max(500, int(final_price * 0.05))  # 5% или минимум 5₽
 
-<<<<<<< HEAD
-    if price_difference > max_allowed_difference:
-        # Слишком большое расхождение - блокируем покупку
-        logger.error(
-            f"Критическое расхождение цены для пользователя {db_user.telegram_id}: "
-            f"кэш={cached_total_price/100}₽, пересчет={final_price/100}₽, "
-            f"разница={price_difference/100}₽ (>{max_allowed_difference/100}₽). "
-            f"Покупка заблокирована."
-        )
-        await callback.answer(
-            "Цена изменилась. Пожалуйста, начните оформление заново.",
-=======
     is_valid = validate_pricing_calculation(
         base_price,
         discounted_monthly_additions,
@@ -2137,7 +2125,6 @@ async def confirm_purchase(
         logger.error(f"Subscription price calculation error for user {db_user.telegram_id}")
         await callback.answer(
             texts.t("SUBSCRIPTION_PRICE_CALCULATION_ERROR", "Price calculation error. Please contact support."),
->>>>>>> origin/fix/replace-kopek-to-toman
             show_alert=True
         )
         return
@@ -3065,7 +3052,7 @@ def register_handlers(dp: Dispatcher):
         show_device_connection_help,
         F.data == "device_connection_help"
     )
-    
+
     # Register handler for simple purchase
     dp.callback_query.register(
         handle_simple_subscription_purchase,
@@ -3109,7 +3096,7 @@ async def handle_simple_subscription_purchase(
             show_alert=True
         )
         return
-    
+
     # Determine device limit for current mode
     simple_device_limit = resolve_simple_subscription_device_limit()
 
@@ -3139,10 +3126,10 @@ async def handle_simple_subscription_purchase(
         "traffic_limit_gb": settings.SIMPLE_SUBSCRIPTION_TRAFFIC_GB,
         "squad_uuid": settings.SIMPLE_SUBSCRIPTION_SQUAD_UUID
     }
-    
+
     # Save parameters to state
     await state.update_data(subscription_params=subscription_params)
-    
+
     # Check user balance
     user_balance_toman = getattr(db_user, "balance_toman", 0)
     # Calculate subscription price
@@ -3186,7 +3173,7 @@ async def handle_simple_subscription_purchase(
             if not subscription_params['squad_uuid']
             else texts.t("SIMPLE_SUBSCRIPTION_SERVER_SELECTED", "Selected")
         )
-        
+
         simple_lines.extend([
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=traffic_text),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_text),
@@ -3222,7 +3209,7 @@ async def handle_simple_subscription_purchase(
             if not subscription_params['squad_uuid']
             else texts.t("SIMPLE_SUBSCRIPTION_SERVER_SELECTED", "Selected")
         )
-        
+
         simple_lines.extend([
             texts.t("SIMPLE_SUBSCRIPTION_TRAFFIC", "📊 Traffic: {traffic}").format(traffic=traffic_text),
             texts.t("SIMPLE_SUBSCRIPTION_SERVER", "🌍 Server: {server}").format(server=server_text),
@@ -3271,7 +3258,7 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
     """Creates keyboard with payment methods for simple subscription."""
     texts = get_texts(language)
     keyboard = []
-    
+
     # Add available payment methods
     if settings.TELEGRAM_STARS_ENABLED:
         keyboard.append([types.InlineKeyboardButton(
@@ -3317,7 +3304,7 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
             text="💳 WATA",
             callback_data="simple_subscription_wata"
         )])
-    
+
     # Back button
     keyboard.append([types.InlineKeyboardButton(
         text=texts.BACK,
@@ -3347,7 +3334,7 @@ async def _extend_existing_subscription(
     from datetime import datetime, timedelta
 
     texts = get_texts(db_user.language)
-    
+
     # Calculate subscription price
     subscription_params = {
         "period_days": period_days,
@@ -3371,7 +3358,7 @@ async def _extend_existing_subscription(
         price_breakdown.get("servers_price", 0),
         price_breakdown.get("total_discount", 0),
     )
-    
+
     # Check user balance
     if db_user.balance_toman < price_toman:
         missing_toman = price_toman - db_user.balance_toman
@@ -3389,7 +3376,7 @@ async def _extend_existing_subscription(
             balance=texts.format_price(db_user.balance_toman),
             missing=texts.format_price(missing_toman),
         )
-        
+
         # Prepare data for saving to cart
         from app.services.user_cart_service import user_cart_service
         cart_data = {
@@ -3421,7 +3408,7 @@ async def _extend_existing_subscription(
         )
         await callback.answer()
         return
-    
+
     # Deduct funds
     months = calculate_months_from_days(period_days)
     success = await subtract_user_balance(
@@ -3438,11 +3425,11 @@ async def _extend_existing_subscription(
             show_alert=True
         )
         return
-    
+
     # Update subscription parameters
     current_time = datetime.utcnow()
     old_end_date = current_subscription.end_date
-    
+
     # Update parameters depending on current subscription type
     if current_subscription.is_trial:
         # When extending trial subscription, convert it to regular
@@ -3466,7 +3453,7 @@ async def _extend_existing_subscription(
         if squad_uuid and squad_uuid not in current_subscription.connected_squads:
             # Use += for safe addition to SQLAlchemy list
             current_subscription.connected_squads = current_subscription.connected_squads + [squad_uuid]
-    
+
     # Extend subscription
     if current_subscription.end_date > current_time:
         # If subscription is still active, add days to current end date
@@ -3477,12 +3464,12 @@ async def _extend_existing_subscription(
 
     current_subscription.end_date = new_end_date
     current_subscription.updated_at = current_time
-    
+
     # Save changes
     await db.commit()
     await db.refresh(current_subscription)
     await db.refresh(db_user)
-    
+
     # Update user in Remnawave
     subscription_service = SubscriptionService()
     try:
@@ -3498,7 +3485,7 @@ async def _extend_existing_subscription(
             logger.error("⚠ REMNAWAVE UPDATE ERROR")
     except Exception as e:
         logger.error(f"⚠ EXCEPTION DURING REMNAWAVE UPDATE: {e}")
-    
+
     # Create transaction
     months = calculate_months_from_days(period_days)
     transaction = await create_transaction(
@@ -3508,7 +3495,7 @@ async def _extend_existing_subscription(
         amount_toman=price_toman,
         description=texts.t("subscription.extend.transaction_description", "Subscription extension for {days} days ({months} months)").format(days=period_days, months=months)
     )
-    
+
     # Send notification to admin
     try:
         notification_service = AdminNotificationService(callback.bot)
@@ -3524,7 +3511,7 @@ async def _extend_existing_subscription(
         )
     except Exception as e:
         logger.error(f"Error sending extension notification: {e}")
-    
+
     # Send message to user
     success_message = (
         texts.t("subscription.extend.success", "✅ Subscription successfully extended!\n\n")
@@ -3532,15 +3519,15 @@ async def _extend_existing_subscription(
         + texts.t("subscription.extend.valid_until", "Valid until: {date}\n\n").format(date=format_local_datetime(new_end_date, '%d.%m.%Y %H:%M'))
         + texts.t("subscription.extend.charged", "💰 Charged: {price}").format(price=texts.format_price(price_toman))
     )
-    
+
     # If this was a trial subscription, add conversion information
     if current_subscription.is_trial:
         success_message += "\n" + texts.t("SUBSCRIPTION_TRIAL_CONVERTED_TO_PAID", "🎯 Trial subscription converted to paid")
-    
+
     await callback.message.edit_text(
         success_message,
         reply_markup=get_back_keyboard(db_user.language)
     )
-    
+
     logger.info(f"✅ User {db_user.telegram_id} extended subscription for {period_days} days for {price_toman} Toman")
     await callback.answer()

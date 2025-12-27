@@ -79,11 +79,7 @@ async def _edit_creation_message(
         error_text = str(error).lower()
         if "message is not modified" in error_text:
             return True
-        log_method = (
-            logger.debug
-            if "there is no text in the message to edit" in error_text
-            else logger.warning
-        )
+        log_method = logger.debug if "there is no text in the message to edit" in error_text else logger.warning
         log_method(
             "Failed to update poll creation message %s: %s",
             message_id,
@@ -153,9 +149,7 @@ def _render_creation_progress(
     status_message: str | None = None,
     error_message: str | None = None,
 ) -> str:
-    lines: list[str] = [
-        texts.t("ADMIN_POLLS_CREATION_HEADER", "🗳️ <b>Create poll</b>")
-    ]
+    lines: list[str] = [texts.t("ADMIN_POLLS_CREATION_HEADER", "🗳️ <b>Create poll</b>")]
 
     title_prompt = texts.t(
         "ADMIN_POLLS_CREATION_TITLE_PROMPT",
@@ -191,7 +185,7 @@ def _render_creation_progress(
                 "• "
                 + texts.t(
                     "ADMIN_POLLS_CREATION_DESCRIPTION_SKIPPED",
-                "Description skipped.",
+                    "Description skipped.",
                 )
             )
     else:
@@ -314,7 +308,7 @@ def _build_poll_details_keyboard(poll_id: int, language: str) -> types.InlineKey
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-            text=texts.t("ADMIN_POLLS_SEND", "📤 Send"),
+                    text=texts.t("ADMIN_POLLS_SEND", "📤 Send"),
                     callback_data=f"poll_send:{poll_id}",
                 )
             ],
@@ -828,11 +822,7 @@ async def process_poll_question(
         reward_text = _format_reward_text(poll, db_user.language)
         result_text = texts.t(
             "ADMIN_POLLS_CREATION_FINISHED",
-            (
-            "✅ Poll “{title}” created!\n"
-            "Questions: {count}\n"
-                "{reward}"
-            ),
+            ("✅ Poll “{title}” created!\nQuestions: {count}\n{reward}"),
         ).format(
             title=html.escape(poll.title),
             count=len(poll.questions),
@@ -912,11 +902,7 @@ async def _render_poll_details(poll: Poll, language: str) -> str:
         lines.append(poll.description)
 
     lines.append(_format_reward_text(poll, language))
-    lines.append(
-        texts.t("ADMIN_POLLS_QUESTIONS_COUNT", "Questions: {count}").format(
-            count=len(poll.questions)
-        )
-    )
+    lines.append(texts.t("ADMIN_POLLS_QUESTIONS_COUNT", "Questions: {count}").format(count=len(poll.questions)))
 
     if poll.questions:
         lines.append("")
@@ -925,9 +911,7 @@ async def _render_poll_details(poll: Poll, language: str) -> str:
             lines.append(f"{idx}. {html.escape(question.text)}")
             for option in sorted(question.options, key=lambda o: o.order):
                 lines.append(
-                    texts.t("ADMIN_POLLS_OPTION_BULLET", "   • {option}").format(
-                        option=html.escape(option.text)
-                    )
+                    texts.t("ADMIN_POLLS_OPTION_BULLET", "   • {option}").format(option=html.escape(option.text))
                 )
 
     return "\n".join(lines)

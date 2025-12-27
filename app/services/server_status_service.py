@@ -30,12 +30,8 @@ class ServerStatusError(Exception):
 
 
 class ServerStatusService:
-    _LATENCY_PATTERN = re.compile(
-        r"xray_proxy_latency_ms\{(?P<labels>[^}]*)\}\s+(?P<value>[-+]?\d+(?:\.\d+)?)"
-    )
-    _STATUS_PATTERN = re.compile(
-        r"xray_proxy_status\{(?P<labels>[^}]*)\}\s+(?P<value>[-+]?\d+(?:\.\d+)?)"
-    )
+    _LATENCY_PATTERN = re.compile(r"xray_proxy_latency_ms\{(?P<labels>[^}]*)\}\s+(?P<value>[-+]?\d+(?:\.\d+)?)")
+    _STATUS_PATTERN = re.compile(r"xray_proxy_status\{(?P<labels>[^}]*)\}\s+(?P<value>[-+]?\d+(?:\.\d+)?)")
     _LABEL_PATTERN = re.compile(r"(?P<key>[a-zA-Z_][a-zA-Z0-9_]*)=\"(?P<value>(?:\\.|[^\"])*)\"")
     _FLAG_PATTERN = re.compile(r"^([\U0001F1E6-\U0001F1FF]{2})\s*(.*)$")
 
@@ -67,10 +63,7 @@ class ServerStatusService:
                 ) as response:
                     if response.status != 200:
                         text = await response.text()
-                        raise ServerStatusError(
-                            f"Unexpected response status: {response.status}"
-                            f" - {text[:200]}"
-                        )
+                        raise ServerStatusError(f"Unexpected response status: {response.status} - {text[:200]}")
                     metrics_body = await response.text()
         except asyncio.TimeoutError as error:
             raise ServerStatusError("Request to metrics endpoint timed out") from error
@@ -154,4 +147,3 @@ class ServerStatusService:
             value = match.group("value").replace('\\"', '"')
             labels[key] = value
         return labels
-

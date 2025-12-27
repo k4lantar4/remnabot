@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 def generate_referral_code() -> str:
     alphabet = string.ascii_letters + string.digits
-    code_suffix = ''.join(secrets.choice(alphabet) for _ in range(8))
+    code_suffix = "".join(secrets.choice(alphabet) for _ in range(8))
     return f"ref{code_suffix}"
 
 
@@ -46,29 +46,29 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
         .where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
-    
+
     if user and user.subscription:
         # Load additional dependencies for subscription
         _ = user.subscription.is_active
-    
+
     return user
 
 
-async def get_user_by_telegram_id(
-    db: AsyncSession, 
-    telegram_id: int, 
-    bot_id: Optional[int] = None
-) -> Optional[User]:
-    query = select(User).options(
-        selectinload(User.subscription),
-        selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
-        selectinload(User.referrer),
-        selectinload(User.promo_group),
-    ).where(User.telegram_id == telegram_id)
-    
+async def get_user_by_telegram_id(db: AsyncSession, telegram_id: int, bot_id: Optional[int] = None) -> Optional[User]:
+    query = (
+        select(User)
+        .options(
+            selectinload(User.subscription),
+            selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
+            selectinload(User.referrer),
+            selectinload(User.promo_group),
+        )
+        .where(User.telegram_id == telegram_id)
+    )
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 
@@ -79,11 +79,7 @@ async def get_user_by_telegram_id(
     return user
 
 
-async def get_user_by_telegram_id_and_bot_id(
-    db: AsyncSession,
-    telegram_id: int,
-    bot_id: int
-) -> Optional[User]:
+async def get_user_by_telegram_id_and_bot_id(db: AsyncSession, telegram_id: int, bot_id: int) -> Optional[User]:
     """
     Get user by telegram_id and bot_id (required for multi-tenant isolation).
     This is the recommended function to use in handlers where bot_id is available.
@@ -91,23 +87,23 @@ async def get_user_by_telegram_id_and_bot_id(
     return await get_user_by_telegram_id(db, telegram_id, bot_id)
 
 
-async def get_user_by_username(
-    db: AsyncSession, 
-    username: str, 
-    bot_id: Optional[int] = None
-) -> Optional[User]:
+async def get_user_by_username(db: AsyncSession, username: str, bot_id: Optional[int] = None) -> Optional[User]:
     if not username:
         return None
 
     normalized = username.lower()
 
-    query = select(User).options(
-        selectinload(User.subscription),
-        selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
-        selectinload(User.referrer),
-        selectinload(User.promo_group),
-    ).where(func.lower(User.username) == normalized)
-    
+    query = (
+        select(User)
+        .options(
+            selectinload(User.subscription),
+            selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
+            selectinload(User.referrer),
+            selectinload(User.promo_group),
+        )
+        .where(func.lower(User.username) == normalized)
+    )
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
 
@@ -123,26 +119,28 @@ async def get_user_by_username(
 
 
 async def get_user_by_referral_code(
-    db: AsyncSession, 
-    referral_code: str, 
-    bot_id: Optional[int] = None
+    db: AsyncSession, referral_code: str, bot_id: Optional[int] = None
 ) -> Optional[User]:
-    query = select(User).options(
-        selectinload(User.subscription),
-        selectinload(User.promo_group),
-        selectinload(User.referrer),
-    ).where(User.referral_code == referral_code)
-    
+    query = (
+        select(User)
+        .options(
+            selectinload(User.subscription),
+            selectinload(User.promo_group),
+            selectinload(User.referrer),
+        )
+        .where(User.referral_code == referral_code)
+    )
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     user = result.scalar_one_or_none()
-    
+
     if user and user.subscription:
         # Load additional dependencies for subscription
         _ = user.subscription.is_active
-    
+
     return user
 
 
@@ -167,29 +165,22 @@ async def get_user_by_remnawave_uuid(db: AsyncSession, remnawave_uuid: str) -> O
 
 async def create_unique_referral_code(db: AsyncSession) -> str:
     max_attempts = 10
-    
+
     for _ in range(max_attempts):
         code = generate_referral_code()
         existing_user = await get_user_by_referral_code(db, code)
         if not existing_user:
             return code
-    
+
     timestamp = str(int(datetime.utcnow().timestamp()))[-6:]
     return f"ref{timestamp}"
 
 
 async def _sync_users_sequence(db: AsyncSession) -> None:
     """Ensure the users.id sequence matches the current max ID."""
-    await db.execute(
-        text(
-            "SELECT setval('users_id_seq', "
-            "COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)"
-        )
-    )
+    await db.execute(text("SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)"))
     await db.commit()
-    logger.warning(
-        "🔄 Sequence users_id_seq synchronized with current max id"
-    )
+    logger.warning("🔄 Sequence users_id_seq synchronized with current max id")
 
 
 async def _get_or_create_default_promo_group(db: AsyncSession) -> PromoGroup:
@@ -218,15 +209,15 @@ async def create_user_no_commit(
     language: str = "ru",
     referred_by_id: int = None,
     referral_code: str = None,
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = None,
 ) -> User:
     """
     Creates user without immediate commit for batch processing
     """
-    
+
     if not referral_code:
         referral_code = await create_unique_referral_code(db)
-    
+
     default_group = await _get_or_create_default_promo_group(db)
     promo_group_id = default_group.id
 
@@ -256,9 +247,7 @@ async def create_user_no_commit(
     user.promo_group = default_group
 
     # Don't commit immediately, leave for batch processing
-    logger.info(
-        f"✅ User {telegram_id} prepared with referral code {referral_code} (awaiting commit)"
-    )
+    logger.info(f"✅ User {telegram_id} prepared with referral code {referral_code} (awaiting commit)")
     return user
 
 
@@ -271,12 +260,11 @@ async def create_user(
     language: str = "ru",
     referred_by_id: int = None,
     referral_code: str = None,
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = None,
 ) -> User:
-    
     if not referral_code:
         referral_code = await create_unique_referral_code(db)
-    
+
     attempts = 3
 
     for attempt in range(1, attempts + 1):
@@ -307,9 +295,7 @@ async def create_user(
             await db.refresh(user)
 
             user.promo_group = default_group
-            logger.info(
-                f"✅ User {telegram_id} created with referral code {referral_code}"
-            )
+            logger.info(f"✅ User {telegram_id} created with referral code {referral_code}")
             return user
 
         except IntegrityError as exc:
@@ -335,23 +321,19 @@ async def create_user(
     raise RuntimeError("Failed to create user after sequence synchronization")
 
 
-async def update_user(
-    db: AsyncSession,
-    user: User,
-    **kwargs
-) -> User:
-    
+async def update_user(db: AsyncSession, user: User, **kwargs) -> User:
     from app.utils.validators import sanitize_telegram_name
+
     for field, value in kwargs.items():
         if field in ("first_name", "last_name"):
             value = sanitize_telegram_name(value)
         if hasattr(user, field):
             setattr(user, field, value)
-    
+
     user.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(user)
-    
+
     return user
 
 
@@ -362,31 +344,28 @@ async def add_user_balance(
     description: str = "Balance top-up",
     create_transaction: bool = True,
     transaction_type: TransactionType = TransactionType.DEPOSIT,
-    bot = None
+    bot=None,
 ) -> bool:
     try:
         old_balance = user.balance_toman
         user.balance_toman += amount_toman
         user.updated_at = datetime.utcnow()
-        
+
         if create_transaction:
             from app.database.crud.transaction import create_transaction as create_trans
 
             await create_trans(
-                db=db,
-                user_id=user.id,
-                type=transaction_type,
-                amount_toman=amount_toman,
-                description=description
+                db=db, user_id=user.id, type=transaction_type, amount_toman=amount_toman, description=description
             )
-        
+
         await db.commit()
         await db.refresh(user)
-        
-        
-        logger.info(f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_toman} (change: +{amount_toman})")
+
+        logger.info(
+            f"💰 User balance changed {user.telegram_id}: {old_balance} → {user.balance_toman} (change: +{amount_toman})"
+        )
         return True
-        
+
     except Exception as e:
         logger.error(f"Error changing user balance {user.id}: {e}")
         await db.rollback()
@@ -405,7 +384,7 @@ async def add_user_balance_by_id(
         if not user:
             logger.error(f"User with telegram_id {telegram_id} not found")
             return False
-        
+
         return await add_user_balance(
             db,
             user,
@@ -413,7 +392,7 @@ async def add_user_balance_by_id(
             description,
             transaction_type=transaction_type,
         )
-        
+
     except Exception as e:
         logger.error(f"Error topping up user balance {telegram_id}: {e}")
         return False
@@ -434,7 +413,7 @@ async def subtract_user_balance(
     logger.info(f"   💰 Balance before deduction: {user.balance_toman} toman")
     logger.info(f"   💸 Amount to deduct: {amount_toman} toman")
     logger.info(f"   📝 Description: {description}")
-    
+
     log_context: Optional[Dict[str, object]] = None
     if consume_promo_offer:
         try:
@@ -531,7 +510,7 @@ async def subtract_user_balance(
 
         logger.error(f"   ✅ Funds deducted: {old_balance} → {user.balance_toman}")
         return True
-        
+
     except Exception as e:
         logger.error(f"   ❌ DEDUCTION ERROR: {e}")
         await db.rollback()
@@ -640,29 +619,28 @@ async def get_users_list(
     order_by_last_activity: bool = False,
     order_by_total_spent: bool = False,
     order_by_purchase_count: bool = False,
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = None,
 ) -> List[User]:
-    
     query = select(User).options(
         selectinload(User.subscription),
         selectinload(User.promo_group),
         selectinload(User.referrer),
     )
-    
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     if status:
         query = query.where(User.status == status.value)
-    
+
     if search:
         search_term = f"%{search}%"
         conditions = [
             User.first_name.ilike(search_term),
             User.last_name.ilike(search_term),
-            User.username.ilike(search_term)
+            User.username.ilike(search_term),
         ]
-        
+
         if search.isdigit():
             try:
                 search_int = int(search)
@@ -672,7 +650,7 @@ async def get_users_list(
             except ValueError:
                 # If failed to convert to int, just search by text fields
                 pass
-        
+
         query = query.where(or_(*conditions))
 
     sort_flags = [
@@ -741,44 +719,40 @@ async def get_users_list(
         query = query.order_by(nullslast(User.last_activity.desc()), User.created_at.desc())
     else:
         query = query.order_by(User.created_at.desc())
-    
+
     query = query.offset(offset).limit(limit)
-    
+
     result = await db.execute(query)
     users = result.scalars().all()
-    
+
     # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
             # Load additional dependencies for subscription
             _ = user.subscription.is_active
-    
+
     return users
 
 
 async def get_users_count(
-    db: AsyncSession,
-    status: Optional[UserStatus] = None,
-    search: Optional[str] = None,
-    bot_id: Optional[int] = None
+    db: AsyncSession, status: Optional[UserStatus] = None, search: Optional[str] = None, bot_id: Optional[int] = None
 ) -> int:
-    
     query = select(func.count(User.id))
-    
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     if status:
         query = query.where(User.status == status.value)
-    
+
     if search:
         search_term = f"%{search}%"
         conditions = [
             User.first_name.ilike(search_term),
             User.last_name.ilike(search_term),
-            User.username.ilike(search_term)
+            User.username.ilike(search_term),
         ]
-        
+
         if search.isdigit():
             try:
                 search_int = int(search)
@@ -788,17 +762,14 @@ async def get_users_count(
             except ValueError:
                 # If failed to convert to int, just search by text fields
                 pass
-        
+
         query = query.where(or_(*conditions))
-    
+
     result = await db.execute(query)
     return result.scalar()
 
 
-async def get_users_spending_stats(
-    db: AsyncSession,
-    user_ids: List[int]
-) -> Dict[int, Dict[str, int]]:
+async def get_users_spending_stats(db: AsyncSession, user_ids: List[int]) -> Dict[int, Dict[str, int]]:
     if not user_ids:
         return {}
 
@@ -851,40 +822,36 @@ async def get_users_spending_stats(
     }
 
 
-async def get_referrals(
-    db: AsyncSession, 
-    user_id: int, 
-    bot_id: Optional[int] = None
-) -> List[User]:
-    query = select(User).options(
-        selectinload(User.subscription),
-        selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
-        selectinload(User.referrer),
-        selectinload(User.promo_group),
-    ).where(User.referred_by_id == user_id)
-    
+async def get_referrals(db: AsyncSession, user_id: int, bot_id: Optional[int] = None) -> List[User]:
+    query = (
+        select(User)
+        .options(
+            selectinload(User.subscription),
+            selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
+            selectinload(User.referrer),
+            selectinload(User.promo_group),
+        )
+        .where(User.referred_by_id == user_id)
+    )
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     query = query.order_by(User.created_at.desc())
-    
+
     result = await db.execute(query)
     users = result.scalars().all()
-    
+
     # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
             # Load additional dependencies for subscription
             _ = user.subscription.is_active
-    
+
     return users
 
 
-async def get_users_for_promo_segment(
-    db: AsyncSession, 
-    segment: str, 
-    bot_id: Optional[int] = None
-) -> List[User]:
+async def get_users_for_promo_segment(db: AsyncSession, segment: str, bot_id: Optional[int] = None) -> List[User]:
     now = datetime.utcnow()
 
     base_query = (
@@ -896,15 +863,12 @@ async def get_users_for_promo_segment(
         )
         .where(User.status == UserStatus.ACTIVE.value)
     )
-    
+
     if bot_id is not None:
         base_query = base_query.where(User.bot_id == bot_id)
 
     if segment == "no_subscription":
-        query = (
-            base_query.outerjoin(Subscription, Subscription.user_id == User.id)
-            .where(Subscription.id.is_(None))
-        )
+        query = base_query.outerjoin(Subscription, Subscription.user_id == User.id).where(Subscription.id.is_(None))
     else:
         query = base_query.join(Subscription)
 
@@ -942,118 +906,100 @@ async def get_users_for_promo_segment(
 
     result = await db.execute(query.order_by(User.id))
     users = result.scalars().unique().all()
-    
+
     # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
             # Load additional dependencies for subscription
             _ = user.subscription.is_active
-    
+
     return users
 
 
-async def get_inactive_users(
-    db: AsyncSession, 
-    months: int = 3, 
-    bot_id: Optional[int] = None
-) -> List[User]:
+async def get_inactive_users(db: AsyncSession, months: int = 3, bot_id: Optional[int] = None) -> List[User]:
     threshold_date = datetime.utcnow() - timedelta(days=months * 30)
-    
-    query = select(User).options(
-        selectinload(User.subscription),
-        selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
-        selectinload(User.referrer),
-        selectinload(User.promo_group),
-    ).where(
-        and_(
-            User.last_activity < threshold_date,
-            User.status == UserStatus.ACTIVE.value
+
+    query = (
+        select(User)
+        .options(
+            selectinload(User.subscription),
+            selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
+            selectinload(User.referrer),
+            selectinload(User.promo_group),
         )
+        .where(and_(User.last_activity < threshold_date, User.status == UserStatus.ACTIVE.value))
     )
-    
+
     if bot_id is not None:
         query = query.where(User.bot_id == bot_id)
-    
+
     result = await db.execute(query)
     users = result.scalars().all()
-    
+
     # Load additional dependencies for all users
     for user in users:
         if user and user.subscription:
             # Load additional dependencies for subscription
             _ = user.subscription.is_active
-    
+
     return users
 
 
 async def delete_user(db: AsyncSession, user: User) -> bool:
     user.status = UserStatus.DELETED.value
     user.updated_at = datetime.utcnow()
-    
+
     await db.commit()
     logger.info(f"🗑️ User {user.telegram_id} marked as deleted")
     return True
 
 
-async def get_users_statistics(
-    db: AsyncSession, 
-    bot_id: Optional[int] = None
-) -> dict:
-    
+async def get_users_statistics(db: AsyncSession, bot_id: Optional[int] = None) -> dict:
     base_query = select(func.count(User.id))
     if bot_id is not None:
         base_query = base_query.where(User.bot_id == bot_id)
-    
+
     total_result = await db.execute(base_query)
     total_users = total_result.scalar()
-    
+
     active_query = select(func.count(User.id)).where(User.status == UserStatus.ACTIVE.value)
     if bot_id is not None:
         active_query = active_query.where(User.bot_id == bot_id)
     active_result = await db.execute(active_query)
     active_users = active_result.scalar()
-    
+
     today = datetime.utcnow().date()
     today_query = select(func.count(User.id)).where(
-        and_(
-            User.created_at >= today,
-            User.status == UserStatus.ACTIVE.value
-        )
+        and_(User.created_at >= today, User.status == UserStatus.ACTIVE.value)
     )
     if bot_id is not None:
         today_query = today_query.where(User.bot_id == bot_id)
     today_result = await db.execute(today_query)
     new_today = today_result.scalar()
-    
+
     week_ago = datetime.utcnow() - timedelta(days=7)
     week_query = select(func.count(User.id)).where(
-        and_(
-            User.created_at >= week_ago,
-            User.status == UserStatus.ACTIVE.value
-        )
+        and_(User.created_at >= week_ago, User.status == UserStatus.ACTIVE.value)
     )
     if bot_id is not None:
         week_query = week_query.where(User.bot_id == bot_id)
     week_result = await db.execute(week_query)
     new_week = week_result.scalar()
-    
+
     month_ago = datetime.utcnow() - timedelta(days=30)
     month_query = select(func.count(User.id)).where(
-        and_(
-            User.created_at >= month_ago,
-            User.status == UserStatus.ACTIVE.value
-        )
+        and_(User.created_at >= month_ago, User.status == UserStatus.ACTIVE.value)
     )
     if bot_id is not None:
         month_query = month_query.where(User.bot_id == bot_id)
     month_result = await db.execute(month_query)
     new_month = month_result.scalar()
-    
+
     return {
         "total_users": total_users,
         "active_users": active_users,
         "blocked_users": total_users - active_users,
         "new_today": new_today,
         "new_week": new_week,
-        "new_month": new_month
+        "new_month": new_month,
     }

@@ -133,9 +133,7 @@ async def get_contests_for_events(
 
 
 async def get_contests_for_summaries(db: AsyncSession) -> List[ReferralContest]:
-    result = await db.execute(
-        select(ReferralContest).where(ReferralContest.is_active.is_(True))
-    )
+    result = await db.execute(select(ReferralContest).where(ReferralContest.is_active.is_(True)))
     return list(result.scalars().all())
 
 
@@ -245,9 +243,7 @@ async def get_contest_events_count(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
 ) -> int:
-    query = select(func.count(ReferralContestEvent.id)).where(
-        ReferralContestEvent.contest_id == contest_id
-    )
+    query = select(func.count(ReferralContestEvent.id)).where(ReferralContestEvent.contest_id == contest_id)
     if start:
         query = query.where(ReferralContestEvent.occurred_at >= start)
     if end:
@@ -260,9 +256,7 @@ async def get_contest_events(
     db: AsyncSession,
     contest_id: int,
 ) -> List[ReferralContestEvent]:
-    result = await db.execute(
-        select(ReferralContestEvent).where(ReferralContestEvent.contest_id == contest_id)
-    )
+    result = await db.execute(select(ReferralContestEvent).where(ReferralContestEvent.contest_id == contest_id))
     return list(result.scalars().all())
 
 

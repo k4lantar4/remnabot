@@ -29,32 +29,32 @@ async def show_referral_info(
     bot_id: int = None,
 ):
     texts = get_texts(db_user.language)
-    
+
     # Get bot_id from user if not provided
     if bot_id is None:
-        bot_id = getattr(db_user, 'bot_id', None)
-    
+        bot_id = getattr(db_user, "bot_id", None)
+
     summary = await get_user_referral_summary(db, db_user.id, bot_id=bot_id)
-    
+
     bot_username = (await callback.bot.get_me()).username
     referral_link = f"https://t.me/{bot_username}?start={db_user.referral_code}"
-    
+
     referral_text = (
         texts.t("REFERRAL_PROGRAM_TITLE")
         + "\n\n"
         + texts.t("REFERRAL_STATS_HEADER")
         + "\n"
-        + texts.t("REFERRAL_STATS_INVITED").format(count=summary['invited_count'])
+        + texts.t("REFERRAL_STATS_INVITED").format(count=summary["invited_count"])
         + "\n"
-        + texts.t("REFERRAL_STATS_FIRST_TOPUPS").format(count=summary['paid_referrals_count'])
+        + texts.t("REFERRAL_STATS_FIRST_TOPUPS").format(count=summary["paid_referrals_count"])
         + "\n"
-        + texts.t("REFERRAL_STATS_ACTIVE").format(count=summary['active_referrals_count'])
+        + texts.t("REFERRAL_STATS_ACTIVE").format(count=summary["active_referrals_count"])
         + "\n"
-        + texts.t("REFERRAL_STATS_CONVERSION").format(rate=summary['conversion_rate'])
+        + texts.t("REFERRAL_STATS_CONVERSION").format(rate=summary["conversion_rate"])
         + "\n"
-        + texts.t("REFERRAL_STATS_TOTAL_EARNED").format(amount=texts.format_price(summary['total_earned_toman']))
+        + texts.t("REFERRAL_STATS_TOTAL_EARNED").format(amount=texts.format_price(summary["total_earned_toman"]))
         + "\n"
-        + texts.t("REFERRAL_STATS_MONTH_EARNED").format(amount=texts.format_price(summary['month_earned_toman']))
+        + texts.t("REFERRAL_STATS_MONTH_EARNED").format(amount=texts.format_price(summary["month_earned_toman"]))
         + "\n\n"
         + texts.t("REFERRAL_REWARDS_HEADER")
         + "\n"
@@ -73,11 +73,8 @@ async def show_referral_info(
         + "\n\n"
     )
 
-    if summary['recent_earnings']:
-        meaningful_earnings = [
-            earning for earning in summary['recent_earnings'][:5]
-            if earning['amount_toman'] > 0
-        ]
+    if summary["recent_earnings"]:
+        meaningful_earnings = [earning for earning in summary["recent_earnings"][:5] if earning["amount_toman"] > 0]
 
         if meaningful_earnings:
             referral_text += texts.t("REFERRAL_RECENT_EARNINGS_HEADER") + "\n"
@@ -86,41 +83,53 @@ async def show_referral_info(
                     "referral_first_topup": texts.t("REFERRAL_EARNING_REASON_FIRST_TOPUP"),
                     "referral_commission_topup": texts.t("REFERRAL_EARNING_REASON_COMMISSION_TOPUP"),
                     "referral_commission": texts.t("REFERRAL_EARNING_REASON_COMMISSION_PURCHASE"),
-                }.get(earning['reason'], earning['reason'])
+                }.get(earning["reason"], earning["reason"])
 
-                referral_text += texts.t("REFERRAL_RECENT_EARNINGS_ITEM").format(
-                    reason=reason_text,
-                    amount=texts.format_price(earning['amount_toman']),
-                    referral_name=earning['referral_name'],
-                ) + "\n"
+                referral_text += (
+                    texts.t("REFERRAL_RECENT_EARNINGS_ITEM").format(
+                        reason=reason_text,
+                        amount=texts.format_price(earning["amount_toman"]),
+                        referral_name=earning["referral_name"],
+                    )
+                    + "\n"
+                )
             referral_text += "\n"
 
-    if summary['earnings_by_type']:
+    if summary["earnings_by_type"]:
         referral_text += texts.t("REFERRAL_EARNINGS_BY_TYPE_HEADER") + "\n"
 
-        if 'referral_first_topup' in summary['earnings_by_type']:
-            data = summary['earnings_by_type']['referral_first_topup']
-            if data['total_amount_toman'] > 0:
-                referral_text += texts.t("REFERRAL_EARNINGS_FIRST_TOPUPS").format(
-                    count=data['count'],
-                    amount=texts.format_price(data['total_amount_toman']),
-                ) + "\n"
+        if "referral_first_topup" in summary["earnings_by_type"]:
+            data = summary["earnings_by_type"]["referral_first_topup"]
+            if data["total_amount_toman"] > 0:
+                referral_text += (
+                    texts.t("REFERRAL_EARNINGS_FIRST_TOPUPS").format(
+                        count=data["count"],
+                        amount=texts.format_price(data["total_amount_toman"]),
+                    )
+                    + "\n"
+                )
 
-        if 'referral_commission_topup' in summary['earnings_by_type']:
-            data = summary['earnings_by_type']['referral_commission_topup']
-            if data['total_amount_toman'] > 0:
-                referral_text += texts.t("REFERRAL_EARNINGS_TOPUPS").format(
-                    count=data['count'],
-                    amount=texts.format_price(data['total_amount_toman']),
-                ) + "\n"
+        if "referral_commission_topup" in summary["earnings_by_type"]:
+            data = summary["earnings_by_type"]["referral_commission_topup"]
+            if data["total_amount_toman"] > 0:
+                referral_text += (
+                    texts.t("REFERRAL_EARNINGS_TOPUPS").format(
+                        count=data["count"],
+                        amount=texts.format_price(data["total_amount_toman"]),
+                    )
+                    + "\n"
+                )
 
-        if 'referral_commission' in summary['earnings_by_type']:
-            data = summary['earnings_by_type']['referral_commission']
-            if data['total_amount_toman'] > 0:
-                referral_text += texts.t("REFERRAL_EARNINGS_PURCHASES").format(
-                    count=data['count'],
-                    amount=texts.format_price(data['total_amount_toman']),
-                ) + "\n"
+        if "referral_commission" in summary["earnings_by_type"]:
+            data = summary["earnings_by_type"]["referral_commission"]
+            if data["total_amount_toman"] > 0:
+                referral_text += (
+                    texts.t("REFERRAL_EARNINGS_PURCHASES").format(
+                        count=data["count"],
+                        amount=texts.format_price(data["total_amount_toman"]),
+                    )
+                    + "\n"
+                )
 
         referral_text += "\n"
 
@@ -186,11 +195,11 @@ async def show_detailed_referral_list(
 
     # Get bot_id from user if not provided
     if bot_id is None:
-        bot_id = getattr(db_user, 'bot_id', None)
+        bot_id = getattr(db_user, "bot_id", None)
 
     referrals_data = await get_detailed_referral_list(db, db_user.id, limit=10, offset=(page - 1) * 10, bot_id=bot_id)
 
-    if not referrals_data['referrals']:
+    if not referrals_data["referrals"]:
         await edit_or_answer_photo(
             callback,
             texts.t("REFERRAL_LIST_EMPTY"),
@@ -202,50 +211,57 @@ async def show_detailed_referral_list(
         await callback.answer()
         return
 
-    text = texts.t("REFERRAL_LIST_HEADER").format(
-        current=referrals_data['current_page'],
-        total=referrals_data['total_pages'],
-    ) + "\n\n"
-    
-    for i, referral in enumerate(referrals_data['referrals'], 1):
-        status_emoji = "🟢" if referral['status'] == 'active' else "🔴"
-        
-        topup_emoji = "💰" if referral['has_made_first_topup'] else "⏳"
-        
-        text += texts.t("REFERRAL_LIST_ITEM_HEADER").format(index=i, status=status_emoji, name=referral['full_name']) + "\n"
-        text += texts.t("REFERRAL_LIST_ITEM_TOPUPS").format(emoji=topup_emoji, count=referral['topups_count']) + "\n"
-        text += texts.t("REFERRAL_LIST_ITEM_EARNED").format(amount=texts.format_price(referral['total_earned_toman'])) + "\n"
-        text += texts.t("REFERRAL_LIST_ITEM_REGISTERED").format(days=referral['days_since_registration']) + "\n"
+    text = (
+        texts.t("REFERRAL_LIST_HEADER").format(
+            current=referrals_data["current_page"],
+            total=referrals_data["total_pages"],
+        )
+        + "\n\n"
+    )
 
-        if referral['days_since_activity'] is not None:
-            text += texts.t("REFERRAL_LIST_ITEM_ACTIVITY").format(days=referral['days_since_activity']) + "\n"
+    for i, referral in enumerate(referrals_data["referrals"], 1):
+        status_emoji = "🟢" if referral["status"] == "active" else "🔴"
+
+        topup_emoji = "💰" if referral["has_made_first_topup"] else "⏳"
+
+        text += (
+            texts.t("REFERRAL_LIST_ITEM_HEADER").format(index=i, status=status_emoji, name=referral["full_name"]) + "\n"
+        )
+        text += texts.t("REFERRAL_LIST_ITEM_TOPUPS").format(emoji=topup_emoji, count=referral["topups_count"]) + "\n"
+        text += (
+            texts.t("REFERRAL_LIST_ITEM_EARNED").format(amount=texts.format_price(referral["total_earned_toman"]))
+            + "\n"
+        )
+        text += texts.t("REFERRAL_LIST_ITEM_REGISTERED").format(days=referral["days_since_registration"]) + "\n"
+
+        if referral["days_since_activity"] is not None:
+            text += texts.t("REFERRAL_LIST_ITEM_ACTIVITY").format(days=referral["days_since_activity"]) + "\n"
         else:
             text += texts.t("REFERRAL_LIST_ITEM_ACTIVITY_LONG_AGO") + "\n"
-        
+
         text += "\n"
-    
+
     keyboard = []
     nav_buttons = []
-    
-    if referrals_data['has_prev']:
-        nav_buttons.append(types.InlineKeyboardButton(
-            text=texts.t("REFERRAL_LIST_PREV_PAGE"),
-            callback_data=f"referral_list_page_{page - 1}"
-        ))
 
-    if referrals_data['has_next']:
-        nav_buttons.append(types.InlineKeyboardButton(
-            text=texts.t("REFERRAL_LIST_NEXT_PAGE"),
-            callback_data=f"referral_list_page_{page + 1}"
-        ))
-    
+    if referrals_data["has_prev"]:
+        nav_buttons.append(
+            types.InlineKeyboardButton(
+                text=texts.t("REFERRAL_LIST_PREV_PAGE"), callback_data=f"referral_list_page_{page - 1}"
+            )
+        )
+
+    if referrals_data["has_next"]:
+        nav_buttons.append(
+            types.InlineKeyboardButton(
+                text=texts.t("REFERRAL_LIST_NEXT_PAGE"), callback_data=f"referral_list_page_{page + 1}"
+            )
+        )
+
     if nav_buttons:
         keyboard.append(nav_buttons)
-    
-    keyboard.append([types.InlineKeyboardButton(
-        text=texts.BACK,
-        callback_data="menu_referrals"
-    )])
+
+    keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_referrals")])
 
     await edit_or_answer_photo(
         callback,
@@ -265,27 +281,50 @@ async def show_referral_analytics(
 
     # Get bot_id from user if not provided
     if bot_id is None:
-        bot_id = getattr(db_user, 'bot_id', None)
+        bot_id = getattr(db_user, "bot_id", None)
 
     analytics = await get_referral_analytics(db, db_user.id, bot_id=bot_id)
 
     text = texts.t("REFERRAL_ANALYTICS_TITLE") + "\n\n"
 
     text += texts.t("REFERRAL_ANALYTICS_EARNINGS_HEADER") + "\n"
-    text += texts.t("REFERRAL_ANALYTICS_EARNINGS_TODAY").format(amount=texts.format_price(analytics['earnings_by_period']['today'])) + "\n"
-    text += texts.t("REFERRAL_ANALYTICS_EARNINGS_WEEK").format(amount=texts.format_price(analytics['earnings_by_period']['week'])) + "\n"
-    text += texts.t("REFERRAL_ANALYTICS_EARNINGS_MONTH").format(amount=texts.format_price(analytics['earnings_by_period']['month'])) + "\n"
-    text += texts.t("REFERRAL_ANALYTICS_EARNINGS_QUARTER").format(amount=texts.format_price(analytics['earnings_by_period']['quarter'])) + "\n\n"
+    text += (
+        texts.t("REFERRAL_ANALYTICS_EARNINGS_TODAY").format(
+            amount=texts.format_price(analytics["earnings_by_period"]["today"])
+        )
+        + "\n"
+    )
+    text += (
+        texts.t("REFERRAL_ANALYTICS_EARNINGS_WEEK").format(
+            amount=texts.format_price(analytics["earnings_by_period"]["week"])
+        )
+        + "\n"
+    )
+    text += (
+        texts.t("REFERRAL_ANALYTICS_EARNINGS_MONTH").format(
+            amount=texts.format_price(analytics["earnings_by_period"]["month"])
+        )
+        + "\n"
+    )
+    text += (
+        texts.t("REFERRAL_ANALYTICS_EARNINGS_QUARTER").format(
+            amount=texts.format_price(analytics["earnings_by_period"]["quarter"])
+        )
+        + "\n\n"
+    )
 
-    if analytics['top_referrals']:
-        text += texts.t("REFERRAL_ANALYTICS_TOP_TITLE").format(count=len(analytics['top_referrals'])) + "\n"
-        for i, ref in enumerate(analytics['top_referrals'], 1):
-            text += texts.t("REFERRAL_ANALYTICS_TOP_ITEM").format(
-                index=i,
-                name=ref['referral_name'],
-                amount=texts.format_price(ref['total_earned_toman']),
-                count=ref['earnings_count'],
-            ) + "\n"
+    if analytics["top_referrals"]:
+        text += texts.t("REFERRAL_ANALYTICS_TOP_TITLE").format(count=len(analytics["top_referrals"])) + "\n"
+        for i, ref in enumerate(analytics["top_referrals"], 1):
+            text += (
+                texts.t("REFERRAL_ANALYTICS_TOP_ITEM").format(
+                    index=i,
+                    name=ref["referral_name"],
+                    amount=texts.format_price(ref["total_earned_toman"]),
+                    count=ref["earnings_count"],
+                )
+                + "\n"
+            )
         text += "\n"
 
     text += texts.t("REFERRAL_ANALYTICS_FOOTER")
@@ -293,17 +332,14 @@ async def show_referral_analytics(
     await edit_or_answer_photo(
         callback,
         text,
-        types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_referrals")]
-        ]),
+        types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_referrals")]]
+        ),
     )
     await callback.answer()
 
 
-async def create_invite_message(
-    callback: types.CallbackQuery,
-    db_user: User
-):
+async def create_invite_message(callback: types.CallbackQuery, db_user: User):
     texts = get_texts(db_user.language)
 
     bot_username = (await callback.bot.get_me()).username
@@ -327,24 +363,17 @@ async def create_invite_message(
         + f"\n{referral_link}"
     )
 
-    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(
-            text=texts.t("REFERRAL_SHARE_BUTTON"),
-            switch_inline_query=invite_text
-        )],
-        [types.InlineKeyboardButton(
-            text=texts.BACK,
-            callback_data="menu_referrals"
-        )]
-    ])
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text=texts.t("REFERRAL_SHARE_BUTTON"), switch_inline_query=invite_text)],
+            [types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_referrals")],
+        ]
+    )
 
     await edit_or_answer_photo(
         callback,
         (
-            texts.t("REFERRAL_INVITE_CREATED_TITLE")
-            + "\n\n"
-            + texts.t("REFERRAL_INVITE_CREATED_INSTRUCTION")
-            + "\n\n"
+            texts.t("REFERRAL_INVITE_CREATED_TITLE") + "\n\n" + texts.t("REFERRAL_INVITE_CREATED_INSTRUCTION") + "\n\n"
             f"<code>{invite_text}</code>"
         ),
         keyboard,
@@ -353,35 +382,19 @@ async def create_invite_message(
 
 
 def register_handlers(dp: Dispatcher):
-    
-    dp.callback_query.register(
-        show_referral_info,
-        F.data == "menu_referrals"
-    )
-    
-    dp.callback_query.register(
-        create_invite_message,
-        F.data == "referral_create_invite"
-    )
+    dp.callback_query.register(show_referral_info, F.data == "menu_referrals")
+
+    dp.callback_query.register(create_invite_message, F.data == "referral_create_invite")
+
+    dp.callback_query.register(show_referral_qr, F.data == "referral_show_qr")
+
+    dp.callback_query.register(show_detailed_referral_list, F.data == "referral_list")
+
+    dp.callback_query.register(show_referral_analytics, F.data == "referral_analytics")
 
     dp.callback_query.register(
-        show_referral_qr,
-        F.data == "referral_show_qr"
-    )
-    
-    dp.callback_query.register(
-        show_detailed_referral_list,
-        F.data == "referral_list"
-    )
-    
-    dp.callback_query.register(
-        show_referral_analytics,
-        F.data == "referral_analytics"
-    )
-    
-    dp.callback_query.register(
         lambda callback, db_user, db: show_detailed_referral_list(
-            callback, db_user, db, int(callback.data.split('_')[-1])
+            callback, db_user, db, int(callback.data.split("_")[-1])
         ),
-        F.data.startswith("referral_list_page_")
+        F.data.startswith("referral_list_page_"),
     )

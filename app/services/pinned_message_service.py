@@ -54,11 +54,7 @@ async def set_active_pinned_message(
 
     previous_active = await get_active_pinned_message(db)
 
-    await db.execute(
-        update(PinnedMessage)
-        .where(PinnedMessage.is_active.is_(True))
-        .values(is_active=False)
-    )
+    await db.execute(update(PinnedMessage).where(PinnedMessage.is_active.is_(True)).values(is_active=False))
 
     pinned_message = PinnedMessage(
         content=sanitized_content,
@@ -67,9 +63,7 @@ async def set_active_pinned_message(
         is_active=True,
         created_by=creator_id,
         send_before_menu=(
-            send_before_menu
-            if send_before_menu is not None
-            else getattr(previous_active, "send_before_menu", True)
+            send_before_menu if send_before_menu is not None else getattr(previous_active, "send_before_menu", True)
         ),
         send_on_every_start=(
             send_on_every_start

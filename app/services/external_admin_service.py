@@ -50,9 +50,7 @@ async def ensure_external_admin_token(
         async with AsyncSessionLocal() as session:
             result = await session.execute(
                 select(SystemSetting.key, SystemSetting.value).where(
-                    SystemSetting.key.in_(
-                        ["EXTERNAL_ADMIN_TOKEN", "EXTERNAL_ADMIN_TOKEN_BOT_ID"]
-                    )
+                    SystemSetting.key.in_(["EXTERNAL_ADMIN_TOKEN", "EXTERNAL_ADMIN_TOKEN_BOT_ID"])
                 )
             )
             rows = dict(result.all())
@@ -121,15 +119,9 @@ async def ensure_external_admin_token(
                 # Token matches, but values might be missing in application settings
                 if settings.get_external_admin_token() != (existing_token or token):
                     settings.EXTERNAL_ADMIN_TOKEN = existing_token or token
-                if existing_bot_id is not None and (
-                    settings.EXTERNAL_ADMIN_TOKEN_BOT_ID != existing_bot_id
-                ):
+                if existing_bot_id is not None and (settings.EXTERNAL_ADMIN_TOKEN_BOT_ID != existing_bot_id):
                     settings.EXTERNAL_ADMIN_TOKEN_BOT_ID = existing_bot_id
-                elif (
-                    bot_id is not None
-                    and settings.EXTERNAL_ADMIN_TOKEN_BOT_ID != bot_id
-                    and existing_bot_id is None
-                ):
+                elif bot_id is not None and settings.EXTERNAL_ADMIN_TOKEN_BOT_ID != bot_id and existing_bot_id is None:
                     settings.EXTERNAL_ADMIN_TOKEN_BOT_ID = bot_id
                 return existing_token or token
 
@@ -157,4 +149,3 @@ async def ensure_external_admin_token(
     except SQLAlchemyError as error:
         logger.error("❌ Failed to persist external admin token: %s", error)
         return None
-

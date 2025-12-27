@@ -39,10 +39,9 @@ from app.utils.timezone import TimezoneAwareFormatter
 
 
 class GracefulExit:
-    
     def __init__(self):
         self.exit = False
-        
+
     def exit_gracefully(self, signum, frame):
         logging.getLogger(__name__).info(f"Received signal {signum}. Shutting down gracefully...")
         self.exit = True
@@ -50,11 +49,11 @@ class GracefulExit:
 
 async def main():
     formatter = TimezoneAwareFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         timezone_name=settings.TIMEZONE,
     )
 
-    file_handler = logging.FileHandler(settings.LOG_FILE, encoding='utf-8')
+    file_handler = logging.FileHandler(settings.LOG_FILE, encoding="utf-8")
     file_handler.setFormatter(formatter)
 
     stream_handler = logging.StreamHandler(sys.stdout)
@@ -64,7 +63,7 @@ async def main():
         level=getattr(logging, settings.LOG_LEVEL),
         handlers=[file_handler, stream_handler],
     )
-    
+
     # Set higher logging level for "noisy" loggers
     logging.getLogger("aiohttp.access").setLevel(logging.ERROR)
     logging.getLogger("aiohttp.client").setLevel(logging.WARNING)
@@ -73,7 +72,7 @@ async def main():
     logging.getLogger("aiogram").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
     logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
-    
+
     logger = logging.getLogger(__name__)
     timeline = StartupTimeline(logger, "Capitan VPN Core")  # Rebranded Name
     timeline.log_banner(
@@ -83,9 +82,7 @@ async def main():
         ]
     )
 
-    async with timeline.stage(
-        "Localization Setup", "🗂️", success_message="Locale templates ready"
-    ) as stage:
+    async with timeline.stage("Localization Setup", "🗂️", success_message="Locale templates ready") as stage:
         try:
             ensure_locale_templates()
         except Exception as error:
@@ -95,7 +92,7 @@ async def main():
     killer = GracefulExit()
     signal.signal(signal.SIGINT, killer.exit_gracefully)
     signal.signal(signal.SIGTERM, killer.exit_gracefully)
-    
+
     web_app = None
     monitoring_task = None
     maintenance_task = None
@@ -110,12 +107,10 @@ async def main():
     summary_logged = False
 
     try:
-        async with timeline.stage(
-            "Database Initialization", "🗄️", success_message="Database ready"
-        ):
+        async with timeline.stage("Database Initialization", "🗄️", success_message="Database ready"):
             await init_db()
 
-        skip_migration = os.getenv('SKIP_MIGRATION', 'false').lower() == 'true'
+        skip_migration = os.getenv("SKIP_MIGRATION", "false").lower() == "true"
 
         if not skip_migration:
             async with timeline.stage(
@@ -128,12 +123,8 @@ async def main():
                     if migration_success:
                         stage.success("Migration completed successfully")
                     else:
-                        stage.warning(
-                            "Migration finished with warnings, continuing startup"
-                        )
-                        logger.warning(
-                            "⚠️ Migration finished with warnings, but continuing startup"
-                        )
+                        stage.warning("Migration finished with warnings, continuing startup")
+                        logger.warning("⚠️ Migration finished with warnings, but continuing startup")
                 except Exception as migration_error:
                     stage.warning(f"Migration error: {migration_error}")
                     logger.error(f"❌ Migration error: {migration_error}")
@@ -165,7 +156,7 @@ async def main():
             try:
                 from app.database.database import AsyncSessionLocal
                 from app.database.crud.init_master_bot import ensure_master_bot
-                
+
                 async with AsyncSessionLocal() as db:
                     success, message = await ensure_master_bot(db)
                     if success:
@@ -180,17 +171,17 @@ async def main():
 
         # Multi-bot initialization
         from app.bot import initialize_all_bots, active_bots, active_dispatchers
-        
+
         bot = None
         dp = None
         async with timeline.stage("Bot Setup", "🤖", success_message="Bot configured") as stage:
             initialized_bots = await initialize_all_bots()
-            
+
             if not initialized_bots:
                 stage.warning("No bots initialized")
                 logger.error("❌ No bots initialized, cannot continue")
                 return
-            
+
             # For backward compatibility, use first bot for services
             # In multi-tenant mode, services should use bot from context
             first_bot_id = list(initialized_bots.keys())[0]
@@ -295,9 +286,7 @@ async def main():
                     times_text = ", ".join(t.strftime("%H:%M") for t in status.times) or "—"
                     if status.next_run:
                         next_run_text = status.next_run.strftime("%d.%m.%Y %H:%M")
-                        stage.log(
-                            f"Active: schedule {times_text}, next run {next_run_text}"
-                        )
+                        stage.log(f"Active: schedule {times_text}, next run {next_run_text}")
                     else:
                         stage.log(f"Active: schedule {times_text}")
                 else:
@@ -332,17 +321,9 @@ async def main():
 
             if verification_providers:
                 hours = int(PENDING_MAX_AGE.total_seconds() // 3600)
-                stage.log(
-                    "Pending payments automatically tracked not older than "
-                    f"{hours}h"
-                )
-                stage.log(
-                    "Manual verification available for: "
-                    + ", ".join(sorted(verification_providers))
-                )
-                stage.success(
-                    f"Active providers: {len(verification_providers)}"
-                )
+                stage.log(f"Pending payments automatically tracked not older than {hours}h")
+                stage.log("Manual verification available for: " + ", ".join(sorted(verification_providers)))
+                stage.success(f"Active providers: {len(verification_providers)}")
             else:
                 stage.skip("No active providers for manual verification")
 
@@ -350,17 +331,10 @@ async def main():
                 auto_methods = get_enabled_auto_methods()
                 if auto_methods:
                     interval_minutes = settings.get_payment_verification_auto_check_interval()
-                    auto_labels = ", ".join(
-                        sorted(method_display_name(method) for method in auto_methods)
-                    )
-                    stage.log(
-                        "Auto-check every "
-                        f"{interval_minutes} min: {auto_labels}"
-                    )
+                    auto_labels = ", ".join(sorted(method_display_name(method) for method in auto_methods))
+                    stage.log(f"Auto-check every {interval_minutes} min: {auto_labels}")
                 else:
-                    stage.log(
-                        "Auto-check enabled, but no active providers"
-                    )
+                    stage.log("Auto-check enabled, but no active providers")
             else:
                 stage.log("Auto-check disabled by settings")
 
@@ -384,7 +358,7 @@ async def main():
                     stage.log("Token synchronized")
                 else:
                     stage.warning("Failed to get external admin token")
-            except Exception as error: 
+            except Exception as error:
                 stage.warning(f"External admin setup error: {error}")
                 logger.error("❌ External admin setup error: %s", error)
 
@@ -459,14 +433,29 @@ async def main():
                 else:
                     # Set webhooks for all active bots
                     from urllib.parse import urljoin
-                    
+
                     allowed_updates = dp.resolve_used_update_types()
                     webhooks_set = 0
-                    
+
                     for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
-                        # Use bot-specific webhook URL: /webhook/{bot_id}
-                        bot_webhook_url = urljoin(base_webhook_url.rstrip('/') + '/', f'webhook/{bot_id}')
-                        
+                        # Get bot_token from database for webhook URL (PRD FR2.1)
+                        from app.database.database import get_db
+                        from app.database.crud.bot import get_bot_by_id
+
+                        bot_token = None
+                        async for db in get_db():
+                            bot_config = await get_bot_by_id(db, bot_id)
+                            if bot_config:
+                                bot_token = bot_config.telegram_bot_token
+                            break
+
+                        if not bot_token:
+                            stage.warning(f"Bot {bot_id} not found in database, skipping webhook")
+                            continue
+
+                        # Use bot_token in webhook URL (PRD FR2.1)
+                        bot_webhook_url = urljoin(base_webhook_url.rstrip("/") + "/", f"webhook/{bot_token}")
+
                         try:
                             await bot_instance.set_webhook(
                                 url=bot_webhook_url,
@@ -479,9 +468,11 @@ async def main():
                         except Exception as e:
                             stage.warning(f"❌ Failed to set webhook for bot {bot_id}: {e}")
                             logger.error(f"Failed to set webhook for bot {bot_id}: {e}", exc_info=True)
-                    
+
                     if webhooks_set > 0:
-                        stage.log(f"Allowed updates: {', '.join(sorted(allowed_updates)) if allowed_updates else 'all'}")
+                        stage.log(
+                            f"Allowed updates: {', '.join(sorted(allowed_updates)) if allowed_updates else 'all'}"
+                        )
                         stage.success(f"Telegram webhooks active for {webhooks_set} bot(s)")
                     else:
                         stage.warning("No webhooks were set successfully")
@@ -507,9 +498,7 @@ async def main():
             elif not maintenance_service._check_task or maintenance_service._check_task.done():
                 maintenance_task = asyncio.create_task(maintenance_service.start_monitoring())
                 stage.log(f"Check interval: {settings.MAINTENANCE_CHECK_INTERVAL}s")
-                stage.log(
-                    f"Retry attempts: {settings.get_maintenance_retry_attempts()}"
-                )
+                stage.log(f"Retry attempts: {settings.get_maintenance_retry_attempts()}")
             else:
                 maintenance_task = None
                 stage.skip("Maintenance service already active")
@@ -521,9 +510,7 @@ async def main():
         ) as stage:
             if settings.is_version_check_enabled():
                 version_check_task = asyncio.create_task(version_service.start_periodic_check())
-                stage.log(
-                    f"Check interval: {settings.VERSION_CHECK_INTERVAL_HOURS}h"
-                )
+                stage.log(f"Check interval: {settings.VERSION_CHECK_INTERVAL_HOURS}h")
             else:
                 version_check_task = None
                 stage.skip("Version check disabled by settings")
@@ -536,14 +523,13 @@ async def main():
             if polling_enabled:
                 # Start polling for all active bots
                 from app.bot import polling_tasks as bot_polling_tasks
+
                 bot_polling_tasks.clear()  # Clear any existing tasks
                 polling_tasks.clear()  # Clear local list for backward compatibility
-                
+
                 for bot_id, (bot_instance, dp_instance) in initialized_bots.items():
                     try:
-                        task = asyncio.create_task(
-                            dp_instance.start_polling(bot_instance, skip_updates=True)
-                        )
+                        task = asyncio.create_task(dp_instance.start_polling(bot_instance, skip_updates=True))
                         bot_polling_tasks[bot_id] = task  # Store in global dict
                         polling_tasks.append(task)  # Also store in local list for backward compatibility
                         stage.log(f"✅ Started polling for bot ID: {bot_id} ({bot_instance.token[:10]}...)")
@@ -551,10 +537,10 @@ async def main():
                     except Exception as e:
                         stage.warning(f"❌ Failed to start polling for bot {bot_id}: {e}")
                         logger.error(f"❌ Failed to start polling for bot {bot_id}: {e}", exc_info=True)
-                
+
                 # For backward compatibility, keep reference to first bot's polling task
                 polling_task = polling_tasks[0] if polling_tasks else None
-                
+
                 if polling_tasks:
                     stage.log(f"skip_updates=True for {len(polling_tasks)} bot(s)")
                     stage.success(f"Polling active for {len(polling_tasks)} bot(s)")
@@ -577,9 +563,7 @@ async def main():
         if settings.TRIBUTE_ENABLED:
             webhook_lines.append(f"Tribute: {_fmt(settings.TRIBUTE_WEBHOOK_PATH)}")
         if settings.is_mulenpay_enabled():
-            webhook_lines.append(
-                f"{settings.get_mulenpay_display_name()}: {_fmt(settings.MULENPAY_WEBHOOK_PATH)}"
-            )
+            webhook_lines.append(f"{settings.get_mulenpay_display_name()}: {_fmt(settings.MULENPAY_WEBHOOK_PATH)}")
         if settings.is_cryptobot_enabled():
             webhook_lines.append(f"CryptoBot: {_fmt(settings.CRYPTOBOT_WEBHOOK_PATH)}")
         if settings.is_yookassa_enabled():
@@ -603,39 +587,31 @@ async def main():
             f"Version Check: {'On' if version_check_task else 'Off'}",
             f"Reporting: {'On' if reporting_service.is_running() else 'Off'}",
         ]
+        services_lines.append("Payment Verification: " + ("On" if verification_providers else "Off"))
         services_lines.append(
-            "Payment Verification: "
-            + ("On" if verification_providers else "Off")
-        )
-        services_lines.append(
-            "Auto Payment Check: "
-            + (
-                "On"
-                if auto_payment_verification_service.is_running()
-                else "Off"
-            )
+            "Auto Payment Check: " + ("On" if auto_payment_verification_service.is_running() else "Off")
         )
         timeline.log_section("Active Background Services", services_lines, icon="📄")
 
         timeline.log_summary()
         summary_logged = True
-        
+
         try:
             while not killer.exit:
                 await asyncio.sleep(1)
-                
+
                 if monitoring_task.done():
                     exception = monitoring_task.exception()
                     if exception:
                         logger.error(f"Monitoring service failed: {exception}")
                         monitoring_task = asyncio.create_task(monitoring_service.start_monitoring())
-                        
+
                 if maintenance_task and maintenance_task.done():
                     exception = maintenance_task.exception()
                     if exception:
                         logger.error(f"Maintenance service failed: {exception}")
                         maintenance_task = asyncio.create_task(maintenance_service.start_monitoring())
-                
+
                 if version_check_task and version_check_task.done():
                     exception = version_check_task.exception()
                     if exception:
@@ -645,9 +621,7 @@ async def main():
                             version_check_task = asyncio.create_task(version_service.start_periodic_check())
 
                 if auto_verification_active and not auto_payment_verification_service.is_running():
-                    logger.warning(
-                        "Auto payment verification service stopped, restarting..."
-                    )
+                    logger.warning("Auto payment verification service stopped, restarting...")
                     await auto_payment_verification_service.start()
                     auto_verification_active = auto_payment_verification_service.is_running()
 
@@ -665,14 +639,14 @@ async def main():
                     if exception:
                         logger.error(f"❌ Polling failed: {exception}")
                         break
-                        
+
         except Exception as e:
             logger.error(f"Error in main loop: {e}")
-            
+
     except Exception as e:
         logger.error(f"❌ Critical startup error: {e}")
         raise
-        
+
     finally:
         if not summary_logged:
             timeline.log_summary()
@@ -683,9 +657,7 @@ async def main():
         try:
             await auto_payment_verification_service.stop()
         except Exception as error:
-            logger.error(
-                f"Error stopping auto payment verification: {error}"
-            )
+            logger.error(f"Error stopping auto payment verification: {error}")
 
         if monitoring_task and not monitoring_task.done():
             logger.info("ℹ️ Stopping monitoring service...")
@@ -704,7 +676,7 @@ async def main():
                 await maintenance_task
             except asyncio.CancelledError:
                 pass
-        
+
         if version_check_task and not version_check_task.done():
             logger.info("ℹ️ Stopping version check service...")
             version_check_task.cancel()
@@ -742,7 +714,7 @@ async def main():
             await backup_service.stop_auto_backup()
         except Exception as e:
             logger.error(f"Error stopping backup service: {e}")
-        
+
         # Stop all polling tasks
         if polling_enabled and polling_tasks:
             logger.info(f"ℹ️ Stopping polling for {len(polling_tasks)} bot(s)...")
@@ -763,8 +735,8 @@ async def main():
                 await polling_task
             except asyncio.CancelledError:
                 pass
-        
-        if telegram_webhook_enabled and 'bot' in locals():
+
+        if telegram_webhook_enabled and "bot" in locals():
             logger.info("ℹ️ Removing Telegram webhook...")
             try:
                 await bot.delete_webhook(drop_pending_updates=False)
@@ -778,14 +750,14 @@ async def main():
                 logger.info("✅ Admin Web API stopped")
             except Exception as error:
                 logger.error(f"Error stopping Web API: {error}")
-        
-        if 'bot' in locals():
+
+        if "bot" in locals():
             try:
                 await bot.session.close()
                 logger.info("✅ Bot session closed")
             except Exception as e:
                 logger.error(f"Error closing bot session: {e}")
-        
+
         logger.info("✅ Bot shutdown completed")
 
 

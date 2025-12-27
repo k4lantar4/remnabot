@@ -1,4 +1,5 @@
 """Security utilities and key generation."""
+
 from __future__ import annotations
 
 import hashlib

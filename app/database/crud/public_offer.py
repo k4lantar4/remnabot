@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_public_offer(db: AsyncSession, language: str) -> Optional[PublicOffer]:
-    result = await db.execute(
-        select(PublicOffer).where(PublicOffer.language == language)
-    )
+    result = await db.execute(select(PublicOffer).where(PublicOffer.language == language))
     return result.scalar_one_or_none()
 
 

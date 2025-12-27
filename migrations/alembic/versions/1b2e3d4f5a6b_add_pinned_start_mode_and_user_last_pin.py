@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '1b2e3d4f5a6b'
-down_revision = '7a3c0b8f5b84'
+revision = "1b2e3d4f5a6b"
+down_revision = "7a3c0b8f5b84"
 branch_labels = None
 depends_on = None
 
@@ -34,15 +34,15 @@ def upgrade():
     if _table_exists(inspector, "pinned_messages"):
         if not _column_exists(inspector, "pinned_messages", "send_on_every_start"):
             op.add_column(
-                'pinned_messages',
-                sa.Column('send_on_every_start', sa.Boolean(), nullable=False, server_default='1'),
+                "pinned_messages",
+                sa.Column("send_on_every_start", sa.Boolean(), nullable=False, server_default="1"),
             )
 
     if _table_exists(inspector, "users"):
         if not _column_exists(inspector, "users", "last_pinned_message_id"):
             op.add_column(
-                'users',
-                sa.Column('last_pinned_message_id', sa.Integer(), nullable=True),
+                "users",
+                sa.Column("last_pinned_message_id", sa.Integer(), nullable=True),
             )
 
 
@@ -51,7 +51,7 @@ def downgrade():
     inspector = sa.inspect(bind)
 
     if _column_exists(inspector, "users", "last_pinned_message_id"):
-        op.drop_column('users', 'last_pinned_message_id')
+        op.drop_column("users", "last_pinned_message_id")
 
     if _column_exists(inspector, "pinned_messages", "send_on_every_start"):
-        op.drop_column('pinned_messages', 'send_on_every_start')
+        op.drop_column("pinned_messages", "send_on_every_start")

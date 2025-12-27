@@ -31,11 +31,11 @@ def _format_preview_block(text: str) -> str:
 
 def _build_logs_message(log_path: Path, language: str = "en") -> str:
     texts = get_texts(language)
-    
+
     if not log_path.exists():
         message = texts.t(
             "ADMIN_LOGS_NOT_CREATED",
-            "🧾 <b>System logs</b>\n\nFile <code>{log_path}</code> has not been created yet.\nLogs will appear automatically after the first entry."
+            "🧾 <b>System logs</b>\n\nFile <code>{log_path}</code> has not been created yet.\nLogs will appear automatically after the first entry.",
         ).format(log_path=log_path)
         return message
 
@@ -44,8 +44,7 @@ def _build_logs_message(log_path: Path, language: str = "en") -> str:
     except Exception as error:
         logger.error("Error reading log file %s: %s", log_path, error)
         message = texts.t(
-            "ADMIN_LOGS_READ_ERROR",
-            "❌ <b>Error reading logs</b>\n\nFailed to read file <code>{log_path}</code>."
+            "ADMIN_LOGS_READ_ERROR", "❌ <b>Error reading logs</b>\n\nFailed to read file <code>{log_path}</code>."
         ).format(log_path=log_path)
         return message
 
@@ -60,13 +59,19 @@ def _build_logs_message(log_path: Path, language: str = "en") -> str:
         preview_text = content[-LOG_PREVIEW_LIMIT:]
         truncated = total_length > LOG_PREVIEW_LIMIT
 
-    truncated_text = texts.t("ADMIN_LOGS_SHOWING_LAST", "👇 Showing last {count} characters.").format(count=LOG_PREVIEW_LIMIT) if truncated else texts.t("ADMIN_LOGS_SHOWING_ALL", "📄 Showing entire file content.")
+    truncated_text = (
+        texts.t("ADMIN_LOGS_SHOWING_LAST", "👇 Showing last {count} characters.").format(count=LOG_PREVIEW_LIMIT)
+        if truncated
+        else texts.t("ADMIN_LOGS_SHOWING_ALL", "📄 Showing entire file content.")
+    )
 
     details_lines = [
         texts.t("ADMIN_LOGS_TITLE", "🧾 <b>System logs</b>"),
         "",
         texts.t("ADMIN_LOGS_FILE", "📁 <b>File:</b> <code>{log_path}</code>").format(log_path=log_path),
-        texts.t("ADMIN_LOGS_UPDATED", "🕒 <b>Updated:</b> {time}").format(time=updated_at.strftime('%d.%m.%Y %H:%M:%S')),
+        texts.t("ADMIN_LOGS_UPDATED", "🕒 <b>Updated:</b> {time}").format(
+            time=updated_at.strftime("%d.%m.%Y %H:%M:%S")
+        ),
         texts.t("ADMIN_LOGS_SIZE", "🧮 <b>Size:</b> {size} characters").format(size=total_length),
         truncated_text,
         "",
@@ -80,8 +85,17 @@ def _get_logs_keyboard(language: str = "en") -> InlineKeyboardMarkup:
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t("ADMIN_LOGS_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_system_logs_refresh")],
-            [InlineKeyboardButton(text=texts.t("ADMIN_LOGS_BTN_DOWNLOAD", "⬇️ Download log"), callback_data="admin_system_logs_download")],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_LOGS_BTN_REFRESH", "🔄 Refresh"), callback_data="admin_system_logs_refresh"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t("ADMIN_LOGS_BTN_DOWNLOAD", "⬇️ Download log"),
+                    callback_data="admin_system_logs_download",
+                )
+            ],
             [InlineKeyboardButton(text=texts.BACK, callback_data="admin_submenu_system")],
         ]
     )
@@ -140,7 +154,7 @@ async def download_system_logs(
         updated_at = datetime.fromtimestamp(stats.st_mtime).strftime("%d.%m.%Y %H:%M:%S")
         caption = texts.t(
             "ADMIN_LOGS_CAPTION",
-            "🧾 Log file <code>{filename}</code>\n📁 Path: <code>{path}</code>\n🕒 Updated: {updated}"
+            "🧾 Log file <code>{filename}</code>\n📁 Path: <code>{path}</code>\n🕒 Updated: {updated}",
         ).format(filename=log_path.name, path=log_path, updated=updated_at)
         await callback.message.answer_document(document=document, caption=caption, parse_mode="HTML")
     except Exception as error:
@@ -148,7 +162,7 @@ async def download_system_logs(
         await callback.message.answer(
             texts.t(
                 "ADMIN_LOGS_SEND_ERROR",
-                "❌ <b>Failed to send log file</b>\n\nCheck application logs or try again later."
+                "❌ <b>Failed to send log file</b>\n\nCheck application logs or try again later.",
             ),
             parse_mode="HTML",
         )

@@ -12,7 +12,7 @@ _PRIVACY_RESTRICTED_CODE = "BUTTON_USER_PRIVACY_RESTRICTED"
 
 
 def is_qr_message(message: Message) -> bool:
-    return bool(message.caption and message.caption.startswith("\U0001F517 Your referral link"))
+    return bool(message.caption and message.caption.startswith("\U0001f517 Your referral link"))
 
 
 _original_answer = Message.answer
@@ -162,4 +162,3 @@ def patch_message_methods():
         return
     Message.answer = _answer_with_photo
     Message.edit_text = _edit_with_photo
-
