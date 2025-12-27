@@ -2012,6 +2012,7 @@ class MenuLayoutHistory(Base):
     __tablename__ = "menu_layout_history"
 
     id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, nullable=False, index=True)  # Tenant isolation
     config_json = Column(Text, nullable=False)
     action = Column(String(100), nullable=False)
     changes_summary = Column(Text, nullable=False)
@@ -2026,6 +2027,7 @@ class ButtonClickLog(Base):
     __tablename__ = "button_click_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, nullable=False, index=True)  # Tenant isolation
     button_id = Column(Integer, nullable=False, index=True)
     button_type = Column(String(50), nullable=True)
     button_text = Column(String(255), nullable=True)

@@ -9,6 +9,7 @@ from sqlalchemy import select, func, and_, desc, case, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.tenant_context import require_current_tenant
 from app.database.models import ButtonClickLog
 
 
@@ -62,7 +63,9 @@ class MenuLayoutStatsService:
         button_text: Optional[str] = None,
     ) -> ButtonClickLog:
         """Записать клик по кнопке."""
+        bot_id = require_current_tenant()
         click_log = ButtonClickLog(
+            bot_id=bot_id,
             button_id=button_id,
             user_id=user_id,
             callback_data=callback_data,
@@ -86,16 +89,24 @@ class MenuLayoutStatsService:
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=days)
 
+        bot_id = require_current_tenant()
+
         # Общее количество кликов
         total_result = await db.execute(
-            select(func.count(ButtonClickLog.id)).where(ButtonClickLog.button_id == button_id)
+            select(func.count(ButtonClickLog.id)).where(
+                and_(ButtonClickLog.button_id == button_id, ButtonClickLog.bot_id == bot_id)
+            )
         )
         clicks_total = total_result.scalar() or 0
 
         # Клики сегодня
         today_result = await db.execute(
             select(func.count(ButtonClickLog.id)).where(
-                and_(ButtonClickLog.button_id == button_id, ButtonClickLog.clicked_at >= today_start)
+                and_(
+                    ButtonClickLog.button_id == button_id,
+                    ButtonClickLog.bot_id == bot_id,
+                    ButtonClickLog.clicked_at >= today_start
+                )
             )
         )
         clicks_today = today_result.scalar() or 0

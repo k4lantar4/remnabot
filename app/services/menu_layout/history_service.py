@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant_context import require_current_tenant
 from app.database.models import MenuLayoutHistory
 
 
@@ -25,7 +26,9 @@ class MenuLayoutHistoryService:
         user_info: Optional[str] = None,
     ) -> MenuLayoutHistory:
         """Сохранить запись в историю изменений."""
+        bot_id = require_current_tenant()
         history = MenuLayoutHistory(
+            bot_id=bot_id,
             config_json=json.dumps(config, ensure_ascii=False),
             action=action,
             changes_summary=changes_summary or f"Action: {action}",
@@ -44,8 +47,13 @@ class MenuLayoutHistoryService:
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Получить историю изменений."""
+        bot_id = require_current_tenant()
         result = await db.execute(
-            select(MenuLayoutHistory).order_by(desc(MenuLayoutHistory.created_at)).limit(limit).offset(offset)
+            select(MenuLayoutHistory)
+            .where(MenuLayoutHistory.bot_id == bot_id)
+            .order_by(desc(MenuLayoutHistory.created_at))
+            .limit(limit)
+            .offset(offset)
         )
         entries = result.scalars().all()
 
@@ -63,7 +71,10 @@ class MenuLayoutHistoryService:
     @classmethod
     async def get_history_count(cls, db: AsyncSession) -> int:
         """Получить общее количество записей истории."""
-        result = await db.execute(select(func.count(MenuLayoutHistory.id)))
+        bot_id = require_current_tenant()
+        result = await db.execute(
+            select(func.count(MenuLayoutHistory.id)).where(MenuLayoutHistory.bot_id == bot_id)
+        )
         return result.scalar() or 0
 
     @classmethod
@@ -73,7 +84,11 @@ class MenuLayoutHistoryService:
         history_id: int,
     ) -> Optional[Dict[str, Any]]:
         """Получить конкретную запись истории с конфигурацией."""
-        result = await db.execute(select(MenuLayoutHistory).where(MenuLayoutHistory.id == history_id))
+        bot_id = require_current_tenant()
+        result = await db.execute(
+            select(MenuLayoutHistory)
+            .where(MenuLayoutHistory.id == history_id, MenuLayoutHistory.bot_id == bot_id)
+        )
         entry = result.scalar_one_or_none()
 
         if not entry:
