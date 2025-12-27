@@ -45,7 +45,7 @@ class Bot(Base):
     api_token_hash = Column(String(128), nullable=False, index=True)
     is_master = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    
+
     # Wallet & billing
     wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
@@ -1122,7 +1122,7 @@ class SubscriptionConversion(Base):
         # Access column value directly via instance state to avoid recursion
         state = object.__getattribute__(self, '_sa_instance_state')
         return state.dict.get('first_payment_amount_toman') or 0
-    
+
     def __repr__(self):
         return f"<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>"
 
@@ -2022,23 +2022,18 @@ class MenuLayoutHistory(Base):
         return f"<MenuLayoutHistory id={self.id} action='{self.action}' created_at={self.created_at}>"
 
 
-class ButtonClickLog(Base):
-    __tablename__ = "button_click_logs"
+# class ButtonClickLog(Base):
+#     __tablename__ = "button_click_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    button_id = Column(Integer, nullable=False, index=True)
-    button_type = Column(String(50), nullable=True)
-    button_text = Column(String(255), nullable=True)
-    user_id = Column(Integer, nullable=False, index=True)
-    clicked_at = Column(DateTime, default=func.now(), index=True)
+#     id = Column(Integer, primary_key=True, index=True)
+#     button_id = Column(Integer, nullable=False, index=True)
+#     button_type = Column(String(50), nullable=True)
+#     button_text = Column(String(255), nullable=True)
+#     user_id = Column(Integer, nullable=False, index=True)
+#     clicked_at = Column(DateTime, default=func.now())
 
-    __table_args__ = (
-        Index("ix_button_click_logs_button_user", "button_id", "user_id"),
-        Index("ix_button_click_logs_clicked_at", "clicked_at"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<ButtonClickLog id={self.id} button_id={self.button_id} user_id={self.user_id} clicked_at={self.clicked_at}>"
+#     def __repr__(self) -> str:
+#         return f"<ButtonClickLog id={self.id} button_id={self.button_id} user_id={self.user_id} clicked_at={self.clicked_at}>"
 
     @property
     def action_type_enum(self) -> MainMenuButtonActionType:
