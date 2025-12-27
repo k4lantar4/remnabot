@@ -117,6 +117,14 @@ class AdminStates(StatesGroup):
     # Tenant bots management
     waiting_for_bot_name = State()
     waiting_for_bot_token = State()
+    creating_tenant_bot_name = State()
+    creating_tenant_bot_token = State()
+    editing_tenant_bot_name = State()
+    editing_tenant_bot_language = State()
+    editing_tenant_bot_support = State()
+    editing_tenant_bot_notifications = State()
+    creating_tenant_plan = State()
+    editing_tenant_config_value = State()
 
     editing_rules_page = State()
     editing_privacy_policy = State()

@@ -2066,7 +2066,9 @@ class ButtonClickLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     button_id = Column(String(100), nullable=False, index=True)  # ID кнопки
-    user_id = Column(BigInteger, ForeignKey("users.telegram_id", ondelete="SET NULL"), nullable=True, index=True)
+    # Removed foreign key constraint: telegram_id is not unique in multi-tenant mode
+    # user_id stores telegram_id value but without FK constraint
+    user_id = Column(BigInteger, nullable=True, index=True)
     callback_data = Column(String(255), nullable=True)  # callback_data кнопки
     clicked_at = Column(DateTime, default=func.now(), index=True)
 
@@ -2079,8 +2081,7 @@ class ButtonClickLog(Base):
         Index("ix_button_click_logs_user_date", "user_id", "clicked_at"),
     )
 
-    # Связи
-    user = relationship("User", foreign_keys=[user_id])
+    # Note: No relationship defined since user_id references telegram_id which is not unique
 
     def __repr__(self) -> str:
         return f"<ButtonClickLog id={self.id} button='{self.button_id}' user={self.user_id} at={self.clicked_at}>"

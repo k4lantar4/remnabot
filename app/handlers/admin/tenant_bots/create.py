@@ -152,7 +152,7 @@ async def process_bot_token(
                     await start_bot_polling(bot.id, bot_instance, dp_instance)
 
                     # Setup webhook if enabled
-                    await setup_bot_webhook(bot.id, bot_instance)
+                    await setup_bot_webhook(bot.id, bot_instance, bot_config.telegram_bot_token)
 
                     logger.info(f"✅ Bot {bot.id} ({bot.name}) initialized and started successfully")
                 else:

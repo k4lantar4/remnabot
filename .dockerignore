@@ -44,3 +44,8 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Development artifacts (not needed in Docker image)
+.cursor/
+_bmad-output/
+_bmad/

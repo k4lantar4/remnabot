@@ -69,6 +69,7 @@ from app.handlers.admin import (
     faq as admin_faq,
     payments as admin_payments,
     trials as admin_trials,
+    tenant_bots as admin_tenant_bots,
 )
 from app.handlers import contests as user_contests
 from app.handlers.stars_payments import register_stars_handlers
@@ -146,16 +147,25 @@ async def setup_bot(bot_config: Optional[BotModel] = None) -> tuple[Bot, Dispatc
 
     dp = Dispatcher(storage=storage)
 
-    dp.message.middleware(GlobalErrorMiddleware())
-    dp.callback_query.middleware(GlobalErrorMiddleware())
-    dp.pre_checkout_query.middleware(GlobalErrorMiddleware())
+    try:
+        dp.message.middleware(GlobalErrorMiddleware())
+        dp.callback_query.middleware(GlobalErrorMiddleware())
+        dp.pre_checkout_query.middleware(GlobalErrorMiddleware())
+        logger.debug("GlobalErrorMiddleware registered")
+    except Exception as e:
+        logger.error(f"Failed to register GlobalErrorMiddleware: {e}", exc_info=True)
+        raise
 
     # Bot Context Middleware - injects bot_id and bot_config
-    bot_context_middleware = BotContextMiddleware()
-    dp.message.middleware(bot_context_middleware)
-    dp.callback_query.middleware(bot_context_middleware)
-    dp.pre_checkout_query.middleware(bot_context_middleware)
-    logger.info("✅ BotContextMiddleware registered")
+    try:
+        bot_context_middleware = BotContextMiddleware()
+        dp.message.middleware(bot_context_middleware)
+        dp.callback_query.middleware(bot_context_middleware)
+        dp.pre_checkout_query.middleware(bot_context_middleware)
+        logger.info("✅ BotContextMiddleware registered")
+    except Exception as e:
+        logger.error(f"Failed to register BotContextMiddleware: {e}", exc_info=True)
+        raise
 
     dp.message.middleware(LoggingMiddleware())
     dp.callback_query.middleware(LoggingMiddleware())
@@ -229,9 +239,12 @@ async def setup_bot(bot_config: Optional[BotModel] = None) -> tuple[Bot, Dispatc
     admin_faq.register_handlers(dp)
     admin_payments.register_handlers(dp)
     admin_trials.register_handlers(dp)
-    from app.handlers.admin import tenant_bots
-
-    tenant_bots.register_handlers(dp)
+    try:
+        admin_tenant_bots.register_handlers(dp)
+        logger.info("✅ Tenant bots handlers registered")
+    except Exception as e:
+        logger.error(f"❌ Failed to register tenant bots handlers: {e}", exc_info=True)
+        raise
     admin_bulk_ban.register_bulk_ban_handlers(dp)
     admin_blacklist.register_blacklist_handlers(dp)
     common.register_handlers(dp)
@@ -273,31 +286,49 @@ async def initialize_all_bots() -> Dict[int, tuple[Bot, Dispatcher]]:
 
     logger.info("🚀 Initializing all active bots from database...")
 
-    async with AsyncSessionLocal() as db:
-        bots = await get_active_bots(db)
+    try:
+        async with AsyncSessionLocal() as db:
+            logger.debug("Database session created, fetching active bots...")
+            bots = await get_active_bots(db)
+            logger.debug(f"Found {len(bots)} active bot(s) in database")
 
-        if not bots:
-            logger.warning("⚠️ No active bots found in database")
-            # Fallback to single bot from settings for backward compatibility
-            logger.info("📋 Falling back to single bot from BOT_TOKEN setting")
-            bot, dp = await setup_bot()
-            return {0: (bot, dp)}  # Use 0 as key for default bot
+            if not bots:
+                logger.warning("⚠️ No active bots found in database")
+                # Fallback to single bot from settings for backward compatibility
+                logger.info("📋 Falling back to single bot from BOT_TOKEN setting")
+                try:
+                    bot, dp = await setup_bot()
+                    logger.info("✅ Fallback bot initialized successfully")
+                    return {0: (bot, dp)}  # Use 0 as key for default bot
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize fallback bot: {e}", exc_info=True)
+                    raise
 
-        initialized = {}
-        for bot_config in bots:
-            try:
-                bot, dp = await setup_bot(bot_config)
-                active_bots[bot_config.id] = bot
-                active_dispatchers[bot_config.id] = dp
-                initialized[bot_config.id] = (bot, dp)
-                logger.info(
-                    f"✅ Bot initialized: {bot_config.name} (ID: {bot_config.id}, Master: {bot_config.is_master})"
-                )
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize bot {bot_config.id} ({bot_config.name}): {e}", exc_info=True)
+            initialized = {}
+            for bot_config in bots:
+                try:
+                    logger.debug(f"Initializing bot ID {bot_config.id} ({bot_config.name})...")
+                    bot, dp = await setup_bot(bot_config)
+                    active_bots[bot_config.id] = bot
+                    active_dispatchers[bot_config.id] = dp
+                    initialized[bot_config.id] = (bot, dp)
+                    logger.info(
+                        f"✅ Bot initialized: {bot_config.name} (ID: {bot_config.id}, Master: {bot_config.is_master})"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize bot {bot_config.id} ({bot_config.name}): {e}", exc_info=True)
+                    # Continue with other bots instead of failing completely
+                    continue
 
-        logger.info(f"🎉 Successfully initialized {len(initialized)} bot(s)")
-        return initialized
+            if not initialized:
+                logger.error("❌ No bots were successfully initialized")
+                raise RuntimeError("Failed to initialize any bots")
+
+            logger.info(f"🎉 Successfully initialized {len(initialized)} bot(s)")
+            return initialized
+    except Exception as e:
+        logger.error(f"❌ Critical error in initialize_all_bots: {e}", exc_info=True)
+        raise
 
 
 async def initialize_single_bot(bot_config: BotModel) -> tuple[Bot, Dispatcher] | None:

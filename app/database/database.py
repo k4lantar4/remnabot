@@ -400,10 +400,55 @@ batch_ops = BatchOperations()
 
 async def init_db():
     """DB initialization with optimizations"""
+    # #region agent log
+    import json, os
+    try:
+        log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"database.py:401","message":"init_db entry","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"A"})+"\n")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug(f"Debug log write failed: {e}")
+    # #endregion
     logger.info("🚀 Creating database tables...")
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # #region agent log
+    try:
+        log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"database.py:406","message":"before create_all","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"A"})+"\n")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug(f"Debug log write failed: {e}")
+    # #endregion
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        # #region agent log
+        try:
+            log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+            log_path = os.path.abspath(log_path)
+            with open(log_path, 'a') as f:
+                f.write(json.dumps({"location":"database.py:410","message":"create_all exception","data":{"error":str(e),"type":type(e).__name__},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"A"})+"\n")
+        except Exception as log_err:
+            import logging
+            logging.getLogger(__name__).debug(f"Debug log write failed: {log_err}")
+        # #endregion
+        raise
+    # #region agent log
+    try:
+        log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"database.py:412","message":"after create_all","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"A"})+"\n")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug(f"Debug log write failed: {e}")
+    # #endregion
 
     if not IS_SQLITE:
         logger.info("📊 Creating indexes for optimization...")

@@ -8,7 +8,7 @@ from app.database.models import User
 from app.database.crud.bot import get_bot_by_id
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler
-from app.utils.permissions import admin_required
+from app.utils.decorators import admin_required
 from app.services.bot_config_service import BotConfigService
 from .common import logger
 
@@ -75,7 +75,7 @@ async def test_bot_status(
                     # Setup webhook if enabled
                     telegram_webhook_enabled = bot_run_mode in {"webhook", "both"}
                     if telegram_webhook_enabled:
-                        await setup_bot_webhook(bot_id, bot_instance)
+                        await setup_bot_webhook(bot_id, bot_instance, bot_config.telegram_bot_token)
                         status_lines.append("✅ <b>Webhook configured</b>\n")
 
                     is_initialized = True

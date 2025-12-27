@@ -133,7 +133,7 @@ async def handle_potential_referral_code(
         RegistrationStates.waiting_for_rules_accept.state,
         RegistrationStates.waiting_for_privacy_policy_accept.state,
         RegistrationStates.waiting_for_referral_code.state,
-        None
+        None,
     ]:
         return False
 
@@ -142,11 +142,7 @@ async def handle_potential_referral_code(
         return False
 
     data = await state.get_data() or {}
-    language = (
-        data.get("language")
-        or (getattr(user, "language", None) if user else None)
-        or DEFAULT_LANGUAGE
-    )
+    language = data.get("language") or (getattr(user, "language", None) if user else None) or DEFAULT_LANGUAGE
     texts = get_texts(language)
 
     potential_code = message.text.strip()
@@ -156,22 +152,19 @@ async def handle_potential_referral_code(
     # First check referral code
     referrer = await get_user_by_referral_code(db, potential_code, bot_id=bot_id)
     if referrer:
-        data['referral_code'] = potential_code
-        data['referrer_id'] = referrer.id
+        data["referral_code"] = potential_code
+        data["referrer_id"] = referrer.id
         await state.set_data(data)
 
         await message.answer(texts.t("REFERRAL_CODE_ACCEPTED"))
         logger.info(f"✅ Referral code {potential_code} applied for user {message.from_user.id}")
 
         if current_state != RegistrationStates.waiting_for_referral_code.state:
-            language = data.get('language', DEFAULT_LANGUAGE)
+            language = data.get("language", DEFAULT_LANGUAGE)
             texts = get_texts(language)
 
             rules_text = await get_rules(language)
-            await message.answer(
-                rules_text,
-                reply_markup=get_rules_keyboard(language)
-            )
+            await message.answer(rules_text, reply_markup=get_rules_keyboard(language))
             await state.set_state(RegistrationStates.waiting_for_rules_accept)
             logger.info("📋 Rules sent after referral code input")
         else:
@@ -186,23 +179,18 @@ async def handle_potential_referral_code(
 
     if promocode_check["valid"]:
         # Promocode is valid - save it in state for activation after user creation
-        data['promocode'] = potential_code
+        data["promocode"] = potential_code
         await state.set_data(data)
 
-        await message.answer(
-            texts.t("PROMOCODE_ACCEPTED_WILL_ACTIVATE")
-        )
+        await message.answer(texts.t("PROMOCODE_ACCEPTED_WILL_ACTIVATE"))
         logger.info(f"✅ Promocode {potential_code} saved for activation for user {message.from_user.id}")
 
         if current_state != RegistrationStates.waiting_for_referral_code.state:
-            language = data.get('language', DEFAULT_LANGUAGE)
+            language = data.get("language", DEFAULT_LANGUAGE)
             texts = get_texts(language)
 
             rules_text = await get_rules(language)
-            await message.answer(
-                rules_text,
-                reply_markup=get_rules_keyboard(language)
-            )
+            await message.answer(rules_text, reply_markup=get_rules_keyboard(language))
             await state.set_state(RegistrationStates.waiting_for_rules_accept)
             logger.info("📋 Rules sent after promocode acceptance")
         else:
@@ -238,7 +226,7 @@ async def _continue_registration_after_language(
     bot_id: int = None,
 ) -> None:
     data = await state.get_data() or {}
-    language = data.get('language', DEFAULT_LANGUAGE)
+    language = data.get("language", DEFAULT_LANGUAGE)
     texts = get_texts(language)
 
     target_message = callback.message if callback else message
@@ -255,20 +243,19 @@ async def _continue_registration_after_language(
     if settings.SKIP_RULES_ACCEPT:
         logger.info("⚙️ LANGUAGE: SKIP_RULES_ACCEPT enabled - skipping rules")
 
-        if data.get('referral_code'):
-            referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
+        if data.get("referral_code"):
+            referrer = await get_user_by_referral_code(db, data["referral_code"], bot_id=bot_id)
             if referrer:
-                data['referrer_id'] = referrer.id
+                data["referrer_id"] = referrer.id
                 await state.set_data(data)
                 logger.info(f"✅ LANGUAGE: Referrer found: {referrer.id}")
 
-        if settings.SKIP_REFERRAL_CODE or data.get('referral_code'):
+        if settings.SKIP_REFERRAL_CODE or data.get("referral_code"):
             await _complete_registration_wrapper()
         else:
             try:
                 await target_message.answer(
-                    texts.t("REFERRAL_CODE_QUESTION"),
-                    reply_markup=get_referral_code_keyboard(language)
+                    texts.t("REFERRAL_CODE_QUESTION"), reply_markup=get_referral_code_keyboard(language)
                 )
                 await state.set_state(RegistrationStates.waiting_for_referral_code)
                 logger.info("🔍 LANGUAGE: Waiting for referral code input")
@@ -279,12 +266,11 @@ async def _continue_registration_after_language(
 
     rules_text = await get_rules(language)
     try:
-        await target_message.answer(
-            rules_text,
-            reply_markup=get_rules_keyboard(language)
-        )
+        await target_message.answer(rules_text, reply_markup=get_rules_keyboard(language))
     except TelegramForbiddenError:
-        logger.warning(f"⚠️ Пользователь {callback.from_user.id if callback else message.from_user.id} заблокировал бота, пропускаем отправку правил")
+        logger.warning(
+            f"⚠️ Пользователь {callback.from_user.id if callback else message.from_user.id} заблокировал бота, пропускаем отправку правил"
+        )
         return
     await state.set_state(RegistrationStates.waiting_for_rules_accept)
     logger.info("📋 LANGUAGE: Rules sent after language selection")
@@ -391,23 +377,15 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         texts = get_texts(user.language)
 
         if referral_code and not user.referred_by_id:
-            await message.answer(
-                texts.t("ALREADY_REGISTERED_REFERRAL")
-            )
+            await message.answer(texts.t("ALREADY_REGISTERED_REFERRAL"))
 
         if campaign:
             try:
-                await message.answer(
-                    texts.t("CAMPAIGN_EXISTING_USERL")
-                )
+                await message.answer(texts.t("CAMPAIGN_EXISTING_USERL"))
             except Exception as e:
-                logger.error(
-                    f"Error sending campaign notification: {e}"
-                )
+                logger.error(f"Error sending campaign notification: {e}")
 
-        has_active_subscription, subscription_is_active = _calculate_subscription_flags(
-            user.subscription
-        )
+        has_active_subscription, subscription_is_active = _calculate_subscription_flags(user.subscription)
 
         pinned_message = await get_active_pinned_message(db)
 
@@ -417,9 +395,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         menu_text = await get_main_menu_text(user, texts, db)
 
         is_admin = settings.is_admin(user.telegram_id)
-        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(
-            user.telegram_id
-        )
+        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
         if not settings.is_text_main_menu_mode():
@@ -443,11 +419,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
             is_moderator=is_moderator,
             custom_buttons=custom_buttons,
         )
-        await message.answer(
-            menu_text,
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
+        await message.answer(menu_text, reply_markup=keyboard, parse_mode="HTML")
 
         if pinned_message and not pinned_message.send_before_menu:
             await _send_pinned_message(message.bot, db, user, pinned_message)
@@ -458,38 +430,25 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         logger.info(f"🔄 Deleted user {user.telegram_id} starting re-registration")
         try:
             from app.services.user_service import UserService
-            from app.database.models import (
-                Subscription, Transaction, PromoCodeUse,
-                ReferralEarning, SubscriptionServer
-            )
+            from app.database.models import Subscription, Transaction, PromoCodeUse, ReferralEarning, SubscriptionServer
             from sqlalchemy import delete
 
             if user.subscription:
                 await decrement_subscription_server_counts(db, user.subscription)
                 await db.execute(
-                    delete(SubscriptionServer).where(
-                        SubscriptionServer.subscription_id == user.subscription.id
-                    )
+                    delete(SubscriptionServer).where(SubscriptionServer.subscription_id == user.subscription.id)
                 )
                 logger.info(f"🗑️ SubscriptionServer records deleted")
 
             if user.subscription:
                 await db.delete(user.subscription)
                 logger.info(f"🗑️ User subscription deleted")
-            await db.execute(
-                delete(PromoCodeUse).where(PromoCodeUse.user_id == user.id)
-            )
+            await db.execute(delete(PromoCodeUse).where(PromoCodeUse.user_id == user.id))
 
-            await db.execute(
-                delete(ReferralEarning).where(ReferralEarning.user_id == user.id)
-            )
-            await db.execute(
-                delete(ReferralEarning).where(ReferralEarning.referral_id == user.id)
-            )
+            await db.execute(delete(ReferralEarning).where(ReferralEarning.user_id == user.id))
+            await db.execute(delete(ReferralEarning).where(ReferralEarning.referral_id == user.id))
 
-            await db.execute(
-                delete(Transaction).where(Transaction.user_id == user.id)
-            )
+            await db.execute(delete(Transaction).where(Transaction.user_id == user.id))
 
             user.status = UserStatus.ACTIVE.value
             user.balance_toman = 0
@@ -504,6 +463,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
             user.last_activity = datetime.utcnow()
 
             from app.utils.user_utils import generate_unique_referral_code
+
             user.referral_code = await generate_unique_referral_code(db, user.telegram_id)
 
             await db.commit()
@@ -514,7 +474,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
     else:
         logger.info(f"🆕 New user, starting registration")
     data = await state.get_data() or {}
-    if not data.get('language'):
+    if not data.get("language"):
         if settings.is_language_selection_enabled():
             await _prompt_language_selection(message, state)
             return
@@ -525,7 +485,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
             else DEFAULT_LANGUAGE
         )
         normalized_default = default_language.split("-")[0].lower()
-        data['language'] = normalized_default
+        data["language"] = normalized_default
         await state.set_data(data)
         logger.info(
             "🌐 LANGUAGE: language selection disabled, setting default language '%s'",
@@ -547,9 +507,7 @@ async def process_language_selection(
     db: AsyncSession,
     bot_id: int = None,
 ):
-    logger.info(
-        f"🌐 LANGUAGE: User {callback.from_user.id} selected language ({callback.data})"
-    )
+    logger.info(f"🌐 LANGUAGE: User {callback.from_user.id} selected language ({callback.data})")
 
     if not settings.is_language_selection_enabled():
         data = await state.get_data() or {}
@@ -559,19 +517,15 @@ async def process_language_selection(
             else DEFAULT_LANGUAGE
         )
         normalized_default = default_language.split("-")[0].lower()
-        data['language'] = normalized_default
+        data["language"] = normalized_default
         await state.set_data(data)
 
         texts = get_texts(normalized_default)
 
         try:
-            await callback.message.edit_text(
-                texts.t(key="LANGUAGE_SELECTION_DISABLED")
-            )
+            await callback.message.edit_text(texts.t(key="LANGUAGE_SELECTION_DISABLED"))
         except Exception:
-            await callback.message.answer(
-                texts.t("LANGUAGE_SELECTION_DISABLED")
-            )
+            await callback.message.answer(texts.t("LANGUAGE_SELECTION_DISABLED"))
 
         await callback.answer()
 
@@ -609,21 +563,16 @@ async def process_language_selection(
     resolved_language = available_map[normalized_selected].lower()
 
     data = await state.get_data() or {}
-    data['language'] = resolved_language
+    data["language"] = resolved_language
     await state.set_data(data)
 
     texts = get_texts(resolved_language)
 
     try:
-        await callback.message.edit_text(
-            texts.t("LANGUAGE_SELECTED")
-        )
+        await callback.message.edit_text(texts.t("LANGUAGE_SELECTED"))
     except Exception as error:
-        logger.warning(
-            f"⚠️ LANGUAGE: Failed to update language selection message: {error}")
-        await callback.message.answer(
-            texts.t("LANGUAGE_SELECTED")
-        )
+        logger.warning(f"⚠️ LANGUAGE: Failed to update language selection message: {error}")
+        await callback.message.answer(texts.t("LANGUAGE_SELECTED"))
 
     await callback.answer()
 
@@ -662,20 +611,14 @@ async def _show_privacy_policy_after_rules(
         privacy_policy_text = policy.content
         logger.info(f"🔒 Using privacy policy from DB for language {language}")
     try:
-        await callback.message.edit_text(
-            privacy_policy_text,
-            reply_markup=get_privacy_policy_keyboard(language)
-        )
+        await callback.message.edit_text(privacy_policy_text, reply_markup=get_privacy_policy_keyboard(language))
         await state.set_state(RegistrationStates.waiting_for_privacy_policy_accept)
         logger.info(f"🔒 Privacy policy sent to user {callback.from_user.id}")
         return True
     except Exception as e:
         logger.error(f"Error showing privacy policy: {e}", exc_info=True)
         try:
-            await callback.message.answer(
-                privacy_policy_text,
-                reply_markup=get_privacy_policy_keyboard(language)
-            )
+            await callback.message.answer(privacy_policy_text, reply_markup=get_privacy_policy_keyboard(language))
             await state.set_state(RegistrationStates.waiting_for_privacy_policy_accept)
             logger.info(f"🔒 Privacy policy sent as new message to user {callback.from_user.id}")
             return True
@@ -697,12 +640,12 @@ async def _continue_registration_after_rules(
     data = await state.get_data() or {}
     texts = get_texts(language)
 
-    if data.get('referral_code'):
+    if data.get("referral_code"):
         logger.info(f"🎫 Referral code found from deep link: {data['referral_code']}")
 
-        referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
+        referrer = await get_user_by_referral_code(db, data["referral_code"], bot_id=bot_id)
         if referrer:
-            data['referrer_id'] = referrer.id
+            data["referrer_id"] = referrer.id
             await state.set_data(data)
             logger.info(f"✅ Referrer found: {referrer.id}")
 
@@ -714,8 +657,7 @@ async def _continue_registration_after_rules(
         else:
             try:
                 await callback.message.edit_text(
-                    texts.t("REFERRAL_CODE_QUESTION"),
-                    reply_markup=get_referral_code_keyboard(language)
+                    texts.t("REFERRAL_CODE_QUESTION"), reply_markup=get_referral_code_keyboard(language)
                 )
                 await state.set_state(RegistrationStates.waiting_for_referral_code)
                 logger.info(f"🔍 Waiting for referral code input")
@@ -746,22 +688,18 @@ async def process_rules_accept(
         await callback.answer()
 
         data = await state.get_data() or {}
-        language = data.get('language', language)
+        language = data.get("language", language)
         texts = get_texts(language)
 
-        if callback.data == 'rules_accept':
+        if callback.data == "rules_accept":
             logger.info(f"✅ Rules accepted by user {callback.from_user.id}")
 
             # Try to show privacy policy
-            policy_shown = await _show_privacy_policy_after_rules(
-                callback, state, db, language
-            )
+            policy_shown = await _show_privacy_policy_after_rules(callback, state, db, language)
 
             # If policy was not shown, continue registration
             if not policy_shown:
-                await _continue_registration_after_rules(
-                    callback, state, db, language, bot_id=bot_id
-                )
+                await _continue_registration_after_rules(callback, state, db, language, bot_id=bot_id)
 
         else:
             logger.info(f"❌ Rules declined by user {callback.from_user.id}")
@@ -769,17 +707,11 @@ async def process_rules_accept(
             rules_required_text = texts.t("RULES_REQUIRED")
 
             try:
-                await callback.message.edit_text(
-                    rules_required_text,
-                    reply_markup=get_rules_keyboard(language)
-                )
+                await callback.message.edit_text(rules_required_text, reply_markup=get_rules_keyboard(language))
             except Exception as e:
                 logger.error(f"Error showing rules decline message: {e}")
                 try:
-                    await callback.message.edit_text(
-                        rules_required_text,
-                        reply_markup=get_rules_keyboard(language)
-                    )
+                    await callback.message.edit_text(rules_required_text, reply_markup=get_rules_keyboard(language))
                 except:
                     pass
 
@@ -793,12 +725,9 @@ async def process_rules_accept(
 
         try:
             data = await state.get_data() or {}
-            language = data.get('language', language)
+            language = data.get("language", language)
             texts = get_texts(language)
-            await callback.message.answer(
-                texts.t("ERROR_RULES_RETRY"),
-                reply_markup=get_rules_keyboard(language)
-            )
+            await callback.message.answer(texts.t("ERROR_RULES_RETRY"), reply_markup=get_rules_keyboard(language))
             await state.set_state(RegistrationStates.waiting_for_rules_accept)
         except:
             pass
@@ -823,10 +752,10 @@ async def process_privacy_policy_accept(
         await callback.answer()
 
         data = await state.get_data() or {}
-        language = data.get('language', language)
+        language = data.get("language", language)
         texts = get_texts(language)
 
-        if callback.data == 'privacy_policy_accept':
+        if callback.data == "privacy_policy_accept":
             logger.info(f"✅ Privacy policy accepted by user {callback.from_user.id}")
             try:
                 await callback.message.delete()
@@ -834,19 +763,16 @@ async def process_privacy_policy_accept(
             except Exception as e:
                 logger.warning(f"⚠️ Failed to delete privacy policy message: {e}")
                 try:
-                    await callback.message.edit_text(
-                        texts.t("PRIVACY_POLICY_ACCEPTED_PROCESSING"),
-                        reply_markup=None
-                    )
+                    await callback.message.edit_text(texts.t("PRIVACY_POLICY_ACCEPTED_PROCESSING"), reply_markup=None)
                 except Exception:
                     pass
 
-            if data.get('referral_code'):
+            if data.get("referral_code"):
                 logger.info(f"🎫 Referral code found from deep link: {data['referral_code']}")
 
-                referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
+                referrer = await get_user_by_referral_code(db, data["referral_code"], bot_id=bot_id)
                 if referrer:
-                    data['referrer_id'] = referrer.id
+                    data["referrer_id"] = referrer.id
                     await state.set_data(data)
                     logger.info(f"✅ Referrer found: {referrer.id}")
 
@@ -863,7 +789,7 @@ async def process_privacy_policy_accept(
                         await callback.bot.send_message(
                             chat_id=callback.from_user.id,
                             text=texts.t("REFERRAL_CODE_QUESTION"),
-                            reply_markup=get_referral_code_keyboard(language)
+                            reply_markup=get_referral_code_keyboard(language),
                         )
                         logger.info(f"🔍 Waiting for referral code input")
                     except Exception as e:
@@ -877,15 +803,13 @@ async def process_privacy_policy_accept(
 
             try:
                 await callback.message.edit_text(
-                    privacy_policy_required_text,
-                    reply_markup=get_privacy_policy_keyboard(language)
+                    privacy_policy_required_text, reply_markup=get_privacy_policy_keyboard(language)
                 )
             except Exception as e:
                 logger.error(f"Error showing privacy policy decline message: {e}")
                 try:
                     await callback.message.edit_text(
-                        privacy_policy_required_text,
-                        reply_markup=get_privacy_policy_keyboard(language)
+                        privacy_policy_required_text, reply_markup=get_privacy_policy_keyboard(language)
                     )
                 except:
                     pass
@@ -898,11 +822,10 @@ async def process_privacy_policy_accept(
 
         try:
             data = await state.get_data() or {}
-            language = data.get('language', language)
+            language = data.get("language", language)
             texts = get_texts(language)
             await callback.message.answer(
-                texts.t("ERROR_PRIVACY_POLICY_RETRY"),
-                reply_markup=get_privacy_policy_keyboard(language)
+                texts.t("ERROR_PRIVACY_POLICY_RETRY"), reply_markup=get_privacy_policy_keyboard(language)
             )
             await state.set_state(RegistrationStates.waiting_for_privacy_policy_accept)
         except:
@@ -915,11 +838,10 @@ async def process_referral_code_input(
     db: AsyncSession,
     bot_id: int = None,
 ):
-
     logger.info(f"🎫 REFERRAL/PROMO: Processing code: {message.text}")
 
     data = await state.get_data() or {}
-    language = data.get('language', DEFAULT_LANGUAGE)
+    language = data.get("language", DEFAULT_LANGUAGE)
     texts = get_texts(language)
 
     code = message.text.strip()
@@ -927,7 +849,7 @@ async def process_referral_code_input(
     # First check if this is a referral code
     referrer = await get_user_by_referral_code(db, code, bot_id=bot_id)
     if referrer:
-        data['referrer_id'] = referrer.id
+        data["referrer_id"] = referrer.id
         await state.set_data(data)
         await message.answer(texts.t("REFERRAL_CODE_ACCEPTED"))
         logger.info(f"✅ Referral code applied: {code}")
@@ -941,19 +863,15 @@ async def process_referral_code_input(
 
     if promocode_check["valid"]:
         # Promocode is valid - save it in state for activation after user creation
-        data['promocode'] = code
+        data["promocode"] = code
         await state.set_data(data)
-        await message.answer(
-            texts.t("PROMOCODE_ACCEPTED_WILL_ACTIVATE")
-        )
+        await message.answer(texts.t("PROMOCODE_ACCEPTED_WILL_ACTIVATE"))
         logger.info(f"✅ Promocode saved for activation: {code}")
         await complete_registration(message, state, db, bot_id=bot_id)
         return
 
     # Neither referral code nor promocode found
-    await message.answer(
-        texts.t("REFERRAL_OR_PROMO_CODE_INVALID")
-    )
+    await message.answer(texts.t("REFERRAL_OR_PROMO_CODE_INVALID"))
     logger.info(f"❌ Invalid code (neither referral nor promocode): {code}")
     return
 
@@ -964,12 +882,11 @@ async def process_referral_code_skip(
     db: AsyncSession,
     bot_id: int = None,
 ):
-
     logger.info(f"⭐️ SKIP: Skipping referral code from user {callback.from_user.id}")
     await callback.answer()
 
     data = await state.get_data() or {}
-    language = data.get('language', DEFAULT_LANGUAGE)
+    language = data.get("language", DEFAULT_LANGUAGE)
     texts = get_texts(language)
 
     try:
@@ -978,15 +895,11 @@ async def process_referral_code_skip(
     except Exception as e:
         logger.warning(f"⚠️ Failed to delete referral code question message: {e}")
         try:
-            await callback.message.edit_text(
-                texts.t("REGISTRATION_COMPLETING"),
-                reply_markup=None
-            )
+            await callback.message.edit_text(texts.t("REGISTRATION_COMPLETING"), reply_markup=None)
         except:
             pass
 
     await complete_registration_from_callback(callback, state, db, bot_id=bot_id)
-
 
 
 async def complete_registration_from_callback(
@@ -999,22 +912,24 @@ async def complete_registration_from_callback(
 
     # Check if user is blacklisted
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        callback.from_user.id,
-        callback.from_user.username
+        callback.from_user.id, callback.from_user.username
     )
 
     if is_blacklisted:
         logger.warning(f"🚫 User {callback.from_user.id} is blacklisted: {blacklist_reason}")
         try:
             from app.localization.texts import get_texts
+
             data = await state.get_data() or {}
-            language = data.get('language', DEFAULT_LANGUAGE)
+            language = data.get("language", DEFAULT_LANGUAGE)
             texts = get_texts(language)
             await callback.message.answer(
-                texts.t("BLACKLIST_REGISTRATION_BLOCKED",
+                texts.t(
+                    "BLACKLIST_REGISTRATION_BLOCKED",
                     f"🚫 Registration is not possible\n\n"
                     f"Reason: {blacklist_reason}\n\n"
-                    f"If you believe this is an error, please contact support.")
+                    f"If you believe this is an error, please contact support.",
+                )
             )
         except Exception as e:
             logger.error(f"Error sending blacklist message: {e}")
@@ -1023,6 +938,7 @@ async def complete_registration_from_callback(
         return
 
     from sqlalchemy.orm import selectinload
+
     existing_user = await get_user_by_telegram_id(db, callback.from_user.id, bot_id=bot_id)
 
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
@@ -1030,24 +946,17 @@ async def complete_registration_from_callback(
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}
-        if data.get('referral_code') and not existing_user.referred_by_id:
-            await callback.message.answer(
-                texts.t("ALREADY_REGISTERED_REFERRAL")
-            )
+        if data.get("referral_code") and not existing_user.referred_by_id:
+            await callback.message.answer(texts.t("ALREADY_REGISTERED_REFERRAL"))
 
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
 
-        has_active_subscription, subscription_is_active = _calculate_subscription_flags(
-            existing_user.subscription
-        )
+        has_active_subscription, subscription_is_active = _calculate_subscription_flags(existing_user.subscription)
 
         menu_text = await get_main_menu_text(existing_user, texts, db)
 
         is_admin = settings.is_admin(existing_user.telegram_id)
-        is_moderator = (
-            (not is_admin)
-            and SupportSettingsService.is_moderator(existing_user.telegram_id)
-        )
+        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(existing_user.telegram_id)
 
         custom_buttons = []
         if not settings.is_text_main_menu_mode():
@@ -1072,34 +981,28 @@ async def complete_registration_from_callback(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             await _send_pinned_message(callback.bot, db, existing_user)
         except Exception as e:
             logger.error(f"Error showing main menu to existing user: {e}")
-            await callback.message.answer(
-                texts.t("WELCOME_FALLBACK").format(user_name=existing_user.full_name)
-            )
+            await callback.message.answer(texts.t("WELCOME_FALLBACK").format(user_name=existing_user.full_name))
 
         await state.clear()
         return
 
     data = await state.get_data() or {}
-    language = data.get('language', DEFAULT_LANGUAGE)
+    language = data.get("language", DEFAULT_LANGUAGE)
     texts = get_texts(language)
 
-    campaign_id = data.get('campaign_id')
-    is_new_user_registration = (
-        existing_user is None
-        or (
-            existing_user
-            and existing_user.status == UserStatus.DELETED.value
-        )
+    campaign_id = data.get("campaign_id")
+    is_new_user_registration = existing_user is None or (
+        existing_user and existing_user.status == UserStatus.DELETED.value
     )
 
-    referrer_id = data.get('referrer_id')
-    if not referrer_id and data.get('referral_code'):
-        referrer = await get_user_by_referral_code(db, data['referral_code'])
+    referrer_id = data.get("referrer_id")
+    if not referrer_id and data.get("referral_code"):
+        referrer = await get_user_by_referral_code(db, data["referral_code"])
         if referrer:
             referrer_id = referrer.id
 
@@ -1116,11 +1019,12 @@ async def complete_registration_from_callback(
         existing_user.has_had_paid_subscription = False
 
         from datetime import datetime
+
         existing_user.updated_at = datetime.utcnow()
         existing_user.last_activity = datetime.utcnow()
 
         await db.commit()
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
 
         user = existing_user
         logger.info(f"✅ User {callback.from_user.id} restored")
@@ -1141,7 +1045,7 @@ async def complete_registration_from_callback(
             referral_code=referral_code,
             bot_id=bot_id,
         )
-        await db.refresh(user, ['subscription'])
+        await db.refresh(user, ["subscription"])
     else:
         logger.info(f"🔄 Updating existing user {callback.from_user.id}")
         existing_user.status = UserStatus.ACTIVE.value
@@ -1150,11 +1054,12 @@ async def complete_registration_from_callback(
             existing_user.referred_by_id = referrer_id
 
         from datetime import datetime
+
         existing_user.updated_at = datetime.utcnow()
         existing_user.last_activity = datetime.utcnow()
 
         await db.commit()
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
         user = existing_user
 
     if referrer_id:
@@ -1193,6 +1098,7 @@ async def complete_registration_from_callback(
             logger.error(f"Error sending campaign bonus message: {e}")
 
     from app.database.crud.welcome_text import get_welcome_text_for_user
+
     offer_text = await get_welcome_text_for_user(db, callback.from_user)
 
     skip_welcome_offer = bool(campaign_id) and is_new_user_registration
@@ -1223,10 +1129,7 @@ async def complete_registration_from_callback(
         menu_text = await get_main_menu_text(user, texts, db)
 
         is_admin = settings.is_admin(user.telegram_id)
-        is_moderator = (
-            (not is_admin)
-            and SupportSettingsService.is_moderator(user.telegram_id)
-        )
+        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
         if not settings.is_text_main_menu_mode():
@@ -1251,14 +1154,12 @@ async def complete_registration_from_callback(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             logger.info(f"✅ Main menu shown to user {user.telegram_id}")
         except Exception as e:
             logger.error(f"Error showing main menu: {e}")
-            await callback.message.answer(
-                texts.t("WELCOME_FALLBACK").format(user_name=user.full_name)
-            )
+            await callback.message.answer(texts.t("WELCOME_FALLBACK").format(user_name=user.full_name))
 
     logger.info(f"✅ Registration completed for user: {user.telegram_id}")
 
@@ -1273,21 +1174,22 @@ async def complete_registration(
 
     # Check if user is blacklisted
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        message.from_user.id,
-        message.from_user.username
+        message.from_user.id, message.from_user.username
     )
 
     if is_blacklisted:
         logger.warning(f"🚫 User {message.from_user.id} is blacklisted: {blacklist_reason}")
         try:
             data = await state.get_data() or {}
-            language = data.get('language', DEFAULT_LANGUAGE)
+            language = data.get("language", DEFAULT_LANGUAGE)
             texts = get_texts(language)
             await message.answer(
-                texts.t("BLACKLIST_REGISTRATION_BLOCKED",
+                texts.t(
+                    "BLACKLIST_REGISTRATION_BLOCKED",
                     f"🚫 Registration is not possible\n\n"
                     f"Reason: {blacklist_reason}\n\n"
-                    f"If you believe this is an error, please contact support.")
+                    f"If you believe this is an error, please contact support.",
+                )
             )
         except Exception as e:
             logger.error(f"Error sending blacklist message: {e}")
@@ -1302,24 +1204,17 @@ async def complete_registration(
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}
-        if data.get('referral_code') and not existing_user.referred_by_id:
-            await message.answer(
-                texts.t("ALREADY_REGISTERED_REFERRAL")
-            )
+        if data.get("referral_code") and not existing_user.referred_by_id:
+            await message.answer(texts.t("ALREADY_REGISTERED_REFERRAL"))
 
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
 
-        has_active_subscription, subscription_is_active = _calculate_subscription_flags(
-            existing_user.subscription
-        )
+        has_active_subscription, subscription_is_active = _calculate_subscription_flags(existing_user.subscription)
 
         menu_text = await get_main_menu_text(existing_user, texts, db)
 
         is_admin = settings.is_admin(existing_user.telegram_id)
-        is_moderator = (
-            (not is_admin)
-            and SupportSettingsService.is_moderator(existing_user.telegram_id)
-        )
+        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(existing_user.telegram_id)
 
         custom_buttons = []
         if not settings.is_text_main_menu_mode():
@@ -1357,34 +1252,28 @@ async def complete_registration(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             await _send_pinned_message(message.bot, db, existing_user)
         except Exception as e:
             logger.error(f"Error showing main menu to existing user: {e}")
-            await message.answer(
-                texts.t("WELCOME_FALLBACK").format(user_name=existing_user.full_name)
-            )
+            await message.answer(texts.t("WELCOME_FALLBACK").format(user_name=existing_user.full_name))
 
         await state.clear()
         return
 
     data = await state.get_data() or {}
-    language = data.get('language', DEFAULT_LANGUAGE)
+    language = data.get("language", DEFAULT_LANGUAGE)
     texts = get_texts(language)
 
-    campaign_id = data.get('campaign_id')
-    is_new_user_registration = (
-        existing_user is None
-        or (
-            existing_user
-            and existing_user.status == UserStatus.DELETED.value
-        )
+    campaign_id = data.get("campaign_id")
+    is_new_user_registration = existing_user is None or (
+        existing_user and existing_user.status == UserStatus.DELETED.value
     )
 
-    referrer_id = data.get('referrer_id')
-    if not referrer_id and data.get('referral_code'):
-        referrer = await get_user_by_referral_code(db, data['referral_code'], bot_id=bot_id)
+    referrer_id = data.get("referrer_id")
+    if not referrer_id and data.get("referral_code"):
+        referrer = await get_user_by_referral_code(db, data["referral_code"], bot_id=bot_id)
         if referrer:
             referrer_id = referrer.id
 
@@ -1401,11 +1290,12 @@ async def complete_registration(
         existing_user.has_had_paid_subscription = False
 
         from datetime import datetime
+
         existing_user.updated_at = datetime.utcnow()
         existing_user.last_activity = datetime.utcnow()
 
         await db.commit()
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
 
         user = existing_user
         logger.info(f"✅ User {message.from_user.id} restored")
@@ -1426,7 +1316,7 @@ async def complete_registration(
             referral_code=referral_code,
             bot_id=bot_id,
         )
-        await db.refresh(user, ['subscription'])
+        await db.refresh(user, ["subscription"])
     else:
         logger.info(f"🔄 Updating existing user {message.from_user.id}")
         existing_user.status = UserStatus.ACTIVE.value
@@ -1435,11 +1325,12 @@ async def complete_registration(
             existing_user.referred_by_id = referrer_id
 
         from datetime import datetime
+
         existing_user.updated_at = datetime.utcnow()
         existing_user.last_activity = datetime.utcnow()
 
         await db.commit()
-        await db.refresh(existing_user, ['subscription'])
+        await db.refresh(existing_user, ["subscription"])
         user = existing_user
 
     if referrer_id:
@@ -1450,7 +1341,7 @@ async def complete_registration(
             logger.error(f"Error processing referral registration: {e}")
 
     # Activate promocode if it was saved in state
-    promocode_to_activate = data.get('promocode')
+    promocode_to_activate = data.get("promocode")
     if promocode_to_activate:
         try:
             from app.handlers.promocode import activate_promocode_for_registration
@@ -1465,7 +1356,9 @@ async def complete_registration(
                 )
                 logger.info(f"✅ Promocode {promocode_to_activate} activated for user {user.id}")
             else:
-                logger.warning(f"⚠️ Failed to activate promocode {promocode_to_activate}: {promocode_result.get('error')}")
+                logger.warning(
+                    f"⚠️ Failed to activate promocode {promocode_to_activate}: {promocode_result.get('error')}"
+                )
         except Exception as e:
             logger.error(f"❌ Error activating promocode {promocode_to_activate}: {e}")
 
@@ -1498,6 +1391,7 @@ async def complete_registration(
             logger.error(f"Error sending campaign bonus message: {e}")
 
     from app.database.crud.welcome_text import get_welcome_text_for_user
+
     offer_text = await get_welcome_text_for_user(db, message.from_user)
 
     skip_welcome_offer = bool(campaign_id) and is_new_user_registration
@@ -1528,10 +1422,7 @@ async def complete_registration(
         menu_text = await get_main_menu_text(user, texts, db)
 
         is_admin = settings.is_admin(user.telegram_id)
-        is_moderator = (
-            (not is_admin)
-            and SupportSettingsService.is_moderator(user.telegram_id)
-        )
+        is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
         if not settings.is_text_main_menu_mode():
@@ -1556,14 +1447,12 @@ async def complete_registration(
                     is_moderator=is_moderator,
                     custom_buttons=custom_buttons,
                 ),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             logger.info(f"✅ Main menu shown to user {user.telegram_id}")
         except Exception as e:
             logger.error(f"Error showing main menu: {e}")
-            await message.answer(
-                texts.t("WELCOME_FALLBACK").format(user_name=user.full_name)
-            )
+            await message.answer(texts.t("WELCOME_FALLBACK").format(user_name=user.full_name))
 
     logger.info(f"✅ Registration completed for user: {user.telegram_id}")
 
@@ -1639,19 +1528,16 @@ def get_referral_code_keyboard(language: str):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
     texts = get_texts(language)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=texts.t("REFERRAL_CODE_SKIP"),
-            callback_data="referral_skip"
-        )]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=texts.t("REFERRAL_CODE_SKIP"), callback_data="referral_skip")]]
+    )
+
 
 async def get_main_menu_text(user, texts, db: AsyncSession):
-
     import html
+
     base_text = texts.MAIN_MENU.format(
-        user_name=html.escape(user.full_name or ""),
-        subscription_status=_get_subscription_status(user, texts)
+        user_name=html.escape(user.full_name or ""), subscription_status=_get_subscription_status(user, texts)
     )
 
     action_prompt = texts.t("MAIN_MENU_ACTION_PROMPT")
@@ -1695,12 +1581,12 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
 
     return base_text
 
-async def get_main_menu_text_simple(user_name, texts, db: AsyncSession):
 
+async def get_main_menu_text_simple(user_name, texts, db: AsyncSession):
     import html
+
     base_text = texts.MAIN_MENU.format(
-        user_name=html.escape(user_name or ""),
-        subscription_status=_get_subscription_status_simple(texts)
+        user_name=html.escape(user_name or ""), subscription_status=_get_subscription_status_simple(texts)
     )
 
     action_prompt = texts.t("MAIN_MENU_ACTION_PROMPT")
@@ -1776,12 +1662,13 @@ async def required_sub_channel_check(
 
         texts = get_texts(language)
 
-        chat_member = await bot.get_chat_member(
-            chat_id=settings.CHANNEL_SUB_ID,
-            user_id=query.from_user.id
-        )
+        chat_member = await bot.get_chat_member(chat_id=settings.CHANNEL_SUB_ID, user_id=query.from_user.id)
 
-        if chat_member.status not in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
+        if chat_member.status not in [
+            ChatMemberStatus.MEMBER,
+            ChatMemberStatus.ADMINISTRATOR,
+            ChatMemberStatus.CREATOR,
+        ]:
             return await query.answer(
                 texts.t("CHANNEL_SUBSCRIBE_REQUIRED_ALERT"),
                 show_alert=True,
@@ -1789,10 +1676,7 @@ async def required_sub_channel_check(
 
         if user and user.subscription:
             subscription = user.subscription
-            if (
-                subscription.is_trial
-                and subscription.status == SubscriptionStatus.DISABLED.value
-            ):
+            if subscription.is_trial and subscription.status == SubscriptionStatus.DISABLED.value:
                 subscription.status = SubscriptionStatus.ACTIVE.value
                 subscription.updated_at = datetime.utcnow()
                 await db.commit()
@@ -1826,9 +1710,7 @@ async def required_sub_channel_check(
             logger.warning(f"Failed to delete message: {e}")
 
         if user and user.status != UserStatus.DELETED.value:
-            has_active_subscription, subscription_is_active = _calculate_subscription_flags(
-                user.subscription
-            )
+            has_active_subscription, subscription_is_active = _calculate_subscription_flags(user.subscription)
 
             menu_text = await get_main_menu_text(user, texts, db)
 
@@ -1836,10 +1718,7 @@ async def required_sub_channel_check(
             from aiogram.types import FSInputFile
 
             is_admin = settings.is_admin(user.telegram_id)
-            is_moderator = (
-                (not is_admin)
-                and SupportSettingsService.is_moderator(user.telegram_id)
-            )
+            is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
             custom_buttons = await MainMenuButtonService.get_buttons_for_user(
                 db,
@@ -1881,7 +1760,7 @@ async def required_sub_channel_check(
         else:
             from app.keyboards.inline import get_rules_keyboard
 
-            state_data['language'] = language
+            state_data["language"] = language
             await state.set_data(state_data)
 
             if settings.SKIP_RULES_ACCEPT:
@@ -1936,62 +1815,49 @@ async def required_sub_channel_check(
         logger.error(f"Error in required_sub_channel_check: {e}")
         await query.answer(f"{texts.ERROR}!", show_alert=True)
 
+
 def register_handlers(dp: Dispatcher):
     logger.info("🔧 === START of start.py handler registration ===")
 
-    dp.message.register(
-        cmd_start,
-        Command("start")
-    )
+    dp.message.register(cmd_start, Command("start"))
     logger.info("✅ Registered cmd_start")
 
     dp.callback_query.register(
         process_rules_accept,
         F.data.in_(["rules_accept", "rules_decline"]),
-        StateFilter(RegistrationStates.waiting_for_rules_accept)
+        StateFilter(RegistrationStates.waiting_for_rules_accept),
     )
     logger.info("✅ Registered process_rules_accept")
 
     dp.callback_query.register(
         process_privacy_policy_accept,
         F.data.in_(["privacy_policy_accept", "privacy_policy_decline"]),
-        StateFilter(RegistrationStates.waiting_for_privacy_policy_accept)
+        StateFilter(RegistrationStates.waiting_for_privacy_policy_accept),
     )
     logger.info("✅ Registered process_privacy_policy_accept")
 
     dp.callback_query.register(
         process_language_selection,
         F.data.startswith("language_select:"),
-        StateFilter(RegistrationStates.waiting_for_language)
+        StateFilter(RegistrationStates.waiting_for_language),
     )
     logger.info("✅ Registered process_language_selection")
 
     dp.callback_query.register(
-        process_referral_code_skip,
-        F.data == "referral_skip",
-        StateFilter(RegistrationStates.waiting_for_referral_code)
+        process_referral_code_skip, F.data == "referral_skip", StateFilter(RegistrationStates.waiting_for_referral_code)
     )
     logger.info("✅ Registered process_referral_code_skip")
 
-    dp.message.register(
-        process_referral_code_input,
-        StateFilter(RegistrationStates.waiting_for_referral_code)
-    )
+    dp.message.register(process_referral_code_input, StateFilter(RegistrationStates.waiting_for_referral_code))
     logger.info("✅ Registered process_referral_code_input")
 
     dp.message.register(
         handle_potential_referral_code,
-        StateFilter(
-            RegistrationStates.waiting_for_rules_accept,
-            RegistrationStates.waiting_for_referral_code
-        )
+        StateFilter(RegistrationStates.waiting_for_rules_accept, RegistrationStates.waiting_for_referral_code),
     )
     logger.info("✅ Registered handle_potential_referral_code")
 
-    dp.callback_query.register(
-        required_sub_channel_check,
-        F.data.in_(["sub_channel_check"])
-    )
+    dp.callback_query.register(required_sub_channel_check, F.data.in_(["sub_channel_check"]))
     logger.info("✅ Registered required_sub_channel_check")
 
     logger.info("🔧 === END of start.py handler registration ===")
