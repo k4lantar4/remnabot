@@ -9,7 +9,7 @@ from sqlalchemy import select, func, and_, desc, case, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-# from app.database.models import ButtonClickLog
+from app.database.models import ButtonClickLog
 
 
 def _utcnow() -> datetime:

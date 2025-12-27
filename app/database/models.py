@@ -2022,18 +2022,18 @@ class MenuLayoutHistory(Base):
         return f"<MenuLayoutHistory id={self.id} action='{self.action}' created_at={self.created_at}>"
 
 
-# class ButtonClickLog(Base):
-#     __tablename__ = "button_click_logs"
+class ButtonClickLog(Base):
+    __tablename__ = "button_click_logs"
 
-#     id = Column(Integer, primary_key=True, index=True)
-#     button_id = Column(Integer, nullable=False, index=True)
-#     button_type = Column(String(50), nullable=True)
-#     button_text = Column(String(255), nullable=True)
-#     user_id = Column(Integer, nullable=False, index=True)
-#     clicked_at = Column(DateTime, default=func.now())
+    id = Column(Integer, primary_key=True, index=True)
+    button_id = Column(Integer, nullable=False, index=True)
+    button_type = Column(String(50), nullable=True)
+    button_text = Column(String(255), nullable=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    clicked_at = Column(DateTime, default=func.now())
 
-#     def __repr__(self) -> str:
-#         return f"<ButtonClickLog id={self.id} button_id={self.button_id} user_id={self.user_id} clicked_at={self.clicked_at}>"
+    def __repr__(self) -> str:
+        return f"<ButtonClickLog id={self.id} button_id={self.button_id} user_id={self.user_id} clicked_at={self.clicked_at}>"
 
     @property
     def action_type_enum(self) -> MainMenuButtonActionType:
