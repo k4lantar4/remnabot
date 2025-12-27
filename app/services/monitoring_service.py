@@ -509,6 +509,12 @@ class MonitoringService:
         if not settings.CHANNEL_IS_REQUIRED_SUB:
             return
 
+        if not settings.CHANNEL_DISABLE_TRIAL_ON_UNSUBSCRIBE:
+            logger.debug(
+                "ℹ️ Channel unsubscription check disabled — trial subscription deactivation not required"
+            )
+            return
+
         channel_id = settings.CHANNEL_SUB_ID
         if not channel_id:
             return

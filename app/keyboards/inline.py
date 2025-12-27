@@ -5,19 +5,22 @@ from datetime import datetime, timezone
 from app.database.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings, PERIOD_PRICES, TRAFFIC_PRICES
+from app.config import settings
+# Lazy import to avoid hang during module import
+# PERIOD_PRICES and TRAFFIC_PRICES will be imported when needed
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_texts
-from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+# Lazy import to avoid circular dependency/hang issue
+# from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.pricing_utils import (
     format_period_description,
-    apply_percentage_discount,
 )
 from app.utils.price_display import PriceInfo, format_price_button
-from app.utils.subscription_utils import (
-    get_display_subscription_link,
-    get_happ_cryptolink_redirect_link,
-)
+# Lazy import to avoid circular dependency/hang issue
+# from app.utils.subscription_utils import (
+#     get_display_subscription_link,
+#     get_happ_cryptolink_redirect_link,
+# )
 import logging
 
 logger = logging.getLogger(__name__)
@@ -453,6 +456,7 @@ def get_main_menu_keyboard(
 
     if has_active_subscription and subscription_is_active:
         connect_mode = settings.CONNECT_BUTTON_MODE
+        from app.utils.subscription_utils import get_display_subscription_link
         subscription_link = get_display_subscription_link(subscription)
 
         def _fallback_connect_button() -> InlineKeyboardButton:
@@ -509,17 +513,10 @@ def get_main_menu_keyboard(
             keyboard.append(happ_row)
         paired_buttons.append(InlineKeyboardButton(text=texts.MENU_SUBSCRIPTION, callback_data="menu_subscription"))
 
-        # Добавляем кнопку докупки трафика для лимитированных подписок
-        if (
-            settings.BUY_TRAFFIC_BUTTON_VISIBLE
-            and subscription
-            and not subscription.is_trial
-            and (subscription.traffic_limit_gb or 0) > 0
-        ):
+        # Add button to buy additional traffic for limited subscriptions
+        if subscription and not subscription.is_trial and subscription.traffic_limit_gb > 0:
             paired_buttons.append(
-                InlineKeyboardButton(
-                    text=texts.t("BUY_TRAFFIC_BUTTON", "📈 Докупить трафик"), callback_data="buy_traffic"
-                )
+                InlineKeyboardButton(text=texts.t("BUY_TRAFFIC_BUTTON"), callback_data="buy_traffic")
             )
 
     keyboard.append([InlineKeyboardButton(text=balance_button_text, callback_data="menu_balance")])
@@ -574,10 +571,10 @@ def get_main_menu_keyboard(
     if settings.is_referral_program_enabled():
         paired_buttons.append(InlineKeyboardButton(text=texts.MENU_REFERRALS, callback_data="menu_referrals"))
 
-    # Добавляем кнопку конкурсов
+    # Add contests button
     if settings.CONTESTS_ENABLED and settings.CONTESTS_BUTTON_VISIBLE:
         paired_buttons.append(
-            InlineKeyboardButton(text=texts.t("CONTESTS_BUTTON", "🎲 Конкурсы"), callback_data="contests_menu")
+            InlineKeyboardButton(text=texts.t("CONTESTS_BUTTON"), callback_data="contests_menu")
         )
 
     try:
@@ -590,7 +587,7 @@ def get_main_menu_keyboard(
     if support_enabled:
         paired_buttons.append(InlineKeyboardButton(text=texts.MENU_SUPPORT, callback_data="menu_support"))
 
-    # Добавляем кнопку активации
+    # Add activation button
     if settings.ACTIVATE_BUTTON_VISIBLE:
         paired_buttons.append(InlineKeyboardButton(text=settings.ACTIVATE_BUTTON_TEXT, callback_data="activate_button"))
 
@@ -734,6 +731,7 @@ def get_happ_cryptolink_keyboard(
     redirect_link: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
+    from app.utils.subscription_utils import get_happ_cryptolink_redirect_link
     final_redirect_link = redirect_link or get_happ_cryptolink_redirect_link(subscription_link)
 
     buttons: List[List[InlineKeyboardButton]] = []
@@ -921,6 +919,7 @@ def get_subscription_keyboard(
     has_direct_payment_methods = False
 
     if has_subscription:
+        from app.utils.subscription_utils import get_display_subscription_link
         subscription_link = get_display_subscription_link(subscription) if subscription else None
         if subscription_link:
             connect_mode = settings.CONNECT_BUTTON_MODE
@@ -1137,6 +1136,7 @@ def get_subscription_period_keyboard(
 
     for days in available_periods:
         # Get base price for this period
+        from app.config import PERIOD_PRICES
         base_price = PERIOD_PRICES.get(days, 0)
 
         # Calculate personalized price with user's discounts
@@ -1475,10 +1475,13 @@ def get_payment_methods_keyboard(amount_toman: int, language: str = DEFAULT_LANG
         has_direct_payment_methods = True
 
     if settings.is_support_topup_enabled():
-        keyboard.append(
-            [InlineKeyboardButton(text=texts.t("PAYMENT_VIA_SUPPORT", "🛠️ Via support"), callback_data="topup_support")]
-        )
-
+        keyboard.append([
+            InlineKeyboardButton(
+                text=texts.t("PAYMENT_VIA_SUPPORT", "🛠️ Via support"),
+                callback_data="topup_support"
+            )
+        ])
+        
     if not keyboard:
         keyboard.append(
             [
@@ -1523,6 +1526,7 @@ def get_yookassa_payment_keyboard(
 
 
 def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+    from app.utils.miniapp_buttons import build_miniapp_or_callback_button
     texts = get_texts(language)
 
     return InlineKeyboardMarkup(
@@ -1542,6 +1546,7 @@ def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFA
 
 
 def get_subscription_expiring_keyboard(subscription_id: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+    from app.utils.miniapp_buttons import build_miniapp_or_callback_button
     texts = get_texts(language)
 
     return InlineKeyboardMarkup(
@@ -1747,8 +1752,9 @@ def get_add_traffic_keyboard(
     buttons = []
 
     for package in enabled_packages:
-        gb = package["gb"]
-        price_per_month = package["price"]
+        from app.utils.pricing_utils import apply_percentage_discount
+        gb = package['gb']
+        price_per_month = package['price']
         discounted_per_month, discount_per_month = apply_percentage_discount(
             price_per_month,
             discount_percent,
@@ -2050,8 +2056,7 @@ def get_connection_guide_keyboard(
     language: str = DEFAULT_LANGUAGE,
     has_other_apps: bool = False,
 ) -> InlineKeyboardMarkup:
-    from app.handlers.subscription import create_deep_link
-
+    from app.handlers.subscription.common import create_deep_link
     texts = get_texts(language)
 
     keyboard = []
@@ -2171,8 +2176,7 @@ def get_app_selection_keyboard(device_type: str, apps: list, language: str = DEF
 def get_specific_app_keyboard(
     subscription_url: str, app: dict, device_type: str, language: str = DEFAULT_LANGUAGE
 ) -> InlineKeyboardMarkup:
-    from app.handlers.subscription import create_deep_link
-
+    from app.handlers.subscription.common import create_deep_link
     texts = get_texts(language)
 
     keyboard = []

@@ -9,7 +9,12 @@ from app.config import settings
 from app.database.models import User
 from app.database.crud.bot import get_bot_by_id
 from app.database.crud.tenant_payment_card import get_next_card_for_rotation, update_card_usage
-from app.database.crud.card_to_card_payment import create_card_payment, get_payment_by_id, update_payment_status
+from app.services.bot_config_service import BotConfigService
+from app.database.crud.card_to_card_payment import (
+    create_card_payment,
+    get_payment_by_id,
+    update_payment_status
+)
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance
 from app.keyboards.inline import get_back_keyboard
@@ -44,10 +49,16 @@ async def start_card_to_card_payment(
     if not bot_config:
         await callback.answer(texts.t("PAYMENT_ERROR", "❌ Payment error occurred"), show_alert=True)
         return
-
-    # Check if card-to-card is enabled (we'll check via feature flag or bot config)
-    # For now, we'll proceed if bot exists
-
+    
+    # Check if card-to-card is enabled using BotConfigService
+    card_to_card_enabled = await BotConfigService.is_feature_enabled(db, bot_id, 'card_to_card')
+    if not card_to_card_enabled:
+        await callback.answer(
+            texts.t("CARD_TO_CARD_DISABLED", "❌ Card-to-card payments are disabled for this bot"),
+            show_alert=True
+        )
+        return
+    
     # Get next card (with rotation)
     card = await get_next_card_for_rotation(db, bot_id, strategy="round_robin")
     if not card:
@@ -180,10 +191,18 @@ async def send_admin_notification(db: AsyncSession, bot_id: int, payment, bot: B
     """Send payment notification to admin for review."""
     try:
         bot_config = await get_bot_by_id(db, bot_id)
-        if not bot_config or not bot_config.admin_chat_id:
+        if not bot_config:
+            logger.warning(f"Bot {bot_id} not found")
+            return
+        
+        # Get admin configs using BotConfigService
+        admin_chat_id = await BotConfigService.get_config(db, bot_id, 'ADMIN_NOTIFICATIONS_CHAT_ID')
+        if not admin_chat_id:
             logger.warning(f"No admin chat configured for bot {bot_id}")
             return
-
+        
+        card_receipt_topic_id = await BotConfigService.get_config(db, bot_id, 'CARD_RECEIPT_TOPIC_ID')
+        
         from app.database.crud.user import get_user_by_id
 
         user = await get_user_by_id(db, payment.user_id)
@@ -217,30 +236,36 @@ async def send_admin_notification(db: AsyncSession, bot_id: int, payment, bot: B
 
         # Send to admin
         try:
-            if hasattr(bot_config, "card_receipt_topic_id") and bot_config.card_receipt_topic_id:
+            if card_receipt_topic_id:
                 await bot.send_message(
-                    chat_id=bot_config.admin_chat_id,
-                    message_thread_id=bot_config.card_receipt_topic_id,
+                    chat_id=admin_chat_id,
+                    message_thread_id=card_receipt_topic_id,
                     text=message_text,
                     reply_markup=keyboard,
                     parse_mode="HTML",
                 )
             else:
                 await bot.send_message(
-                    chat_id=bot_config.admin_chat_id, text=message_text, reply_markup=keyboard, parse_mode="HTML"
+                    chat_id=admin_chat_id,
+                    text=message_text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
                 )
 
             # Send receipt image if available
             if payment.receipt_image_file_id:
                 try:
-                    if hasattr(bot_config, "card_receipt_topic_id") and bot_config.card_receipt_topic_id:
+                    if card_receipt_topic_id:
                         await bot.send_photo(
-                            chat_id=bot_config.admin_chat_id,
+                            chat_id=admin_chat_id,
                             photo=payment.receipt_image_file_id,
-                            message_thread_id=bot_config.card_receipt_topic_id,
+                            message_thread_id=card_receipt_topic_id
                         )
                     else:
-                        await bot.send_photo(chat_id=bot_config.admin_chat_id, photo=payment.receipt_image_file_id)
+                        await bot.send_photo(
+                            chat_id=admin_chat_id,
+                            photo=payment.receipt_image_file_id
+                        )
                 except Exception as photo_error:
                     logger.warning(f"Failed to send receipt photo: {photo_error}")
 

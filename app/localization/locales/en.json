@@ -2213,5 +2213,10 @@
   "ADMIN_TRAFFIC_INVALID": "❌ Traffic limit must be from 0 to 10000 GB (0 = unlimited)",
   "ADMIN_TRAFFIC_ENTER_VALID": "❌ Enter a valid GB number",
   "DISCOUNT_AMOUNT": " (discount {percent}%: -{amount} {currency})",
-  "APPLY_CHANGES_WITH_PRICE": "✅ Apply changes ({price} {currency})"
+  "APPLY_CHANGES_WITH_PRICE": "✅ Apply changes ({price} {currency})",
+  "SUBSCRIPTION_ALREADY_ACTIVE": "✅ Subscription is already active!",
+  "ACTIVATION_SUCCESS": "✅ Subscription activated for {period} days for {price} Toman!",
+  "INSUFFICIENT_FUNDS": "❌ Insufficient funds to activate subscription",
+  "BUY_TRAFFIC_BUTTON": "📈 Buy additional traffic",
+  "CONTESTS_BUTTON": "🎲 Contests"
 }

@@ -117,14 +117,32 @@ class AdminStates(StatesGroup):
     # Tenant bots management
     waiting_for_bot_name = State()
     waiting_for_bot_token = State()
+    
+    # Tenant bot creation (AC11)
     creating_tenant_bot_name = State()
     creating_tenant_bot_token = State()
+    creating_tenant_bot_language = State()
+    creating_tenant_bot_support = State()
+    creating_tenant_bot_plan = State()
+    
+    # Tenant bot editing (AC5)
     editing_tenant_bot_name = State()
     editing_tenant_bot_language = State()
     editing_tenant_bot_support = State()
     editing_tenant_bot_notifications = State()
-    creating_tenant_plan = State()
+    
+    # Configuration editing (AC9)
+    editing_tenant_config = State()
+    editing_tenant_config_key = State()
     editing_tenant_config_value = State()
+    
+    # Payment card management
+    adding_tenant_payment_card = State()
+    editing_tenant_payment_card = State()
+    
+    # Plan management (AC8)
+    creating_tenant_plan = State()
+    editing_tenant_plan = State()
 
     editing_rules_page = State()
     editing_privacy_policy = State()

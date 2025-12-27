@@ -255,7 +255,7 @@ class ChannelCheckerMiddleware(BaseMiddleware):
     async def _deactivate_trial_subscription(self, telegram_id: int) -> None:
         if not settings.CHANNEL_DISABLE_TRIAL_ON_UNSUBSCRIBE:
             logger.debug(
-                "ℹ️ Пропускаем деактивацию подписки пользователя %s: отключение при отписке выключено",
+                "ℹ️ Skipping subscription deactivation for user %s: unsubscription deactivation is disabled",
                 telegram_id,
             )
             return

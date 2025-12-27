@@ -89,7 +89,6 @@ def get_admin_users_submenu_keyboard(language: str = "ru") -> InlineKeyboardMark
         ]
     )
 
-
 def get_admin_promo_submenu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     texts = get_texts(language)
 

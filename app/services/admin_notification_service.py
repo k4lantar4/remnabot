@@ -1963,29 +1963,29 @@ class AdminNotificationService:
         successfully_banned: int,
         not_found: int,
         errors: int,
-        admin_name: str = "Администратор",
+        admin_name: str = "Administrator"
     ) -> bool:
-        """Отправляет уведомление о массовой блокировке пользователей"""
+        """Send notification about mass user blocking"""
         if not self._is_enabled():
             return False
 
         try:
             message_lines = [
-                "🛑 <b>МАССОВАЯ БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ</b>",
+                "🛑 <b>MASS USER BLOCKING</b>",
                 "",
-                f"👮 <b>Администратор:</b> {admin_name}",
-                f"🆔 <b>ID администратора:</b> {admin_user_id}",
+                f"👮 <b>Administrator:</b> {admin_name}",
+                f"🆔 <b>Admin ID:</b> {admin_user_id}",
                 "",
-                "📊 <b>Результаты:</b>",
-                f"✅ Успешно заблокировано: {successfully_banned}",
-                f"❌ Не найдено: {not_found}",
-                f"💥 Ошибок: {errors}",
+                "📊 <b>Results:</b>",
+                f"✅ Successfully banned: {successfully_banned}",
+                f"❌ Not found: {not_found}",
+                f"💥 Errors: {errors}"
             ]
 
             total_processed = successfully_banned + not_found + errors
             if total_processed > 0:
                 success_rate = (successfully_banned / total_processed) * 100
-                message_lines.append(f"📈 Успешность: {success_rate:.1f}%")
+                message_lines.append(f"📈 Success rate: {success_rate:.1f}%")
 
             message_lines.extend(
                 [

@@ -1,5 +1,4 @@
 """Configuration management handlers for tenant bots (AC9)."""
-
 import json
 from aiogram import types
 from aiogram.fsm.context import FSMContext
@@ -9,7 +8,7 @@ from app.database.models import User
 from app.database.crud.bot import get_bot_by_id
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler
-from app.utils.decorators import admin_required
+from app.utils.permissions import admin_required
 from app.services.bot_config_service import BotConfigService
 from app.states import AdminStates
 from .common import logger
@@ -127,32 +126,38 @@ async def show_bot_configuration_menu(
 ):
     """Show configuration management menu with categories (AC9)."""
     texts = get_texts(db_user.language)
-
+    
     try:
         bot_id = int(callback.data.split(":")[1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
         return
-
+    
     bot = await get_bot_by_id(db, bot_id)
     if not bot:
-        await callback.answer(texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
         return
-
+    
     text = texts.t(
         "ADMIN_TENANT_BOT_CONFIG",
         """🔧 <b>Configuration: {name}</b>
 
-Select a category to manage configurations.""",
+Select a category to manage configurations."""
     ).format(name=bot.name)
-
+    
     # Build keyboard with category buttons
     keyboard_buttons = []
     row = []
     for category_key, category_info in CONFIG_CATEGORIES.items():
         button = types.InlineKeyboardButton(
             text=f"{category_info['icon']} {category_info['name']}",
-            callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}",
+            callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}"
         )
         row.append(button)
         if len(row) == 2:
@@ -160,14 +165,17 @@ Select a category to manage configurations.""",
             row = []
     if row:
         keyboard_buttons.append(row)
-
+    
     # Back button
-    keyboard_buttons.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data=f"admin_tenant_bot_detail:{bot_id}")]
-    )
-
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text=texts.BACK,
+            callback_data=f"admin_tenant_bot_detail:{bot_id}"
+        )
+    ])
+    
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-
+    
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
@@ -181,42 +189,51 @@ async def show_config_category(
 ):
     """Show configuration values for a specific category (AC9)."""
     texts = get_texts(db_user.language)
-
+    
     try:
         # Parse callback: admin_tenant_bot_config_{category}:{bot_id}
         parts = callback.data.split(":")
         if len(parts) != 2:
             raise ValueError("Invalid callback format")
-
+        
         category_key = parts[0].replace("admin_tenant_bot_config_", "")
         bot_id = int(parts[1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
         return
-
+    
     if category_key not in CONFIG_CATEGORIES:
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid category"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid category"),
+            show_alert=True
+        )
         return
-
+    
     bot = await get_bot_by_id(db, bot_id)
     if not bot:
-        await callback.answer(texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
         return
-
+    
     category_info = CONFIG_CATEGORIES[category_key]
-
+    
     # Fetch all config values for this category
     config_values = {}
     for config_key in category_info["keys"]:
         value = await BotConfigService.get_config(db, bot_id, config_key)
         config_values[config_key] = value
-
+    
     # Build display text
     lines = [
         f"{category_info['icon']} <b>{category_info['name']}: {bot.name}</b>",
         "",
     ]
-
+    
     for config_key in category_info["keys"]:
         value = config_values.get(config_key)
         display_value = str(value) if value is not None else "Not set"
@@ -224,11 +241,11 @@ async def show_config_category(
             display_value = "✅ Enabled" if value else "❌ Disabled"
         elif isinstance(value, (dict, list)):
             display_value = f"[Complex: {type(value).__name__}]"
-
+        
         lines.append(f"<b>{config_key}:</b> {display_value}")
-
+    
     text = "\n".join(lines)
-
+    
     # Build keyboard with edit buttons
     # Use shorter callback format to avoid Telegram's 64-byte limit
     keyboard_buttons = []
@@ -236,9 +253,9 @@ async def show_config_category(
         # Shortened format: cfg_edit:{bot_id}:{category}:{key}
         # This saves ~22 chars compared to admin_tenant_bot_config_edit:
         callback_data = f"cfg_edit:{bot_id}:{category_key}:{config_key}"
-
+        
         # Telegram limit is 64 bytes - verify we're under
-        callback_bytes = len(callback_data.encode("utf-8"))
+        callback_bytes = len(callback_data.encode('utf-8'))
         if callback_bytes > 64:
             # This shouldn't happen with current config keys, but handle gracefully
             logger.error(
@@ -249,16 +266,24 @@ async def show_config_category(
             # Don't truncate - it would break parsing. Instead, skip this button
             # or use an alternative approach. For now, we'll skip to avoid invalid callback_data
             continue
-
-        keyboard_buttons.append([types.InlineKeyboardButton(text=f"✏️ Edit {config_key}", callback_data=callback_data)])
-
+        
+        keyboard_buttons.append([
+            types.InlineKeyboardButton(
+                text=f"✏️ Edit {config_key}",
+                callback_data=callback_data
+            )
+        ])
+    
     # Back button
-    keyboard_buttons.append(
-        [types.InlineKeyboardButton(text=texts.BACK, callback_data=f"admin_tenant_bot_config:{bot_id}")]
-    )
-
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text=texts.BACK,
+            callback_data=f"admin_tenant_bot_config:{bot_id}"
+        )
+    ])
+    
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-
+    
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
@@ -273,7 +298,7 @@ async def start_edit_config(
 ):
     """Start editing a configuration value (AC9)."""
     texts = get_texts(db_user.language)
-
+    
     try:
         # Parse: cfg_edit:{bot_id}:{category}:{config_key}
         # Support both old and new format for backward compatibility
@@ -285,33 +310,45 @@ async def start_edit_config(
             parts = callback.data.replace("cfg_edit:", "").split(":")
         else:
             raise ValueError("Invalid callback format")
-
+        
         if len(parts) != 3:
             raise ValueError("Invalid callback format")
-
+        
         bot_id = int(parts[0])
         category_key = parts[1]
         config_key = parts[2]
     except (ValueError, IndexError):
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request"),
+            show_alert=True
+        )
         return
-
+    
     if category_key not in CONFIG_CATEGORIES:
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid category"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid category"),
+            show_alert=True
+        )
         return
-
+    
     if config_key not in CONFIG_CATEGORIES[category_key]["keys"]:
-        await callback.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid config key"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid config key"),
+            show_alert=True
+        )
         return
-
+    
     bot = await get_bot_by_id(db, bot_id)
     if not bot:
-        await callback.answer(texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"), show_alert=True)
+        await callback.answer(
+            texts.t("ADMIN_TENANT_BOT_NOT_FOUND", "❌ Bot not found"),
+            show_alert=True
+        )
         return
-
+    
     # Get current value
     current_value = await BotConfigService.get_config(db, bot_id, config_key)
-
+    
     # Store in FSM state
     await state.update_data(
         bot_id=bot_id,
@@ -319,7 +356,7 @@ async def start_edit_config(
         config_key=config_key,
     )
     await state.set_state(AdminStates.editing_tenant_config_value)
-
+    
     # Request new value
     current_display = str(current_value) if current_value is not None else "Not set"
     text = texts.t(
@@ -333,24 +370,22 @@ async def start_edit_config(
 Please send the new value for this configuration.
 
 For boolean values, send: true or false
-For JSON objects, send valid JSON.""",
+For JSON objects, send valid JSON."""
     ).format(
         name=bot.name,
         key=config_key,
         current=current_display,
     )
-
-    keyboard = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                types.InlineKeyboardButton(
-                    text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
-                    callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}",
-                )
-            ]
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [
+            types.InlineKeyboardButton(
+                text=texts.t("ADMIN_CANCEL", "❌ Cancel"),
+                callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}"
+            )
         ]
-    )
-
+    ])
+    
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
@@ -365,20 +400,22 @@ async def save_config_value(
 ):
     """Save configuration value from FSM (AC9)."""
     texts = get_texts(db_user.language)
-
+    
     data = await state.get_data()
     bot_id = data.get("bot_id")
     category_key = data.get("category_key")
     config_key = data.get("config_key")
-
+    
     if not all([bot_id, category_key, config_key]):
-        await message.answer(texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request. Please start over."))
+        await message.answer(
+            texts.t("ADMIN_INVALID_REQUEST", "❌ Invalid request. Please start over.")
+        )
         await state.clear()
         return
-
+    
     # Parse the new value
     new_value_str = message.text.strip()
-
+    
     # Try to parse as different types
     new_value = None
     try:
@@ -401,14 +438,14 @@ async def save_config_value(
             new_value = new_value_str
     except (ValueError, json.JSONDecodeError):
         new_value = new_value_str  # Fallback to string
-
+    
     # Save using BotConfigService
     try:
         await BotConfigService.set_config(db, bot_id, config_key, new_value, commit=True)
-
+        
         # Clear FSM state
         await state.clear()
-
+        
         # Show success message and return to category view
         bot = await get_bot_by_id(db, bot_id)
         success_text = texts.t(
@@ -418,27 +455,27 @@ async def save_config_value(
 <b>Key:</b> {key}
 <b>New Value:</b> {value}
 
-Returning to category view...""",
+Returning to category view..."""
         ).format(
             key=config_key,
             value=str(new_value),
         )
-
+        
         # Send success message with button to view updated category
-        keyboard = types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t("ADMIN_VIEW_CATEGORY", "👁️ View Category"),
-                        callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}",
-                    )
-                ]
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("ADMIN_VIEW_CATEGORY", "👁️ View Category"),
+                    callback_data=f"admin_tenant_bot_config_{category_key}:{bot_id}"
+                )
             ]
-        )
-
+        ])
+        
         await message.answer(success_text, reply_markup=keyboard, parse_mode="HTML")
-
+        
     except Exception as e:
         logger.error(f"Error saving config {config_key} for bot {bot_id}: {e}", exc_info=True)
-        await message.answer(texts.t("ADMIN_ERROR", f"❌ Error saving configuration: {str(e)}"))
+        await message.answer(
+            texts.t("ADMIN_ERROR", f"❌ Error saving configuration: {str(e)}")
+        )
         await state.clear()

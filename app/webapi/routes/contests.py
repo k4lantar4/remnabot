@@ -214,7 +214,7 @@ def _serialize_event(
     )
 
 
-# --------- Daily contests (мини-игры) ----------
+# --------- Daily contests (mini-games) ----------
 
 
 @router.get(
@@ -223,7 +223,7 @@ def _serialize_event(
     tags=["contests"],
 )
 async def list_daily_templates(
-    enabled_only: bool = Query(False, description="Показывать только включенные игры"),
+    enabled_only: bool = Query(False, description="Show only enabled games"),
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestTemplateListResponse:
@@ -420,7 +420,7 @@ async def finish_round_now(
 )
 async def list_attempts(
     round_id: int,
-    winners_only: bool = Query(False, description="Вернуть только победителей"),
+    winners_only: bool = Query(False, description="Return only winners"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _: Any = Security(require_api_token),
@@ -620,7 +620,7 @@ async def delete_referral(
     if contest.is_active or contest.end_at > now_utc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Можно удалять только завершённые конкурсы",
+            "Only finished contests can be deleted",
         )
     await delete_referral_contest(db, contest)
     return {"status": "deleted"}

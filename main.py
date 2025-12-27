@@ -21,15 +21,6 @@ except Exception as e:
 
 from app.config import settings
 
-# #region agent log
-try:
-    log_path = os.path.join('.cursor', 'debug.log')
-    log_path = os.path.abspath(log_path)
-    with open(log_path, 'a') as f:
-        f.write(json.dumps({"location":"main.py:13","message":"after importing settings","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
-except Exception as e:
-    print(f"Debug log write failed: {e}")
-# #endregion
 from app.database.database import init_db
 from app.services.monitoring_service import monitoring_service
 from app.services.maintenance_service import maintenance_service
@@ -69,10 +60,13 @@ class GracefulExit:
 
 
 async def main():
-    formatter = TimezoneAwareFormatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        timezone_name=settings.TIMEZONE,
-    )
+    try:
+        formatter = TimezoneAwareFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            timezone_name=settings.TIMEZONE,
+        )
+    except Exception as e:
+        raise
 
     file_handler = logging.FileHandler(settings.LOG_FILE, encoding="utf-8")
     file_handler.setFormatter(formatter)
@@ -683,13 +677,14 @@ async def main():
                     auto_verification_active = auto_payment_verification_service.is_running()
 
                 # Check all polling tasks
-                if polling_enabled and polling_tasks:
-                    for i, task in enumerate(polling_tasks):
+                if polling_enabled:
+                    from app.bot import polling_tasks as bot_polling_tasks
+                    for bot_id, task in bot_polling_tasks.items():
                         if task.done():
                             exception = task.exception()
                             if exception:
-                                logger.error(f"❌ Polling failed for bot {i}: {exception}")
-                                logger.warning(f"⚠️ Polling task {i} has stopped, consider restarting the service")
+                                logger.error(f"❌ Polling failed for bot {bot_id}: {exception}")
+                                logger.warning(f"⚠️ Polling task {bot_id} has stopped, consider restarting the service")
                                 # Don't break - continue with other bots
                 elif polling_task and polling_task.done():
                     exception = polling_task.exception()
@@ -783,18 +778,20 @@ async def main():
             logger.error(f"Error stopping backup service: {e}")
 
         # Stop all polling tasks
-        if polling_enabled and polling_tasks:
-            logger.info(f"ℹ️ Stopping polling for {len(polling_tasks)} bot(s)...")
-            for i, task in enumerate(polling_tasks):
-                if not task.done():
-                    task.cancel()
-                    try:
-                        await task
-                        logger.info(f"✅ Polling stopped for bot {i}")
-                    except asyncio.CancelledError:
-                        logger.info(f"✅ Polling cancelled for bot {i}")
-                    except Exception as e:
-                        logger.error(f"❌ Error stopping polling for bot {i}: {e}")
+        if polling_enabled:
+            from app.bot import polling_tasks as bot_polling_tasks
+            if bot_polling_tasks:
+                logger.info(f"ℹ️ Stopping polling for {len(bot_polling_tasks)} bot(s)...")
+                for bot_id, task in bot_polling_tasks.items():
+                    if not task.done():
+                        task.cancel()
+                        try:
+                            await task
+                            logger.info(f"✅ Polling stopped for bot {bot_id}")
+                        except asyncio.CancelledError:
+                            logger.info(f"✅ Polling cancelled for bot {bot_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Error stopping polling for bot {bot_id}: {e}")
         elif polling_task and not polling_task.done():
             logger.info("ℹ️ Stopping polling...")
             polling_task.cancel()
@@ -835,4 +832,6 @@ if __name__ == "__main__":
         print("\n🛑 Bot stopped by user")
     except Exception as e:
         print(f"❌ Critical error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)

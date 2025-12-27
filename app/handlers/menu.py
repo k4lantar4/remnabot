@@ -1080,25 +1080,25 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
 
 async def handle_activate_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
-
-    # Получить подписку пользователя
+    
+    # Get user subscription
     from app.database.crud.subscription import get_subscription_by_user_id
 
     subscription = await get_subscription_by_user_id(db, db_user.id)
 
     if subscription and subscription.status == "ACTIVE" and subscription.end_date > datetime.utcnow():
         await callback.answer(
-            texts.t("SUBSCRIPTION_ALREADY_ACTIVE", "✅ Подписка уже активна!"),
+            texts.t("SUBSCRIPTION_ALREADY_ACTIVE"),
             show_alert=True,
         )
         return
-
-    # Параметры из подписки или дефолтные
+    
+    # Parameters from subscription or defaults
     device_limit = subscription.device_limit if subscription else settings.DEFAULT_DEVICE_LIMIT
     traffic_limit_gb = subscription.traffic_limit_gb if subscription else 0
     connected_squads = subscription.connected_squads if subscription else []
-
-    # Получить IDs серверов из UUIDs
+    
+    # Get server IDs from UUIDs
     from app.database.crud.server_squad import get_server_ids_by_uuids
 
     server_ids = await get_server_ids_by_uuids(db, connected_squads) if connected_squads else []
@@ -1112,8 +1112,8 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     from app.services.subscription_service import SubscriptionService
 
     subscription_service = SubscriptionService()
-
-    # Найти максимальный период, цена которого <= баланса
+    
+    # Find maximum period where price <= balance
     for period in sorted(available_periods, reverse=True):
         price, _ = await subscription_service.calculate_subscription_price_with_months(
             period, traffic_limit_gb, server_ids, device_limit, db, user=db_user
@@ -1124,7 +1124,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             break
 
     if best_period:
-        # Создать новую подписку
+        # Create new subscription
         from app.database.crud.subscription import create_paid_subscription
 
         new_subscription = await create_paid_subscription(
@@ -1136,20 +1136,18 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             connected_squads=connected_squads,
             update_server_counters=True,
         )
-
-        # Списать деньги
+        
+        # Deduct funds
         db_user.balance_kopeks -= best_price
         await db.commit()
 
         await callback.answer(
-            texts.t(
-                "ACTIVATION_SUCCESS", f"✅ Подписка активирована на {best_period} дней за {best_price // 100} руб!"
-            ),
+            texts.t("ACTIVATION_SUCCESS").format(period=best_period, price=texts.format_price(best_price)),
             show_alert=True,
         )
     else:
         await callback.answer(
-            texts.t("INSUFFICIENT_FUNDS", "❌ Недостаточно средств для активации подписки"),
+            texts.t("INSUFFICIENT_FUNDS"),
             show_alert=True,
         )
 

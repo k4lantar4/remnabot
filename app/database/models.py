@@ -45,24 +45,7 @@ class Bot(Base):
     api_token_hash = Column(String(128), nullable=False, index=True)
     is_master = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-
-    # Card-to-card settings
-    card_to_card_enabled = Column(Boolean, default=False, nullable=False)
-    card_receipt_topic_id = Column(Integer, nullable=True)
-
-    # Zarinpal settings
-    zarinpal_enabled = Column(Boolean, default=False, nullable=False)
-    zarinpal_merchant_id = Column(String(255), nullable=True)
-    zarinpal_sandbox = Column(Boolean, default=False, nullable=False)
-
-    # General settings
-    default_language = Column(String(5), default="fa", nullable=False)
-    support_username = Column(String(255), nullable=True)
-    admin_chat_id = Column(BigInteger, nullable=True)
-    admin_topic_id = Column(Integer, nullable=True)
-    notification_group_id = Column(BigInteger, nullable=True)
-    notification_topic_id = Column(Integer, nullable=True)
-
+    
     # Wallet & billing
     wallet_balance_toman = Column(BigInteger, default=0, nullable=False)
     traffic_consumed_bytes = Column(BigInteger, default=0, nullable=False)
@@ -1136,8 +1119,10 @@ class SubscriptionConversion(Base):
 
     @property
     def first_payment_amount_toman(self) -> int:
-        return self.first_payment_amount_toman or 0
-
+        # Access column value directly via instance state to avoid recursion
+        state = object.__getattribute__(self, '_sa_instance_state')
+        return state.dict.get('first_payment_amount_toman') or 0
+    
     def __repr__(self):
         return f"<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>"
 
@@ -1229,7 +1214,9 @@ class ReferralEarning(Base):
 
     @property
     def amount_toman(self) -> int:
-        return self.amount_toman
+        # Access column value directly via instance state to avoid recursion
+        state = object.__getattribute__(self, '_sa_instance_state')
+        return state.dict.get('amount_toman', 0)
 
 
 class ReferralContest(Base):
@@ -2039,49 +2026,3 @@ class MainMenuButton(Base):
             f"<MainMenuButton id={self.id} text='{self.text}' "
             f"action={self.action_type} visibility={self.visibility} active={self.is_active}>"
         )
-
-
-class MenuLayoutHistory(Base):
-    """История изменений конфигурации меню."""
-
-    __tablename__ = "menu_layout_history"
-
-    id = Column(Integer, primary_key=True, index=True)
-    config_json = Column(Text, nullable=False)  # Полная конфигурация в JSON
-    action = Column(String(50), nullable=False)  # update, reset, import
-    changes_summary = Column(Text, nullable=True)  # Краткое описание изменений
-    user_info = Column(String(255), nullable=True)  # Информация о пользователе/токене
-    created_at = Column(DateTime, default=func.now(), index=True)
-
-    __table_args__ = (Index("ix_menu_layout_history_created", "created_at"),)
-
-    def __repr__(self) -> str:
-        return f"<MenuLayoutHistory id={self.id} action='{self.action}' created_at={self.created_at}>"
-
-
-class ButtonClickLog(Base):
-    """Логи кликов по кнопкам меню."""
-
-    __tablename__ = "button_click_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    button_id = Column(String(100), nullable=False, index=True)  # ID кнопки
-    # Removed foreign key constraint: telegram_id is not unique in multi-tenant mode
-    # user_id stores telegram_id value but without FK constraint
-    user_id = Column(BigInteger, nullable=True, index=True)
-    callback_data = Column(String(255), nullable=True)  # callback_data кнопки
-    clicked_at = Column(DateTime, default=func.now(), index=True)
-
-    # Дополнительная информация
-    button_type = Column(String(20), nullable=True)  # builtin, callback, url, mini_app
-    button_text = Column(String(255), nullable=True)  # Текст кнопки на момент клика
-
-    __table_args__ = (
-        Index("ix_button_click_logs_button_date", "button_id", "clicked_at"),
-        Index("ix_button_click_logs_user_date", "user_id", "clicked_at"),
-    )
-
-    # Note: No relationship defined since user_id references telegram_id which is not unique
-
-    def __repr__(self) -> str:
-        return f"<ButtonClickLog id={self.id} button='{self.button_id}' user={self.user_id} at={self.clicked_at}>"

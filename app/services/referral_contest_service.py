@@ -42,15 +42,15 @@ class ReferralContestService:
         await self.stop()
 
         if not settings.is_contests_enabled():
-            logger.info("Сервис конкурсов отключен настройками")
+            logger.info("Contest service disabled by settings")
             return
 
         if not self.bot:
-            logger.warning("Невозможно запустить сервис конкурсов без экземпляра бота")
+            logger.warning("Cannot start contest service without bot instance")
             return
 
         self._task = asyncio.create_task(self._run_loop())
-        logger.info("🏆 Сервис конкурсов запущен")
+        logger.info("🏆 Contest service started")
 
     async def stop(self) -> None:
         if self._task and not self._task.done():
@@ -69,11 +69,11 @@ class ReferralContestService:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    logger.error("Ошибка сервиса конкурсов: %s", exc)
+                    logger.error("Contest service error: %s", exc)
 
                 await asyncio.sleep(self._poll_interval_seconds)
         except asyncio.CancelledError:
-            logger.info("Сервис конкурсов остановлен")
+            logger.info("Contest service stopped")
             raise
 
     async def _process_summaries(self) -> None:
@@ -92,7 +92,7 @@ class ReferralContestService:
                     raise
                 except Exception as exc:  # noqa: BLE001
                     logger.error(
-                        "Ошибка обработки конкурса %s (%s): %s",
+                        "Error processing contest %s (%s): %s",
                         contest.id,
                         contest.title,
                         exc,
@@ -253,11 +253,11 @@ class ReferralContestService:
                 await self.bot.send_message(user.telegram_id, text, disable_web_page_preview=True)
             except (TelegramForbiddenError, TelegramNotFound):
                 logger.info(
-                    "Не удалось отправить сообщение участнику %s (вероятно, блокировка)",
+                    "Failed to send message to participant %s (likely blocked)",
                     user.telegram_id,
                 )
             except Exception as exc:  # noqa: BLE001
-                logger.error("Ошибка отправки участнику конкурса %s: %s", user.telegram_id, exc)
+                logger.error("Error sending message to contest participant %s: %s", user.telegram_id, exc)
 
     async def _notify_admins(
         self,
@@ -277,13 +277,13 @@ class ReferralContestService:
             return
 
         lines = [
-            "🏆 <b>Конкурс рефералов</b>",
-            f"Название: <b>{contest.title}</b>",
-            f"Статус: {'финал' if is_final else 'дневная сводка'}",
-            f"Временная зона: <code>{tz.key}</code>",
-            f"Всего рефералов: <b>{total_events}</b>",
+            "🏆 <b>Referral Contest</b>",
+            f"Title: <b>{contest.title}</b>",
+            f"Status: {'final' if is_final else 'daily summary'}",
+            f"Timezone: <code>{tz.key}</code>",
+            f"Total participants: <b>{len(leaderboard)}</b>",
             "",
-            "Топ участников:",
+            "Top participants:",
         ]
 
         if leaderboard:
@@ -291,11 +291,11 @@ class ReferralContestService:
                 name = user.full_name
                 lines.append(f"{idx}. {name} ({user.telegram_id}) — {score}")
         else:
-            lines.append("Пока нет участников.")
+            lines.append("No participants yet.")
 
         if contest.prize_text:
             lines.append("")
-            lines.append(f"Приз: {contest.prize_text}")
+            lines.append(f"Prize: {contest.prize_text}")
 
         try:
             await self.bot.send_message(
@@ -305,7 +305,7 @@ class ReferralContestService:
                 message_thread_id=settings.ADMIN_NOTIFICATIONS_TOPIC_ID,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.error("Не удалось отправить админскую сводку конкурса: %s", exc)
+            logger.error("Failed to send admin contest summary: %s", exc)
 
     async def _notify_public_channel(
         self,
@@ -331,22 +331,22 @@ class ReferralContestService:
 
         lines = [
             f"🏆 {contest.title}",
-            "🏁 Итоги конкурса" if is_final else "📊 Промежуточные итоги",
-            f"Время зоны: {tz.key}",
-            f"Всего участников: <b>{len(leaderboard)}</b>",
+            "🏁 Final results" if is_final else "📊 Intermediate results",
+            f"Timezone: {tz.key}",
+            f"Total participants: <b>{len(leaderboard)}</b>",
             "",
-            "Топ участников:",
+            "Top participants:",
         ]
 
         if leaderboard:
             for idx, (user, score, _) in enumerate(leaderboard[:5], start=1):
                 lines.append(f"{idx}. {user.full_name} — {score}")
         else:
-            lines.append("Пока нет участников.")
+            lines.append("No participants yet.")
 
         if contest.prize_text:
             lines.append("")
-            lines.append(f"Приз: {contest.prize_text}")
+            lines.append(f"Prize: {contest.prize_text}")
 
         try:
             await self.bot.send_message(
@@ -355,9 +355,9 @@ class ReferralContestService:
                 disable_web_page_preview=True,
             )
         except (TelegramForbiddenError, TelegramNotFound):
-            logger.info("Не удалось отправить сводку конкурса в канал %s", channel_id_raw)
+            logger.info("Failed to send contest summary to channel %s", channel_id_raw)
         except Exception as exc:  # noqa: BLE001
-            logger.error("Ошибка отправки сводки конкурса в канал %s: %s", channel_id_raw, exc)
+            logger.error("Error sending contest summary to channel %s: %s", channel_id_raw, exc)
 
     def _build_participant_message(
         self,
@@ -450,7 +450,7 @@ class ReferralContestService:
         try:
             return ZoneInfo(tz_name)
         except Exception:  # noqa: BLE001
-            logger.warning("Не удалось загрузить TZ %s, используем UTC", tz_name)
+            logger.warning("Failed to load timezone %s, using UTC", tz_name)
             return ZoneInfo("UTC")
 
     def _parse_times(self, times_str: Optional[str]) -> list[time]:
@@ -556,13 +556,13 @@ class ReferralContestService:
                 )
                 if event:
                     logger.info(
-                        "Записан зачёт конкурса регистрации %s: реферер %s, реферал %s",
+                        "Recorded registration contest score for contest %s: referrer %s, referral %s",
                         contest.id,
                         user.referred_by_id,
                         user.id,
                     )
             except Exception as exc:  # noqa: BLE001
-                logger.error("Не удалось записать зачёт регистрации для конкурса %s: %s", contest.id, exc)
+                logger.error("Failed to record registration contest score for contest %s: %s", contest.id, exc)
 
 
 referral_contest_service = ReferralContestService()

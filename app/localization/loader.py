@@ -28,7 +28,14 @@ def _get_fallback_language() -> str:
     return "en"
 
 
-_FALLBACK_LANGUAGE = _get_fallback_language()
+_FALLBACK_LANGUAGE_CACHE: str | None = None
+
+def _get_fallback_language_cached() -> str:
+    """Lazy evaluation of fallback language to avoid circular dependency during module import."""
+    global _FALLBACK_LANGUAGE_CACHE
+    if _FALLBACK_LANGUAGE_CACHE is None:
+        _FALLBACK_LANGUAGE_CACHE = _get_fallback_language()
+    return _FALLBACK_LANGUAGE_CACHE
 
 
 def _normalize_language_code(value: Any) -> str:
@@ -64,8 +71,8 @@ def _locale_file_exists(language: str) -> bool:
 
 def _select_fallback_language(available_map: Dict[str, str]) -> str:
     candidates = []
-    if _FALLBACK_LANGUAGE:
-        candidates.append(_FALLBACK_LANGUAGE)
+    if _get_fallback_language_cached():
+        candidates.append(_get_fallback_language_cached())
     candidates.extend(available_map.values())
 
     seen = set()
@@ -146,7 +153,16 @@ def _determine_default_language() -> str:
     return fallback_language or fallback_lang
 
 
-DEFAULT_LANGUAGE = _determine_default_language()
+_DEFAULT_LANGUAGE_CACHE: str | None = None
+
+def _get_default_language() -> str:
+    """Lazy evaluation of default language to avoid circular dependency during module import."""
+    global _DEFAULT_LANGUAGE_CACHE
+    if _DEFAULT_LANGUAGE_CACHE is None:
+        _DEFAULT_LANGUAGE_CACHE = _determine_default_language()
+    return _DEFAULT_LANGUAGE_CACHE
+
+DEFAULT_LANGUAGE = "en"  # Fallback value, actual value loaded lazily
 
 
 def _normalize_key(raw_key: Any) -> str:
@@ -311,18 +327,18 @@ def _merge_dicts(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, A
 
 @lru_cache(maxsize=None)
 def load_locale(language: str) -> Dict[str, Any]:
-    language = language or DEFAULT_LANGUAGE
+    language = language or _get_default_language()
     defaults = _load_default_locale(language)
     overrides = _load_user_locale(language)
     merged = _merge_dicts(defaults, overrides)
 
-    if not merged and language != DEFAULT_LANGUAGE:
+    if not merged and language != _get_default_language():
         _logger.warning(
             "Locale %s not found. Falling back to default language %s.",
             language,
-            DEFAULT_LANGUAGE,
+            _get_default_language(),
         )
-        return load_locale(DEFAULT_LANGUAGE)
+        return load_locale(_get_default_language())
     return merged
 
 
