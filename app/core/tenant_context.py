@@ -9,6 +9,11 @@ import logging
 from contextvars import ContextVar
 from typing import Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+
+from app.database.database import AsyncSessionLocal
+
 logger = logging.getLogger(__name__)
 
 # ContextVar for current tenant (bot_id)
@@ -61,3 +66,24 @@ def clear_current_tenant() -> None:
     """Clear current tenant from context."""
     tenant_context.set(None)
     logger.debug("Tenant context cleared")
+
+
+async def get_tenant_session(bot_id: Optional[int] = None) -> AsyncSession:
+    """
+    Create database session with tenant isolation.
+
+    Args:
+        bot_id: Bot ID for tenant. If None, uses current tenant from context.
+
+    Returns:
+        AsyncSession with tenant RLS context set
+
+    Raises:
+        RuntimeError: If bot_id is None and no tenant in context
+    """
+    if bot_id is None:
+        bot_id = require_current_tenant()
+
+    session = AsyncSessionLocal()
+    await session.execute(text("SET app.current_tenant = :bot_id"), {"bot_id": bot_id})
+    return session
