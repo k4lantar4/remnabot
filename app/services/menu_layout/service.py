@@ -789,16 +789,16 @@ class MenuLayoutService:
 
         # --- Расширенные условия ---
 
-        # min_balance_kopeks
-        min_balance = conditions.get("min_balance_kopeks")
+        # min_balance_toman
+        min_balance = conditions.get("min_balance_toman")
         if min_balance is not None:
-            if context.balance_kopeks < min_balance:
+            if context.balance_toman < min_balance:
                 return False
 
-        # max_balance_kopeks
-        max_balance = conditions.get("max_balance_kopeks")
+        # max_balance_toman
+        max_balance = conditions.get("max_balance_toman")
         if max_balance is not None:
-            if context.balance_kopeks > max_balance:
+            if context.balance_toman > max_balance:
                 return False
 
         # min_registration_days
@@ -936,7 +936,7 @@ class MenuLayoutService:
         """Форматировать динамический текст с плейсхолдерами."""
         # Баланс
         if "{balance}" in text:
-            formatted_balance = texts.format_price(context.balance_kopeks)
+            formatted_balance = texts.format_price(context.balance_toman)
             text = text.replace("{balance}", formatted_balance)
 
         # Имя пользователя

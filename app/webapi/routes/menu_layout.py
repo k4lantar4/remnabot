@@ -369,7 +369,7 @@ async def preview_menu(
         is_moderator=payload.is_moderator,
         has_active_subscription=payload.has_active_subscription,
         subscription_is_active=payload.subscription_is_active,
-        balance_kopeks=payload.balance_kopeks,
+        balance_toman=payload.balance_toman,
     )
 
     preview_rows = await MenuLayoutService.preview_keyboard(db, context)

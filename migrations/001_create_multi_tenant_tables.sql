@@ -12,16 +12,16 @@ CREATE TABLE bots (
     api_token_hash VARCHAR(128) NOT NULL,
     is_master BOOLEAN DEFAULT FALSE NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    
+
     -- Card-to-card settings
     card_to_card_enabled BOOLEAN DEFAULT FALSE NOT NULL,
     card_receipt_topic_id INTEGER,
-    
+
     -- Zarinpal settings
     zarinpal_enabled BOOLEAN DEFAULT FALSE NOT NULL,
     zarinpal_merchant_id VARCHAR(255),
     zarinpal_sandbox BOOLEAN DEFAULT FALSE NOT NULL,
-    
+
     -- General settings
     default_language VARCHAR(5) DEFAULT 'fa' NOT NULL,
     support_username VARCHAR(255),
@@ -29,12 +29,12 @@ CREATE TABLE bots (
     admin_topic_id INTEGER,
     notification_group_id BIGINT,
     notification_topic_id INTEGER,
-    
+
     -- Wallet & billing
-    wallet_balance_kopeks BIGINT DEFAULT 0 NOT NULL,
+    wallet_balance_toman BIGINT DEFAULT 0 NOT NULL,
     traffic_consumed_bytes BIGINT DEFAULT 0 NOT NULL,
     traffic_sold_bytes BIGINT DEFAULT 0 NOT NULL,
-    
+
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
@@ -53,7 +53,7 @@ CREATE TABLE bot_feature_flags (
     config JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    
+
     PRIMARY KEY (bot_id, feature_key)
 );
 
@@ -67,7 +67,7 @@ CREATE TABLE bot_configurations (
     config_value JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
-    
+
     PRIMARY KEY (bot_id, config_key)
 );
 

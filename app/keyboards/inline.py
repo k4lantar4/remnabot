@@ -33,7 +33,7 @@ async def get_main_menu_keyboard_async(
     has_had_paid_subscription: bool = False,
     has_active_subscription: bool = False,
     subscription_is_active: bool = False,
-    balance_kopeks: int = 0,
+    balance_toman: int = 0,
     subscription=None,
     show_resume_checkout: bool = False,
     has_saved_cart: bool = False,
@@ -122,7 +122,7 @@ async def get_main_menu_keyboard_async(
             has_active_subscription=has_active_subscription,
             subscription_is_active=subscription_is_active,
             has_had_paid_subscription=has_had_paid_subscription,
-            balance_kopeks=balance_kopeks,
+            balance_toman=balance_toman,
             subscription=subscription,
             show_resume_checkout=show_resume_checkout,
             has_saved_cart=has_saved_cart,
@@ -148,7 +148,7 @@ async def get_main_menu_keyboard_async(
         has_had_paid_subscription=has_had_paid_subscription,
         has_active_subscription=has_active_subscription,
         subscription_is_active=subscription_is_active,
-        balance_kopeks=balance_kopeks,
+        balance_toman=balance_toman,
         subscription=subscription,
         show_resume_checkout=show_resume_checkout,
         has_saved_cart=has_saved_cart,
@@ -1481,7 +1481,7 @@ def get_payment_methods_keyboard(amount_toman: int, language: str = DEFAULT_LANG
                 callback_data="topup_support"
             )
         ])
-        
+
     if not keyboard:
         keyboard.append(
             [

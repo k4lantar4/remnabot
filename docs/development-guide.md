@@ -323,7 +323,7 @@ async def handler(message: Message):
 async with get_session() as session:
     async with session.begin():
         user = await session.get(User, user_id)
-        user.balance_kopeks += amount
+        user.balance_toman += amount
         # commit خودکار در پایان
 ```
 
@@ -385,4 +385,3 @@ curl http://localhost:8080/health/payment-webhooks
 ---
 
 *تولید شده توسط گردش‌کار document-project در 2025-12-25*
-

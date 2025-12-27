@@ -50,7 +50,7 @@
 
 | Callback | Handler Function | File | Database Query | Description |
 |----------|-----------------|------|----------------|-------------|
-| `admin_tenant_bot_detail:{bot_id}` | `show_bot_detail(bot_id)` | `app/handlers/admin/tenant_bots.py` | `SELECT * FROM bots WHERE id = {bot_id}`<br>`SELECT COUNT(*) FROM users WHERE bot_id = {bot_id}`<br>`SELECT COUNT(*) FROM subscriptions WHERE bot_id = {bot_id} AND status = 'active'`<br>`SELECT COALESCE(SUM(amount_kopeks), 0) FROM transactions WHERE bot_id = {bot_id} AND type = 'deposit' AND created_at >= date_trunc('month', CURRENT_DATE)`<br>`SELECT traffic_consumed_bytes, traffic_sold_bytes, wallet_balance_kopeks FROM bots WHERE id = {bot_id}` | نمایش جزئیات ربات با آمار سریع |
+| `admin_tenant_bot_detail:{bot_id}` | `show_bot_detail(bot_id)` | `app/handlers/admin/tenant_bots.py` | `SELECT * FROM bots WHERE id = {bot_id}`<br>`SELECT COUNT(*) FROM users WHERE bot_id = {bot_id}`<br>`SELECT COUNT(*) FROM subscriptions WHERE bot_id = {bot_id} AND status = 'active'`<br>`SELECT COALESCE(SUM(amount_kopeks), 0) FROM transactions WHERE bot_id = {bot_id} AND type = 'deposit' AND created_at >= date_trunc('month', CURRENT_DATE)`<br>`SELECT traffic_consumed_bytes, traffic_sold_bytes, wallet_balance_toman FROM bots WHERE id = {bot_id}` | نمایش جزئیات ربات با آمار سریع |
 | `admin_tenant_bot_activate:{bot_id}` | `activate_tenant_bot(bot_id)` | Same | `UPDATE bots SET is_active = TRUE, updated_at = NOW() WHERE id = {bot_id}` | فعال‌سازی ربات |
 | `admin_tenant_bot_deactivate:{bot_id}` | `deactivate_tenant_bot(bot_id)` | Same | `UPDATE bots SET is_active = FALSE, updated_at = NOW() WHERE id = {bot_id}` | غیرفعال‌سازی ربات |
 | `admin_tenant_bot_test:{bot_id}` | `test_bot_status(bot_id)` | Same | `SELECT * FROM bots WHERE id = {bot_id}`<br>Check `active_bots` registry | تست وضعیت ربات |
@@ -267,7 +267,7 @@
 - `admin_topic_id` - Admin topic ID
 - `notification_group_id` - Notification group
 - `notification_topic_id` - Notification topic
-- `wallet_balance_kopeks` - Wallet balance
+- `wallet_balance_toman` - Wallet balance
 - `traffic_consumed_bytes` - Traffic consumed
 - `traffic_sold_bytes` - Traffic sold
 

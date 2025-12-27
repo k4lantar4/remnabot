@@ -675,11 +675,11 @@ CREATE POLICY tenant_isolation_users ON users USING (...);
 
 # Option 1: Add new column, migrate, drop old
 ALTER TABLE users ADD COLUMN balance_tomans INTEGER DEFAULT 0;
-UPDATE users SET balance_tomans = balance_kopeks / 100; -- یا نرخ تبدیل مناسب
-ALTER TABLE users DROP COLUMN balance_kopeks;
+UPDATE users SET balance_tomans = balance_toman / 100; -- یا نرخ تبدیل مناسب
+ALTER TABLE users DROP COLUMN balance_toman;
 
 # Option 2: Rename and update values
-ALTER TABLE users RENAME COLUMN balance_kopeks TO balance_tomans;
+ALTER TABLE users RENAME COLUMN balance_toman TO balance_tomans;
 UPDATE users SET balance_tomans = balance_tomans / 100;
 ```
 
@@ -1278,4 +1278,3 @@ pg_restore -d remnabot backup_before_phase_X.sql
 
 *تحقیق فنی تکمیل شد - 2025-12-25*
 *تولید شده توسط BMAD Research Workflow*
-

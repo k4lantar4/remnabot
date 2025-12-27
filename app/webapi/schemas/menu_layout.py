@@ -56,8 +56,8 @@ class ButtonConditions(BaseModel):
     has_saved_cart: Optional[bool] = Field(default=None, description="Есть сохраненная корзина")
 
     # Расширенные условия
-    min_balance_kopeks: Optional[int] = Field(default=None, ge=0, description="Минимальный баланс в копейках")
-    max_balance_kopeks: Optional[int] = Field(default=None, ge=0, description="Максимальный баланс в копейках")
+    min_balance_toman: Optional[int] = Field(default=None, ge=0, description="Минимальный баланс в копейках")
+    max_balance_toman: Optional[int] = Field(default=None, ge=0, description="Максимальный баланс в копейках")
     min_registration_days: Optional[int] = Field(default=None, ge=0, description="Минимум дней с регистрации")
     max_registration_days: Optional[int] = Field(default=None, ge=0, description="Максимум дней с регистрации")
     min_referrals: Optional[int] = Field(default=None, ge=0, description="Минимальное количество рефералов")
@@ -233,7 +233,7 @@ class MenuPreviewRequest(BaseModel):
     is_moderator: bool = Field(default=False, description="Режим модератора")
     has_active_subscription: bool = Field(default=False, description="Есть активная подписка")
     subscription_is_active: bool = Field(default=False, description="Подписка активна")
-    balance_kopeks: int = Field(default=0, ge=0, description="Баланс в копейках")
+    balance_toman: int = Field(default=0, ge=0, description="Баланс в копейках")
 
     model_config = ConfigDict(extra="forbid")
 

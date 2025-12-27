@@ -111,7 +111,7 @@ async def get_user_by_id(
 **مکان:** Multiple files
 
 **مشکل:**
-- Migration: `wallet_balance_kopeks` (خط 34)
+- Migration: `wallet_balance_toman` (خط 34)
 - Model: `wallet_balance_toman` (خط 66)
 - Migration: `amount_kopeks` (خط 123)
 - Model: `amount_toman` (خط 163)
@@ -624,4 +624,3 @@ create_transaction(db, user_id, bot_id, ...)
 
 **آخرین به‌روزرسانی:** 2025-12-15  
 **نسخه:** 1.1 (Merged with comprehensive-analysis)
-

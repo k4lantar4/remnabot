@@ -50,7 +50,7 @@ class User(Base):
 | `last_name` | String(255) | نام خانوادگی |
 | `status` | String(20) | وضعیت: active, blocked, deleted |
 | `language` | String(5) | زبان: ru, en |
-| `balance_kopeks` | Integer | موجودی به کوپک |
+| `balance_toman` | Integer | موجودی به کوپک |
 | `remnawave_uuid` | String(255) | شناسه Remnawave |
 | `referred_by_id` | ForeignKey | معرف |
 | `referral_code` | String(20) | کد معرفی |
@@ -383,4 +383,3 @@ class PaymentMethod(Enum):
 
 *تولید شده توسط گردش‌کار document-project در 2025-12-25*
 *تعداد کل جداول: ۳۵+*
-

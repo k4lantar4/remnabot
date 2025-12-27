@@ -19,7 +19,7 @@ def upgrade() -> None:
     """
 
     # bots table
-    op.execute("ALTER TABLE bots RENAME COLUMN wallet_balance_kopeks TO wallet_balance_toman")
+    op.execute("ALTER TABLE bots RENAME COLUMN wallet_balance_toman TO wallet_balance_toman")
     op.execute("UPDATE bots SET wallet_balance_toman = wallet_balance_toman * 100")
 
     # bot_plans table
@@ -61,7 +61,7 @@ def upgrade() -> None:
     )
 
     # users table
-    op.execute("ALTER TABLE users RENAME COLUMN balance_kopeks TO balance_toman")
+    op.execute("ALTER TABLE users RENAME COLUMN balance_toman TO balance_toman")
     op.execute("UPDATE users SET balance_toman = balance_toman * 100")
     op.execute("ALTER TABLE users RENAME COLUMN auto_promo_group_threshold_kopeks TO auto_promo_group_threshold_toman")
     op.execute("UPDATE users SET auto_promo_group_threshold_toman = auto_promo_group_threshold_toman * 100")
@@ -207,8 +207,8 @@ def downgrade() -> None:
     # users table
     op.execute("ALTER TABLE users RENAME COLUMN auto_promo_group_threshold_toman TO auto_promo_group_threshold_kopeks")
     op.execute("UPDATE users SET auto_promo_group_threshold_kopeks = auto_promo_group_threshold_kopeks / 100")
-    op.execute("ALTER TABLE users RENAME COLUMN balance_toman TO balance_kopeks")
-    op.execute("UPDATE users SET balance_kopeks = balance_kopeks / 100")
+    op.execute("ALTER TABLE users RENAME COLUMN balance_toman TO balance_toman")
+    op.execute("UPDATE users SET balance_toman = balance_toman / 100")
 
     # promo_groups table
     op.execute("ALTER TABLE promo_groups RENAME COLUMN auto_assign_total_spent_toman TO auto_assign_total_spent_kopeks")
@@ -249,5 +249,5 @@ def downgrade() -> None:
     op.execute("UPDATE bot_plans SET price_kopeks = price_kopeks / 100")
 
     # bots table
-    op.execute("ALTER TABLE bots RENAME COLUMN wallet_balance_toman TO wallet_balance_kopeks")
-    op.execute("UPDATE bots SET wallet_balance_kopeks = wallet_balance_kopeks / 100")
+    op.execute("ALTER TABLE bots RENAME COLUMN wallet_balance_toman TO wallet_balance_toman")
+    op.execute("UPDATE bots SET wallet_balance_toman = wallet_balance_toman / 100")

@@ -1367,7 +1367,7 @@ WHERE bot_id = {bot_id} AND type = 'deposit' AND is_completed = TRUE;
 SELECT 
     traffic_consumed_bytes,
     traffic_sold_bytes,
-    wallet_balance_kopeks
+    wallet_balance_toman
 FROM bots
 WHERE id = {bot_id};
 ```

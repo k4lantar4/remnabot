@@ -191,7 +191,7 @@ async def show_main_menu(
         has_had_paid_subscription=db_user.has_had_paid_subscription,
         has_active_subscription=has_active_subscription,
         subscription_is_active=subscription_is_active,
-        balance_kopeks=db_user.balance_kopeks,
+        balance_toman=db_user.balance_toman,
         subscription=db_user.subscription,
         show_resume_checkout=show_resume_checkout,
         has_saved_cart=has_saved_cart,
@@ -949,7 +949,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, 
         has_had_paid_subscription=db_user.has_had_paid_subscription,
         has_active_subscription=has_active_subscription,
         subscription_is_active=subscription_is_active,
-        balance_kopeks=db_user.balance_kopeks,
+        balance_toman=db_user.balance_toman,
         subscription=db_user.subscription,
         show_resume_checkout=show_resume_checkout,
         has_saved_cart=has_saved_cart,
@@ -1080,7 +1080,7 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
 
 async def handle_activate_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
-    
+
     # Get user subscription
     from app.database.crud.subscription import get_subscription_by_user_id
 
@@ -1092,18 +1092,18 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             show_alert=True,
         )
         return
-    
+
     # Parameters from subscription or defaults
     device_limit = subscription.device_limit if subscription else settings.DEFAULT_DEVICE_LIMIT
     traffic_limit_gb = subscription.traffic_limit_gb if subscription else 0
     connected_squads = subscription.connected_squads if subscription else []
-    
+
     # Get server IDs from UUIDs
     from app.database.crud.server_squad import get_server_ids_by_uuids
 
     server_ids = await get_server_ids_by_uuids(db, connected_squads) if connected_squads else []
 
-    balance = db_user.balance_kopeks
+    balance = db_user.balance_toman
     available_periods = [int(p) for p in settings.AVAILABLE_SUBSCRIPTION_PERIODS]
 
     best_period = None
@@ -1112,7 +1112,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     from app.services.subscription_service import SubscriptionService
 
     subscription_service = SubscriptionService()
-    
+
     # Find maximum period where price <= balance
     for period in sorted(available_periods, reverse=True):
         price, _ = await subscription_service.calculate_subscription_price_with_months(
@@ -1136,9 +1136,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             connected_squads=connected_squads,
             update_server_counters=True,
         )
-        
+
         # Deduct funds
-        db_user.balance_kopeks -= best_price
+        db_user.balance_toman -= best_price
         await db.commit()
 
         await callback.answer(
