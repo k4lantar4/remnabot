@@ -208,12 +208,16 @@ class RemnaWaveAPI:
         secret_key: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        caddy_token: Optional[str] = None,
+        auth_type: str = "api_key",
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.secret_key = secret_key
         self.username = username
         self.password = password
+        self.caddy_token = caddy_token
+        self.auth_type = auth_type.lower() if auth_type else "api_key"
         self.session: Optional[aiohttp.ClientSession] = None
         self.authenticated = False
 
