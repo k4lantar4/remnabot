@@ -8,7 +8,7 @@ from app.database.models import User
 from app.database.crud.bot import get_bot_by_id
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler
-from app.utils.permissions import admin_required
+from app.utils.decorators import admin_required
 from .common import logger
 
 
@@ -36,8 +36,8 @@ async def show_bot_statistics(
     # AC4: Use SQL queries matching spec exactly
     # New users (30 days) - matches AC4 spec
     new_users_30d_query = sql_text("""
-        SELECT COUNT(*) FROM users 
-        WHERE bot_id = :bot_id 
+        SELECT COUNT(*) FROM users
+        WHERE bot_id = :bot_id
           AND created_at >= CURRENT_DATE - INTERVAL '30 days'
     """)
     new_users_30d_result = await db.execute(new_users_30d_query, {"bot_id": bot_id})
@@ -54,7 +54,7 @@ async def show_bot_statistics(
     # New subscriptions (30 days)
     new_subs_30d_query = sql_text("""
         SELECT COUNT(*) FROM subscriptions
-        WHERE bot_id = :bot_id 
+        WHERE bot_id = :bot_id
           AND created_at >= CURRENT_DATE - INTERVAL '30 days'
     """)
     new_subs_30d_result = await db.execute(new_subs_30d_query, {"bot_id": bot_id})
@@ -62,10 +62,10 @@ async def show_bot_statistics(
 
     # Revenue (30 days)
     revenue_30d_query = sql_text("""
-        SELECT COALESCE(SUM(amount_toman), 0) 
-        FROM transactions 
-        WHERE bot_id = :bot_id 
-          AND type = 'deposit' 
+        SELECT COALESCE(SUM(amount_toman), 0)
+        FROM transactions
+        WHERE bot_id = :bot_id
+          AND type = 'deposit'
           AND is_completed = TRUE
           AND created_at >= CURRENT_DATE - INTERVAL '30 days'
     """)
@@ -76,7 +76,7 @@ async def show_bot_statistics(
     revenue_by_method_query = sql_text("""
         SELECT payment_method, SUM(amount_toman) as total
         FROM transactions
-        WHERE bot_id = :bot_id 
+        WHERE bot_id = :bot_id
           AND type = 'deposit'
           AND is_completed = TRUE
           AND created_at >= CURRENT_DATE - INTERVAL '30 days'
@@ -89,8 +89,8 @@ async def show_bot_statistics(
     # User growth metrics
     # Today
     new_users_today_query = sql_text("""
-        SELECT COUNT(*) FROM users 
-        WHERE bot_id = :bot_id 
+        SELECT COUNT(*) FROM users
+        WHERE bot_id = :bot_id
           AND created_at >= date_trunc('day', CURRENT_DATE)
     """)
     new_users_today_result = await db.execute(new_users_today_query, {"bot_id": bot_id})
@@ -98,8 +98,8 @@ async def show_bot_statistics(
 
     # This week
     new_users_week_query = sql_text("""
-        SELECT COUNT(*) FROM users 
-        WHERE bot_id = :bot_id 
+        SELECT COUNT(*) FROM users
+        WHERE bot_id = :bot_id
           AND created_at >= date_trunc('week', CURRENT_DATE)
     """)
     new_users_week_result = await db.execute(new_users_week_query, {"bot_id": bot_id})
@@ -107,8 +107,8 @@ async def show_bot_statistics(
 
     # This month
     new_users_month_query = sql_text("""
-        SELECT COUNT(*) FROM users 
-        WHERE bot_id = :bot_id 
+        SELECT COUNT(*) FROM users
+        WHERE bot_id = :bot_id
           AND created_at >= date_trunc('month', CURRENT_DATE)
     """)
     new_users_month_result = await db.execute(new_users_month_query, {"bot_id": bot_id})

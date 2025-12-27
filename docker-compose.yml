@@ -30,6 +30,8 @@ services:
       - redis_data:/data
     networks:
       - bot_network
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -55,9 +57,9 @@ services:
       POSTGRES_DB: "${POSTGRES_DB:-remnawave_bot}"
       POSTGRES_USER: "${POSTGRES_USER:-remnawave_user}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-secure_password_123}"
-      
+
       REDIS_URL: "redis://redis:6379/0"
-      
+
       TZ: "Asia/Tehran"
       LOCALES_PATH: "${LOCALES_PATH:-/app/locales}"
     volumes:
@@ -83,6 +85,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
   # caddy:
   #   image: caddy:2
   #   container_name: remnawave_caddy
@@ -106,5 +109,5 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
-          gateway: 172.28.0.1
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

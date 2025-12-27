@@ -1792,7 +1792,39 @@ class Settings(BaseSettings):
         return value
 
 
-settings = Settings()
+# #region agent log
+import json
+try:
+    log_path = os.path.join('.cursor', 'debug.log')
+    log_path = os.path.abspath(log_path)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, 'a') as f:
+        f.write(json.dumps({"location":"config.py:1795","message":"before Settings() initialization","data":{"bot_token_env":bool(os.getenv("BOT_TOKEN"))},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
+except Exception:
+    pass
+# #endregion
+try:
+    settings = Settings()  # type: ignore[call-arg]  # Pydantic BaseSettings reads from env vars, no args needed
+    # #region agent log
+    try:
+        log_path = os.path.join('.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"config.py:1796","message":"after Settings() initialization","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
+    except Exception:
+        pass
+    # #endregion
+except Exception as e:
+    # #region agent log
+    try:
+        log_path = os.path.join('.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"config.py:1796","message":"Settings() initialization failed","data":{"error":str(e),"type":type(e).__name__},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
+    except Exception:
+        pass
+    # #endregion
+    raise
 ENV_OVERRIDE_KEYS = set(settings.model_fields_set)
 
 _PERIOD_PRICE_FIELDS: Dict[int, str] = {

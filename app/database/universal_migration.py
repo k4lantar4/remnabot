@@ -110,7 +110,7 @@ async def check_table_exists(table_name: str) -> bool:
             if db_type == "sqlite":
                 result = await conn.execute(
                     text(f"""
-                    SELECT name FROM sqlite_master 
+                    SELECT name FROM sqlite_master
                     WHERE type='table' AND name='{table_name}'
                 """)
                 )
@@ -119,7 +119,7 @@ async def check_table_exists(table_name: str) -> bool:
             elif db_type == "postgresql":
                 result = await conn.execute(
                     text("""
-                    SELECT table_name FROM information_schema.tables 
+                    SELECT table_name FROM information_schema.tables
                     WHERE table_schema = 'public' AND table_name = :table_name
                 """),
                     {"table_name": table_name},
@@ -129,7 +129,7 @@ async def check_table_exists(table_name: str) -> bool:
             elif db_type == "mysql":
                 result = await conn.execute(
                     text("""
-                    SELECT table_name FROM information_schema.tables 
+                    SELECT table_name FROM information_schema.tables
                     WHERE table_schema = DATABASE() AND table_name = :table_name
                 """),
                     {"table_name": table_name},
@@ -156,9 +156,9 @@ async def check_column_exists(table_name: str, column_name: str) -> bool:
             elif db_type == "postgresql":
                 result = await conn.execute(
                     text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = :table_name 
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = :table_name
                     AND column_name = :column_name
                 """),
                     {"table_name": table_name, "column_name": column_name},
@@ -168,9 +168,9 @@ async def check_column_exists(table_name: str, column_name: str) -> bool:
             elif db_type == "mysql":
                 result = await conn.execute(
                     text("""
-                    SELECT COLUMN_NAME 
-                    FROM information_schema.COLUMNS 
-                    WHERE TABLE_NAME = :table_name 
+                    SELECT COLUMN_NAME
+                    FROM information_schema.COLUMNS
+                    WHERE TABLE_NAME = :table_name
                     AND COLUMN_NAME = :column_name
                 """),
                     {"table_name": table_name, "column_name": column_name},
@@ -483,7 +483,7 @@ async def create_cryptobot_payments_table():
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (transaction_id) REFERENCES transactions(id)
                 );
-                
+
                 CREATE INDEX idx_cryptobot_payments_user_id ON cryptobot_payments(user_id);
                 CREATE INDEX idx_cryptobot_payments_invoice_id ON cryptobot_payments(invoice_id);
                 CREATE INDEX idx_cryptobot_payments_status ON cryptobot_payments(status);
@@ -510,7 +510,7 @@ async def create_cryptobot_payments_table():
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (transaction_id) REFERENCES transactions(id)
                 );
-                
+
                 CREATE INDEX idx_cryptobot_payments_user_id ON cryptobot_payments(user_id);
                 CREATE INDEX idx_cryptobot_payments_invoice_id ON cryptobot_payments(invoice_id);
                 CREATE INDEX idx_cryptobot_payments_status ON cryptobot_payments(status);
@@ -537,7 +537,7 @@ async def create_cryptobot_payments_table():
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (transaction_id) REFERENCES transactions(id)
                 );
-                
+
                 CREATE INDEX idx_cryptobot_payments_user_id ON cryptobot_payments(user_id);
                 CREATE INDEX idx_cryptobot_payments_invoice_id ON cryptobot_payments(invoice_id);
                 CREATE INDEX idx_cryptobot_payments_status ON cryptobot_payments(status);
@@ -2347,7 +2347,7 @@ async def create_user_messages_table():
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_user_messages_active ON user_messages(is_active);
                 CREATE INDEX idx_user_messages_sort ON user_messages(sort_order, created_at);
                 """
@@ -2364,7 +2364,7 @@ async def create_user_messages_table():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_user_messages_active ON user_messages(is_active);
                 CREATE INDEX idx_user_messages_sort ON user_messages(sort_order, created_at);
                 """
@@ -2381,7 +2381,7 @@ async def create_user_messages_table():
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_user_messages_active ON user_messages(is_active);
                 CREATE INDEX idx_user_messages_sort ON user_messages(sort_order, created_at);
                 """
@@ -2860,7 +2860,7 @@ async def create_welcome_texts_table():
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_welcome_texts_active ON welcome_texts(is_active);
                 CREATE INDEX idx_welcome_texts_enabled ON welcome_texts(is_enabled);
                 CREATE INDEX idx_welcome_texts_updated ON welcome_texts(updated_at);
@@ -2878,7 +2878,7 @@ async def create_welcome_texts_table():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_welcome_texts_active ON welcome_texts(is_active);
                 CREATE INDEX idx_welcome_texts_enabled ON welcome_texts(is_enabled);
                 CREATE INDEX idx_welcome_texts_updated ON welcome_texts(updated_at);
@@ -2896,7 +2896,7 @@ async def create_welcome_texts_table():
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
                 );
-                
+
                 CREATE INDEX idx_welcome_texts_active ON welcome_texts(is_active);
                 CREATE INDEX idx_welcome_texts_enabled ON welcome_texts(is_enabled);
                 CREATE INDEX idx_welcome_texts_updated ON welcome_texts(updated_at);
@@ -3063,6 +3063,93 @@ async def add_subscription_crypto_link_column() -> bool:
         return False
 
 
+async def fix_button_click_logs_table() -> bool:
+    """Fix button_click_logs table by removing invalid foreign key constraint."""
+    # #region agent log
+    import json, os
+    try:
+        log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+        log_path = os.path.abspath(log_path)
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, 'a') as f:
+            f.write(json.dumps({"location":"universal_migration.py:fix_button_click_logs","message":"fix_button_click_logs entry","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"D"})+"\n")
+    except Exception as e:
+        logger.debug(f"Debug log write failed: {e}")
+    # #endregion
+    try:
+        table_exists = await check_table_exists("button_click_logs")
+        # #region agent log
+        try:
+            log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+            log_path = os.path.abspath(log_path)
+            with open(log_path, 'a') as f:
+                f.write(json.dumps({"location":"universal_migration.py:fix_button_click_logs","message":"table_exists check","data":{"exists":table_exists},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"D"})+"\n")
+        except Exception as e:
+            logger.debug(f"Debug log write failed: {e}")
+        # #endregion
+        if not table_exists:
+            logger.info("Table button_click_logs does not exist, will be created by SQLAlchemy")
+            return True
+
+        db_type = await get_database_type()
+        async with engine.begin() as conn:
+            if db_type == "postgresql":
+                # Check if foreign key constraint exists
+                result = await conn.execute(
+                    text("""
+                    SELECT constraint_name
+                    FROM information_schema.table_constraints
+                    WHERE table_schema = 'public'
+                    AND table_name = 'button_click_logs'
+                    AND constraint_type = 'FOREIGN KEY'
+                    AND constraint_name LIKE '%user_id%'
+                    """)
+                )
+                fk_constraints = result.fetchall()
+
+                if fk_constraints:
+                    logger.info(f"Found {len(fk_constraints)} foreign key constraint(s) to remove")
+                    for (constraint_name,) in fk_constraints:
+                        try:
+                            await conn.execute(
+                                text(f"ALTER TABLE button_click_logs DROP CONSTRAINT IF EXISTS {constraint_name}")
+                            )
+                            logger.info(f"✅ Dropped constraint: {constraint_name}")
+                        except Exception as e:
+                            logger.warning(f"Failed to drop constraint {constraint_name}: {e}")
+                    return True
+                else:
+                    logger.info("No invalid foreign key constraints found on button_click_logs")
+                    return True
+            elif db_type == "sqlite":
+                # SQLite doesn't support dropping foreign keys easily, but the table should be recreated
+                # Check if the table has the wrong schema by trying to query it
+                try:
+                    await conn.execute(text("SELECT user_id FROM button_click_logs LIMIT 1"))
+                    logger.info("button_click_logs table exists and is accessible")
+                    return True
+                except Exception as e:
+                    logger.warning(f"Table button_click_logs may have issues: {e}")
+                    # For SQLite, we might need to recreate, but that's risky with data
+                    return True
+            else:
+                logger.warning(f"Unknown DB type for fixing button_click_logs: {db_type}")
+                return True
+
+    except Exception as e:
+        # #region agent log
+        try:
+            log_path = os.path.join(os.path.dirname(__file__), '..', '..', '.cursor', 'debug.log')
+            log_path = os.path.abspath(log_path)
+            with open(log_path, 'a') as f:
+                f.write(json.dumps({"location":"universal_migration.py:fix_button_click_logs","message":"fix_button_click_logs exception","data":{"error":str(e),"type":type(e).__name__},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"D"})+"\n")
+        except Exception as log_err:
+            logger.debug(f"Debug log write failed: {log_err}")
+        # #endregion
+        logger.error(f"Error fixing button_click_logs table: {e}")
+        return False
+
+
 async def fix_foreign_keys_for_user_deletion():
     try:
         async with engine.begin() as conn:
@@ -3072,15 +3159,15 @@ async def fix_foreign_keys_for_user_deletion():
                 try:
                     await conn.execute(
                         text("""
-                        ALTER TABLE user_messages 
+                        ALTER TABLE user_messages
                         DROP CONSTRAINT IF EXISTS user_messages_created_by_fkey;
                     """)
                     )
 
                     await conn.execute(
                         text("""
-                        ALTER TABLE user_messages 
-                        ADD CONSTRAINT user_messages_created_by_fkey 
+                        ALTER TABLE user_messages
+                        ADD CONSTRAINT user_messages_created_by_fkey
                         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
                     """)
                     )
@@ -3091,15 +3178,15 @@ async def fix_foreign_keys_for_user_deletion():
                 try:
                     await conn.execute(
                         text("""
-                        ALTER TABLE promocodes 
+                        ALTER TABLE promocodes
                         DROP CONSTRAINT IF EXISTS promocodes_created_by_fkey;
                     """)
                     )
 
                     await conn.execute(
                         text("""
-                        ALTER TABLE promocodes 
-                        ADD CONSTRAINT promocodes_created_by_fkey 
+                        ALTER TABLE promocodes
+                        ADD CONSTRAINT promocodes_created_by_fkey
                         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
                     """)
                     )
@@ -3168,14 +3255,14 @@ async def add_referral_system_columns():
 
                 if db_type == "sqlite":
                     update_sql = """
-                        UPDATE users 
-                        SET has_made_first_topup = 1 
+                        UPDATE users
+                        SET has_made_first_topup = 1
                         WHERE balance_toman > 0 OR has_had_paid_subscription = 1
                     """
                 else:
                     update_sql = """
-                        UPDATE users 
-                        SET has_made_first_topup = TRUE 
+                        UPDATE users
+                        SET has_made_first_topup = TRUE
                         WHERE balance_toman > 0 OR has_had_paid_subscription = TRUE
                     """
 
@@ -3218,7 +3305,7 @@ async def create_subscription_conversions_table():
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 );
-                
+
                 CREATE INDEX idx_subscription_conversions_user_id ON subscription_conversions(user_id);
                 CREATE INDEX idx_subscription_conversions_converted_at ON subscription_conversions(converted_at);
                 """
@@ -3236,7 +3323,7 @@ async def create_subscription_conversions_table():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 );
-                
+
                 CREATE INDEX idx_subscription_conversions_user_id ON subscription_conversions(user_id);
                 CREATE INDEX idx_subscription_conversions_converted_at ON subscription_conversions(converted_at);
                 """
@@ -3254,7 +3341,7 @@ async def create_subscription_conversions_table():
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 );
-                
+
                 CREATE INDEX idx_subscription_conversions_user_id ON subscription_conversions(user_id);
                 CREATE INDEX idx_subscription_conversions_converted_at ON subscription_conversions(converted_at);
                 """
@@ -3367,9 +3454,9 @@ async def fix_subscription_duplicates_universal():
         try:
             result = await conn.execute(
                 text("""
-                SELECT user_id, COUNT(*) as count 
-                FROM subscriptions 
-                GROUP BY user_id 
+                SELECT user_id, COUNT(*) as count
+                FROM subscriptions
+                GROUP BY user_id
                 HAVING COUNT(*) > 1
             """)
             )
@@ -3390,10 +3477,10 @@ async def fix_subscription_duplicates_universal():
                 if db_type == "sqlite":
                     delete_result = await conn.execute(
                         text("""
-                        DELETE FROM subscriptions 
+                        DELETE FROM subscriptions
                         WHERE user_id = :user_id AND id NOT IN (
-                            SELECT MAX(id) 
-                            FROM subscriptions 
+                            SELECT MAX(id)
+                            FROM subscriptions
                             WHERE user_id = :user_id
                         )
                     """),
@@ -3403,11 +3490,11 @@ async def fix_subscription_duplicates_universal():
                 elif db_type in ["postgresql", "mysql"]:
                     delete_result = await conn.execute(
                         text("""
-                        DELETE FROM subscriptions 
+                        DELETE FROM subscriptions
                         WHERE user_id = :user_id AND id NOT IN (
                             SELECT max_id FROM (
                                 SELECT MAX(id) as max_id
-                                FROM subscriptions 
+                                FROM subscriptions
                                 WHERE user_id = :user_id
                             ) as subquery
                         )
@@ -3418,8 +3505,8 @@ async def fix_subscription_duplicates_universal():
                 else:
                     subs_result = await conn.execute(
                         text("""
-                        SELECT id FROM subscriptions 
-                        WHERE user_id = :user_id 
+                        SELECT id FROM subscriptions
+                        WHERE user_id = :user_id
                         ORDER BY created_at DESC, id DESC
                     """),
                         {"user_id": user_id},
@@ -4569,6 +4656,13 @@ async def run_universal_migration():
         else:
             logger.warning("⚠️ Issues configuring server access to promo groups")
 
+        logger.info("=== FIXING BUTTON_CLICK_LOGS TABLE ===")
+        button_logs_fixed = await fix_button_click_logs_table()
+        if button_logs_fixed:
+            logger.info("✅ button_click_logs table fixed")
+        else:
+            logger.warning("⚠️ Issues fixing button_click_logs table")
+
         logger.info("=== UPDATING FOREIGN KEYS ===")
         fk_updated = await fix_foreign_keys_for_user_deletion()
         if fk_updated:
@@ -4610,9 +4704,9 @@ async def run_universal_migration():
         async with engine.begin() as conn:
             final_check = await conn.execute(
                 text("""
-                SELECT user_id, COUNT(*) as count 
-                FROM subscriptions 
-                GROUP BY user_id 
+                SELECT user_id, COUNT(*) as count
+                FROM subscriptions
+                GROUP BY user_id
                 HAVING COUNT(*) > 1
             """)
             )
@@ -4766,9 +4860,9 @@ async def check_migration_status():
             duplicates_check = await conn.execute(
                 text("""
                 SELECT COUNT(*) FROM (
-                    SELECT user_id, COUNT(*) as count 
-                    FROM subscriptions 
-                    GROUP BY user_id 
+                    SELECT user_id, COUNT(*) as count
+                    FROM subscriptions
+                    GROUP BY user_id
                     HAVING COUNT(*) > 1
                 ) as dups
             """)

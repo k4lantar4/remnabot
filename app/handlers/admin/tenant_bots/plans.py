@@ -15,7 +15,7 @@ from app.database.crud.bot_plan import (
 )
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler
-from app.utils.permissions import admin_required
+from app.utils.decorators import admin_required
 from app.states import AdminStates
 from .common import logger
 

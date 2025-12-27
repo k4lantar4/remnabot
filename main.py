@@ -7,8 +7,29 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-from app.bot import setup_bot
+# #region agent log
+import json
+try:
+    log_path = os.path.join('.cursor', 'debug.log')
+    log_path = os.path.abspath(log_path)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, 'a') as f:
+        f.write(json.dumps({"location":"main.py:10","message":"before importing settings","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
+except Exception as e:
+    print(f"Debug log write failed: {e}")
+# #endregion
+
 from app.config import settings
+
+# #region agent log
+try:
+    log_path = os.path.join('.cursor', 'debug.log')
+    log_path = os.path.abspath(log_path)
+    with open(log_path, 'a') as f:
+        f.write(json.dumps({"location":"main.py:13","message":"after importing settings","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"E"})+"\n")
+except Exception as e:
+    print(f"Debug log write failed: {e}")
+# #endregion
 from app.database.database import init_db
 from app.services.monitoring_service import monitoring_service
 from app.services.maintenance_service import maintenance_service
@@ -107,8 +128,37 @@ async def main():
     summary_logged = False
 
     try:
+        # #region agent log
+        import json, os
+        try:
+            log_path = os.path.join('.cursor', 'debug.log')
+            log_path = os.path.abspath(log_path)
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            with open(log_path, 'a') as f:
+                f.write(json.dumps({"location":"main.py:108","message":"before Database Initialization stage","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"B"})+"\n")
+        except Exception as e:
+            logger.debug(f"Debug log write failed: {e}")
+        # #endregion
         async with timeline.stage("Database Initialization", "🗄️", success_message="Database ready"):
+            # #region agent log
+            try:
+                log_path = os.path.join('.cursor', 'debug.log')
+                log_path = os.path.abspath(log_path)
+                with open(log_path, 'a') as f:
+                    f.write(json.dumps({"location":"main.py:110","message":"calling init_db","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"B"})+"\n")
+            except Exception as e:
+                logger.debug(f"Debug log write failed: {e}")
+            # #endregion
             await init_db()
+            # #region agent log
+            try:
+                log_path = os.path.join('.cursor', 'debug.log')
+                log_path = os.path.abspath(log_path)
+                with open(log_path, 'a') as f:
+                    f.write(json.dumps({"location":"main.py:111","message":"init_db completed","data":{},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"B"})+"\n")
+            except Exception as e:
+                logger.debug(f"Debug log write failed: {e}")
+            # #endregion
 
         skip_migration = os.getenv("SKIP_MIGRATION", "false").lower() == "true"
 
@@ -175,19 +225,26 @@ async def main():
         bot = None
         dp = None
         async with timeline.stage("Bot Setup", "🤖", success_message="Bot configured") as stage:
-            initialized_bots = await initialize_all_bots()
+            try:
+                logger.info("Starting bot initialization...")
+                initialized_bots = await initialize_all_bots()
+                logger.info(f"Bot initialization completed, got {len(initialized_bots) if initialized_bots else 0} bot(s)")
 
-            if not initialized_bots:
-                stage.warning("No bots initialized")
-                logger.error("❌ No bots initialized, cannot continue")
-                return
+                if not initialized_bots:
+                    stage.warning("No bots initialized")
+                    logger.error("❌ No bots initialized, cannot continue")
+                    raise RuntimeError("No bots were initialized. Check logs for details.")
 
-            # For backward compatibility, use first bot for services
-            # In multi-tenant mode, services should use bot from context
-            first_bot_id = list(initialized_bots.keys())[0]
-            bot, dp = initialized_bots[first_bot_id]
-            stage.log(f"Initialized {len(initialized_bots)} bot(s), using first bot (ID: {first_bot_id}) for services")
-            stage.log("Cache and FSM prepared")
+                # For backward compatibility, use first bot for services
+                # In multi-tenant mode, services should use bot from context
+                first_bot_id = list(initialized_bots.keys())[0]
+                bot, dp = initialized_bots[first_bot_id]
+                stage.log(f"Initialized {len(initialized_bots)} bot(s), using first bot (ID: {first_bot_id}) for services")
+                stage.log("Cache and FSM prepared")
+            except Exception as e:
+                stage.warning(f"Bot initialization failed: {e}")
+                logger.error(f"❌ Critical error during bot initialization: {e}", exc_info=True)
+                raise
 
         # Set first bot for services (backward compatibility)
         # Services should ideally get bot from context in multi-tenant mode
@@ -644,6 +701,16 @@ async def main():
             logger.error(f"Error in main loop: {e}")
 
     except Exception as e:
+        # #region agent log
+        import json, os
+        try:
+            log_path = os.path.join('.cursor', 'debug.log')
+            log_path = os.path.abspath(log_path)
+            with open(log_path, 'a') as f:
+                f.write(json.dumps({"location":"main.py:652","message":"critical startup exception","data":{"error":str(e),"type":type(e).__name__},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"startup","hypothesisId":"C"})+"\n")
+        except Exception as log_err:
+            logger.debug(f"Debug log write failed: {log_err}")
+        # #endregion
         logger.error(f"❌ Critical startup error: {e}")
         raise
 

@@ -8,7 +8,7 @@ from app.database.models import User
 from app.database.crud.bot import get_bot_by_id
 from app.localization.texts import get_texts
 from app.utils.decorators import error_handler
-from app.utils.permissions import admin_required
+from app.utils.decorators import admin_required
 from app.services.bot_config_service import BotConfigService
 from .common import logger
 
