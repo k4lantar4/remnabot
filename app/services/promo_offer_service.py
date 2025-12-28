@@ -119,7 +119,7 @@ class PromoOfferService:
                 await db.rollback()
                 await db.refresh(subscription)
                 logger.error(
-                    "Failed to sync temporary subscription access %s with RemnaWave",
+                    "Не удалось синхронизировать временный доступ подписки %s с RemnaWave",
                     subscription.id,
                 )
                 return False, None, None, "remnawave_sync_failed"
@@ -191,7 +191,7 @@ class PromoOfferService:
                     await self.subscription_service.update_remnawave_user(db, subscription)
                 except Exception as exc:  # pragma: no cover - defensive logging
                     logger.error(
-                        "Failed to update Remnawave when revoking test access for subscription %s: %s",
+                        "Ошибка обновления Remnawave при отзыве тестового доступа подписки %s: %s",
                         subscription.id,
                         exc,
                     )
