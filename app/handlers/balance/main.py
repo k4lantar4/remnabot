@@ -242,6 +242,24 @@ async def show_payment_methods(
     from app.services.subscription_service import SubscriptionService
 
     texts = get_texts(db_user.language)
+
+    # Проверка ограничения на пополнение
+    if getattr(db_user, 'restriction_topup', False):
+        reason = getattr(db_user, 'restriction_reason', None) or "Действие ограничено администратором"
+        support_url = settings.get_support_contact_url()
+        keyboard = []
+        if support_url:
+            keyboard.append([types.InlineKeyboardButton(text="🆘 Обжаловать", url=support_url)])
+        keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="menu_balance")])
+
+        await callback.message.edit_text(
+            f"🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n"
+            "Если вы считаете это ошибкой, вы можете обжаловать решение.",
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        await callback.answer()
+        return
+
     payment_text = get_payment_methods_text(db_user.language)
 
     # Добавляем информацию о текущем тарифе пользователя
@@ -594,6 +612,11 @@ async def process_topup_amount(
             from .heleket import process_heleket_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_heleket_payment_amount(message, db_user, db, amount_kopeks, state)
+        elif payment_method == "cloudpayments":
+            from app.database.database import AsyncSessionLocal
+            from .cloudpayments import process_cloudpayments_amount
+            async with AsyncSessionLocal() as db:
+                await process_cloudpayments_amount(message, db_user, db, state)
         else:
             await message.answer("Неизвестный способ оплаты")
         
@@ -723,6 +746,14 @@ async def handle_quick_amount_selection(
                 await process_heleket_payment_amount(
                     callback.message, db_user, db, amount_kopeks, state
                 )
+        elif payment_method == "cloudpayments":
+            from app.database.database import AsyncSessionLocal
+            from .cloudpayments import process_cloudpayments_payment_amount
+
+            async with AsyncSessionLocal() as db:
+                await process_cloudpayments_payment_amount(
+                    callback.message, db_user, db, amount_kopeks, state
+                )
         elif payment_method == "stars":
             from .stars import process_stars_payment_amount
 
@@ -820,6 +851,13 @@ async def handle_topup_amount_callback(
             from .wata import process_wata_payment_amount
             async with AsyncSessionLocal() as db:
                 await process_wata_payment_amount(
+                    callback.message, db_user, db, amount_kopeks, state
+                )
+        elif method == "cloudpayments":
+            from app.database.database import AsyncSessionLocal
+            from .cloudpayments import process_cloudpayments_payment_amount
+            async with AsyncSessionLocal() as db:
+                await process_cloudpayments_payment_amount(
                     callback.message, db_user, db, amount_kopeks, state
                 )
         elif method == "stars":
@@ -963,6 +1001,16 @@ def register_balance_handlers(dp: Dispatcher):
     dp.callback_query.register(
         check_heleket_payment_status,
         F.data.startswith("check_heleket_")
+    )
+
+    from .cloudpayments import start_cloudpayments_payment, handle_cloudpayments_quick_amount
+    dp.callback_query.register(
+        start_cloudpayments_payment,
+        F.data == "topup_cloudpayments"
+    )
+    dp.callback_query.register(
+        handle_cloudpayments_quick_amount,
+        F.data.startswith("topup_amount|cloudpayments|")
     )
 
     from .mulenpay import check_mulenpay_payment_status
