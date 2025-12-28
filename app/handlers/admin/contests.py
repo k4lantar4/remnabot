@@ -49,13 +49,14 @@ def _format_contest_summary(contest, texts, tz: ZoneInfo) -> str:
     start_local = start_local.astimezone(tz)
     end_local = end_local.astimezone(tz)
 
-    status = (
-        texts.t("ADMIN_CONTEST_STATUS_ACTIVE", "🟢 Активен")
-        if contest.is_active
-        else texts.t("ADMIN_CONTEST_STATUS_INACTIVE", "⚪️ Выключен")
+    status = texts.t("ADMIN_CONTEST_STATUS_ACTIVE", "🟢 Активен") if contest.is_active else texts.t(
+        "ADMIN_CONTEST_STATUS_INACTIVE", "⚪️ Выключен"
     )
 
-    period = f"{start_local.strftime('%d.%m %H:%M')} — {end_local.strftime('%d.%m %H:%M')} ({tz.key})"
+    period = (
+        f"{start_local.strftime('%d.%m %H:%M')} — "
+        f"{end_local.strftime('%d.%m %H:%M')} ({tz.key})"
+    )
 
     summary_time = contest.daily_summary_time.strftime("%H:%M") if contest.daily_summary_time else "12:00"
     summary_times = contest.daily_summary_times or summary_time
@@ -619,8 +620,16 @@ async def finalize_contest_creation(message: types.Message, state: FSMContext, d
         await message.answer(texts.t("ADMIN_CONTEST_INVALID_DATE", "Не удалось распознать дату."))
         return
 
-    start_at = datetime.fromisoformat(start_at_raw).astimezone(timezone.utc).replace(tzinfo=None)
-    end_at = datetime.fromisoformat(end_at_raw).astimezone(timezone.utc).replace(tzinfo=None)
+    start_at = (
+        datetime.fromisoformat(start_at_raw)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
+    end_at = (
+        datetime.fromisoformat(end_at_raw)
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
 
     contest_type = data.get("contest_type") or "referral_paid"
 
@@ -672,7 +681,6 @@ async def show_detailed_stats(
         return
 
     from app.services.referral_contest_service import referral_contest_service
-
     stats = await referral_contest_service.get_detailed_contest_stats(db, contest_id)
 
     # Общее сообщение с основной статистикой
@@ -714,30 +722,27 @@ async def show_detailed_stats_page(
 
         # Получаем stats если не переданы
         from app.services.referral_contest_service import referral_contest_service
-
         stats = await referral_contest_service.get_detailed_contest_stats(db, contest_id)
 
-    participants = stats["participants"]
+    participants = stats['participants']
     total_participants = len(participants)
     PAGE_SIZE = 10
     total_pages = math.ceil(total_participants / PAGE_SIZE)
 
     page = max(1, min(page, total_pages))
     offset = (page - 1) * PAGE_SIZE
-    page_participants = participants[offset : offset + PAGE_SIZE]
+    page_participants = participants[offset:offset + PAGE_SIZE]
 
     lines = [f"📊 По участникам (страница {page}/{total_pages}):"]
     for p in page_participants:
-        lines.extend(
-            [
-                f"• <b>{p['full_name']}</b>",
-                f"  📨 Приглашено: {p['total_referrals']}",
-                f"  💰 Оплатили: {p['paid_referrals']}",
-                f"  ❌ Не оплатили: {p['unpaid_referrals']}",
-                f"  💵 Сумма: {p['total_paid_amount'] // 100} руб.",
-                "",  # Пустая строка для разделения
-            ]
-        )
+        lines.extend([
+            f"• <b>{p['full_name']}</b>",
+            f"  📨 Приглашено: {p['total_referrals']}",
+            f"  💰 Оплатили: {p['paid_referrals']}",
+            f"  ❌ Не оплатили: {p['unpaid_referrals']}",
+            f"  💵 Сумма: {p['total_paid_amount'] // 100} руб.",
+            ""  # Пустая строка для разделения
+        ])
 
     pagination = get_admin_pagination_keyboard(
         page,
@@ -768,9 +773,7 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(show_detailed_stats, F.data.startswith("admin_contest_detailed_stats_"))
     dp.callback_query.register(show_detailed_stats_page, F.data.startswith("admin_contest_detailed_stats_page_"))
     dp.callback_query.register(start_contest_creation, F.data == "admin_contests_create")
-    dp.callback_query.register(
-        select_contest_mode, F.data.in_(["admin_contest_mode_paid", "admin_contest_mode_registered"])
-    )
+    dp.callback_query.register(select_contest_mode, F.data.in_(["admin_contest_mode_paid", "admin_contest_mode_registered"]))
 
     dp.message.register(process_title, AdminStates.creating_referral_contest_title)
     dp.message.register(process_description, AdminStates.creating_referral_contest_description)
