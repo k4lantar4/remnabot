@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import MissingGreenlet
 
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.promo_group import get_promo_group_by_id
 from app.database.crud.subscription_event import create_subscription_event
 from app.database.crud.user import get_user_by_id
@@ -33,15 +34,20 @@ class AdminNotificationService:
         self.topic_id = getattr(settings, 'ADMIN_NOTIFICATIONS_TOPIC_ID', None)
         self.ticket_topic_id = getattr(settings, 'ADMIN_NOTIFICATIONS_TICKET_TOPIC_ID', None)
         self.enabled = getattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False)
+        # Admin notifications use a single localization context
+        default_locale = getattr(settings, "DEFAULT_LANGUAGE", "en")
+        self.texts = get_texts(default_locale)
     
     async def _get_referrer_info(self, db: AsyncSession, referred_by_id: Optional[int]) -> str:
         if not referred_by_id:
-            return "Нет"
+            return self.texts.t("service.notifications.admin.referrer_none", "None")
 
         try:
             referrer = await get_user_by_id(db, referred_by_id)
             if not referrer:
-                return f"ID {referred_by_id} (не найден)"
+                return self.texts.t("service.notifications.admin.referrer_not_found", "ID {id} (not found)").format(
+                    id=referred_by_id
+                )
 
             if referrer.username:
                 return f"@{referrer.username} (ID: {referred_by_id})"
@@ -49,7 +55,7 @@ class AdminNotificationService:
                 return f"ID {referrer.telegram_id}"
 
         except Exception as e:
-            logger.error(f"Ошибка получения данных рефера {referred_by_id}: {e}")
+            logger.error(f"Error getting referrer data {referred_by_id}: {e}")
             return f"ID {referred_by_id}"
 
     async def _get_user_promo_group(self, db: AsyncSession, user: User) -> Optional[PromoGroup]:
@@ -1081,7 +1087,7 @@ class AdminNotificationService:
     
     def _get_subscription_status(self, subscription: Optional[Subscription]) -> str:
         if not subscription:
-            return "❌ Нет подписки"
+            return self.texts.t("service.notifications.admin.no_subscription", "❌ No subscription")
 
         if subscription.is_trial:
             return f"🎯 Триал (до {format_local_datetime(subscription.end_date, '%d.%m')})"
@@ -1092,7 +1098,7 @@ class AdminNotificationService:
     
     async def _get_servers_info(self, squad_uuids: list) -> str:
         if not squad_uuids:
-            return "❌ Нет серверов"
+            return self.texts.t("service.notifications.admin.no_servers", "❌ No servers")
         
         try:
             from app.handlers.subscription import get_servers_display_names
@@ -1423,7 +1429,7 @@ class AdminNotificationService:
 
     async def _format_servers_detailed(self, server_uuids: List[str]) -> str:
         if not server_uuids:
-            return "Нет серверов"
+            return self.texts.t("service.notifications.admin.no_servers", "No servers")
         
         try:
             from app.handlers.subscription import get_servers_display_names
