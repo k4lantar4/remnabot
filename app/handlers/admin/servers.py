@@ -194,11 +194,11 @@ async def show_servers_menu(callback: types.CallbackQuery, db_user: User, db: As
 Select an action:
 """,
     ).format(
-        total=stats["total_servers"],
-        available=stats["available_servers"],
-        unavailable=stats["unavailable_servers"],
-        with_connections=stats["servers_with_connections"],
-        revenue=int(stats["total_revenue_rubles"]),
+        total=stats.get("total_servers", 0),
+        available=stats.get("available_servers", 0),
+        unavailable=stats.get("unavailable_servers", 0),
+        with_connections=stats.get("servers_with_connections", 0),
+        revenue=int(stats.get("total_revenue_toman", 0)),
     )
 
     keyboard = [
@@ -849,7 +849,7 @@ async def show_server_detailed_stats(callback: types.CallbackQuery, db_user: Use
     stats = await get_server_statistics(db)
     available_servers = await get_available_server_squads(db)
 
-    avg_price = int(stats["total_revenue_rubles"] / max(stats["servers_with_connections"], 1))
+    avg_price = int(stats.get("total_revenue_toman", 0) / max(stats.get("servers_with_connections", 1), 1))
     text = texts.t(
         "ADMIN_SRV_DETAILED_STATS",
         """
@@ -868,11 +868,11 @@ async def show_server_detailed_stats(callback: types.CallbackQuery, db_user: Use
 <b>🔥 Top servers by price:</b>
 """,
     ).format(
-        total=stats["total_servers"],
-        available=stats["available_servers"],
-        unavailable=stats["unavailable_servers"],
-        with_connections=stats["servers_with_connections"],
-        revenue=int(stats["total_revenue_rubles"]),
+        total=stats.get("total_servers", 0),
+        available=stats.get("available_servers", 0),
+        unavailable=stats.get("unavailable_servers", 0),
+        with_connections=stats.get("servers_with_connections", 0),
+        revenue=int(stats.get("total_revenue_toman", 0)),
         avg_price=avg_price,
     )
 
