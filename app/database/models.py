@@ -1361,6 +1361,11 @@ class Squad(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
+    @property
+    def price_rubles(self) -> float:
+        """Return price in rubles (same as toman after currency migration)."""
+        return float(self.price_toman)
+
 
 class ServiceRule(Base):
     __tablename__ = "service_rules"
@@ -1716,6 +1721,11 @@ class ServerSquad(Base):
         back_populates="server_squads",
         lazy="selectin",
     )
+
+    @property
+    def price_rubles(self) -> float:
+        """Return price in rubles (same as toman after currency migration)."""
+        return float(self.price_toman)
 
     @property
     def is_full(self) -> bool:

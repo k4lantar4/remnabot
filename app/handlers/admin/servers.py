@@ -302,13 +302,33 @@ async def sync_servers_with_remnawave(callback: types.CallbackQuery, db_user: Us
 
     try:
         remnawave_service = RemnaWaveService()
+        
+        # Check if service is configured
+        if not remnawave_service.is_configured:
+            config_error = remnawave_service.configuration_error or "RemnaWave API is not configured"
+            await callback.message.edit_text(
+                texts.t(
+                    "ADMIN_SRV_SYNC_NO_SQUADS", 
+                    "❌ Failed to get squad data from Remnawave.\n\n{error}\n\nCheck API settings."
+                ).format(error=config_error),
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_servers")]]
+                ),
+            )
+            return
+        
         squads = await remnawave_service.get_all_squads()
 
         if not squads:
+            # Check if configuration error occurred during get_all_squads
+            config_error = remnawave_service.configuration_error
+            error_message = "❌ Failed to get squad data from Remnawave.\n\n"
+            if config_error:
+                error_message += f"{config_error}\n\n"
+            error_message += "Check API settings."
+            
             await callback.message.edit_text(
-                texts.t(
-                    "ADMIN_SRV_SYNC_NO_SQUADS", "❌ Failed to get squad data from Remnawave.\n\nCheck API settings."
-                ),
+                texts.t("ADMIN_SRV_SYNC_NO_SQUADS", error_message),
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data="admin_servers")]]
                 ),

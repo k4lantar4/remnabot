@@ -1,0 +1,90 @@
+# Workflow Initialization Configuration
+# This file defines the workflow initialization parameters for BMAD BMM methodology
+
+project: "remnabot"
+project_type: "saas-multi-tenant"
+selected_track: "method"
+field_type: "brownfield"
+workflow_path: "method-brownfield.yaml"
+
+# Workflow Phases Definition
+phases:
+  prerequisite:
+    name: "Prerequisite - Documentation"
+    workflows:
+      - document-project:
+          status: "completed"
+          file: "docs/index.md"
+          required: true
+  
+  discovery:
+    name: "Phase 0 - Discovery (Optional)"
+    workflows:
+      - brainstorm-project:
+          status: "completed"
+          file: "_bmad-output/analysis/brainstorming-session-2025-12-25.md"
+          required: false
+      - research:
+          status: "completed"
+          file: "_bmad-output/project-planning-artifacts/research/technical-multi-tenancy-architecture-research-2025-12-25.md"
+          required: false
+      - product-brief:
+          status: "skipped"
+          required: false
+          reason: "Not selected for brownfield"
+  
+  planning:
+    name: "Phase 1 - Planning"
+    workflows:
+      - prd:
+          status: "completed"
+          file: "_bmad-output/prd.md"
+          required: true
+      - create-ux-design:
+          status: "completed"
+          file: "_bmad-output/project-planning-artifacts/ux-design-specification.md"
+          required: true
+  
+  solutioning:
+    name: "Phase 2 - Solutioning"
+    workflows:
+      - create-architecture:
+          status: "completed"
+          file: "_bmad-output/architecture.md"
+          required: true
+      - create-epics-and-stories:
+          status: "required"
+          required: true
+      - test-design:
+          status: "recommended"
+          required: false
+      - validate-architecture:
+          status: "optional"
+          required: false
+      - implementation-readiness:
+          status: "required"
+          required: true
+  
+  implementation:
+    name: "Phase 3 - Implementation"
+    workflows:
+      - sprint-planning:
+          status: "required"
+          required: true
+
+# Status Definitions
+status_definitions:
+  initial:
+    - required: "Must be completed to progress"
+    - optional: "Can be completed but not required"
+    - recommended: "Strongly suggested but not required"
+    - conditional: "Required only if certain conditions met"
+  completion:
+    - file_path: "File created/found (e.g., 'docs/product-brief.md')"
+    - skipped: "Optional/conditional workflow that was skipped"
+
+# Metadata
+metadata:
+  generated: "2025-12-26"
+  last_updated: "2025-12-26"
+  version: "1.0"
