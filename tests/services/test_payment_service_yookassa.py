@@ -103,14 +103,14 @@ async def test_create_yookassa_payment_success(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(
         type(settings),
         "format_price",
-        lambda self, amount: f"{amount / 100:.0f}₽",
+        lambda self, amount: f"{amount / 100:.0f} Toman",
         raising=False,
     )
 
     result = await service.create_yookassa_payment(
         db=db,
         user_id=42,
-        amount_kopeks=14000,
+        amount_toman=1_400_000,  # 14000 toman (was 140 rubles = 14000 kopeks)
         description="Пополнение",
         receipt_email="user@example.com",
         metadata={"custom": "data"},
@@ -119,14 +119,13 @@ async def test_create_yookassa_payment_success(monkeypatch: pytest.MonkeyPatch) 
     assert result is not None
     assert result["local_payment_id"] == 555
     assert result["yookassa_payment_id"] == "yk_123"
-    assert result["amount_kopeks"] == 14000
-    assert result["amount_rubles"] == 140
+    assert result["amount_toman"] == 1_400_000
     assert result["status"] == "pending"
 
     assert captured_args["user_id"] == 42
     assert captured_args["metadata_json"]["custom"] == "data"
     assert captured_args["metadata_json"]["user_id"] == "42"
-    assert captured_args["metadata_json"]["amount_kopeks"] == "14000"
+    assert captured_args["metadata_json"]["amount_toman"] == "1400000"
     assert isinstance(captured_args["yookassa_created_at"], datetime)
 
 
@@ -138,7 +137,7 @@ async def test_create_yookassa_payment_returns_none_when_service_missing() -> No
     result = await service.create_yookassa_payment(
         db=db,
         user_id=1,
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="Пополнение",
     )
     assert result is None
@@ -168,7 +167,7 @@ async def test_create_yookassa_payment_handles_error_response(monkeypatch: pytes
     result = await service.create_yookassa_payment(
         db=db,
         user_id=1,
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         description="Пополнение",
     )
     assert result is None
@@ -205,7 +204,7 @@ async def test_create_yookassa_sbp_payment_success(monkeypatch: pytest.MonkeyPat
     result = await service.create_yookassa_sbp_payment(
         db=db,
         user_id=7,
-        amount_kopeks=25000,
+        amount_toman=2_500_000,  # 25000 toman (was 250 rubles = 25000 kopeks)
         description="СБП пополнение",
     )
 
@@ -239,7 +238,7 @@ async def test_create_yookassa_sbp_payment_returns_none_on_error(monkeypatch: py
     result = await service.create_yookassa_sbp_payment(
         db=db,
         user_id=1,
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="СБП пополнение",
     )
     assert result is None

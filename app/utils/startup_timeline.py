@@ -27,31 +27,31 @@ class StageHandle:
         self.icon = icon
         self.message = success_message or ""
         self.status_icon = "✅"
-        self.status_label = "Готово"
+        self.status_label = "Ready"
         self._explicit_status = False
 
     def success(self, message: Optional[str] = None) -> None:
         if message is not None:
             self.message = message
         self.status_icon = "✅"
-        self.status_label = "Готово"
+        self.status_label = "Ready"
         self._explicit_status = True
 
     def warning(self, message: str) -> None:
         self.status_icon = "⚠️"
-        self.status_label = "Предупреждение"
+        self.status_label = "Warning"
         self.message = message
         self._explicit_status = True
 
     def skip(self, message: str) -> None:
         self.status_icon = "⏭️"
-        self.status_label = "Пропущено"
+        self.status_label = "Skipped"
         self.message = message
         self._explicit_status = True
 
     def failure(self, message: str) -> None:
         self.status_icon = "❌"
-        self.status_label = "Ошибка"
+        self.status_label = "Error"
         self.message = message
         self._explicit_status = True
 
@@ -65,9 +65,7 @@ class StartupTimeline:
         self.app_name = app_name
         self.steps: List[StepRecord] = []
 
-    def _record_step(
-        self, title: str, icon: str, status_label: str, message: str, duration: float
-    ) -> None:
+    def _record_step(self, title: str, icon: str, status_label: str, message: str, duration: float) -> None:
         self.steps.append(
             StepRecord(
                 title=title,
@@ -124,7 +122,7 @@ class StartupTimeline:
         title: str,
         icon: str = "⚙️",
         description: Optional[str] = None,
-        success_message: Optional[str] = "Готово",
+        success_message: Optional[str] = "Ready",
     ):
         if description:
             self.logger.info(f"┏ {icon} {title} — {description}")
@@ -138,15 +136,13 @@ class StartupTimeline:
         except Exception as exc:
             message = str(exc)
             handle.failure(message)
-            self.logger.exception(f"┣ ❌ {title} — ошибка: {message}")
+            self.logger.exception(f"┣ ❌ {title} — error: {message}")
             raise
         finally:
             duration = time.perf_counter() - start_time
             if not handle._explicit_status:
-                handle.success(handle.message or "Готово")
-            self.logger.info(
-                f"┗ {handle.status_icon} {title} — {handle.message} [{duration:.2f}s]"
-            )
+                handle.success(handle.message or "Ready")
+            self.logger.info(f"┗ {handle.status_icon} {title} — {handle.message} [{duration:.2f}s]")
             self._record_step(
                 title=title,
                 icon=handle.status_icon,
@@ -161,10 +157,7 @@ class StartupTimeline:
 
         lines = []
         for step in self.steps:
-            base = (
-                f"{step.icon} {step.title} — {step.status_label}"
-                f" [{step.duration:.2f}s]"
-            )
+            base = f"{step.icon} {step.title} — {step.status_label} [{step.duration:.2f}s]"
             if step.message:
                 base += f" :: {step.message}"
             lines.append(base)
@@ -173,7 +166,7 @@ class StartupTimeline:
         border_top = "┏" + "━" * (width + 2) + "┓"
         border_mid = "┣" + "━" * (width + 2) + "┫"
         border_bottom = "┗" + "━" * (width + 2) + "┛"
-        title = "РЕЗЮМЕ ЗАПУСКА"
+        title = "STARTUP SUMMARY"
 
         self.logger.info(border_top)
         self.logger.info("┃ " + title.center(width) + " ┃")
@@ -181,4 +174,3 @@ class StartupTimeline:
         for line in lines:
             self.logger.info("┃ " + line.ljust(width) + " ┃")
         self.logger.info(border_bottom)
-

@@ -38,12 +38,12 @@ async def test_commission_accrues_before_minimum_first_topup(monkeypatch):
     create_referral_earning_mock = AsyncMock()
     monkeypatch.setattr(referral_service, "create_referral_earning", create_referral_earning_mock)
 
-    monkeypatch.setattr(referral_service.settings, "REFERRAL_MINIMUM_TOPUP_KOPEKS", 20000)
-    monkeypatch.setattr(referral_service.settings, "REFERRAL_FIRST_TOPUP_BONUS_KOPEKS", 5000)
-    monkeypatch.setattr(referral_service.settings, "REFERRAL_INVITER_BONUS_KOPEKS", 10000)
+    monkeypatch.setattr(referral_service.settings, "REFERRAL_MINIMUM_TOPUP_TOMAN", 2000000)  # 20000 toman (was 200 rubles = 20000 kopeks)
+    monkeypatch.setattr(referral_service.settings, "REFERRAL_FIRST_TOPUP_BONUS_TOMAN", 500000)  # 5000 toman (was 50 rubles = 5000 kopeks)
+    monkeypatch.setattr(referral_service.settings, "REFERRAL_INVITER_BONUS_TOMAN", 1000000)  # 10000 toman (was 100 rubles = 10000 kopeks)
     monkeypatch.setattr(referral_service.settings, "REFERRAL_COMMISSION_PERCENT", 25)
 
-    topup_amount = 15000
+    topup_amount = 1500000  # 15000 toman (was 150 rubles = 15000 kopeks)
 
     result = await referral_service.process_referral_topup(db, user.id, topup_amount)
 
@@ -53,13 +53,13 @@ async def test_commission_accrues_before_minimum_first_topup(monkeypatch):
     add_user_balance_mock.assert_awaited_once()
     add_call = add_user_balance_mock.await_args
     assert add_call.args[1] is referrer
-    assert add_call.args[2] == 3750
+    assert add_call.args[2] == 375000  # 3750 toman (was 37.5 rubles = 3750 kopeks)
     assert "Комиссия" in add_call.args[3]
     assert add_call.kwargs.get("bot") is None
 
     create_referral_earning_mock.assert_awaited_once()
     earning_call = create_referral_earning_mock.await_args
-    assert earning_call.kwargs["amount_kopeks"] == 3750
+    assert earning_call.kwargs["amount_toman"] == 375000  # 3750 toman (was 37.5 rubles = 3750 kopeks)
     assert earning_call.kwargs["reason"] == "referral_commission_topup"
 
     db.commit.assert_not_awaited()

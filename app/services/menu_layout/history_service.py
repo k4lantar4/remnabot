@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tenant_context import require_current_tenant
 from app.database.models import MenuLayoutHistory
 
 
@@ -25,7 +26,9 @@ class MenuLayoutHistoryService:
         user_info: Optional[str] = None,
     ) -> MenuLayoutHistory:
         """Сохранить запись в историю изменений."""
+        bot_id = require_current_tenant()
         history = MenuLayoutHistory(
+            bot_id=bot_id,
             config_json=json.dumps(config, ensure_ascii=False),
             action=action,
             changes_summary=changes_summary or f"Action: {action}",
@@ -44,8 +47,10 @@ class MenuLayoutHistoryService:
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """Получить историю изменений."""
+        bot_id = require_current_tenant()
         result = await db.execute(
             select(MenuLayoutHistory)
+            .where(MenuLayoutHistory.bot_id == bot_id)
             .order_by(desc(MenuLayoutHistory.created_at))
             .limit(limit)
             .offset(offset)
@@ -66,8 +71,9 @@ class MenuLayoutHistoryService:
     @classmethod
     async def get_history_count(cls, db: AsyncSession) -> int:
         """Получить общее количество записей истории."""
+        bot_id = require_current_tenant()
         result = await db.execute(
-            select(func.count(MenuLayoutHistory.id))
+            select(func.count(MenuLayoutHistory.id)).where(MenuLayoutHistory.bot_id == bot_id)
         )
         return result.scalar() or 0
 
@@ -78,8 +84,10 @@ class MenuLayoutHistoryService:
         history_id: int,
     ) -> Optional[Dict[str, Any]]:
         """Получить конкретную запись истории с конфигурацией."""
+        bot_id = require_current_tenant()
         result = await db.execute(
-            select(MenuLayoutHistory).where(MenuLayoutHistory.id == history_id)
+            select(MenuLayoutHistory)
+            .where(MenuLayoutHistory.id == history_id, MenuLayoutHistory.bot_id == bot_id)
         )
         entry = result.scalar_one_or_none()
 
@@ -123,19 +131,13 @@ class MenuLayoutHistoryService:
         # Сохраняем текущую конфигурацию в историю перед откатом
         current_config = await get_config_func(db)
         await cls.save_history(
-            db, current_config, "rollback_backup",
-            f"Backup before rollback to history #{history_id}",
-            user_info
+            db, current_config, "rollback_backup", f"Backup before rollback to history #{history_id}", user_info
         )
 
         # Применяем конфигурацию из истории
         await save_config_func(db, config)
 
         # Сохраняем запись об откате
-        await cls.save_history(
-            db, config, "rollback",
-            f"Rollback to history #{history_id}",
-            user_info
-        )
+        await cls.save_history(db, config, "rollback", f"Rollback to history #{history_id}", user_info)
 
         return config

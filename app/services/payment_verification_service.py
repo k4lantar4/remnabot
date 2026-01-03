@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database.database import AsyncSessionLocal
 from app.database.models import (
+    CloudPaymentsPayment,
     CryptoBotPayment,
     HeleketPayment,
     MulenPayPayment,
@@ -64,6 +65,7 @@ SUPPORTED_MANUAL_CHECK_METHODS: frozenset[PaymentMethod] = frozenset(
         PaymentMethod.HELEKET,
         PaymentMethod.CRYPTOBOT,
         PaymentMethod.PLATEGA,
+        PaymentMethod.CLOUDPAYMENTS,
     }
 )
 
@@ -76,6 +78,7 @@ SUPPORTED_AUTO_CHECK_METHODS: frozenset[PaymentMethod] = frozenset(
         PaymentMethod.WATA,
         PaymentMethod.CRYPTOBOT,
         PaymentMethod.PLATEGA,
+        PaymentMethod.CLOUDPAYMENTS,
     }
 )
 
@@ -95,6 +98,8 @@ def method_display_name(method: PaymentMethod) -> str:
         return "CryptoBot"
     if method == PaymentMethod.HELEKET:
         return "Heleket"
+    if method == PaymentMethod.CLOUDPAYMENTS:
+        return "CloudPayments"
     if method == PaymentMethod.TELEGRAM_STARS:
         return "Telegram Stars"
     return method.value
@@ -115,15 +120,13 @@ def _method_is_enabled(method: PaymentMethod) -> bool:
         return settings.is_cryptobot_enabled()
     if method == PaymentMethod.HELEKET:
         return settings.is_heleket_enabled()
+    if method == PaymentMethod.CLOUDPAYMENTS:
+        return settings.is_cloudpayments_enabled()
     return False
 
 
 def get_enabled_auto_methods() -> List[PaymentMethod]:
-    return [
-        method
-        for method in SUPPORTED_AUTO_CHECK_METHODS
-        if _method_is_enabled(method)
-    ]
+    return [method for method in SUPPORTED_AUTO_CHECK_METHODS if _method_is_enabled(method)]
 
 
 class AutoPaymentVerificationService:
@@ -147,21 +150,15 @@ class AutoPaymentVerificationService:
             return
 
         if not self._payment_service:
-            logger.warning(
-                "Автопроверка пополнений не запущена: PaymentService не инициализирован"
-            )
+            logger.warning("Автопроверка пополнений не запущена: PaymentService не инициализирован")
             return
 
         methods = get_enabled_auto_methods()
         if not methods:
-            logger.info(
-                "Автопроверка пополнений не запущена: нет активных провайдеров"
-            )
+            logger.info("Автопроверка пополнений не запущена: нет активных провайдеров")
             return
 
-        display_names = ", ".join(
-            sorted(method_display_name(method) for method in methods)
-        )
+        display_names = ", ".join(sorted(method_display_name(method) for method in methods))
         interval_minutes = settings.get_payment_verification_auto_check_interval()
 
         self._task = asyncio.create_task(self._auto_check_loop())
@@ -185,21 +182,14 @@ class AutoPaymentVerificationService:
             while True:
                 interval_minutes = settings.get_payment_verification_auto_check_interval()
                 try:
-                    if (
-                        settings.is_payment_verification_auto_check_enabled()
-                        and self._payment_service
-                    ):
+                    if settings.is_payment_verification_auto_check_enabled() and self._payment_service:
                         methods = get_enabled_auto_methods()
                         if methods:
                             await self._run_checks(methods)
                         else:
-                            logger.debug(
-                                "Автопроверка пополнений: активных провайдеров нет"
-                            )
+                            logger.debug("Автопроверка пополнений: активных провайдеров нет")
                     else:
-                        logger.debug(
-                            "Автопроверка пополнений: отключена настройками или сервис не готов"
-                        )
+                        logger.debug("Автопроверка пополнений: отключена настройками или сервис не готов")
                 except asyncio.CancelledError:
                     raise
                 except Exception as error:  # noqa: BLE001 - логируем непредвиденные ошибки
@@ -221,24 +211,16 @@ class AutoPaymentVerificationService:
         async with AsyncSessionLocal() as session:
             try:
                 pending = await list_recent_pending_payments(session)
-                candidates = [
-                    record
-                    for record in pending
-                    if record.method in methods and not record.is_paid
-                ]
+                candidates = [record for record in pending if record.method in methods and not record.is_paid]
 
                 if not candidates:
-                    logger.debug(
-                        "Автопроверка пополнений: подходящих ожидающих платежей нет"
-                    )
+                    logger.debug("Автопроверка пополнений: подходящих ожидающих платежей нет")
                     return
 
                 counts = Counter(record.method for record in candidates)
                 summary = ", ".join(
                     f"{method_display_name(method)}: {count}"
-                    for method, count in sorted(
-                        counts.items(), key=lambda item: method_display_name(item[0])
-                    )
+                    for method, count in sorted(counts.items(), key=lambda item: method_display_name(item[0]))
                 )
                 logger.info(
                     "🔄 Автопроверка пополнений: найдено %s инвойсов (%s)",
@@ -294,6 +276,7 @@ class AutoPaymentVerificationService:
 
 auto_payment_verification_service = AutoPaymentVerificationService()
 
+
 def _is_pal24_pending(payment: Pal24Payment) -> bool:
     if payment.is_paid:
         return False
@@ -348,6 +331,13 @@ def _is_cryptobot_pending(payment: CryptoBotPayment) -> bool:
     return status == "active"
 
 
+def _is_cloudpayments_pending(payment: CloudPaymentsPayment) -> bool:
+    if payment.is_paid:
+        return False
+    status = (payment.status or "").lower()
+    return status in {"pending", "authorized"}
+
+
 def _parse_cryptobot_amount_kopeks(payment: CryptoBotPayment) -> int:
     payload = payment.payload or ""
     match = re.search(r"_(\d+)$", payload)
@@ -365,8 +355,16 @@ def _metadata_is_balance(payment: YooKassaPayment) -> bool:
     return payment_type.startswith("balance_topup")
 
 
-def _build_record(method: PaymentMethod, payment: Any, *, identifier: str, amount_kopeks: int,
-                  status: str, is_paid: bool, expires_at: Optional[datetime] = None) -> Optional[PendingPayment]:
+def _build_record(
+    method: PaymentMethod,
+    payment: Any,
+    *,
+    identifier: str,
+    amount_kopeks: int,
+    status: str,
+    is_paid: bool,
+    expires_at: Optional[datetime] = None,
+) -> Optional[PendingPayment]:
     user = getattr(payment, "user", None)
     if user is None:
         logger.debug("Skipping %s payment %s without linked user", method.value, identifier)
@@ -582,6 +580,31 @@ async def _fetch_cryptobot_payments(db: AsyncSession, cutoff: datetime) -> List[
     return records
 
 
+async def _fetch_cloudpayments_payments(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
+    stmt = (
+        select(CloudPaymentsPayment)
+        .options(selectinload(CloudPaymentsPayment.user))
+        .where(CloudPaymentsPayment.created_at >= cutoff)
+        .order_by(desc(CloudPaymentsPayment.created_at))
+    )
+    result = await db.execute(stmt)
+    records: List[PendingPayment] = []
+    for payment in result.scalars().all():
+        if not _is_cloudpayments_pending(payment):
+            continue
+        record = _build_record(
+            PaymentMethod.CLOUDPAYMENTS,
+            payment,
+            identifier=payment.invoice_id,
+            amount_kopeks=payment.amount_kopeks,
+            status=payment.status or "",
+            is_paid=bool(payment.is_paid),
+        )
+        if record:
+            records.append(record)
+    return records
+
+
 async def _fetch_stars_transactions(db: AsyncSession, cutoff: datetime) -> List[PendingPayment]:
     stmt = (
         select(Transaction)
@@ -626,6 +649,7 @@ async def list_recent_pending_payments(
         await _fetch_platega_payments(db, cutoff),
         await _fetch_heleket_payments(db, cutoff),
         await _fetch_cryptobot_payments(db, cutoff),
+        await _fetch_cloudpayments_payments(db, cutoff),
         await _fetch_stars_transactions(db, cutoff),
     )
 
@@ -752,6 +776,20 @@ async def get_payment_record(
             is_paid=bool(payment.is_paid),
         )
 
+    if method == PaymentMethod.CLOUDPAYMENTS:
+        payment = await db.get(CloudPaymentsPayment, local_payment_id)
+        if not payment:
+            return None
+        await db.refresh(payment, attribute_names=["user"])
+        return _build_record(
+            method,
+            payment,
+            identifier=payment.invoice_id,
+            amount_kopeks=payment.amount_kopeks,
+            status=payment.status or "",
+            is_paid=bool(payment.is_paid),
+        )
+
     if method == PaymentMethod.TELEGRAM_STARS:
         transaction = await db.get(Transaction, local_payment_id)
         if not transaction:
@@ -794,14 +832,15 @@ async def run_manual_check(
             result = await payment_service.get_platega_payment_status(db, local_payment_id)
             payment = result.get("payment") if result else None
         elif method == PaymentMethod.HELEKET:
-            payment = await payment_service.sync_heleket_payment_status(
-                db, local_payment_id=local_payment_id
-            )
+            payment = await payment_service.sync_heleket_payment_status(db, local_payment_id=local_payment_id)
         elif method == PaymentMethod.YOOKASSA:
             result = await payment_service.get_yookassa_payment_status(db, local_payment_id)
             payment = result.get("payment") if result else None
         elif method == PaymentMethod.CRYPTOBOT:
             result = await payment_service.get_cryptobot_payment_status(db, local_payment_id)
+            payment = result.get("payment") if result else None
+        elif method == PaymentMethod.CLOUDPAYMENTS:
+            result = await payment_service.get_cloudpayments_payment_status(db, local_payment_id)
             payment = result.get("payment") if result else None
         else:
             logger.warning("Manual check requested for unsupported method %s", method)
@@ -825,4 +864,3 @@ async def run_manual_check(
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.services.payment_service import PaymentService
-

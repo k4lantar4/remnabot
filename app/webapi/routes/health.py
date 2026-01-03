@@ -29,13 +29,13 @@ async def health_check(_: object = Security(require_api_token)) -> HealthCheckRe
 
 @router.get("/health/database", tags=["health"])
 async def database_health(_: object = Security(require_api_token)) -> dict:
-    """Детальная информация о состоянии базы данных."""
+    """Detailed information about database state."""
 
     return await db_manager.health_check()
 
 
 @router.get("/metrics/pool", tags=["health"])
 async def pool_metrics(_: object = Security(require_api_token)) -> dict:
-    """Метрики пула подключений к базе данных."""
+    """Connection pool metrics for the database."""
 
     return await get_pool_metrics()

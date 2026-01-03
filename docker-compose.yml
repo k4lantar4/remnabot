@@ -12,6 +12,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - bot_network
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-remnawave_user} -d ${POSTGRES_DB:-remnawave_bot}"]
       interval: 30s
@@ -28,6 +30,8 @@ services:
       - redis_data:/data
     networks:
       - bot_network
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -53,10 +57,10 @@ services:
       POSTGRES_DB: "${POSTGRES_DB:-remnawave_bot}"
       POSTGRES_USER: "${POSTGRES_USER:-remnawave_user}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-secure_password_123}"
-      
+
       REDIS_URL: "redis://redis:6379/0"
-      
-      TZ: "Europe/Moscow"
+
+      TZ: "Asia/Tehran"
       LOCALES_PATH: "${LOCALES_PATH:-/app/locales}"
     volumes:
       # Логи
@@ -82,6 +86,18 @@ services:
       retries: 3
       start_period: 30s
 
+  # caddy:
+  #   image: caddy:2
+  #   container_name: remnawave_caddy
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./miniapp:/miniapp:ro          # монтируем локальную папку внутрь контейнера
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   networks:
+  #     - bot_network
 volumes:
   postgres_data:
     driver: local

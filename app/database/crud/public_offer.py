@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_public_offer(db: AsyncSession, language: str) -> Optional[PublicOffer]:
-    result = await db.execute(
-        select(PublicOffer).where(PublicOffer.language == language)
-    )
+    result = await db.execute(select(PublicOffer).where(PublicOffer.language == language))
     return result.scalar_one_or_none()
 
 
@@ -41,7 +39,7 @@ async def upsert_public_offer(
     await db.refresh(offer)
 
     logger.info(
-        "✅ Публичная оферта для языка %s обновлена (ID: %s)",
+        "✅ Public offer for language %s updated (ID: %s)",
         language,
         offer.id,
     )
@@ -71,7 +69,7 @@ async def set_public_offer_enabled(
     await db.refresh(offer)
 
     logger.info(
-        "✅ Статус публичной оферты для языка %s обновлен: %s",
+        "✅ Public offer status for language %s updated: %s",
         language,
         "enabled" if offer.is_enabled else "disabled",
     )

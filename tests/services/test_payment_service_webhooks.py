@@ -162,7 +162,7 @@ async def test_process_mulenpay_callback_success(
     payment = SimpleNamespace(
         uuid="mulen_uuid",
         mulen_payment_id=123,
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         user_id=42,
         transaction_id=None,
         is_paid=False,
@@ -202,7 +202,7 @@ async def test_process_mulenpay_callback_success(
     user = SimpleNamespace(
         id=42,
         telegram_id=100500,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -215,7 +215,7 @@ async def test_process_mulenpay_callback_success(
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_mock = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_mock)
@@ -246,7 +246,7 @@ async def test_process_mulenpay_callback_success(
     assert transactions and transactions[0]["user_id"] == 42
     assert payment.transaction_id == 777
     assert updated_status["status"] == "success"
-    assert user.balance_kopeks == 5000
+    assert user.balance_toman == 500000  # 5000 toman (was 50 rubles = 5000 kopeks)
     assert fake_session.commits >= 1
     assert bot.sent_messages  # сообщение пользователю отправлено
 
@@ -305,7 +305,7 @@ async def test_process_cryptobot_webhook_success(monkeypatch: pytest.MonkeyPatch
     user = SimpleNamespace(
         id=7,
         telegram_id=700,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -349,7 +349,7 @@ async def test_process_cryptobot_webhook_success(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(cryptobot_module, "AsyncSessionLocal", lambda: DummyAsyncSession())
     monkeypatch.setattr(payment_service_module.currency_converter, "usd_to_rub", AsyncMock(return_value=140.0))
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
     service.build_topup_success_keyboard = AsyncMock(return_value=None)
 
     payload = {
@@ -363,8 +363,8 @@ async def test_process_cryptobot_webhook_success(monkeypatch: pytest.MonkeyPatch
     result = await service.process_cryptobot_webhook(fake_session, payload)
 
     assert result is True
-    assert transactions and transactions[0]["amount_kopeks"] == 14000
-    assert user.balance_kopeks == 14000
+    assert transactions and transactions[0]["amount_toman"] == 1_400_000  # 14000 toman (was 140 rubles = 14000 kopeks)
+    assert user.balance_toman == 1_400_000  # 14000 toman (was 140 rubles = 14000 kopeks)
     assert payment.transaction_id == 888
     assert bot.sent_messages
     assert admin_calls
@@ -382,7 +382,7 @@ async def test_process_heleket_webhook_success(monkeypatch: pytest.MonkeyPatch) 
         user_id=77,
         amount="150.00",
         amount_float=150.0,
-        amount_kopeks=15000,
+        amount_toman=1_500_000,  # 15000 toman (was 150 rubles = 15000 kopeks)
         status="check",
         payer_amount=None,
         payer_currency=None,
@@ -450,7 +450,7 @@ async def test_process_heleket_webhook_success(monkeypatch: pytest.MonkeyPatch) 
     user = SimpleNamespace(
         id=77,
         telegram_id=7700,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -466,7 +466,7 @@ async def test_process_heleket_webhook_success(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
     monkeypatch.setattr("app.services.payment.heleket.format_referrer_info", lambda u: "")
 
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_stub = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_stub)
@@ -504,7 +504,7 @@ async def test_process_heleket_webhook_success(monkeypatch: pytest.MonkeyPatch) 
     assert result is True
     assert transactions and transactions[0]["payment_method"] == PaymentMethod.HELEKET
     assert payment.transaction_id == 321
-    assert user.balance_kopeks == 15000
+    assert user.balance_toman == 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
     assert user.has_made_first_topup is True
     assert fake_session.commits >= 1
     assert bot.sent_messages
@@ -519,7 +519,7 @@ async def test_process_yookassa_webhook_success(monkeypatch: pytest.MonkeyPatch)
     payment = SimpleNamespace(
         yookassa_payment_id="yk_123",
         user_id=21,
-        amount_kopeks=10000,
+        amount_toman=1_000_000,  # 10000 toman (was 100 rubles = 10000 kopeks)
         transaction_id=None,
         status="pending",
         is_paid=False,
@@ -559,7 +559,7 @@ async def test_process_yookassa_webhook_success(monkeypatch: pytest.MonkeyPatch)
     user = SimpleNamespace(
         id=21,
         telegram_id=2100,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -572,7 +572,7 @@ async def test_process_yookassa_webhook_success(monkeypatch: pytest.MonkeyPatch)
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_mock = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_mock)
@@ -601,10 +601,10 @@ async def test_process_yookassa_webhook_success(monkeypatch: pytest.MonkeyPatch)
     result = await service.process_yookassa_webhook(fake_session, payload)
 
     assert result is True
-    assert transactions and transactions[0]["amount_kopeks"] == 10000
+    assert transactions and transactions[0]["amount_toman"] == 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
     assert payment.transaction_id == 999
     assert payment.is_paid is True
-    assert user.balance_kopeks == 10000
+    assert user.balance_toman == 1_000_000  # 10000 toman (was 100 rubles = 10000 kopeks)
     assert bot.sent_messages
     assert admin_calls
 
@@ -617,7 +617,7 @@ async def test_process_yookassa_webhook_uses_remote_status(monkeypatch: pytest.M
     payment = SimpleNamespace(
         yookassa_payment_id="yk_789",
         user_id=42,
-        amount_kopeks=20000,
+        amount_toman=2_000_000,  # 20000 toman (was 200 rubles = 20000 kopeks)
         transaction_id=None,
         status="pending",
         is_paid=False,
@@ -653,7 +653,7 @@ async def test_process_yookassa_webhook_uses_remote_status(monkeypatch: pytest.M
     user = SimpleNamespace(
         id=42,
         telegram_id=4200,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -665,7 +665,7 @@ async def test_process_yookassa_webhook_uses_remote_status(monkeypatch: pytest.M
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_mock = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_mock)
@@ -713,7 +713,7 @@ async def test_process_yookassa_webhook_uses_remote_status(monkeypatch: pytest.M
     assert result is True
     assert payment.status == "succeeded"
     assert payment.is_paid is True
-    assert transactions and transactions[0]["amount_kopeks"] == 20000
+    assert transactions and transactions[0]["amount_toman"] == 2_000_000  # 20000 toman (was 200 rubles = 20000 kopeks)
     assert payment.transaction_id == 555
     get_info_mock.assert_awaited_once_with("yk_789")
     assert admin_calls
@@ -727,7 +727,7 @@ async def test_process_yookassa_webhook_handles_cancellation(monkeypatch: pytest
     payment = SimpleNamespace(
         yookassa_payment_id="yk_cancel",
         user_id=77,
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         transaction_id=None,
         status="pending",
         is_paid=False,
@@ -785,7 +785,7 @@ async def test_process_yookassa_webhook_restores_missing_payment(
     restored_payment = SimpleNamespace(
         yookassa_payment_id="yk_456",
         user_id=21,
-        amount_kopeks=0,
+        amount_toman=0,
         status="pending",
         is_paid=False,
         transaction_id=None,
@@ -807,7 +807,7 @@ async def test_process_yookassa_webhook_restores_missing_payment(
 
     async def fake_create_payment(**kwargs: Any):
         restored_payment.user_id = kwargs["user_id"]
-        restored_payment.amount_kopeks = kwargs["amount_kopeks"]
+        restored_payment.amount_toman = kwargs["amount_toman"]
         restored_payment.status = kwargs["status"]
         restored_payment.description = kwargs["description"]
         restored_payment.payment_method_type = kwargs["payment_method_type"]
@@ -853,7 +853,7 @@ async def test_process_yookassa_webhook_restores_missing_payment(
     user = SimpleNamespace(
         id=21,
         telegram_id=2100,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -866,7 +866,7 @@ async def test_process_yookassa_webhook_restores_missing_payment(
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_mock = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_mock)
@@ -902,11 +902,11 @@ async def test_process_yookassa_webhook_restores_missing_payment(
 
     assert result is True
     assert get_calls["count"] >= 2  # повторный запрос после восстановления
-    assert restored_payment.amount_kopeks == 15000
+    assert restored_payment.amount_toman == 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
     assert restored_payment.is_paid is True
-    assert transactions and transactions[0]["amount_kopeks"] == 15000
+    assert transactions and transactions[0]["amount_toman"] == 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
     assert restored_payment.transaction_id == 555
-    assert user.balance_kopeks == 15000
+    assert user.balance_toman == 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
     assert bot.sent_messages
     assert admin_calls
 
@@ -954,7 +954,7 @@ async def test_process_pal24_callback_success(monkeypatch: pytest.MonkeyPatch) -
     payment = SimpleNamespace(
         bill_id="BILL-1",
         order_id="order-1",
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         user_id=33,
         transaction_id=None,
         is_paid=False,
@@ -1003,7 +1003,7 @@ async def test_process_pal24_callback_success(monkeypatch: pytest.MonkeyPatch) -
     user = SimpleNamespace(
         id=33,
         telegram_id=3300,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -1017,7 +1017,7 @@ async def test_process_pal24_callback_success(monkeypatch: pytest.MonkeyPatch) -
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_pal = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_pal)
@@ -1073,7 +1073,7 @@ async def test_process_pal24_callback_success(monkeypatch: pytest.MonkeyPatch) -
 
     assert result is True
     assert payment.transaction_id == 654
-    assert user.balance_kopeks == 5000
+    assert user.balance_toman == 500000  # 5000 toman (was 50 rubles = 5000 kopeks)
     assert bot.sent_messages
     saved_cart_message = bot.sent_messages[-1]
     reply_markup = saved_cart_message["kwargs"].get("reply_markup")
@@ -1131,7 +1131,7 @@ async def test_get_pal24_payment_status_auto_finalize(monkeypatch: pytest.Monkey
         id=77,
         bill_id="BILL-AUTO",
         order_id="order-auto",
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         user_id=91,
         transaction_id=None,
         is_paid=False,
@@ -1170,7 +1170,7 @@ async def test_get_pal24_payment_status_auto_finalize(monkeypatch: pytest.Monkey
     user = SimpleNamespace(
         id=91,
         telegram_id=9100,
-        balance_kopeks=0,
+        balance_toman=0,
         has_made_first_topup=False,
         promo_group=None,
         subscription=None,
@@ -1184,7 +1184,7 @@ async def test_get_pal24_payment_status_auto_finalize(monkeypatch: pytest.Monkey
         return user
 
     monkeypatch.setattr(payment_service_module, "get_user_by_id", fake_get_user)
-    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f}₽", raising=False)
+    monkeypatch.setattr(type(settings), "format_price", lambda self, amount: f"{amount / 100:.2f} Toman", raising=False)
 
     referral_stub = SimpleNamespace(process_referral_topup=AsyncMock())
     monkeypatch.setitem(sys.modules, "app.services.referral_service", referral_stub)
@@ -1228,7 +1228,7 @@ async def test_get_pal24_payment_status_auto_finalize(monkeypatch: pytest.Monkey
 
     assert result is not None
     assert payment.transaction_id == 999
-    assert user.balance_kopeks == 5000
+    assert user.balance_toman == 500000  # 5000 toman (was 50 rubles = 5000 kopeks)
     assert bot.sent_messages
     assert admin_notifications
     assert transactions and transactions[0]["user_id"] == 91

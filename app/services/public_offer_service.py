@@ -93,7 +93,7 @@ class PublicOfferService:
             content,
             enable_if_new=enable_if_new,
         )
-        logger.info("✅ Публичная оферта обновлена для языка %s", lang)
+        logger.info("✅ Public offer updated for language %s", lang)
         return offer
 
     @classmethod
@@ -178,7 +178,7 @@ class PublicOfferService:
                 if value is None:
                     parts.append(f" {name}")
                 else:
-                    parts.append(f" {name}=\"{value}\"")
+                    parts.append(f' {name}="{value}"')
             return "".join(parts)
 
         def _append_token(self, token: str) -> None:
@@ -321,11 +321,7 @@ class PublicOfferService:
         if len(normalized) <= max_len:
             return [normalized]
 
-        paragraphs = [
-            paragraph.strip()
-            for paragraph in normalized.split("\n\n")
-            if paragraph.strip()
-        ]
+        paragraphs = [paragraph.strip() for paragraph in normalized.split("\n\n") if paragraph.strip()]
 
         pages: List[str] = []
         current = ""

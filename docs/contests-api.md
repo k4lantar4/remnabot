@@ -35,7 +35,7 @@
     "end_at": "2025-12-27T10:00:00+03:00",
     "daily_summary_time": "12:00:00",
     "timezone": "Europe/Moscow",
-    "prize_text": "🥇 5000 ₽, 🥈 3000 ₽",
+    "prize_text": "🥇 5000  Toman, 🥈 3000  Toman",
     "is_active": true,
     "created_by": 1
   }

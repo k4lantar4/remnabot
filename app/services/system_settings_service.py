@@ -83,6 +83,7 @@ class BotConfigurationService:
         "TELEGRAM": "⭐ Telegram Stars",
         "CRYPTOBOT": "🪙 CryptoBot",
         "HELEKET": "🪙 Heleket",
+        "CLOUDPAYMENTS": "💳 CloudPayments",
         "YOOKASSA": "🟣 YooKassa",
         "PLATEGA": "💳 {platega_name}",
         "TRIBUTE": "🎁 Tribute",
@@ -138,6 +139,7 @@ class BotConfigurationService:
         "YOOKASSA": "Интеграция с YooKassa: идентификаторы магазина и вебхуки.",
         "CRYPTOBOT": "CryptoBot и криптоплатежи через Telegram.",
         "HELEKET": "Heleket: криптоплатежи, ключи мерчанта и вебхуки.",
+        "CLOUDPAYMENTS": "CloudPayments: оплата банковскими картами, Public ID, API Secret и вебхуки.",
         "PLATEGA": "{platega_name}: merchant ID, секрет, ссылки возврата и методы оплаты.",
         "MULENPAY": "Платежи {mulenpay_name} и параметры магазина.",
         "PAL24": "PAL24 / PayPalych подключения и лимиты.",
@@ -310,6 +312,7 @@ class BotConfigurationService:
         "YOOKASSA_": "YOOKASSA",
         "CRYPTOBOT_": "CRYPTOBOT",
         "HELEKET_": "HELEKET",
+        "CLOUDPAYMENTS_": "CLOUDPAYMENTS",
         "PLATEGA_": "PLATEGA",
         "MULENPAY_": "MULENPAY",
         "PAL24_": "PAL24",
@@ -429,10 +432,9 @@ class BotConfigurationService:
     SETTING_HINTS: Dict[str, Dict[str, str]] = {
         "YOOKASSA_ENABLED": {
             "description": (
-                "Включает оплату через YooKassa. "
-                "Требует корректных идентификаторов магазина и секретного ключа."
+                "Включает оплату через YooKassa. Требует корректных идентификаторов магазина и секретного ключа."
             ),
-            "format": "Булево значение: выберите \"Включить\" или \"Выключить\".",
+            "format": 'Булево значение: выберите "Включить" или "Выключить".',
             "example": "Включено при полностью настроенной интеграции.",
             "warning": "При включении без Shop ID и Secret Key пользователи увидят ошибки при оплате.",
             "dependencies": "YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY, YOOKASSA_RETURN_URL",
@@ -462,8 +464,7 @@ class BotConfigurationService:
         },
         "SIMPLE_SUBSCRIPTION_SQUAD_UUID": {
             "description": (
-                "Привязка быстрой подписки к конкретному скваду. "
-                "Оставьте пустым для любого доступного сервера."
+                "Привязка быстрой подписки к конкретному скваду. Оставьте пустым для любого доступного сервера."
             ),
             "format": "Выберите сквад из списка или очистите значение.",
             "example": "d4aa2b8c-9a36-4f31-93a2-6f07dad05fba",
@@ -501,26 +502,20 @@ class BotConfigurationService:
             "warning": "Требует активных интеграций YooKassa, {mulenpay_name}, PayPalych, WATA или CryptoBot.",
         },
         "PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES": {
-            "description": (
-                "Интервал между автоматическими проверками ожидающих пополнений в минутах."
-            ),
+            "description": ("Интервал между автоматическими проверками ожидающих пополнений в минутах."),
             "format": "Целое число не меньше 1.",
             "example": "10",
             "warning": "Слишком малый интервал может привести к частым обращениям к платёжным API.",
             "dependencies": "PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED",
         },
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS_ENABLED": {
-            "description": (
-                "Включает применение базовых скидок на периоды подписок в групповых промо."
-            ),
+            "description": ("Включает применение базовых скидок на периоды подписок в групповых промо."),
             "format": "Булево значение.",
             "example": "true",
             "warning": "Скидки применяются только если указаны корректные пары периодов и процентов.",
         },
         "BASE_PROMO_GROUP_PERIOD_DISCOUNTS": {
-            "description": (
-                "Список скидок для групп: каждая пара задаёт дни периода и процент скидки."
-            ),
+            "description": ("Список скидок для групп: каждая пара задаёт дни периода и процент скидки."),
             "format": "Через запятую пары вида &lt;дней&gt;:&lt;скидка&gt;.",
             "example": "30:10,60:20,90:30,180:50,360:65",
             "warning": "Некорректные записи будут проигнорированы. Процент ограничен 0-100.",
@@ -531,9 +526,7 @@ class BotConfigurationService:
             ),
             "format": "Булево значение.",
             "example": "true",
-            "warning": (
-                "Используйте с осторожностью: средства будут списаны мгновенно, если корзина найдена."
-            ),
+            "warning": ("Используйте с осторожностью: средства будут списаны мгновенно, если корзина найдена."),
         },
         "SUPPORT_TICKET_SLA_MINUTES": {
             "description": "Лимит времени для ответа модераторов на тикет в минутах.",
@@ -550,20 +543,14 @@ class BotConfigurationService:
             "dependencies": "MAINTENANCE_MESSAGE, MAINTENANCE_CHECK_INTERVAL",
         },
         "MAINTENANCE_MONITORING_ENABLED": {
-            "description": (
-                "Управляет автоматическим запуском мониторинга панели Remnawave при старте бота."
-            ),
+            "description": ("Управляет автоматическим запуском мониторинга панели Remnawave при старте бота."),
             "format": "Булево значение.",
             "example": "false",
-            "warning": (
-                "При отключении мониторинг можно запустить вручную из панели администратора."
-            ),
+            "warning": ("При отключении мониторинг можно запустить вручную из панели администратора."),
             "dependencies": "MAINTENANCE_CHECK_INTERVAL",
         },
         "MAINTENANCE_RETRY_ATTEMPTS": {
-            "description": (
-                "Сколько раз повторять проверку панели Remnawave перед фиксацией недоступности."
-            ),
+            "description": ("Сколько раз повторять проверку панели Remnawave перед фиксацией недоступности."),
             "format": "Целое число не меньше 1.",
             "example": "3",
             "warning": (
@@ -573,8 +560,7 @@ class BotConfigurationService:
         },
         "DISPLAY_NAME_BANNED_KEYWORDS": {
             "description": (
-                "Список слов и фрагментов, при наличии которых в отображаемом имени "
-                "пользователь будет заблокирован."
+                "Список слов и фрагментов, при наличии которых в отображаемом имени пользователь будет заблокирован."
             ),
             "format": "Перечислите ключевые слова через запятую или с новой строки.",
             "example": "support, security, служебн",
@@ -596,15 +582,11 @@ class BotConfigurationService:
             "dependencies": "REMNAWAVE_AUTO_SYNC_TIMES",
         },
         "REMNAWAVE_AUTO_SYNC_TIMES": {
-            "description": (
-                "Список времени в формате HH:MM, когда запускается автосинхронизация "
-                "в течение суток."
-            ),
+            "description": ("Список времени в формате HH:MM, когда запускается автосинхронизация в течение суток."),
             "format": "Перечислите время через запятую или с новой строки (например, 03:00, 15:00).",
             "example": "03:00, 15:00",
             "warning": (
-                "Минимальный интервал между запусками не ограничен, но слишком частые "
-                "синхронизации нагружают панель."
+                "Минимальный интервал между запусками не ограничен, но слишком частые синхронизации нагружают панель."
             ),
             "dependencies": "REMNAWAVE_AUTO_SYNC_ENABLED",
         },
@@ -613,20 +595,15 @@ class BotConfigurationService:
                 "Шаблон текста, который бот передает в поле Description при создании "
                 "или обновлении пользователя в панели RemnaWave."
             ),
-            "format": (
-                "Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."
-            ),
+            "format": ("Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."),
             "example": "Bot user: {full_name} {username}",
             "warning": "Плейсхолдер {username} автоматически очищается, если у пользователя нет @username.",
         },
         "REMNAWAVE_USER_USERNAME_TEMPLATE": {
             "description": (
-                "Шаблон имени пользователя, которое создаётся в панели RemnaWave для "
-                "телеграм-пользователя."
+                "Шаблон имени пользователя, которое создаётся в панели RemnaWave для телеграм-пользователя."
             ),
-            "format": (
-                "Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."
-            ),
+            "format": ("Доступные плейсхолдеры: {full_name}, {username}, {username_clean}, {telegram_id}."),
             "example": "vpn_{username_clean}_{telegram_id}",
             "warning": (
                 "Недопустимые символы автоматически заменяются на подчёркивания. "
@@ -657,9 +634,7 @@ class BotConfigurationService:
             "dependencies": "Активация триала и включенная интеграция с RemnaWave",
         },
         "PAID_SUBSCRIPTION_USER_TAG": {
-            "description": (
-                "Тег, который бот ставит пользователю при покупке платной подписки в панели RemnaWave."
-            ),
+            "description": ("Тег, который бот ставит пользователю при покупке платной подписки в панели RemnaWave."),
             "format": "До 16 символов: заглавные A-Z, цифры и подчёркивание.",
             "example": "PAID_USER",
             "warning": "Если тег не задан или невалиден, существующий тег не будет изменён.",
@@ -775,15 +750,12 @@ class BotConfigurationService:
             or f"Параметр <b>{definition.display_name}</b> управляет категорией «{definition.category_label}»."
         )
         base_format = hints.get("format") or (
-            "Булево значение (да/нет)." if definition.python_type is bool
+            "Булево значение (да/нет)."
+            if definition.python_type is bool
             else "Введите значение соответствующего типа (число или строку)."
         )
-        example = hints.get("example") or (
-            cls.format_value_human(key, original) if original is not None else "—"
-        )
-        warning = hints.get("warning") or (
-            "Неверные значения могут привести к некорректной работе бота."
-        )
+        example = hints.get("example") or (cls.format_value_human(key, original) if original is not None else "—")
+        warning = hints.get("warning") or ("Неверные значения могут привести к некорректной работе бота.")
         dependencies = hints.get("dependencies") or definition.category_label
 
         return {
@@ -836,7 +808,6 @@ class BotConfigurationService:
             cls._register_callback_token(key)
             if key in cls.CHOICES:
                 cls._ensure_choice_tokens(key)
-
 
     @classmethod
     def _resolve_category_key(cls, key: str) -> str:
@@ -907,11 +878,7 @@ class BotConfigurationService:
     @classmethod
     def get_settings_for_category(cls, category_key: str) -> List[SettingDefinition]:
         cls.initialize_definitions()
-        filtered = [
-            definition
-            for definition in cls._definitions.values()
-            if definition.category_key == category_key
-        ]
+        filtered = [definition for definition in cls._definitions.values() if definition.category_key == category_key]
         filtered.sort(key=lambda definition: definition.key)
         return filtered
 
@@ -1311,21 +1278,15 @@ class BotConfigurationService:
         if choices:
             allowed_values = {option.value for option in choices}
             if python_type is str:
-                lowered_map = {
-                    str(option.value).lower(): option.value for option in choices
-                }
+                lowered_map = {str(option.value).lower(): option.value for option in choices}
                 normalized = lowered_map.get(str(parsed_value).lower())
                 if normalized is not None:
                     parsed_value = normalized
                 elif parsed_value not in allowed_values:
-                    readable = ", ".join(
-                        f"{option.label} ({cls.format_value(option.value)})" for option in choices
-                    )
+                    readable = ", ".join(f"{option.label} ({cls.format_value(option.value)})" for option in choices)
                     raise ValueError(f"Доступные значения: {readable}")
             elif parsed_value not in allowed_values:
-                readable = ", ".join(
-                    f"{option.label} ({cls.format_value(option.value)})" for option in choices
-                )
+                readable = ", ".join(f"{option.label} ({cls.format_value(option.value)})" for option in choices)
                 raise ValueError(f"Доступные значения: {readable}")
 
         return parsed_value

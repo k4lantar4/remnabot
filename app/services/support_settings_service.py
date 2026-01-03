@@ -98,6 +98,7 @@ class SupportSettingsService:
             return text
         # Fallback to dynamic localization default
         from app.localization.texts import get_texts
+
         return get_texts(lang).SUPPORT_INFO
 
     @classmethod
@@ -108,7 +109,6 @@ class SupportSettingsService:
         texts_map[lang] = text or ""
         cls._data["support_info_texts"] = texts_map
         return cls._save()
-
 
     # Notifications & SLA
     @classmethod
@@ -232,4 +232,3 @@ class SupportSettingsService:
         cls._load()
         cls._data["nalogo_receipts_enabled"] = bool(enabled)
         return cls._save()
-

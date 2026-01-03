@@ -46,6 +46,7 @@ def _user_allowed(subscription) -> bool:
 
 async def _award_prize(db: AsyncSession, user_id: int, prize_days: int, language: str) -> str:
     from app.database.crud.user import get_user_by_id
+
     user = await get_user_by_id(db, user_id)
     if not user:
         return ""
@@ -59,7 +60,9 @@ async def _award_prize(db: AsyncSession, user_id: int, prize_days: int, language
 
 async def _reply_not_eligible(callback: types.CallbackQuery, language: str):
     texts = get_texts(language)
-    await callback.answer(texts.t("CONTEST_NOT_ELIGIBLE", "Игры доступны только с активной или триальной подпиской."), show_alert=True)
+    await callback.answer(
+        texts.t("CONTEST_NOT_ELIGIBLE", "Игры доступны только с активной или триальной подпиской."), show_alert=True
+    )
 
 
 # ---------- Handlers ----------
@@ -142,7 +145,9 @@ async def play_contest(callback: types.CallbackQuery, state: FSMContext, db_user
             return
         attempt = await get_attempt(db2, round_id, db_user.id)
         if attempt:
-            await callback.answer(texts.t("CONTEST_ALREADY_PLAYED", "У вас уже была попытка в этом раунде."), show_alert=True)
+            await callback.answer(
+                texts.t("CONTEST_ALREADY_PLAYED", "У вас уже была попытка в этом раунде."), show_alert=True
+            )
             return
 
         tpl = round_obj.template
@@ -174,10 +179,7 @@ async def _render_quest(callback, db_user, round_obj: ContestRound, tpl: Contest
         for c in range(cols):
             idx = r * cols + c
             row_buttons.append(
-                types.InlineKeyboardButton(
-                    text="🎛",
-                    callback_data=f"contest_pick_{round_obj.id}_quest_{idx}"
-                )
+                types.InlineKeyboardButton(text="🎛", callback_data=f"contest_pick_{round_obj.id}_quest_{idx}")
             )
         keyboard.append(row_buttons)
     keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data="contests_menu")])
@@ -273,7 +275,11 @@ async def _render_blitz(callback, db_user, round_obj: ContestRound, tpl: Contest
     texts = get_texts(db_user.language)
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text=texts.t("CONTEST_BLITZ_BUTTON", "Я здесь!"), callback_data=f"contest_pick_{round_obj.id}_blitz")]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t("CONTEST_BLITZ_BUTTON", "Я здесь!"), callback_data=f"contest_pick_{round_obj.id}_blitz"
+                )
+            ]
         ]
     )
     await callback.message.edit_text(
@@ -375,13 +381,18 @@ async def handle_text_answer(message: types.Message, state: FSMContext, db_user,
         active_rounds = await get_active_rounds(db2)
         round_obj = next((r for r in active_rounds if r.id == round_id), None)
         if not round_obj:
-            await message.answer(texts.t("CONTEST_ROUND_FINISHED", "Раунд завершён."), reply_markup=get_back_keyboard(db_user.language))
+            await message.answer(
+                texts.t("CONTEST_ROUND_FINISHED", "Раунд завершён."), reply_markup=get_back_keyboard(db_user.language)
+            )
             await state.clear()
             return
 
         attempt = await get_attempt(db2, round_obj.id, db_user.id)
         if attempt:
-            await message.answer(texts.t("CONTEST_ALREADY_PLAYED", "У вас уже была попытка."), reply_markup=get_back_keyboard(db_user.language))
+            await message.answer(
+                texts.t("CONTEST_ALREADY_PLAYED", "У вас уже была попытка."),
+                reply_markup=get_back_keyboard(db_user.language),
+            )
             await state.clear()
             return
 
@@ -400,9 +411,15 @@ async def handle_text_answer(message: types.Message, state: FSMContext, db_user,
         if is_winner:
             await increment_winner_count(db2, round_obj)
             prize_text = await _award_prize(db2, db_user.id, tpl.prize_days, db_user.language)
-            await message.answer(texts.t("CONTEST_WIN", "🎉 Победа! ") + (prize_text or ""), reply_markup=get_back_keyboard(db_user.language))
+            await message.answer(
+                texts.t("CONTEST_WIN", "🎉 Победа! ") + (prize_text or ""),
+                reply_markup=get_back_keyboard(db_user.language),
+            )
         else:
-            await message.answer(texts.t("CONTEST_LOSE", "Не верно, попробуй снова в следующем раунде."), reply_markup=get_back_keyboard(db_user.language))
+            await message.answer(
+                texts.t("CONTEST_LOSE", "Не верно, попробуй снова в следующем раунде."),
+                reply_markup=get_back_keyboard(db_user.language),
+            )
     await state.clear()
 
 

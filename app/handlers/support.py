@@ -12,11 +12,7 @@ from app.utils.photo_message import edit_or_answer_photo
 logger = logging.getLogger(__name__)
 
 
-async def show_support_info(
-    callback: types.CallbackQuery,
-    db_user: User
-):
-    
+async def show_support_info(callback: types.CallbackQuery, db_user: User):
     texts = get_texts(db_user.language)
     support_info = SupportSettingsService.get_support_info_text(db_user.language)
     await edit_or_answer_photo(
@@ -29,8 +25,4 @@ async def show_support_info(
 
 
 def register_handlers(dp: Dispatcher):
-    
-    dp.callback_query.register(
-        show_support_info,
-        F.data == "menu_support"
-    )
+    dp.callback_query.register(show_support_info, F.data == "menu_support")

@@ -16,42 +16,31 @@ logger = logging.getLogger(__name__)
 
 
 @error_handler
-async def show_promocode_menu(
-    callback: types.CallbackQuery,
-    db_user: User,
-    state: FSMContext
-):
+async def show_promocode_menu(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     texts = get_texts(db_user.language)
-    
-    await callback.message.edit_text(
-        texts.PROMOCODE_ENTER,
-        reply_markup=get_back_keyboard(db_user.language)
-    )
-    
+
+    await callback.message.edit_text(texts.PROMOCODE_ENTER, reply_markup=get_back_keyboard(db_user.language))
+
     await state.set_state(PromoCodeStates.waiting_for_code)
     await callback.answer()
 
 
-async def activate_promocode_for_registration(
-    db: AsyncSession,
-    user_id: int,
-    code: str,
-    bot: Bot = None
-) -> dict:
+async def activate_promocode_for_registration(db: AsyncSession, user_id: int, code: str, bot: Bot = None) -> dict:
     """
-    Активирует промокод для пользователя во время регистрации.
-    Возвращает результат активации без отправки сообщений.
+    Activates a promo code for a user during registration.
+    Returns the activation result without sending messages.
     """
     promocode_service = PromoCodeService()
     result = await promocode_service.activate_promocode(db, user_id, code)
 
     if result["success"]:
-        logger.info(f"✅ Пользователь {user_id} активировал промокод {code} при регистрации")
+        logger.info(f"✅ User {user_id} activated promocode {code} during registration")
 
-        # Отправляем уведомление админу, если бот доступен
+        # Send admin notification if the bot is available
         if bot:
             try:
                 from app.database.crud.user import get_user_by_id
+
                 user = await get_user_by_id(db, user_id)
                 if user:
                     notification_service = AdminNotificationService(bot)
@@ -60,12 +49,12 @@ async def activate_promocode_for_registration(
                         user,
                         result.get("promocode", {"code": code}),
                         result["description"],
-                        result.get("balance_before_kopeks"),
-                        result.get("balance_after_kopeks"),
+                        result.get("balance_before_toman"),
+                        result.get("balance_after_toman"),
                     )
             except Exception as notify_error:
                 logger.error(
-                    "Ошибка отправки админ уведомления об активации промокода %s: %s",
+                    "Failed to send admin notification about promocode %s activation: %s",
                     code,
                     notify_error,
                 )
@@ -74,16 +63,10 @@ async def activate_promocode_for_registration(
 
 
 @error_handler
-async def process_promocode(
-    message: types.Message,
-    db_user: User,
-    state: FSMContext,
-    db: AsyncSession
-):
+async def process_promocode(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
     # Проверяем, находится ли пользователь в черном списке
     is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(
-        message.from_user.id,
-        message.from_user.username
+        message.from_user.id, message.from_user.username
     )
 
     if is_blacklisted:
@@ -106,9 +89,9 @@ async def process_promocode(
         await message.answer(
             texts.t(
                 "PROMOCODE_EMPTY_INPUT",
-                "❌ Введите корректный промокод",
+                "❌ Please enter a valid promo code",
             ),
-            reply_markup=get_back_keyboard(db_user.language)
+            reply_markup=get_back_keyboard(db_user.language),
         )
         return
 
@@ -117,7 +100,7 @@ async def process_promocode(
     if result["success"]:
         await message.answer(
             texts.PROMOCODE_SUCCESS.format(description=result["description"]),
-            reply_markup=get_back_keyboard(db_user.language)
+            reply_markup=get_back_keyboard(db_user.language),
         )
     else:
         error_messages = {
@@ -125,26 +108,16 @@ async def process_promocode(
             "expired": texts.PROMOCODE_EXPIRED,
             "used": texts.PROMOCODE_USED,
             "already_used_by_user": texts.PROMOCODE_USED,
-            "server_error": texts.ERROR
+            "server_error": texts.ERROR,
         }
 
         error_text = error_messages.get(result["error"], texts.PROMOCODE_INVALID)
-        await message.answer(
-            error_text,
-            reply_markup=get_back_keyboard(db_user.language)
-        )
+        await message.answer(error_text, reply_markup=get_back_keyboard(db_user.language))
 
     await state.clear()
 
 
 def register_handlers(dp: Dispatcher):
-    
-    dp.callback_query.register(
-        show_promocode_menu,
-        F.data == "menu_promocode"
-    )
-    
-    dp.message.register(
-        process_promocode,
-        PromoCodeStates.waiting_for_code
-    )
+    dp.callback_query.register(show_promocode_menu, F.data == "menu_promocode")
+
+    dp.message.register(process_promocode, PromoCodeStates.waiting_for_code)

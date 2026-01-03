@@ -14,9 +14,7 @@ _CHECKOUT_SESSION_KEY = "subscription_checkout"
 _CHECKOUT_TTL_SECONDS = 3600
 
 
-async def save_subscription_checkout_draft(
-    user_id: int, data: dict, ttl: int = _CHECKOUT_TTL_SECONDS
-) -> bool:
+async def save_subscription_checkout_draft(user_id: int, data: dict, ttl: int = _CHECKOUT_TTL_SECONDS) -> bool:
     """Persist subscription checkout draft data in cache."""
 
     return await UserCache.set_user_session(user_id, _CHECKOUT_SESSION_KEY, data, ttl)
@@ -60,7 +58,7 @@ def should_offer_checkout_resume(
             subscription = getattr(user, "subscription", None)
         except MissingGreenlet as error:
             logger.warning(
-                "Не удалось лениво загрузить подписку пользователя %s при проверке возврата к checkout: %s",
+                "Failed to lazily load user subscription %s when checking return to checkout: %s",
                 getattr(user, "id", None),
                 error,
             )

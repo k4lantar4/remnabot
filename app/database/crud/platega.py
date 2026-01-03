@@ -1,4 +1,4 @@
-"""CRUD-операции для платежей Platega."""
+"""CRUD operations for Platega payments."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ async def create_platega_payment(
     db: AsyncSession,
     *,
     user_id: int,
-    amount_kopeks: int,
+    amount_toman: int,
     currency: str,
     description: Optional[str],
     status: str,
@@ -34,7 +34,7 @@ async def create_platega_payment(
 ) -> PlategaPayment:
     payment = PlategaPayment(
         user_id=user_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -54,55 +54,33 @@ async def create_platega_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Platega платеж #%s (tx=%s) на сумму %s копеек для пользователя %s",
+        "Platega payment created #%s (tx=%s) for amount %s toman for user %s",
         payment.id,
         platega_transaction_id,
-        amount_kopeks,
+        amount_toman,
         user_id,
     )
 
     return payment
 
 
-async def get_platega_payment_by_id(
-    db: AsyncSession, payment_id: int
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(PlategaPayment.id == payment_id)
-    )
+async def get_platega_payment_by_id(db: AsyncSession, payment_id: int) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.id == payment_id))
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_id_for_update(
-    db: AsyncSession, payment_id: int
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment)
-        .where(PlategaPayment.id == payment_id)
-        .with_for_update()
-    )
+async def get_platega_payment_by_id_for_update(db: AsyncSession, payment_id: int) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.id == payment_id).with_for_update())
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_transaction_id(
-    db: AsyncSession, transaction_id: str
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(
-            PlategaPayment.platega_transaction_id == transaction_id
-        )
-    )
+async def get_platega_payment_by_transaction_id(db: AsyncSession, transaction_id: str) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.platega_transaction_id == transaction_id))
     return result.scalar_one_or_none()
 
 
-async def get_platega_payment_by_correlation_id(
-    db: AsyncSession, correlation_id: str
-) -> Optional[PlategaPayment]:
-    result = await db.execute(
-        select(PlategaPayment).where(
-            PlategaPayment.correlation_id == correlation_id
-        )
-    )
+async def get_platega_payment_by_correlation_id(db: AsyncSession, correlation_id: str) -> Optional[PlategaPayment]:
+    result = await db.execute(select(PlategaPayment).where(PlategaPayment.correlation_id == correlation_id))
     return result.scalar_one_or_none()
 
 

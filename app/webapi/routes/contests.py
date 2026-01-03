@@ -176,15 +176,14 @@ def _primary_time(times_str: Optional[str], fallback: Optional[time]) -> time:
 
 def _serialize_leaderboard_item(row) -> ReferralContestLeaderboardItem:
     user, referrals_count, total_amount = row
-    total_amount_kopeks = int(total_amount or 0)
+    total_amount_toman = int(total_amount or 0)
     return ReferralContestLeaderboardItem(
         user_id=user.id,
         telegram_id=user.telegram_id,
         username=user.username,
         full_name=user.full_name,
         referrals_count=int(referrals_count or 0),
-        total_amount_kopeks=total_amount_kopeks,
-        total_amount_rubles=round(total_amount_kopeks / 100, 2),
+        total_amount_toman=total_amount_toman,
     )
 
 
@@ -193,7 +192,7 @@ def _serialize_event(
     referrer: User,
     referral: User,
 ) -> ReferralContestEventResponse:
-    amount_kopeks = int(event.amount_kopeks or 0)
+    amount_toman = int(event.amount_toman or 0)
     return ReferralContestEventResponse(
         id=event.id,
         contest_id=event.contest_id,
@@ -210,13 +209,12 @@ def _serialize_event(
             full_name=referral.full_name,
         ),
         event_type=event.event_type,
-        amount_kopeks=amount_kopeks,
-        amount_rubles=round(amount_kopeks / 100, 2),
+        amount_toman=amount_toman,
         occurred_at=event.occurred_at,
     )
 
 
-# --------- Daily contests (мини-игры) ----------
+# --------- Daily contests (mini-games) ----------
 
 
 @router.get(
@@ -225,7 +223,7 @@ def _serialize_event(
     tags=["contests"],
 )
 async def list_daily_templates(
-    enabled_only: bool = Query(False, description="Показывать только включенные игры"),
+    enabled_only: bool = Query(False, description="Show only enabled games"),
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestTemplateListResponse:
@@ -354,11 +352,7 @@ async def list_rounds(
             offset=offset,
         )
 
-    query = (
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .order_by(ContestRound.starts_at.desc())
-    )
+    query = select(ContestRound).options(selectinload(ContestRound.template)).order_by(ContestRound.starts_at.desc())
     count_query = select(func.count(ContestRound.id))
     if status_filter != "any":
         query = query.where(ContestRound.status == status_filter)
@@ -390,9 +384,7 @@ async def get_round(
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestRoundResponse:
     result = await db.execute(
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .where(ContestRound.id == round_id)
+        select(ContestRound).options(selectinload(ContestRound.template)).where(ContestRound.id == round_id)
     )
     round_obj = result.scalar_one_or_none()
     if not round_obj:
@@ -411,9 +403,7 @@ async def finish_round_now(
     db: AsyncSession = Depends(get_db_session),
 ) -> ContestRoundResponse:
     result = await db.execute(
-        select(ContestRound)
-        .options(selectinload(ContestRound.template))
-        .where(ContestRound.id == round_id)
+        select(ContestRound).options(selectinload(ContestRound.template)).where(ContestRound.id == round_id)
     )
     round_obj = result.scalar_one_or_none()
     if not round_obj:
@@ -430,7 +420,7 @@ async def finish_round_now(
 )
 async def list_attempts(
     round_id: int,
-    winners_only: bool = Query(False, description="Вернуть только победителей"),
+    winners_only: bool = Query(False, description="Return only winners"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _: Any = Security(require_api_token),
@@ -440,9 +430,7 @@ async def list_attempts(
     if winners_only:
         conditions.append(ContestAttempt.is_winner.is_(True))
 
-    total = await db.scalar(
-        select(func.count(ContestAttempt.id)).where(and_(*conditions))
-    ) or 0
+    total = await db.scalar(select(func.count(ContestAttempt.id)).where(and_(*conditions))) or 0
 
     query = (
         select(ContestAttempt, User)
@@ -579,7 +567,9 @@ async def update_referral(
     if "end_at" in fields:
         fields["end_at"] = _to_utc_naive(fields["end_at"], fields.get("timezone") or contest.timezone)
     if "daily_summary_times" in fields:
-        fields["daily_summary_time"] = _primary_time(fields["daily_summary_times"], fields.get("daily_summary_time") or contest.daily_summary_time)
+        fields["daily_summary_time"] = _primary_time(
+            fields["daily_summary_times"], fields.get("daily_summary_time") or contest.daily_summary_time
+        )
     elif "daily_summary_time" in fields:
         # ensure type is time (pydantic provides time)
         pass
@@ -630,7 +620,7 @@ async def delete_referral(
     if contest.is_active or contest.end_at > now_utc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Можно удалять только завершённые конкурсы",
+            "Only finished contests can be deleted",
         )
     await delete_referral_contest(db, contest)
     return {"status": "deleted"}
@@ -656,9 +646,7 @@ async def list_referral_events(
     referral_user = aliased(User)
 
     base_conditions = [ReferralContestEvent.contest_id == contest_id]
-    total = await db.scalar(
-        select(func.count(ReferralContestEvent.id)).where(and_(*base_conditions))
-    ) or 0
+    total = await db.scalar(select(func.count(ReferralContestEvent.id)).where(and_(*base_conditions))) or 0
 
     query = (
         select(ReferralContestEvent, referrer_user, referral_user)
@@ -695,5 +683,6 @@ async def get_referral_detailed_stats(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Contest not found")
 
     from app.services.referral_contest_service import referral_contest_service
+
     stats = await referral_contest_service.get_detailed_contest_stats(db, contest_id)
     return ReferralContestDetailedStatsResponse(**stats)

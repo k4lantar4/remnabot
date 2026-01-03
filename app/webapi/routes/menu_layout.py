@@ -81,9 +81,7 @@ def _serialize_config(config: dict, is_enabled: bool, updated_at) -> MenuLayoutR
             MenuRowConfig(
                 id=row_data["id"],
                 buttons=row_data.get("buttons", []),
-                conditions=ButtonConditions(**row_data["conditions"])
-                if row_data.get("conditions")
-                else None,
+                conditions=ButtonConditions(**row_data["conditions"]) if row_data.get("conditions") else None,
                 max_per_row=row_data.get("max_per_row", 2),
             )
         )
@@ -98,9 +96,7 @@ def _serialize_config(config: dict, is_enabled: bool, updated_at) -> MenuLayoutR
             action=btn_data.get("action", ""),
             enabled=btn_data.get("enabled", True),
             visibility=btn_data.get("visibility", "all"),
-            conditions=ButtonConditions(**btn_data["conditions"])
-            if btn_data.get("conditions")
-            else None,
+            conditions=ButtonConditions(**btn_data["conditions"]) if btn_data.get("conditions") else None,
             dynamic_text=btn_data.get("dynamic_text", False),
             open_mode=btn_data.get("open_mode", "callback"),
             webapp_url=btn_data.get("webapp_url"),
@@ -148,6 +144,7 @@ async def update_menu_layout(
             # Автоматически определяем наличие плейсхолдеров, если dynamic_text не установлен
             if not btn_dict.get("dynamic_text", False):
                 from app.services.menu_layout.service import MenuLayoutService
+
                 btn_dict["dynamic_text"] = MenuLayoutService._text_has_placeholders(btn_dict.get("text", {}))
             buttons_config[btn_id] = btn_dict
         config["buttons"] = buttons_config
@@ -226,9 +223,7 @@ async def update_button(
             action=button.get("action", ""),
             enabled=button.get("enabled", True),
             visibility=button.get("visibility", "all"),
-            conditions=ButtonConditions(**button["conditions"])
-            if button.get("conditions")
-            else None,
+            conditions=ButtonConditions(**button["conditions"]) if button.get("conditions") else None,
             dynamic_text=button.get("dynamic_text", False),
             open_mode=button.get("open_mode", "callback"),
             webapp_url=button.get("webapp_url"),
@@ -251,9 +246,7 @@ async def reorder_rows(
             MenuRowConfig(
                 id=row["id"],
                 buttons=row.get("buttons", []),
-                conditions=ButtonConditions(**row["conditions"])
-                if row.get("conditions")
-                else None,
+                conditions=ButtonConditions(**row["conditions"]) if row.get("conditions") else None,
                 max_per_row=row.get("max_per_row", 2),
             )
             for row in rows
@@ -273,9 +266,7 @@ async def add_row(
         row_config = {
             "id": payload.id,
             "buttons": payload.buttons,
-            "conditions": payload.conditions.model_dump(exclude_none=True)
-            if payload.conditions
-            else None,
+            "conditions": payload.conditions.model_dump(exclude_none=True) if payload.conditions else None,
             "max_per_row": payload.max_per_row,
         }
         row = await MenuLayoutService.add_row(db, row_config, payload.position)
@@ -283,9 +274,7 @@ async def add_row(
         return MenuRowConfig(
             id=row["id"],
             buttons=row.get("buttons", []),
-            conditions=ButtonConditions(**row["conditions"])
-            if row.get("conditions")
-            else None,
+            conditions=ButtonConditions(**row["conditions"]) if row.get("conditions") else None,
             max_per_row=row.get("max_per_row", 2),
         )
     except ValueError as e:
@@ -306,9 +295,7 @@ async def delete_row(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
 
 
-@router.post(
-    "/buttons", response_model=MenuButtonConfig, status_code=status.HTTP_201_CREATED
-)
+@router.post("/buttons", response_model=MenuButtonConfig, status_code=status.HTTP_201_CREATED)
 async def add_custom_button(
     payload: AddCustomButtonRequest,
     _: Any = Security(require_api_token),
@@ -320,23 +307,20 @@ async def add_custom_button(
         dynamic_text = payload.dynamic_text
         if not dynamic_text:
             from app.services.menu_layout.service import MenuLayoutService
+
             dynamic_text = MenuLayoutService._text_has_placeholders(payload.text)
-        
+
         button_config = {
             "type": payload.type.value,
             "text": payload.text,
             "icon": payload.icon,
             "action": payload.action,
             "visibility": payload.visibility.value,
-            "conditions": payload.conditions.model_dump(exclude_none=True)
-            if payload.conditions
-            else None,
+            "conditions": payload.conditions.model_dump(exclude_none=True) if payload.conditions else None,
             "dynamic_text": dynamic_text,
             "description": payload.description,
         }
-        button = await MenuLayoutService.add_custom_button(
-            db, payload.id, button_config, payload.row_id
-        )
+        button = await MenuLayoutService.add_custom_button(db, payload.id, button_config, payload.row_id)
 
         return MenuButtonConfig(
             type=button["type"],
@@ -346,9 +330,7 @@ async def add_custom_button(
             action=button.get("action", ""),
             enabled=button.get("enabled", True),
             visibility=button.get("visibility", "all"),
-            conditions=ButtonConditions(**button["conditions"])
-            if button.get("conditions")
-            else None,
+            conditions=ButtonConditions(**button["conditions"]) if button.get("conditions") else None,
             dynamic_text=button.get("dynamic_text", False),
             open_mode=button.get("open_mode", "callback"),
             webapp_url=button.get("webapp_url"),
@@ -387,7 +369,7 @@ async def preview_menu(
         is_moderator=payload.is_moderator,
         has_active_subscription=payload.has_active_subscription,
         subscription_is_active=payload.subscription_is_active,
-        balance_kopeks=payload.balance_kopeks,
+        balance_toman=payload.balance_toman,
     )
 
     preview_rows = await MenuLayoutService.preview_keyboard(db, context)
@@ -461,9 +443,7 @@ async def move_button_to_row(
 ) -> MoveButtonResponse:
     """Переместить кнопку в указанную строку."""
     try:
-        result = await MenuLayoutService.move_button_to_row(
-            db, button_id, payload.target_row_id, payload.position
-        )
+        result = await MenuLayoutService.move_button_to_row(db, button_id, payload.target_row_id, payload.position)
         return MoveButtonResponse(
             button_id=button_id,
             target_row_id=payload.target_row_id,
@@ -484,9 +464,7 @@ async def reorder_buttons_in_row(
 ) -> ReorderButtonsResponse:
     """Изменить порядок кнопок в строке."""
     try:
-        result = await MenuLayoutService.reorder_buttons_in_row(
-            db, row_id, payload.ordered_button_ids
-        )
+        result = await MenuLayoutService.reorder_buttons_in_row(db, row_id, payload.ordered_button_ids)
         return ReorderButtonsResponse(
             row_id=row_id,
             buttons=result["buttons"],
@@ -505,9 +483,7 @@ async def swap_buttons(
 ) -> SwapButtonsResponse:
     """Обменять местами две кнопки (даже из разных строк)."""
     try:
-        result = await MenuLayoutService.swap_buttons(
-            db, payload.button_id_1, payload.button_id_2
-        )
+        result = await MenuLayoutService.swap_buttons(db, payload.button_id_1, payload.button_id_2)
         return SwapButtonsResponse(
             button_1=result["button_1"],
             button_2=result["button_2"],
@@ -588,9 +564,7 @@ async def export_menu_layout(
             MenuRowConfig(
                 id=row_data["id"],
                 buttons=row_data.get("buttons", []),
-                conditions=ButtonConditions(**row_data["conditions"])
-                if row_data.get("conditions")
-                else None,
+                conditions=ButtonConditions(**row_data["conditions"]) if row_data.get("conditions") else None,
                 max_per_row=row_data.get("max_per_row", 2),
             )
         )
@@ -605,9 +579,7 @@ async def export_menu_layout(
             action=btn_data.get("action", ""),
             enabled=btn_data.get("enabled", True),
             visibility=btn_data.get("visibility", "all"),
-            conditions=ButtonConditions(**btn_data["conditions"])
-            if btn_data.get("conditions")
-            else None,
+            conditions=ButtonConditions(**btn_data["conditions"]) if btn_data.get("conditions") else None,
             dynamic_text=btn_data.get("dynamic_text", False),
             open_mode=btn_data.get("open_mode", "callback"),
             webapp_url=btn_data.get("webapp_url"),
@@ -658,9 +630,7 @@ async def validate_menu_layout(
     else:
         config = {
             "rows": [row.model_dump() for row in payload.rows] if payload.rows else [],
-            "buttons": {btn_id: btn.model_dump() for btn_id, btn in payload.buttons.items()}
-            if payload.buttons
-            else {},
+            "buttons": {btn_id: btn.model_dump() for btn_id, btn in payload.buttons.items()} if payload.buttons else {},
         }
 
     result = MenuLayoutService.validate_config(config)
@@ -846,7 +816,7 @@ async def get_stats_by_button_type(
     try:
         stats = await MenuLayoutService.get_stats_by_button_type(db, days)
         total_clicks = sum(s["clicks_total"] for s in stats)
-        
+
         return ButtonTypeStatsResponse(
             items=[
                 ButtonTypeStats(
@@ -872,12 +842,9 @@ async def get_clicks_by_hour(
 ) -> HourlyStatsResponse:
     """Получить статистику кликов по часам дня (0-23)."""
     stats = await MenuLayoutService.get_clicks_by_hour(db, button_id, days)
-    
+
     return HourlyStatsResponse(
-        items=[
-            HourlyStats(hour=s["hour"], count=s["count"])
-            for s in stats
-        ],
+        items=[HourlyStats(hour=s["hour"], count=s["count"]) for s in stats],
         button_id=button_id,
     )
 
@@ -891,16 +858,9 @@ async def get_clicks_by_weekday(
 ) -> WeekdayStatsResponse:
     """Получить статистику кликов по дням недели."""
     stats = await MenuLayoutService.get_clicks_by_weekday(db, button_id, days)
-    
+
     return WeekdayStatsResponse(
-        items=[
-            WeekdayStats(
-                weekday=s["weekday"],
-                weekday_name=s["weekday_name"],
-                count=s["count"]
-            )
-            for s in stats
-        ],
+        items=[WeekdayStats(weekday=s["weekday"], weekday_name=s["weekday_name"], count=s["count"]) for s in stats],
         button_id=button_id,
     )
 
@@ -944,12 +904,12 @@ async def get_period_comparison(
 ) -> PeriodComparisonResponse:
     """Сравнить статистику текущего и предыдущего периода."""
     try:
-        comparison = await MenuLayoutService.get_period_comparison(
-            db, button_id, current_days, previous_days
+        comparison = await MenuLayoutService.get_period_comparison(db, button_id, current_days, previous_days)
+
+        logger.debug(
+            f"Period comparison: button_id={button_id}, current_days={current_days}, previous_days={previous_days}, trend={comparison.get('change', {}).get('trend')}"
         )
-        
-        logger.debug(f"Period comparison: button_id={button_id}, current_days={current_days}, previous_days={previous_days}, trend={comparison.get('change', {}).get('trend')}")
-        
+
         return PeriodComparisonResponse(
             current_period=comparison["current_period"],
             previous_period=comparison["previous_period"],
@@ -971,9 +931,9 @@ async def get_user_click_sequences(
     """Получить последовательности кликов пользователя."""
     try:
         sequences = await MenuLayoutService.get_user_click_sequences(db, user_id, limit)
-        
+
         logger.debug(f"User sequences: user_id={user_id}, limit={limit}, found={len(sequences)} sequences")
-        
+
         return UserClickSequencesResponse(
             user_id=user_id,
             items=[

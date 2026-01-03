@@ -107,10 +107,7 @@ async def list_broadcasts(
     total = await db.scalar(select(func.count(BroadcastHistory.id))) or 0
 
     result = await db.execute(
-        select(BroadcastHistory)
-        .order_by(BroadcastHistory.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+        select(BroadcastHistory).order_by(BroadcastHistory.created_at.desc()).offset(offset).limit(limit)
     )
     broadcasts = result.scalars().all()
 

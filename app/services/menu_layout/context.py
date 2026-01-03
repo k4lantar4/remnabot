@@ -18,7 +18,7 @@ class MenuContext:
     has_active_subscription: bool = False
     subscription_is_active: bool = False
     has_had_paid_subscription: bool = False
-    balance_kopeks: int = 0
+    balance_toman: int = 0
     subscription: Optional[Any] = None
     show_resume_checkout: bool = False
     has_saved_cart: bool = False

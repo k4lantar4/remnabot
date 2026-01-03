@@ -44,7 +44,7 @@ async def list_user_messages(
     db: AsyncSession = Depends(get_db_session),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    include_inactive: bool = Query(True, description="Включать неактивные сообщения"),
+    include_inactive: bool = Query(True, description="Include inactive messages"),
 ) -> UserMessageListResponse:
     total = await get_user_messages_count(db, include_inactive=include_inactive)
     messages = await get_all_user_messages(

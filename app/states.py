@@ -1,10 +1,12 @@
 from aiogram.fsm.state import State, StatesGroup
 
+
 class RegistrationStates(StatesGroup):
     waiting_for_language = State()
     waiting_for_rules_accept = State()
     waiting_for_privacy_policy_accept = State()
     waiting_for_referral_code = State()
+
 
 class SubscriptionStates(StatesGroup):
     selecting_period = State()
@@ -12,16 +14,17 @@ class SubscriptionStates(StatesGroup):
     selecting_countries = State()
     selecting_devices = State()
     confirming_purchase = State()
-    
+
     adding_countries = State()
     adding_traffic = State()
     adding_devices = State()
     extending_subscription = State()
     confirming_traffic_reset = State()
     cart_saved_for_topup = State()
-    
-    # Состояния для простой подписки
+
+    # States for the simple subscription flow
     waiting_for_simple_subscription_payment_method = State()
+
 
 class BalanceStates(StatesGroup):
     waiting_for_amount = State()
@@ -29,14 +32,15 @@ class BalanceStates(StatesGroup):
     waiting_for_platega_method = State()
     waiting_for_stars_payment = State()
     waiting_for_support_request = State()
+    waiting_for_card_to_card_receipt = State()
 
 
 class PromoCodeStates(StatesGroup):
     waiting_for_code = State()
     waiting_for_referral_code = State()
 
+
 class AdminStates(StatesGroup):
-    
     waiting_for_user_search = State()
     waiting_for_bulk_ban_list = State()
     sending_user_message = State()
@@ -45,7 +49,7 @@ class AdminStates(StatesGroup):
     adding_traffic = State()
     granting_subscription = State()
     editing_user_subscription = State()
-    
+
     creating_promocode = State()
     setting_promocode_type = State()
     setting_promocode_value = State()
@@ -101,7 +105,7 @@ class AdminStates(StatesGroup):
     editing_referral_contest_summary_times = State()
     editing_daily_contest_field = State()
     editing_daily_contest_value = State()
-    
+
     editing_squad_price = State()
     editing_traffic_price = State()
     editing_device_price = State()
@@ -109,6 +113,36 @@ class AdminStates(StatesGroup):
     editing_user_traffic = State()
     editing_user_referrals = State()
     editing_user_referral_percent = State()
+
+    # Tenant bots management
+    waiting_for_bot_name = State()
+    waiting_for_bot_token = State()
+    
+    # Tenant bot creation (AC11)
+    creating_tenant_bot_name = State()
+    creating_tenant_bot_token = State()
+    creating_tenant_bot_language = State()
+    creating_tenant_bot_support = State()
+    creating_tenant_bot_plan = State()
+    
+    # Tenant bot editing (AC5)
+    editing_tenant_bot_name = State()
+    editing_tenant_bot_language = State()
+    editing_tenant_bot_support = State()
+    editing_tenant_bot_notifications = State()
+    
+    # Configuration editing (AC9)
+    editing_tenant_config = State()
+    editing_tenant_config_key = State()
+    editing_tenant_config_value = State()
+    
+    # Payment card management
+    adding_tenant_payment_card = State()
+    editing_tenant_payment_card = State()
+    
+    # Plan management (AC8)
+    creating_tenant_plan = State()
+    editing_tenant_plan = State()
 
     editing_rules_page = State()
     editing_privacy_policy = State()
@@ -147,8 +181,8 @@ class AdminStates(StatesGroup):
     editing_promo_offer_squads = State()
     selecting_promo_offer_user = State()
     searching_promo_offer_user = State()
-    
-    # Состояния для отслеживания источника перехода
+
+    # States for tracking navigation sources
     viewing_user_from_balance_list = State()
     viewing_user_from_traffic_list = State()
     viewing_user_from_last_activity_list = State()
@@ -157,17 +191,21 @@ class AdminStates(StatesGroup):
     viewing_user_from_campaign_list = State()
     viewing_user_from_ready_to_renew_list = State()
 
+
 class SupportStates(StatesGroup):
     waiting_for_message = State()
+
 
 class TicketStates(StatesGroup):
     waiting_for_title = State()
     waiting_for_message = State()
     waiting_for_reply = State()
 
+
 class AdminTicketStates(StatesGroup):
     waiting_for_reply = State()
     waiting_for_block_duration = State()
+
 
 class SupportSettingsStates(StatesGroup):
     waiting_for_desc = State()
@@ -182,13 +220,16 @@ class BotConfigStates(StatesGroup):
 class PricingStates(StatesGroup):
     waiting_for_value = State()
 
+
 class AutoPayStates(StatesGroup):
     setting_autopay_days = State()
     confirming_autopay_toggle = State()
 
+
 class SquadCreateStates(StatesGroup):
     waiting_for_name = State()
     selecting_inbounds = State()
+
 
 class SquadRenameStates(StatesGroup):
     waiting_for_new_name = State()
@@ -202,6 +243,7 @@ class SquadMigrationStates(StatesGroup):
 
 class RemnaWaveSyncStates(StatesGroup):
     waiting_for_schedule = State()
+
 
 class ContestStates(StatesGroup):
     waiting_for_answer = State()

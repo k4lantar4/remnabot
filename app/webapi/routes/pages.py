@@ -101,10 +101,10 @@ async def get_public_offer(
     _: object = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
     language: str = Query("ru", min_length=2, max_length=10),
-    fallback: bool = Query(True, description="Использовать запасной язык, если контента нет"),
+    fallback: bool = Query(True, description="Use fallback language if content is missing"),
     include_disabled: bool = Query(
         True,
-        description="Возвращать контент даже если страница выключена",
+        description="Return content even if page is disabled",
     ),
 ) -> RichTextPageResponse:
     requested_lang = PublicOfferService.normalize_language(language)
@@ -274,15 +274,11 @@ async def update_faq_status(
     _: object = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> FaqStatusResponse:
-    resolved_language = FaqService.normalize_language(
-        payload.language if payload and payload.language else language
-    )
+    resolved_language = FaqService.normalize_language(payload.language if payload and payload.language else language)
 
     enabled_status = payload.is_enabled if payload else is_enabled
     if enabled_status is None:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Parameter 'is_enabled' is required"
-        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Parameter 'is_enabled' is required")
 
     setting = await FaqService.set_enabled(db, resolved_language, enabled_status)
 
@@ -454,7 +450,7 @@ async def update_service_rules(
     db: AsyncSession = Depends(get_db_session),
 ) -> ServiceRulesResponse:
     lang = payload.language.split("-")[0].lower()
-    title = payload.title or "Правила сервиса"
+    title = payload.title or "Service rules"
     rules = await create_or_update_rules(
         db,
         content=payload.content,
@@ -509,4 +505,3 @@ async def restore_service_rules_version(
     if not restored:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Rules version not found")
     return _serialize_rules(restored)
-

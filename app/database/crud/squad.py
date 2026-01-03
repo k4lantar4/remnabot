@@ -9,53 +9,34 @@ logger = logging.getLogger(__name__)
 
 
 async def get_squad_by_uuid(db: AsyncSession, uuid: str) -> Optional[Squad]:
-    result = await db.execute(
-        select(Squad).where(Squad.uuid == uuid)
-    )
+    result = await db.execute(select(Squad).where(Squad.uuid == uuid))
     return result.scalar_one_or_none()
 
 
 async def get_available_squads(db: AsyncSession) -> List[Squad]:
-    result = await db.execute(
-        select(Squad).where(Squad.is_available == True)
-    )
+    result = await db.execute(select(Squad).where(Squad.is_available == True))
     return result.scalars().all()
 
 
 async def create_squad(
-    db: AsyncSession,
-    uuid: str,
-    name: str,
-    country_code: str = None,
-    price_kopeks: int = 0,
-    description: str = None
+    db: AsyncSession, uuid: str, name: str, country_code: str = None, price_toman: int = 0, description: str = None
 ) -> Squad:
-    squad = Squad(
-        uuid=uuid,
-        name=name,
-        country_code=country_code,
-        price_kopeks=price_kopeks,
-        description=description
-    )
-    
+    squad = Squad(uuid=uuid, name=name, country_code=country_code, price_toman=price_toman, description=description)
+
     db.add(squad)
     await db.commit()
     await db.refresh(squad)
-    
-    logger.info(f"✅ Создан сквад: {name}")
+
+    logger.info(f"✅ Squad created: {name}")
     return squad
 
 
-async def update_squad(
-    db: AsyncSession,
-    squad: Squad,
-    **kwargs
-) -> Squad:
+async def update_squad(db: AsyncSession, squad: Squad, **kwargs) -> Squad:
     for field, value in kwargs.items():
         if hasattr(squad, field):
             setattr(squad, field, value)
-    
+
     await db.commit()
     await db.refresh(squad)
-    
+
     return squad

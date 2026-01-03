@@ -13,10 +13,29 @@ from app.config import settings
 
 _logger = logging.getLogger(__name__)
 
-_FALLBACK_LANGUAGE = "ru"
-
 _BASE_DIR = Path(__file__).resolve().parent
 _DEFAULT_LOCALES_DIR = _BASE_DIR / "locales"
+
+
+def _get_fallback_language() -> str:
+    """Get fallback language from settings, defaulting to 'en' if not configured."""
+    try:
+        default = settings.DEFAULT_LANGUAGE
+        if default and isinstance(default, str) and default.strip():
+            return default.strip().lower()
+    except (AttributeError, Exception):
+        pass
+    return "en"
+
+
+_FALLBACK_LANGUAGE_CACHE: str | None = None
+
+def _get_fallback_language_cached() -> str:
+    """Lazy evaluation of fallback language to avoid circular dependency during module import."""
+    global _FALLBACK_LANGUAGE_CACHE
+    if _FALLBACK_LANGUAGE_CACHE is None:
+        _FALLBACK_LANGUAGE_CACHE = _get_fallback_language()
+    return _FALLBACK_LANGUAGE_CACHE
 
 
 def _normalize_language_code(value: Any) -> str:
@@ -52,8 +71,8 @@ def _locale_file_exists(language: str) -> bool:
 
 def _select_fallback_language(available_map: Dict[str, str]) -> str:
     candidates = []
-    if _FALLBACK_LANGUAGE:
-        candidates.append(_FALLBACK_LANGUAGE)
+    if _get_fallback_language_cached():
+        candidates.append(_get_fallback_language_cached())
     candidates.extend(available_map.values())
 
     seen = set()
@@ -69,10 +88,11 @@ def _select_fallback_language(available_map: Dict[str, str]) -> str:
         if _locale_file_exists(normalized):
             return normalized
 
-    if _FALLBACK_LANGUAGE and _locale_file_exists(_FALLBACK_LANGUAGE):
-        return _FALLBACK_LANGUAGE
+    fallback = _get_fallback_language()
+    if fallback and _locale_file_exists(fallback):
+        return fallback
 
-    return _FALLBACK_LANGUAGE or "ru"
+    return fallback or "en"
 
 
 def _determine_default_language() -> str:
@@ -95,6 +115,8 @@ def _determine_default_language() -> str:
         if isinstance(lang, str) and lang.strip()
     }
 
+    fallback_lang = _get_fallback_language()
+
     if configured:
         normalized_configured = _normalize_language_code(configured)
 
@@ -108,30 +130,39 @@ def _determine_default_language() -> str:
             _logger.warning(
                 "Configured default language '%s' is not listed in AVAILABLE_LANGUAGES. Falling back to '%s'.",
                 configured,
-                _FALLBACK_LANGUAGE,
+                fallback_lang,
             )
         else:
             _logger.warning(
                 "Configured default language '%s' is not available. Falling back to '%s'.",
                 configured,
-                _FALLBACK_LANGUAGE,
+                fallback_lang,
             )
     else:
-        _logger.debug("DEFAULT_LANGUAGE is not set. Falling back to '%s'.", _FALLBACK_LANGUAGE)
+        _logger.debug("DEFAULT_LANGUAGE is not set. Falling back to '%s'.", fallback_lang)
 
     fallback_language = _select_fallback_language(available_map)
 
-    if _normalize_language_code(fallback_language) != _normalize_language_code(_FALLBACK_LANGUAGE):
+    if _normalize_language_code(fallback_language) != _normalize_language_code(fallback_lang):
         _logger.warning(
             "Fallback language '%s' is not available. Using '%s' instead.",
-            _FALLBACK_LANGUAGE,
+            fallback_lang,
             fallback_language,
         )
 
-    return fallback_language or _FALLBACK_LANGUAGE
+    return fallback_language or fallback_lang
 
 
-DEFAULT_LANGUAGE = _determine_default_language()
+_DEFAULT_LANGUAGE_CACHE: str | None = None
+
+def _get_default_language() -> str:
+    """Lazy evaluation of default language to avoid circular dependency during module import."""
+    global _DEFAULT_LANGUAGE_CACHE
+    if _DEFAULT_LANGUAGE_CACHE is None:
+        _DEFAULT_LANGUAGE_CACHE = _determine_default_language()
+    return _DEFAULT_LANGUAGE_CACHE
+
+DEFAULT_LANGUAGE = "en"  # Fallback value, actual value loaded lazily
 
 
 def _normalize_key(raw_key: Any) -> str:
@@ -233,7 +264,7 @@ def ensure_locale_templates() -> None:
             _copy_locale(template, destination / template.name)
         return
 
-    for locale_code in ("ru", "en"):
+    for locale_code in ("en",):
         source_path = _DEFAULT_LOCALES_DIR / f"{locale_code}.json"
         target_path = destination / f"{locale_code}.json"
 
@@ -241,9 +272,7 @@ def ensure_locale_templates() -> None:
             continue
 
         if not source_path.exists():
-            _logger.debug(
-                "Default locale template %s is missing at %s", locale_code, source_path
-            )
+            _logger.debug("Default locale template %s is missing at %s", locale_code, source_path)
             continue
 
         _copy_locale(source_path, target_path)
@@ -289,11 +318,7 @@ def _load_locale_file(path: Path) -> Dict[str, Any]:
 def _merge_dicts(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
     result = dict(base)
     for key, value in overrides.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _merge_dicts(result[key], value)
         else:
             result[key] = value
@@ -302,18 +327,18 @@ def _merge_dicts(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, A
 
 @lru_cache(maxsize=None)
 def load_locale(language: str) -> Dict[str, Any]:
-    language = language or DEFAULT_LANGUAGE
+    language = language or _get_default_language()
     defaults = _load_default_locale(language)
     overrides = _load_user_locale(language)
     merged = _merge_dicts(defaults, overrides)
 
-    if not merged and language != DEFAULT_LANGUAGE:
+    if not merged and language != _get_default_language():
         _logger.warning(
             "Locale %s not found. Falling back to default language %s.",
             language,
-            DEFAULT_LANGUAGE,
+            _get_default_language(),
         )
-        return load_locale(DEFAULT_LANGUAGE)
+        return load_locale(_get_default_language())
     return merged
 
 

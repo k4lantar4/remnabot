@@ -92,9 +92,7 @@ class RemnaWaveAutoSyncService:
 
             times = settings.get_remnawave_auto_sync_times()
             if not times:
-                logger.warning(
-                    "⚠️ Автосинхронизация включена, но расписание пустое. Укажите время запуска."
-                )
+                logger.warning("⚠️ Auto-sync is enabled, but schedule is empty. Specify run times.")
                 self._next_run = None
                 return
 
@@ -144,7 +142,7 @@ class RemnaWaveAutoSyncService:
                 self._last_user_stats = None
                 self._last_server_stats = None
                 self._last_run_finished_at = datetime.utcnow()
-                logger.error("❌ Автосинхронизация RemnaWave: %s", message)
+                logger.error("❌ RemnaWave auto-sync: %s", message)
                 return {
                     "started": True,
                     "success": False,
@@ -159,7 +157,7 @@ class RemnaWaveAutoSyncService:
                 self._last_user_stats = None
                 self._last_server_stats = None
                 self._last_run_finished_at = datetime.utcnow()
-                logger.exception("❌ Ошибка автосинхронизации RemnaWave: %s", error)
+                logger.exception("❌ RemnaWave auto-sync error: %s", error)
                 return {
                     "started": True,
                     "success": False,
@@ -224,9 +222,7 @@ class RemnaWaveAutoSyncService:
         service = self._refresh_service()
 
         if not service.is_configured:
-            raise RemnaWaveConfigurationError(
-                service.configuration_error or "RemnaWave API не настроен"
-            )
+            raise RemnaWaveConfigurationError(service.configuration_error or "RemnaWave API is not configured")
 
         async with AsyncSessionLocal() as session:
             user_stats = await service.sync_users_from_panel(session, "all")
@@ -242,7 +238,7 @@ class RemnaWaveAutoSyncService:
         squads = await service.get_all_squads()
 
         if not squads:
-            logger.warning("⚠️ Не удалось получить сквады из RemnaWave для автосинхронизации")
+            logger.warning("⚠️ Failed to get squads from RemnaWave for auto-sync")
             return {"created": 0, "updated": 0, "removed": 0, "total": 0}
 
         created, updated, removed = await sync_with_remnawave(session, squads)
@@ -250,7 +246,7 @@ class RemnaWaveAutoSyncService:
         try:
             await cache.delete_pattern("available_countries*")
         except Exception as error:
-            logger.warning("⚠️ Не удалось очистить кеш стран после автосинхронизации: %s", error)
+            logger.warning("⚠️ Failed to clear country cache after auto-sync: %s", error)
 
         return {
             "created": created,

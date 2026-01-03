@@ -12,8 +12,7 @@ class PromoCodeResponse(BaseModel):
     id: int
     code: str
     type: PromoCodeType
-    balance_bonus_kopeks: int
-    balance_bonus_rubles: float
+    balance_bonus_toman: int
     subscription_days: int
     max_uses: int
     current_uses: int
@@ -37,7 +36,7 @@ class PromoCodeListResponse(BaseModel):
 class PromoCodeCreateRequest(BaseModel):
     code: str
     type: PromoCodeType
-    balance_bonus_kopeks: int = 0
+    balance_bonus_toman: int = 0
     subscription_days: int = 0
     max_uses: int = Field(default=1, ge=0)
     valid_from: Optional[datetime] = None
@@ -49,7 +48,7 @@ class PromoCodeCreateRequest(BaseModel):
 class PromoCodeUpdateRequest(BaseModel):
     code: Optional[str] = None
     type: Optional[PromoCodeType] = None
-    balance_bonus_kopeks: Optional[int] = None
+    balance_bonus_toman: Optional[int] = None
     subscription_days: Optional[int] = None
     max_uses: Optional[int] = Field(default=None, ge=0)
     valid_from: Optional[datetime] = None
@@ -70,4 +69,3 @@ class PromoCodeDetailResponse(PromoCodeResponse):
     total_uses: int
     today_uses: int
     recent_uses: list[PromoCodeRecentUse] = Field(default_factory=list)
-

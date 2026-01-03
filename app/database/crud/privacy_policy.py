@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_privacy_policy(db: AsyncSession, language: str) -> Optional[PrivacyPolicy]:
-    result = await db.execute(
-        select(PrivacyPolicy).where(PrivacyPolicy.language == language)
-    )
+    result = await db.execute(select(PrivacyPolicy).where(PrivacyPolicy.language == language))
     return result.scalar_one_or_none()
 
 
@@ -41,7 +39,7 @@ async def upsert_privacy_policy(
     await db.refresh(policy)
 
     logger.info(
-        "✅ Политика конфиденциальности для языка %s обновлена (ID: %s)",
+        "✅ Privacy policy for language %s updated (ID: %s)",
         language,
         policy.id,
     )
@@ -71,7 +69,7 @@ async def set_privacy_policy_enabled(
     await db.refresh(policy)
 
     logger.info(
-        "✅ Статус политики конфиденциальности для языка %s обновлен: %s",
+        "✅ Privacy policy status for language %s updated: %s",
         language,
         "enabled" if policy.is_enabled else "disabled",
     )

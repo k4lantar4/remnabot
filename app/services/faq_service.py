@@ -229,11 +229,7 @@ class FaqService:
         if len(normalized) <= limit:
             return [normalized]
 
-        paragraphs = [
-            paragraph.strip()
-            for paragraph in normalized.split("\n\n")
-            if paragraph.strip()
-        ]
+        paragraphs = [paragraph.strip() for paragraph in normalized.split("\n\n") if paragraph.strip()]
 
         pages: List[str] = []
         current = ""
@@ -270,4 +266,3 @@ class FaqService:
             return [normalized[:limit]]
 
         return pages
-

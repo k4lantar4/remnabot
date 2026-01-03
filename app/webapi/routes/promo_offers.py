@@ -76,7 +76,7 @@ def _serialize_offer(offer: DiscountOffer) -> PromoOfferResponse:
         subscription_id=offer.subscription_id,
         notification_type=offer.notification_type,
         discount_percent=offer.discount_percent,
-        bonus_amount_kopeks=offer.bonus_amount_kopeks,
+        bonus_amount_toman=offer.bonus_amount_toman,
         expires_at=offer.expires_at,
         claimed_at=offer.claimed_at,
         is_active=offer.is_active,
@@ -98,7 +98,7 @@ def _serialize_template(template: PromoOfferTemplate) -> PromoOfferTemplateRespo
         button_text=template.button_text,
         valid_hours=template.valid_hours,
         discount_percent=template.discount_percent,
-        bonus_amount_kopeks=template.bonus_amount_kopeks,
+        bonus_amount_toman=template.bonus_amount_toman,
         active_discount_hours=template.active_discount_hours,
         test_duration_hours=template.test_duration_hours,
         test_squad_uuids=[str(uuid) for uuid in (template.test_squad_uuids or [])],
@@ -119,7 +119,7 @@ def _build_log_response(entry: PromoOfferLog) -> PromoOfferLogResponse:
             id=offer.id,
             notification_type=offer.notification_type,
             discount_percent=offer.discount_percent,
-            bonus_amount_kopeks=offer.bonus_amount_kopeks,
+            bonus_amount_toman=offer.bonus_amount_toman,
             effect_type=offer.effect_type,
             expires_at=offer.expires_at,
             claimed_at=offer.claimed_at,
@@ -144,7 +144,7 @@ def _build_log_response(entry: PromoOfferLog) -> PromoOfferLogResponse:
 async def _resolve_target_users(db: AsyncSession, target: str) -> list[User]:
     normalized = target.strip().lower()
     if normalized.startswith("custom_"):
-        criteria = normalized[len("custom_"):]
+        criteria = normalized[len("custom_") :]
         return await get_custom_users(db, criteria)
     return await get_target_users(db, normalized)
 
@@ -205,8 +205,8 @@ async def create_promo_offer(
 ) -> PromoOfferResponse:
     if payload.discount_percent < 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "discount_percent must be non-negative")
-    if payload.bonus_amount_kopeks < 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_kopeks must be non-negative")
+    if payload.bonus_amount_toman < 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_toman must be non-negative")
     if payload.valid_hours <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "valid_hours must be positive")
     if not payload.notification_type.strip():
@@ -250,7 +250,7 @@ async def create_promo_offer(
         subscription_id=payload.subscription_id,
         notification_type=payload.notification_type.strip(),
         discount_percent=payload.discount_percent,
-        bonus_amount_kopeks=payload.bonus_amount_kopeks,
+        bonus_amount_toman=payload.bonus_amount_toman,
         valid_hours=payload.valid_hours,
         effect_type=payload.effect_type,
         extra_data=payload.extra_data,
@@ -273,8 +273,8 @@ async def broadcast_promo_offers(
 ) -> PromoOfferBroadcastResponse:
     if payload.discount_percent < 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "discount_percent must be non-negative")
-    if payload.bonus_amount_kopeks < 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_kopeks must be non-negative")
+    if payload.bonus_amount_toman < 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_toman must be non-negative")
     if payload.valid_hours <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "valid_hours must be positive")
     if not payload.notification_type.strip():
@@ -314,14 +314,14 @@ async def broadcast_promo_offers(
     if not recipients:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Пустая аудитория: укажите target или конкретного пользователя",
+            "Empty audience: provide target or a specific user",
         )
 
     if payload.subscription_id is not None:
         if len(recipients) > 1:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "subscription_id можно использовать только при отправке одному пользователю",
+                "subscription_id can only be used when sending to a single user",
             )
         sole_user = next(iter(recipients.values()))
         subscription = await db.get(Subscription, payload.subscription_id)
@@ -341,7 +341,7 @@ async def broadcast_promo_offers(
             subscription_id=payload.subscription_id,
             notification_type=payload.notification_type.strip(),
             discount_percent=payload.discount_percent,
-            bonus_amount_kopeks=payload.bonus_amount_kopeks,
+            bonus_amount_toman=payload.bonus_amount_toman,
             valid_hours=payload.valid_hours,
             effect_type=payload.effect_type,
             extra_data=payload.extra_data,
@@ -425,8 +425,8 @@ async def update_promo_offer_template_endpoint(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "test_duration_hours must be positive")
     if payload.discount_percent is not None and payload.discount_percent < 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "discount_percent must be non-negative")
-    if payload.bonus_amount_kopeks is not None and payload.bonus_amount_kopeks < 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_kopeks must be non-negative")
+    if payload.bonus_amount_toman is not None and payload.bonus_amount_toman < 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bonus_amount_toman must be non-negative")
 
     if payload.test_squad_uuids is not None:
         normalized_squads = [str(uuid).strip() for uuid in payload.test_squad_uuids if str(uuid).strip()]
@@ -441,7 +441,7 @@ async def update_promo_offer_template_endpoint(
         button_text=payload.button_text,
         valid_hours=payload.valid_hours,
         discount_percent=payload.discount_percent,
-        bonus_amount_kopeks=payload.bonus_amount_kopeks,
+        bonus_amount_toman=payload.bonus_amount_toman,
         active_discount_hours=payload.active_discount_hours,
         test_duration_hours=payload.test_duration_hours,
         test_squad_uuids=normalized_squads,

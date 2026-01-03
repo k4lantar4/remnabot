@@ -19,8 +19,8 @@ def calculate_months_from_days(days: int) -> int:
 def get_remaining_months(end_date: datetime) -> int:
     current_time = datetime.utcnow()
     if end_date <= current_time:
-        return 1 
-    
+        return 1
+
     remaining_days = (end_date - current_time).days
     return max(1, round(remaining_days / 30))
 
@@ -28,24 +28,22 @@ def get_remaining_months(end_date: datetime) -> int:
 def calculate_period_multiplier(period_days: int) -> Tuple[int, float]:
     exact_months = period_days / 30
     months_count = max(1, round(exact_months))
-    
-    logger.debug(f"Период {period_days} дней = {exact_months:.2f} точных месяцев ≈ {months_count} месяцев для расчета")
-    
+
+    logger.debug(f"Period {period_days} days = {exact_months:.2f} exact months ≈ {months_count} months for calculation")
+
     return months_count, exact_months
 
 
-def calculate_prorated_price(
-    monthly_price: int,
-    end_date: datetime,
-    min_charge_months: int = 1
-) -> Tuple[int, int]:
+def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_months: int = 1) -> Tuple[int, int]:
     months_remaining = get_remaining_months(end_date)
     months_to_charge = max(min_charge_months, months_remaining)
-    
+
     total_price = monthly_price * months_to_charge
-    
-    logger.debug(f"Расчет пропорциональной цены: {monthly_price/100}₽/мес × {months_to_charge} мес = {total_price/100}₽")
-    
+
+    logger.debug(
+        f"Prorated price calculation: {monthly_price / 100} Toman/mo × {months_to_charge} mo = {total_price / 100} Toman"
+    )
+
     return total_price, months_to_charge
 
 
@@ -57,15 +55,15 @@ def apply_percentage_discount(amount: int, percent: int) -> Tuple[int, int]:
     discount_value = amount * clamped_percent // 100
     discounted_amount = amount - discount_value
 
-    # Round the discounted price up to the nearest full ruble (100 kopeks)
-    # to avoid undercharging users because of fractional kopeks.
+    # Round the discounted price up to the nearest full ruble (100 toman)
+    # to avoid undercharging users because of fractional amounts.
     if discount_value >= 100 and discounted_amount % 100:
         discounted_amount += 100 - (discounted_amount % 100)
         discounted_amount = min(discounted_amount, amount)
         discount_value = amount - discounted_amount
 
     logger.debug(
-        "Применена скидка %s%%: %s → %s (скидка %s)",
+        "Applied discount %s%%: %s → %s (discount %s)",
         clamped_percent,
         amount,
         discounted_amount,
@@ -82,7 +80,7 @@ def resolve_discount_percent(
     *,
     period_days: Optional[int] = None,
 ) -> int:
-    """Определяет размер скидки для указанной категории."""
+    """Determines the discount percentage for the specified category."""
 
     if user is not None:
         try:
@@ -103,7 +101,7 @@ async def compute_simple_subscription_price(
     user: Optional["User"] = None,
     resolved_squad_uuids: Optional[Sequence[str]] = None,
 ) -> Tuple[int, Dict[str, Any]]:
-    """Вычисляет стоимость простой подписки с учетом всех доплат и скидок."""
+    """Calculates the price of a simple subscription including all add-ons and discounts."""
 
     period_days = int(params.get("period_days", 30) or 30)
     attr_name = f"PRICE_{period_days}_DAYS"
@@ -229,7 +227,7 @@ async def compute_simple_subscription_price(
             )
             continue
 
-        original_price = server.price_kopeks
+        original_price = server.price_toman
         discount_value = original_price * servers_discount_percent // 100
         final_price = original_price - discount_value
 
@@ -248,18 +246,10 @@ async def compute_simple_subscription_price(
         )
 
     total_before_discount = (
-        base_price_original
-        + traffic_price_original
-        + devices_price_original
-        + servers_price_original
+        base_price_original + traffic_price_original + devices_price_original + servers_price_original
     )
 
-    total_discount = (
-        base_discount
-        + traffic_discount
-        + devices_discount
-        + servers_discount_total
-    )
+    total_discount = base_discount + traffic_discount + devices_discount + servers_discount_total
 
     total_price = max(0, total_before_discount - total_discount)
 
@@ -287,55 +277,37 @@ async def compute_simple_subscription_price(
     return total_price, breakdown
 
 
-def format_period_description(days: int, language: str = "ru") -> str:
+def format_period_description(days: int, language: str = "en") -> str:
     months = calculate_months_from_days(days)
-    
-    if language == "ru":
-        if days == 14:
-            return "14 дней"
-        if days == 30:
-            return "1 месяц"
-        elif days == 60:
-            return "2 месяца"
-        elif days == 90:
-            return "3 месяца"
-        elif days == 180:
-            return "6 месяцев"
-        elif days == 360:
-            return "12 месяцев"
-        else:
-            month_word = "месяц" if months == 1 else ("месяца" if 2 <= months <= 4 else "месяцев")
-            return f"{days} дней ({months} {month_word})"
-    else:
-        if days == 14:
-            return "14 days"
-        month_word = "month" if months == 1 else "months"
-        return f"{days} days ({months} {month_word})"
+
+    if days == 14:
+        return "14 days"
+    month_word = "month" if months == 1 else "months"
+    return f"{days} days ({months} {month_word})"
 
 
-def validate_pricing_calculation(
-    base_price: int,
-    monthly_additions: int,
-    months: int,
-    total_calculated: int
-) -> bool:
+def validate_pricing_calculation(base_price: int, monthly_additions: int, months: int, total_calculated: int) -> bool:
     expected_total = base_price + (monthly_additions * months)
     is_valid = expected_total == total_calculated
-    
+
     if not is_valid:
-        logger.warning(f"Несоответствие в расчете цены: ожидалось {expected_total/100}₽, получено {total_calculated/100}₽")
-        logger.warning(f"Детали: базовая цена {base_price/100}₽ + месячные дополнения {monthly_additions/100}₽ × {months} мес")
-    
+        logger.warning(
+            f"Price calculation mismatch: expected {expected_total / 100} Toman, got {total_calculated / 100} Toman"
+        )
+        logger.warning(
+            f"Details: base price {base_price / 100} Toman + monthly additions {monthly_additions / 100} Toman × {months} mo"
+        )
+
     return is_valid
 
 
 STANDARD_PERIODS = {
-    14: {"months": 0.5, "display_ru": "2 недели", "display_en": "2 weeks"},
-    30: {"months": 1, "display_ru": "1 месяц", "display_en": "1 month"},
-    60: {"months": 2, "display_ru": "2 месяца", "display_en": "2 months"},
-    90: {"months": 3, "display_ru": "3 месяца", "display_en": "3 months"},
-    180: {"months": 6, "display_ru": "6 месяцев", "display_en": "6 months"},
-    360: {"months": 12, "display_ru": "1 год", "display_en": "1 year"},
+    14: {"months": 0.5, "display_en": "2 weeks"},
+    30: {"months": 1, "display_en": "1 month"},
+    60: {"months": 2, "display_en": "2 months"},
+    90: {"months": 3, "display_en": "3 months"},
+    180: {"months": 6, "display_en": "6 months"},
+    360: {"months": 12, "display_en": "1 year"},
 }
 
 

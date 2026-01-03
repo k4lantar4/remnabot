@@ -17,9 +17,7 @@ class BroadcastMedia(BaseModel):
 class BroadcastCreateRequest(BaseModel):
     target: str
     message_text: str = Field(..., min_length=1, max_length=4000)
-    selected_buttons: list[str] = Field(
-        default_factory=lambda: list(DEFAULT_BROADCAST_BUTTONS)
-    )
+    selected_buttons: list[str] = Field(default_factory=lambda: list(DEFAULT_BROADCAST_BUTTONS))
     media: Optional[BroadcastMedia] = None
 
     _ALLOWED_TARGETS: ClassVar[set[str]] = {
@@ -56,7 +54,7 @@ class BroadcastCreateRequest(BaseModel):
             return normalized
 
         if normalized.startswith("custom_"):
-            criteria = normalized[len("custom_"):]
+            criteria = normalized[len("custom_") :]
             if criteria in cls._CUSTOM_TARGETS:
                 return normalized
 
@@ -107,4 +105,3 @@ class BroadcastListResponse(BaseModel):
     total: int
     limit: int
     offset: int
-

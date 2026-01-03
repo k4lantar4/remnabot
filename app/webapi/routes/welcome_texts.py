@@ -43,7 +43,7 @@ async def list_welcome_texts_endpoint(
     db: AsyncSession = Depends(get_db_session),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    include_inactive: bool = Query(True, description="Включать неактивные тексты"),
+    include_inactive: bool = Query(True, description="Include inactive texts"),
 ) -> WelcomeTextListResponse:
     total = await count_welcome_texts(db, include_inactive=include_inactive)
     records = await list_welcome_texts(

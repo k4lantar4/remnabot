@@ -16,35 +16,46 @@ from app.database.crud.discount_offer import (
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.subscription import (
     create_trial_subscription,
-    create_paid_subscription, add_subscription_traffic, add_subscription_devices,
-    update_subscription_autopay
+    create_paid_subscription,
+    add_subscription_traffic,
+    add_subscription_devices,
+    update_subscription_autopay,
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.database.models import (
-    User, TransactionType, SubscriptionStatus,
-    Subscription
-)
+from app.database.models import User, TransactionType, SubscriptionStatus, Subscription
 from app.keyboards.inline import (
-    get_subscription_keyboard, get_trial_keyboard,
-    get_subscription_period_keyboard, get_traffic_packages_keyboard,
-    get_countries_keyboard, get_devices_keyboard,
-    get_subscription_confirm_keyboard, get_autopay_keyboard,
-    get_autopay_days_keyboard, get_back_keyboard,
+    get_subscription_keyboard,
+    get_trial_keyboard,
+    get_subscription_period_keyboard,
+    get_traffic_packages_keyboard,
+    get_countries_keyboard,
+    get_devices_keyboard,
+    get_subscription_confirm_keyboard,
+    get_autopay_keyboard,
+    get_autopay_days_keyboard,
+    get_back_keyboard,
     get_add_traffic_keyboard,
-    get_change_devices_keyboard, get_reset_traffic_confirm_keyboard,
+    get_change_devices_keyboard,
+    get_reset_traffic_confirm_keyboard,
     get_manage_countries_keyboard,
-    get_device_selection_keyboard, get_connection_guide_keyboard,
-    get_app_selection_keyboard, get_specific_app_keyboard,
-    get_updated_subscription_settings_keyboard, get_insufficient_balance_keyboard,
-    get_extend_subscription_keyboard_with_prices, get_confirm_change_devices_keyboard,
-    get_devices_management_keyboard, get_device_management_help_keyboard,
+    get_device_selection_keyboard,
+    get_connection_guide_keyboard,
+    get_app_selection_keyboard,
+    get_specific_app_keyboard,
+    get_updated_subscription_settings_keyboard,
+    get_insufficient_balance_keyboard,
+    get_extend_subscription_keyboard_with_prices,
+    get_confirm_change_devices_keyboard,
+    get_devices_management_keyboard,
+    get_device_management_help_keyboard,
     get_happ_cryptolink_keyboard,
-    get_happ_download_platform_keyboard, get_happ_download_link_keyboard,
+    get_happ_download_platform_keyboard,
+    get_happ_download_link_keyboard,
     get_happ_download_button_row,
     get_payment_methods_keyboard_with_cart,
     get_subscription_confirm_keyboard_with_cart,
-    get_insufficient_balance_keyboard_with_cart
+    get_insufficient_balance_keyboard_with_cart,
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -84,21 +95,22 @@ from .countries import _get_available_countries, _get_countries_info, get_countr
 from .devices import get_current_devices_count
 from .promo import _build_promo_group_discount_text, _get_promo_offer_hint
 
+
 async def _prepare_subscription_summary(
-        db_user: User,
-        data: Dict[str, Any],
-        texts,
+    db_user: User,
+    data: Dict[str, Any],
+    texts,
 ) -> Tuple[str, Dict[str, Any]]:
     summary_data = dict(data)
     countries = await _get_available_countries(db_user.promo_group_id)
 
-    months_in_period = calculate_months_from_days(summary_data['period_days'])
-    period_display = format_period_description(summary_data['period_days'], db_user.language)
+    months_in_period = calculate_months_from_days(summary_data["period_days"])
+    period_display = format_period_description(summary_data["period_days"], db_user.language)
 
-    base_price_original = PERIOD_PRICES[summary_data['period_days']]
+    base_price_original = PERIOD_PRICES[summary_data["period_days"]]
     period_discount_percent = db_user.get_promo_discount(
         "period",
-        summary_data['period_days'],
+        summary_data["period_days"],
     )
     base_price, base_discount_total = apply_percentage_discount(
         base_price_original,
@@ -110,13 +122,13 @@ async def _prepare_subscription_summary(
         traffic_price_per_month = settings.get_traffic_price(traffic_limit)
         final_traffic_gb = traffic_limit
     else:
-        traffic_gb = summary_data.get('traffic_gb', 0)
+        traffic_gb = summary_data.get("traffic_gb", 0)
         traffic_price_per_month = settings.get_traffic_price(traffic_gb)
         final_traffic_gb = traffic_gb
 
     traffic_discount_percent = db_user.get_promo_discount(
         "traffic",
-        summary_data['period_days'],
+        summary_data["period_days"],
     )
     traffic_component = _apply_discount_to_monthly_component(
         traffic_price_per_month,
@@ -130,17 +142,17 @@ async def _prepare_subscription_summary(
     selected_server_prices: List[int] = []
     server_monthly_prices: List[int] = []
 
-    selected_country_ids = set(summary_data.get('countries', []))
+    selected_country_ids = set(summary_data.get("countries", []))
     for country in countries:
-        if country['uuid'] in selected_country_ids:
-            server_price_per_month = country['price_kopeks']
+        if country["uuid"] in selected_country_ids:
+            server_price_per_month = country["price_toman"]
             countries_price_per_month += server_price_per_month
-            selected_countries_names.append(country['name'])
+            selected_countries_names.append(country["name"])
             server_monthly_prices.append(server_price_per_month)
 
     servers_discount_percent = db_user.get_promo_discount(
         "servers",
-        summary_data['period_days'],
+        summary_data["period_days"],
     )
     total_countries_price = 0
     total_servers_discount = 0
@@ -162,7 +174,7 @@ async def _prepare_subscription_summary(
     devices_selection_enabled = settings.is_devices_selection_enabled()
     forced_disabled_limit: Optional[int] = None
     if devices_selection_enabled:
-        devices_selected = summary_data.get('devices', settings.DEFAULT_DEVICE_LIMIT)
+        devices_selected = summary_data.get("devices", settings.DEFAULT_DEVICE_LIMIT)
     else:
         forced_disabled_limit = settings.get_disabled_mode_device_limit()
         if forced_disabled_limit is None:
@@ -170,12 +182,12 @@ async def _prepare_subscription_summary(
         else:
             devices_selected = forced_disabled_limit
 
-    summary_data['devices'] = devices_selected
+    summary_data["devices"] = devices_selected
     additional_devices = max(0, devices_selected - settings.DEFAULT_DEVICE_LIMIT)
     devices_price_per_month = additional_devices * settings.PRICE_PER_DEVICE
     devices_discount_percent = db_user.get_promo_discount(
         "devices",
-        summary_data['period_days'],
+        summary_data["period_days"],
     )
     devices_component = _apply_discount_to_monthly_component(
         devices_price_per_month,
@@ -187,9 +199,9 @@ async def _prepare_subscription_summary(
     total_price = base_price + total_traffic_price + total_countries_price + total_devices_price
 
     discounted_monthly_additions = (
-            traffic_component["discounted_per_month"]
-            + discounted_servers_price_per_month
-            + devices_component["discounted_per_month"]
+        traffic_component["discounted_per_month"]
+        + discounted_servers_price_per_month
+        + devices_component["discounted_per_month"]
     )
 
     is_valid = validate_pricing_calculation(
@@ -207,98 +219,111 @@ async def _prepare_subscription_summary(
     if promo_offer_component["discount"] > 0:
         total_price = promo_offer_component["discounted"]
 
-    summary_data['total_price'] = total_price
+    summary_data["total_price"] = total_price
     if promo_offer_component["discount"] > 0:
-        summary_data['promo_offer_discount_percent'] = promo_offer_component["percent"]
-        summary_data['promo_offer_discount_value'] = promo_offer_component["discount"]
-        summary_data['total_price_before_promo_offer'] = original_total_price
+        summary_data["promo_offer_discount_percent"] = promo_offer_component["percent"]
+        summary_data["promo_offer_discount_value"] = promo_offer_component["discount"]
+        summary_data["total_price_before_promo_offer"] = original_total_price
     else:
-        summary_data.pop('promo_offer_discount_percent', None)
-        summary_data.pop('promo_offer_discount_value', None)
-        summary_data.pop('total_price_before_promo_offer', None)
-    summary_data['server_prices_for_period'] = selected_server_prices
-    summary_data['months_in_period'] = months_in_period
-    summary_data['base_price'] = base_price
-    summary_data['base_price_original'] = base_price_original
-    summary_data['base_discount_percent'] = period_discount_percent
-    summary_data['base_discount_total'] = base_discount_total
-    summary_data['final_traffic_gb'] = final_traffic_gb
-    summary_data['traffic_price_per_month'] = traffic_price_per_month
-    summary_data['traffic_discount_percent'] = traffic_component["discount_percent"]
-    summary_data['traffic_discount_total'] = traffic_component["discount_total"]
-    summary_data['traffic_discounted_price_per_month'] = traffic_component["discounted_per_month"]
-    summary_data['total_traffic_price'] = total_traffic_price
-    summary_data['servers_price_per_month'] = countries_price_per_month
-    summary_data['countries_price_per_month'] = countries_price_per_month
-    summary_data['servers_discount_percent'] = servers_discount_percent
-    summary_data['servers_discount_total'] = total_servers_discount
-    summary_data['servers_discounted_price_per_month'] = discounted_servers_price_per_month
-    summary_data['total_servers_price'] = total_countries_price
-    summary_data['total_countries_price'] = total_countries_price
-    summary_data['devices_price_per_month'] = devices_price_per_month
-    summary_data['devices_discount_percent'] = devices_component["discount_percent"]
-    summary_data['devices_discount_total'] = devices_component["discount_total"]
-    summary_data['devices_discounted_price_per_month'] = devices_component["discounted_per_month"]
-    summary_data['total_devices_price'] = total_devices_price
-    summary_data['discounted_monthly_additions'] = discounted_monthly_additions
+        summary_data.pop("promo_offer_discount_percent", None)
+        summary_data.pop("promo_offer_discount_value", None)
+        summary_data.pop("total_price_before_promo_offer", None)
+    summary_data["server_prices_for_period"] = selected_server_prices
+    summary_data["months_in_period"] = months_in_period
+    summary_data["base_price"] = base_price
+    summary_data["base_price_original"] = base_price_original
+    summary_data["base_discount_percent"] = period_discount_percent
+    summary_data["base_discount_total"] = base_discount_total
+    summary_data["final_traffic_gb"] = final_traffic_gb
+    summary_data["traffic_price_per_month"] = traffic_price_per_month
+    summary_data["traffic_discount_percent"] = traffic_component["discount_percent"]
+    summary_data["traffic_discount_total"] = traffic_component["discount_total"]
+    summary_data["traffic_discounted_price_per_month"] = traffic_component["discounted_per_month"]
+    summary_data["total_traffic_price"] = total_traffic_price
+    summary_data["servers_price_per_month"] = countries_price_per_month
+    summary_data["countries_price_per_month"] = countries_price_per_month
+    summary_data["servers_discount_percent"] = servers_discount_percent
+    summary_data["servers_discount_total"] = total_servers_discount
+    summary_data["servers_discounted_price_per_month"] = discounted_servers_price_per_month
+    summary_data["total_servers_price"] = total_countries_price
+    summary_data["total_countries_price"] = total_countries_price
+    summary_data["devices_price_per_month"] = devices_price_per_month
+    summary_data["devices_discount_percent"] = devices_component["discount_percent"]
+    summary_data["devices_discount_total"] = devices_component["discount_total"]
+    summary_data["devices_discounted_price_per_month"] = devices_component["discounted_per_month"]
+    summary_data["total_devices_price"] = total_devices_price
+    summary_data["discounted_monthly_additions"] = discounted_monthly_additions
 
     if settings.is_traffic_fixed():
         if final_traffic_gb == 0:
-            traffic_display = "Безлимитный"
+            traffic_display = texts.t("subscription.traffic.unlimited", "Unlimited")
         else:
-            traffic_display = f"{final_traffic_gb} ГБ"
+            traffic_display = f"{final_traffic_gb} GB"
     else:
-        if summary_data.get('traffic_gb', 0) == 0:
-            traffic_display = "Безлимитный"
+        if summary_data.get("traffic_gb", 0) == 0:
+            traffic_display = texts.t("subscription.traffic.unlimited", "Unlimited")
         else:
-            traffic_display = f"{summary_data.get('traffic_gb', 0)} ГБ"
+            traffic_display = f"{summary_data.get('traffic_gb', 0)} GB"
 
     details_lines = []
 
-    # Добавляем строку базового периода только если цена не равна 0
+    # Add base period line only if price is not 0
     if base_discount_total > 0 and base_price > 0:
-        base_line = (
-            f"- Базовый период: <s>{texts.format_price(base_price_original)}</s> "
-            f"{texts.format_price(base_price)}"
-            f" (скидка {period_discount_percent}%:"
-            f" -{texts.format_price(base_discount_total)})"
+        base_line = texts.t(
+            "subscription.pricing.base_period_with_discount",
+            "- Base period: <s>{original}</s> {discounted} (discount {percent}%: -{discount_amount})",
+        ).format(
+            original=texts.format_price(base_price_original),
+            discounted=texts.format_price(base_price),
+            percent=period_discount_percent,
+            discount_amount=texts.format_price(base_discount_total),
         )
         details_lines.append(base_line)
     elif base_price_original > 0:
-        base_line = f"- Базовый период: {texts.format_price(base_price_original)}"
+        base_line = texts.t("subscription.pricing.base_period", "- Base period: {price}").format(
+            price=texts.format_price(base_price_original)
+        )
         details_lines.append(base_line)
 
     if total_traffic_price > 0:
-        traffic_line = (
-            f"- Трафик: {texts.format_price(traffic_price_per_month)}/мес × {months_in_period}"
-            f" = {texts.format_price(total_traffic_price)}"
+        traffic_line = texts.t(
+            "subscription.pricing.traffic_line", "- Traffic: {price}/month × {months} = {total}"
+        ).format(
+            price=texts.format_price(traffic_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_traffic_price),
         )
         if traffic_component["discount_total"] > 0:
-            traffic_line += (
-                f" (скидка {traffic_component['discount_percent']}%:"
-                f" -{texts.format_price(traffic_component['discount_total'])})"
+            traffic_line += texts.t("subscription.pricing.discount_info", " (discount {percent}%: -{amount})").format(
+                percent=traffic_component["discount_percent"],
+                amount=texts.format_price(traffic_component["discount_total"]),
             )
         details_lines.append(traffic_line)
     if total_countries_price > 0:
-        servers_line = (
-            f"- Серверы: {texts.format_price(countries_price_per_month)}/мес × {months_in_period}"
-            f" = {texts.format_price(total_countries_price)}"
+        servers_line = texts.t(
+            "subscription.pricing.servers_line", "- Servers: {price}/month × {months} = {total}"
+        ).format(
+            price=texts.format_price(countries_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_countries_price),
         )
         if total_servers_discount > 0:
-            servers_line += (
-                f" (скидка {servers_discount_percent}%:"
-                f" -{texts.format_price(total_servers_discount)})"
+            servers_line += texts.t("subscription.pricing.discount_info", " (discount {percent}%: -{amount})").format(
+                percent=servers_discount_percent, amount=texts.format_price(total_servers_discount)
             )
         details_lines.append(servers_line)
     if devices_selection_enabled and total_devices_price > 0:
-        devices_line = (
-            f"- Доп. устройства: {texts.format_price(devices_price_per_month)}/мес × {months_in_period}"
-            f" = {texts.format_price(total_devices_price)}"
+        devices_line = texts.t(
+            "subscription.pricing.devices_line", "- Additional devices: {price}/month × {months} = {total}"
+        ).format(
+            price=texts.format_price(devices_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_devices_price),
         )
         if devices_component["discount_total"] > 0:
-            devices_line += (
-                f" (скидка {devices_component['discount_percent']}%:"
-                f" -{texts.format_price(devices_component['discount_total'])})"
+            devices_line += texts.t("subscription.pricing.discount_info", " (discount {percent}%: -{amount})").format(
+                percent=devices_component["discount_percent"],
+                amount=texts.format_price(devices_component["discount_total"]),
             )
         details_lines.append(devices_line)
 
@@ -306,7 +331,7 @@ async def _prepare_subscription_summary(
         details_lines.append(
             texts.t(
                 "SUBSCRIPTION_SUMMARY_PROMO_DISCOUNT",
-                "- Промо-предложение: -{amount} ({percent}% дополнительно)",
+                "- Promo offer: -{amount} ({percent}% additional)",
             ).format(
                 amount=texts.format_price(promo_offer_component["discount"]),
                 percent=promo_offer_component["percent"],
@@ -316,34 +341,45 @@ async def _prepare_subscription_summary(
     details_text = "\n".join(details_lines)
 
     summary_lines = [
-        "📋 <b>Сводка заказа</b>",
+        texts.t("subscription.pricing.summary_title", "📋 <b>Order summary</b>"),
         "",
-        f"📅 <b>Период:</b> {period_display}",
-        f"📊 <b>Трафик:</b> {traffic_display}",
-        f"🌍 <b>Страны:</b> {', '.join(selected_countries_names)}",
+        texts.t("subscription.pricing.summary_period", "📅 <b>Period:</b> {period}").format(period=period_display),
+        texts.t("subscription.pricing.summary_traffic", "📊 <b>Traffic:</b> {traffic}").format(traffic=traffic_display),
+        texts.t("subscription.pricing.summary_countries", "🌍 <b>Countries:</b> {countries}").format(
+            countries=", ".join(selected_countries_names)
+        ),
     ]
 
     if devices_selection_enabled:
-        summary_lines.append(f"📱 <b>Устройства:</b> {devices_selected}")
+        summary_lines.append(
+            texts.t("subscription.pricing.summary_devices", "📱 <b>Devices:</b> {devices}").format(
+                devices=devices_selected
+            )
+        )
 
-    summary_lines.extend([
-        "",
-        "💰 <b>Детализация стоимости:</b>",
-        details_text,
-        "",
-        f"💎 <b>Общая стоимость:</b> {texts.format_price(total_price)}",
-        "",
-        "Подтверждаете покупку?",
-    ])
+    summary_lines.extend(
+        [
+            "",
+            texts.t("subscription.pricing.cost_breakdown", "💰 <b>Cost breakdown:</b>"),
+            details_text,
+            "",
+            texts.t("subscription.pricing.total_cost", "💎 <b>Total cost:</b> {price}").format(
+                price=texts.format_price(total_price)
+            ),
+            "",
+            texts.t("subscription.pricing.confirm_purchase", "Confirm purchase?"),
+        ]
+    )
 
     summary_text = "\n".join(summary_lines)
 
     return summary_text, summary_data
 
+
 async def _build_subscription_period_prompt(
-        db_user: User,
-        texts,
-        db: AsyncSession,
+    db_user: User,
+    texts,
+    db: AsyncSession,
 ) -> str:
     base_text = texts.BUY_SUBSCRIPTION_START.rstrip()
 
@@ -363,6 +399,7 @@ async def _build_subscription_period_prompt(
         lines.extend(["", promo_text])
 
     return "\n".join(lines) + "\n"
+
 
 async def get_subscription_cost(subscription, db: AsyncSession) -> int:
     try:
@@ -423,28 +460,28 @@ async def get_subscription_cost(subscription, db: AsyncSession) -> int:
 
         total_cost = base_cost + servers_cost + traffic_cost + devices_cost
 
-        logger.info(f"📊 Месячная стоимость конфигурации подписки {subscription.id}:")
-        base_log = f"   📅 Базовый тариф (30 дней): {base_cost_original / 100}₽"
+        logger.info(f"📊 Monthly cost of subscription {subscription.id} configuration:")
+        base_log = f"   📅 Base tariff (30 days): {base_cost_original / 100} Toman"
         if period_discount_percent > 0:
             discount_value = base_cost_original * period_discount_percent // 100
             base_log += (
-                f" → {base_cost / 100}₽"
-                f" (скидка {period_discount_percent}%: -{discount_value / 100}₽)"
+                f" → {base_cost / 100} Toman (discount {period_discount_percent}%: -{discount_value / 100} Toman)"
             )
         logger.info(base_log)
         if servers_cost > 0:
-            logger.info(f"   🌍 Серверы: {servers_cost / 100}₽")
+            logger.info(f"   🌍 Servers: {servers_cost / 100} Toman")
         if traffic_cost > 0:
-            logger.info(f"   📊 Трафик: {traffic_cost / 100}₽")
+            logger.info(f"   📊 Traffic: {traffic_cost / 100} Toman")
         if devices_cost > 0:
-            logger.info(f"   📱 Устройства: {devices_cost / 100}₽")
-        logger.info(f"   💎 ИТОГО: {total_cost / 100}₽")
+            logger.info(f"   📱 Devices: {devices_cost / 100} Toman")
+        logger.info(f"   💎 TOTAL: {total_cost / 100} Toman")
 
         return total_cost
 
     except Exception as e:
-        logger.error(f"⚠️ Ошибка расчета стоимости подписки: {e}")
+        logger.error(f"⚠️ Subscription cost calculation error: {e}")
         return 0
+
 
 async def get_subscription_info_text(subscription, texts, db_user, db: AsyncSession):
     devices_selection_enabled = settings.is_devices_selection_enabled()
@@ -454,30 +491,24 @@ async def get_subscription_info_text(subscription, texts, db_user, db: AsyncSess
     else:
         devices_used = 0
     countries_info = await _get_countries_info(subscription.connected_squads)
-    countries_text = ", ".join([c['name'] for c in countries_info]) if countries_info else "Нет"
+    countries_text = ", ".join([c["name"] for c in countries_info]) if countries_info else "None"
 
-    subscription_url = getattr(subscription, 'subscription_url', None) or "Генерируется..."
+    subscription_url = getattr(subscription, "subscription_url", None) or "Generating..."
 
     if subscription.is_trial:
-        status_text = "🎁 Тестовая"
-        type_text = "Триал"
+        status_text = texts.t("SUBSCRIPTION_STATUS_TRIAL", "🎁 Trial")
+        type_text = texts.t("SUBSCRIPTION_TYPE_TRIAL", "Trial")
     else:
         if subscription.is_active:
-            status_text = "✅ Оплачена"
+            status_text = texts.t("SUBSCRIPTION_STATUS_ACTIVE", "✅ Paid")
         else:
-            status_text = "⌛ Истекла"
-        type_text = "Платная подписка"
+            status_text = texts.t("SUBSCRIPTION_STATUS_EXPIRED", "⏰ Expired")
+        type_text = texts.t("SUBSCRIPTION_TYPE_PAID", "Paid subscription")
 
     if subscription.traffic_limit_gb == 0:
-        if settings.is_traffic_fixed():
-            traffic_text = "∞ Безлимитный"
-        else:
-            traffic_text = "∞ Безлимитный"
+        traffic_text = texts.t("subscription.traffic.unlimited", "∞ Unlimited")
     else:
-        if settings.is_traffic_fixed():
-            traffic_text = f"{subscription.traffic_limit_gb} ГБ"
-        else:
-            traffic_text = f"{subscription.traffic_limit_gb} ГБ"
+        traffic_text = f"{subscription.traffic_limit_gb} GB"
 
     subscription_cost = await get_subscription_cost(subscription, db)
 
@@ -485,9 +516,6 @@ async def get_subscription_info_text(subscription, texts, db_user, db: AsyncSess
 
     if not devices_selection_enabled:
         info_template = info_template.replace(
-            "\n📱 <b>Устройства:</b> {devices_used} / {devices_limit}",
-            "",
-        ).replace(
             "\n📱 <b>Devices:</b> {devices_used} / {devices_limit}",
             "",
         )
@@ -502,17 +530,17 @@ async def get_subscription_info_text(subscription, texts, db_user, db: AsyncSess
         countries_count=len(subscription.connected_squads),
         devices_used=devices_used,
         devices_limit=subscription.device_limit,
-        autopay_status="✅ Включен" if subscription.autopay_enabled else "⌛ Выключен"
+        autopay_status=texts.t("AUTOPAY_STATUS_ENABLED", "✅ Enabled")
+        if subscription.autopay_enabled
+        else texts.t("AUTOPAY_STATUS_DISABLED", "⌛ Disabled"),
     )
 
     if subscription_cost > 0:
-        info_text += f"\n💰 <b>Стоимость подписки в месяц:</b> {texts.format_price(subscription_cost)}"
+        info_text += f"\n💰 <b>Subscription cost per month:</b> {texts.format_price(subscription_cost)}"
 
-    if (
-            subscription_url
-            and subscription_url != "Генерируется..."
-            and not settings.should_hide_subscription_link()
-    ):
-        info_text += f"\n\n🔗 <b>Ваша ссылка для импорта в VPN приложениe:</b>\n<code>{subscription_url}</code>"
+    if subscription_url and subscription_url != "Generating..." and not settings.should_hide_subscription_link():
+        info_text += "\n\n" + texts.t(
+            "subscription.pricing.import_link", "🔗 <b>Your link for importing into VPN app:</b>\n<code>{link}</code>"
+        ).format(link=subscription_url)
 
     return info_text

@@ -38,66 +38,30 @@ class ButtonConditions(BaseModel):
     """Условия показа кнопки."""
 
     # Существующие условия
-    has_active_subscription: Optional[bool] = Field(
-        default=None, description="Требуется активная подписка"
-    )
+    has_active_subscription: Optional[bool] = Field(default=None, description="Требуется активная подписка")
     subscription_is_active: Optional[bool] = Field(
         default=None, description="Подписка должна быть активна (не приостановлена)"
     )
-    has_traffic_limit: Optional[bool] = Field(
-        default=None, description="Подписка с лимитом трафика"
-    )
+    has_traffic_limit: Optional[bool] = Field(default=None, description="Подписка с лимитом трафика")
     is_admin: Optional[bool] = Field(default=None, description="Пользователь - админ")
-    is_moderator: Optional[bool] = Field(
-        default=None, description="Пользователь - модератор"
-    )
-    referral_enabled: Optional[bool] = Field(
-        default=None, description="Реферальная программа включена"
-    )
-    contests_visible: Optional[bool] = Field(
-        default=None, description="Конкурсы видимы"
-    )
-    support_enabled: Optional[bool] = Field(
-        default=None, description="Поддержка включена"
-    )
-    language_selection_enabled: Optional[bool] = Field(
-        default=None, description="Выбор языка включен"
-    )
-    happ_enabled: Optional[bool] = Field(
-        default=None, description="Кнопка Happ включена"
-    )
-    simple_subscription_enabled: Optional[bool] = Field(
-        default=None, description="Простая подписка включена"
-    )
-    show_trial: Optional[bool] = Field(
-        default=None, description="Показать пробный период"
-    )
-    show_buy: Optional[bool] = Field(
-        default=None, description="Показать кнопку покупки"
-    )
-    has_saved_cart: Optional[bool] = Field(
-        default=None, description="Есть сохраненная корзина"
-    )
+    is_moderator: Optional[bool] = Field(default=None, description="Пользователь - модератор")
+    referral_enabled: Optional[bool] = Field(default=None, description="Реферальная программа включена")
+    contests_visible: Optional[bool] = Field(default=None, description="Конкурсы видимы")
+    support_enabled: Optional[bool] = Field(default=None, description="Поддержка включена")
+    language_selection_enabled: Optional[bool] = Field(default=None, description="Выбор языка включен")
+    happ_enabled: Optional[bool] = Field(default=None, description="Кнопка Happ включена")
+    simple_subscription_enabled: Optional[bool] = Field(default=None, description="Простая подписка включена")
+    show_trial: Optional[bool] = Field(default=None, description="Показать пробный период")
+    show_buy: Optional[bool] = Field(default=None, description="Показать кнопку покупки")
+    has_saved_cart: Optional[bool] = Field(default=None, description="Есть сохраненная корзина")
 
     # Расширенные условия
-    min_balance_kopeks: Optional[int] = Field(
-        default=None, ge=0, description="Минимальный баланс в копейках"
-    )
-    max_balance_kopeks: Optional[int] = Field(
-        default=None, ge=0, description="Максимальный баланс в копейках"
-    )
-    min_registration_days: Optional[int] = Field(
-        default=None, ge=0, description="Минимум дней с регистрации"
-    )
-    max_registration_days: Optional[int] = Field(
-        default=None, ge=0, description="Максимум дней с регистрации"
-    )
-    min_referrals: Optional[int] = Field(
-        default=None, ge=0, description="Минимальное количество рефералов"
-    )
-    has_referrals: Optional[bool] = Field(
-        default=None, description="Есть рефералы"
-    )
+    min_balance_toman: Optional[int] = Field(default=None, ge=0, description="Минимальный баланс в копейках")
+    max_balance_toman: Optional[int] = Field(default=None, ge=0, description="Максимальный баланс в копейках")
+    min_registration_days: Optional[int] = Field(default=None, ge=0, description="Минимум дней с регистрации")
+    max_registration_days: Optional[int] = Field(default=None, ge=0, description="Максимум дней с регистрации")
+    min_referrals: Optional[int] = Field(default=None, ge=0, description="Минимальное количество рефералов")
+    has_referrals: Optional[bool] = Field(default=None, description="Есть рефералы")
     promo_group_ids: Optional[List[str]] = Field(
         default=None, description="Список ID промо-групп (пользователь должен быть в одной из них)"
     )
@@ -110,12 +74,8 @@ class ButtonConditions(BaseModel):
     max_subscription_days_left: Optional[int] = Field(
         default=None, ge=0, description="Максимум дней до окончания подписки"
     )
-    is_trial_user: Optional[bool] = Field(
-        default=None, description="Пользователь на пробном периоде"
-    )
-    has_autopay: Optional[bool] = Field(
-        default=None, description="Автоплатёж включён"
-    )
+    is_trial_user: Optional[bool] = Field(default=None, description="Пользователь на пробном периоде")
+    has_autopay: Optional[bool] = Field(default=None, description="Автоплатёж включён")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -124,28 +84,14 @@ class MenuButtonConfig(BaseModel):
     """Конфигурация отдельной кнопки."""
 
     type: ButtonType = Field(..., description="Тип кнопки")
-    builtin_id: Optional[str] = Field(
-        default=None, description="ID встроенной кнопки (для type=builtin)"
-    )
-    text: Dict[str, str] = Field(
-        ..., description="Локализованные тексты кнопки: {lang_code: text}"
-    )
-    icon: Optional[str] = Field(
-        default=None, max_length=10, description="Эмодзи/иконка кнопки (отдельно от текста)"
-    )
-    action: str = Field(
-        ..., description="callback_data или URL в зависимости от типа"
-    )
+    builtin_id: Optional[str] = Field(default=None, description="ID встроенной кнопки (для type=builtin)")
+    text: Dict[str, str] = Field(..., description="Локализованные тексты кнопки: {lang_code: text}")
+    icon: Optional[str] = Field(default=None, max_length=10, description="Эмодзи/иконка кнопки (отдельно от текста)")
+    action: str = Field(..., description="callback_data или URL в зависимости от типа")
     enabled: bool = Field(default=True, description="Кнопка активна")
-    visibility: ButtonVisibility = Field(
-        default=ButtonVisibility.ALL, description="Видимость кнопки"
-    )
-    conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Дополнительные условия показа"
-    )
-    dynamic_text: bool = Field(
-        default=False, description="Текст содержит плейсхолдеры ({balance}, {username} и т.д.)"
-    )
+    visibility: ButtonVisibility = Field(default=ButtonVisibility.ALL, description="Видимость кнопки")
+    conditions: Optional[ButtonConditions] = Field(default=None, description="Дополнительные условия показа")
+    dynamic_text: bool = Field(default=False, description="Текст содержит плейсхолдеры ({balance}, {username} и т.д.)")
     open_mode: ButtonOpenMode = Field(
         default=ButtonOpenMode.CALLBACK,
         description="Режим открытия: callback (через бота) или direct (сразу Mini App)",
@@ -154,12 +100,8 @@ class MenuButtonConfig(BaseModel):
         default=None,
         description="URL для Mini App при open_mode=direct",
     )
-    description: Optional[str] = Field(
-        default=None, max_length=200, description="Описание кнопки для админ-панели"
-    )
-    sort_order: Optional[int] = Field(
-        default=None, description="Порядок сортировки (для отображения в админке)"
-    )
+    description: Optional[str] = Field(default=None, max_length=200, description="Описание кнопки для админ-панели")
+    sort_order: Optional[int] = Field(default=None, description="Порядок сортировки (для отображения в админке)")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -168,15 +110,9 @@ class MenuRowConfig(BaseModel):
     """Конфигурация строки меню."""
 
     id: str = Field(..., min_length=1, max_length=50, description="Уникальный ID строки")
-    buttons: List[str] = Field(
-        ..., description="Список ID кнопок в строке"
-    )
-    conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Условия показа всей строки"
-    )
-    max_per_row: int = Field(
-        default=2, ge=1, le=4, description="Максимум кнопок в строке"
-    )
+    buttons: List[str] = Field(..., description="Список ID кнопок в строке")
+    conditions: Optional[ButtonConditions] = Field(default=None, description="Условия показа всей строки")
+    max_per_row: int = Field(default=2, ge=1, le=4, description="Максимум кнопок в строке")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -185,12 +121,8 @@ class MenuLayoutConfig(BaseModel):
     """Полная конфигурация меню."""
 
     version: int = Field(default=1, description="Версия формата конфигурации")
-    rows: List[MenuRowConfig] = Field(
-        default_factory=list, description="Строки меню"
-    )
-    buttons: Dict[str, MenuButtonConfig] = Field(
-        default_factory=dict, description="Конфигурации кнопок"
-    )
+    rows: List[MenuRowConfig] = Field(default_factory=list, description="Строки меню")
+    buttons: Dict[str, MenuButtonConfig] = Field(default_factory=dict, description="Конфигурации кнопок")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -214,15 +146,9 @@ class BuiltinButtonInfo(BaseModel):
     id: str = Field(description="Идентификатор кнопки")
     default_text: Dict[str, str] = Field(description="Текст по умолчанию")
     callback_data: str = Field(description="callback_data кнопки")
-    default_conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Условия показа по умолчанию"
-    )
-    supports_dynamic_text: bool = Field(
-        default=False, description="Поддерживает ли динамический текст"
-    )
-    supports_direct_open: bool = Field(
-        default=False, description="Поддерживает ли прямое открытие Mini App"
-    )
+    default_conditions: Optional[ButtonConditions] = Field(default=None, description="Условия показа по умолчанию")
+    supports_dynamic_text: bool = Field(default=False, description="Поддерживает ли динамический текст")
+    supports_direct_open: bool = Field(default=False, description="Поддерживает ли прямое открытие Mini App")
 
 
 class BuiltinButtonsListResponse(BaseModel):
@@ -238,12 +164,8 @@ class BuiltinButtonsListResponse(BaseModel):
 class MenuLayoutUpdateRequest(BaseModel):
     """Запрос на обновление конфигурации меню."""
 
-    rows: Optional[List[MenuRowConfig]] = Field(
-        default=None, description="Новая конфигурация строк"
-    )
-    buttons: Optional[Dict[str, MenuButtonConfig]] = Field(
-        default=None, description="Новая конфигурация кнопок"
-    )
+    rows: Optional[List[MenuRowConfig]] = Field(default=None, description="Новая конфигурация строк")
+    buttons: Optional[Dict[str, MenuButtonConfig]] = Field(default=None, description="Новая конфигурация кнопок")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -251,37 +173,17 @@ class MenuLayoutUpdateRequest(BaseModel):
 class ButtonUpdateRequest(BaseModel):
     """Запрос на обновление отдельной кнопки."""
 
-    text: Optional[Dict[str, str]] = Field(
-        default=None, description="Новые локализованные тексты"
-    )
-    icon: Optional[str] = Field(
-        default=None, max_length=10, description="Эмодзи/иконка кнопки"
-    )
+    text: Optional[Dict[str, str]] = Field(default=None, description="Новые локализованные тексты")
+    icon: Optional[str] = Field(default=None, max_length=10, description="Эмодзи/иконка кнопки")
     enabled: Optional[bool] = Field(default=None, description="Включить/выключить")
-    visibility: Optional[ButtonVisibility] = Field(
-        default=None, description="Новая видимость"
-    )
-    conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Новые условия показа"
-    )
-    action: Optional[str] = Field(
-        default=None, description="Новый action (callback_data или URL)"
-    )
-    dynamic_text: Optional[bool] = Field(
-        default=None, description="Текст содержит плейсхолдеры"
-    )
-    open_mode: Optional[ButtonOpenMode] = Field(
-        default=None, description="Режим открытия: callback или direct"
-    )
-    webapp_url: Optional[str] = Field(
-        default=None, description="URL для Mini App при open_mode=direct"
-    )
-    description: Optional[str] = Field(
-        default=None, max_length=200, description="Описание кнопки"
-    )
-    sort_order: Optional[int] = Field(
-        default=None, description="Порядок сортировки"
-    )
+    visibility: Optional[ButtonVisibility] = Field(default=None, description="Новая видимость")
+    conditions: Optional[ButtonConditions] = Field(default=None, description="Новые условия показа")
+    action: Optional[str] = Field(default=None, description="Новый action (callback_data или URL)")
+    dynamic_text: Optional[bool] = Field(default=None, description="Текст содержит плейсхолдеры")
+    open_mode: Optional[ButtonOpenMode] = Field(default=None, description="Режим открытия: callback или direct")
+    webapp_url: Optional[str] = Field(default=None, description="URL для Mini App при open_mode=direct")
+    description: Optional[str] = Field(default=None, max_length=200, description="Описание кнопки")
+    sort_order: Optional[int] = Field(default=None, description="Порядок сортировки")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -289,9 +191,7 @@ class ButtonUpdateRequest(BaseModel):
 class RowsReorderRequest(BaseModel):
     """Запрос на изменение порядка строк."""
 
-    ordered_ids: List[str] = Field(
-        ..., min_length=1, description="Список ID строк в новом порядке"
-    )
+    ordered_ids: List[str] = Field(..., min_length=1, description="Список ID строк в новом порядке")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -301,13 +201,9 @@ class AddRowRequest(BaseModel):
 
     id: str = Field(..., min_length=1, max_length=50, description="ID новой строки")
     buttons: List[str] = Field(..., description="Список ID кнопок")
-    conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Условия показа"
-    )
+    conditions: Optional[ButtonConditions] = Field(default=None, description="Условия показа")
     max_per_row: int = Field(default=2, ge=1, le=4, description="Макс. кнопок в строке")
-    position: Optional[int] = Field(
-        default=None, ge=0, description="Позиция вставки (по умолчанию - в конец)"
-    )
+    position: Optional[int] = Field(default=None, ge=0, description="Позиция вставки (по умолчанию - в конец)")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -315,30 +211,16 @@ class AddRowRequest(BaseModel):
 class AddCustomButtonRequest(BaseModel):
     """Запрос на добавление кастомной кнопки."""
 
-    id: str = Field(
-        ..., min_length=1, max_length=50, description="ID кнопки (уникальный)"
-    )
+    id: str = Field(..., min_length=1, max_length=50, description="ID кнопки (уникальный)")
     type: ButtonType = Field(..., description="Тип кнопки (url, mini_app или callback)")
     text: Dict[str, str] = Field(..., description="Локализованные тексты")
-    icon: Optional[str] = Field(
-        default=None, max_length=10, description="Эмодзи/иконка кнопки"
-    )
+    icon: Optional[str] = Field(default=None, max_length=10, description="Эмодзи/иконка кнопки")
     action: str = Field(..., min_length=1, description="URL или callback_data")
-    visibility: ButtonVisibility = Field(
-        default=ButtonVisibility.ALL, description="Видимость"
-    )
-    conditions: Optional[ButtonConditions] = Field(
-        default=None, description="Условия показа"
-    )
-    dynamic_text: bool = Field(
-        default=False, description="Текст содержит плейсхолдеры"
-    )
-    row_id: Optional[str] = Field(
-        default=None, description="ID строки для добавления кнопки"
-    )
-    description: Optional[str] = Field(
-        default=None, max_length=200, description="Описание кнопки для админ-панели"
-    )
+    visibility: ButtonVisibility = Field(default=ButtonVisibility.ALL, description="Видимость")
+    conditions: Optional[ButtonConditions] = Field(default=None, description="Условия показа")
+    dynamic_text: bool = Field(default=False, description="Текст содержит плейсхолдеры")
+    row_id: Optional[str] = Field(default=None, description="ID строки для добавления кнопки")
+    description: Optional[str] = Field(default=None, max_length=200, description="Описание кнопки для админ-панели")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -349,13 +231,9 @@ class MenuPreviewRequest(BaseModel):
     language: str = Field(default="ru", description="Язык для предпросмотра")
     is_admin: bool = Field(default=False, description="Режим админа")
     is_moderator: bool = Field(default=False, description="Режим модератора")
-    has_active_subscription: bool = Field(
-        default=False, description="Есть активная подписка"
-    )
-    subscription_is_active: bool = Field(
-        default=False, description="Подписка активна"
-    )
-    balance_kopeks: int = Field(default=0, ge=0, description="Баланс в копейках")
+    has_active_subscription: bool = Field(default=False, description="Есть активная подписка")
+    subscription_is_active: bool = Field(default=False, description="Подписка активна")
+    balance_toman: int = Field(default=0, ge=0, description="Баланс в копейках")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -388,9 +266,7 @@ class MoveButtonToRowRequest(BaseModel):
     """Запрос на перемещение кнопки в другую строку."""
 
     target_row_id: str = Field(..., description="ID целевой строки")
-    position: Optional[int] = Field(
-        default=None, ge=0, description="Позиция в строке (по умолчанию - в конец)"
-    )
+    position: Optional[int] = Field(default=None, ge=0, description="Позиция в строке (по умолчанию - в конец)")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -398,9 +274,7 @@ class MoveButtonToRowRequest(BaseModel):
 class ReorderButtonsInRowRequest(BaseModel):
     """Запрос на изменение порядка кнопок в строке."""
 
-    ordered_button_ids: List[str] = Field(
-        ..., min_length=1, description="Список ID кнопок в новом порядке"
-    )
+    ordered_button_ids: List[str] = Field(..., min_length=1, description="Список ID кнопок в новом порядке")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -480,10 +354,7 @@ class MenuLayoutImportRequest(BaseModel):
     version: int
     rows: List[MenuRowConfig]
     buttons: Dict[str, MenuButtonConfig]
-    merge_mode: str = Field(
-        default="replace",
-        description="Режим импорта: replace (заменить всё), merge (объединить)"
-    )
+    merge_mode: str = Field(default="replace", description="Режим импорта: replace (заменить всё), merge (объединить)")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -573,9 +444,7 @@ class ButtonClickStatsResponse(BaseModel):
 
     button_id: str
     stats: ButtonClickStats
-    clicks_by_day: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Клики по дням [{date, count}]"
-    )
+    clicks_by_day: List[Dict[str, Any]] = Field(default_factory=list, description="Клики по дням [{date, count}]")
 
 
 class MenuClickStatsResponse(BaseModel):

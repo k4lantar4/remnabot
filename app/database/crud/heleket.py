@@ -49,7 +49,7 @@ async def create_heleket_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Heleket платеж: uuid=%s order_id=%s amount=%s %s для пользователя %s",
+        "Heleket payment created: uuid=%s order_id=%s amount=%s %s for user %s",
         uuid,
         order_id,
         amount,
@@ -65,9 +65,7 @@ async def get_heleket_payment_by_uuid(
     uuid: str,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.uuid == uuid)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.uuid == uuid)
     )
     return result.scalar_one_or_none()
 
@@ -77,9 +75,7 @@ async def get_heleket_payment_by_order_id(
     order_id: str,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.order_id == order_id)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.order_id == order_id)
     )
     return result.scalar_one_or_none()
 
@@ -89,9 +85,7 @@ async def get_heleket_payment_by_id(
     payment_id: int,
 ) -> Optional[HeleketPayment]:
     result = await db.execute(
-        select(HeleketPayment)
-        .options(selectinload(HeleketPayment.user))
-        .where(HeleketPayment.id == payment_id)
+        select(HeleketPayment).options(selectinload(HeleketPayment.user)).where(HeleketPayment.id == payment_id)
     )
     return result.scalar_one_or_none()
 
@@ -112,7 +106,7 @@ async def update_heleket_payment(
     payment = await get_heleket_payment_by_uuid(db, uuid)
 
     if not payment:
-        logger.error("Heleket платеж с uuid=%s не найден", uuid)
+        logger.error("Heleket payment with uuid=%s not found", uuid)
         return None
 
     if status is not None:
@@ -140,7 +134,7 @@ async def update_heleket_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Обновлен Heleket платеж %s: статус=%s payer_amount=%s %s",
+        "Heleket payment updated %s: status=%s payer_amount=%s %s",
         uuid,
         payment.status,
         payment.payer_amount,
@@ -158,7 +152,7 @@ async def link_heleket_payment_to_transaction(
     payment = await get_heleket_payment_by_uuid(db, uuid)
 
     if not payment:
-        logger.error("Не найден Heleket платеж для связи с транзакцией: %s", uuid)
+        logger.error("Heleket payment not found for linking to transaction: %s", uuid)
         return None
 
     payment.transaction_id = transaction_id
@@ -168,7 +162,7 @@ async def link_heleket_payment_to_transaction(
     await db.refresh(payment)
 
     logger.info(
-        "Heleket платеж %s связан с транзакцией %s",
+        "Heleket payment %s linked to transaction %s",
         uuid,
         transaction_id,
     )

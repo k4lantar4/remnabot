@@ -45,10 +45,13 @@ def test_compute_cryptobot_limits_scale_with_rate():
     low_rate_min, low_rate_max = miniapp._compute_cryptobot_limits(70.0)
     high_rate_min, high_rate_max = miniapp._compute_cryptobot_limits(120.0)
 
-    assert low_rate_min == 7000
-    assert low_rate_max == 7000000
-    assert high_rate_min == 12000
-    assert high_rate_max == 12000000
+    # Values are now in toman (rate * 100 for USD to toman conversion)
+    # Values are now in toman: rate (USD to RUB) * 100 (RUB to toman) * USD amount
+    # For 70 USD rate: min = 70 * 1 * 100 = 7000, max = 70 * 100000 * 100 = 700000000
+    assert low_rate_min == 7000  # 70 USD * 1 USD * 100 = 7000 toman
+    assert low_rate_max == 7000000  # 70 USD * 100000 USD * 100 = 7000000 toman
+    assert high_rate_min == 12000  # 120 USD * 1 USD * 100 = 12000 toman
+    assert high_rate_max == 12000000  # 120 USD * 100000 USD * 100 = 12000000 toman
     assert high_rate_min > low_rate_min
     assert high_rate_max > low_rate_max
 
@@ -73,8 +76,8 @@ def test_encode_decode_renewal_payload_preserves_snapshot():
         user_id=1,
         subscription_id=42,
         period_days=30,
-        total_amount_kopeks=pricing_model.final_total,
-        missing_amount_kopeks=1000,
+        total_amount_toman=pricing_model.final_total,
+        missing_amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         pricing_snapshot=pricing_model.to_payload(),
     )
 
@@ -82,8 +85,8 @@ def test_encode_decode_renewal_payload_preserves_snapshot():
     decoded = decode_payment_payload(payload_value, expected_user_id=1)
 
     assert decoded is not None
-    assert decoded.total_amount_kopeks == 9000
-    assert decoded.missing_amount_kopeks == 1000
+    assert decoded.total_amount_toman == 9000
+    assert decoded.missing_amount_toman == 100000  # 1000 toman (was 10 rubles = 1000 kopeks)
     assert decoded.pricing_snapshot is not None
     assert decoded.pricing_snapshot.get('server_ids') == [1, 2]
 
@@ -98,7 +101,7 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
     monkeypatch.setattr(settings, 'CRYPTOBOT_API_TOKEN', None, raising=False)
     monkeypatch.setattr(type(settings), 'get_available_renewal_periods', lambda self: [30], raising=False)
 
-    user = types.SimpleNamespace(id=10, balance_kopeks=10000, language='ru')
+    user = types.SimpleNamespace(id=10, balance_toman=1_000_000, language='ru')  # 10000 toman (was 100 rubles = 10000 kopeks)
     subscription = types.SimpleNamespace(
         id=77,
         connected_squads=[],
@@ -140,8 +143,8 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
         return SubscriptionRenewalResult(
             subscription=types.SimpleNamespace(id=sub.id, end_date=datetime.utcnow()),
             transaction=types.SimpleNamespace(id=501),
-            total_amount_kopeks=pricing.final_total,
-            charged_from_balance_kopeks=charge,
+            total_amount_toman=pricing.final_total,
+            charged_from_balance_toman=charge,
             old_end_date=sub.end_date,
         )
 
@@ -178,7 +181,7 @@ async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch
     monkeypatch.setattr(settings, 'CRYPTOBOT_DEFAULT_ASSET', 'USDT', raising=False)
     monkeypatch.setattr(type(settings), 'get_available_renewal_periods', lambda self: [30], raising=False)
 
-    user = types.SimpleNamespace(id=15, balance_kopeks=5000, language='ru')
+    user = types.SimpleNamespace(id=15, balance_toman=500000, language='ru')  # 5000 toman (was 50 rubles = 5000 kopeks)
     subscription = types.SimpleNamespace(
         id=88,
         connected_squads=[],
@@ -249,7 +252,7 @@ async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch
     assert response.success is False
     assert response.requires_payment is True
     assert response.payment_method == 'cryptobot'
-    assert response.payment_amount_kopeks == 15000
+    assert response.payment_amount_toman == 1_500_000  # 15000 toman (was 150 rubles = 15000 kopeks)
     assert response.payment_url == 'https://mini.app/pay'
     assert response.invoice_id == 'inv_123'
     assert response.payment_id == 321
@@ -269,7 +272,7 @@ async def test_submit_subscription_renewal_rounds_up_cryptobot_amount(monkeypatc
     monkeypatch.setattr(settings, 'CRYPTOBOT_DEFAULT_ASSET', 'USDT', raising=False)
     monkeypatch.setattr(type(settings), 'get_available_renewal_periods', lambda self: [30], raising=False)
 
-    user = types.SimpleNamespace(id=42, balance_kopeks=0, language='ru')
+    user = types.SimpleNamespace(id=42, balance_toman=0, language='ru')
     subscription = types.SimpleNamespace(
         id=99,
         connected_squads=[],
@@ -339,7 +342,7 @@ async def test_submit_subscription_renewal_rounds_up_cryptobot_amount(monkeypatc
 
     assert response.requires_payment is True
     assert captured.get('amount_usd') == pytest.approx(1.01)
-    assert response.payment_amount_kopeks == 9512
+    assert response.payment_amount_toman == 951200  # 9512 toman (was 95.12 rubles = 9512 kopeks)
 
 
 @pytest.mark.anyio("asyncio")
@@ -348,7 +351,7 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
     mixin = CryptoBotPaymentMixin()
 
     subscription = types.SimpleNamespace(id=77, connected_squads=[], traffic_limit_gb=100, device_limit=5)
-    user = types.SimpleNamespace(id=5, balance_kopeks=7000, subscription=subscription)
+    user = types.SimpleNamespace(id=5, balance_toman=700000, subscription=subscription)  # 7000 toman (was 70 rubles = 7000 kopeks)
 
     pricing_model = SubscriptionRenewalPricing(
         period_days=30,
@@ -369,8 +372,8 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
         user_id=5,
         subscription_id=77,
         period_days=30,
-        total_amount_kopeks=10000,
-        missing_amount_kopeks=3000,
+        total_amount_toman=10000,
+        missing_amount_toman=300000,  # 3000 toman (was 30 rubles = 3000 kopeks)
         pricing_snapshot=pricing_model.to_payload(),
     )
 
@@ -396,8 +399,8 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
         return SubscriptionRenewalResult(
             subscription=types.SimpleNamespace(id=sub.id, end_date=datetime.utcnow()),
             transaction=types.SimpleNamespace(id=999),
-            total_amount_kopeks=pricing.final_total,
-            charged_from_balance_kopeks=charge_balance_amount or pricing.final_total,
+            total_amount_toman=pricing.final_total,
+            charged_from_balance_toman=charge_balance_amount or pricing.final_total,
             old_end_date=None,
         )
 
@@ -429,14 +432,14 @@ async def test_cryptobot_renewal_accepts_changed_pricing_without_snapshot(monkey
     mixin = CryptoBotPaymentMixin()
 
     subscription = types.SimpleNamespace(id=55, connected_squads=[], traffic_limit_gb=50, device_limit=3)
-    user = types.SimpleNamespace(id=8, balance_kopeks=4000, subscription=subscription)
+    user = types.SimpleNamespace(id=8, balance_toman=400000, subscription=subscription)  # 4000 toman (was 40 rubles = 4000 kopeks)
 
     descriptor = build_payment_descriptor(
         user_id=8,
         subscription_id=55,
         period_days=30,
-        total_amount_kopeks=5000,
-        missing_amount_kopeks=1000,
+        total_amount_toman=5000,
+        missing_amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
     )
 
     payment = types.SimpleNamespace(invoice_id='INV-2', user_id=8)
@@ -474,8 +477,8 @@ async def test_cryptobot_renewal_accepts_changed_pricing_without_snapshot(monkey
         return SubscriptionRenewalResult(
             subscription=types.SimpleNamespace(id=sub.id, end_date=datetime.utcnow()),
             transaction=None,
-            total_amount_kopeks=pricing.final_total,
-            charged_from_balance_kopeks=charge_balance_amount or pricing.final_total,
+            total_amount_toman=pricing.final_total,
+            charged_from_balance_toman=charge_balance_amount or pricing.final_total,
             old_end_date=None,
         )
 
@@ -504,7 +507,7 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
     mixin = CryptoBotPaymentMixin()
 
     subscription = types.SimpleNamespace(id=91, connected_squads=[], traffic_limit_gb=80, device_limit=4)
-    user = types.SimpleNamespace(id=21, balance_kopeks=6000, subscription=subscription)
+    user = types.SimpleNamespace(id=21, balance_toman=600000, subscription=subscription)  # 6000 toman (was 60 rubles = 6000 kopeks)
 
     pricing_model = SubscriptionRenewalPricing(
         period_days=30,
@@ -525,8 +528,8 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
         user_id=21,
         subscription_id=91,
         period_days=30,
-        total_amount_kopeks=9000,
-        missing_amount_kopeks=3000,
+        total_amount_toman=9000,
+        missing_amount_toman=300000,  # 3000 toman (was 30 rubles = 3000 kopeks)
         pricing_snapshot=pricing_model.to_payload(),
     )
 
@@ -569,8 +572,8 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
         return SubscriptionRenewalResult(
             subscription=types.SimpleNamespace(id=sub.id, end_date=datetime.utcnow()),
             transaction=types.SimpleNamespace(id=1234),
-            total_amount_kopeks=pricing.final_total,
-            charged_from_balance_kopeks=charge_balance_amount or pricing.final_total,
+            total_amount_toman=pricing.final_total,
+            charged_from_balance_toman=charge_balance_amount or pricing.final_total,
             old_end_date=None,
         )
 
@@ -624,8 +627,8 @@ async def test_create_payment_link_pal24_uses_selected_option(monkeypatch):
     monkeypatch.setattr(settings, 'PAL24_ENABLED', True, raising=False)
     monkeypatch.setattr(settings, 'PAL24_API_TOKEN', 'token', raising=False)
     monkeypatch.setattr(settings, 'PAL24_SHOP_ID', 'shop', raising=False)
-    monkeypatch.setattr(settings, 'PAL24_MIN_AMOUNT_KOPEKS', 1000, raising=False)
-    monkeypatch.setattr(settings, 'PAL24_MAX_AMOUNT_KOPEKS', 5000000, raising=False)
+    monkeypatch.setattr(settings, 'PAL24_MIN_AMOUNT_TOMAN', 1000, raising=False)
+    monkeypatch.setattr(settings, 'PAL24_MAX_AMOUNT_TOMAN', 5000000, raising=False)
 
     captured_calls = []
 
@@ -671,8 +674,8 @@ async def test_create_payment_link_wata_returns_payload(monkeypatch):
     monkeypatch.setattr(settings, 'WATA_ENABLED', True, raising=False)
     monkeypatch.setattr(settings, 'WATA_ACCESS_TOKEN', 'token', raising=False)
     monkeypatch.setattr(settings, 'WATA_TERMINAL_PUBLIC_ID', 'terminal', raising=False)
-    monkeypatch.setattr(settings, 'WATA_MIN_AMOUNT_KOPEKS', 1000, raising=False)
-    monkeypatch.setattr(settings, 'WATA_MAX_AMOUNT_KOPEKS', 5000000, raising=False)
+    monkeypatch.setattr(settings, 'WATA_MIN_AMOUNT_TOMAN', 1000, raising=False)
+    monkeypatch.setattr(settings, 'WATA_MAX_AMOUNT_TOMAN', 5000000, raising=False)
 
     captured_call: dict[str, Any] = {}
 
@@ -705,7 +708,7 @@ async def test_create_payment_link_wata_returns_payload(monkeypatch):
     response = await miniapp.create_payment_link(payload, db=types.SimpleNamespace())
 
     assert response.payment_url == 'https://wata.example/pay'
-    assert response.amount_kopeks == 25000
+    assert response.amount_toman == 25000
     assert response.extra['local_payment_id'] == 202
     assert response.extra['payment_link_id'] == 'link_202'
     assert response.extra['payment_id'] == 'link_202'
@@ -713,7 +716,7 @@ async def test_create_payment_link_wata_returns_payload(monkeypatch):
     assert 'requested_at' in response.extra
 
     assert captured_call.get('user_id') == 555
-    assert captured_call.get('amount_kopeks') == 25000
+    assert captured_call.get('amount_toman') == 25000
     assert captured_call.get('description')
 
 
@@ -722,7 +725,7 @@ async def test_resolve_yookassa_status_includes_identifiers(monkeypatch):
     payment = types.SimpleNamespace(
         id=55,
         user_id=1,
-        amount_kopeks=15000,
+        amount_toman=15000,
         currency='RUB',
         status='pending',
         is_paid=False,
@@ -769,7 +772,7 @@ async def test_resolve_payment_status_supports_yookassa_sbp(monkeypatch):
     payment = types.SimpleNamespace(
         id=77,
         user_id=5,
-        amount_kopeks=25000,
+        amount_toman=25000,
         currency='RUB',
         status='pending',
         is_paid=False,
@@ -831,7 +834,7 @@ async def test_resolve_pal24_status_includes_identifiers(monkeypatch):
     payment = types.SimpleNamespace(
         id=321,
         user_id=1,
-        amount_kopeks=25000,
+        amount_toman=25000,
         currency='RUB',
         is_paid=True,
         status='PAID',
@@ -885,7 +888,7 @@ async def test_resolve_wata_payment_status_success():
     payment = types.SimpleNamespace(
         id=404,
         user_id=9,
-        amount_kopeks=30000,
+        amount_toman=30000,
         currency='RUB',
         status='Paid',
         is_paid=True,
@@ -937,7 +940,7 @@ async def test_resolve_wata_payment_status_uses_payment_link_lookup(monkeypatch)
     payment = types.SimpleNamespace(
         id=505,
         user_id=7,
-        amount_kopeks=15000,
+        amount_toman=15000,
         currency='RUB',
         status='Opened',
         is_paid=False,
@@ -999,13 +1002,13 @@ async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
 
         async def create_stars_invoice(
             self,
-            amount_kopeks,
+            amount_toman,
             description,
             payload,
             *,
             stars_amount=None,
         ):
-            captured['amount_kopeks'] = amount_kopeks
+            captured['amount_toman'] = amount_toman
             captured['description'] = description
             captured['payload'] = payload
             captured['stars_amount'] = stars_amount
@@ -1040,10 +1043,10 @@ async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
     response = await miniapp.create_payment_link(payload, db=types.SimpleNamespace())
 
     assert response.payment_url == 'https://invoice.example'
-    assert response.amount_kopeks == 100000
+    assert response.amount_toman == 100000
     assert response.extra['stars_amount'] == 1
-    assert response.extra['requested_amount_kopeks'] == 101000
-    assert captured['amount_kopeks'] == 100000
+    assert response.extra['requested_amount_toman'] == 101000
+    assert captured['amount_toman'] == 100000
     assert captured['stars_amount'] == 1
     assert captured['bot_token'] == 'test-token'
     assert captured.get('session_closed') is True
@@ -1065,8 +1068,8 @@ async def test_get_payment_methods_exposes_stars_min_amount(monkeypatch):
 
     stars_method = next((method for method in response.methods if method.id == 'stars'), None)
     assert stars_method is not None
-    assert stars_method.min_amount_kopeks == 99999
-    assert stars_method.amount_step_kopeks == 99999
+    assert stars_method.min_amount_toman == 99999
+    assert stars_method.amount_step_toman == 99999
     assert stars_method.integration_type == MiniAppPaymentIntegrationType.REDIRECT
     assert stars_method.iframe_config is None
 
@@ -1076,8 +1079,8 @@ async def test_get_payment_methods_includes_wata(monkeypatch):
     monkeypatch.setattr(settings, 'WATA_ENABLED', True, raising=False)
     monkeypatch.setattr(settings, 'WATA_ACCESS_TOKEN', 'token', raising=False)
     monkeypatch.setattr(settings, 'WATA_TERMINAL_PUBLIC_ID', 'terminal', raising=False)
-    monkeypatch.setattr(settings, 'WATA_MIN_AMOUNT_KOPEKS', 5000, raising=False)
-    monkeypatch.setattr(settings, 'WATA_MAX_AMOUNT_KOPEKS', 7500000, raising=False)
+    monkeypatch.setattr(settings, 'WATA_MIN_AMOUNT_TOMAN', 5000, raising=False)
+    monkeypatch.setattr(settings, 'WATA_MAX_AMOUNT_TOMAN', 7500000, raising=False)
 
     async def fake_resolve_user(db, init_data):
         return types.SimpleNamespace(id=1, language='ru'), {}
@@ -1090,8 +1093,8 @@ async def test_get_payment_methods_includes_wata(monkeypatch):
     wata_method = next((method for method in response.methods if method.id == 'wata'), None)
 
     assert wata_method is not None
-    assert wata_method.min_amount_kopeks == 5000
-    assert wata_method.max_amount_kopeks == 7500000
+    assert wata_method.min_amount_toman == 5000
+    assert wata_method.max_amount_toman == 7500000
     assert wata_method.icon == '🌊'
     assert wata_method.integration_type == MiniAppPaymentIntegrationType.REDIRECT
     assert wata_method.iframe_config is None
@@ -1125,7 +1128,7 @@ async def test_find_recent_deposit_ignores_transactions_before_attempt():
 
     transaction = types.SimpleNamespace(
         id=10,
-        amount_kopeks=1000,
+        amount_toman=1000,
         completed_at=None,
         created_at=started_at - timedelta(minutes=1),
     )
@@ -1148,7 +1151,7 @@ async def test_find_recent_deposit_ignores_transactions_before_attempt():
         DummySession(transaction),
         user_id=1,
         payment_method=PaymentMethod.TELEGRAM_STARS,
-        amount_kopeks=1000,
+        amount_toman=1000,
         started_at=started_at,
     )
 
@@ -1161,7 +1164,7 @@ async def test_find_recent_deposit_accepts_recent_transactions():
 
     transaction = types.SimpleNamespace(
         id=11,
-        amount_kopeks=1000,
+        amount_toman=1000,
         completed_at=started_at + timedelta(seconds=5),
         created_at=started_at + timedelta(seconds=5),
     )
@@ -1184,7 +1187,7 @@ async def test_find_recent_deposit_accepts_recent_transactions():
         DummySession(transaction),
         user_id=1,
         payment_method=PaymentMethod.TELEGRAM_STARS,
-        amount_kopeks=1000,
+        amount_toman=1000,
         started_at=started_at,
     )
 

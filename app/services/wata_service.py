@@ -1,9 +1,9 @@
-"""High level service for interacting with WATA payment API."""
+"""High level integration with WATA API."""
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import aiohttp
@@ -13,195 +13,162 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class WataAPIError(RuntimeError):
-    """Raised when the WATA API returns an error response."""
+class WataAPIError(Exception):
+    """Base error for WATA API operations."""
 
 
 class WataService:
-    """Thin wrapper around the WATA REST API used for balance top-ups."""
+    """Wrapper around WATA API providing domain helpers."""
 
     def __init__(
         self,
         *,
-        base_url: Optional[str] = None,
         access_token: Optional[str] = None,
-        request_timeout: Optional[int] = None,
+        base_url: Optional[str] = None,
+        timeout: Optional[int] = None,
     ) -> None:
-        self.base_url = (base_url or settings.WATA_BASE_URL or "").rstrip("/")
         self.access_token = access_token or settings.WATA_ACCESS_TOKEN
-        self.request_timeout = request_timeout or int(settings.WATA_REQUEST_TIMEOUT)
+        self.base_url = (base_url or settings.WATA_BASE_URL or "").rstrip("/")
+        self.timeout = timeout or settings.WATA_REQUEST_TIMEOUT
+
+        if not self.access_token:
+            logger.warning("WataService initialized without access token")
 
     @property
     def is_configured(self) -> bool:
-        return bool(
-            settings.is_wata_enabled()
-            and self.base_url
-            and self.access_token
-        )
-
-    def _build_url(self, path: str) -> str:
-        return f"{self.base_url}/{path.lstrip('/')}"
-
-    def _build_headers(self) -> Dict[str, str]:
-        if not self.access_token:
-            raise WataAPIError("WATA access token is not configured")
-        return {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json",
-        }
-
-    async def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        json: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        if not self.is_configured:
-            raise WataAPIError("WATA service is not configured")
-
-        url = self._build_url(path)
-        timeout = aiohttp.ClientTimeout(total=self.request_timeout)
-
-        try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.request(
-                    method,
-                    url,
-                    json=json,
-                    params=params,
-                    headers=self._build_headers(),
-                ) as response:
-                    response_text = await response.text()
-                    if response.status >= 400:
-                        logger.error(
-                            "WATA API error %s: %s", response.status, response_text
-                        )
-                        raise WataAPIError(
-                            f"WATA API returned status {response.status}: {response_text}"
-                        )
-
-                    if not response_text:
-                        return {}
-
-                    try:
-                        data = await response.json()
-                    except aiohttp.ContentTypeError as error:
-                        logger.error("WATA API returned non-JSON response: %s", error)
-                        raise WataAPIError("WATA API returned invalid JSON") from error
-
-                    return data
-        except aiohttp.ClientError as error:
-            logger.error("Error communicating with WATA API: %s", error)
-            raise WataAPIError("Failed to communicate with WATA API") from error
-
-    @staticmethod
-    def _amount_from_kopeks(amount_kopeks: int) -> float:
-        return round(amount_kopeks / 100, 2)
-
-    @staticmethod
-    def _format_datetime(value: datetime) -> str:
-        if value.tzinfo is None:
-            aware = value.replace(tzinfo=timezone.utc)
-        else:
-            aware = value.astimezone(timezone.utc)
-        return aware.isoformat().replace("+00:00", "Z")
-
-    @staticmethod
-    def _parse_datetime(raw: Optional[str]) -> Optional[datetime]:
-        if not raw:
-            return None
-        try:
-            normalized = raw.replace("Z", "+00:00")
-            parsed = datetime.fromisoformat(normalized)
-            if parsed.tzinfo is None:
-                return parsed
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
-        except (ValueError, TypeError):
-            logger.debug("Failed to parse WATA datetime: %s", raw)
-            return None
+        return bool(self.access_token) and bool(self.base_url) and settings.is_wata_enabled()
 
     async def create_payment_link(
         self,
         *,
-        amount_kopeks: int,
-        currency: str,
-        description: str,
+        amount_toman: int,
         order_id: str,
-        success_url: Optional[str] = None,
-        fail_url: Optional[str] = None,
-        link_type: Optional[str] = None,
-        expiration_minutes: Optional[int] = None,
-        allow_arbitrary_amount: bool = False,
-        arbitrary_amount_prompts: Optional[list[int]] = None,
-    ) -> Dict[str, Any]:
+        description: Optional[str] = None,
+        success_redirect_url: Optional[str] = None,
+        fail_redirect_url: Optional[str] = None,
+        expiration_datetime: Optional[datetime] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Creates a payment link in WATA."""
+        if not self.is_configured:
+            logger.error("WataService is not configured")
+            return None
+
+        amount_rubles = amount_toman / 100.0
+
         payload: Dict[str, Any] = {
-            "amount": self._amount_from_kopeks(amount_kopeks),
-            "currency": currency,
-            "description": description,
+            "amount": amount_rubles,
             "orderId": order_id,
+            "terminalPublicId": settings.WATA_TERMINAL_PUBLIC_ID,
+            "type": settings.WATA_PAYMENT_TYPE,
         }
 
-        payload["type"] = link_type or settings.WATA_PAYMENT_TYPE or "OneTime"
+        if description:
+            payload["description"] = description
+        elif settings.WATA_PAYMENT_DESCRIPTION:
+            payload["description"] = settings.WATA_PAYMENT_DESCRIPTION
 
-        if success_url or settings.WATA_SUCCESS_REDIRECT_URL:
-            payload["successRedirectUrl"] = success_url or settings.WATA_SUCCESS_REDIRECT_URL
-        if fail_url or settings.WATA_FAIL_REDIRECT_URL:
-            payload["failRedirectUrl"] = fail_url or settings.WATA_FAIL_REDIRECT_URL
+        if success_redirect_url:
+            payload["successRedirectUrl"] = success_redirect_url
+        elif settings.WATA_SUCCESS_REDIRECT_URL:
+            payload["successRedirectUrl"] = settings.WATA_SUCCESS_REDIRECT_URL
 
-        if expiration_minutes is None:
-            ttl = settings.WATA_LINK_TTL_MINUTES
-            expiration_minutes = int(ttl) if ttl is not None else None
+        if fail_redirect_url:
+            payload["failRedirectUrl"] = fail_redirect_url
+        elif settings.WATA_FAIL_REDIRECT_URL:
+            payload["failRedirectUrl"] = settings.WATA_FAIL_REDIRECT_URL
 
-        if expiration_minutes:
-            expiration_time = datetime.utcnow() + timedelta(minutes=expiration_minutes)
-            payload["expirationDateTime"] = self._format_datetime(expiration_time)
+        if expiration_datetime:
+            payload["expirationDateTime"] = self._format_datetime(expiration_datetime)
+        elif settings.WATA_LINK_TTL_MINUTES:
+            expiration = datetime.utcnow() + timedelta(minutes=settings.WATA_LINK_TTL_MINUTES)
+            payload["expirationDateTime"] = self._format_datetime(expiration)
 
-        if allow_arbitrary_amount:
-            payload["isArbitraryAmountAllowed"] = True
-            if arbitrary_amount_prompts:
-                payload["arbitraryAmountPrompts"] = arbitrary_amount_prompts
-
-        logger.info(
-            "Создаем WATA платежную ссылку: order_id=%s, amount=%s %s",
-            order_id,
-            payload["amount"],
-            currency,
-        )
-
-        response = await self._request("POST", "/links", json=payload)
-        logger.debug("WATA create link response: %s", response)
-        return response
-
-    async def get_payment_link(self, payment_link_id: str) -> Dict[str, Any]:
-        logger.debug("Запрашиваем WATA ссылку %s", payment_link_id)
-        return await self._request("GET", f"/links/{payment_link_id}")
-
-    async def search_transactions(
-        self,
-        *,
-        order_id: Optional[str] = None,
-        payment_link_id: Optional[str] = None,
-        status: Optional[str] = None,
-        limit: int = 5,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {
-            "skipCount": 0,
-            "maxResultCount": max(1, min(limit, 1000)),
+        url = f"{self.base_url}/payment-links"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
         }
-        if order_id:
-            params["orderId"] = order_id
-        if status:
-            params["statuses"] = status
-        if payment_link_id:
-            params["paymentLinkId"] = payment_link_id
 
-        logger.debug(
-            "Ищем WATA транзакции: order_id=%s, payment_link_id=%s", order_id, payment_link_id
-        )
-        return await self._request("GET", "/transactions", params=params)
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
 
-    async def get_transaction(self, transaction_id: str) -> Dict[str, Any]:
-        logger.debug("Получаем WATA транзакцию %s", transaction_id)
-        return await self._request("GET", f"/transactions/{transaction_id}")
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, json=payload, headers=headers) as response:
+                    status = response.status
+                    try:
+                        result = await response.json()
+                    except aiohttp.ContentTypeError:
+                        text_body = await response.text()
+                        logger.error(
+                            "WATA API returned non-JSON response for %s: %s",
+                            url,
+                            text_body[:500],
+                        )
+                        return None
+
+                    if status >= 400:
+                        logger.error(
+                            "WATA API error at %s: status=%s, response=%s",
+                            url,
+                            status,
+                            result,
+                        )
+                        return None
+
+                    logger.info("WATA payment link created: %s", result.get("id"))
+                    return result
+
+        except aiohttp.ClientError as error:
+            logger.error("WATA API request failed: %s", error)
+            return None
+        except Exception as error:
+            logger.error("Unexpected error calling WATA API: %s", error, exc_info=True)
+            return None
+
+    @staticmethod
+    def _format_datetime(value: datetime) -> str:
+        """Formats datetime as ISO 8601 string in UTC (Z suffix)."""
+        if value.tzinfo is not None:
+            # Convert to UTC
+            from datetime import timezone
+
+            utc_dt = value.astimezone(timezone.utc)
+            # Make naive (remove timezone info)
+            value = utc_dt.replace(tzinfo=None)
+        return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    @staticmethod
+    def _parse_datetime(value: str) -> datetime:
+        """Parses ISO 8601 datetime string and returns naive UTC datetime."""
+        try:
+            if value.endswith("Z"):
+                dt = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+            elif "+" in value:
+                # Handle timezone offset like +03:00
+                dt_str, offset_str = value.rsplit("+", 1)
+                if ":" in offset_str:
+                    hours, minutes = offset_str.split(":")
+                    offset_seconds = int(hours) * 3600 + int(minutes) * 60
+                    dt = datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S")
+                    dt = dt - timedelta(seconds=offset_seconds)
+                else:
+                    dt = datetime.strptime(value.split("+")[0], "%Y-%m-%dT%H:%M:%S")
+            elif "-" in value and len(value.split("-")) > 3:
+                # Handle negative timezone offset like -05:00
+                parts = value.rsplit("-", 1)
+                if len(parts) == 2 and ":" in parts[1]:
+                    dt_str = parts[0]
+                    offset_str = parts[1]
+                    hours, minutes = offset_str.split(":")
+                    offset_seconds = int(hours) * 3600 + int(minutes) * 60
+                    dt = datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S")
+                    dt = dt + timedelta(seconds=offset_seconds)
+                else:
+                    dt = datetime.strptime(value.split("+")[0] if "+" in value else value, "%Y-%m-%dT%H:%M:%S")
+            else:
+                dt = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
+            return dt
+        except Exception as error:
+            logger.error("Failed to parse WATA datetime %s: %s", value, error)
+            raise ValueError(f"Invalid datetime format: {value}") from error

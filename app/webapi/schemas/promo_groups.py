@@ -31,7 +31,7 @@ class PromoGroupResponse(BaseModel):
     traffic_discount_percent: int
     device_discount_percent: int
     period_discounts: Dict[int, int] = Field(default_factory=dict)
-    auto_assign_total_spent_kopeks: Optional[int] = None
+    auto_assign_total_spent_toman: Optional[int] = None
     apply_discounts_to_addons: bool
     is_default: bool
     members_count: int = 0
@@ -43,8 +43,8 @@ class _PromoGroupBase(BaseModel):
     period_discounts: Optional[Dict[int, int]] = Field(
         default=None,
         description=(
-            "Словарь скидок по длительности подписки. Ключ — количество месяцев, "
-            "значение — скидка в процентах. Например: {1: 10, 6: 20}."
+            "Dictionary of discounts by subscription duration. Key is number of months, "
+            "value is discount percent. Example: {1: 10, 6: 20}."
         ),
         example={1: 10, 6: 20},
     )
@@ -59,7 +59,7 @@ class PromoGroupCreateRequest(_PromoGroupBase):
     server_discount_percent: int = 0
     traffic_discount_percent: int = 0
     device_discount_percent: int = 0
-    auto_assign_total_spent_kopeks: Optional[int] = None
+    auto_assign_total_spent_toman: Optional[int] = None
     apply_discounts_to_addons: bool = True
     is_default: bool = False
 
@@ -69,7 +69,7 @@ class PromoGroupUpdateRequest(_PromoGroupBase):
     server_discount_percent: Optional[int] = None
     traffic_discount_percent: Optional[int] = None
     device_discount_percent: Optional[int] = None
-    auto_assign_total_spent_kopeks: Optional[int] = None
+    auto_assign_total_spent_toman: Optional[int] = None
     apply_discounts_to_addons: Optional[bool] = None
     is_default: Optional[bool] = None
 

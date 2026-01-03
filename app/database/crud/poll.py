@@ -22,7 +22,7 @@ async def create_poll(
     title: str,
     description: str | None,
     reward_enabled: bool,
-    reward_amount_kopeks: int,
+    reward_amount_toman: int,
     created_by: int | None,
     questions: Sequence[dict[str, Iterable[str]]],
 ) -> Poll:
@@ -30,7 +30,7 @@ async def create_poll(
         title=title,
         description=description,
         reward_enabled=reward_enabled,
-        reward_amount_kopeks=reward_amount_kopeks if reward_enabled else 0,
+        reward_amount_toman=reward_amount_toman if reward_enabled else 0,
         created_by=created_by,
     )
     db.add(poll)
@@ -71,9 +71,7 @@ async def create_poll(
 async def list_polls(db: AsyncSession) -> list[Poll]:
     result = await db.execute(
         select(Poll)
-        .options(
-            selectinload(Poll.questions).options(selectinload(PollQuestion.options))
-        )
+        .options(selectinload(Poll.questions).options(selectinload(PollQuestion.options)))
         .order_by(Poll.created_at.desc())
     )
     return result.scalars().all()
@@ -98,7 +96,7 @@ async def delete_poll(db: AsyncSession, poll_id: int) -> bool:
 
     await db.delete(poll)
     await db.commit()
-    logger.info("🗑️ Удалён опрос %s", poll_id)
+    logger.info("🗑️ Poll deleted %s", poll_id)
     return True
 
 
@@ -108,8 +106,7 @@ async def create_poll_response(
     user_id: int,
 ) -> PollResponse:
     result = await db.execute(
-        select(PollResponse)
-        .where(
+        select(PollResponse).where(
             and_(
                 PollResponse.poll_id == poll_id,
                 PollResponse.user_id == user_id,
@@ -137,8 +134,9 @@ async def get_poll_response_by_id(
     result = await db.execute(
         select(PollResponse)
         .options(
-            selectinload(PollResponse.poll)
-            .options(selectinload(Poll.questions).options(selectinload(PollQuestion.options))),
+            selectinload(PollResponse.poll).options(
+                selectinload(Poll.questions).options(selectinload(PollQuestion.options))
+            ),
             selectinload(PollResponse.answers),
             selectinload(PollResponse.user),
         )
@@ -155,8 +153,7 @@ async def record_poll_answer(
     option_id: int,
 ) -> PollAnswer:
     result = await db.execute(
-        select(PollAnswer)
-        .where(
+        select(PollAnswer).where(
             and_(
                 PollAnswer.response_id == response_id,
                 PollAnswer.question_id == question_id,
@@ -182,9 +179,7 @@ async def record_poll_answer(
 
 
 async def reset_poll_answers(db: AsyncSession, response_id: int) -> None:
-    await db.execute(
-        delete(PollAnswer).where(PollAnswer.response_id == response_id)
-    )
+    await db.execute(delete(PollAnswer).where(PollAnswer.response_id == response_id))
     await db.commit()
 
 
@@ -193,7 +188,7 @@ async def get_poll_statistics(db: AsyncSession, poll_id: int) -> dict:
         select(
             func.count(PollResponse.id),
             func.count(PollResponse.completed_at),
-            func.coalesce(func.sum(PollResponse.reward_amount_kopeks), 0),
+            func.coalesce(func.sum(PollResponse.reward_amount_toman), 0),
         ).where(PollResponse.poll_id == poll_id)
     )
     total_responses, completed_responses, reward_sum = totals_result.one()
@@ -260,7 +255,7 @@ async def get_poll_statistics(db: AsyncSession, poll_id: int) -> dict:
     return {
         "total_responses": total_responses,
         "completed_responses": completed_responses,
-        "reward_sum_kopeks": reward_sum,
+        "reward_sum_toman": reward_sum,
         "questions": questions,
     }
 

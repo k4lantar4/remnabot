@@ -123,10 +123,7 @@ async def edit_or_answer_photo(
             return  # Успешно — выходим
         except TelegramNetworkError as net_error:
             if attempt < MAX_RETRIES - 1:
-                logger.warning(
-                    "Сетевая ошибка edit_media (попытка %d/%d): %s",
-                    attempt + 1, MAX_RETRIES, net_error
-                )
+                logger.warning("Сетевая ошибка edit_media (попытка %d/%d): %s", attempt + 1, MAX_RETRIES, net_error)
                 await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                 continue
             else:

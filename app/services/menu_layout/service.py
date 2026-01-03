@@ -72,12 +72,14 @@ class MenuLayoutService:
         result = []
         for cb in AVAILABLE_CALLBACKS:
             is_in_menu = cb["callback_data"] in buttons_in_menu or cb["callback_data"] in builtin_callbacks
-            result.append({
-                **cb,
-                "is_in_menu": is_in_menu,
-                "default_text": cb.get("text"),
-                "default_icon": cb.get("icon"),
-            })
+            result.append(
+                {
+                    **cb,
+                    "is_in_menu": is_in_menu,
+                    "default_text": cb.get("text"),
+                    "default_icon": cb.get("icon"),
+                }
+            )
 
         return result
 
@@ -160,39 +162,47 @@ class MenuLayoutService:
         row_ids = [row.get("id") for row in rows]
         duplicate_rows = [rid for rid in row_ids if row_ids.count(rid) > 1]
         if duplicate_rows:
-            errors.append({
-                "field": "rows",
-                "message": f"Duplicate row IDs: {set(duplicate_rows)}",
-                "severity": "error",
-            })
+            errors.append(
+                {
+                    "field": "rows",
+                    "message": f"Duplicate row IDs: {set(duplicate_rows)}",
+                    "severity": "error",
+                }
+            )
 
         # Проверяем ссылки на кнопки
         for row in rows:
             for btn_id in row.get("buttons", []):
                 if btn_id not in buttons:
-                    errors.append({
-                        "field": f"rows.{row.get('id')}.buttons",
-                        "message": f"Button '{btn_id}' not found",
-                        "severity": "error",
-                    })
+                    errors.append(
+                        {
+                            "field": f"rows.{row.get('id')}.buttons",
+                            "message": f"Button '{btn_id}' not found",
+                            "severity": "error",
+                        }
+                    )
 
         # Проверяем пустые строки
         for row in rows:
             if not row.get("buttons"):
-                warnings.append({
-                    "field": f"rows.{row.get('id')}",
-                    "message": "Row has no buttons",
-                    "severity": "warning",
-                })
+                warnings.append(
+                    {
+                        "field": f"rows.{row.get('id')}",
+                        "message": "Row has no buttons",
+                        "severity": "warning",
+                    }
+                )
 
         # Проверяем отключенные кнопки
         disabled_count = sum(1 for btn in buttons.values() if not btn.get("enabled", True))
         if disabled_count > 0:
-            warnings.append({
-                "field": "buttons",
-                "message": f"{disabled_count} buttons are disabled",
-                "severity": "warning",
-            })
+            warnings.append(
+                {
+                    "field": "buttons",
+                    "message": f"{disabled_count} buttons are disabled",
+                    "severity": "warning",
+                }
+            )
 
         return {
             "is_valid": len(errors) == 0,
@@ -212,9 +222,7 @@ class MenuLayoutService:
             if cls._cache is not None:
                 return cls._cache
 
-            result = await db.execute(
-                select(SystemSetting).where(SystemSetting.key == MENU_LAYOUT_CONFIG_KEY)
-            )
+            result = await db.execute(select(SystemSetting).where(SystemSetting.key == MENU_LAYOUT_CONFIG_KEY))
             setting = result.scalar_one_or_none()
 
             if setting and setting.value:
@@ -280,14 +288,15 @@ class MenuLayoutService:
                 for key in buttons.keys():
                     if key == "connect" or buttons[key].get("builtin_id") == "connect":
                         actual_button_id = key
-                        logger.info(
-                            f"🔗 Найдена кнопка connect по ID '{button_id}' -> '{actual_button_id}'"
-                        )
+                        logger.info(f"🔗 Найдена кнопка connect по ID '{button_id}' -> '{actual_button_id}'")
                         break
                 else:
                     # Если не нашли, пробуем найти по builtin_id
                     for key, button in buttons.items():
-                        if button.get("builtin_id") == "connect" or "connect" in str(button.get("builtin_id", "")).lower():
+                        if (
+                            button.get("builtin_id") == "connect"
+                            or "connect" in str(button.get("builtin_id", "")).lower()
+                        ):
                             actual_button_id = key
                             logger.info(
                                 f"🔗 Найдена кнопка connect по builtin_id '{button_id}' -> '{actual_button_id}'"
@@ -300,7 +309,7 @@ class MenuLayoutService:
             raise KeyError(f"Button '{actual_button_id}' not found")
 
         button = buttons[actual_button_id].copy()
-        
+
         # Логирование для отладки
         if "connect" in actual_button_id.lower() or button.get("builtin_id") == "connect":
             logger.info(
@@ -741,6 +750,7 @@ class MenuLayoutService:
         if conditions.get("support_enabled") is True:
             try:
                 from app.services.support_settings_service import SupportSettingsService
+
                 if not SupportSettingsService.is_support_menu_enabled():
                     return False
             except Exception:
@@ -779,16 +789,16 @@ class MenuLayoutService:
 
         # --- Расширенные условия ---
 
-        # min_balance_kopeks
-        min_balance = conditions.get("min_balance_kopeks")
+        # min_balance_toman
+        min_balance = conditions.get("min_balance_toman")
         if min_balance is not None:
-            if context.balance_kopeks < min_balance:
+            if context.balance_toman < min_balance:
                 return False
 
-        # max_balance_kopeks
-        max_balance = conditions.get("max_balance_kopeks")
+        # max_balance_toman
+        max_balance = conditions.get("max_balance_toman")
         if max_balance is not None:
-            if context.balance_kopeks > max_balance:
+            if context.balance_toman > max_balance:
                 return False
 
         # min_registration_days
@@ -926,7 +936,7 @@ class MenuLayoutService:
         """Форматировать динамический текст с плейсхолдерами."""
         # Баланс
         if "{balance}" in text:
-            formatted_balance = texts.format_price(context.balance_kopeks)
+            formatted_balance = texts.format_price(context.balance_toman)
             text = text.replace("{balance}", formatted_balance)
 
         # Имя пользователя
@@ -984,13 +994,13 @@ class MenuLayoutService:
         open_mode = button_config.get("open_mode", "callback")
         webapp_url = button_config.get("webapp_url")
         icon = button_config.get("icon", "")
-        
+
         # Логирование для отладки кнопки connect
         is_connect_button = (
-            effective_button_id == "connect" or
-            "connect" in str(effective_button_id).lower() or
-            action == "subscription_connect" or
-            "connect" in str(action).lower()
+            effective_button_id == "connect"
+            or "connect" in str(effective_button_id).lower()
+            or action == "subscription_connect"
+            or "connect" in str(action).lower()
         )
 
         if is_connect_button:
@@ -1018,9 +1028,7 @@ class MenuLayoutService:
         if button_type == "url":
             return InlineKeyboardButton(text=text, url=action)
         elif button_type == "mini_app":
-            return InlineKeyboardButton(
-                text=text, web_app=types.WebAppInfo(url=action)
-            )
+            return InlineKeyboardButton(text=text, web_app=types.WebAppInfo(url=action))
         elif button_type == "callback":
             # Кастомная кнопка с callback_data
             return InlineKeyboardButton(text=text, callback_data=action)
@@ -1030,34 +1038,27 @@ class MenuLayoutService:
                 # Прямое открытие Mini App через WebAppInfo
                 # Используем webapp_url, если указан, иначе action (если это URL)
                 url = webapp_url or action
-                
+
                 # Для кнопки connect: если URL не указан или это callback_data,
                 # пытаемся получить URL из подписки пользователя
                 if is_connect_button and (not url or not (url.startswith("http://") or url.startswith("https://"))):
                     if context.subscription:
                         from app.utils.subscription_utils import get_display_subscription_link
+
                         subscription_url = get_display_subscription_link(context.subscription)
                         if subscription_url:
                             url = subscription_url
-                            logger.info(
-                                f"🔗 Кнопка connect: получен URL из подписки: {url[:50]}..."
-                            )
+                            logger.info(f"🔗 Кнопка connect: получен URL из подписки: {url[:50]}...")
                     # Если все еще нет URL, пробуем использовать настройку MINIAPP_CUSTOM_URL
                     if not url or not (url.startswith("http://") or url.startswith("https://")):
                         if settings.MINIAPP_CUSTOM_URL:
                             url = settings.MINIAPP_CUSTOM_URL
-                            logger.info(
-                                f"🔗 Кнопка connect: использован MINIAPP_CUSTOM_URL: {url[:50]}..."
-                            )
-                
+                            logger.info(f"🔗 Кнопка connect: использован MINIAPP_CUSTOM_URL: {url[:50]}...")
+
                 # Проверяем, что это действительно URL
                 if url and (url.startswith("http://") or url.startswith("https://")):
-                    logger.info(
-                        f"🔗 Кнопка connect: open_mode=direct, используем URL: {url[:50]}..."
-                    )
-                    return InlineKeyboardButton(
-                        text=text, web_app=types.WebAppInfo(url=url)
-                    )
+                    logger.info(f"🔗 Кнопка connect: open_mode=direct, используем URL: {url[:50]}...")
+                    return InlineKeyboardButton(text=text, web_app=types.WebAppInfo(url=url))
                 else:
                     logger.warning(
                         f"🔗 Кнопка connect: open_mode=direct, но URL не найден. "
@@ -1068,9 +1069,7 @@ class MenuLayoutService:
                     return InlineKeyboardButton(text=text, callback_data=action)
             else:
                 # Стандартный callback_data
-                logger.debug(
-                    f"Кнопка connect: open_mode={open_mode}, используем callback_data: {action}"
-                )
+                logger.debug(f"Кнопка connect: open_mode={open_mode}, используем callback_data: {action}")
                 return InlineKeyboardButton(text=text, callback_data=action)
 
     # --- Построение клавиатуры ---
@@ -1175,11 +1174,13 @@ class MenuLayoutService:
                 if button_cfg.get("dynamic_text"):
                     text = cls._format_dynamic_text(text, context, texts)
 
-                row_buttons.append({
-                    "text": text,
-                    "action": button_cfg.get("action", ""),
-                    "type": button_cfg.get("type", "builtin"),
-                })
+                row_buttons.append(
+                    {
+                        "text": text,
+                        "action": button_cfg.get("action", ""),
+                        "type": button_cfg.get("type", "builtin"),
+                    }
+                )
 
             if row_buttons:
                 for i in range(0, len(row_buttons), max_per_row):
@@ -1199,9 +1200,7 @@ class MenuLayoutService:
         user_info: Optional[str] = None,
     ):
         """Сохранить запись в историю изменений."""
-        return await MenuLayoutHistoryService.save_history(
-            db, config, action, changes_summary, user_info
-        )
+        return await MenuLayoutHistoryService.save_history(db, config, action, changes_summary, user_info)
 
     @classmethod
     async def get_history(
@@ -1343,9 +1342,7 @@ class MenuLayoutService:
         previous_days: int = 7,
     ) -> Dict[str, Any]:
         """Сравнить статистику текущего и предыдущего периода."""
-        return await MenuLayoutStatsService.get_period_comparison(
-            db, button_id, current_days, previous_days
-        )
+        return await MenuLayoutStatsService.get_period_comparison(db, button_id, current_days, previous_days)
 
     @classmethod
     async def get_user_click_sequences(

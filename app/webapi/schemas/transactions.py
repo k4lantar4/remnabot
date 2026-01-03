@@ -10,8 +10,7 @@ class TransactionResponse(BaseModel):
     id: int
     user_id: int
     type: str
-    amount_kopeks: int
-    amount_rubles: float
+    amount_toman: int
     description: Optional[str] = None
     payment_method: Optional[str] = None
     external_id: Optional[str] = None

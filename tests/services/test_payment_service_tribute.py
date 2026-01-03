@@ -48,7 +48,7 @@ async def test_create_tribute_payment_success(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(settings, "WEBHOOK_URL", "https://example.com", raising=False)
 
     result = await service.create_tribute_payment(
-        amount_kopeks=15000,
+        amount_toman=1_500_000,  # 15000 toman (was 150 rubles = 15000 kopeks)
         user_id=5,
         description="Оплата подписки",
     )

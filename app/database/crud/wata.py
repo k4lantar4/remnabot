@@ -17,7 +17,7 @@ async def create_wata_payment(
     *,
     user_id: int,
     payment_link_id: str,
-    amount_kopeks: int,
+    amount_toman: int,
     currency: str,
     description: Optional[str],
     status: str,
@@ -34,7 +34,7 @@ async def create_wata_payment(
         user_id=user_id,
         payment_link_id=payment_link_id,
         order_id=order_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         currency=currency,
         description=description,
         status=status,
@@ -52,10 +52,10 @@ async def create_wata_payment(
     await db.refresh(payment)
 
     logger.info(
-        "Создан Wata платеж #%s для пользователя %s: %s копеек (статус %s)",
+        "Wata payment created #%s for user %s: %s toman (status %s)",
         payment.id,
         user_id,
-        amount_kopeks,
+        amount_toman,
         status,
     )
 
@@ -66,9 +66,7 @@ async def get_wata_payment_by_id(
     db: AsyncSession,
     payment_id: int,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.id == payment_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.id == payment_id))
     return result.scalar_one_or_none()
 
 
@@ -76,9 +74,7 @@ async def get_wata_payment_by_link_id(
     db: AsyncSession,
     payment_link_id: str,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.payment_link_id == payment_link_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.payment_link_id == payment_link_id))
     return result.scalar_one_or_none()
 
 
@@ -86,9 +82,7 @@ async def get_wata_payment_by_order_id(
     db: AsyncSession,
     order_id: str,
 ) -> Optional[WataPayment]:
-    result = await db.execute(
-        select(WataPayment).where(WataPayment.order_id == order_id)
-    )
+    result = await db.execute(select(WataPayment).where(WataPayment.order_id == order_id))
     return result.scalar_one_or_none()
 
 
@@ -127,17 +121,13 @@ async def update_wata_payment_status(
     if not update_values:
         return payment
 
-    await db.execute(
-        update(WataPayment)
-        .where(WataPayment.id == payment.id)
-        .values(**update_values)
-    )
+    await db.execute(update(WataPayment).where(WataPayment.id == payment.id).values(**update_values))
 
     await db.commit()
     await db.refresh(payment)
 
     logger.info(
-        "Обновлен Wata платеж %s: статус=%s, is_paid=%s",
+        "Wata payment updated %s: status=%s, is_paid=%s",
         payment.payment_link_id,
         payment.status,
         payment.is_paid,
@@ -151,16 +141,12 @@ async def link_wata_payment_to_transaction(
     payment: WataPayment,
     transaction_id: int,
 ) -> WataPayment:
-    await db.execute(
-        update(WataPayment)
-        .where(WataPayment.id == payment.id)
-        .values(transaction_id=transaction_id)
-    )
+    await db.execute(update(WataPayment).where(WataPayment.id == payment.id).values(transaction_id=transaction_id))
     await db.commit()
     await db.refresh(payment)
 
     logger.info(
-        "Wata платеж %s привязан к транзакции %s",
+        "Wata payment %s linked to transaction %s",
         payment.payment_link_id,
         transaction_id,
     )

@@ -28,9 +28,7 @@ async def _get_user_or_error(db: AsyncSession, user_id: int) -> User:
     return user
 
 
-async def _ensure_subscription_exists(
-    db: AsyncSession, subscription_id: Optional[int]
-) -> None:
+async def _ensure_subscription_exists(db: AsyncSession, subscription_id: Optional[int]) -> None:
     if not subscription_id:
         return
 
@@ -46,9 +44,7 @@ async def _ensure_transaction_exists(db: AsyncSession, transaction_id: Optional[
     if not transaction_id:
         return
 
-    transaction_exists = await db.scalar(
-        select(Transaction.id).where(Transaction.id == transaction_id)
-    )
+    transaction_exists = await db.scalar(select(Transaction.id).where(Transaction.id == transaction_id))
     if not transaction_exists:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -63,8 +59,8 @@ def _serialize_event(event: SubscriptionEvent) -> SubscriptionEventResponse:
 
     if event.event_type == "promocode_activation":
         extra = {**extra}
-        extra.setdefault("balance_before_kopeks", None)
-        extra.setdefault("balance_after_kopeks", None)
+        extra.setdefault("balance_before_toman", None)
+        extra.setdefault("balance_after_toman", None)
 
     return SubscriptionEventResponse(
         id=event.id,
@@ -75,7 +71,7 @@ def _serialize_event(event: SubscriptionEvent) -> SubscriptionEventResponse:
         user_telegram_id=user.telegram_id if user else 0,
         subscription_id=event.subscription_id,
         transaction_id=event.transaction_id,
-        amount_kopeks=event.amount_kopeks,
+        amount_toman=event.amount_toman,
         currency=event.currency,
         message=event.message,
         occurred_at=event.occurred_at,
@@ -100,7 +96,7 @@ async def receive_subscription_event(
         event_type=payload.event_type,
         subscription_id=payload.subscription_id,
         transaction_id=payload.transaction_id,
-        amount_kopeks=payload.amount_kopeks,
+        amount_toman=payload.amount_toman,
         currency=payload.currency,
         message=payload.message,
         occurred_at=payload.occurred_at,

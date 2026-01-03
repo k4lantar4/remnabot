@@ -133,9 +133,7 @@ async def get_contests_for_events(
 
 
 async def get_contests_for_summaries(db: AsyncSession) -> List[ReferralContest]:
-    result = await db.execute(
-        select(ReferralContest).where(ReferralContest.is_active.is_(True))
-    )
+    result = await db.execute(select(ReferralContest).where(ReferralContest.is_active.is_(True)))
     return list(result.scalars().all())
 
 
@@ -145,7 +143,7 @@ async def add_contest_event(
     contest_id: int,
     referrer_id: int,
     referral_id: int,
-    amount_kopeks: int = 0,
+    amount_toman: int = 0,
     event_type: str = "subscription_purchase",
 ) -> Optional[ReferralContestEvent]:
     existing = await db.execute(
@@ -163,7 +161,7 @@ async def add_contest_event(
         contest_id=contest_id,
         referrer_id=referrer_id,
         referral_id=referral_id,
-        amount_kopeks=amount_kopeks,
+        amount_toman=amount_toman,
         event_type=event_type,
         occurred_at=datetime.utcnow(),
     )
@@ -187,7 +185,7 @@ async def get_contest_leaderboard(
         select(
             User,
             func.count(ReferralContestEvent.id).label("referral_count"),
-            func.coalesce(func.sum(ReferralContestEvent.amount_kopeks), 0).label("total_amount"),
+            func.coalesce(func.sum(ReferralContestEvent.amount_toman), 0).label("total_amount"),
         )
         .join(User, User.id == ReferralContestEvent.referrer_id)
         .where(ReferralContestEvent.contest_id == contest_id)
@@ -245,9 +243,7 @@ async def get_contest_events_count(
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
 ) -> int:
-    query = select(func.count(ReferralContestEvent.id)).where(
-        ReferralContestEvent.contest_id == contest_id
-    )
+    query = select(func.count(ReferralContestEvent.id)).where(ReferralContestEvent.contest_id == contest_id)
     if start:
         query = query.where(ReferralContestEvent.occurred_at >= start)
     if end:
@@ -260,9 +256,7 @@ async def get_contest_events(
     db: AsyncSession,
     contest_id: int,
 ) -> List[ReferralContestEvent]:
-    result = await db.execute(
-        select(ReferralContestEvent).where(ReferralContestEvent.contest_id == contest_id)
-    )
+    result = await db.execute(select(ReferralContestEvent).where(ReferralContestEvent.contest_id == contest_id))
     return list(result.scalars().all())
 
 

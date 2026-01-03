@@ -48,7 +48,7 @@ def _serialize(group: PromoGroup, members_count: int = 0) -> PromoGroupResponse:
         traffic_discount_percent=group.traffic_discount_percent,
         device_discount_percent=group.device_discount_percent,
         period_discounts=_normalize_period_discounts(group),
-        auto_assign_total_spent_kopeks=group.auto_assign_total_spent_kopeks,
+        auto_assign_total_spent_toman=group.auto_assign_total_spent_toman,
         apply_discounts_to_addons=group.apply_discounts_to_addons,
         is_default=group.is_default,
         members_count=members_count,
@@ -110,12 +110,12 @@ async def create_promo_group_endpoint(
             name=payload.name,
             server_discount_percent=payload.server_discount_percent,
             traffic_discount_percent=payload.traffic_discount_percent,
-        device_discount_percent=payload.device_discount_percent,
-        period_discounts=payload.period_discounts,
-        auto_assign_total_spent_kopeks=payload.auto_assign_total_spent_kopeks,
-        apply_discounts_to_addons=payload.apply_discounts_to_addons,
-        is_default=payload.is_default,
-    )
+            device_discount_percent=payload.device_discount_percent,
+            period_discounts=payload.period_discounts,
+            auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
+            apply_discounts_to_addons=payload.apply_discounts_to_addons,
+            is_default=payload.is_default,
+        )
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(
@@ -147,12 +147,12 @@ async def update_promo_group_endpoint(
             name=payload.name,
             server_discount_percent=payload.server_discount_percent,
             traffic_discount_percent=payload.traffic_discount_percent,
-        device_discount_percent=payload.device_discount_percent,
-        period_discounts=payload.period_discounts,
-        auto_assign_total_spent_kopeks=payload.auto_assign_total_spent_kopeks,
-        apply_discounts_to_addons=payload.apply_discounts_to_addons,
-        is_default=payload.is_default,
-    )
+            device_discount_percent=payload.device_discount_percent,
+            period_discounts=payload.period_discounts,
+            auto_assign_total_spent_toman=payload.auto_assign_total_spent_toman,
+            apply_discounts_to_addons=payload.apply_discounts_to_addons,
+            is_default=payload.is_default,
+        )
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(

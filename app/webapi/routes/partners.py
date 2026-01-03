@@ -71,8 +71,8 @@ def _apply_search_filter(query, search: str):
 
 
 def _serialize_referrer(user: User, stats: dict) -> PartnerReferrerItem:
-    total_earned_kopeks = int(stats.get("total_earned_kopeks") or 0)
-    month_earned_kopeks = int(stats.get("month_earned_kopeks") or 0)
+    total_earned_toman = int(stats.get("total_earned_toman") or 0)
+    month_earned_toman = int(stats.get("month_earned_toman") or 0)
 
     return PartnerReferrerItem(
         id=user.id,
@@ -85,18 +85,16 @@ def _serialize_referrer(user: User, stats: dict) -> PartnerReferrerItem:
         effective_referral_commission_percent=get_effective_referral_commission_percent(user),
         invited_count=int(stats.get("invited_count") or 0),
         active_referrals=int(stats.get("active_referrals") or 0),
-        total_earned_kopeks=total_earned_kopeks,
-        total_earned_rubles=round(total_earned_kopeks / 100, 2),
-        month_earned_kopeks=month_earned_kopeks,
-        month_earned_rubles=round(month_earned_kopeks / 100, 2),
+        total_earned_toman=total_earned_toman,
+        month_earned_toman=month_earned_toman,
         created_at=user.created_at,
         last_activity=user.last_activity,
     )
 
 
 def _serialize_referral_item(referral: dict) -> PartnerReferralItem:
-    balance_kopeks = int(referral.get("balance_kopeks") or 0)
-    total_earned_kopeks = int(referral.get("total_earned_kopeks") or 0)
+    balance_toman = int(referral.get("balance_toman") or 0)
+    total_earned_toman = int(referral.get("total_earned_toman") or 0)
 
     return PartnerReferralItem(
         id=int(referral.get("id")),
@@ -106,10 +104,8 @@ def _serialize_referral_item(referral: dict) -> PartnerReferralItem:
         created_at=referral.get("created_at"),
         last_activity=referral.get("last_activity"),
         has_made_first_topup=bool(referral.get("has_made_first_topup", False)),
-        balance_kopeks=balance_kopeks,
-        balance_rubles=round(balance_kopeks / 100, 2),
-        total_earned_kopeks=total_earned_kopeks,
-        total_earned_rubles=round(total_earned_kopeks / 100, 2),
+        balance_toman=balance_toman,
+        total_earned_toman=total_earned_toman,
         topups_count=int(referral.get("topups_count") or 0),
         days_since_registration=int(referral.get("days_since_registration") or 0),
         days_since_activity=referral.get("days_since_activity"),
@@ -126,14 +122,10 @@ async def list_referrers(
     search: Optional[str] = Query(default=None),
 ) -> PartnerReferrerListResponse:
     referral_alias = aliased(User)
-    has_referrals = (
-        select(referral_alias.id)
-        .where(referral_alias.referred_by_id == User.id)
-        .exists()
-    )
+    has_referrals = select(referral_alias.id).where(referral_alias.referred_by_id == User.id).exists()
 
-    base_query = select(User).options(selectinload(User.referrer)).where(
-        or_(User.referral_code.isnot(None), has_referrals)
+    base_query = (
+        select(User).options(selectinload(User.referrer)).where(or_(User.referral_code.isnot(None), has_referrals))
     )
 
     if search:
@@ -142,9 +134,7 @@ async def list_referrers(
     total_query = base_query.with_only_columns(func.count()).order_by(None)
     total = await db.scalar(total_query) or 0
 
-    result = await db.execute(
-        base_query.order_by(User.created_at.desc()).offset(offset).limit(limit)
-    )
+    result = await db.execute(base_query.order_by(User.created_at.desc()).offset(offset).limit(limit))
     referrers = result.scalars().unique().all()
 
     items: list[PartnerReferrerItem] = []
@@ -179,9 +169,7 @@ async def get_referrer_detail(
     referrer_item = _serialize_referrer(user, stats)
 
     referrals_data = await get_detailed_referral_list(db, user.id, limit=limit, offset=offset)
-    referral_items = [
-        _serialize_referral_item(referral) for referral in referrals_data.get("referrals", [])
-    ]
+    referral_items = [_serialize_referral_item(referral) for referral in referrals_data.get("referrals", [])]
 
     referrals_list = PartnerReferralList(
         items=referral_items,
@@ -361,9 +349,7 @@ async def get_referrer_period_comparison(
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
-    data = await PartnerStatsService.get_referrer_period_comparison(
-        db, user.id, current_days, previous_days
-    )
+    data = await PartnerStatsService.get_referrer_period_comparison(db, user.id, current_days, previous_days)
 
     return PeriodComparisonResponse(
         current_period=PeriodData(**data["current_period"]),

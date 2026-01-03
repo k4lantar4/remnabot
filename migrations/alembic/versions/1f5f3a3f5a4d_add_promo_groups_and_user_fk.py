@@ -29,6 +29,7 @@ def _index_exists(inspector: sa.Inspector, table_name: str, index_name: str) -> 
 def _foreign_key_exists(inspector: sa.Inspector, table_name: str, fk_name: str) -> bool:
     return any(fk["name"] == fk_name for fk in inspector.get_foreign_keys(table_name))
 
+
 revision: str = "1f5f3a3f5a4d"
 down_revision: Union[str, None] = "cbd1be472f3d"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -140,15 +141,11 @@ def upgrade() -> None:
         default_group_id = existing_named_group["id"]
         if not existing_named_group["is_default"]:
             connection.execute(
-                sa.update(promo_groups_table)
-                .where(promo_groups_table.c.id == default_group_id)
-                .values(is_default=True)
+                sa.update(promo_groups_table).where(promo_groups_table.c.id == default_group_id).values(is_default=True)
             )
     else:
         default_group_id = connection.execute(
-            sa.select(promo_groups_table.c.id)
-            .where(promo_groups_table.c.is_default.is_(True))
-            .limit(1)
+            sa.select(promo_groups_table.c.id).where(promo_groups_table.c.is_default.is_(True)).limit(1)
         ).scalar_one_or_none()
 
         if default_group_id is None:
@@ -169,9 +166,7 @@ def upgrade() -> None:
         sa.column("promo_group_id", sa.Integer()),
     )
     connection.execute(
-        sa.update(users_table)
-        .where(users_table.c.promo_group_id.is_(None))
-        .values(promo_group_id=default_group_id)
+        sa.update(users_table).where(users_table.c.promo_group_id.is_(None)).values(promo_group_id=default_group_id)
     )
 
     inspector = sa.inspect(bind)
@@ -194,11 +189,7 @@ def downgrade() -> None:
 
     if _column_exists(inspector, USERS_TABLE, PROMO_GROUP_COLUMN):
         column_info = next(
-            (
-                col
-                for col in inspector.get_columns(USERS_TABLE)
-                if col["name"] == PROMO_GROUP_COLUMN
-            ),
+            (col for col in inspector.get_columns(USERS_TABLE) if col["name"] == PROMO_GROUP_COLUMN),
             None,
         )
         if column_info and not column_info.get("nullable", False):

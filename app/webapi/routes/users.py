@@ -79,8 +79,7 @@ def _serialize_user(user: User) -> UserResponse:
         last_name=user.last_name,
         status=user.status,
         language=user.language,
-        balance_kopeks=user.balance_kopeks,
-        balance_rubles=round(user.balance_kopeks / 100, 2),
+        balance_toman=user.balance_toman,
         referral_code=user.referral_code,
         referred_by_id=user.referred_by_id,
         has_had_paid_subscription=user.has_had_paid_subscription,
@@ -119,12 +118,9 @@ async def list_users(
     promo_group_id: Optional[int] = Query(default=None),
     search: Optional[str] = Query(default=None),
 ) -> UserListResponse:
-    base_query = (
-        select(User)
-        .options(
-            selectinload(User.subscription),
-            selectinload(User.promo_group),
-        )
+    base_query = select(User).options(
+        selectinload(User.subscription),
+        selectinload(User.promo_group),
     )
 
     if status_filter:
@@ -139,9 +135,7 @@ async def list_users(
     total_query = base_query.with_only_columns(func.count()).order_by(None)
     total = await db.scalar(total_query) or 0
 
-    result = await db.execute(
-        base_query.order_by(User.created_at.desc()).offset(offset).limit(limit)
-    )
+    result = await db.execute(base_query.order_by(User.created_at.desc()).offset(offset).limit(limit))
     users = result.scalars().unique().all()
 
     return UserListResponse(
@@ -162,7 +156,7 @@ async def get_user(
     user = await get_user_by_telegram_id(db, user_id)
     if user:
         return _serialize_user(user)
-    
+
     # If not found as telegram_id, check as internal user ID
     user = await get_user_by_id(db, user_id)
     if not user:
@@ -183,7 +177,7 @@ async def get_user_by_telegram_id_endpoint(
     user = await get_user_by_telegram_id(db, telegram_id)
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    
+
     return _serialize_user(user)
 
 
@@ -231,7 +225,7 @@ async def update_user_endpoint(
     else:
         # If not found as telegram_id, check as internal user ID
         found_user = await get_user_by_id(db, user_id)
-    
+
     if not found_user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
@@ -278,7 +272,7 @@ async def update_user_endpoint(
         found_user = await get_user_by_telegram_id(db, user_id)
     else:
         found_user = await get_user_by_id(db, found_user.id)
-        
+
     return _serialize_user(found_user)
 
 
@@ -289,7 +283,7 @@ async def update_balance(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
-    if payload.amount_kopeks == 0:
+    if payload.amount_toman == 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Amount must be non-zero")
 
     # First check if the provided ID is a telegram_id
@@ -299,15 +293,15 @@ async def update_balance(
     else:
         # If not found as telegram_id, check as internal user ID
         found_user = await get_user_by_id(db, user_id)
-    
+
     if not found_user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
 
     success = await add_user_balance(
         db,
         found_user,
-        amount_kopeks=payload.amount_kopeks,
-        description=payload.description or "Корректировка через веб-API",
+        amount_toman=payload.amount_toman,
+        description=payload.description or "Adjustment via web API",
         create_transaction=payload.create_transaction,
     )
 
@@ -319,5 +313,5 @@ async def update_balance(
         found_user = await get_user_by_telegram_id(db, user_id)
     else:
         found_user = await get_user_by_id(db, found_user.id)
-        
+
     return _serialize_user(found_user)

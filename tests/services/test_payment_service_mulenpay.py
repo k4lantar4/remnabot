@@ -77,8 +77,8 @@ async def test_create_mulenpay_payment_success(monkeypatch: pytest.MonkeyPatch) 
         fake_create_mulenpay_payment,
         raising=False,
     )
-    monkeypatch.setattr(settings, "MULENPAY_MIN_AMOUNT_KOPEKS", 1000, raising=False)
-    monkeypatch.setattr(settings, "MULENPAY_MAX_AMOUNT_KOPEKS", 1_000_000, raising=False)
+    monkeypatch.setattr(settings, "MULENPAY_MIN_AMOUNT_TOMAN", 100000, raising=False)  # 1000 toman (was 10 rubles = 1000 kopeks)
+    monkeypatch.setattr(settings, "MULENPAY_MAX_AMOUNT_TOMAN", 100_000_000, raising=False)  # 1000000 toman (was 10000 rubles = 1000000 kopeks)
     monkeypatch.setattr(settings, "MULENPAY_VAT_CODE", 1, raising=False)
     monkeypatch.setattr(settings, "MULENPAY_PAYMENT_SUBJECT", "service", raising=False)
     monkeypatch.setattr(settings, "MULENPAY_PAYMENT_MODE", "full_payment", raising=False)
@@ -88,7 +88,7 @@ async def test_create_mulenpay_payment_success(monkeypatch: pytest.MonkeyPatch) 
     result = await service.create_mulenpay_payment(
         db=db,
         user_id=77,
-        amount_kopeks=25000,
+        amount_toman=2_500_000,  # 25000 toman (was 250 rubles = 25000 kopeks)
         description="Пополнение",
         language="en",
     )
@@ -100,7 +100,7 @@ async def test_create_mulenpay_payment_success(monkeypatch: pytest.MonkeyPatch) 
     assert result["status"] == "created"
     assert stub.calls and stub.calls[0]["language"] == "en"
     assert captured_args["user_id"] == 77
-    assert captured_args["amount_kopeks"] == 25000
+    assert captured_args["amount_toman"] == 2_500_000
     assert captured_args["uuid"].startswith("mulen_77_")
 
 
@@ -110,13 +110,13 @@ async def test_create_mulenpay_payment_respects_amount_limits(monkeypatch: pytes
     service = _make_service(stub)
     db = DummySession()
 
-    monkeypatch.setattr(settings, "MULENPAY_MIN_AMOUNT_KOPEKS", 5000, raising=False)
-    monkeypatch.setattr(settings, "MULENPAY_MAX_AMOUNT_KOPEKS", 10_000, raising=False)
+    monkeypatch.setattr(settings, "MULENPAY_MIN_AMOUNT_TOMAN", 500000, raising=False)  # 5000 toman (was 50 rubles = 5000 kopeks)
+    monkeypatch.setattr(settings, "MULENPAY_MAX_AMOUNT_TOMAN", 1_000_000, raising=False)  # 10000 toman (was 100 rubles = 10000 kopeks)
 
     result_low = await service.create_mulenpay_payment(
         db=db,
         user_id=1,
-        amount_kopeks=1000,
+        amount_toman=100000,  # 1000 toman (was 10 rubles = 1000 kopeks)
         description="Пополнение",
     )
     assert result_low is None
@@ -124,7 +124,7 @@ async def test_create_mulenpay_payment_respects_amount_limits(monkeypatch: pytes
     result_high = await service.create_mulenpay_payment(
         db=db,
         user_id=1,
-        amount_kopeks=20_000,
+        amount_toman=2_000_000,  # 20000 toman (was 200 rubles = 20000 kopeks)
         description="Пополнение",
     )
     assert result_high is None
@@ -139,7 +139,7 @@ async def test_create_mulenpay_payment_returns_none_without_service() -> None:
     result = await service.create_mulenpay_payment(
         db=db,
         user_id=1,
-        amount_kopeks=5000,
+        amount_toman=500000,  # 5000 toman (was 50 rubles = 5000 kopeks)
         description="Пополнение",
     )
     assert result is None
@@ -155,7 +155,7 @@ async def test_process_mulenpay_callback_avoids_duplicate_transactions(
     class DummyPayment:
         def __init__(self) -> None:
             self.user_id = 42
-            self.amount_kopeks = 1500
+            self.amount_toman = 150000  # 1500 toman (was 15 rubles = 1500 kopeks)
             self.description = "Пополнение"
             self.uuid = "mulen_1_test"
             self.transaction_id: Optional[int] = None
@@ -198,7 +198,7 @@ async def test_process_mulenpay_callback_avoids_duplicate_transactions(
         def __init__(self) -> None:
             self.id = payment.user_id
             self.telegram_id = 99
-            self.balance_kopeks = 0
+            self.balance_toman = 0
             self.has_made_first_topup = False
             self.language = "ru"
             self.promo_group = None
@@ -219,7 +219,7 @@ async def test_process_mulenpay_callback_avoids_duplicate_transactions(
     async def fake_add_user_balance(
         _db: DummySession,
         user: DummyUser,
-        amount_kopeks: int,
+        amount_toman: int,
         description: str,
         *,
         create_transaction: bool = True,
@@ -229,10 +229,10 @@ async def test_process_mulenpay_callback_avoids_duplicate_transactions(
             {
                 "create_transaction": create_transaction,
                 "description": description,
-                "amount_kopeks": amount_kopeks,
+                "amount_toman": amount_toman,
             }
         )
-        user.balance_kopeks += amount_kopeks
+        user.balance_toman += amount_toman
         return True
 
     async def fake_process_referral_topup(*_args: Any, **_kwargs: Any) -> None:
@@ -305,5 +305,5 @@ async def test_process_mulenpay_callback_avoids_duplicate_transactions(
     assert result is True
     assert transaction_calls, "create_transaction should be called"
     assert balance_call["create_transaction"] is False
-    assert dummy_user.balance_kopeks == payment.amount_kopeks
+    assert dummy_user.balance_toman == payment.amount_toman
     assert payment.transaction_id is not None

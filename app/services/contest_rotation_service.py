@@ -77,7 +77,7 @@ DEFAULT_TEMPLATES = [
         "attempts_per_user": 1,
         "times_per_day": 1,
         "schedule_times": "15:00",
-        "payload": {"flags": ["🇸🇪","🇸🇬","🇺🇸","🇷🇺","🇩🇪","🇯🇵","🇧🇷","🇦🇺","🇨🇦","🇫🇷"]},
+        "payload": {"flags": ["🇸🇪", "🇸🇬", "🇺🇸", "🇷🇺", "🇩🇪", "🇯🇵", "🇧🇷", "🇦🇺", "🇨🇦", "🇫🇷"]},
         "is_enabled": False,
     },
     {
@@ -201,9 +201,7 @@ class ContestRotationService:
                 times = self._parse_times(tpl.schedule_times) or []
                 for slot in times[: tpl.times_per_day]:
                     # Apply schedule time to local date
-                    starts_at_local = now_local.replace(
-                        hour=slot.hour, minute=slot.minute, second=0, microsecond=0
-                    )
+                    starts_at_local = now_local.replace(hour=slot.hour, minute=slot.minute, second=0, microsecond=0)
                     if starts_at_local > now_local:
                         starts_at_local -= timedelta(days=1)
                     ends_at_local = starts_at_local + timedelta(hours=tpl.cooldown_hours)
@@ -256,7 +254,7 @@ class ContestRotationService:
             codes = [str(ord(ch.upper()) - 64) for ch in word if ch.isalpha()]
             return {"question": "-".join(codes), "answer": word.upper()}
         if tpl.slug == GAME_SERVER:
-            flags = payload.get("flags") or ["🇸🇪","🇸🇬","🇺🇸","🇷🇺","🇩🇪","🇯🇵","🇧🇷","🇦🇺","🇨🇦","🇫🇷"]
+            flags = payload.get("flags") or ["🇸🇪", "🇸🇬", "🇺🇸", "🇷🇺", "🇩🇪", "🇯🇵", "🇧🇷", "🇦🇺", "🇨🇦", "🇫🇷"]
             secret_idx = random.randint(0, len(flags) - 1)
             return {"flags": flags, "secret_idx": secret_idx}
         if tpl.slug == GAME_BLITZ:
@@ -305,9 +303,9 @@ class ContestRotationService:
         except Exception:
             channel_id = channel_id_raw
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 Играть", callback_data="contests_menu")]
-        ])
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🎲 Играть", callback_data="contests_menu")]]
+        )
 
         try:
             await self.bot.send_message(
@@ -329,9 +327,9 @@ class ContestRotationService:
             offset = 0
             sent = failed = 0
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🎲 Играть", callback_data="contests_menu")]
-            ])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="🎲 Играть", callback_data="contests_menu")]]
+            )
 
             while True:
                 async with AsyncSessionLocal() as db:

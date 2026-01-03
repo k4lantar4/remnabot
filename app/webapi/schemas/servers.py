@@ -1,4 +1,4 @@
-"""Pydantic-схемы для управления серверами через Web API."""
+"""Pydantic schemas for managing servers via Web API."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .users import PromoGroupSummary
 
 
 class ServerResponse(BaseModel):
-    """Полная информация о сервере."""
+    """Full server information."""
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -22,21 +22,18 @@ class ServerResponse(BaseModel):
     country_code: Optional[str] = Field(default=None, alias="countryCode")
     is_available: bool = Field(alias="isAvailable")
     is_trial_eligible: bool = Field(default=False, alias="isTrialEligible")
-    price_kopeks: int = Field(alias="priceKopeks")
-    price_rubles: float = Field(alias="priceRubles")
+    price_toman: int = Field(alias="priceToman")
     description: Optional[str] = None
     sort_order: int = Field(default=0, alias="sortOrder")
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     current_users: int = Field(default=0, alias="currentUsers")
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
     updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
-    promo_groups: List[PromoGroupSummary] = Field(
-        default_factory=list, alias="promoGroups"
-    )
+    promo_groups: List[PromoGroupSummary] = Field(default_factory=list, alias="promoGroups")
 
 
 class ServerListResponse(BaseModel):
-    """Список серверов с пагинацией."""
+    """Paginated list of servers."""
 
     items: List[ServerResponse]
     total: int
@@ -45,13 +42,13 @@ class ServerListResponse(BaseModel):
 
 
 class ServerCreateRequest(BaseModel):
-    """Запрос на создание сервера."""
+    """Request to create a server."""
 
     squad_uuid: str = Field(alias="squadUuid")
     display_name: str = Field(alias="displayName")
     original_name: Optional[str] = Field(default=None, alias="originalName")
     country_code: Optional[str] = Field(default=None, alias="countryCode")
-    price_kopeks: int = Field(default=0, alias="priceKopeks")
+    price_toman: int = Field(default=0, alias="priceToman")
     description: Optional[str] = None
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     is_available: bool = Field(default=True, alias="isAvailable")
@@ -60,33 +57,31 @@ class ServerCreateRequest(BaseModel):
     promo_group_ids: Optional[List[int]] = Field(
         default=None,
         alias="promoGroupIds",
-        description="Список идентификаторов промогрупп, доступных на сервере.",
+        description="List of promo group IDs available on the server.",
     )
 
 
 class ServerUpdateRequest(BaseModel):
-    """Запрос на обновление свойств сервера."""
+    """Request to update server properties."""
 
     display_name: Optional[str] = Field(default=None, alias="displayName")
     original_name: Optional[str] = Field(default=None, alias="originalName")
     country_code: Optional[str] = Field(default=None, alias="countryCode")
-    price_kopeks: Optional[int] = Field(default=None, alias="priceKopeks")
+    price_toman: Optional[int] = Field(default=None, alias="priceToman")
     description: Optional[str] = None
     max_users: Optional[int] = Field(default=None, alias="maxUsers")
     is_available: Optional[bool] = Field(default=None, alias="isAvailable")
-    is_trial_eligible: Optional[bool] = Field(
-        default=None, alias="isTrialEligible"
-    )
+    is_trial_eligible: Optional[bool] = Field(default=None, alias="isTrialEligible")
     sort_order: Optional[int] = Field(default=None, alias="sortOrder")
     promo_group_ids: Optional[List[int]] = Field(
         default=None,
         alias="promoGroupIds",
-        description="Если передан список, он заменит текущие промогруппы сервера.",
+        description="If provided, the list replaces current server promo groups.",
     )
 
 
 class ServerSyncResponse(BaseModel):
-    """Результат синхронизации серверов с RemnaWave."""
+    """Result of server synchronization with RemnaWave."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -97,7 +92,7 @@ class ServerSyncResponse(BaseModel):
 
 
 class ServerStatisticsResponse(BaseModel):
-    """Агрегированная статистика по серверам."""
+    """Aggregated statistics for servers."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -105,12 +100,11 @@ class ServerStatisticsResponse(BaseModel):
     available_servers: int = Field(alias="availableServers")
     unavailable_servers: int = Field(alias="unavailableServers")
     servers_with_connections: int = Field(alias="serversWithConnections")
-    total_revenue_kopeks: int = Field(alias="totalRevenueKopeks")
-    total_revenue_rubles: float = Field(alias="totalRevenueRubles")
+    total_revenue_toman: int = Field(alias="totalRevenueToman")
 
 
 class ServerCountsSyncResponse(BaseModel):
-    """Результат обновления счетчиков пользователей серверов."""
+    """Result of updating server user counters."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -118,7 +112,7 @@ class ServerCountsSyncResponse(BaseModel):
 
 
 class ServerConnectedUser(BaseModel):
-    """Краткая информация о пользователе, подключенном к серверу."""
+    """Short info about a user connected to the server."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -128,19 +122,14 @@ class ServerConnectedUser(BaseModel):
     first_name: Optional[str] = Field(default=None, alias="firstName")
     last_name: Optional[str] = Field(default=None, alias="lastName")
     status: str
-    balance_kopeks: int = Field(alias="balanceKopeks")
-    balance_rubles: float = Field(alias="balanceRubles")
+    balance_toman: int = Field(alias="balanceToman")
     subscription_id: Optional[int] = Field(default=None, alias="subscriptionId")
-    subscription_status: Optional[str] = Field(
-        default=None, alias="subscriptionStatus"
-    )
-    subscription_end_date: Optional[datetime] = Field(
-        default=None, alias="subscriptionEndDate"
-    )
+    subscription_status: Optional[str] = Field(default=None, alias="subscriptionStatus")
+    subscription_end_date: Optional[datetime] = Field(default=None, alias="subscriptionEndDate")
 
 
 class ServerConnectedUsersResponse(BaseModel):
-    """Список пользователей, подключенных к серверу."""
+    """List of users connected to the server."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -151,10 +140,9 @@ class ServerConnectedUsersResponse(BaseModel):
 
 
 class ServerDeleteResponse(BaseModel):
-    """Ответ при удалении сервера."""
+    """Response for server deletion."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     success: bool
     message: str
-

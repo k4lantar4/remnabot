@@ -88,7 +88,7 @@ class PrivacyPolicyService:
             content,
             enable_if_new=enable_if_new,
         )
-        logger.info("✅ Политика конфиденциальности обновлена для языка %s", lang)
+        logger.info("Privacy policy updated for language %s", lang)
         return policy
 
     @classmethod
@@ -135,11 +135,7 @@ class PrivacyPolicyService:
         if len(normalized) <= max_len:
             return [normalized]
 
-        paragraphs = [
-            paragraph.strip()
-            for paragraph in normalized.split("\n\n")
-            if paragraph.strip()
-        ]
+        paragraphs = [paragraph.strip() for paragraph in normalized.split("\n\n") if paragraph.strip()]
 
         pages: List[str] = []
         current = ""
@@ -164,7 +160,7 @@ class PrivacyPolicyService:
 
             start_index = 0
             while start_index < len(paragraph):
-                chunk = paragraph[start_index:start_index + max_len]
+                chunk = paragraph[start_index : start_index + max_len]
                 pages.append(chunk.strip())
                 start_index += max_len
 
