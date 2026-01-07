@@ -280,7 +280,7 @@ class Settings(BaseSettings):
     MULENPAY_ENABLED: bool = False
     MULENPAY_API_KEY: Optional[str] = None
     MULENPAY_SECRET_KEY: Optional[str] = None
-    MULENPAY_SHOP_ID: Optional[int] = None
+    MULENPAY_SHOP_ID: Optional[int] = Field(default=None)
     MULENPAY_BASE_URL: str = "https://mulenpay.ru/api"
     MULENPAY_WEBHOOK_PATH: str = "/mulenpay-webhook"
     MULENPAY_DISPLAY_NAME: str = "Mulen Pay"
@@ -294,6 +294,22 @@ class Settings(BaseSettings):
     MULENPAY_MIN_AMOUNT_TOMAN: int = Field(default=1000000, validation_alias="MULENPAY_MIN_AMOUNT_KOPEKS")
     MULENPAY_MAX_AMOUNT_TOMAN: int = Field(default=1000000000, validation_alias="MULENPAY_MAX_AMOUNT_KOPEKS")
     MULENPAY_IFRAME_EXPECTED_ORIGIN: Optional[str] = None
+
+    @field_validator("MULENPAY_SHOP_ID", mode="before")
+    @classmethod
+    def validate_mulenpay_shop_id(cls, v):
+        """Convert empty string to None for MULENPAY_SHOP_ID."""
+        if v == "" or v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None
+            try:
+                return int(v)
+            except ValueError:
+                return None
+        return v
 
     PAL24_ENABLED: bool = False
     PAL24_API_TOKEN: Optional[str] = None
