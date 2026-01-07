@@ -848,6 +848,15 @@ class User(Base):
     last_pinned_message_id = Column(Integer, nullable=True)
     bot = relationship("Bot", primaryjoin="User.bot_id == Bot.id", back_populates="users", foreign_keys="User.bot_id")
 
+    # Cabinet authentication columns
+    cabinet_email = Column(String(255), nullable=True)
+    cabinet_email_verified = Column(Boolean, default=False, nullable=False)
+    cabinet_password_hash = Column(String(255), nullable=True)
+    cabinet_email_verification_token = Column(String(255), nullable=True)
+    cabinet_email_verification_expires_at = Column(DateTime, nullable=True)
+    cabinet_password_reset_token = Column(String(255), nullable=True)
+    cabinet_password_reset_expires_at = Column(DateTime, nullable=True)
+
     __table_args__ = (
         # Partial unique index: enforce uniqueness when bot_id IS NOT NULL
         # NULL bot_id values are allowed (legacy data), but multiple NULLs bypass constraint
@@ -1146,6 +1155,7 @@ class PromoCode(Base):
     valid_until = Column(DateTime, nullable=True)
 
     is_active = Column(Boolean, default=True)
+    first_purchase_only = Column(Boolean, default=False, nullable=False)
 
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     promo_group_id = Column(Integer, ForeignKey("promo_groups.id", ondelete="SET NULL"), nullable=True, index=True)

@@ -240,8 +240,6 @@ class Settings(BaseSettings):
 
     NALOGO_ENABLED: bool = False
     NALOGO_RECEIPTS_ENABLED: bool = False
-    NALOGO_INN: Optional[str] = None
-    NALOGO_PASSWORD: Optional[str] = None
     NALOGO_DEVICE_ID: Optional[str] = None
     NALOGO_STORAGE_PATH: str = "./nalogo_tokens.json"
 
@@ -1041,7 +1039,17 @@ class Settings(BaseSettings):
         return self.YOOKASSA_ENABLED and self.YOOKASSA_SHOP_ID is not None and self.YOOKASSA_SECRET_KEY is not None
 
     def is_nalogo_enabled(self) -> bool:
-        return self.NALOGO_ENABLED and self.NALOGO_INN is not None and self.NALOGO_PASSWORD is not None
+        """
+        Check if Nalogo is enabled.
+        
+        .. deprecated:: 2026-01-07
+            NALOGO_INN and NALOGO_PASSWORD have been moved to tenant config.
+            This method now only checks NALOGO_ENABLED flag.
+            For tenant-specific checks, use get_nalogo_config() from bot_configuration CRUD.
+        """
+        # NALOGO_INN and NALOGO_PASSWORD moved to tenant config (per-tenant)
+        # This method now only checks the global enable flag
+        return bool(self.NALOGO_ENABLED)
 
     def is_support_topup_enabled(self) -> bool:
         return bool(self.SUPPORT_TOPUP_ENABLED)

@@ -20,6 +20,15 @@ class NaloGoService:
         device_id: Optional[str] = None,
         storage_path: Optional[str] = None,
     ):
+        # DEPRECATED: NALOGO_INN and NALOGO_PASSWORD moved to tenant config
+        # This fallback will be removed in future version
+        # Use get_nalogo_config(db, bot_id) from app.database.crud.bot_configuration instead
+        if not inn or not password:
+            logger.warning(
+                "NalogoService: NALOGO_INN and NALOGO_PASSWORD have been moved to tenant config. "
+                "This fallback to global settings is deprecated. "
+                "Please refactor to use get_nalogo_config(db, bot_id) from bot_configuration CRUD."
+            )
         inn = inn or getattr(settings, "NALOGO_INN", None)
         password = password or getattr(settings, "NALOGO_PASSWORD", None)
         device_id = device_id or getattr(settings, "NALOGO_DEVICE_ID", None)

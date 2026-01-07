@@ -164,3 +164,45 @@ async def update_configuration_partial(
             partial_value,
             commit=commit,
         )
+
+
+async def get_cabinet_jwt_secret(db: AsyncSession, bot_id: int) -> Optional[str]:
+    """Get Cabinet JWT secret for a tenant.
+    
+    Args:
+        db: Database session
+        bot_id: Bot ID (tenant identifier)
+        
+    Returns:
+        JWT secret string if found, None otherwise
+        
+    Example:
+        secret = await get_cabinet_jwt_secret(db, bot_id=1)
+    """
+    config = await get_config_value(db, bot_id, "cabinet.jwt_secret")
+    if config and isinstance(config, dict):
+        return config.get("secret")
+    return None
+
+
+async def get_nalogo_config(db: AsyncSession, bot_id: int) -> Dict[str, str]:
+    """Get Nalogo configuration for a tenant.
+    
+    Args:
+        db: Database session
+        bot_id: Bot ID (tenant identifier)
+        
+    Returns:
+        Dictionary with 'inn' and 'password' keys, empty dict if not found
+        
+    Example:
+        nalogo = await get_nalogo_config(db, bot_id=1)
+        # Returns: {"inn": "...", "password": "..."}
+    """
+    config = await get_config_value(db, bot_id, "nalogo.credentials")
+    if config and isinstance(config, dict):
+        return {
+            "inn": config.get("inn", ""),
+            "password": config.get("password", ""),
+        }
+    return {}
