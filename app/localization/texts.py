@@ -198,19 +198,42 @@ class Texts:
     def format_price(kopeks: int, round_kopeks: bool | None = None) -> str:
         return settings.format_price(kopeks, round_kopeks=round_kopeks)
 
-    @staticmethod
-    def format_traffic(gb: float, is_limit: bool = True) -> str:
+    def format_traffic(self, gb: float, is_limit: bool = True, language: str | None = None) -> str:
         """Format traffic value.
 
         Args:
             gb: Traffic in gigabytes
             is_limit: If True, 0 means unlimited. If False, 0 means zero used.
+            language: Optional language code; uses instance language when omitted.
         """
+        lang = (language or self.language or DEFAULT_LANGUAGE).split('-')[0].lower()
+        lang = _LANGUAGE_ALIASES.get(lang, lang)
+
         if gb == 0:
-            return '∞ (безлимит)' if is_limit else '0 ГБ'
+            if is_limit:
+                unlimited = {
+                    'fa': '∞ (نامحدود)',
+                    'en': '∞ (unlimited)',
+                    'ua': '∞ (безліміт)',
+                    'zh': '∞ (无限)',
+                }
+                return unlimited.get(lang, '∞ (безлимит)')
+            zero = {'fa': '۰ گیگ', 'en': '0 GB', 'ua': '0 ГБ', 'zh': '0 GB'}
+            return zero.get(lang, '0 ГБ')
+
         if gb >= 1024:
-            return f'{gb / 1024:.1f} ТБ'
-        return f'{gb:.0f} ГБ'
+            tb = {'fa': 'ترابایت', 'en': 'TB', 'ua': 'ТБ', 'zh': 'TB'}
+            unit = tb.get(lang, 'ТБ')
+            value = gb / 1024
+            if lang == 'fa':
+                return f'{value:.1f} {unit}'
+            return f'{value:.1f} {unit}'
+
+        gb_unit = {'fa': 'گیگ', 'en': 'GB', 'ua': 'ГБ', 'zh': 'GB'}
+        unit = gb_unit.get(lang, 'ГБ')
+        if lang == 'fa':
+            return f'{gb:.0f} {unit}'
+        return f'{gb:.0f} {unit}'
 
 
 def get_texts(language: str = DEFAULT_LANGUAGE) -> Texts:
