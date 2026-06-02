@@ -3151,100 +3151,170 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
     if campaign_registration:
         campaign_stats = await get_campaign_statistics(db, campaign_registration.campaign_id)
 
-    text = '📊 <b>Статистика пользователя</b>\n\n'
+    text = texts.t('ADMIN_USER_STATS_PROFILE_TITLE', '📊 <b>Статистика пользователя</b>\n\n')
     user_link = user_html_link(user)
     user_id_display = user.telegram_id or user.email or f'#{user.id}'
-    text += f'👤 {user_link} (ID: <code>{user_id_display}</code>)\n\n'
+    text += texts.t('ADMIN_USER_STATS_PROFILE_USER', '👤 {user_link} (ID: <code>{user_id}</code>)\n\n').format(
+        user_link=user_link, user_id=user_id_display
+    )
 
-    text += '<b>Основная информация:</b>\n'
-    text += f'• Дней с регистрации: {profile["registration_days"]}\n'
-    text += f'• Баланс: {settings.format_price(user.balance_kopeks)}\n'
-    text += f'• Транзакций: {profile["transactions_count"]}\n'
-    text += f'• Язык: {user.language}\n\n'
+    text += texts.t('ADMIN_USER_STATS_BASIC_HEADER', '<b>Основная информация:</b>\n')
+    text += texts.t('ADMIN_USER_STATS_BASIC_DAYS', '• Дней с регистрации: {days}\n').format(
+        days=profile['registration_days']
+    )
+    text += texts.t('ADMIN_USER_STATS_BASIC_BALANCE', '• Баланс: {balance}\n').format(
+        balance=settings.format_price(user.balance_kopeks)
+    )
+    text += texts.t('ADMIN_USER_STATS_BASIC_TX', '• Транзакций: {count}\n').format(count=profile['transactions_count'])
+    text += texts.t('ADMIN_USER_STATS_BASIC_LANG', '• Язык: {lang}\n\n').format(lang=user.language)
 
-    text += '<b>Подписка:</b>\n'
+    text += texts.t('ADMIN_USER_STATS_SUB_HEADER', '<b>Подписка:</b>\n')
     if subscription:
-        sub_status = '✅ Активна' if subscription.is_active else '❌ Неактивна'
-        sub_type = ' (пробная)' if subscription.is_trial else ' (платная)'
-        text += f'• Статус: {sub_status}{sub_type}\n'
-        text += f'• Трафик: {subscription.traffic_used_gb:.1f}/{subscription.traffic_limit_gb} ГБ\n'
-        text += f'• Устройства: {subscription.device_limit}\n'
-        text += f'• Стран: {len(subscription.connected_squads or [])}\n'
+        if subscription.is_active:
+            sub_status = texts.t('ADMIN_USER_STATS_SUB_ACTIVE', '✅ Активна')
+        else:
+            sub_status = texts.t('ADMIN_USER_STATS_SUB_INACTIVE', '❌ Неактивна')
+        sub_type = (
+            texts.t('ADMIN_USER_STATS_SUB_TRIAL_SUFFIX', ' (пробная)')
+            if subscription.is_trial
+            else texts.t('ADMIN_USER_STATS_SUB_PAID_SUFFIX', ' (платная)')
+        )
+        text += texts.t('ADMIN_USER_STATS_SUB_STATUS', '• Статус: {status}{type}\n').format(
+            status=sub_status, type=sub_type
+        )
+        text += texts.t('ADMIN_USER_STATS_SUB_TRAFFIC', '• Трафик: {used}/{limit} ГБ\n').format(
+            used=f'{subscription.traffic_used_gb:.1f}', limit=subscription.traffic_limit_gb
+        )
+        text += texts.t('ADMIN_USER_STATS_SUB_DEVICES', '• Устройства: {count}\n').format(
+            count=subscription.device_limit
+        )
+        text += texts.t('ADMIN_USER_STATS_SUB_COUNTRIES', '• Стран: {count}\n').format(
+            count=len(subscription.connected_squads or [])
+        )
     else:
-        text += '• Отсутствует\n'
+        text += texts.t('ADMIN_USER_STATS_SUB_NONE', '• Отсутствует\n')
 
-    text += '\n<b>Реферальная программа:</b>\n'
+    text += '\n' + texts.t('ADMIN_USER_STATS_REFERRAL_HEADER', '<b>Реферальная программа:</b>\n')
 
     if user.referred_by_id:
         referrer = await get_user_by_id(db, user.referred_by_id)
         if referrer:
-            text += f'• Пришел по реферальной ссылке от <b>{html.escape(referrer.full_name)}</b>\n'
+            text += texts.t(
+                'ADMIN_USER_STATS_REF_BY_LINK',
+                '• Пришел по реферальной ссылке от <b>{name}</b>\n',
+            ).format(name=html.escape(referrer.full_name))
         else:
-            text += '• Пришел по реферальной ссылке (реферер не найден)\n'
+            text += texts.t('ADMIN_USER_STATS_REF_BY_LINK_MISSING', '• Пришел по реферальной ссылке (реферер не найден)\n')
         if campaign_registration and campaign_registration.campaign:
-            text += f'• Дополнительно зарегистрирован через кампанию <b>{html.escape(campaign_registration.campaign.name)}</b>\n'
+            text += texts.t(
+                'ADMIN_USER_STATS_REF_PLUS_CAMPAIGN',
+                '• Дополнительно зарегистрирован через кампанию <b>{name}</b>\n',
+            ).format(name=html.escape(campaign_registration.campaign.name))
     elif campaign_registration and campaign_registration.campaign:
-        text += f'• Регистрация через рекламную кампанию <b>{html.escape(campaign_registration.campaign.name)}</b>\n'
+        text += texts.t(
+            'ADMIN_USER_STATS_CAMPAIGN_REG',
+            '• Регистрация через рекламную кампанию <b>{name}</b>\n',
+        ).format(name=html.escape(campaign_registration.campaign.name))
         if campaign_registration.created_at:
-            text += f'• Дата регистрации по кампании: {campaign_registration.created_at.strftime("%d.%m.%Y %H:%M")}\n'
+            text += texts.t(
+                'ADMIN_USER_STATS_CAMPAIGN_REG_DATE',
+                '• Дата регистрации по кампании: {date}\n',
+            ).format(date=campaign_registration.created_at.strftime('%d.%m.%Y %H:%M'))
     else:
-        text += '• Прямая регистрация\n'
+        text += texts.t('ADMIN_USER_STATS_DIRECT_REG', '• Прямая регистрация\n')
 
-    text += f'• Реферальный код: <code>{user.referral_code}</code>\n\n'
+    text += texts.t('ADMIN_USER_STATS_REF_CODE', '• Реферальный код: <code>{code}</code>\n\n').format(
+        code=user.referral_code
+    )
 
     if campaign_registration and campaign_registration.campaign and campaign_stats:
-        text += '<b>Рекламная кампания:</b>\n'
-        text += f'• Название: <b>{html.escape(campaign_registration.campaign.name)}</b>'
+        text += texts.t('ADMIN_USER_STATS_CAMPAIGN_HEADER', '<b>Рекламная кампания:</b>\n')
+        campaign_name = html.escape(campaign_registration.campaign.name)
         if campaign_registration.campaign.start_parameter:
-            text += f' (параметр: <code>{campaign_registration.campaign.start_parameter}</code>)'
-        text += '\n'
-        text += f'• Всего регистраций: {campaign_stats["registrations"]}\n'
-        text += f'• Суммарный доход: {settings.format_price(campaign_stats["total_revenue_kopeks"])}\n'
-        text += (
-            '• Получили триал: '
-            f'{campaign_stats["trial_users_count"]}'
-            f' (активно: {campaign_stats["active_trials_count"]})\n'
+            text += texts.t(
+                'ADMIN_USER_STATS_CAMPAIGN_NAME_PARAM',
+                '• Название: <b>{name}</b> (параметр: <code>{param}</code>)\n',
+            ).format(name=campaign_name, param=campaign_registration.campaign.start_parameter)
+        else:
+            text += texts.t('ADMIN_USER_STATS_CAMPAIGN_NAME', '• Название: <b>{name}</b>\n').format(name=campaign_name)
+        text += texts.t('ADMIN_USER_STATS_CAMPAIGN_REGS', '• Всего регистраций: {count}\n').format(
+            count=campaign_stats['registrations']
         )
-        text += (
-            '• Конверсий в оплату: '
-            f'{campaign_stats["conversion_count"]}'
-            f' (оплативших пользователей: {campaign_stats["paid_users_count"]})\n'
+        text += texts.t('ADMIN_USER_STATS_CAMPAIGN_REVENUE', '• Суммарный доход: {amount}\n').format(
+            amount=settings.format_price(campaign_stats['total_revenue_kopeks'])
         )
-        text += f'• Конверсия в оплату: {campaign_stats["conversion_rate"]:.1f}%\n'
-        text += f'• Конверсия триала: {campaign_stats["trial_conversion_rate"]:.1f}%\n'
-        text += (
-            f'• Средний доход на пользователя: {settings.format_price(campaign_stats["avg_revenue_per_user_kopeks"])}\n'
+        text += texts.t(
+            'ADMIN_USER_STATS_CAMPAIGN_TRIALS',
+            '• Получили триал: {total} (активно: {active})\n',
+        ).format(
+            total=campaign_stats['trial_users_count'], active=campaign_stats['active_trials_count']
         )
-        text += f'• Средний первый платеж: {settings.format_price(campaign_stats["avg_first_payment_kopeks"])}\n'
+        text += texts.t(
+            'ADMIN_USER_STATS_CAMPAIGN_CONVERSIONS',
+            '• Конверсий в оплату: {conversions} (оплативших пользователей: {paid})\n',
+        ).format(
+            conversions=campaign_stats['conversion_count'], paid=campaign_stats['paid_users_count']
+        )
+        text += texts.t('ADMIN_USER_STATS_CAMPAIGN_CONV_RATE', '• Конверсия в оплату: {rate:.1f}%\n').format(
+            rate=campaign_stats['conversion_rate']
+        )
+        text += texts.t('ADMIN_USER_STATS_CAMPAIGN_TRIAL_RATE', '• Конверсия триала: {rate:.1f}%\n').format(
+            rate=campaign_stats['trial_conversion_rate']
+        )
+        text += texts.t(
+            'ADMIN_USER_STATS_CAMPAIGN_AVG_REVENUE',
+            '• Средний доход на пользователя: {amount}\n',
+        ).format(amount=settings.format_price(campaign_stats['avg_revenue_per_user_kopeks']))
+        text += texts.t(
+            'ADMIN_USER_STATS_CAMPAIGN_AVG_FIRST',
+            '• Средний первый платеж: {amount}\n',
+        ).format(amount=settings.format_price(campaign_stats['avg_first_payment_kopeks']))
         text += '\n'
 
     if referral_stats['invited_count'] > 0:
-        text += '<b>Доходы от рефералов:</b>\n'
-        text += f'• Всего приглашено: {referral_stats["invited_count"]}\n'
-        text += f'• Активных рефералов: {referral_stats["active_referrals"]}\n'
-        text += f'• Общий доход: {settings.format_price(referral_stats["total_earned_kopeks"])}\n'
-        text += f'• Доход за месяц: {settings.format_price(referral_stats["month_earned_kopeks"])}\n'
+        text += texts.t('ADMIN_USER_STATS_REF_EARNINGS_HEADER', '<b>Доходы от рефералов:</b>\n')
+        text += texts.t('ADMIN_USER_STATS_REF_INVITED', '• Всего приглашено: {count}\n').format(
+            count=referral_stats['invited_count']
+        )
+        text += texts.t('ADMIN_USER_STATS_REF_ACTIVE', '• Активных рефералов: {count}\n').format(
+            count=referral_stats['active_referrals']
+        )
+        text += texts.t('ADMIN_USER_STATS_REF_TOTAL', '• Общий доход: {amount}\n').format(
+            amount=settings.format_price(referral_stats['total_earned_kopeks'])
+        )
+        text += texts.t('ADMIN_USER_STATS_REF_MONTH', '• Доход за месяц: {amount}\n').format(
+            amount=settings.format_price(referral_stats['month_earned_kopeks'])
+        )
 
         if referral_stats['referrals_detail']:
-            text += '\n<b>Детали по рефералам:</b>\n'
+            text += '\n' + texts.t('ADMIN_USER_STATS_REF_DETAILS_HEADER', '<b>Детали по рефералам:</b>\n')
             for detail in referral_stats['referrals_detail'][:5]:
                 referral_name = html.escape(detail['referral_name'])
                 earned = settings.format_price(detail['total_earned_kopeks'])
                 status = '🟢' if detail['is_active'] else '🔴'
-                text += f'• {status} {referral_name}: {earned}\n'
+                text += texts.t('ADMIN_USER_STATS_REF_DETAIL_LINE', '• {status} {name}: {earned}\n').format(
+                    status=status, name=referral_name, earned=earned
+                )
 
             if len(referral_stats['referrals_detail']) > 5:
-                text += f'• ... и еще {len(referral_stats["referrals_detail"]) - 5} рефералов\n'
+                text += texts.t('ADMIN_USER_STATS_REF_DETAIL_MORE', '• ... и еще {count} рефералов\n').format(
+                    count=len(referral_stats['referrals_detail']) - 5
+                )
     else:
-        text += '<b>Реферальная программа:</b>\n'
-        text += '• Рефералов нет\n'
-        text += '• Доходов нет\n'
+        text += texts.t('ADMIN_USER_STATS_REFERRAL_HEADER', '<b>Реферальная программа:</b>\n')
+        text += texts.t('ADMIN_USER_STATS_REF_NONE', '• Рефералов нет\n')
+        text += texts.t('ADMIN_USER_STATS_REF_NO_EARNINGS', '• Доходов нет\n')
 
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='⬅️ К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '⬅️ К пользователю'),
+                        callback_data=f'admin_user_manage_{user_id}',
+                    )
+                ]
             ]
         ),
     )
