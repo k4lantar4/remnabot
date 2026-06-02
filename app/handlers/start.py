@@ -807,7 +807,13 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
                 )
             else:
                 logger.warning('Web auth attempt from unregistered user', telegram_id=message.from_user.id)
-                await message.answer('❌ Сначала зарегистрируйтесь в боте, затем попробуйте войти в кабинет.')
+                guest_texts = get_texts(getattr(message.from_user, 'language_code', None) or 'fa')
+                await message.answer(
+                    guest_texts.t(
+                        'MSG_REGISTER_BEFORE_CABINET',
+                        '❌ Сначала зарегистрируйтесь в боте, затем попробуйте войти в кабинет.',
+                    )
+                )
             return
         start_parameter = None  # Invalid token, ignore
 
@@ -2948,24 +2954,26 @@ async def process_webauth_confirm(
     db: AsyncSession,
 ):
     """Handle web auth confirmation or denial."""
+    language = getattr(getattr(callback, 'from_user', None), 'language_code', None) or 'fa'
+    texts = get_texts(language)
     await callback.answer()
 
     if not isinstance(callback.message, types.Message):
         return
 
     if callback.data == 'webauth_deny':
-        await callback.message.edit_text('❌ Вход отменён.')
+        await callback.message.edit_text(texts.t('WEB_AUTH_CANCELLED', '❌ Вход отменён.'))
         return
 
     # Extract token from callback_data: "webauth_confirm:{token}"
     token = callback.data.split(':', 1)[1] if ':' in callback.data else ''
     if len(token) < WEB_AUTH_TOKEN_MIN_LENGTH:
-        await callback.message.edit_text('❌ Ошибка: неверный токен.')
+        await callback.message.edit_text(texts.t('WEB_AUTH_INVALID_TOKEN', '❌ Ошибка: неверный токен.'))
         return
 
     user = await get_user_by_telegram_id(db, callback.from_user.id)
     if not user or user.status != UserStatus.ACTIVE.value:
-        await callback.message.edit_text('❌ Учётная запись неактивна.')
+        await callback.message.edit_text(texts.t('WEB_AUTH_ACCOUNT_INACTIVE', '❌ Учётная запись неактивна.'))
         return
 
     linked = await link_web_auth_token(token, callback.from_user.id, user.id)

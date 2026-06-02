@@ -2014,5 +2014,9 @@
   "MSG_TARIFF_SWITCH_ERROR": "❌ خطا در تغییر تعرفه",
   "MSG_TARIFF_CHANGE_ERROR": "❌ خطا در تعویض تعرفه",
   "MSG_INSUFFICIENT_FUNDS": "❌ موجودی کافی نیست",
-  "CB_UNKNOWN_PAYMENT_METHOD_DETAIL": "❌ روش پرداخت ناشناخته: {method}"
+  "CB_UNKNOWN_PAYMENT_METHOD_DETAIL": "❌ روش پرداخت ناشناخته: {method}",
+  "MSG_REGISTER_BEFORE_CABINET": "❌ ابتدا در ربات ثبت‌نام کنید، سپس ورود به پنل را امتحان کنید.",
+  "WEB_AUTH_CANCELLED": "❌ ورود لغو شد.",
+  "WEB_AUTH_INVALID_TOKEN": "❌ خطا: توکن نامعتبر.",
+  "WEB_AUTH_ACCOUNT_INACTIVE": "❌ حساب کاربری غیرفعال است."
 }
