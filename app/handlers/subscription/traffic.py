@@ -88,7 +88,7 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
                 )
             keyboard.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
             await callback.message.edit_text(
-                '📊 <b>Докупить трафик</b>\n\nВыберите подписку:',
+                texts.t('TRAFFIC_TOPUP_SELECT_SUB', '📊 <b>Докупить трафик</b>\n\nВыберите подписку:'),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
             )
             await callback.answer()
@@ -306,11 +306,20 @@ async def handle_reset_traffic(
         balance_info += f'\n⚠️ Не хватает: {texts.format_price(missing_kopeks)}'
 
     await callback.message.edit_text(
-        f'🔄 <b>Сброс трафика</b>\n\n'
-        f'Использовано: {texts.format_traffic(subscription.traffic_used_gb, is_limit=False)}\n'
-        f'Лимит: {texts.format_traffic(subscription.traffic_limit_gb)}\n\n'
-        f'Стоимость сброса: {texts.format_price(reset_price)}{price_info}{balance_info}\n\n'
-        'После сброса счетчик использованного трафика станет равным 0.',
+        texts.t(
+            'TRAFFIC_RESET_CONFIRM',
+            '🔄 <b>Сброс трафика</b>\n\n'
+            'Использовано: {used}\n'
+            'Лимит: {limit}\n\n'
+            'Стоимость сброса: {price}{price_info}{balance_info}\n\n'
+            'После сброса счетчик использованного трафика станет равным 0.',
+        ).format(
+            used=texts.format_traffic(subscription.traffic_used_gb, is_limit=False),
+            limit=texts.format_traffic(subscription.traffic_limit_gb),
+            price=texts.format_price(reset_price),
+            price_info=price_info,
+            balance_info=balance_info,
+        ),
         reply_markup=get_reset_traffic_confirm_keyboard(
             reset_price,
             db_user.language,
@@ -422,9 +431,12 @@ async def confirm_reset_traffic(
         await db.refresh(subscription)
 
         await callback.message.edit_text(
-            f'✅ Трафик успешно сброшен!\n\n'
-            f'🔄 Использованный трафик обнулен\n'
-            f'📊 Лимит: {texts.format_traffic(subscription.traffic_limit_gb)}',
+            texts.t(
+                'TRAFFIC_RESET_SUCCESS',
+                '✅ Трафик успешно сброшен!\n\n'
+                '🔄 Использованный трафик обнулен\n'
+                '📊 Лимит: {limit}',
+            ).format(limit=texts.format_traffic(subscription.traffic_limit_gb)),
             reply_markup=get_back_keyboard(db_user.language),
         )
 
@@ -822,16 +834,25 @@ async def handle_switch_traffic(
     # Показываем информацию о докупленном трафике, если он есть
     purchased_info = ''
     if purchased_traffic > 0:
-        purchased_info = f'\n📦 Базовый пакет: {texts.format_traffic(base_traffic)}\n➕ Докуплено: {texts.format_traffic(purchased_traffic)}'
+        purchased_info = texts.t(
+            'TRAFFIC_SWITCH_PURCHASED_INFO',
+            '\n📦 Базовый пакет: {base}\n➕ Докуплено: {purchased}',
+        ).format(base=texts.format_traffic(base_traffic), purchased=texts.format_traffic(purchased_traffic))
 
     await callback.message.edit_text(
-        f'🔄 <b>Переключение лимита трафика</b>\n\n'
-        f'Текущий лимит: {texts.format_traffic(current_traffic)}{purchased_info}\n'
-        f'Выберите новый лимит трафика:\n\n'
-        f'💡 <b>Важно:</b>\n'
-        f'• При увеличении - доплата за разницу\n'
-        f'• При уменьшении - возврат средств не производится\n'
-        f'• Докупленный трафик будет сброшен',
+        texts.t(
+            'TRAFFIC_SWITCH_PROMPT',
+            '🔄 <b>Переключение лимита трафика</b>\n\n'
+            'Текущий лимит: {current}{purchased_info}\n'
+            'Выберите новый лимит трафика:\n\n'
+            '💡 <b>Важно:</b>\n'
+            '• При увеличении - доплата за разницу\n'
+            '• При уменьшении - возврат средств не производится\n'
+            '• Докупленный трафик будет сброшен',
+        ).format(
+            current=texts.format_traffic(current_traffic),
+            purchased_info=purchased_info,
+        ),
         reply_markup=get_traffic_switch_keyboard(
             current_traffic,
             db_user.language,
