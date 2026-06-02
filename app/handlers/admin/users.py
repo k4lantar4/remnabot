@@ -224,9 +224,16 @@ async def _show_users_list_filtered(
         await callback.answer()
         return
 
+    texts = get_texts(db_user.language)
+    title_keys = {
+        UserFilterType.BALANCE: ('ADMIN_USERS_LIST_BALANCE_TITLE', config.title),
+        UserFilterType.CAMPAIGN: ('ADMIN_USERS_LIST_CAMPAIGN_TITLE', config.title),
+        UserFilterType.POTENTIAL: ('ADMIN_USERS_LIST_POTENTIAL_TITLE', config.title),
+    }
+    title_key, title_fallback = title_keys.get(filter_type, ('ADMIN_USERS_LIST_BALANCE_TITLE', config.title))
     # Формируем текст заголовка
-    text = f'{config.title} (стр. {page}/{users_data["total_pages"]})\n\n'
-    text += 'Нажмите на пользователя для управления:'
+    text = f'{texts.t(title_key, title_fallback)} (стр. {page}/{users_data["total_pages"]})\n\n'
+    text += texts.t('ADMIN_USERS_LIST_HINT', 'Нажмите на пользователя для управления:')
 
     # Формируем клавиатуру
     keyboard = []
