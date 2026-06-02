@@ -333,7 +333,12 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
 
     if total_cost > 0 and db_user.balance_kopeks < total_cost:
         missing_kopeks = total_cost - db_user.balance_kopeks
-        required_text = f'{texts.format_price(total_cost)} (за {charged_days} дн.)'
+        period_suffix = (
+            texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=charged_days)
+        )
+        required_text = f'{texts.format_price(total_cost)}{period_suffix}'
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -864,6 +869,7 @@ async def confirm_add_countries_to_subscription(
     total_price = 0
     new_countries_names = []
     removed_countries_names = []
+    charged_days = max(1, math.ceil((subscription.end_date - datetime.now(UTC)).total_seconds() / 86400))
 
     period_hint_days = _get_period_hint_from_subscription(subscription)
     servers_discount_percent = PricingEngine.get_addon_discount_percent(
@@ -970,23 +976,54 @@ async def confirm_add_countries_to_subscription(
         await db.refresh(db_user)
         await db.refresh(subscription)
 
-        success_text = '✅ Страны успешно обновлены!\n\n'
+        success_text = texts.t(
+            'COUNTRY_CHANGES_SUCCESS_HEADER',
+            '✅ <b>Страны успешно обновлены!</b>\n\n',
+        )
 
         if new_countries_names:
-            success_text += f'➕ Добавлены страны:\n{chr(10).join(f"• {name}" for name in new_countries_names)}\n'
+            success_text += texts.t(
+                'COUNTRY_CHANGES_ADDED_HEADER',
+                '➕ <b>Добавлены страны:</b>\n',
+            )
+            success_text += '\n'.join(f'• {name}' for name in new_countries_names)
             if total_price > 0:
-                success_text += f'💰 Списано: {texts.format_price(total_price)}'
+                success_text += '\n' + texts.t(
+                    'COUNTRY_CHANGES_CHARGED',
+                    '💰 Списано: {amount} (за {days} дн.)',
+                ).format(
+                    amount=texts.format_price(total_price),
+                    days=charged_days,
+                )
                 if total_discount_value > 0:
-                    success_text += (
-                        f' (скидка {servers_discount_percent}%: -{texts.format_price(total_discount_value)})'
+                    success_text += texts.t(
+                        'COUNTRY_CHANGES_DISCOUNT_INFO',
+                        ' (скидка {percent}%: -{amount})',
+                    ).format(
+                        percent=servers_discount_percent,
+                        amount=texts.format_price(total_discount_value),
                     )
-                success_text += '\n'
+            success_text += '\n'
 
         if removed_countries_names:
-            success_text += f'\n➖ Отключены страны:\n{chr(10).join(f"• {name}" for name in removed_countries_names)}\n'
-            success_text += 'ℹ️ Повторное подключение будет платным\n'
+            success_text += '\n' + texts.t(
+                'COUNTRY_CHANGES_REMOVED_HEADER',
+                '➖ <b>Отключены страны:</b>\n',
+            )
+            success_text += '\n'.join(f'• {name}' for name in removed_countries_names)
+            success_text += (
+                '\n'
+                + texts.t(
+                    'COUNTRY_CHANGES_REMOVED_WARNING',
+                    'ℹ️ Повторное подключение будет платным',
+                )
+                + '\n'
+            )
 
-        success_text += f'\n🌍 Активных стран: {len(selected_countries)}'
+        success_text += '\n' + texts.t(
+            'COUNTRY_CHANGES_ACTIVE_COUNT',
+            '🌐 <b>Активных стран:</b> {count}',
+        ).format(count=len(selected_countries))
 
         await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
