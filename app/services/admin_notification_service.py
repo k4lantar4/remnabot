@@ -481,33 +481,6 @@ class AdminNotificationService:
             pass
         return None
 
-    async def _squads_for_admin_display(
-        self,
-        db: AsyncSession,
-        subscription: Subscription,
-    ) -> list[str]:
-        """Resolve squad UUIDs for admin notification text only (no DB write)."""
-        try:
-            await db.refresh(subscription, attribute_names=['connected_squads', 'tariff_id'])
-        except Exception:
-            pass
-
-        squads = list(subscription.connected_squads or [])
-        if squads:
-            return squads
-
-        if subscription.tariff_id:
-            from app.database.crud.tariff import get_tariff_by_id
-
-            tariff = await get_tariff_by_id(db, subscription.tariff_id)
-            if tariff and tariff.allowed_squads:
-                return list(tariff.allowed_squads)
-
-        from app.database.crud.server_squad import get_all_server_squads
-
-        all_servers, _ = await get_all_server_squads(db, available_only=True)
-        return [s.squad_uuid for s in all_servers if s.squad_uuid]
-
     async def send_subscription_purchase_notification(
         self,
         db: AsyncSession,
@@ -565,8 +538,7 @@ class AdminNotificationService:
             # Получаем название тарифа
             tariff_name = await self._get_tariff_name(db, subscription)
 
-            display_squads = await self._squads_for_admin_display(db, subscription)
-            servers_info = await self._get_servers_info(display_squads)
+            servers_info = await self._get_servers_info(subscription.connected_squads)
             payment_method = self._get_payment_method_display(transaction.payment_method) if transaction else 'Баланс'
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
@@ -992,8 +964,7 @@ class AdminNotificationService:
                 return False
 
             payment_method = self._get_payment_method_display(transaction.payment_method)
-            display_squads = await self._squads_for_admin_display(db, subscription)
-            servers_info = await self._get_servers_info(display_squads)
+            servers_info = await self._get_servers_info(subscription.connected_squads)
             promo_group = await self._get_user_promo_group(db, user)
             promo_block = self._format_promo_group_block(promo_group)
             user_display = self._get_user_display(user)
