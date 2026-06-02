@@ -21,6 +21,7 @@ from app.database.crud.subscription import (
 from app.database.models import Subscription, SubscriptionStatus, User
 from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
+from app.utils.formatting import format_traffic
 
 
 logger = structlog.get_logger(__name__)
@@ -50,7 +51,7 @@ def _status_label(sub, texts) -> str:
     return ''
 
 
-def _format_subscription_line(sub, idx: int, texts) -> str:
+def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     """Format a single subscription for the list view."""
     tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
     emoji = _status_emoji(sub)
@@ -61,7 +62,7 @@ def _format_subscription_line(sub, idx: int, texts) -> str:
         traffic = '∞'
     else:
         used = f'{sub.traffic_used_gb:.1f}' if sub.traffic_used_gb else '0'
-        traffic = f'{used}/{sub.traffic_limit_gb} ГБ'
+        traffic = f'{used}/{format_traffic(sub.traffic_limit_gb, language)}'
 
     # Devices
     devices = f'{sub.device_limit} устр.' if sub.device_limit else ''
@@ -216,7 +217,7 @@ async def show_my_subscriptions(
     else:
         lines = [texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n']
         for idx, sub in enumerate(subscriptions, 1):
-            lines.append(_format_subscription_line(sub, idx, texts))
+            lines.append(_format_subscription_line(sub, idx, texts, db_user.language))
             lines.append('')  # empty line between subscriptions
         text = '\n'.join(lines)
         keyboard = _build_subscriptions_keyboard(subscriptions, db_user.language)
@@ -260,10 +261,10 @@ async def show_subscription_detail(
 
     # Traffic
     if subscription.traffic_limit_gb == 0:
-        traffic = '∞ ГБ'
+        traffic = '∞'
     else:
         used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
-        traffic = f'{used} / {subscription.traffic_limit_gb} ГБ'
+        traffic = f'{used} / {format_traffic(subscription.traffic_limit_gb, db_user.language)}'
 
     end_date = subscription.end_date.strftime('%d.%m.%Y %H:%M') if subscription.end_date else '—'
     status = subscription.status_display
