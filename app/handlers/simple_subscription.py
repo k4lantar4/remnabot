@@ -225,7 +225,8 @@ async def start_simple_subscription_purchase(
         keyboard_rows = [
             [
                 types.InlineKeyboardButton(
-                    text='✅ Подтвердить покупку', callback_data='simple_subscription_confirm_purchase'
+                    text=texts.t('SIMPLE_SUB_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
+                    callback_data='simple_subscription_confirm_purchase',
                 )
             ],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data='subscription_purchase')],
@@ -251,7 +252,7 @@ async def start_simple_subscription_purchase(
             keyboard_rows.append(
                 [
                     types.InlineKeyboardButton(
-                        text='✅ Оплатить с баланса',
+                        text=texts.t('SIMPLE_SUB_PAY_FROM_BALANCE_BTN', '✅ Оплатить с баланса'),
                         callback_data='simple_subscription_pay_with_balance',
                     )
                 ]
