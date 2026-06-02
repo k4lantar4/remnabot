@@ -1949,5 +1949,9 @@
   "CB_SELECT_SUBSCRIPTION": "اشتراک را انتخاب کنید",
   "CB_DISCOUNT_ACTIVATED": "✅ تخفیف فعال شد!",
   "CB_SUBSCRIPTION_DELETE_ONLY_EXPIRED": "فقط اشتراک منقضی یا غیرفعال قابل حذف است",
-  "CB_SUBSCRIPTION_DELETED": "اشتراک حذف شد"
+  "CB_SUBSCRIPTION_DELETED": "اشتراک حذف شد",
+  "CB_SUBSCRIPTION_DATA_OUTDATED": "❌ داده اشتراک منقضی شده. از ابتدا شروع کنید.",
+  "CB_SERVER_UNAVAILABLE_FOR_PROMO": "❌ سرور برای گروه تخفیف شما در دسترس نیست",
+  "CB_SELECT_AT_LEAST_ONE_COUNTRY": "⚠️ حداقل یک کشور انتخاب کنید!",
+  "CB_NO_CHANGES_DETECTED": "⚠️ تغییری یافت نشد"
 }

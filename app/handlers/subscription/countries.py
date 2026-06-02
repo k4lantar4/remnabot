@@ -508,11 +508,18 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
 
 
 async def select_country(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     country_uuid = callback.data.split('_')[1]
     data = await state.get_data()
 
     if 'period_days' not in data:
-        await callback.answer('❌ Данные подписки устарели. Начните оформление заново.', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_SUBSCRIPTION_DATA_OUTDATED',
+                '❌ Данные подписки устарели. Начните оформление заново.',
+            ),
+            show_alert=True,
+        )
         return
 
     selected_countries = data.get('countries', [])
@@ -525,7 +532,13 @@ async def select_country(callback: types.CallbackQuery, state: FSMContext, db_us
     allowed_country_ids = {country['uuid'] for country in countries}
 
     if country_uuid not in allowed_country_ids and country_uuid not in selected_countries:
-        await callback.answer('❌ Сервер недоступен для вашей промогруппы', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_SERVER_UNAVAILABLE_FOR_PROMO',
+                '❌ Сервер недоступен для вашей промогруппы',
+            ),
+            show_alert=True,
+        )
         return
 
     data['countries'] = selected_countries
@@ -553,7 +566,10 @@ async def countries_continue(callback: types.CallbackQuery, state: FSMContext, d
     texts = get_texts(db_user.language)
 
     if not data.get('countries'):
-        await callback.answer('⚠️ Выберите хотя бы одну страну!', show_alert=True)
+        await callback.answer(
+            texts.t('CB_SELECT_AT_LEAST_ONE_COUNTRY', '⚠️ Выберите хотя бы одну страну!'),
+            show_alert=True,
+        )
         return
 
     if not settings.is_devices_selection_enabled():
@@ -691,6 +707,7 @@ def _build_countries_selection_text(countries: list[dict], base_text: str) -> st
 async def handle_add_country_to_subscription(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext
 ):
+    texts = get_texts(db_user.language)
     logger.info('🔍 handle_add_country_to_subscription вызван для', telegram_id=db_user.telegram_id)
     logger.info('🔍 Callback data', callback_data=callback.data)
 
@@ -706,7 +723,13 @@ async def handle_add_country_to_subscription(
     allowed_country_ids = {country['uuid'] for country in countries}
 
     if country_uuid not in allowed_country_ids and country_uuid not in selected_countries:
-        await callback.answer('❌ Сервер недоступен для вашей промогруппы', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_SERVER_UNAVAILABLE_FOR_PROMO',
+                '❌ Сервер недоступен для вашей промогруппы',
+            ),
+            show_alert=True,
+        )
         return
 
     if country_uuid in selected_countries:
@@ -825,7 +848,10 @@ async def confirm_add_countries_to_subscription(
     removed_countries = [c for c in current_countries if c not in selected_countries]
 
     if not new_countries and not removed_countries:
-        await callback.answer('⚠️ Изменения не обнаружены', show_alert=True)
+        await callback.answer(
+            texts.t('CB_NO_CHANGES_DETECTED', '⚠️ Изменения не обнаружены'),
+            show_alert=True,
+        )
         return
 
     # TOCTOU protection: lock user row before reading discount and charging balance
@@ -920,7 +946,10 @@ async def confirm_add_countries_to_subscription(
             )
 
             if not success:
-                await callback.answer('❌ Ошибка списания средств', show_alert=True)
+                await callback.answer(
+                    texts.t('PAYMENT_FAILED', '❌ Ошибка списания средств'),
+                    show_alert=True,
+                )
                 return
 
             await create_transaction(
