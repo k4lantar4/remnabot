@@ -1926,5 +1926,8 @@
   "JUPITER_PAYMENT_PROCESSING": "💳 <b>پرداخت از طریق {name} ایجاد شد</b>\\n\\n",
   "JUPITER_ENTER_AMOUNT": "💳 <b>شارژ از طریق {name}</b>\\n\\n",
   "CB_BAN_NOTIFICATION_DELETED": "اعلان حذف شد",
-  "CB_BAN_NOTIFICATION_DELETE_FAILED": "حذف انجام نشد"
+  "CB_BAN_NOTIFICATION_DELETE_FAILED": "حذف انجام نشد",
+  "CB_INVALID_FORMAT": "فرمت نامعتبر",
+  "CB_POLL_NOT_FOUND": "❌ نظرسنجی یافت نشد",
+  "CB_INVALID_DATA": "❌ داده نامعتبر"
 }

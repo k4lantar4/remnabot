@@ -228,19 +228,21 @@ async def handle_promo_subscription_select(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext
 ):
     """Handle subscription selection for promocode with days in multi-tariff."""
+    texts = get_texts(db_user.language)
     parts = (callback.data or '').split(':')
     if len(parts) < 3:
-        await callback.answer('Неверный формат', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_FORMAT', 'Неверный формат'),
+            show_alert=True,
+        )
         return
 
     try:
         sub_id = int(parts[1])
         code = ':'.join(parts[2:])  # code may contain colons
     except (ValueError, IndexError):
-        await callback.answer('Ошибка', show_alert=True)
+        await callback.answer(texts.ERROR, show_alert=True)
         return
-
-    texts = get_texts(db_user.language)
     result = await activate_promocode_for_registration(db, db_user.id, code, callback.bot, subscription_id=sub_id)
 
     if result['success']:
