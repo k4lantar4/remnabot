@@ -752,7 +752,7 @@ async def start_edit_daily_price(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     current_price = getattr(tariff, 'daily_price_kopeks', 0)
@@ -1231,14 +1231,17 @@ async def start_edit_tariff_name(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_name)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
     await callback.message.edit_text(
-        f'✏️ <b>Редактирование названия</b>\n\nТекущее название: <b>{html.escape(tariff.name)}</b>\n\nВведите новое название:',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_NAME_PROMPT',
+            '✏️ <b>Редактирование названия</b>\n\nТекущее название: <b>{name}</b>\n\nВведите новое название:',
+        ).format(name=html.escape(tariff.name)),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1256,18 +1259,19 @@ async def process_edit_tariff_name(
     state: FSMContext,
 ):
     """Обрабатывает новое название тарифа."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
     name = message.text.strip()
     if len(name) < 2 or len(name) > 50:
-        await message.answer('Название должно быть от 2 до 50 символов')
+        await message.answer(texts.t('ADMIN_TARIFF_NAME_LENGTH', 'Название должно быть от 2 до 50 символов'))
         return
 
     tariff = await update_tariff(db, tariff, name=name)
@@ -1276,7 +1280,7 @@ async def process_edit_tariff_name(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Название изменено!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_NAME_CHANGED', '✅ Название изменено!\n\n') + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1296,18 +1300,21 @@ async def start_edit_tariff_description(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_description)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
-    current_desc = tariff.description or 'Не задано'
+    current_desc = tariff.description or texts.t('ADMIN_TARIFF_DESC_NOT_SET', 'Не задано')
 
     await callback.message.edit_text(
-        f'📝 <b>Редактирование описания</b>\n\n'
-        f'Текущее описание:\n{current_desc}\n\n'
-        'Введите новое описание (или <code>-</code> для удаления):',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_DESC_PROMPT',
+            '📝 <b>Редактирование описания</b>\n\n'
+            'Текущее описание:\n{desc}\n\n'
+            'Введите новое описание (или <code>-</code> для удаления):',
+        ).format(desc=current_desc),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1325,12 +1332,13 @@ async def process_edit_tariff_description(
     state: FSMContext,
 ):
     """Обрабатывает новое описание тарифа."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1344,7 +1352,7 @@ async def process_edit_tariff_description(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Описание изменено!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_DESC_CHANGED', '✅ Описание изменено!\n\n') + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1364,7 +1372,7 @@ async def start_edit_tariff_traffic(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_traffic)
@@ -1373,9 +1381,12 @@ async def start_edit_tariff_traffic(
     current_traffic = format_traffic(tariff.traffic_limit_gb)
 
     await callback.message.edit_text(
-        f'📊 <b>Редактирование трафика</b>\n\n'
-        f'Текущий лимит: <b>{current_traffic}</b>\n\n'
-        'Введите новый лимит в ГБ (0 = безлимит):',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_TRAFFIC_PROMPT',
+            '📊 <b>Редактирование трафика</b>\n\n'
+            'Текущий лимит: <b>{traffic}</b>\n\n'
+            'Введите новый лимит в ГБ (0 = безлимит):',
+        ).format(traffic=current_traffic),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1393,12 +1404,13 @@ async def process_edit_tariff_traffic(
     state: FSMContext,
 ):
     """Обрабатывает новый лимит трафика."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1407,7 +1419,7 @@ async def process_edit_tariff_traffic(
         if traffic < 0:
             raise ValueError
     except ValueError:
-        await message.answer('Введите корректное число (0 или больше)')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_NONNEG_INT', 'Введите корректное число (0 или больше)'))
         return
 
     tariff = await update_tariff(db, tariff, traffic_limit_gb=traffic)
@@ -1416,7 +1428,7 @@ async def process_edit_tariff_traffic(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Трафик изменен!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_TRAFFIC_CHANGED', '✅ Трафик изменен!\n\n') + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1436,16 +1448,19 @@ async def start_edit_tariff_devices(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_devices)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
     await callback.message.edit_text(
-        f'📱 <b>Редактирование устройств</b>\n\n'
-        f'Текущий лимит: <b>{tariff.device_limit}</b>\n\n'
-        'Введите новый лимит устройств:',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_DEVICES_PROMPT',
+            '📱 <b>Редактирование устройств</b>\n\n'
+            'Текущий лимит: <b>{devices}</b>\n\n'
+            'Введите новый лимит устройств:',
+        ).format(devices=tariff.device_limit),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1463,12 +1478,13 @@ async def process_edit_tariff_devices(
     state: FSMContext,
 ):
     """Обрабатывает новый лимит устройств."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1477,7 +1493,7 @@ async def process_edit_tariff_devices(
         if devices < 1:
             raise ValueError
     except ValueError:
-        await message.answer('Введите корректное число (1 или больше)')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_POSITIVE_INT', 'Введите корректное число (1 или больше)'))
         return
 
     tariff = await update_tariff(db, tariff, device_limit=devices)
@@ -1486,7 +1502,8 @@ async def process_edit_tariff_devices(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Лимит устройств изменен!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_DEVICES_CHANGED', '✅ Лимит устройств изменен!\n\n')
+        + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1506,16 +1523,19 @@ async def start_edit_tariff_tier(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_tier)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
     await callback.message.edit_text(
-        f'🎚️ <b>Редактирование уровня</b>\n\n'
-        f'Текущий уровень: <b>{tariff.tier_level}</b>\n\n'
-        'Введите новый уровень (1-10):',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_TIER_PROMPT',
+            '🎚️ <b>Редактирование уровня</b>\n\n'
+            'Текущий уровень: <b>{tier}</b>\n\n'
+            'Введите новый уровень (1-10):',
+        ).format(tier=tariff.tier_level),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1533,12 +1553,13 @@ async def process_edit_tariff_tier(
     state: FSMContext,
 ):
     """Обрабатывает новый уровень тарифа."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1547,7 +1568,7 @@ async def process_edit_tariff_tier(
         if tier < 1 or tier > 10:
             raise ValueError
     except ValueError:
-        await message.answer('Введите число от 1 до 10')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_TIER', 'Введите число от 1 до 10'))
         return
 
     tariff = await update_tariff(db, tariff, tier_level=tier)
@@ -1556,7 +1577,7 @@ async def process_edit_tariff_tier(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Уровень изменен!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_TIER_CHANGED', '✅ Уровень изменен!\n\n') + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1576,21 +1597,24 @@ async def start_edit_tariff_prices(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_prices)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
     current_prices = _format_period_prices_for_edit(tariff.period_prices or {})
-    prices_display = _format_period_prices_display(tariff.period_prices or {})
+    prices_display = _format_period_prices_display(tariff.period_prices or {}, db_user.language)
 
     await callback.message.edit_text(
-        f'💰 <b>Редактирование цен</b>\n\n'
-        f'Текущие цены:\n{prices_display}\n\n'
-        'Введите новые цены в формате:\n'
-        f'<code>{current_prices}</code>\n\n'
-        '(дней:цена_в_копейках, через запятую)',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_PRICES_PROMPT',
+            '💰 <b>Редактирование цен</b>\n\n'
+            'Текущие цены:\n{prices}\n\n'
+            'Введите новые цены в формате:\n'
+            '<code>{example}</code>\n\n'
+            '(дней:цена_в_копейках, через запятую)',
+        ).format(prices=prices_display, example=current_prices),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1608,19 +1632,23 @@ async def process_edit_tariff_prices(
     state: FSMContext,
 ):
     """Обрабатывает новые цены тарифа."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
     prices = _parse_period_prices(message.text.strip())
     if not prices:
         await message.answer(
-            'Не удалось распознать цены.\nФормат: <code>дней:цена</code>\nПример: <code>30:9900, 90:24900</code>',
+            texts.t(
+                'ADMIN_TARIFF_PRICES_PARSE_ERROR_SHORT',
+                'Не удалось распознать цены.\nФормат: <code>дней:цена</code>\nПример: <code>30:9900, 90:24900</code>',
+            ),
             parse_mode='HTML',
         )
         return
@@ -1631,7 +1659,7 @@ async def process_edit_tariff_prices(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Цены изменены!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_PRICES_CHANGED', '✅ Цены изменены!\n\n') + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1654,7 +1682,7 @@ async def start_edit_tariff_device_price(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_device_price)
@@ -1744,7 +1772,7 @@ async def start_edit_tariff_max_devices(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_max_devices)
@@ -1835,7 +1863,7 @@ async def start_edit_tariff_trial_days(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_trial_days)
@@ -1965,7 +1993,7 @@ async def start_edit_tariff_traffic_topup(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     # Проверяем, безлимитный ли тариф
@@ -2051,7 +2079,7 @@ async def toggle_tariff_traffic_topup(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     is_enabled = getattr(tariff, 'traffic_topup_enabled', False)
@@ -2140,7 +2168,7 @@ async def start_edit_traffic_topup_packages(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_traffic_topup_packages)
@@ -2264,7 +2292,7 @@ async def start_edit_max_topup_traffic(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await state.set_state(AdminStates.editing_tariff_max_topup_traffic)
@@ -2380,7 +2408,7 @@ async def confirm_delete_tariff(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     active_count = await get_active_subscriptions_count_by_tariff_id(db, tariff_id)
@@ -2441,7 +2469,7 @@ async def delete_tariff_confirmed(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     # Защита от удаления тарифа с активными подписками (FK RESTRICT)
@@ -2501,7 +2529,7 @@ async def start_edit_tariff_squads(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     squads, _ = await get_all_server_squads(db, limit=10000)
@@ -2560,7 +2588,7 @@ async def toggle_tariff_squad(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     current_squads = set(tariff.allowed_squads or [])
@@ -2633,7 +2661,7 @@ async def clear_tariff_squads(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     tariff = await update_tariff(db, tariff, allowed_squads=[])
@@ -2696,7 +2724,7 @@ async def select_all_tariff_squads(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     squads, _ = await get_all_server_squads(db, limit=10000)
@@ -2764,7 +2792,7 @@ async def start_edit_tariff_promo_groups(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     promo_groups_data = await get_promo_groups_with_counts(db)
@@ -2824,7 +2852,7 @@ async def toggle_tariff_promo_group(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     current_groups = {pg.id for pg in (tariff.allowed_promo_groups or [])}
@@ -2893,7 +2921,7 @@ async def clear_tariff_promo_groups(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     await set_tariff_promo_groups(db, tariff, [])
@@ -2984,7 +3012,7 @@ async def start_edit_traffic_reset_mode(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     current_mode = getattr(tariff, 'traffic_reset_mode', None)
@@ -3019,7 +3047,7 @@ async def set_traffic_reset_mode(
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     # Преобразуем GLOBAL в None
