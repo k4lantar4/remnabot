@@ -39,7 +39,13 @@ async def start_cryptobot_payment(callback: types.CallbackQuery, db_user: User, 
         return
 
     if not settings.is_cryptobot_enabled():
-        await callback.answer('❌ Оплата криптовалютой временно недоступна', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_CRYPTO_PAYMENT_UNAVAILABLE',
+                '❌ Оплата криптовалютой временно недоступна',
+            ),
+            show_alert=True,
+        )
         return
 
     from app.utils.currency_converter import currency_converter
@@ -241,7 +247,12 @@ async def process_cryptobot_payment_amount(
 
 
 @error_handler
-async def check_cryptobot_payment_status(callback: types.CallbackQuery, db: AsyncSession):
+async def check_cryptobot_payment_status(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
 
@@ -250,7 +261,10 @@ async def check_cryptobot_payment_status(callback: types.CallbackQuery, db: Asyn
         payment = await get_cryptobot_payment_by_id(db, local_payment_id)
 
         if not payment:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(
+                texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'),
+                show_alert=True,
+            )
             return
 
         status_emoji = {'active': '⏳', 'paid': '✅', 'expired': '❌'}
@@ -279,4 +293,7 @@ async def check_cryptobot_payment_status(callback: types.CallbackQuery, db: Asyn
 
     except Exception as e:
         logger.error('Ошибка проверки статуса CryptoBot платежа', error=e)
-        await callback.answer('❌ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '❌ Ошибка проверки статуса'),
+            show_alert=True,
+        )

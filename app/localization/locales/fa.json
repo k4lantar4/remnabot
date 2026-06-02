@@ -1931,5 +1931,13 @@
   "CB_POLL_NOT_FOUND": "❌ نظرسنجی یافت نشد",
   "CB_INVALID_DATA": "❌ داده نامعتبر",
   "CB_STARS_TOPUP_UNAVAILABLE": "❌ شارژ از طریق Stars موقتاً در دسترس نیست",
-  "CB_CARD_PAYMENT_UNAVAILABLE": "❌ پرداخت با کارت موقتاً در دسترس نیست"
+  "CB_CARD_PAYMENT_UNAVAILABLE": "❌ پرداخت با کارت موقتاً در دسترس نیست",
+  "CB_CRYPTO_PAYMENT_UNAVAILABLE": "❌ پرداخت رمزارز موقتاً در دسترس نیست",
+  "CB_PAYMENT_NOT_FOUND": "❌ پرداخت یافت نشد",
+  "CB_PAYMENT_STATUS_CHECK_ERROR": "❌ خطا در بررسی وضعیت پرداخت",
+  "CB_HELEKET_PAYMENT_UNAVAILABLE": "❌ پرداخت از طریق Heleket در دسترس نیست",
+  "CB_INVALID_PAYMENT_ID": "شناسه پرداخت نامعتبر",
+  "CB_PAYMENT_NOT_FOUND_PLAIN": "پرداخت یافت نشد",
+  "CB_YOOKASSA_PAYMENT_UNAVAILABLE": "❌ پرداخت کارت از طریق YooKassa موقتاً در دسترس نیست",
+  "CB_SBP_PAYMENT_UNAVAILABLE": "❌ پرداخت SBP موقتاً در دسترس نیست"
 }
