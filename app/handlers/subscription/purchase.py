@@ -788,16 +788,29 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
 
     # Проверка ограничения на покупку/продление подписки
     if getattr(db_user, 'restriction_subscription', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
-            keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+            keyboard.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('USER_RESTRICTION_APPEAL_BUTTON', '🆘 Обжаловать'),
+                        url=support_url,
+                    )
+                ]
+            )
         keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='subscription')])
 
         await callback.message.edit_text(
-            f'🚫 <b>Активация подписки ограничена</b>\n\n{reason}\n\n'
-            'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            texts.t(
+                'USER_RESTRICTION_TRIAL_ACTIVATION_BLOCKED',
+                '🚫 <b>Активация подписки ограничена</b>\n\n{reason}\n\n'
+                'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            ).format(reason=reason),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
         )
         await callback.answer()
@@ -1439,12 +1452,18 @@ async def save_cart_and_redirect_to_topup(
     await user_cart_service.save_user_cart(db_user.id, cart_data)
 
     await callback.message.edit_text(
-        f'💰 Недостаточно средств для оформления подписки\n\n'
-        f'Требуется: {texts.format_price(missing_amount, round_kopeks=False)}\n'
-        f'У вас: {texts.format_price(db_user.balance_kopeks, round_kopeks=False)}\n\n'
-        f'🛒 Ваша корзина сохранена!\n'
-        f'После пополнения баланса вы сможете вернуться к оформлению подписки.\n\n'
-        f'Выберите способ пополнения:',
+        texts.t(
+            'SUBSCRIPTION_CHECKOUT_CART_INSUFFICIENT',
+            '💰 Недостаточно средств для оформления подписки\n\n'
+            'Требуется: {required}\n'
+            'У вас: {balance}\n\n'
+            '🛒 Ваша корзина сохранена!\n'
+            'После пополнения баланса вы сможете вернуться к оформлению подписки.\n\n'
+            'Выберите способ пополнения:',
+        ).format(
+            required=texts.format_price(missing_amount, round_kopeks=False),
+            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+        ),
         reply_markup=get_payment_methods_keyboard_with_cart(
             db_user.language,
             missing_amount,
@@ -1720,13 +1739,21 @@ async def handle_extend_subscription(
     if settings.is_tariffs_mode():
         # У подписки нет тарифа, но режим тарифов включён - предлагаем выбрать тариф
         await callback.message.edit_text(
-            '📦 <b>Выберите тариф для продления</b>\n\n'
-            'Ваша текущая подписка была создана до введения тарифов.\n'
-            'Для продления необходимо выбрать один из доступных тарифов.\n\n'
-            '⚠️ Ваша текущая подписка продолжит действовать до окончания срока.',
+            texts.t(
+                'SUBSCRIPTION_LEGACY_SELECT_TARIFF_RENEW',
+                '📦 <b>Выберите тариф для продления</b>\n\n'
+                'Ваша текущая подписка была создана до введения тарифов.\n'
+                'Для продления необходимо выбрать один из доступных тарифов.\n\n'
+                '⚠️ Ваша текущая подписка продолжит действовать до окончания срока.',
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='📦 Выбрать тариф', callback_data='tariff_switch')],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('SUBSCRIPTION_SELECT_TARIFF_BUTTON', '📦 Выбрать тариф'),
+                            callback_data='tariff_switch',
+                        )
+                    ],
                     [types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')],
                 ]
             ),
@@ -1994,7 +2021,7 @@ async def confirm_extend_subscription(
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 amount_kopeks=missing_kopeks,
-                has_saved_cart=True,  # Указываем, что есть сохраненная корзина
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )
@@ -2020,7 +2047,10 @@ async def confirm_extend_subscription(
     except Exception as e:
         logger.error('⚠ КРИТИЧЕСКАЯ ОШИБКА ПРОДЛЕНИЯ', error=e)
         await callback.message.edit_text(
-            '⚠ Произошла ошибка при продлении подписки. Обратитесь в поддержку.',
+            texts.t(
+                'SUBSCRIPTION_RENEWAL_SUPPORT_ERROR',
+                '⚠ Произошла ошибка при продлении подписки. Обратитесь в поддержку.',
+            ),
             reply_markup=get_back_keyboard(db_user.language),
         )
         await callback.answer()
@@ -2205,17 +2235,30 @@ async def devices_continue(callback: types.CallbackQuery, state: FSMContext, db_
 async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
     # Проверка ограничения на покупку/продление подписки
     if getattr(db_user, 'restriction_subscription', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
         texts = get_texts(db_user.language)
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
-            keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+            keyboard.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('USER_RESTRICTION_APPEAL_BUTTON', '🆘 Обжаловать'),
+                        url=support_url,
+                    )
+                ]
+            )
         keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='subscription')])
 
         await callback.message.edit_text(
-            f'🚫 <b>Покупка/продление подписки ограничено</b>\n\n{reason}\n\n'
-            'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            texts.t(
+                'USER_RESTRICTION_SUBSCRIPTION_BLOCKED',
+                '🚫 <b>Покупка/продление подписки ограничено</b>\n\n{reason}\n\n'
+                'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            ).format(reason=reason),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
         )
         await callback.answer()
@@ -2401,7 +2444,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                 db_user.language,
                 resume_callback=resume_callback,
                 amount_kopeks=missing_kopeks,
-                has_saved_cart=True,  # Указываем, что есть сохраненная корзина
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )
