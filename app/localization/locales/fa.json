@@ -2025,5 +2025,6 @@
   "MSG_SBP_PAYMENT_DATA_ERROR": "❌ خطا در دریافت اطلاعات پرداخت SBP. با پشتیبانی تماس بگیرید.",
   "MSG_TOPUP_MIN_AMOUNT": "حداقل مبلغ شارژ: ۱۰۰ ₽",
   "MSG_HELEKET_INVOICE_CREATE_ERROR": "❌ ایجاد فاکتور Heleket ناموفق بود. بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.",
-  "MSG_HELEKET_PAYMENT_LINK_ERROR": "❌ دریافت لینک پرداخت Heleket ناموفق بود"
+  "MSG_HELEKET_PAYMENT_LINK_ERROR": "❌ دریافت لینک پرداخت Heleket ناموفق بود",
+  "BALANCE_HISTORY_EMPTY": "📊 تاریخچه عملیات خالی است"
 }
