@@ -2101,14 +2101,34 @@ class Settings(BaseSettings):
     def is_c2c_enabled(self) -> bool:
         return self.C2C_ENABLED and bool(self.get_c2c_cards())
 
-    def get_c2c_admin_chat_id(self) -> int | None:
-        chat_id = self.C2C_ADMIN_CHAT_ID or self.ADMIN_NOTIFICATIONS_CHAT_ID
-        if not chat_id:
+    def get_admin_notifications_chat_id(self) -> int | None:
+        if not self.ADMIN_NOTIFICATIONS_CHAT_ID:
             return None
+
         try:
-            return int(chat_id)
+            return int(self.ADMIN_NOTIFICATIONS_CHAT_ID)
         except (ValueError, TypeError):
             return None
+
+    def admin_forum_topics_apply_to_chat(self, chat_id: int) -> bool:
+        """Forum topic IDs from ADMIN_NOTIFICATIONS_* are only valid in this supergroup."""
+        forum_chat_id = self.get_admin_notifications_chat_id()
+        return forum_chat_id is not None and chat_id == forum_chat_id
+
+    def get_c2c_admin_chat_id(self) -> int | None:
+        """Supergroup for C2C receipt review; falls back from invalid C2C_ADMIN_CHAT_ID."""
+        notifications_chat_id = self.get_admin_notifications_chat_id()
+        raw = (self.C2C_ADMIN_CHAT_ID or '').strip()
+        if not raw:
+            return notifications_chat_id
+        try:
+            parsed = int(raw)
+        except (ValueError, TypeError):
+            return notifications_chat_id
+        # Positive IDs are user DMs — cannot use forum topics or group admin keyboards.
+        if parsed > 0:
+            return notifications_chat_id
+        return parsed
 
     def get_c2c_cards(self) -> list[dict[str, str]]:
         import json
@@ -2985,15 +3005,6 @@ class Settings(BaseSettings):
         if rate <= 0:
             raise ValueError('Stars rate must be positive')
         return max(1, round(rubles / rate))
-
-    def get_admin_notifications_chat_id(self) -> int | None:
-        if not self.ADMIN_NOTIFICATIONS_CHAT_ID:
-            return None
-
-        try:
-            return int(self.ADMIN_NOTIFICATIONS_CHAT_ID)
-        except (ValueError, TypeError):
-            return None
 
     def is_admin_notifications_enabled(self) -> bool:
         return self.ADMIN_NOTIFICATIONS_ENABLED and self.get_admin_notifications_chat_id() is not None

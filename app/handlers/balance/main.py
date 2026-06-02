@@ -219,6 +219,13 @@ async def route_payment_by_method(
             await process_riopay_payment_amount(message, db_user, db, amount_kopeks, state)
         return True
 
+    if payment_method == 'c2c':
+        from app.plugins.c2c.integration import route_c2c_payment
+
+        async with AsyncSessionLocal() as db:
+            await route_c2c_payment(message, db_user, db, amount_kopeks, state)
+        return True
+
     return False
 
 
@@ -535,24 +542,45 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
             return
 
         amount_rubles = float(amount_text.replace(',', '.'))
-
-        if amount_rubles < 1:
-            await message.answer(
-                'Минимальная сумма пополнения: 1 ₽',
-                reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
-            )
-            return
-
-        if amount_rubles > 50000:
-            await message.answer(
-                'Максимальная сумма пополнения: 50,000 ₽',
-                reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
-            )
-            return
-
         amount_kopeks = int(amount_rubles * 100)
         data = await state.get_data()
         payment_method = data.get('payment_method', 'stars')
+
+        if payment_method != 'c2c':
+            if amount_rubles < 1:
+                await message.answer(
+                    'Минимальная сумма пополнения: 1 ₽',
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+            if amount_rubles > 50000:
+                await message.answer(
+                    'Максимальная сумма пополнения: 50,000 ₽',
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+        if payment_method == 'c2c':
+            if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS:
+                await message.answer(
+                    texts.t(
+                        'C2C_AMOUNT_TOO_LOW',
+                        '❌ Minimum amount for card-to-card: {min}',
+                    ).format(min=texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)),
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+            if amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
+                await message.answer(
+                    texts.t(
+                        'C2C_AMOUNT_TOO_HIGH',
+                        '❌ Maximum amount for card-to-card: {max}',
+                    ).format(max=texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)),
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
 
         if payment_method in ['yookassa', 'yookassa_sbp']:
             if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:

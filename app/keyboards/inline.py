@@ -2111,6 +2111,11 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
         )
         has_direct_payment_methods = True
 
+    from app.plugins.c2c import integration as c2c_integration
+
+    if c2c_integration.append_payment_button(keyboard, texts, _build_callback):
+        has_direct_payment_methods = True
+
     if settings.is_support_topup_enabled():
         keyboard.append(
             [
