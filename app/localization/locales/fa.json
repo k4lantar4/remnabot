@@ -2013,5 +2013,6 @@
   "MSG_SUBSCRIPTION_RENEWAL_ERROR": "❌ خطا در تمدید اشتراک",
   "MSG_TARIFF_SWITCH_ERROR": "❌ خطا در تغییر تعرفه",
   "MSG_TARIFF_CHANGE_ERROR": "❌ خطا در تعویض تعرفه",
-  "MSG_INSUFFICIENT_FUNDS": "❌ موجودی کافی نیست"
+  "MSG_INSUFFICIENT_FUNDS": "❌ موجودی کافی نیست",
+  "CB_UNKNOWN_PAYMENT_METHOD_DETAIL": "❌ روش پرداخت ناشناخته: {method}"
 }

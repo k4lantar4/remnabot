@@ -4104,7 +4104,12 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
         else:
-            await callback.answer(f'❌ Неизвестный метод оплаты: {payment_method}', show_alert=True)
+            await callback.answer(
+                texts.t('CB_UNKNOWN_PAYMENT_METHOD_DETAIL', '❌ Неизвестный метод оплаты: {method}').format(
+                    method=payment_method
+                ),
+                show_alert=True,
+            )
             return
 
         await callback.answer()
