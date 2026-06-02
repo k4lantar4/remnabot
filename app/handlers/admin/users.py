@@ -5864,6 +5864,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
 @error_handler
 async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Показывает список тарифов для покупки админом."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     back_cb = (
@@ -5876,7 +5877,7 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
@@ -5888,9 +5889,18 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
 
     if not tariffs:
         await callback.message.edit_text(
-            '❌ <b>Нет доступных тарифов</b>\n\nСоздайте тарифы в разделе управления тарифами.',
+            texts.t(
+                'ADMIN_USER_BUY_TARIFF_NONE',
+                '❌ <b>Нет доступных тарифов</b>\n\nСоздайте тарифы в разделе управления тарифами.',
+            ),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb)]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data=back_cb
+                        )
+                    ]
+                ]
             ),
         )
         await callback.answer()
@@ -5898,16 +5908,32 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
 
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-    text = '💳 <b>Покупка тарифа для пользователя</b>\n\n'
-    text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
-    text += '📦 <b>Выберите тариф:</b>\n\n'
+    text = texts.t('ADMIN_USER_BUY_TARIFF_TITLE', '💳 <b>Покупка тарифа для пользователя</b>\n\n')
+    text += texts.t('ADMIN_USER_BUY_SUB_USER', '👤 {user_link} (ID: {user_id})\n').format(
+        user_link=target_user_link, user_id=target_user_id_display
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
+        balance=settings.format_price(target_user.balance_kopeks)
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_CHOOSE', '📦 <b>Выберите тариф:</b>\n\n')
 
     for tariff in tariffs:
-        traffic = '♾️' if tariff.traffic_limit_gb == 0 else f'{tariff.traffic_limit_gb} ГБ'
+        traffic = (
+            '♾️'
+            if tariff.traffic_limit_gb == 0
+            else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=tariff.traffic_limit_gb)
+        )
         prices = tariff.period_prices or {}
         min_price = min(prices.values()) if prices else 0
-        text += f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 от {settings.format_price(min_price)}\n'
+        text += texts.t(
+            'ADMIN_USER_BUY_TARIFF_LINE',
+            '<b>{name}</b> — {traffic} / {devices} 📱 от {price}\n',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=tariff.device_limit,
+            price=settings.format_price(min_price),
+        )
 
     keyboard = []
     for tariff in tariffs:
@@ -5919,7 +5945,9 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
             ]
         )
 
-    keyboard.append([types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb)])
+    keyboard.append(
+        [types.InlineKeyboardButton(text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data=back_cb)]
+    )
 
     await callback.message.edit_text(
         text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode='HTML'
@@ -5931,6 +5959,7 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
 @error_handler
 async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Показывает выбор периода для тарифа."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     tariff_id = int(parts[5])
@@ -5939,7 +5968,7 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
@@ -5949,21 +5978,31 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('❌ Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_TARIFF_UNAVAILABLE', '❌ Тариф недоступен'), show_alert=True)
         return
 
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-    traffic = '♾️ Безлимит' if tariff.traffic_limit_gb == 0 else f'{tariff.traffic_limit_gb} ГБ'
+    traffic = (
+        texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+        if tariff.traffic_limit_gb == 0
+        else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=tariff.traffic_limit_gb)
+    )
 
-    text = '💳 <b>Покупка тарифа для пользователя</b>\n\n'
-    text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
-    text += f'📦 <b>Тариф: {html.escape(tariff.name)}</b>\n'
-    text += f'📊 Трафик: {traffic}\n'
-    text += f'📱 Устройств: {tariff.device_limit}\n'
-    text += f'🌐 Серверов: {len(tariff.allowed_squads) if tariff.allowed_squads else 0}\n\n'
-    text += 'Выберите период:'
+    text = texts.t('ADMIN_USER_BUY_TARIFF_TITLE', '💳 <b>Покупка тарифа для пользователя</b>\n\n')
+    text += texts.t('ADMIN_USER_BUY_SUB_USER', '👤 {user_link} (ID: {user_id})\n').format(
+        user_link=target_user_link, user_id=target_user_id_display
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
+        balance=settings.format_price(target_user.balance_kopeks)
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_SELECTED', '📦 <b>Тариф: {name}</b>\n').format(name=html.escape(tariff.name))
+    text += texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_LINE', '📊 Трафик: {traffic}\n').format(traffic=traffic)
+    text += texts.t('ADMIN_USER_BUY_TARIFF_DEVICES_LINE', '📱 Устройств: {count}\n').format(count=tariff.device_limit)
+    text += texts.t('ADMIN_USER_BUY_TARIFF_SERVERS_LINE', '🌐 Серверов: {count}\n\n').format(
+        count=len(tariff.allowed_squads) if tariff.allowed_squads else 0
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_CHOOSE_PERIOD', 'Выберите период:')
 
     prices = tariff.period_prices or {}
     keyboard = []
@@ -5973,13 +6012,22 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
         keyboard.append(
             [
                 types.InlineKeyboardButton(
-                    text=f'{period} дней — {settings.format_price(price)}',
+                    text=texts.t('ADMIN_USER_BUY_TARIFF_PERIOD_BTN', '{days} дней — {price}').format(
+                        days=period, price=settings.format_price(price)
+                    ),
                     callback_data=f'admin_tariff_buy_confirm_{user_id}_{tariff_id}_{period}_{price}',
                 )
             ]
         )
 
-    keyboard.append([types.InlineKeyboardButton(text='⬅️ К тарифам', callback_data=f'admin_tariff_buy_{user_id}')])
+    keyboard.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_USER_BUY_TARIFF_BACK_LIST', '⬅️ К тарифам'),
+                callback_data=f'admin_tariff_buy_{user_id}',
+            )
+        ]
+    )
 
     await callback.message.edit_text(
         text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode='HTML'
@@ -5991,6 +6039,7 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
 @error_handler
 async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Подтверждение покупки тарифа."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     tariff_id = int(parts[5])
@@ -6001,7 +6050,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
@@ -6011,23 +6060,31 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('❌ Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_TARIFF_UNAVAILABLE', '❌ Тариф недоступен'), show_alert=True)
         return
 
     # Проверяем баланс
     if target_user.balance_kopeks < price_kopeks:
         missing = price_kopeks - target_user.balance_kopeks
         await callback.message.edit_text(
-            f'❌ <b>Недостаточно средств</b>\n\n'
-            f'💰 Баланс: {settings.format_price(target_user.balance_kopeks, round_kopeks=False)}\n'
-            f'💳 Стоимость: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
-            f'📉 Не хватает: {settings.format_price(missing, round_kopeks=False)}\n\n'
-            f'Пополните баланс пользователя перед покупкой.',
+            texts.t(
+                'ADMIN_USER_BUY_TARIFF_INSUFFICIENT',
+                '❌ <b>Недостаточно средств</b>\n\n'
+                '💰 Баланс: {balance}\n'
+                '💳 Стоимость: {price}\n'
+                '📉 Не хватает: {missing}\n\n'
+                'Пополните баланс пользователя перед покупкой.',
+            ).format(
+                balance=settings.format_price(target_user.balance_kopeks, round_kopeks=False),
+                price=settings.format_price(price_kopeks, round_kopeks=False),
+                missing=settings.format_price(missing, round_kopeks=False),
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text='⬅️ Назад', callback_data=f'admin_tariff_buy_select_{user_id}_{tariff_id}'
+                            text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                            callback_data=f'admin_tariff_buy_select_{user_id}_{tariff_id}',
                         )
                     ]
                 ]
@@ -6039,26 +6096,41 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
 
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-    traffic = '♾️ Безлимит' if tariff.traffic_limit_gb == 0 else f'{tariff.traffic_limit_gb} ГБ'
+    traffic = (
+        texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+        if tariff.traffic_limit_gb == 0
+        else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=tariff.traffic_limit_gb)
+    )
 
-    text = '💳 <b>Подтверждение покупки тарифа</b>\n\n'
-    text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
-    text += f'📦 <b>Тариф: {html.escape(tariff.name)}</b>\n'
-    text += f'📊 Трафик: {traffic}\n'
-    text += f'📱 Устройств: {tariff.device_limit}\n'
-    text += f'📅 Период: {period} дней\n'
-    text += f'💰 Стоимость: {settings.format_price(price_kopeks)}\n\n'
-    text += 'Подтвердить покупку?'
+    text = texts.t('ADMIN_USER_BUY_TARIFF_CONFIRM_TITLE', '💳 <b>Подтверждение покупки тарифа</b>\n\n')
+    text += texts.t('ADMIN_USER_BUY_SUB_USER', '👤 {user_link} (ID: {user_id})\n').format(
+        user_link=target_user_link, user_id=target_user_id_display
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
+        balance=settings.format_price(target_user.balance_kopeks)
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_SELECTED', '📦 <b>Тариф: {name}</b>\n').format(name=html.escape(tariff.name))
+    text += texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_LINE', '📊 Трафик: {traffic}\n').format(traffic=traffic)
+    text += texts.t('ADMIN_USER_BUY_TARIFF_DEVICES_LINE', '📱 Устройств: {count}\n').format(count=tariff.device_limit)
+    text += texts.t('ADMIN_USER_BUY_TARIFF_PERIOD_LINE', '📅 Период: {days} дней\n').format(days=period)
+    text += texts.t('ADMIN_USER_BUY_TARIFF_COST_LINE', '💰 Стоимость: {price}\n\n').format(
+        price=settings.format_price(price_kopeks)
+    )
+    text += texts.t('ADMIN_USER_BUY_TARIFF_CONFIRM_PROMPT', 'Подтвердить покупку?')
 
     keyboard = [
         [
             types.InlineKeyboardButton(
-                text='✅ Подтвердить',
+                text=texts.t('ADMIN_SYNC_CONFIRM', '✅ Подтвердить'),
                 callback_data=f'admin_tariff_buy_exec_{user_id}_{tariff_id}_{period}_{price_kopeks}',
             )
         ],
-        [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_tariff_buy_select_{user_id}_{tariff_id}')],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                callback_data=f'admin_tariff_buy_select_{user_id}_{tariff_id}',
+            )
+        ],
     ]
 
     await callback.message.edit_text(
@@ -6071,6 +6143,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
 @error_handler
 async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Выполняет покупку тарифа для пользователя."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     tariff_id = int(parts[5])
@@ -6081,7 +6154,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
@@ -6091,7 +6164,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('❌ Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_TARIFF_UNAVAILABLE', '❌ Тариф недоступен'), show_alert=True)
         return
 
     # TOCTOU protection: lock user row before pricing to prevent concurrent balance modifications
@@ -6123,7 +6196,9 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
             telegram_id=target_user.telegram_id,
             e=e,
         )
-        await callback.answer('❌ Не удалось рассчитать стоимость тарифа', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_TARIFF_PRICE_ERROR', '❌ Не удалось рассчитать стоимость тарифа'), show_alert=True
+        )
         return
 
     if price_kopeks_from_callback != price_kopeks:
@@ -6135,7 +6210,9 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         )
 
     if target_user.balance_kopeks < price_kopeks:
-        await callback.answer('❌ Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_TARIFF_BALANCE_LOW', '❌ Недостаточно средств на балансе'), show_alert=True
+        )
         return
 
     try:
@@ -6157,7 +6234,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         )
 
         if not success:
-            await callback.answer('❌ Ошибка списания средств', show_alert=True)
+            await callback.answer(texts.t('ADMIN_USER_BUY_SUB_DEBIT_ERROR', '❌ Ошибка списания средств'), show_alert=True)
             return
 
         # Получаем серверы из тарифа
@@ -6212,22 +6289,39 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
 
         target_user_link = user_html_link(target_user)
         target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-        traffic = '♾️ Безлимит' if tariff.traffic_limit_gb == 0 else f'{tariff.traffic_limit_gb} ГБ'
+        traffic = (
+            texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+            if tariff.traffic_limit_gb == 0
+            else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=tariff.traffic_limit_gb)
+        )
 
         await callback.message.edit_text(
-            f'✅ <b>Тариф успешно куплен!</b>\n\n'
-            f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-            f'📦 Тариф: {html.escape(tariff.name)}\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {tariff.device_limit}\n'
-            f'📅 Период: {period} дней\n'
-            f'💰 Списано: {settings.format_price(price_kopeks)}\n'
-            f'📅 Действует до: {format_datetime(subscription.end_date)}',
+            texts.t(
+                'ADMIN_USER_BUY_TARIFF_SUCCESS',
+                '✅ <b>Тариф успешно куплен!</b>\n\n'
+                '👤 {user_link} (ID: {user_id})\n'
+                '📦 Тариф: {tariff}\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '📅 Период: {period} дней\n'
+                '💰 Списано: {charged}\n'
+                '📅 Действует до: {until}',
+            ).format(
+                user_link=target_user_link,
+                user_id=target_user_id_display,
+                tariff=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                period=period,
+                charged=settings.format_price(price_kopeks),
+                until=format_datetime(subscription.end_date),
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
+                            text=texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке'),
+                            callback_data=f'admin_user_subscription_{user_id}',
                         )
                     ]
                 ]
@@ -6240,23 +6334,33 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
             if callback.bot and target_user.telegram_id:
                 await callback.bot.send_message(
                     chat_id=target_user.telegram_id,
-                    text=f'💳 <b>Администратор оформил вам тариф</b>\n\n'
-                    f'📦 Тариф: {html.escape(tariff.name)}\n'
-                    f'📊 Трафик: {traffic}\n'
-                    f'📱 Устройств: {tariff.device_limit}\n'
-                    f'📅 Период: {period} дней\n'
-                    f'💰 Списано с баланса: {settings.format_price(price_kopeks)}\n'
-                    f'📅 Действует до: {format_datetime(subscription.end_date)}',
+                    text=texts.t(
+                        'ADMIN_USER_BUY_TARIFF_NOTIFY_USER',
+                        '💳 <b>Администратор оформил вам тариф</b>\n\n'
+                        '📦 Тариф: {tariff}\n'
+                        '📊 Трафик: {traffic}\n'
+                        '📱 Устройств: {devices}\n'
+                        '📅 Период: {period} дней\n'
+                        '💰 Списано с баланса: {charged}\n'
+                        '📅 Действует до: {until}',
+                    ).format(
+                        tariff=html.escape(tariff.name),
+                        traffic=traffic,
+                        devices=tariff.device_limit,
+                        period=period,
+                        charged=settings.format_price(price_kopeks),
+                        until=format_datetime(subscription.end_date),
+                    ),
                     parse_mode='HTML',
                 )
         except Exception as e:
             logger.error('Ошибка отправки уведомления пользователю', error=e)
 
-        await callback.answer('✅ Тариф куплен!', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_TARIFF_DONE', '✅ Тариф куплен!'), show_alert=True)
 
     except Exception as e:
         logger.error('Ошибка покупки тарифа администратором', error=e, exc_info=True)
-        await callback.answer('❌ Ошибка при покупке тарифа', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_TARIFF_FAIL', '❌ Ошибка при покупке тарифа'), show_alert=True)
         await db.rollback()
 
 
