@@ -112,13 +112,16 @@ async def process_cryptobot_payment_amount(
     texts = get_texts(db_user.language)
 
     if not settings.is_cryptobot_enabled():
-        await message.answer('❌ Оплата криптовалютой временно недоступна')
+        await message.answer(texts.t('CB_CRYPTO_PAYMENT_UNAVAILABLE', '❌ Оплата криптовалютой временно недоступна'))
         return
 
     amount_rubles = amount_kopeks / 100
 
     if amount_rubles < 100:
-        await message.answer('Минимальная сумма пополнения: 100 ₽', reply_markup=get_back_keyboard(db_user.language))
+        await message.answer(
+            texts.t('MSG_TOPUP_MIN_AMOUNT', 'Минимальная сумма пополнения: 100 ₽'),
+            reply_markup=get_back_keyboard(db_user.language),
+        )
         return
 
     if amount_rubles > 100000:
