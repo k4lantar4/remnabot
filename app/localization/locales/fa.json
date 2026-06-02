@@ -2006,5 +2006,12 @@
   "CB_INVALID_PAYMENT_METHOD": "❌ روش پرداخت نامعتبر",
   "CB_PAYMENT_METHOD_UNAVAILABLE": "⚠️ این روش فعلاً در دسترس نیست",
   "CB_PAYMENT_STATUS_SENT_TO_CHAT": "ℹ️ وضعیت پرداخت به چت ارسال شد",
-  "CB_MESSAGE_OUTDATED": "پیام منقضی شده. /start را امتحان کنید."
+  "CB_MESSAGE_OUTDATED": "پیام منقضی شده. /start را امتحان کنید.",
+  "MSG_BALANCE_DEDUCTION_ERROR": "❌ خطا در برداشت از موجودی",
+  "MSG_SUBSCRIPTION_CHECKOUT_ERROR": "❌ خطا در تکمیل اشتراک",
+  "MSG_ALREADY_ACTIVE_TARIFF": "❌ اشتراک فعال برای این تعرفه دارید",
+  "MSG_SUBSCRIPTION_RENEWAL_ERROR": "❌ خطا در تمدید اشتراک",
+  "MSG_TARIFF_SWITCH_ERROR": "❌ خطا در تغییر تعرفه",
+  "MSG_TARIFF_CHANGE_ERROR": "❌ خطا در تعویض تعرفه",
+  "MSG_INSUFFICIENT_FUNDS": "❌ موجودی کافی نیست"
 }

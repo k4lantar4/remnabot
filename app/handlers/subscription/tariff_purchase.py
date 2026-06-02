@@ -970,14 +970,14 @@ async def handle_custom_confirm(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
     except Exception as e:
         logger.error('Ошибка списания баланса при покупке кастомного тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Ошибка списания баланса')
+            await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
         except Exception:
             pass
         return
@@ -1067,7 +1067,7 @@ async def handle_custom_confirm(
                 refund_error=refund_error,
             )
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при оформлении подписки')
+            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
         except Exception:
             pass
         return
@@ -1171,7 +1171,7 @@ async def handle_custom_confirm(
     except Exception as e:
         logger.error('Ошибка при покупке тарифа с кастомными параметрами', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при оформлении подписки')
+            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
         except Exception:
             pass
 
@@ -1473,14 +1473,14 @@ async def confirm_tariff_purchase(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
     except Exception as e:
         logger.error('Ошибка списания баланса при покупке тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Ошибка списания баланса')
+            await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
         except Exception:
             pass
         return
@@ -1623,7 +1623,7 @@ async def confirm_tariff_purchase(
                 error=refund_error,
             )
         try:
-            await callback.message.edit_text('❌ У вас уже есть активная подписка на этот тариф')
+            await callback.message.edit_text(texts.t('MSG_ALREADY_ACTIVE_TARIFF', '❌ У вас уже есть активная подписка на этот тариф'))
         except Exception:
             pass
         return
@@ -1670,7 +1670,7 @@ async def confirm_tariff_purchase(
                 error=refund_error,
             )
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при оформлении подписки')
+            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
         except Exception:
             pass
         return
@@ -1853,14 +1853,14 @@ async def confirm_daily_tariff_purchase(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
     except Exception as e:
         logger.error('Ошибка списания баланса при покупке суточного тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Ошибка списания баланса')
+            await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
         except Exception:
             pass
         return
@@ -1969,7 +1969,7 @@ async def confirm_daily_tariff_purchase(
                 refund_error=refund_error,
             )
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при оформлении подписки')
+            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
         except Exception:
             pass
         return
@@ -2494,7 +2494,7 @@ async def confirm_tariff_extend(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
@@ -2609,7 +2609,7 @@ async def confirm_tariff_extend(
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при продлении подписки')
+            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_RENEWAL_ERROR', '❌ Произошла ошибка при продлении подписки'))
         except Exception:
             pass
 
@@ -3178,7 +3178,7 @@ async def confirm_tariff_switch(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
@@ -3338,7 +3338,7 @@ async def confirm_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при переключении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при переключении тарифа')
+            await callback.message.edit_text(texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа'))
         except Exception:
             pass
 
@@ -3436,7 +3436,7 @@ async def confirm_daily_tariff_switch(
         )
         if not success:
             try:
-                await callback.message.edit_text('❌ Ошибка списания баланса')
+                await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
             except Exception:
                 pass
             return
@@ -3627,7 +3627,7 @@ async def confirm_daily_tariff_switch(
                 refund_error=refund_error,
             )
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при смене тарифа')
+            await callback.message.edit_text(texts.t('MSG_TARIFF_CHANGE_ERROR', '❌ Произошла ошибка при смене тарифа'))
         except Exception:
             pass
 
@@ -4153,7 +4153,7 @@ async def confirm_instant_switch(
             )
             if not success:
                 try:
-                    await callback.message.edit_text('❌ Ошибка списания баланса')
+                    await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
                 except Exception:
                     pass
                 return
@@ -4223,7 +4223,7 @@ async def confirm_instant_switch(
                     )
                     if not success:
                         try:
-                            await callback.message.edit_text('❌ Недостаточно средств')
+                            await callback.message.edit_text(texts.t('MSG_INSUFFICIENT_FUNDS', '❌ Недостаточно средств'))
                         except Exception:
                             pass
                         return
@@ -4403,7 +4403,7 @@ async def confirm_instant_switch(
     except Exception as e:
         logger.error('Ошибка при мгновенном переключении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text('❌ Произошла ошибка при переключении тарифа')
+            await callback.message.edit_text(texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа'))
         except Exception:
             pass
 
