@@ -5229,17 +5229,28 @@ async def _calculate_subscription_period_price(
 @admin_required
 @error_handler
 async def cleanup_inactive_users(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_service = UserService()
     deleted_count, skipped_count = await user_service.cleanup_inactive_users(db)
 
-    text = f'✅ Очистка завершена\n\nУдалено неактивных пользователей: {deleted_count}'
+    text = texts.t('ADMIN_USER_CLEANUP_DONE', '✅ Очистка завершена\n\nУдалено неактивных пользователей: {deleted}').format(
+        deleted=deleted_count
+    )
     if skipped_count > 0:
-        text += f'\n⏭️ Пропущено (активная подписка): {skipped_count}'
+        text += texts.t('ADMIN_USER_CLEANUP_SKIPPED', '\n⏭️ Пропущено (активная подписка): {skipped}').format(
+            skipped=skipped_count
+        )
 
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_users')]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data='admin_users'
+                    )
+                ]
+            ]
         ),
     )
     await callback.answer()
@@ -5248,6 +5259,7 @@ async def cleanup_inactive_users(callback: types.CallbackQuery, db_user: User, d
 @admin_required
 @error_handler
 async def change_subscription_type(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     _sid = f'_s{subscription_id}' if subscription_id else ''
@@ -5261,7 +5273,9 @@ async def change_subscription_type(callback: types.CallbackQuery, db_user: User,
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь или подписка не найдены', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_SUB_OR_USER_NOT_FOUND', '❌ Пользователь или подписка не найдены'), show_alert=True
+        )
         return
 
     if subscription_id and settings.is_multi_tariff_enabled():
@@ -5272,28 +5286,46 @@ async def change_subscription_type(callback: types.CallbackQuery, db_user: User,
         subscription = profile['subscription']
 
     if not subscription:
-        await callback.answer('❌ Пользователь или подписка не найдены', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_SUB_OR_USER_NOT_FOUND', '❌ Пользователь или подписка не найдены'), show_alert=True
+        )
         return
 
-    current_type = '🎁 Триал' if subscription.is_trial else '💎 Платная'
+    current_type = (
+        texts.t('ADMIN_USER_SUB_TYPE_DISPLAY_TRIAL', '🎁 Триал')
+        if subscription.is_trial
+        else texts.t('ADMIN_USER_SUB_TYPE_DISPLAY_PAID', '💎 Платная')
+    )
 
-    text = '🔄 <b>Смена типа подписки</b>\n\n'
+    text = texts.t('ADMIN_USER_SUB_TYPE_CHANGE_TITLE', '🔄 <b>Смена типа подписки</b>\n\n')
     text += f'👤 {html.escape(profile["user"].full_name)}\n'
-    text += f'📱 Текущий тип: {current_type}\n\n'
-    text += 'Выберите новый тип подписки:'
+    text += texts.t('ADMIN_USER_SUB_TYPE_CURRENT', '📱 Текущий тип: {type}\n\n').format(type=current_type)
+    text += texts.t('ADMIN_USER_SUB_TYPE_CHOOSE', 'Выберите новый тип подписки:')
 
     keyboard = []
 
     if subscription.is_trial:
         keyboard.append(
-            [InlineKeyboardButton(text='💎 Сделать платной', callback_data=f'admin_sub_type_paid_{user_id}{_sid}')]
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_USER_SUB_TYPE_MAKE_PAID', '💎 Сделать платной'),
+                    callback_data=f'admin_sub_type_paid_{user_id}{_sid}',
+                )
+            ]
         )
     else:
         keyboard.append(
-            [InlineKeyboardButton(text='🎁 Сделать триальной', callback_data=f'admin_sub_type_trial_{user_id}{_sid}')]
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_USER_SUB_TYPE_MAKE_TRIAL', '🎁 Сделать триальной'),
+                    callback_data=f'admin_sub_type_trial_{user_id}{_sid}',
+                )
+            ]
         )
 
-    keyboard.append([InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb)])
+    keyboard.append(
+        [InlineKeyboardButton(text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data=back_cb)]
+    )
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
     await callback.answer()
@@ -5302,6 +5334,7 @@ async def change_subscription_type(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     back_cb = (
@@ -5314,7 +5347,7 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
@@ -5327,7 +5360,7 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
         subscription = profile['subscription']
 
     if not subscription:
-        await callback.answer('❌ У пользователя нет подписки', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NO_SUBSCRIPTION', '❌ У пользователя нет подписки'), show_alert=True)
         return
 
     available_periods = settings.get_available_subscription_periods()
@@ -5356,32 +5389,45 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
         period_buttons.append(
             [
                 types.InlineKeyboardButton(
-                    text=f'{period} дней ({settings.format_price(price_kopeks)})',
+                    text=texts.t('ADMIN_USER_BUY_SUB_PERIOD_BTN', '{days} дней ({price})').format(
+                        days=period, price=settings.format_price(price_kopeks)
+                    ),
                     callback_data=f'admin_buy_sub_confirm_{user_id}_{period}_{price_kopeks}',
                 )
             ]
         )
 
     if not period_buttons:
-        await callback.answer('❌ Не удалось рассчитать стоимость подписки', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_SUB_PRICE_ERROR', '❌ Не удалось рассчитать стоимость подписки'), show_alert=True
+        )
         return
 
-    period_buttons.append([types.InlineKeyboardButton(text='❌ Отмена', callback_data=back_cb)])
+    period_buttons.append(
+        [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data=back_cb)]
+    )
 
-    text = '💳 <b>Покупка подписки для пользователя</b>\n\n'
+    text = texts.t('ADMIN_USER_BUY_SUB_TITLE', '💳 <b>Покупка подписки для пользователя</b>\n\n')
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-    text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks)}\n\n'
-    traffic_text = 'Безлимит' if (subscription.traffic_limit_gb or 0) <= 0 else f'{subscription.traffic_limit_gb} ГБ'
+    text += texts.t('ADMIN_USER_BUY_SUB_USER', '👤 {user_link} (ID: {user_id})\n').format(
+        user_link=target_user_link, user_id=target_user_id_display
+    )
+    text += texts.t('ADMIN_USER_BUY_SUB_BALANCE', '💰 Баланс пользователя: {balance}\n\n').format(
+        balance=settings.format_price(target_user.balance_kopeks)
+    )
+    if (subscription.traffic_limit_gb or 0) <= 0:
+        traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', 'Безлимит')
+    else:
+        traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=subscription.traffic_limit_gb)
     devices_limit = subscription.device_limit
     if devices_limit is None:
         devices_limit = settings.DEFAULT_DEVICE_LIMIT
     servers_count = len(subscription.connected_squads or [])
-    text += f'📶 Трафик: {traffic_text}\n'
-    text += f'📱 Устройства: {devices_limit}\n'
-    text += f'🌐 Серверов: {servers_count}\n\n'
-    text += 'Выберите период подписки:\n'
+    text += texts.t('ADMIN_USER_BUY_SUB_TRAFFIC', '📶 Трафик: {traffic}\n').format(traffic=traffic_text)
+    text += texts.t('ADMIN_USER_BUY_SUB_DEVICES', '📱 Устройства: {count}\n').format(count=devices_limit)
+    text += texts.t('ADMIN_USER_BUY_SUB_SERVERS', '🌐 Серверов: {count}\n\n').format(count=servers_count)
+    text += texts.t('ADMIN_USER_BUY_SUB_CHOOSE_PERIOD', 'Выберите период подписки:\n')
 
     await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=period_buttons))
     await callback.answer()
@@ -5390,6 +5436,7 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
 @admin_required
 @error_handler
 async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     period_days = int(parts[5])
@@ -5399,14 +5446,14 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
     subscription = profile['subscription']
 
     if not subscription:
-        await callback.answer('❌ У пользователя нет подписки', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NO_SUBSCRIPTION', '❌ У пользователя нет подписки'), show_alert=True)
         return
 
     subscription_service = SubscriptionService()
@@ -5425,7 +5472,9 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
             telegram_id=target_user.telegram_id,
             e=e,
         )
-        await callback.answer('❌ Не удалось рассчитать стоимость подписки', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_SUB_PRICE_ERROR', '❌ Не удалось рассчитать стоимость подписки'), show_alert=True
+        )
         return
 
     if price_kopeks_from_callback is not None and price_kopeks_from_callback != price_kopeks:
@@ -5441,16 +5490,24 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
         # Без округления — иначе при не хватке <50 копеек все три суммы покажутся
         # одинаковыми и админ увидит «не хватает 0 ₽».
         await callback.message.edit_text(
-            f'❌ Недостаточно средств на балансе пользователя\n\n'
-            f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks, round_kopeks=False)}\n'
-            f'💳 Стоимость подписки: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
-            f'📉 Не хватает: {settings.format_price(missing_kopeks, round_kopeks=False)}\n\n'
-            f'Пополните баланс пользователя перед покупкой.',
+            texts.t(
+                'ADMIN_USER_BUY_SUB_INSUFFICIENT',
+                '❌ Недостаточно средств на балансе пользователя\n\n'
+                '💰 Баланс пользователя: {balance}\n'
+                '💳 Стоимость подписки: {price}\n'
+                '📉 Не хватает: {missing}\n\n'
+                'Пополните баланс пользователя перед покупкой.',
+            ).format(
+                balance=settings.format_price(target_user.balance_kopeks, round_kopeks=False),
+                price=settings.format_price(price_kopeks, round_kopeks=False),
+                missing=settings.format_price(missing_kopeks, round_kopeks=False),
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text='⬅️ Назад к подписке', callback_data=f'admin_user_subscription_{user_id}'
+                            text=texts.t('ADMIN_USER_SUB_BTN_BACK', '⬅️ Назад к подписке'),
+                            callback_data=f'admin_user_subscription_{user_id}',
                         )
                     ]
                 ]
@@ -5459,30 +5516,40 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
         await callback.answer()
         return
 
-    text = '💳 <b>Подтверждение покупки подписки</b>\n\n'
+    text = texts.t('ADMIN_USER_BUY_SUB_CONFIRM_TITLE', '💳 <b>Подтверждение покупки подписки</b>\n\n')
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
-    text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'📅 Период подписки: {period_days} дней\n'
-    text += f'💰 Стоимость: {settings.format_price(price_kopeks)}\n'
-    text += f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks)}\n\n'
-    traffic_text = 'Безлимит' if (subscription.traffic_limit_gb or 0) <= 0 else f'{subscription.traffic_limit_gb} ГБ'
+    text += texts.t('ADMIN_USER_BUY_SUB_USER', '👤 {user_link} (ID: {user_id})\n').format(
+        user_link=target_user_link, user_id=target_user_id_display
+    )
+    text += texts.t('ADMIN_USER_BUY_SUB_PERIOD', '📅 Период подписки: {days} дней\n').format(days=period_days)
+    text += texts.t('ADMIN_USER_BUY_SUB_COST', '💰 Стоимость: {price}\n').format(
+        price=settings.format_price(price_kopeks)
+    )
+    text += texts.t('ADMIN_USER_BUY_SUB_BALANCE', '💰 Баланс пользователя: {balance}\n\n').format(
+        balance=settings.format_price(target_user.balance_kopeks)
+    )
+    if (subscription.traffic_limit_gb or 0) <= 0:
+        traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', 'Безлимит')
+    else:
+        traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=subscription.traffic_limit_gb)
     devices_limit = subscription.device_limit
     if devices_limit is None:
         devices_limit = settings.DEFAULT_DEVICE_LIMIT
     servers_count = len(subscription.connected_squads or [])
-    text += f'📶 Трафик: {traffic_text}\n'
-    text += f'📱 Устройства: {devices_limit}\n'
-    text += f'🌐 Серверов: {servers_count}\n\n'
-    text += 'Вы уверены, что хотите купить подписку для этого пользователя?'
+    text += texts.t('ADMIN_USER_BUY_SUB_TRAFFIC', '📶 Трафик: {traffic}\n').format(traffic=traffic_text)
+    text += texts.t('ADMIN_USER_BUY_SUB_DEVICES', '📱 Устройства: {count}\n').format(count=devices_limit)
+    text += texts.t('ADMIN_USER_BUY_SUB_SERVERS', '🌐 Серверов: {count}\n\n').format(count=servers_count)
+    text += texts.t('ADMIN_USER_BUY_SUB_CONFIRM_PROMPT', 'Вы уверены, что хотите купить подписку для этого пользователя?')
 
     keyboard = [
         [
             types.InlineKeyboardButton(
-                text='✅ Подтвердить', callback_data=f'admin_buy_sub_execute_{user_id}_{period_days}_{price_kopeks}'
+                text=texts.t('ADMIN_SYNC_CONFIRM', '✅ Подтвердить'),
+                callback_data=f'admin_buy_sub_execute_{user_id}_{period_days}_{price_kopeks}',
             )
         ],
-        [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_sub_buy_{user_id}')],
+        [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data=f'admin_sub_buy_{user_id}')],
     ]
 
     await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard))
@@ -5492,6 +5559,7 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
 @admin_required
 @error_handler
 async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     period_days = int(parts[5])
@@ -5501,14 +5569,14 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
     profile = await user_service.get_user_profile(db, user_id)
 
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     target_user = profile['user']
     subscription = profile['subscription']
 
     if not subscription:
-        await callback.answer('❌ У пользователя нет подписки', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NO_SUBSCRIPTION', '❌ У пользователя нет подписки'), show_alert=True)
         return
 
     subscription_service = SubscriptionService()
@@ -5532,7 +5600,9 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
             telegram_id=target_user.telegram_id,
             e=e,
         )
-        await callback.answer('❌ Не удалось рассчитать стоимость подписки', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_SUB_PRICE_ERROR', '❌ Не удалось рассчитать стоимость подписки'), show_alert=True
+        )
         return
 
     if price_kopeks_from_callback is not None and price_kopeks_from_callback != price_kopeks:
@@ -5544,7 +5614,10 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         )
 
     if target_user.balance_kopeks < price_kopeks:
-        await callback.answer('❌ Недостаточно средств на балансе пользователя', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_BUY_SUB_BALANCE_LOW', '❌ Недостаточно средств на балансе пользователя'),
+            show_alert=True,
+        )
         return
 
     try:
@@ -5559,7 +5632,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         )
 
         if not success:
-            await callback.answer('❌ Ошибка списания средств', show_alert=True)
+            await callback.answer(texts.t('ADMIN_USER_BUY_SUB_DEBIT_ERROR', '❌ Ошибка списания средств'), show_alert=True)
             return
 
         if subscription:
@@ -5716,22 +5789,31 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
             except Exception as e:
                 logger.error('Ошибка работы с RemnaWave для пользователя', telegram_id=target_user.telegram_id, error=e)
 
-            message = f'✅ Подписка пользователя продлена на {period_days} дней'
+            message = texts.t('ADMIN_USER_BUY_SUB_SUCCESS', '✅ Подписка пользователя продлена на {days} дней').format(
+                days=period_days
+            )
         else:
-            message = '❌ Ошибка: у пользователя нет существующей подписки'
+            message = texts.t('ADMIN_USER_BUY_SUB_NO_SUB_ERROR', '❌ Ошибка: у пользователя нет существующей подписки')
 
         target_user_link = user_html_link(target_user)
         target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
         await callback.message.edit_text(
-            f'{message}\n\n'
-            f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-            f'💰 Списано: {settings.format_price(price_kopeks)}\n'
-            f'📅 Подписка действительна до: {format_datetime(subscription.end_date)}',
+            texts.t(
+                'ADMIN_USER_BUY_SUB_SUCCESS_DETAILS',
+                '{message}\n\n👤 {user_link} (ID: {user_id})\n💰 Списано: {charged}\n📅 Подписка действительна до: {until}',
+            ).format(
+                message=message,
+                user_link=target_user_link,
+                user_id=target_user_id_display,
+                charged=settings.format_price(price_kopeks),
+                until=format_datetime(subscription.end_date),
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text='⬅️ Назад к подписке', callback_data=f'admin_user_subscription_{user_id}'
+                            text=texts.t('ADMIN_USER_SUB_BTN_BACK', '⬅️ Назад к подписке'),
+                            callback_data=f'admin_user_subscription_{user_id}',
                         )
                     ]
                 ]
@@ -5743,14 +5825,23 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
             if callback.bot and target_user.telegram_id:
                 tariff_line = ''
                 if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff', None):
-                    tariff_line = f'\n📦 Тариф: «{subscription.tariff.name}»'
+                    tariff_line = texts.t('ADMIN_USER_BUY_SUB_NOTIFY_TARIFF', '\n📦 Тариф: «{name}»').format(
+                        name=subscription.tariff.name
+                    )
                 await callback.bot.send_message(
                     chat_id=target_user.telegram_id,
-                    text=f'💳 <b>Администратор продлил вашу подписку</b>\n\n'
-                    f'📅 Подписка продлена на {period_days} дней\n'
-                    f'💰 Списано с баланса: {settings.format_price(price_kopeks)}\n'
-                    f'📅 Подписка действительна до: {format_datetime(subscription.end_date)}'
-                    f'{tariff_line}',
+                    text=texts.t(
+                        'ADMIN_USER_BUY_SUB_NOTIFY_USER',
+                        '💳 <b>Администратор продлил вашу подписку</b>\n\n'
+                        '📅 Подписка продлена на {days} дней\n'
+                        '💰 Списано с баланса: {charged}\n'
+                        '📅 Подписка действительна до: {until}{tariff}',
+                    ).format(
+                        days=period_days,
+                        charged=settings.format_price(price_kopeks),
+                        until=format_datetime(subscription.end_date),
+                        tariff=tariff_line,
+                    ),
                     parse_mode='HTML',
                 )
         except Exception as e:
@@ -5761,7 +5852,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
 
     except Exception as e:
         logger.error('Ошибка покупки подписки администратором', error=e)
-        await callback.answer('❌ Ошибка при покупке подписки', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_BUY_SUB_FAIL', '❌ Ошибка при покупке подписки'), show_alert=True)
 
         await db.rollback()
 
@@ -6172,6 +6263,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def change_subscription_type_confirm(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     # callback: admin_sub_type_{new_type}_{user_id} or admin_sub_type_{new_type}_{user_id}_s{sub_id}
     new_type = parts[3]  # 'paid' or 'trial'
@@ -6186,18 +6278,36 @@ async def change_subscription_type_confirm(callback: types.CallbackQuery, db_use
     success = await _change_subscription_type(db, user_id, new_type, db_user.id)
 
     if success:
-        type_text = 'платной' if new_type == 'paid' else 'триальной'
+        type_text = (
+            texts.t('ADMIN_USER_SUB_TYPE_CHANGED_PAID', 'платной')
+            if new_type == 'paid'
+            else texts.t('ADMIN_USER_SUB_TYPE_CHANGED_TRIAL', 'триальной')
+        )
         await callback.message.edit_text(
-            f'✅ Тип подписки успешно изменен на {type_text}',
+            texts.t('ADMIN_USER_SUB_TYPE_CHANGED_OK', '✅ Тип подписки успешно изменен на {type}').format(
+                type=type_text
+            ),
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке'), callback_data=back_cb
+                        )
+                    ]
+                ]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка изменения типа подписки',
+            texts.t('ADMIN_USER_SUB_TYPE_CHANGED_FAIL', '❌ Ошибка изменения типа подписки'),
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке'), callback_data=back_cb
+                        )
+                    ]
+                ]
             ),
         )
 
