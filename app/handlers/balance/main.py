@@ -296,7 +296,7 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
         await callback.answer()
         return
 
-    text = '📊 <b>История операций</b>\n\n'
+    text = texts.t('BALANCE_HISTORY_HEADER', '📊 <b>История операций</b>\n\n')
 
     for transaction in unique_transactions:
         is_credit = transaction.type in CREDIT_TRANSACTION_TYPES
@@ -345,12 +345,22 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
-            keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+            keyboard.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('BALANCE_RESTRICTED_APPEAL_BTN', '🆘 Обжаловать'),
+                        url=support_url,
+                    )
+                ]
+            )
         keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')])
 
         await callback.message.edit_text(
-            f'🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n'
-            'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            texts.t('BALANCE_RESTRICTED_TITLE', '🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n').format(reason=reason)
+            + texts.t(
+                'BALANCE_RESTRICTED_BODY',
+                'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            ),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
         )
         await callback.answer()
@@ -486,30 +496,24 @@ async def request_support_topup(callback: types.CallbackQuery, db_user: User):
         return
 
     user_id_display = db_user.telegram_id or db_user.email or f'#{db_user.id}'
-    support_text = f"""
-🛠️ <b>Пополнение через поддержку</b>
-
-Для пополнения баланса обратитесь в техподдержку:
-{settings.get_support_contact_display_html()}
-
-Укажите:
-• ID: {user_id_display}
-• Сумму пополнения
-• Способ оплаты
-
-⏰ Время обработки: 1-24 часа
-
-<b>Доступные способы:</b>
-• Криптовалюта
-• Переводы между банками
-• Другие платежные системы
-"""
+    support_text = (
+        texts.t('SUPPORT_TOPUP_TITLE', '🛠️ <b>Пополнение через поддержку</b>')
+        + '\n\n'
+        + texts.t(
+            'SUPPORT_TOPUP_BODY',
+            'Для пополнения баланса обратитесь в техподдержку:\n{support}\n\n'
+            'Укажите:\n• ID: {user_id}\n• Сумму пополнения\n• Способ оплаты\n\n'
+            '⏰ Время обработки: 1-24 часа\n\n'
+            '<b>Доступные способы:</b>\n• Криптовалюта\n• Переводы между банками\n• Другие платежные системы',
+        ).format(support=settings.get_support_contact_display_html(), user_id=user_id_display)
+    )
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text='💬 Написать в поддержку', url=settings.get_support_contact_url() or 'https://t.me/'
+                    text=texts.t('SUPPORT_TOPUP_WRITE_BTN', '💬 Написать в поддержку'),
+                    url=settings.get_support_contact_url() or 'https://t.me/',
                 )
             ],
             [types.InlineKeyboardButton(text=texts.BACK, callback_data='balance_topup')],
