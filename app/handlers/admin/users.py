@@ -3120,8 +3120,9 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
     user_service = UserService()
     profile = await user_service.get_user_profile(db, user_id)
 
+    texts = get_texts(db_user.language)
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     user = profile['user']
