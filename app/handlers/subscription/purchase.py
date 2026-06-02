@@ -340,7 +340,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
             devices_used = await get_current_devices_count(db_user)
             devices_used_str = str(devices_used)
 
-    servers_names = await get_servers_display_names(subscription.connected_squads)
+    servers_names = await get_servers_display_names(subscription.connected_squads, db_user.language)
     servers_display = servers_names or texts.t('SUBSCRIPTION_NO_SERVERS', 'Нет серверов')
 
     # Получаем информацию о тарифе для режима тарифов
@@ -357,13 +357,19 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                 # Формируем блок информации о тарифе
                 is_daily = getattr(tariff, 'is_daily', False)
-                tariff_type_str = '🔄 Суточный' if is_daily else '📅 Периодный'
+                tariff_type_str = (
+                    texts.t('TARIFF_TYPE_DAILY', '🔄 Суточный')
+                    if is_daily
+                    else texts.t('TARIFF_TYPE_PERIOD', '📅 Периодный')
+                )
 
                 tariff_info_lines = [
                     f'<b>📦 {html.escape(tariff.name)}</b>',
-                    f'Тип: {tariff_type_str}',
-                    f'Трафик: {tariff.traffic_limit_gb} ГБ' if tariff.traffic_limit_gb > 0 else 'Трафик: ∞ Безлимит',
-                    f'Устройства: {tariff.device_limit}',
+                    texts.t('TARIFF_INFO_TYPE_LINE', 'Тип: {type}').format(type=tariff_type_str),
+                    texts.t('TARIFF_INFO_TRAFFIC_GB', 'Трафик: {gb} ГБ').format(gb=tariff.traffic_limit_gb)
+                    if tariff.traffic_limit_gb > 0
+                    else texts.t('TARIFF_INFO_TRAFFIC_UNLIMITED', 'Трафик: ∞ Безлимит'),
+                    texts.t('TARIFF_INFO_DEVICES_LINE', 'Устройства: {devices}').format(devices=tariff.device_limit),
                 ]
 
                 if is_daily:
@@ -550,13 +556,17 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                 # Формируем текст о времени
                 if days_remaining == 0:
-                    time_text = 'истекает сегодня'
+                    time_text = texts.t('TRAFFIC_PURCHASED_EXPIRES_TODAY', 'истекает сегодня')
                 elif days_remaining == 1:
-                    time_text = 'остался 1 день'
+                    time_text = texts.t('TRAFFIC_PURCHASED_EXPIRES_1DAY', 'остался 1 день')
                 elif days_remaining < 5:
-                    time_text = f'осталось {days_remaining} дня'
+                    time_text = texts.t('TRAFFIC_PURCHASED_EXPIRES_FEW_DAYS', 'осталось {days} дня').format(
+                        days=days_remaining
+                    )
                 else:
-                    time_text = f'осталось {days_remaining} дней'
+                    time_text = texts.t('TRAFFIC_PURCHASED_EXPIRES_MANY_DAYS', 'осталось {days} дней').format(
+                        days=days_remaining
+                    )
 
                 message += f'• {purchase.traffic_gb} ГБ — {time_text}\n'
                 message += f'  {bar} {progress_percent:.0f}% | до {expire_date}\n'
