@@ -130,7 +130,10 @@ async def _activate_pending_gift_after_registration(
 
     Must be called BEFORE state.clear() to preserve the token.
     """
+    from app.localization.texts import get_texts
+
     gift_token: str | None = None
+    texts = get_texts(user.language)
     try:
         fresh_state = await state.get_data()
         gift_token = fresh_state.get('pending_gift_token')
@@ -163,14 +166,17 @@ async def _activate_pending_gift_after_registration(
         # Prevent self-activation: buyer cannot activate their own gift
         if gift_purchase.buyer_user_id is not None and gift_purchase.buyer_user_id == user.id:
             await answer_func(
-                '⚠️ Нельзя активировать свой собственный подарок.\nОтправьте код другу!',
+                texts.t(
+                    'GIFT_SELF_ACTIVATION',
+                    '⚠️ Нельзя активировать свой собственный подарок.\nОтправьте код другу!',
+                ),
                 parse_mode=ParseMode.HTML,
             )
             return
 
         if gift_purchase.status == GuestPurchaseStatus.DELIVERED.value:
             await answer_func(
-                'ℹ️ Этот подарок уже был активирован.',
+                texts.t('GIFT_ALREADY_ACTIVATED', 'ℹ️ Этот подарок уже был активирован.'),
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -181,7 +187,7 @@ async def _activate_pending_gift_after_registration(
         }
         if gift_purchase.status not in activatable_statuses:
             await answer_func(
-                '❌ Этот подарок невозможно активировать.',
+                texts.t('GIFT_CANNOT_ACTIVATE', '❌ Этот подарок невозможно активировать.'),
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -198,10 +204,12 @@ async def _activate_pending_gift_after_registration(
         await db.flush()
         await svc_activate(db, gift_purchase.token, skip_notification=True)
         tariff_name = html.escape(gift_purchase.tariff.name) if gift_purchase.tariff else ''
+        tariff_text = f'{tariff_name} — {gift_purchase.period_days} дн.' if tariff_name else ''
         await answer_func(
-            f'🎁 <b>Подарок активирован!</b>\n'
-            f'{tariff_name} — {gift_purchase.period_days} дн.\n\n'
-            f'Ваша подписка обновлена.',
+            texts.t(
+                'GIFT_ACTIVATED_SUCCESS',
+                '🎁 <b>Подарок активирован!</b>\n{tariff_text}\n\nВаша подписка обновлена.',
+            ).format(tariff_text=tariff_text),
             parse_mode=ParseMode.HTML,
         )
     except Exception:
@@ -211,7 +219,10 @@ async def _activate_pending_gift_after_registration(
         )
         try:
             await answer_func(
-                '❌ Произошла ошибка при активации подарка. Попробуйте активировать через личный кабинет.',
+                texts.t(
+                    'GIFT_ACTIVATION_ERROR',
+                    '❌ Произошла ошибка при активации подарка. Попробуйте активировать через личный кабинет.',
+                ),
                 parse_mode=ParseMode.HTML,
             )
         except Exception:
@@ -647,8 +658,11 @@ async def handle_potential_referral_code(message: types.Message, state: FSMConte
     return True
 
 
-def _get_language_prompt_text() -> str:
-    return '🌐 Выберите язык / Choose your language:'
+def _get_language_prompt_text(language: str = DEFAULT_LANGUAGE) -> str:
+    from app.localization.texts import get_texts
+
+    texts = get_texts(language)
+    return texts.t('LANGUAGE_SELECT_PROMPT', '🌐 Выберите язык / Choose your language:')
 
 
 async def _prompt_language_selection(message: types.Message, state: FSMContext) -> None:
