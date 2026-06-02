@@ -18,11 +18,11 @@ def user_html_link(user) -> str:
     return f'<b>{safe}</b>'
 
 
-def format_traffic(gb: int) -> str:
+def format_traffic(gb: int, language: str | None = None) -> str:
     """Форматирует трафик."""
-    if gb == 0:
-        return 'Безлимит'
-    return f'{gb} ГБ'
+    from app.localization.texts import get_texts
+
+    return get_texts(language).format_traffic(gb)
 
 
 def format_price_kopeks(kopeks: int, compact: bool = False) -> str:
