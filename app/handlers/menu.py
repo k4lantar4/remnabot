@@ -1420,7 +1420,10 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             return
     except Exception as e:
         logger.error('Ошибка расчёта стоимости при активации', error=e)
-        await callback.answer('❌ Ошибка расчёта стоимости', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PRICE_CALC_ERROR', '❌ Ошибка расчёта стоимости'),
+            show_alert=True,
+        )
         return
 
     try:
@@ -1458,7 +1461,10 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
                 consume_promo_offer=consume_promo,
             )
             if not success:
-                await callback.answer('❌ Недостаточно средств', show_alert=True)
+                await callback.answer(
+                    texts.t('CB_INSUFFICIENT_BALANCE', '❌ Недостаточно средств'),
+                    show_alert=True,
+                )
                 return
 
             # Создание новой подписки
