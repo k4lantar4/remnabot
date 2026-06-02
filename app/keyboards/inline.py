@@ -1313,7 +1313,7 @@ def get_insufficient_balance_keyboard_with_cart(
         0,
         [
             InlineKeyboardButton(
-                text='🗑️ Очистить корзину и вернуться',
+                text=get_texts(language).t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'),
                 callback_data='clear_saved_cart',
             )
         ],
