@@ -158,10 +158,15 @@ def _build_user_button_text(
             button_text += f' | 📅 {days_left}д'
 
     elif filter_type == UserFilterType.CAMPAIGN:
+        texts = get_texts(language)
         info = extra_data.get(user.id, {}) if extra_data else {}
-        campaign_name = info.get('campaign_name') or 'Без кампании'
+        campaign_name = info.get('campaign_name') or texts.t('ADMIN_USERS_CAMPAIGN_NONE', 'Без кампании')
         registered_at = info.get('registered_at')
-        registered_display = format_datetime(registered_at) if registered_at else 'неизвестно'
+        registered_display = (
+            format_datetime(registered_at)
+            if registered_at
+            else texts.t('ADMIN_USERS_CAMPAIGN_UNKNOWN_DATE', 'неизвестно')
+        )
         button_text = f'{status_emoji} {user.full_name} | 📢 {campaign_name} | 📅 {registered_display}'
 
     else:
@@ -541,17 +546,17 @@ async def show_users_ready_to_renew(
         [
             [
                 types.InlineKeyboardButton(
-                    text='🔍 Поиск',
+                    text=texts.t('ADMIN_USERS_SEARCH', '🔍 Поиск'),
                     callback_data='admin_users_search',
                 ),
                 types.InlineKeyboardButton(
-                    text='📊 Статистика',
+                    text=texts.t('ADMIN_USER_STATISTICS', '📊 Статистика'),
                     callback_data='admin_users_stats',
                 ),
             ],
             [
                 types.InlineKeyboardButton(
-                    text='⬅️ Назад',
+                    text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
                     callback_data='admin_users',
                 )
             ],
@@ -661,17 +666,17 @@ async def show_potential_customers(
         [
             [
                 types.InlineKeyboardButton(
-                    text='🔍 Поиск',
+                    text=texts.t('ADMIN_USERS_SEARCH', '🔍 Поиск'),
                     callback_data='admin_users_search',
                 ),
                 types.InlineKeyboardButton(
-                    text='📊 Статистика',
+                    text=texts.t('ADMIN_USER_STATISTICS', '📊 Статистика'),
                     callback_data='admin_users_stats',
                 ),
             ],
             [
                 types.InlineKeyboardButton(
-                    text='⬅️ Назад',
+                    text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
                     callback_data='admin_users',
                 )
             ],
@@ -1229,25 +1234,28 @@ async def admin_select_user_subscription(callback: types.CallbackQuery, db_user:
 @admin_required
 @error_handler
 async def show_user_transactions(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     from app.database.crud.transaction import get_user_transactions
 
     user = await get_user_by_id(db, user_id)
     if not user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     transactions = await get_user_transactions(db, user_id, limit=10)
 
-    text = '💳 <b>Транзакции пользователя</b>\n\n'
+    text = texts.t('ADMIN_USER_TRANSACTIONS_TITLE', '💳 <b>Транзакции пользователя</b>\n\n')
     user_link = user_html_link(user)
     user_id_display = user.telegram_id or user.email or f'#{user.id}'
     text += f'👤 {user_link} (ID: <code>{user_id_display}</code>)\n'
-    text += f'💰 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+    text += texts.t('ADMIN_USER_TRANSACTIONS_BALANCE', '💰 Текущий баланс: {balance}\n\n').format(
+        balance=settings.format_price(user.balance_kopeks)
+    )
 
     if transactions:
-        text += '<b>Последние транзакции:</b>\n\n'
+        text += texts.t('ADMIN_USER_TRANSACTIONS_RECENT', '<b>Последние транзакции:</b>\n\n')
 
         for transaction in transactions:
             type_emoji = '📈' if transaction.amount_kopeks > 0 else '📉'
@@ -1255,13 +1263,18 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
             text += f'📋 {html.escape(transaction.description or "")}\n'
             text += f'📅 {format_datetime(transaction.created_at)}\n\n'
     else:
-        text += '📭 <b>Транзакции отсутствуют</b>'
+        text += texts.t('ADMIN_USER_TRANSACTIONS_EMPTY', '📭 <b>Транзакции отсутствуют</b>')
 
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='⬅️ К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '⬅️ К пользователю'),
+                        callback_data=f'admin_user_manage_{user_id}',
+                    )
+                ]
             ]
         ),
     )
@@ -1271,17 +1284,21 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
 @admin_required
 @error_handler
 async def confirm_user_delete(callback: types.CallbackQuery, db_user: User):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await callback.message.edit_text(
-        '🗑️ <b>Удаление пользователя</b>\n\n'
-        '⚠️ <b>ВНИМАНИЕ!</b>\n'
-        'Вы уверены, что хотите удалить этого пользователя?\n\n'
-        'Это действие:\n'
-        '• Пометит пользователя как удаленного\n'
-        '• Деактивирует его подписку\n'
-        '• Заблокирует доступ к боту\n\n'
-        'Данное действие необратимо!',
+        texts.t('ADMIN_USER_DELETE_CONFIRM_TITLE', '🗑️ <b>Удаление пользователя</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_DELETE_CONFIRM_BODY',
+            '⚠️ <b>ВНИМАНИЕ!</b>\n'
+            'Вы уверены, что хотите удалить этого пользователя?\n\n'
+            'Это действие:\n'
+            '• Пометит пользователя как удаленного\n'
+            '• Деактивирует его подписку\n'
+            '• Заблокирует доступ к боту\n\n'
+            'Данное действие необратимо!',
+        ),
         reply_markup=get_confirmation_keyboard(
             f'admin_user_delete_confirm_{user_id}', f'admin_user_manage_{user_id}', db_user.language
         ),
@@ -1292,6 +1309,7 @@ async def confirm_user_delete(callback: types.CallbackQuery, db_user: User):
 @admin_required
 @error_handler
 async def delete_user_account(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     user_service = UserService()
@@ -1299,19 +1317,29 @@ async def delete_user_account(callback: types.CallbackQuery, db_user: User, db: 
 
     if delete_result.bot_deleted:
         await callback.message.edit_text(
-            '✅ Пользователь успешно удален',
+            texts.t('ADMIN_USER_DELETED_SUCCESS', '✅ Пользователь успешно удален'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👥 К списку пользователей', callback_data='admin_users_list')]
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_USER_BACK_TO_LIST', '👥 К списку пользователей'),
+                            callback_data='admin_users_list',
+                        )
+                    ]
                 ]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка удаления пользователя',
+            texts.t('ADMIN_USER_DELETE_ERROR', '❌ Ошибка удаления пользователя'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю'),
+                            callback_data=f'admin_user_manage_{user_id}',
+                        )
+                    ]
                 ]
             ),
         )
@@ -1428,14 +1456,14 @@ async def show_user_management(callback: types.CallbackQuery, db_user: User, db:
     user_service = UserService()
     profile = await user_service.get_user_profile(db, user_id)
 
+    texts = get_texts(db_user.language)
+
     if not profile:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     user = profile['user']
     subscription = profile['subscription']
-
-    texts = get_texts(db_user.language)
 
     status_map = {
         UserStatus.ACTIVE.value: texts.ADMIN_USER_STATUS_ACTIVE,
@@ -1535,14 +1563,24 @@ async def show_user_management(callback: types.CallbackQuery, db_user: User, db:
     restriction_topup = getattr(user, 'restriction_topup', False)
     restriction_subscription = getattr(user, 'restriction_subscription', False)
     if restriction_topup or restriction_subscription:
-        restriction_lines = ['⚠️ <b>Ограничения:</b>']
+        restriction_lines = [
+            texts.t('ADMIN_USER_PROFILE_RESTRICTIONS_HEADER', '⚠️ <b>Ограничения:</b>')
+        ]
         if restriction_topup:
-            restriction_lines.append('  • 🚫 Пополнение запрещено')
+            restriction_lines.append(
+                texts.t('ADMIN_USER_PROFILE_RESTRICTION_TOPUP', '  • 🚫 Пополнение запрещено')
+            )
         if restriction_subscription:
-            restriction_lines.append('  • 🚫 Продление/покупка запрещена')
+            restriction_lines.append(
+                texts.t('ADMIN_USER_PROFILE_RESTRICTION_SUB', '  • 🚫 Продление/покупка запрещена')
+            )
         restriction_reason = getattr(user, 'restriction_reason', None)
         if restriction_reason:
-            restriction_lines.append(f'  📝 Причина: {html.escape(restriction_reason)}')
+            restriction_lines.append(
+                texts.t('ADMIN_USER_PROFILE_RESTRICTION_REASON', '  📝 Причина: {reason}').format(
+                    reason=html.escape(restriction_reason)
+                )
+            )
         sections.append('\n'.join(restriction_lines))
 
     text = '\n\n'.join(sections)
@@ -1564,7 +1602,8 @@ async def show_user_management(callback: types.CallbackQuery, db_user: User, db:
     try:
         if origin_ticket_id:
             back_to_ticket_btn = types.InlineKeyboardButton(
-                text='🎫 Вернуться к тикету', callback_data=f'admin_view_ticket_{origin_ticket_id}'
+                text=texts.t('ADMIN_USER_TICKET_BACK', '🎫 Вернуться к тикету'),
+                callback_data=f'admin_view_ticket_{origin_ticket_id}',
             )
             kb.inline_keyboard.insert(0, [back_to_ticket_btn])
     except Exception:
@@ -1731,9 +1770,10 @@ async def show_user_referrals(
         if preserved_data:
             await state.update_data(**preserved_data)
 
+    texts = get_texts(db_user.language)
     view = await _build_user_referrals_view(db, db_user.language, user_id)
     if not view:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     text, keyboard = view
@@ -1755,12 +1795,11 @@ async def start_edit_referral_percent(
 ):
     user_id = int(callback.data.split('_')[-1])
 
+    texts = get_texts(db_user.language)
     user = await get_user_by_id(db, user_id)
     if not user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
-
-    texts = get_texts(db_user.language)
 
     effective_percent = get_effective_referral_commission_percent(user)
     default_percent = settings.REFERRAL_COMMISSION_PERCENT
@@ -1900,7 +1939,10 @@ async def set_referral_percent_button(
     )
 
     if not success:
-        await callback.answer('❌ Не удалось обновить процент', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_REFERRAL_PERCENT_UPDATE_ERROR', '❌ Не удалось обновить процент'),
+            show_alert=True,
+        )
         return
 
     await state.clear()
@@ -1926,7 +1968,11 @@ async def process_referral_percent_input(
     user_id = data.get('editing_referral_percent_user_id')
 
     if not user_id:
-        await message.answer('❌ Не удалось определить пользователя')
+        await message.answer(
+            get_texts(db_user.language).t(
+                'ADMIN_USER_REFERRAL_PERCENT_STATE_LOST', '❌ Не удалось определить пользователя'
+            )
+        )
         return
 
     raw_text = message.text.strip()
@@ -1970,7 +2016,9 @@ async def process_referral_percent_input(
     )
 
     if not success:
-        await message.answer('❌ Не удалось обновить процент')
+        await message.answer(
+            texts.t('ADMIN_USER_REFERRAL_PERCENT_UPDATE_ERROR', '❌ Не удалось обновить процент')
+        )
         return
 
     await state.clear()
@@ -1998,12 +2046,11 @@ async def start_edit_user_referrals(
 ):
     user_id = int(callback.data.split('_')[-1])
 
+    texts = get_texts(db_user.language)
     user = await get_user_by_id(db, user_id)
     if not user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
-
-    texts = get_texts(db_user.language)
 
     prompt = texts.t(
         'ADMIN_USER_REFERRALS_EDIT_PROMPT',
@@ -2314,14 +2361,14 @@ async def _render_user_promo_group(message: types.Message, language: str, user: 
 async def show_user_promo_group(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     user_id = int(callback.data.split('_')[-1])
 
+    texts = get_texts(db_user.language)
     user = await get_user_by_id(db, user_id)
     if not user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     promo_groups = await get_promo_groups_with_counts(db)
     if not promo_groups:
-        texts = get_texts(db_user.language)
         await callback.answer(texts.ADMIN_PROMO_GROUPS_EMPTY, show_alert=True)
         return
 
@@ -2348,7 +2395,7 @@ async def set_user_promo_group(callback: types.CallbackQuery, db_user: User, db:
 
     user = await get_user_by_id(db, user_id)
     if not user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     # Check if user already has this group
@@ -2402,20 +2449,29 @@ async def set_user_promo_group(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def start_balance_edit(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await state.update_data(editing_user_id=user_id)
 
     await callback.message.edit_text(
-        '💰 <b>Изменение баланса</b>\n\n'
-        'Введите сумму для изменения баланса:\n'
-        '• Положительное число для пополнения\n'
-        '• Отрицательное число для списания\n'
-        '• Примеры: 100, -50, 25.5\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_BALANCE_EDIT_TITLE', '💰 <b>Изменение баланса</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_BALANCE_EDIT_PROMPT',
+            'Введите сумму для изменения баланса:\n'
+            '• Положительное число для пополнения\n'
+            '• Отрицательное число для списания\n'
+            '• Примеры: 100, -50, 25.5\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=f'admin_user_manage_{user_id}',
+                    )
+                ]
             ]
         ),
     )
@@ -2434,14 +2490,13 @@ async def start_send_user_message(
 ):
     user_id = int(callback.data.split('_')[-1])
 
+    texts = get_texts(db_user.language)
     target_user = await get_user_by_id(db, user_id)
     if not target_user:
-        await callback.answer('❌ Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', '❌ Пользователь не найден'), show_alert=True)
         return
 
     await state.update_data(direct_message_user_id=user_id)
-
-    texts = get_texts(db_user.language)
     prompt = texts.t(
         'ADMIN_USER_SEND_MESSAGE_PROMPT',
         '✉️ <b>Отправка сообщения пользователю</b>\n\n'
@@ -2453,7 +2508,12 @@ async def start_send_user_message(
         prompt,
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=f'admin_user_manage_{user_id}',
+                    )
+                ]
             ]
         ),
         parse_mode='HTML',
@@ -2497,7 +2557,12 @@ async def process_send_user_message(
 
     confirmation_keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
-            [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю'),
+                    callback_data=f'admin_user_manage_{user_id}',
+                )
+            ]
         ]
     )
 
@@ -2552,20 +2617,25 @@ async def process_send_user_message(
 @admin_required
 @error_handler
 async def process_balance_edit(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('editing_user_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
+
+    back_btn = texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю')
 
     try:
         amount_rubles = float(message.text.replace(',', '.'))
         amount_kopeks = int(amount_rubles * 100)
 
         if abs(amount_kopeks) > 10000000:
-            await message.answer('❌ Слишком большая сумма (максимум 100,000 ₽)')
+            await message.answer(
+                texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ Слишком большая сумма (максимум 100,000 ₽)')
+            )
             return
 
         user_service = UserService()
@@ -2581,24 +2651,34 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
         )
 
         if success:
-            action = 'пополнен' if amount_kopeks > 0 else 'списан'
+            if amount_kopeks > 0:
+                msg = texts.t('ADMIN_USER_BALANCE_UPDATED_CREDIT', '✅ Баланс пополнен на {amount}').format(
+                    amount=settings.format_price(abs(amount_kopeks))
+                )
+            else:
+                msg = texts.t('ADMIN_USER_BALANCE_UPDATED_DEBIT', '✅ Баланс списан на {amount}').format(
+                    amount=settings.format_price(abs(amount_kopeks))
+                )
             await message.answer(
-                f'✅ Баланс пользователя {action} на {settings.format_price(abs(amount_kopeks))}',
+                msg,
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [
-                            types.InlineKeyboardButton(
-                                text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}'
-                            )
-                        ]
+                        [types.InlineKeyboardButton(text=back_btn, callback_data=f'admin_user_manage_{user_id}')]
                     ]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка изменения баланса (возможно, недостаточно средств для списания)')
+            await message.answer(
+                texts.t(
+                    'ADMIN_USER_BALANCE_UPDATE_ERROR',
+                    '❌ Ошибка изменения баланса (возможно, недостаточно средств для списания)',
+                )
+            )
 
     except ValueError:
-        await message.answer('❌ Введите корректную сумму (например: 100 или -50)')
+        await message.answer(
+            texts.t('ADMIN_USER_BALANCE_INPUT_INVALID', '❌ Введите корректную сумму (например: 100 или -50)')
+        )
         return
 
     await state.clear()
@@ -2607,12 +2687,16 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
 @admin_required
 @error_handler
 async def confirm_user_block(callback: types.CallbackQuery, db_user: User):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await callback.message.edit_text(
-        '🚫 <b>Блокировка пользователя</b>\n\n'
-        'Вы уверены, что хотите заблокировать этого пользователя?\n'
-        'Пользователь потеряет доступ к боту.',
+        texts.t('ADMIN_USER_BLOCK_CONFIRM_TITLE', '🚫 <b>Блокировка пользователя</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_BLOCK_CONFIRM_BODY',
+            'Вы уверены, что хотите заблокировать этого пользователя?\n'
+            'Пользователь потеряет доступ к боту.',
+        ),
         reply_markup=get_confirmation_keyboard(
             f'admin_user_block_confirm_{user_id}', f'admin_user_manage_{user_id}', db_user.language
         ),
@@ -2623,26 +2707,28 @@ async def confirm_user_block(callback: types.CallbackQuery, db_user: User):
 @admin_required
 @error_handler
 async def block_user(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
+    back_btn = texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю')
 
     user_service = UserService()
     success = await user_service.block_user(db, user_id, db_user.id, 'Заблокирован администратором')
 
     if success:
         await callback.message.edit_text(
-            '✅ Пользователь заблокирован',
+            texts.t('ADMIN_USER_BLOCKED_SUCCESS', '✅ Пользователь заблокирован'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                    [types.InlineKeyboardButton(text=back_btn, callback_data=f'admin_user_manage_{user_id}')]
                 ]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка блокировки пользователя',
+            texts.t('ADMIN_USER_BLOCK_ERROR', '❌ Ошибка блокировки пользователя'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                    [types.InlineKeyboardButton(text=back_btn, callback_data=f'admin_user_manage_{user_id}')]
                 ]
             ),
         )
@@ -2657,14 +2743,13 @@ async def block_user(callback: types.CallbackQuery, db_user: User, db: AsyncSess
 @error_handler
 async def show_user_restrictions(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Показать меню управления ограничениями пользователя."""
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        await callback.answer('Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', 'Пользователь не найден'), show_alert=True)
         return
-
-    get_texts(db_user.language)
 
     # Формируем текст с информацией об ограничениях
     restriction_topup = getattr(user, 'restriction_topup', False)
@@ -2672,18 +2757,26 @@ async def show_user_restrictions(callback: types.CallbackQuery, db_user: User, d
     restriction_reason = getattr(user, 'restriction_reason', None)
 
     text_lines = [
-        '⚠️ <b>Ограничения пользователя</b>',
+        texts.t('ADMIN_USER_RESTRICTIONS_TITLE', '⚠️ <b>Ограничения пользователя</b>'),
         f'👤 {html.escape(user.full_name)}',
         '',
-        '✅ — разрешено, 🚫 — запрещено',
+        texts.t('ADMIN_USER_RESTRICTIONS_LEGEND', '✅ — разрешено, 🚫 — запрещено'),
         '',
-        f'{"🚫" if restriction_topup else "✅"} Пополнение баланса',
-        f'{"🚫" if restriction_subscription else "✅"} Продление/покупка подписки',
+        texts.t('ADMIN_USER_RESTRICTION_TOPUP', '{emoji} Пополнение баланса').format(
+            emoji='🚫' if restriction_topup else '✅'
+        ),
+        texts.t('ADMIN_USER_RESTRICTION_SUBSCRIPTION', '{emoji} Продление/покупка подписки').format(
+            emoji='🚫' if restriction_subscription else '✅'
+        ),
     ]
 
     if restriction_reason:
         text_lines.append('')
-        text_lines.append(f'📝 <b>Причина:</b> {html.escape(restriction_reason)}')
+        text_lines.append(
+            texts.t('ADMIN_USER_RESTRICTION_REASON', '📝 <b>Причина:</b> {reason}').format(
+                reason=html.escape(restriction_reason)
+            )
+        )
 
     keyboard = get_user_restrictions_keyboard(
         user_id=user_id,
@@ -2700,11 +2793,12 @@ async def show_user_restrictions(callback: types.CallbackQuery, db_user: User, d
 @error_handler
 async def toggle_user_restriction_topup(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Переключить ограничение на пополнение баланса."""
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        await callback.answer('Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', 'Пользователь не найден'), show_alert=True)
         return
 
     # Переключаем ограничение
@@ -2712,8 +2806,12 @@ async def toggle_user_restriction_topup(callback: types.CallbackQuery, db_user: 
     user.restriction_topup = not current_value
     await db.commit()
 
-    action = 'установлено' if user.restriction_topup else 'снято'
-    await callback.answer(f'Ограничение на пополнение {action}', show_alert=False)
+    toast = (
+        texts.t('ADMIN_USER_RESTRICTION_TOPUP_TOAST_ON', 'Ограничение на пополнение установлено')
+        if user.restriction_topup
+        else texts.t('ADMIN_USER_RESTRICTION_TOPUP_TOAST_OFF', 'Ограничение на пополнение снято')
+    )
+    await callback.answer(toast, show_alert=False)
 
     # Обновляем меню
     await show_user_restrictions(callback, db_user, db)
@@ -2723,11 +2821,12 @@ async def toggle_user_restriction_topup(callback: types.CallbackQuery, db_user: 
 @error_handler
 async def toggle_user_restriction_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Переключить ограничение на продление/покупку подписки."""
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        await callback.answer('Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', 'Пользователь не найден'), show_alert=True)
         return
 
     # Переключаем ограничение
@@ -2735,8 +2834,12 @@ async def toggle_user_restriction_subscription(callback: types.CallbackQuery, db
     user.restriction_subscription = not current_value
     await db.commit()
 
-    action = 'установлено' if user.restriction_subscription else 'снято'
-    await callback.answer(f'Ограничение на подписку {action}', show_alert=False)
+    toast = (
+        texts.t('ADMIN_USER_RESTRICTION_SUB_TOAST_ON', 'Ограничение на подписку установлено')
+        if user.restriction_subscription
+        else texts.t('ADMIN_USER_RESTRICTION_SUB_TOAST_OFF', 'Ограничение на подписку снято')
+    )
+    await callback.answer(toast, show_alert=False)
 
     # Обновляем меню
     await show_user_restrictions(callback, db_user, db)
@@ -2746,11 +2849,12 @@ async def toggle_user_restriction_subscription(callback: types.CallbackQuery, db
 @error_handler
 async def ask_restriction_reason(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     """Запросить ввод причины ограничения."""
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        await callback.answer('Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', 'Пользователь не найден'), show_alert=True)
         return
 
     current_reason = getattr(user, 'restriction_reason', None) or ''
@@ -2758,20 +2862,26 @@ async def ask_restriction_reason(callback: types.CallbackQuery, db_user: User, d
     await state.set_state(AdminStates.editing_user_restriction_reason)
     await state.update_data(restriction_user_id=user_id)
 
-    text = (
-        '📝 <b>Введите причину ограничения</b>\n\n'
-        'Эта причина будет показана пользователю при попытке '
-        'выполнить запрещённое действие.\n\n'
+    text = texts.t('ADMIN_USER_RESTRICTION_REASON_PROMPT_TITLE', '📝 <b>Введите причину ограничения</b>\n\n') + texts.t(
+        'ADMIN_USER_RESTRICTION_REASON_PROMPT',
+        'Эта причина будет показана пользователю при попытке выполнить запрещённое действие.\n\n',
     )
     if current_reason:
-        text += f'Текущая причина: <i>{html.escape(current_reason)}</i>\n\n'
-    text += 'Отправьте новую причину или /cancel для отмены:'
+        text += texts.t('ADMIN_USER_RESTRICTION_REASON_CURRENT', 'Текущая причина: <i>{reason}</i>\n\n').format(
+            reason=html.escape(current_reason)
+        )
+    text += texts.t('ADMIN_USER_RESTRICTION_REASON_INPUT', 'Отправьте новую причину или /cancel для отмены:')
 
     await callback.message.edit_text(
         text,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_user_restrictions_{user_id}')]
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=f'admin_user_restrictions_{user_id}',
+                    )
+                ]
             ]
         ),
     )
@@ -2782,17 +2892,18 @@ async def ask_restriction_reason(callback: types.CallbackQuery, db_user: User, d
 @error_handler
 async def save_restriction_reason(message: types.Message, db_user: User, db: AsyncSession, state: FSMContext):
     """Сохранить причину ограничения."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('restriction_user_id')
 
     if not user_id:
-        await message.answer('Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', 'Ошибка: пользователь не найден'))
         await state.clear()
         return
 
     user = await get_user_by_id(db, user_id)
     if not user:
-        await message.answer('Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', 'Ошибка: пользователь не найден'))
         await state.clear()
         return
 
@@ -2807,15 +2918,19 @@ async def save_restriction_reason(message: types.Message, db_user: User, db: Asy
     restriction_subscription = getattr(user, 'restriction_subscription', False)
 
     text_lines = [
-        '✅ <b>Причина ограничения сохранена</b>',
+        texts.t('ADMIN_USER_RESTRICTION_REASON_SAVED', '✅ <b>Причина ограничения сохранена</b>'),
         '',
-        '⚠️ <b>Ограничения пользователя</b>',
+        texts.t('ADMIN_USER_RESTRICTIONS_TITLE', '⚠️ <b>Ограничения пользователя</b>'),
         f'👤 {html.escape(user.full_name)}',
         '',
-        f'{"🚫" if restriction_topup else "✅"} Пополнение баланса',
-        f'{"🚫" if restriction_subscription else "✅"} Продление/покупка подписки',
+        texts.t('ADMIN_USER_RESTRICTION_TOPUP', '{emoji} Пополнение баланса').format(
+            emoji='🚫' if restriction_topup else '✅'
+        ),
+        texts.t('ADMIN_USER_RESTRICTION_SUBSCRIPTION', '{emoji} Продление/покупка подписки').format(
+            emoji='🚫' if restriction_subscription else '✅'
+        ),
         '',
-        f'📝 <b>Причина:</b> {html.escape(reason)}',
+        texts.t('ADMIN_USER_RESTRICTION_REASON', '📝 <b>Причина:</b> {reason}').format(reason=html.escape(reason)),
     ]
 
     keyboard = get_user_restrictions_keyboard(
@@ -2832,11 +2947,12 @@ async def save_restriction_reason(message: types.Message, db_user: User, db: Asy
 @error_handler
 async def clear_user_restrictions(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Снять все ограничения с пользователя."""
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        await callback.answer('Пользователь не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_NOT_FOUND', 'Пользователь не найден'), show_alert=True)
         return
 
     # Снимаем все ограничения
@@ -2845,7 +2961,10 @@ async def clear_user_restrictions(callback: types.CallbackQuery, db_user: User, 
     user.restriction_reason = None
     await db.commit()
 
-    await callback.answer('Все ограничения сняты', show_alert=True)
+    await callback.answer(
+        texts.t('ADMIN_USER_RESTRICTIONS_CLEARED', 'Все ограничения сняты'),
+        show_alert=True,
+    )
 
     # Обновляем меню
     await show_user_restrictions(callback, db_user, db)
@@ -2854,6 +2973,7 @@ async def clear_user_restrictions(callback: types.CallbackQuery, db_user: User, 
 @admin_required
 @error_handler
 async def show_inactive_users(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     UserService()
 
     from app.database.crud.user import get_inactive_users
@@ -2862,9 +2982,19 @@ async def show_inactive_users(callback: types.CallbackQuery, db_user: User, db: 
 
     if not inactive_users:
         await callback.message.edit_text(
-            f'✅ Неактивных пользователей (более {settings.INACTIVE_USER_DELETE_MONTHS} месяцев) не найдено',
+            texts.t(
+                'ADMIN_USER_INACTIVE_NONE',
+                '✅ Неактивных пользователей (более {months} месяцев) не найдено',
+            ).format(months=settings.INACTIVE_USER_DELETE_MONTHS),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_users')]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                            callback_data='admin_users',
+                        )
+                    ]
+                ]
             ),
         )
         await callback.answer()
@@ -2875,11 +3005,20 @@ async def show_inactive_users(callback: types.CallbackQuery, db_user: User, db: 
     )
     will_delete = len(inactive_users) - with_active_sub
 
-    text = '🗑️ <b>Неактивные пользователи</b>\n'
-    text += f'Без активности более {settings.INACTIVE_USER_DELETE_MONTHS} месяцев: {len(inactive_users)}\n'
+    text = texts.t('ADMIN_USER_INACTIVE_TITLE', '🗑️ <b>Неактивные пользователи</b>\n')
+    text += texts.t(
+        'ADMIN_USER_INACTIVE_HEADER',
+        'Без активности более {months} месяцев: {count}\n',
+    ).format(months=settings.INACTIVE_USER_DELETE_MONTHS, count=len(inactive_users))
     if with_active_sub > 0:
-        text += f'🛡️ С активной подпиской (не будут удалены): {with_active_sub}\n'
-        text += f'🗑️ Будет удалено: {will_delete}\n'
+        text += texts.t(
+            'ADMIN_USER_INACTIVE_PROTECTED',
+            '🛡️ С активной подпиской (не будут удалены): {count}\n',
+        ).format(count=with_active_sub)
+        text += texts.t(
+            'ADMIN_USER_INACTIVE_WILL_DELETE',
+            '🗑️ Будет удалено: {count}\n',
+        ).format(count=will_delete)
     text += '\n'
 
     for user in inactive_users[:10]:
@@ -2890,16 +3029,31 @@ async def show_inactive_users(callback: types.CallbackQuery, db_user: User, db: 
         text += f'👤 {user_link}{sub_badge}\n'
         text += f'🆔 <code>{user_id_display}</code>\n'
         last_activity_display = (
-            format_time_ago(user.last_activity, db_user.language) if user.last_activity else 'Никогда'
+            format_time_ago(user.last_activity, db_user.language)
+            if user.last_activity
+            else texts.t('ADMIN_USER_INACTIVE_NEVER', 'Никогда')
         )
         text += f'📅 {last_activity_display}\n\n'
 
     if len(inactive_users) > 10:
-        text += f'... и еще {len(inactive_users) - 10} пользователей'
+        text += texts.t(
+            'ADMIN_USER_INACTIVE_MORE',
+            '... и еще {count} пользователей',
+        ).format(count=len(inactive_users) - 10)
 
     keyboard = [
-        [types.InlineKeyboardButton(text='🗑️ Очистить всех', callback_data='admin_cleanup_inactive')],
-        [types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_users')],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_USER_INACTIVE_CLEANUP', '🗑️ Очистить всех'),
+                callback_data='admin_cleanup_inactive',
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                callback_data='admin_users',
+            )
+        ],
     ]
 
     await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard))
@@ -2909,12 +3063,16 @@ async def show_inactive_users(callback: types.CallbackQuery, db_user: User, db: 
 @admin_required
 @error_handler
 async def confirm_user_unblock(callback: types.CallbackQuery, db_user: User):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await callback.message.edit_text(
-        '✅ <b>Разблокировка пользователя</b>\n\n'
-        'Вы уверены, что хотите разблокировать этого пользователя?\n'
-        'Пользователь снова получит доступ к боту.',
+        texts.t('ADMIN_USER_UNBLOCK_CONFIRM_TITLE', '✅ <b>Разблокировка пользователя</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_UNBLOCK_CONFIRM_BODY',
+            'Вы уверены, что хотите разблокировать этого пользователя?\n'
+            'Пользователь снова получит доступ к боту.',
+        ),
         reply_markup=get_confirmation_keyboard(
             f'admin_user_unblock_confirm_{user_id}', f'admin_user_manage_{user_id}', db_user.language
         ),
@@ -2925,26 +3083,28 @@ async def confirm_user_unblock(callback: types.CallbackQuery, db_user: User):
 @admin_required
 @error_handler
 async def unblock_user(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
+    back_btn = texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю')
 
     user_service = UserService()
     success = await user_service.unblock_user(db, user_id, db_user.id)
 
     if success:
         await callback.message.edit_text(
-            '✅ Пользователь разблокирован',
+            texts.t('ADMIN_USER_UNBLOCKED_SUCCESS', '✅ Пользователь разблокирован'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                    [types.InlineKeyboardButton(text=back_btn, callback_data=f'admin_user_manage_{user_id}')]
                 ]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка разблокировки пользователя',
+            texts.t('ADMIN_USER_UNBLOCK_ERROR', '❌ Ошибка разблокировки пользователя'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                    [types.InlineKeyboardButton(text=back_btn, callback_data=f'admin_user_manage_{user_id}')]
                 ]
             ),
         )
@@ -3844,13 +4004,21 @@ async def show_user_servers_management(callback: types.CallbackQuery, db_user: U
 @error_handler
 async def show_server_selection(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
-    await _show_servers_for_user(callback, user_id, db, subscription_id=subscription_id)
+    await _show_servers_for_user(
+        callback, user_id, db, subscription_id=subscription_id, language=db_user.language
+    )
     await callback.answer()
 
 
 async def _show_servers_for_user(
-    callback: types.CallbackQuery, user_id: int, db: AsyncSession, subscription_id: int | None = None
+    callback: types.CallbackQuery,
+    user_id: int,
+    db: AsyncSession,
+    subscription_id: int | None = None,
+    *,
+    language: str,
 ):
+    texts = get_texts(language)
     try:
         user = await get_user_by_id(db, user_id)
         current_squads = []
@@ -3880,18 +4048,28 @@ async def _show_servers_for_user(
 
         if not servers_to_show:
             await callback.message.edit_text(
-                '❌ Доступные серверы не найдены',
+                texts.t('ADMIN_USER_SERVERS_NONE', '❌ Доступные серверы не найдены'),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb)]]
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                                callback_data=back_cb,
+                            )
+                        ]
+                    ]
                 ),
             )
             return
 
-        text = '🌍 <b>Управление серверами</b>\n\n'
-        text += 'Нажмите на сервер чтобы добавить/убрать:\n'
-        text += '✅ - выбранный сервер\n'
-        text += '⚪ - доступный сервер\n'
-        text += '🔒 - неактивный (только для уже назначенных)\n\n'
+        text = texts.t('ADMIN_USER_SERVERS_TITLE', '🌍 <b>Управление серверами</b>\n\n')
+        text += texts.t(
+            'ADMIN_USER_SERVERS_HINT',
+            'Нажмите на сервер чтобы добавить/убрать:\n'
+            '✅ - выбранный сервер\n'
+            '⚪ - доступный сервер\n'
+            '🔒 - неактивный (только для уже назначенных)\n\n',
+        )
 
         keyboard = []
         selected_servers = [s for s in servers_to_show if s.squad_uuid in current_squads]
@@ -3912,7 +4090,7 @@ async def _show_servers_for_user(
 
             display_name = server.display_name
             if not server.is_available and not is_selected:
-                display_name += ' (неактивный)'
+                display_name += texts.t('ADMIN_USER_SERVERS_INACTIVE_SUFFIX', ' (неактивный)')
 
             keyboard.append(
                 [
@@ -3924,12 +4102,21 @@ async def _show_servers_for_user(
             )
 
         if len(servers_to_show) > 20:
-            text += f'\n📝 Показано первых 20 из {len(servers_to_show)} серверов'
+            text += texts.t(
+                'ADMIN_USER_SERVERS_TRUNCATED',
+                '\n📝 Показано первых {shown} из {total} серверов',
+            ).format(shown=20, total=len(servers_to_show))
 
         keyboard.append(
             [
-                types.InlineKeyboardButton(text='✅ Готово', callback_data=back_cb),
-                types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb),
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_USER_SERVERS_DONE', '✅ Готово'),
+                    callback_data=back_cb,
+                ),
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                    callback_data=back_cb,
+                ),
             ]
         )
 
@@ -3942,6 +4129,7 @@ async def _show_servers_for_user(
 @admin_required
 @error_handler
 async def toggle_user_server(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[4])
     server_id = int(parts[5])
@@ -3956,12 +4144,18 @@ async def toggle_user_server(callback: types.CallbackQuery, db_user: User, db: A
         else:
             subscription = await _resolve_admin_subscription(db, user_id)
         if not user or not subscription:
-            await callback.answer('❌ Пользователь или подписка не найдены', show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_USER_SERVERS_USER_SUB_NOT_FOUND', '❌ Пользователь или подписка не найдены'),
+                show_alert=True,
+            )
             return
 
         server = await get_server_squad_by_id(db, server_id)
         if not server:
-            await callback.answer('❌ Сервер не найден', show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_USER_SERVERS_NOT_FOUND', '❌ Сервер не найден'),
+                show_alert=True,
+            )
             return
         current_squads = list(subscription.connected_squads or [])
 
@@ -4009,7 +4203,10 @@ async def toggle_user_server(callback: types.CallbackQuery, db_user: User, db: A
 
     except Exception as e:
         logger.error('Ошибка переключения сервера', error=e)
-        await callback.answer('❌ Ошибка изменения сервера', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_SERVERS_TOGGLE_ERROR', '❌ Ошибка изменения сервера'),
+            show_alert=True,
+        )
 
 
 async def refresh_server_selection_screen(
@@ -4019,6 +4216,7 @@ async def refresh_server_selection_screen(
     db: AsyncSession,
     subscription_id: int | None = None,
 ):
+    texts = get_texts(db_user.language)
     try:
         user = await get_user_by_id(db, user_id)
         current_squads = []
@@ -4043,15 +4241,22 @@ async def refresh_server_selection_screen(
 
         if not servers:
             await callback.message.edit_text(
-                '❌ Доступные серверы не найдены',
+                texts.t('ADMIN_USER_SERVERS_NONE', '❌ Доступные серверы не найдены'),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb)]]
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                                callback_data=back_cb,
+                            )
+                        ]
+                    ]
                 ),
             )
             return
 
-        text = '🌍 <b>Управление серверами</b>\n\n'
-        text += 'Нажмите на сервер чтобы добавить/убрать:\n\n'
+        text = texts.t('ADMIN_USER_SERVERS_TITLE', '🌍 <b>Управление серверами</b>\n\n')
+        text += texts.t('ADMIN_USER_SERVERS_HINT', 'Нажмите на сервер чтобы добавить/убрать:\n\n')
 
         keyboard = []
         for server in servers[:15]:
@@ -4068,12 +4273,21 @@ async def refresh_server_selection_screen(
             )
 
         if len(servers) > 15:
-            text += f'\n📝 Показано первых 15 из {len(servers)} серверов'
+            text += texts.t(
+                'ADMIN_USER_SERVERS_TRUNCATED',
+                '\n📝 Показано первых {shown} из {total} серверов',
+            ).format(shown=15, total=len(servers))
 
         keyboard.append(
             [
-                types.InlineKeyboardButton(text='✅ Готово', callback_data=back_cb),
-                types.InlineKeyboardButton(text='⬅️ Назад', callback_data=back_cb),
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_USER_SERVERS_DONE', '✅ Готово'),
+                    callback_data=back_cb,
+                ),
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'),
+                    callback_data=back_cb,
+                ),
             ]
         )
 
@@ -4086,6 +4300,7 @@ async def refresh_server_selection_screen(
 @admin_required
 @error_handler
 async def start_devices_edit(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     await state.update_data(editing_devices_user_id=user_id, admin_subscription_id=subscription_id)
@@ -4122,14 +4337,24 @@ async def start_devices_edit(callback: types.CallbackQuery, db_user: User, state
             row = []
     if row:
         device_buttons.append(row)
-    device_buttons.append([types.InlineKeyboardButton(text='❌ Отмена', callback_data=back_cb)])
+    device_buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                callback_data=back_cb,
+            )
+        ]
+    )
     markup = types.InlineKeyboardMarkup(inline_keyboard=device_buttons)
 
     await callback.message.edit_text(
-        '📱 <b>Изменение количества устройств</b>\n\n'
-        f'Введите новое количество устройств (от 1 до {limit_display}):\n'
-        '• Текущее значение будет заменено\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_DEVICES_EDIT_TITLE', '📱 <b>Изменение количества устройств</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_DEVICES_EDIT_PROMPT',
+            'Введите новое количество устройств (от 1 до {limit}):\n'
+            '• Текущее значение будет заменено\n\n'
+            'Или нажмите /cancel для отмены',
+        ).format(limit=limit_display),
         reply_markup=markup,
     )
 
@@ -4140,6 +4365,7 @@ async def start_devices_edit(callback: types.CallbackQuery, db_user: User, state
 @admin_required
 @error_handler
 async def set_user_devices_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     devices = int(parts[-1])
     if parts[-2].startswith('s') and parts[-2][1:].isdigit():
@@ -4154,21 +4380,22 @@ async def set_user_devices_button(callback: types.CallbackQuery, db_user: User, 
         if subscription_id and settings.is_multi_tariff_enabled()
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.ADMIN_USER_SUBSCRIPTION_SETTINGS
 
     success = await _update_user_devices(db, user_id, devices, db_user.id, subscription_id=subscription_id)
 
     if success:
         await callback.message.edit_text(
-            f'✅ Количество устройств изменено на: {devices}',
+            texts.t('ADMIN_USER_DEVICES_UPDATED', '✅ Количество устройств: {count}').format(count=devices),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка изменения количества устройств',
+            texts.t('ADMIN_USER_DEVICES_UPDATE_ERROR', '❌ Ошибка изменения количества устройств'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -4182,12 +4409,13 @@ async def set_user_devices_button(callback: types.CallbackQuery, db_user: User, 
 @admin_required
 @error_handler
 async def process_devices_edit_text(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('editing_devices_user_id')
     subscription_id = data.get('admin_subscription_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
 
@@ -4196,6 +4424,7 @@ async def process_devices_edit_text(message: types.Message, db_user: User, state
         if subscription_id and settings.is_multi_tariff_enabled()
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.ADMIN_USER_SUBSCRIPTION_SETTINGS
 
     try:
         devices = int(message.text.strip())
@@ -4207,25 +4436,29 @@ async def process_devices_edit_text(message: types.Message, db_user: User, state
         is_unlimited = raw_limit <= 0
         if devices <= 0 or (not is_unlimited and devices > raw_limit):
             limit_display = '∞' if is_unlimited else str(raw_limit)
-            await message.answer(f'❌ Количество устройств должно быть от 1 до {limit_display}')
+            await message.answer(
+                texts.t('ADMIN_USER_DEVICES_INVALID', '❌ Количество устройств: 1 до {limit}').format(
+                    limit=limit_display
+                )
+            )
             return
 
         success = await _update_user_devices(db, user_id, devices, db_user.id, subscription_id=subscription_id)
 
         if success:
             await message.answer(
-                f'✅ Количество устройств изменено на: {devices}',
+                texts.t('ADMIN_USER_DEVICES_UPDATED', '✅ Количество устройств: {count}').format(count=devices),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]
-                    ]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка изменения количества устройств')
+            await message.answer(
+                texts.t('ADMIN_USER_DEVICES_UPDATE_ERROR', '❌ Ошибка изменения количества устройств')
+            )
 
     except ValueError:
-        await message.answer('❌ Введите корректное число устройств')
+        await message.answer(texts.t('ADMIN_USER_DEVICES_INPUT_INVALID', '❌ Введите корректное число устройств'))
         return
 
     await state.clear()
@@ -4234,6 +4467,7 @@ async def process_devices_edit_text(message: types.Message, db_user: User, state
 @admin_required
 @error_handler
 async def start_traffic_edit(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     await state.update_data(editing_traffic_user_id=user_id, admin_subscription_id=subscription_id)
@@ -4246,36 +4480,49 @@ async def start_traffic_edit(callback: types.CallbackQuery, db_user: User, state
     )
 
     await callback.message.edit_text(
-        '📊 <b>Изменение лимита трафика</b>\n\n'
-        'Введите новый лимит трафика в ГБ:\n'
-        '• 0 - безлимитный трафик\n'
-        '• Примеры: 50, 100, 500, 1000\n'
-        '• Максимум: 10000 ГБ\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_TRAFFIC_EDIT_TITLE', '📊 <b>Изменение лимита трафика</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_TRAFFIC_EDIT_PROMPT',
+            'Введите новый лимит трафика в ГБ:\n'
+            '• 0 - безлимитный трафик\n'
+            '• Примеры: 50, 100, 500, 1000\n'
+            '• Максимум: 10000 ГБ\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     types.InlineKeyboardButton(
-                        text='50 ГБ', callback_data=f'admin_user_traffic_set_{user_id}{_sid}_50'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=50),
+                        callback_data=f'admin_user_traffic_set_{user_id}{_sid}_50',
                     ),
                     types.InlineKeyboardButton(
-                        text='100 ГБ', callback_data=f'admin_user_traffic_set_{user_id}{_sid}_100'
-                    ),
-                ],
-                [
-                    types.InlineKeyboardButton(
-                        text='500 ГБ', callback_data=f'admin_user_traffic_set_{user_id}{_sid}_500'
-                    ),
-                    types.InlineKeyboardButton(
-                        text='1000 ГБ', callback_data=f'admin_user_traffic_set_{user_id}{_sid}_1000'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=100),
+                        callback_data=f'admin_user_traffic_set_{user_id}{_sid}_100',
                     ),
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text='♾️ Безлимит', callback_data=f'admin_user_traffic_set_{user_id}{_sid}_0'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=500),
+                        callback_data=f'admin_user_traffic_set_{user_id}{_sid}_500',
+                    ),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=1000),
+                        callback_data=f'admin_user_traffic_set_{user_id}{_sid}_1000',
+                    ),
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_BTN', '♾️ Безлимит'),
+                        callback_data=f'admin_user_traffic_set_{user_id}{_sid}_0',
                     )
                 ],
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=back_cb)],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=back_cb,
+                    )
+                ],
             ]
         ),
     )
@@ -4287,6 +4534,7 @@ async def start_traffic_edit(callback: types.CallbackQuery, db_user: User, state
 @admin_required
 @error_handler
 async def set_user_traffic_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     traffic_gb = int(parts[-1])
     if parts[-2].startswith('s') and parts[-2][1:].isdigit():
@@ -4301,22 +4549,27 @@ async def set_user_traffic_button(callback: types.CallbackQuery, db_user: User, 
         if subscription_id and settings.is_multi_tariff_enabled()
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.ADMIN_USER_SUBSCRIPTION_SETTINGS
 
     success = await _update_user_traffic(db, user_id, traffic_gb, db_user.id, subscription_id=subscription_id)
 
     if success:
-        traffic_text = '♾️ безлимитный' if traffic_gb == 0 else f'{traffic_gb} ГБ'
+        traffic_text = (
+            texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', '♾️ безлимитный')
+            if traffic_gb == 0
+            else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=traffic_gb)
+        )
         await callback.message.edit_text(
-            f'✅ Лимит трафика изменен на: {traffic_text}',
+            texts.t('ADMIN_USER_TRAFFIC_UPDATED', '✅ Лимит трафика: {traffic}').format(traffic=traffic_text),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка изменения лимита трафика',
+            texts.t('ADMIN_USER_TRAFFIC_UPDATE_ERROR', '❌ Ошибка изменения лимита трафика'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -4326,12 +4579,13 @@ async def set_user_traffic_button(callback: types.CallbackQuery, db_user: User, 
 @admin_required
 @error_handler
 async def process_traffic_edit_text(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('editing_traffic_user_id')
     subscription_id = data.get('admin_subscription_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
 
@@ -4340,31 +4594,41 @@ async def process_traffic_edit_text(message: types.Message, db_user: User, state
         if subscription_id and settings.is_multi_tariff_enabled()
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.ADMIN_USER_SUBSCRIPTION_SETTINGS
 
     try:
         traffic_gb = int(message.text.strip())
 
         if traffic_gb < 0 or traffic_gb > 10000:
-            await message.answer('❌ Лимит трафика должен быть от 0 до 10000 ГБ (0 = безлимит)')
+            await message.answer(
+                texts.t(
+                    'ADMIN_USER_TRAFFIC_LIMIT_INVALID',
+                    '❌ Лимит трафика должен быть от 0 до 10000 ГБ (0 = безлимит)',
+                )
+            )
             return
 
         success = await _update_user_traffic(db, user_id, traffic_gb, db_user.id, subscription_id=subscription_id)
 
         if success:
-            traffic_text = '♾️ безлимитный' if traffic_gb == 0 else f'{traffic_gb} ГБ'
+            traffic_text = (
+                texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', '♾️ безлимитный')
+                if traffic_gb == 0
+                else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=traffic_gb)
+            )
             await message.answer(
-                f'✅ Лимит трафика изменен на: {traffic_text}',
+                texts.t('ADMIN_USER_TRAFFIC_UPDATED', '✅ Лимит трафика: {traffic}').format(traffic=traffic_text),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]
-                    ]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка изменения лимита трафика')
+            await message.answer(texts.t('ADMIN_USER_TRAFFIC_UPDATE_ERROR', '❌ Ошибка изменения лимита трафика'))
 
     except ValueError:
-        await message.answer('❌ Введите корректное число ГБ')
+        await message.answer(
+            texts.t('ADMIN_USER_SUB_TRAFFIC_GB_INPUT_INVALID', '❌ Введите корректное число ГБ')
+        )
         return
 
     await state.clear()
@@ -4373,6 +4637,7 @@ async def process_traffic_edit_text(message: types.Message, db_user: User, state
 @admin_required
 @error_handler
 async def confirm_reset_devices(callback: types.CallbackQuery, db_user: User):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     _sid = f'_s{subscription_id}' if subscription_id else ''
@@ -4383,14 +4648,17 @@ async def confirm_reset_devices(callback: types.CallbackQuery, db_user: User):
     )
 
     await callback.message.edit_text(
-        '🔄 <b>Сброс устройств пользователя</b>\n\n'
-        '⚠️ <b>ВНИМАНИЕ!</b>\n'
-        'Вы уверены, что хотите сбросить все HWID устройства этого пользователя?\n\n'
-        'Это действие:\n'
-        '• Удалит все привязанные устройства\n'
-        '• Пользователь сможет заново подключить устройства\n'
-        '• Действие необратимо!\n\n'
-        'Продолжить?',
+        texts.t('ADMIN_USER_RESET_DEVICES_TITLE', '🔄 <b>Сброс устройств пользователя</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_RESET_DEVICES_CONFIRM',
+            '⚠️ <b>ВНИМАНИЕ!</b>\n'
+            'Вы уверены, что хотите сбросить все HWID устройства этого пользователя?\n\n'
+            'Это действие:\n'
+            '• Удалит все привязанные устройства\n'
+            '• Пользователь сможет заново подключить устройства\n'
+            '• Действие необратимо!\n\n'
+            'Продолжить?',
+        ),
         reply_markup=get_confirmation_keyboard(
             f'admin_user_reset_devices_confirm_{user_id}{_sid}', back_cb, db_user.language
         ),
@@ -4401,6 +4669,7 @@ async def confirm_reset_devices(callback: types.CallbackQuery, db_user: User):
 @admin_required
 @error_handler
 async def reset_user_devices(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     back_cb = (
@@ -4408,6 +4677,7 @@ async def reset_user_devices(callback: types.CallbackQuery, db_user: User, db: A
         if subscription_id and settings.is_multi_tariff_enabled()
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.ADMIN_USER_SUBSCRIPTION_SETTINGS
 
     try:
         user = await get_user_by_id(db, user_id)
@@ -4423,7 +4693,13 @@ async def reset_user_devices(callback: types.CallbackQuery, db_user: User, db: A
         if not _uuid:
             _uuid = getattr(user, 'remnawave_uuid', None)
         if not user or not _uuid:
-            await callback.answer('❌ Пользователь не найден или не связан с RemnaWave', show_alert=True)
+            await callback.answer(
+                texts.t(
+                    'ADMIN_USER_RESET_DEVICES_RW_ERROR',
+                    '❌ Пользователь не найден или не связан с RemnaWave',
+                ),
+                show_alert=True,
+            )
             return
 
         remnawave_service = RemnaWaveService()
@@ -4432,27 +4708,26 @@ async def reset_user_devices(callback: types.CallbackQuery, db_user: User, db: A
 
         if success:
             await callback.message.edit_text(
-                '✅ Устройства пользователя успешно сброшены',
+                texts.t('ADMIN_USER_RESET_DEVICES_SUCCESS', '✅ Устройства пользователя успешно сброшены'),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]
-                    ]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
             logger.info('Админ сбросил устройства пользователя', db_user_id=db_user.id, user_id=user_id)
         else:
             await callback.message.edit_text(
-                '❌ Ошибка сброса устройств',
+                texts.t('ADMIN_USER_RESET_DEVICES_ERROR', '❌ Ошибка сброса устройств'),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [types.InlineKeyboardButton(text='📱 Подписка и настройки', callback_data=back_cb)]
-                    ]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
 
     except Exception as e:
         logger.error('Ошибка сброса устройств', error=e)
-        await callback.answer('❌ Ошибка сброса устройств', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_RESET_DEVICES_ERROR', '❌ Ошибка сброса устройств'),
+            show_alert=True,
+        )
 
 
 async def _update_user_devices(
