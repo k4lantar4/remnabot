@@ -58,59 +58,6 @@ def _redact_telegram_secrets(text: str) -> str:
     return _BOT_TOKEN_RE.sub('bot[REDACTED]', text)
 
 
-def is_message_thread_not_found(error: Exception) -> bool:
-    """True when Telegram rejects message_thread_id (deleted/invalid forum topic)."""
-    if not isinstance(error, TelegramBadRequest):
-        return False
-    return 'message thread not found' in str(error).lower()
-
-
-def without_message_thread_id(kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Copy delivery kwargs without message_thread_id (fallback to main group chat)."""
-    return {key: value for key, value in kwargs.items() if key != 'message_thread_id'}
-
-
-def _admin_topic_fallback_chain(kwargs: dict[str, Any]) -> list[dict[str, Any]]:
-    """Delivery attempts: category topic → general topic → main chat (no thread)."""
-    chain: list[dict[str, Any]] = [kwargs]
-    thread_id = kwargs.get('message_thread_id')
-    default_topic = settings.ADMIN_NOTIFICATIONS_TOPIC_ID
-    if thread_id is not None and default_topic is not None and int(default_topic) != int(thread_id):
-        chain.append({**kwargs, 'message_thread_id': int(default_topic)})
-    chain.append(without_message_thread_id(kwargs))
-
-    seen: set[tuple[int | None, int | None]] = set()
-    unique: list[dict[str, Any]] = []
-    for item in chain:
-        key = (item.get('chat_id'), item.get('message_thread_id'))
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(item)
-    return unique
-
-
-async def send_with_admin_topic_fallback(coro_factory, kwargs: dict[str, Any]) -> Any:
-    """Call coro_factory(kwargs); on missing forum topic, retry alternate topics then main chat."""
-    last_error: TelegramBadRequest | None = None
-    for attempt_kwargs in _admin_topic_fallback_chain(kwargs):
-        try:
-            return await coro_factory(attempt_kwargs)
-        except TelegramBadRequest as error:
-            if attempt_kwargs.get('message_thread_id') is None or not is_message_thread_not_found(error):
-                raise
-            last_error = error
-            logger.warning(
-                'Admin forum topic not found, trying next delivery target',
-                chat_id=attempt_kwargs.get('chat_id'),
-                message_thread_id=attempt_kwargs.get('message_thread_id'),
-                error=_redact_telegram_secrets(str(error))[:200],
-            )
-    if last_error is not None:
-        raise last_error
-    raise RuntimeError('send_with_admin_topic_fallback: empty attempt chain')
-
-
 class NotificationCategory(StrEnum):
     """Категории уведомлений для маршрутизации по топикам."""
 
@@ -534,6 +481,33 @@ class AdminNotificationService:
             pass
         return None
 
+    async def _squads_for_admin_display(
+        self,
+        db: AsyncSession,
+        subscription: Subscription,
+    ) -> list[str]:
+        """Resolve squad UUIDs for admin notification text only (no DB write)."""
+        try:
+            await db.refresh(subscription, attribute_names=['connected_squads', 'tariff_id'])
+        except Exception:
+            pass
+
+        squads = list(subscription.connected_squads or [])
+        if squads:
+            return squads
+
+        if subscription.tariff_id:
+            from app.database.crud.tariff import get_tariff_by_id
+
+            tariff = await get_tariff_by_id(db, subscription.tariff_id)
+            if tariff and tariff.allowed_squads:
+                return list(tariff.allowed_squads)
+
+        from app.database.crud.server_squad import get_all_server_squads
+
+        all_servers, _ = await get_all_server_squads(db, available_only=True)
+        return [s.squad_uuid for s in all_servers if s.squad_uuid]
+
     async def send_subscription_purchase_notification(
         self,
         db: AsyncSession,
@@ -591,7 +565,8 @@ class AdminNotificationService:
             # Получаем название тарифа
             tariff_name = await self._get_tariff_name(db, subscription)
 
-            servers_info = await self._get_servers_info(subscription.connected_squads)
+            display_squads = await self._squads_for_admin_display(db, subscription)
+            servers_info = await self._get_servers_info(display_squads)
             payment_method = self._get_payment_method_display(transaction.payment_method) if transaction else 'Баланс'
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
@@ -1017,7 +992,8 @@ class AdminNotificationService:
                 return False
 
             payment_method = self._get_payment_method_display(transaction.payment_method)
-            servers_info = await self._get_servers_info(subscription.connected_squads)
+            display_squads = await self._squads_for_admin_display(db, subscription)
+            servers_info = await self._get_servers_info(display_squads)
             promo_group = await self._get_user_promo_group(db, user)
             promo_block = self._format_promo_group_block(promo_group)
             user_display = self._get_user_display(user)
@@ -1474,21 +1450,6 @@ class AdminNotificationService:
                 return topic
         return self.topic_id
 
-    def build_delivery_kwargs(
-        self,
-        *,
-        chat_id: int,
-        category: NotificationCategory | None = None,
-    ) -> dict[str, Any]:
-        """Build chat_id and optional message_thread_id for a specific admin supergroup."""
-        kwargs: dict[str, Any] = {'chat_id': chat_id}
-        if not settings.admin_forum_topics_apply_to_chat(chat_id):
-            return kwargs
-        thread_id = self._resolve_topic_id(category)
-        if thread_id is not None:
-            kwargs['message_thread_id'] = int(thread_id)
-        return kwargs
-
     async def _send_message(
         self,
         text: str,
@@ -1533,15 +1494,6 @@ class AdminNotificationService:
                 return False
 
             except TelegramBadRequest as e:
-                if message_kwargs.get('message_thread_id') and is_message_thread_not_found(e):
-                    logger.warning(
-                        'Admin forum topic not found, retrying without message_thread_id',
-                        chat_id=self.chat_id,
-                        message_thread_id=message_kwargs.get('message_thread_id'),
-                        error=_redact_telegram_secrets(str(e))[:200],
-                    )
-                    message_kwargs = without_message_thread_id(message_kwargs)
-                    continue
                 logger.warning(
                     'Ошибка отправки уведомления в админ-чат',
                     error=_redact_telegram_secrets(str(e))[:200],
