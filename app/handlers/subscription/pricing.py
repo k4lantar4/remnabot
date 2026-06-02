@@ -141,11 +141,11 @@ async def _prepare_subscription_summary(
 
     if settings.is_traffic_fixed():
         if final_traffic_gb == 0:
-            traffic_display = 'Безлимитный'
+            traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
         else:
             traffic_display = f'{final_traffic_gb} ГБ'
     elif summary_data.get('traffic_gb', 0) == 0:
-        traffic_display = 'Безлимитный'
+        traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
     else:
         traffic_display = f'{summary_data.get("traffic_gb", 0)} ГБ'
 
@@ -210,25 +210,33 @@ async def _prepare_subscription_summary(
     details_text = '\n'.join(details_lines)
 
     summary_lines = [
-        '📋 <b>Сводка заказа</b>',
+        texts.t('SUBSCRIPTION_ORDER_SUMMARY_TITLE', '📋 <b>Сводка заказа</b>'),
         '',
-        f'📅 <b>Период:</b> {period_display}',
-        f'📊 <b>Трафик:</b> {traffic_display}',
-        f'🌍 <b>Страны:</b> {", ".join(selected_countries_names)}',
+        texts.t('SUBSCRIPTION_ORDER_SUMMARY_PERIOD', '📅 <b>Период:</b> {period}').format(period=period_display),
+        texts.t('SUBSCRIPTION_ORDER_SUMMARY_TRAFFIC', '📊 <b>Трафик:</b> {traffic}').format(traffic=traffic_display),
+        texts.t('SUBSCRIPTION_ORDER_SUMMARY_COUNTRIES', '🌍 <b>Страны:</b> {countries}').format(
+            countries=', '.join(selected_countries_names)
+        ),
     ]
 
     if devices_selection_enabled:
-        summary_lines.append(f'📱 <b>Устройства:</b> {devices_selected}')
+        summary_lines.append(
+            texts.t('SUBSCRIPTION_ORDER_SUMMARY_DEVICES', '📱 <b>Устройства:</b> {devices}').format(
+                devices=devices_selected
+            )
+        )
 
     summary_lines.extend(
         [
             '',
-            '💰 <b>Детализация стоимости:</b>',
+            texts.t('SUBSCRIPTION_ORDER_SUMMARY_COST_HEADER', '💰 <b>Детализация стоимости:</b>'),
             details_text,
             '',
-            f'💎 <b>Общая стоимость:</b> {texts.format_price(total_price)}',
+            texts.t('SUBSCRIPTION_ORDER_SUMMARY_TOTAL', '💎 <b>Общая стоимость:</b> {total}').format(
+                total=texts.format_price(total_price)
+            ),
             '',
-            'Подтверждаете покупку?',
+            texts.t('SUBSCRIPTION_ORDER_SUMMARY_CONFIRM', 'Подтверждаете покупку?'),
         ]
     )
 
