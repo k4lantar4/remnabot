@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiogram.exceptions import TelegramBadRequest
 
 from app.config import Settings
-from app.services.admin_notification_service import (
-    AdminNotificationService,
-    NotificationCategory,
+from app.plugins.c2c.admin_delivery import (
     _admin_topic_fallback_chain,
+    build_delivery_kwargs,
     send_with_admin_topic_fallback,
 )
+from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 
 
 def _settings(**overrides: object) -> Settings:
@@ -47,8 +46,10 @@ def test_admin_forum_topics_apply_only_to_notifications_chat():
 def test_build_delivery_kwargs_skips_topic_for_foreign_chat(monkeypatch: pytest.MonkeyPatch):
     cfg = _settings(C2C_ADMIN_CHAT_ID='-1002222222222')
     monkeypatch.setattr('app.services.admin_notification_service.settings', cfg)
+    monkeypatch.setattr('app.plugins.c2c.admin_delivery.settings', cfg)
     service = AdminNotificationService(MagicMock())
-    kwargs = service.build_delivery_kwargs(
+    kwargs = build_delivery_kwargs(
+        service,
         chat_id=-1002222222222,
         category=NotificationCategory.BALANCE,
     )
@@ -60,8 +61,10 @@ def test_build_delivery_kwargs_includes_balance_topic_for_notifications_chat(
 ):
     cfg = _settings()
     monkeypatch.setattr('app.services.admin_notification_service.settings', cfg)
+    monkeypatch.setattr('app.plugins.c2c.admin_delivery.settings', cfg)
     service = AdminNotificationService(MagicMock())
-    kwargs = service.build_delivery_kwargs(
+    kwargs = build_delivery_kwargs(
+        service,
         chat_id=-1001111111111,
         category=NotificationCategory.BALANCE,
     )

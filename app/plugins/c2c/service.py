@@ -21,12 +21,9 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
+from app.plugins.c2c.admin_delivery import build_delivery_kwargs, send_with_admin_topic_fallback
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
-from app.services.admin_notification_service import (
-    AdminNotificationService,
-    NotificationCategory,
-    send_with_admin_topic_fallback,
-)
+from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info
 
 
@@ -93,7 +90,8 @@ class C2cPaymentService:
         admin_text = self._build_admin_notification_text(receipt, user)
         keyboard = get_c2c_admin_review_keyboard(receipt.id)
         notification_service = AdminNotificationService(self.bot)
-        delivery_kwargs = notification_service.build_delivery_kwargs(
+        delivery_kwargs = build_delivery_kwargs(
+            notification_service,
             chat_id=admin_chat_id,
             category=NotificationCategory.BALANCE,
         )
