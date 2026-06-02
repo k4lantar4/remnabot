@@ -1418,9 +1418,15 @@ def get_traffic_packages_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKey
             continue
 
         if gb == 0:
-            text = f'♾️ Безлимит - {settings.format_price(package["price"])}'
+            text = texts.t(
+                'TRAFFIC_PACKAGE_BTN_UNLIMITED',
+                '♾️ Безлимит - {price}',
+            ).format(price=settings.format_price(package['price']))
         else:
-            text = f'📊 {gb} ГБ - {settings.format_price(package["price"])}'
+            text = texts.t(
+                'TRAFFIC_PACKAGE_BTN_GB',
+                '📊 {gb} ГБ - {price}',
+            ).format(gb=gb, price=settings.format_price(package['price']))
 
         keyboard.append([InlineKeyboardButton(text=text, callback_data=f'traffic_{gb}')])
 
@@ -2454,8 +2460,6 @@ def get_add_traffic_keyboard(
     from app.config import settings
 
     texts = get_texts(language)
-    language_code = (language or DEFAULT_LANGUAGE).split('-')[0].lower()
-    use_russian_fallback = language_code in {'ru', 'fa'}
     back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     # Считаем по дням (как в кабинете и подтверждении)
@@ -2463,7 +2467,11 @@ def get_add_traffic_keyboard(
         now = datetime.now(UTC)
         days_left = max(1, math.ceil((subscription_end_date - now).total_seconds() / 86400))
         price_multiplier = days_left / 30
-        period_text = f' (за {days_left} дн.)' if days_left > 1 else ' (за 1 день)'
+        period_text = (
+            texts.t('TRAFFIC_TOPUP_PERIOD_DAYS', ' (за {days} дн.)').format(days=days_left)
+            if days_left > 1
+            else texts.t('TRAFFIC_TOPUP_PERIOD_ONE_DAY', ' (за 1 день)')
+        )
     else:
         price_multiplier = 1
         period_text = ''
@@ -2498,20 +2506,21 @@ def get_add_traffic_keyboard(
         total_discount = int(discount_per_month * price_multiplier)
 
         if gb == 0:
-            if use_russian_fallback:
-                text = f'♾️ Безлимитный трафик - {total_price // 100} ₽{period_text}'
-            else:
-                text = f'♾️ Unlimited traffic - {total_price // 100} ₽{period_text}'
-        elif use_russian_fallback:
-            text = f'📊 +{gb} ГБ трафика - {total_price // 100} ₽{period_text}'
+            text = texts.t(
+                'TRAFFIC_TOPUP_BTN_UNLIMITED',
+                '♾️ Безлимитный трафик - {price}{period}',
+            ).format(price=texts.format_price(total_price), period=period_text)
         else:
-            text = f'📊 +{gb} GB traffic - {total_price // 100} ₽{period_text}'
+            text = texts.t(
+                'TRAFFIC_TOPUP_BTN_GB',
+                '📊 +{gb} ГБ трафика - {price}{period}',
+            ).format(gb=gb, price=texts.format_price(total_price), period=period_text)
 
         if discount_percent > 0 and total_discount > 0:
-            if use_russian_fallback:
-                text += f' (скидка {discount_percent}%: -{total_discount // 100}₽)'
-            else:
-                text += f' (discount {discount_percent}%: -{total_discount // 100}₽)'
+            text += texts.t(
+                'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
+                ' (скидка {percent}%: -{amount})',
+            ).format(percent=discount_percent, amount=texts.format_price(total_discount))
 
         buttons.append([InlineKeyboardButton(text=text, callback_data=f'add_traffic_{gb}')])
 
