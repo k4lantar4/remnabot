@@ -1,0 +1,65 @@
+---
+description: fa-i18n living status — done, remaining, next slice (update after each session)
+alwaysApply: true
+---
+
+# fa-i18n status (living doc)
+
+**Update this file after every fa-i18n session** (5–10 lines in Done/Next). Do not re-run full Phase-0 discovery unless `main` diverged significantly or user asks.
+
+## Decisions (stable)
+
+| Topic | Decision |
+|-------|----------|
+| Admin group notifications | Persian (`AdminNotificationService`) |
+| miniapp / cabinet UI | Later phase — out of scope |
+| `./locales/` untracked | **Intentional** — Docker mount copy. Source of truth: `app/localization/locales/fa.json`. After fa.json change: `cp app/localization/locales/fa.json ./locales/fa.json` + restart bot. **Do not commit** `locales/`. |
+| Admin panel language | `get_texts(db_user.language)` — not fixed ru |
+| Disabled providers | Skip (CryptoBot, Heleket, WATA, Stars off in `.env`) |
+
+## Git baseline
+
+| Item | Value |
+|------|-------|
+| Production line | `remnabot/main` ≈ `dev-local` ≈ `fa-i18n` |
+| i18n batch base | `7b46148c` (pre-fa-i18n split) |
+| Last full batch | `76a03ec4` — 16 commits + PR #17–#32 merged to `split-base` |
+| **Current HEAD** | see `git log -1` on `fa-i18n-traffic-ui` — P1 admin batch (Jun 3 2026) |
+| Branch for new work | `fa-i18n-traffic-ui` → merge to `fa-i18n` → `dev-local` → `main` after user OK |
+
+## Session opener (copy-paste)
+
+```
+@fa-i18n-status.mdc @fa-i18n-execution.mdc
+Continue fa-i18n: next slice from status. One handler/keyboard + fa.json per commit. Smoke + cp fa.json. No new plan.
+```
+
+## Done (P1 user + P1 admin — Jun 3 2026)
+
+- [x] P1 user: `traffic.py` `8bbf52f7`, `devices.py` `fc83b0dd`, `countries.py` `43772e26`, `menu.py` fragments `8b76b72d`
+- [x] P1 admin users: U3 `92c0e2b3`, U4 `4c23ad51`, U5 `051cfed6`, U6–U10 `df978ace` (+ list/search/stats keys in fa.json)
+- [x] P1 admin tariffs: T1 `a36eea3a` … T6 `4dadc9eb`, T7–T12 `fb82555a`
+- [x] Admin notify: N0 `c0856f26` … N8 `53203ef3`, bulk-ban fix on HEAD
+
+## Next (P2 / cleanup)
+
+| Area | Notes |
+|------|-------|
+| `admin/users.py` | Per-user stats screen, search results, buy-sub/autopay handlers (~165 lines Cyrillic outside fallbacks) |
+| P2 admin | 14 hardcode-only modules |
+| Deferred keyboards | `common.py` traffic switch labels, `inline.py` reset-traffic confirm btn |
+
+## Smoke (every commit)
+
+```bash
+docker compose build bot && docker compose up -d   # or: docker compose run --rm --no-deps bot python -c "import main"
+docker compose exec bot python -c "import main"
+cp app/localization/locales/fa.json ./locales/fa.json
+docker compose restart bot
+grep -r get_admin_texts app/  # must be 0
+```
+
+## Supersedes
+
+Initial discovery: `.cursor/plans/fa-i18n_execution_plan_be1b33ee.plan.md` (historical only).
+P1 admin plan: `.cursor/plans/p1_admin_fa-i18n_a4ba6920.plan.md` (executed Jun 3 2026).
