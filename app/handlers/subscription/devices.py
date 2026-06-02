@@ -1619,7 +1619,10 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         )
 
         if not success:
-            await callback.answer('⚠️ Ошибка списания средств', show_alert=True)
+            await callback.answer(
+                texts.t('PAYMENT_FAILED', '⚠️ Ошибка списания средств'),
+                show_alert=True,
+            )
             return
 
         # Re-lock subscription after subtract_user_balance committed (released all locks)
@@ -1954,13 +1957,17 @@ async def handle_specific_app_guide(
 async def show_device_connection_help(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
+    texts = get_texts(db_user.language)
     subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
         return
     subscription_link = get_display_subscription_link(subscription)
 
     if not subscription_link:
-        await callback.answer('❌ Ссылка подписки недоступна', show_alert=True)
+        await callback.answer(
+            texts.t('SUBSCRIPTION_LINK_UNAVAILABLE', '❌ Ссылка подписки недоступна'),
+            show_alert=True,
+        )
         return
 
     help_text = f"""
