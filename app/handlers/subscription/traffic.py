@@ -76,7 +76,7 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
                     _t = await _get_tariff(db, sub.tariff_id)
                     tariff_name = _t.name if _t else f'#{sub.id}'
                 else:
-                    tariff_name = f'Подписка #{sub.id}'
+                    tariff_name = texts.t('MY_SUB_DEFAULT_NAME', 'Подписка') + f' #{sub.id}'
                 days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
                 keyboard.append(
                     [
@@ -86,7 +86,7 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
                         )
                     ]
                 )
-            keyboard.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
+            keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
             await callback.message.edit_text(
                 texts.t('TRAFFIC_TOPUP_SELECT_SUB', '📊 <b>Докупить трафик</b>\n\nВыберите подписку:'),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
