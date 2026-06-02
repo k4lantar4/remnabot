@@ -106,7 +106,7 @@ async def process_wata_payment_amount(
         return
 
     if not settings.is_wata_enabled():
-        await message.answer('❌ Оплата через WATA временно недоступна')
+        await message.answer(texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'))
         return
 
     if amount_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS:
