@@ -2002,5 +2002,9 @@
   "CB_TARIFF_DOWNGRADE_UNAVAILABLE": "کاهش تعرفه ممکن نیست",
   "CB_CURRENT_TARIFF_NOT_FOUND": "تعرفه فعلی یافت نشد",
   "CB_CART_DATA_CORRUPTED": "❌ داده سبد آسیب دیده",
-  "CB_TARIFF_NO_LONGER_AVAILABLE": "❌ تعرفه دیگر در دسترس نیست"
+  "CB_TARIFF_NO_LONGER_AVAILABLE": "❌ تعرفه دیگر در دسترس نیست",
+  "CB_INVALID_PAYMENT_METHOD": "❌ روش پرداخت نامعتبر",
+  "CB_PAYMENT_METHOD_UNAVAILABLE": "⚠️ این روش فعلاً در دسترس نیست",
+  "CB_PAYMENT_STATUS_SENT_TO_CHAT": "ℹ️ وضعیت پرداخت به چت ارسال شد",
+  "CB_MESSAGE_OUTDATED": "پیام منقضی شده. /start را امتحان کنید."
 }

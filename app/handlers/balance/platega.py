@@ -177,14 +177,15 @@ async def handle_platega_method_selection(
     db_user: User,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     try:
         method_code = int(callback.data.rsplit('_', 1)[-1])
     except ValueError:
-        await callback.answer('❌ Некорректный способ оплаты', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_METHOD', '❌ Некорректный способ оплаты'), show_alert=True)
         return
 
     if method_code not in _get_active_methods():
-        await callback.answer('⚠️ Этот способ сейчас недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True)
         return
 
     await _prompt_amount(callback.message, db_user, state, method_code)
@@ -203,7 +204,7 @@ async def start_platega_direct_method(
     try:
         method_code = int(callback.data.removeprefix('topup_platega_m'))
     except (ValueError, IndexError):
-        await callback.answer('❌ Некорректный способ оплаты', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_METHOD', '❌ Некорректный способ оплаты'), show_alert=True)
         return
 
     if getattr(db_user, 'restriction_topup', False):
@@ -233,7 +234,7 @@ async def start_platega_direct_method(
         return
 
     if method_code not in _get_active_methods():
-        await callback.answer('⚠️ Этот способ сейчас недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True)
         return
 
     await _prompt_amount(callback.message, db_user, state, method_code)
@@ -431,12 +432,14 @@ async def process_platega_payment_amount(
 @error_handler
 async def check_platega_payment_status(
     callback: types.CallbackQuery,
+    db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
     except ValueError:
-        await callback.answer('❌ Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
         return
 
     payment_service = PaymentService(callback.bot)
@@ -445,11 +448,11 @@ async def check_platega_payment_status(
         status_info = await payment_service.get_platega_payment_status(db, local_payment_id)
     except Exception as error:
         logger.exception('Ошибка проверки статуса Platega', error=error)
-        await callback.answer('⚠️ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '⚠️ Ошибка проверки статуса'), show_alert=True)
         return
 
     if not status_info:
-        await callback.answer('⚠️ Платёж не найден', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '⚠️ Платёж не найден'), show_alert=True)
         return
 
     payment = status_info.get('payment')
