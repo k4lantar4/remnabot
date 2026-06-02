@@ -43,14 +43,14 @@ async def show_admin_panel(callback: types.CallbackQuery, db_user: User, db: Asy
         users_online = system_stats.get('users_online', 0)
         users_today = system_stats.get('users_last_day', 0)
         users_week = system_stats.get('users_last_week', 0)
+        footer = texts.t('ADMIN_PANEL_SELECT_PROMPT', 'Выберите раздел для управления:\n')
         admin_text = admin_text.replace(
-            '\n\nВыберите раздел для управления:',
-            (
-                f'\n\n- 🟢 Онлайн сейчас: {users_online}'
-                f'\n- 📅 Онлайн сегодня: {users_today}'
-                f'\n- 🗓️ На этой неделе: {users_week}'
-                '\n\nВыберите раздел для управления:'
-            ),
+            footer,
+            texts.t(
+                'ADMIN_STATS_ONLINE_BLOCK',
+                '\n\n- 🟢 Онлайн сейчас: {online}\n- 📅 Онлайн сегодня: {today}\n- 🗓️ На этой неделе: {week}\n\n',
+            ).format(online=users_online, today=users_today, week=users_week)
+            + footer,
         )
     except Exception as e:
         logger.error('Не удалось получить статистику Remnawave для админ-панели', error=e)
