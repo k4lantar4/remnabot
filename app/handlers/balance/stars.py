@@ -22,7 +22,13 @@ async def start_stars_payment(callback: types.CallbackQuery, db_user: User, stat
     texts = get_texts(db_user.language)
 
     if not settings.TELEGRAM_STARS_ENABLED:
-        await callback.answer('❌ Пополнение через Stars временно недоступно', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_STARS_TOPUP_UNAVAILABLE',
+                '❌ Пополнение через Stars временно недоступно',
+            ),
+            show_alert=True,
+        )
         return
 
     # Проверка ограничения на пополнение

@@ -1929,5 +1929,7 @@
   "CB_BAN_NOTIFICATION_DELETE_FAILED": "حذف انجام نشد",
   "CB_INVALID_FORMAT": "فرمت نامعتبر",
   "CB_POLL_NOT_FOUND": "❌ نظرسنجی یافت نشد",
-  "CB_INVALID_DATA": "❌ داده نامعتبر"
+  "CB_INVALID_DATA": "❌ داده نامعتبر",
+  "CB_STARS_TOPUP_UNAVAILABLE": "❌ شارژ از طریق Stars موقتاً در دسترس نیست",
+  "CB_CARD_PAYMENT_UNAVAILABLE": "❌ پرداخت با کارت موقتاً در دسترس نیست"
 }
