@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database.database import AsyncSessionLocal
 from app.database.models import GuestPurchase
+from app.localization.texts import get_texts
 from app.services.guest_purchase_service import GuestPurchaseError, activate_purchase
 
 
@@ -20,8 +21,13 @@ _GIFT_NOT_FOUND = 'Подарок не найден или недоступен.
 
 async def handle_gift_activate(callback: types.CallbackQuery) -> None:
     """Handle gift_activate:{purchase_id} callback from Telegram notification."""
+    language = getattr(getattr(callback, 'from_user', None), 'language_code', None) or 'fa'
+    texts = get_texts(language)
     if isinstance(callback.message, InaccessibleMessage):
-        await callback.answer('Сообщение устарело. Попробуйте /start.', show_alert=True)
+        await callback.answer(
+            texts.t('CB_MESSAGE_OUTDATED', 'Сообщение устарело. Попробуйте /start.'),
+            show_alert=True,
+        )
         return
 
     if not callback.data:
