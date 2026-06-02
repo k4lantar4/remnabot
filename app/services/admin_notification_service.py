@@ -439,7 +439,12 @@ class AdminNotificationService:
             if not self._is_enabled():
                 return False
 
-            user_status = '🆕 Новый' if not user.has_had_paid_subscription else '🔄 Существующий'
+            notify_texts = _admin_notify_texts()
+            user_status = (
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_USER_NEW', '🆕 Новый')
+                if not user.has_had_paid_subscription
+                else notify_texts.t('ADMIN_NOTIFY_TRIAL_USER_EXISTING', '🔄 Существующий')
+            )
             promo_group = await self._get_user_promo_group(db, user)
             user_display = self._get_user_display(user)
 
@@ -453,7 +458,9 @@ class AdminNotificationService:
 
             payment_block = ''
             if charged_amount_kopeks and charged_amount_kopeks > 0:
-                payment_block = f'\n💳 <b>Оплата за активацию:</b> {settings.format_price(charged_amount_kopeks)}'
+                payment_block = notify_texts.t(
+                    'ADMIN_NOTIFY_TRIAL_ACTIVATION_PAYMENT', '\n💳 <b>Оплата за активацию:</b> {amount}'
+                ).format(amount=settings.format_price(charged_amount_kopeks))
 
             user_id_label = self._get_user_identifier_label(user)
             user_id_display = self._get_user_identifier_display(user)
@@ -462,24 +469,34 @@ class AdminNotificationService:
             tariff_name = await self._get_tariff_name(db, subscription)
 
             message_lines = [
-                '🎯 <b>АКТИВАЦИЯ ТРИАЛА</b>',
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_TITLE', '🎯 <b>АКТИВАЦИЯ ТРИАЛА</b>'),
                 '',
-                f'👤 <b>Пользователь:</b> {user_display}',
-                f'🆔 <b>{user_id_label}:</b> {user_id_display}',
-                f'📱 <b>Username:</b> @{html.escape(getattr(user, "username", None) or "отсутствует")}',
-                f'👥 <b>Статус:</b> {user_status}',
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_USER', '👤 <b>Пользователь:</b> {user}').format(user=user_display),
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                    label=user_id_label, user_id=user_id_display
+                ),
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                    username=html.escape(getattr(user, 'username', None) or notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует'))
+                ),
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_STATUS', '👥 <b>Статус:</b> {status}').format(status=user_status),
                 '',
             ]
 
             # Промогруппа — только название, без скидок
             if promo_group:
-                message_lines.append(f'🏷️ <b>Промогруппа:</b> {html.escape(promo_group.name)}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_PROMO_NAMED', '🏷️ <b>Промогруппа:</b> {name}').format(
+                        name=html.escape(promo_group.name)
+                    )
+                )
             else:
-                message_lines.append('🏷️ <b>Промогруппа:</b> —')
+                message_lines.append(notify_texts.t('ADMIN_NOTIFY_TRIAL_PROMO_EMPTY', '🏷️ <b>Промогруппа:</b> —'))
 
             # Тариф триала (если есть)
             if tariff_name:
-                message_lines.append(f'📦 <b>Тариф:</b> {tariff_name}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_TARIFF', '📦 <b>Тариф:</b> {name}').format(name=tariff_name)
+                )
 
             message_lines.append('')
 
@@ -495,13 +512,20 @@ class AdminNotificationService:
                 else settings.TRIAL_TRAFFIC_LIMIT_GB
             )
 
+            default_server = notify_texts.t('ADMIN_NOTIFY_SERVER_DEFAULT', 'По умолчанию')
             message_lines.extend(
                 [
-                    '⏰ <b>Параметры триала:</b>',
-                    f'📅 Период: {trial_duration_days} дней',
-                    f'📊 Трафик: {self._format_traffic(trial_traffic_gb)}',
-                    f'📱 Устройства: {trial_device_limit}',
-                    f'🌐 Сервер: {subscription.connected_squads[0] if subscription.connected_squads else "По умолчанию"}',
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_PARAMS', '⏰ <b>Параметры триала:</b>'),
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_PERIOD', '📅 Период: {days} дней').format(days=trial_duration_days),
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_TRAFFIC', '📊 Трафик: {traffic}').format(
+                        traffic=self._format_traffic(trial_traffic_gb)
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_DEVICES', '📱 Устройства: {devices}').format(
+                        devices=trial_device_limit
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_SERVER', '🌐 Сервер: {server}').format(
+                        server=subscription.connected_squads[0] if subscription.connected_squads else default_server
+                    ),
                 ]
             )
 
@@ -510,14 +534,20 @@ class AdminNotificationService:
 
             message_lines.append('')
             message_lines.append(
-                f'📆 <b>Действует до:</b> {format_local_datetime(subscription.end_date, "%d.%m.%Y %H:%M")}'
+                notify_texts.t('ADMIN_NOTIFY_TRIAL_VALID_UNTIL', '📆 <b>Действует до:</b> {date}').format(
+                    date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M')
+                )
             )
 
             # Реферер — только если есть
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
                 if referrer_info != _referrer_none_label():
-                    message_lines.append(f'🔗 <b>Реферер:</b> {referrer_info}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_TRIAL_REFERRER', '🔗 <b>Реферер:</b> {referrer}').format(
+                            referrer=referrer_info
+                        )
+                    )
 
             message_lines.append('')
             message_lines.append(f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>')
@@ -839,7 +869,7 @@ class AdminNotificationService:
         message_lines.append(f'📱 Подписка: {subscription_status}')
 
         # --- Реферер (только если есть) ---
-        if referrer_info and referrer_info != 'Нет':
+        if referrer_info and referrer_info != _referrer_none_label():
             message_lines.append(f'🔗 Реферер: {referrer_info}')
 
         # --- Expandable blockquote с техническими деталями ---
