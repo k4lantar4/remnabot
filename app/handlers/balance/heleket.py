@@ -120,13 +120,16 @@ async def process_heleket_payment_amount(
         return
 
     if not settings.is_heleket_enabled():
-        await message.answer('❌ Оплата через Heleket недоступна')
+        await message.answer(texts.t('CB_HELEKET_PAYMENT_UNAVAILABLE', '❌ Оплата через Heleket недоступна'))
         return
 
     amount_rubles = amount_kopeks / 100
 
     if amount_rubles < 100:
-        await message.answer('Минимальная сумма пополнения: 100 ₽', reply_markup=get_back_keyboard(db_user.language))
+        await message.answer(
+            texts.t('MSG_TOPUP_MIN_AMOUNT', 'Минимальная сумма пополнения: 100 ₽'),
+            reply_markup=get_back_keyboard(db_user.language),
+        )
         return
 
     if amount_rubles > 100000:
@@ -146,13 +149,23 @@ async def process_heleket_payment_amount(
     )
 
     if not result:
-        await message.answer('❌ Не удалось создать счёт в Heleket. Попробуйте позже или обратитесь в поддержку.')
+        await message.answer(
+            texts.t(
+                'MSG_HELEKET_INVOICE_CREATE_ERROR',
+                '❌ Не удалось создать счёт в Heleket. Попробуйте позже или обратитесь в поддержку.',
+            )
+        )
         await state.clear()
         return
 
     payment_url = result.get('payment_url')
     if not payment_url:
-        await message.answer('❌ Не удалось получить ссылку для оплаты Heleket')
+        await message.answer(
+            texts.t(
+                'MSG_HELEKET_PAYMENT_LINK_ERROR',
+                '❌ Не удалось получить ссылку для оплаты Heleket',
+            )
+        )
         await state.clear()
         return
 
