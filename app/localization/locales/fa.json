@@ -1945,5 +1945,6 @@
   "CB_PAYMENT_PROCESS_ERROR": "❌ خطا در پردازش پرداخت",
   "CB_INVALID_REQUEST": "❌ درخواست نامعتبر",
   "CB_UNKNOWN_PAYMENT_METHOD": "❌ روش پرداخت ناشناخته",
-  "CB_REQUEST_PROCESS_ERROR": "❌ خطا در پردازش درخواست"
+  "CB_REQUEST_PROCESS_ERROR": "❌ خطا در پردازش درخواست",
+  "CB_SELECT_SUBSCRIPTION": "اشتراک را انتخاب کنید"
 }

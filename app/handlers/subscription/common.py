@@ -80,7 +80,11 @@ async def resolve_subscription_from_context(
         return active_subs[0], active_subs[0].id
 
     # 4. Cannot determine
-    await callback.answer('Выберите подписку', show_alert=True)
+    texts = get_texts(db_user.language)
+    await callback.answer(
+        texts.t('CB_SELECT_SUBSCRIPTION', 'Выберите подписку'),
+        show_alert=True,
+    )
     return None, None
 
 
