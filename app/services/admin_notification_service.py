@@ -374,33 +374,53 @@ class AdminNotificationService:
         )
 
     def _format_campaign_bonus(self, campaign: AdvertisingCampaign, *, tariff_name: str | None = None) -> list[str]:
+        notify_texts = _admin_notify_texts()
         if campaign.is_balance_bonus:
             return [
-                f'💰 Баланс: {settings.format_price(campaign.balance_bonus_kopeks or 0)}',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_BALANCE', '💰 Баланс: {amount}').format(
+                    amount=settings.format_price(campaign.balance_bonus_kopeks or 0)
+                ),
             ]
 
         if campaign.is_subscription_bonus:
             default_devices = getattr(settings, 'DEFAULT_DEVICE_LIMIT', 1)
             details = [
-                f'📅 {campaign.subscription_duration_days or 0} дн. '
-                f'• 📊 {campaign.subscription_traffic_gb or 0} ГБ '
-                f'• 📱 {campaign.subscription_device_limit or default_devices} устр.',
+                notify_texts.t(
+                    'ADMIN_NOTIFY_CAMPAIGN_BONUS_SUBSCRIPTION',
+                    '📅 {days} дн. • 📊 {traffic} ГБ • 📱 {devices} устр.',
+                ).format(
+                    days=campaign.subscription_duration_days or 0,
+                    traffic=campaign.subscription_traffic_gb or 0,
+                    devices=campaign.subscription_device_limit or default_devices,
+                ),
             ]
             if campaign.subscription_squads:
-                details.append(f'🌐 Сквады: {len(campaign.subscription_squads)} шт.')
+                details.append(
+                    notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_SQUADS', '🌐 Сквады: {count} шт.').format(
+                        count=len(campaign.subscription_squads)
+                    )
+                )
             return details
 
         if campaign.is_tariff_bonus:
-            name = tariff_name or f'ID {campaign.tariff_id}'
-            details = [f'📦 Тариф: <b>{name}</b>']
+            name = tariff_name or notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_TARIFF_ID', 'ID {id}').format(
+                id=campaign.tariff_id
+            )
+            details = [
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_TARIFF', '📦 Тариф: <b>{name}</b>').format(name=name)
+            ]
             if campaign.tariff_duration_days:
-                details.append(f'📅 Период: {campaign.tariff_duration_days} дней')
+                details.append(
+                    notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_PERIOD', '📅 Период: {days} дней').format(
+                        days=campaign.tariff_duration_days
+                    )
+                )
             return details
 
         if campaign.is_none_bonus:
-            return ['🔗 Только отслеживание']
+            return [notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_TRACKING', '🔗 Только отслеживание')]
 
-        return ['ℹ️ Бонусы не предусмотрены']
+        return [notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_BONUS_NONE', 'ℹ️ Бонусы не предусмотрены')]
 
     async def send_trial_activation_notification(
         self,
@@ -1407,27 +1427,42 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             full_name = telegram_user.full_name or telegram_user.username or str(telegram_user.id)
-            user_status = '🆕 Новый' if not user else '👥 Существующий'
+            user_status = (
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_USER_NEW', '🆕 Новый')
+                if not user
+                else notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_USER_EXISTING', '👥 Существующий')
+            )
 
             message_lines = [
-                '📣 <b>ПЕРЕХОД ПО РК</b>',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_VISIT_TITLE', '📣 <b>ПЕРЕХОД ПО РК</b>'),
                 '',
-                f'🧾 {html.escape(campaign.name)} (<code>{html.escape(campaign.start_parameter)}</code>)',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_HEADER', '🧾 {name} (<code>{param}</code>)').format(
+                    name=html.escape(campaign.name), param=html.escape(campaign.start_parameter)
+                ),
                 '',
-                f'👤 {html.escape(full_name)} (<code>{telegram_user.id}</code>)',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_USER', '👤 {name} (<code>{id}</code>)').format(
+                    name=html.escape(full_name), id=telegram_user.id
+                ),
             ]
 
             if telegram_user.username:
                 message_lines.append(f'📱 @{html.escape(telegram_user.username)}')
 
-            message_lines.append(f'📋 {user_status}')
+            message_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_STATUS', '📋 {status}').format(status=user_status)
+            )
 
             # Промогруппа — только если есть
             if user:
                 promo_group = await self._get_user_promo_group(db, user)
                 if promo_group:
-                    message_lines.append(f'🏷️ Промогруппа: {html.escape(promo_group.name)}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_PROMO', '🏷️ Промогруппа: {name}').format(
+                            name=html.escape(promo_group.name)
+                        )
+                    )
 
             message_lines.append('')
 
@@ -1511,19 +1546,28 @@ class AdminNotificationService:
             )
 
         try:
+            notify_texts = _admin_notify_texts()
             message_lines = [
-                '✅ <b>РЕГИСТРАЦИЯ ПО РК</b>',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_REG_TITLE', '✅ <b>РЕГИСТРАЦИЯ ПО РК</b>'),
                 '',
-                f'🧾 {html.escape(campaign.name)} (<code>{html.escape(campaign.start_parameter)}</code>)',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_HEADER', '🧾 {name} (<code>{param}</code>)').format(
+                    name=html.escape(campaign.name), param=html.escape(campaign.start_parameter)
+                ),
                 '',
-                f'👤 {html.escape(telegram_user_name)} (<code>{telegram_user_id}</code>)',
+                notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_USER', '👤 {name} (<code>{id}</code>)').format(
+                    name=html.escape(telegram_user_name), id=telegram_user_id
+                ),
             ]
             if telegram_username:
                 message_lines.append(f'📱 @{html.escape(telegram_username)}')
 
             promo_group = await self._get_user_promo_group(db, user)
             if promo_group:
-                message_lines.append(f'🏷️ Промогруппа: {html.escape(promo_group.name)}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_CAMPAIGN_PROMO', '🏷️ Промогруппа: {name}').format(
+                        name=html.escape(promo_group.name)
+                    )
+                )
 
             message_lines.append('')
 
@@ -1591,33 +1635,56 @@ class AdminNotificationService:
             return False
 
         try:
-            title = '🤖 АВТОМАТИЧЕСКАЯ СМЕНА ПРОМОГРУППЫ' if automatic else '👥 СМЕНА ПРОМОГРУППЫ'
+            notify_texts = _admin_notify_texts()
+            title = (
+                notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_AUTO_TITLE', '🤖 АВТОМАТИЧЕСКАЯ СМЕНА ПРОМОГРУППЫ')
+                if automatic
+                else notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_TITLE', '👥 СМЕНА ПРОМОГРУППЫ')
+            )
             initiator_line = None
             if initiator:
-                initiator_line = (
-                    f'👮 <b>Инициатор:</b> {html.escape(initiator.full_name)} (ID: {initiator.telegram_id})'
-                )
+                initiator_line = notify_texts.t(
+                    'ADMIN_NOTIFY_PROMO_CHANGE_INITIATOR',
+                    '👮 <b>Инициатор:</b> {name} (ID: {id})',
+                ).format(name=html.escape(initiator.full_name), id=initiator.telegram_id)
             elif automatic:
-                initiator_line = '🤖 Автоматическое назначение'
+                initiator_line = notify_texts.t(
+                    'ADMIN_NOTIFY_PROMO_CHANGE_AUTO_INITIATOR', '🤖 Автоматическое назначение'
+                )
             user_display = self._get_user_display(user)
             user_id_label = self._get_user_identifier_label(user)
             user_id_display = self._get_user_identifier_display(user)
+            username_none = notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
 
             message_lines = [
-                f'{title}',
+                title,
                 '',
-                f'👤 <b>Пользователь:</b> {user_display}',
-                f'🆔 <b>{user_id_label}:</b> {user_id_display}',
-                f'📱 <b>Username:</b> @{html.escape(getattr(user, "username", None) or "отсутствует")}',
+                notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_USER', '👤 <b>Пользователь:</b> {user}').format(
+                    user=user_display
+                ),
+                notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                    label=user_id_label, user_id=user_id_display
+                ),
+                notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                    username=html.escape(getattr(user, 'username', None) or username_none)
+                ),
                 '',
-                self._format_promo_group_block(new_group, title='Новая промогруппа', icon='🏆'),
+                self._format_promo_group_block(
+                    new_group,
+                    title=notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_NEW_GROUP', 'Новая промогруппа'),
+                    icon='🏆',
+                ),
             ]
 
             if old_group and old_group.id != new_group.id:
                 message_lines.extend(
                     [
                         '',
-                        self._format_promo_group_block(old_group, title='Предыдущая промогруппа', icon='♻️'),
+                        self._format_promo_group_block(
+                            old_group,
+                            title=notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_OLD_GROUP', 'Предыдущая промогруппа'),
+                            icon='♻️',
+                        ),
                     ]
                 )
 
@@ -1625,12 +1692,19 @@ class AdminNotificationService:
                 message_lines.extend(['', initiator_line])
 
             if reason:
-                message_lines.extend(['', f'📝 Причина: {reason}'])
+                message_lines.extend(
+                    [
+                        '',
+                        notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_REASON', '📝 Причина: {reason}').format(reason=reason),
+                    ]
+                )
 
             message_lines.extend(
                 [
                     '',
-                    f'💰 Баланс пользователя: {settings.format_price(user.balance_kopeks)}',
+                    notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_BALANCE', '💰 Баланс пользователя: {balance}').format(
+                        balance=settings.format_price(user.balance_kopeks)
+                    ),
                     f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
                 ]
             )
