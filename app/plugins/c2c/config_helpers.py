@@ -15,6 +15,19 @@ class C2cCard(TypedDict):
     holder: str
 
 
+def get_card_by_index(card_index: int) -> C2cCard | None:
+    """Return configured card by rotation index, or None if out of range."""
+    cards = settings.get_c2c_cards()
+    if not cards or card_index < 0 or card_index >= len(cards):
+        return None
+    card = cards[card_index]
+    return {
+        'label': card['label'],
+        'number': card['number'],
+        'holder': card['holder'],
+    }
+
+
 async def get_next_card() -> tuple[C2cCard, int]:
     """Return the next card from rotation and its index."""
     cards = settings.get_c2c_cards()
