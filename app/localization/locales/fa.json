@@ -1960,5 +1960,17 @@
   "CB_SELECT_SUBSCRIPTION_VIA_MY_SUBS": "اشتراک را از «اشتراک‌های من» انتخاب کنید",
   "CB_TRAFFIC_PACKAGE_PRICE_NOT_SET": "⚠️ قیمت این بسته تنظیم نشده",
   "CB_TRAFFIC_SWITCH_UNAVAILABLE": "⚠️ تغییر ترافیک برای تعرفه شما ممکن نیست",
-  "CB_NO_TRAFFIC_PACKAGES_AVAILABLE": "⚠️ در حال حاضر بسته ترافیکی موجود نیست. با پشتیبانی تماس بگیرید."
+  "CB_NO_TRAFFIC_PACKAGES_AVAILABLE": "⚠️ در حال حاضر بسته ترافیکی موجود نیست. با پشتیبانی تماس بگیرید.",
+  "CB_SIMPLE_SUB_UNAVAILABLE": "❌ خرید ساده اشتراک موقتاً در دسترس نیست",
+  "CB_USE_TARIFF_SELECTION": "برای مدیریت اشتراک‌ها از انتخاب تعرفه استفاده کنید",
+  "CB_SUBSCRIPTION_DATA_OUTDATED_RESTART": "❌ داده اشتراک منقضی شده. لطفاً از ابتدا شروع کنید.",
+  "CB_INSUFFICIENT_BALANCE_FOR_SUB": "❌ موجودی کافی برای پرداخت اشتراک نیست",
+  "CB_BALANCE_DEDUCTION_ERROR": "❌ خطا در برداشت از موجودی",
+  "CB_SUBSCRIPTION_CREATE_ERROR_REFUNDED": "❌ خطا در ایجاد اشتراک. مبلغ به موجودی بازگردانده شد.",
+  "CB_ORDER_PREPARE_FAILED": "❌ آماده‌سازی سفارش ناموفق بود. بعداً تلاش کنید.",
+  "CB_ORDER_CREATE_ERROR": "❌ خطا در ایجاد سفارش",
+  "CB_PAYMENT_CREATE_ERROR": "❌ خطا در ایجاد پرداخت",
+  "CB_PAYMENT_DATA_ERROR": "❌ خطا در دریافت داده پرداخت",
+  "CB_PAL24_PAYMENT_UNAVAILABLE": "❌ پرداخت PayPalych موقتاً در دسترس نیست",
+  "CB_WATA_PAYMENT_UNAVAILABLE": "❌ پرداخت WATA موقتاً در دسترس نیست"
 }

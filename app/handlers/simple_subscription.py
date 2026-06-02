@@ -39,11 +39,11 @@ async def start_simple_subscription_purchase(
     texts = get_texts(db_user.language)
 
     if not settings.SIMPLE_SUBSCRIPTION_ENABLED:
-        await callback.answer('❌ Простая покупка подписки временно недоступна', show_alert=True)
+        await callback.answer(texts.t('CB_SIMPLE_SUB_UNAVAILABLE', '❌ Простая покупка подписки временно недоступна'), show_alert=True)
         return
 
     if settings.is_multi_tariff_enabled():
-        await callback.answer('Используйте выбор тарифа для управления подписками', show_alert=True)
+        await callback.answer(texts.t('CB_USE_TARIFF_SELECTION', 'Используйте выбор тарифа для управления подписками'), show_alert=True)
         return
 
     # Проверка ограничения на покупку/продление подписки
@@ -382,7 +382,7 @@ async def handle_simple_subscription_pay_with_balance(
     subscription_params = data.get('subscription_params', {})
 
     if not subscription_params:
-        await callback.answer('❌ Данные подписки устарели. Пожалуйста, начните сначала.', show_alert=True)
+        await callback.answer(texts.t('CB_SUBSCRIPTION_DATA_OUTDATED_RESTART', '❌ Данные подписки устарели. Пожалуйста, начните сначала.'), show_alert=True)
         return
 
     # Проверяем, имеет ли пользователь активную платную подписку
@@ -442,7 +442,7 @@ async def handle_simple_subscription_pay_with_balance(
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0)
 
     if total_required > 0 and user_balance_kopeks < total_required:
-        await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE_FOR_SUB', '❌ Недостаточно средств на балансе для оплаты подписки'), show_alert=True)
         return
 
     try:
@@ -458,7 +458,7 @@ async def handle_simple_subscription_pay_with_balance(
         )
 
         if not success:
-            await callback.answer('❌ Ошибка списания средств с баланса', show_alert=True)
+            await callback.answer(texts.t('CB_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания средств с баланса'), show_alert=True)
             return
 
         # Создаём транзакцию для учёта списания
@@ -528,7 +528,7 @@ async def handle_simple_subscription_pay_with_balance(
                 price_kopeks,
                 f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
             )
-            await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
+            await callback.answer(texts.t('CB_SUBSCRIPTION_CREATE_ERROR_REFUNDED', '❌ Ошибка создания подписки. Средства возвращены на баланс.'), show_alert=True)
             return
 
         # Обновляем баланс пользователя
@@ -727,7 +727,7 @@ async def handle_simple_subscription_other_payment_methods(
     subscription_params = data.get('subscription_params', {})
 
     if not subscription_params:
-        await callback.answer('❌ Данные подписки устарели. Пожалуйста, начните сначала.', show_alert=True)
+        await callback.answer(texts.t('CB_SUBSCRIPTION_DATA_OUTDATED_RESTART', '❌ Данные подписки устарели. Пожалуйста, начните сначала.'), show_alert=True)
         return
 
     resolved_squad_uuid = await _ensure_simple_subscription_squad_uuid(
@@ -832,7 +832,7 @@ async def handle_simple_subscription_payment_method(
     subscription_params = data.get('subscription_params', {})
 
     if not subscription_params:
-        await callback.answer('❌ Данные подписки устарели. Пожалуйста, начните сначала.', show_alert=True)
+        await callback.answer(texts.t('CB_SUBSCRIPTION_DATA_OUTDATED_RESTART', '❌ Данные подписки устарели. Пожалуйста, начните сначала.'), show_alert=True)
         return
 
     # Проверяем, имеет ли пользователь активную платную подписку
@@ -892,7 +892,7 @@ async def handle_simple_subscription_payment_method(
             )
 
             if not order:
-                await callback.answer('❌ Не удалось подготовить заказ. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_ORDER_PREPARE_FAILED', '❌ Не удалось подготовить заказ. Попробуйте позже.'), show_alert=True)
                 return
 
             stars_count = settings.rubles_to_stars(settings.kopeks_to_rubles(price_kopeks))
@@ -921,11 +921,11 @@ async def handle_simple_subscription_payment_method(
         elif payment_method in ['yookassa', 'yookassa_sbp']:
             # Оплата через YooKassa
             if not settings.is_yookassa_enabled():
-                await callback.answer('❌ Оплата через YooKassa временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_YOOKASSA_PAYMENT_UNAVAILABLE', '❌ Оплата через YooKassa временно недоступна'), show_alert=True)
                 return
 
             if payment_method == 'yookassa_sbp' and not settings.YOOKASSA_SBP_ENABLED:
-                await callback.answer('❌ Оплата через СБП временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_SBP_PAYMENT_UNAVAILABLE', '❌ Оплата через СБП временно недоступна'), show_alert=True)
                 return
 
             # Создаем заказ на подписку
@@ -941,7 +941,7 @@ async def handle_simple_subscription_payment_method(
             )
 
             if not order:
-                await callback.answer('❌ Ошибка создания заказа', show_alert=True)
+                await callback.answer(texts.t('CB_ORDER_CREATE_ERROR', '❌ Ошибка создания заказа'), show_alert=True)
                 return
 
             # Создаем платеж через YooKassa
@@ -981,7 +981,7 @@ async def handle_simple_subscription_payment_method(
                 )
 
             if not payment_result:
-                await callback.answer('❌ Ошибка создания платежа', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_ERROR', '❌ Ошибка создания платежа'), show_alert=True)
                 return
 
             # Отправляем QR-код и/или ссылку для оплаты
@@ -989,7 +989,7 @@ async def handle_simple_subscription_payment_method(
             qr_confirmation_data = payment_result.get('qr_confirmation_data')
 
             if not confirmation_url and not qr_confirmation_data:
-                await callback.answer('❌ Ошибка получения данных для оплаты', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_DATA_ERROR', '❌ Ошибка получения данных для оплаты'), show_alert=True)
                 return
 
             # Подготовим QR-код для вставки в основное сообщение
@@ -1110,7 +1110,7 @@ async def handle_simple_subscription_payment_method(
         elif payment_method == 'cryptobot':
             # Оплата через CryptoBot
             if not settings.is_cryptobot_enabled():
-                await callback.answer('❌ Оплата через CryptoBot временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_CRYPTO_PAYMENT_UNAVAILABLE', '❌ Оплата через CryptoBot временно недоступна'), show_alert=True)
                 return
 
             amount_rubles = price_kopeks / 100
@@ -1221,7 +1221,7 @@ async def handle_simple_subscription_payment_method(
 
         elif payment_method == 'heleket':
             if not settings.is_heleket_enabled():
-                await callback.answer('❌ Оплата через Heleket временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_HELEKET_PAYMENT_UNAVAILABLE', '❌ Оплата через Heleket временно недоступна'), show_alert=True)
                 return
 
             amount_rubles = price_kopeks / 100
@@ -1426,7 +1426,7 @@ async def handle_simple_subscription_payment_method(
         elif payment_method == 'pal24':
             # Оплата через PayPalych
             if not settings.is_pal24_enabled():
-                await callback.answer('❌ Оплата через PayPalych временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_PAL24_PAYMENT_UNAVAILABLE', '❌ Оплата через PayPalych временно недоступна'), show_alert=True)
                 return
 
             payment_service = PaymentService(callback.bot)
@@ -1601,7 +1601,7 @@ async def handle_simple_subscription_payment_method(
         elif payment_method == 'wata':
             # Оплата через WATA
             if not settings.is_wata_enabled():
-                await callback.answer('❌ Оплата через WATA временно недоступна', show_alert=True)
+                await callback.answer(texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'), show_alert=True)
                 return
             if price_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS or price_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
                 await callback.answer(
@@ -1688,7 +1688,7 @@ async def handle_simple_subscription_payment_method(
             return
 
         else:
-            await callback.answer('❌ Неизвестный способ оплаты', show_alert=True)
+            await callback.answer(texts.t('CB_UNKNOWN_PAYMENT_METHOD', '❌ Неизвестный способ оплаты'), show_alert=True)
 
     except Exception as e:
         logger.error('Ошибка обработки метода оплаты простой подписки', error=e)
@@ -1709,7 +1709,7 @@ async def check_simple_pal24_payment_status(
         status_info = await payment_service.get_pal24_payment_status(db, local_payment_id)
 
         if not status_info:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
             return
 
         payment = status_info['payment']
@@ -1829,7 +1829,7 @@ async def check_simple_pal24_payment_status(
 
     except Exception as error:
         logger.error('Ошибка проверки статуса PayPalych для простой подписки', error=error)
-        await callback.answer('❌ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '❌ Ошибка проверки статуса'), show_alert=True)
 
 
 @error_handler
@@ -1840,14 +1840,14 @@ async def check_simple_mulenpay_payment_status(
     try:
         local_payment_id = int(callback.data.rsplit('_', 1)[-1])
     except (ValueError, IndexError):
-        await callback.answer('❌ Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
         return
 
     payment_service = PaymentService(callback.bot)
     status_info = await payment_service.get_mulenpay_payment_status(db, local_payment_id)
 
     if not status_info:
-        await callback.answer('❌ Платеж не найден', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
         return
 
     payment = status_info['payment']
@@ -1917,14 +1917,14 @@ async def check_simple_cryptobot_payment_status(
     try:
         local_payment_id = int(callback.data.rsplit('_', 1)[-1])
     except (ValueError, IndexError):
-        await callback.answer('❌ Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
         return
 
     from app.database.crud.cryptobot import get_cryptobot_payment_by_id
 
     payment = await get_cryptobot_payment_by_id(db, local_payment_id)
     if not payment:
-        await callback.answer('❌ Платеж не найден', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
         return
 
     status_labels = {
@@ -1987,14 +1987,14 @@ async def check_simple_heleket_payment_status(
     try:
         local_payment_id = int(callback.data.rsplit('_', 1)[-1])
     except (ValueError, IndexError):
-        await callback.answer('❌ Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
         return
 
     from app.database.crud.heleket import get_heleket_payment_by_id
 
     payment = await get_heleket_payment_by_id(db, local_payment_id)
     if not payment:
-        await callback.answer('❌ Платеж не найден', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
         return
 
     status_labels = {
@@ -2073,14 +2073,14 @@ async def check_simple_wata_payment_status(
     try:
         local_payment_id = int(callback.data.rsplit('_', 1)[-1])
     except (ValueError, IndexError):
-        await callback.answer('❌ Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
         return
 
     payment_service = PaymentService(callback.bot)
     status_info = await payment_service.get_wata_payment_status(db, local_payment_id)
 
     if not status_info:
-        await callback.answer('❌ Платеж не найден', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
         return
 
     payment = status_info['payment']
@@ -2142,7 +2142,7 @@ async def confirm_simple_subscription_purchase(
     subscription_params = data.get('subscription_params', {})
 
     if not subscription_params:
-        await callback.answer('❌ Данные подписки устарели. Пожалуйста, начните сначала.', show_alert=True)
+        await callback.answer(texts.t('CB_SUBSCRIPTION_DATA_OUTDATED_RESTART', '❌ Данные подписки устарели. Пожалуйста, начните сначала.'), show_alert=True)
         return
 
     resolved_squad_uuid = await _ensure_simple_subscription_squad_uuid(
@@ -2190,7 +2190,7 @@ async def confirm_simple_subscription_purchase(
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0)
 
     if total_required > 0 and user_balance_kopeks < total_required:
-        await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE_FOR_SUB', '❌ Недостаточно средств на балансе для оплаты подписки'), show_alert=True)
         return
 
     try:
@@ -2206,7 +2206,7 @@ async def confirm_simple_subscription_purchase(
         )
 
         if not success:
-            await callback.answer('❌ Ошибка списания средств с баланса', show_alert=True)
+            await callback.answer(texts.t('CB_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания средств с баланса'), show_alert=True)
             return
 
         # Создаём транзакцию для учёта списания
@@ -2276,7 +2276,7 @@ async def confirm_simple_subscription_purchase(
                 price_kopeks,
                 f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
             )
-            await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
+            await callback.answer(texts.t('CB_SUBSCRIPTION_CREATE_ERROR_REFUNDED', '❌ Ошибка создания подписки. Средства возвращены на баланс.'), show_alert=True)
             return
 
         # Обновляем баланс пользователя
