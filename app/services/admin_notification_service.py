@@ -829,6 +829,7 @@ class AdminNotificationService:
         subscription: Subscription | None,
         promo_group: PromoGroup | None,
     ) -> str:
+        notify_texts = _admin_notify_texts()
         payment_method = self._get_payment_method_display(transaction.payment_method)
         balance_change = user.balance_kopeks - old_balance
         subscription_status = self._get_subscription_status(subscription)
@@ -838,9 +839,11 @@ class AdminNotificationService:
 
         # --- Основной блок ---
         message_lines: list[str] = [
-            '💰 <b>ПОПОЛНЕНИЕ БАЛАНСА</b>',
+            notify_texts.t('ADMIN_NOTIFY_TOPUP_TITLE', '💰 <b>ПОПОЛНЕНИЕ БАЛАНСА</b>'),
             '',
-            f'👤 {user_display} ({user_id_display})',
+            notify_texts.t('ADMIN_NOTIFY_TOPUP_USER', '👤 {user} ({user_id})').format(
+                user=user_display, user_id=user_id_display
+            ),
         ]
 
         username = getattr(user, 'username', None)
@@ -851,50 +854,84 @@ class AdminNotificationService:
 
         # Промогруппа -- только название
         if promo_group:
-            message_lines.append(f'🏷️ Промогруппа: {html.escape(promo_group.name)}')
+            message_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_PROMO', '🏷️ Промогруппа: {name}').format(
+                    name=html.escape(promo_group.name)
+                )
+            )
 
         message_lines.append('')
 
         # --- Детали пополнения ---
         message_lines.extend(
             [
-                f'💵 <b>{settings.format_price(transaction.amount_kopeks)}</b> | {payment_method}',
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_AMOUNT', '💵 <b>{amount}</b> | {method}').format(
+                    amount=settings.format_price(transaction.amount_kopeks), method=payment_method
+                ),
                 '',
-                f'📉 {settings.format_price(old_balance)} → 📈 {settings.format_price(user.balance_kopeks)}'
-                f' (<b>+{settings.format_price(balance_change)}</b>)',
+                notify_texts.t(
+                    'ADMIN_NOTIFY_TOPUP_BALANCE_CHANGE',
+                    '📉 {old} → 📈 {new} (<b>+{delta}</b>)',
+                ).format(
+                    old=settings.format_price(old_balance),
+                    new=settings.format_price(user.balance_kopeks),
+                    delta=settings.format_price(balance_change),
+                ),
             ]
         )
 
         # --- Подписка ---
-        message_lines.append(f'📱 Подписка: {subscription_status}')
+        message_lines.append(
+            notify_texts.t('ADMIN_NOTIFY_TOPUP_SUBSCRIPTION', '📱 Подписка: {status}').format(
+                status=subscription_status
+            )
+        )
 
         # --- Реферер (только если есть) ---
         if referrer_info and referrer_info != _referrer_none_label():
-            message_lines.append(f'🔗 Реферер: {referrer_info}')
+            message_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_REFERRER', '🔗 Реферер: {referrer}').format(referrer=referrer_info)
+            )
 
         # --- Expandable blockquote с техническими деталями ---
         detail_lines: list[str] = [
-            f'ID транзакции: {transaction.id}',
-            f'Способ оплаты: {transaction.payment_method or "balance"}',
+            notify_texts.t('ADMIN_NOTIFY_TOPUP_TX_ID', 'ID транзакции: {id}').format(id=transaction.id),
+            notify_texts.t('ADMIN_NOTIFY_TOPUP_TX_METHOD', 'Способ оплаты: {method}').format(
+                method=transaction.payment_method or 'balance'
+            ),
         ]
 
         if transaction.external_id:
-            detail_lines.append(f'Внешний ID: {transaction.external_id}')
+            detail_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_EXTERNAL_ID', 'Внешний ID: {id}').format(id=transaction.external_id)
+            )
 
         if transaction.description:
             desc = transaction.description
             if len(desc) > 120:
                 desc = desc[:117] + '...'
-            detail_lines.append(f'Описание: {html.escape(desc)}')
+            detail_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_DESCRIPTION', 'Описание: {desc}').format(desc=html.escape(desc))
+            )
 
         if transaction.created_at:
-            detail_lines.append(f'Создана: {format_local_datetime(transaction.created_at, "%d.%m.%Y %H:%M:%S")}')
+            detail_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_CREATED', 'Создана: {date}').format(
+                    date=format_local_datetime(transaction.created_at, '%d.%m.%Y %H:%M:%S')
+                )
+            )
 
         if transaction.completed_at:
-            detail_lines.append(f'Завершена: {format_local_datetime(transaction.completed_at, "%d.%m.%Y %H:%M:%S")}')
+            detail_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_COMPLETED', 'Завершена: {date}').format(
+                    date=format_local_datetime(transaction.completed_at, '%d.%m.%Y %H:%M:%S')
+                )
+            )
 
         if transaction.receipt_uuid:
-            detail_lines.append(f'Чек UUID: {transaction.receipt_uuid}')
+            detail_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_TOPUP_RECEIPT', 'Чек UUID: {uuid}').format(uuid=transaction.receipt_uuid)
+            )
 
         blockquote_body = '\n'.join(detail_lines)
         message_lines.extend(
