@@ -33,6 +33,72 @@ def _admin_chat_ok(callback: types.CallbackQuery) -> bool:
     return callback.message.chat.id == admin_chat_id
 
 
+async def execute_c2c_approve(
+    callback: types.CallbackQuery,
+    db: AsyncSession,
+    admin_telegram_id: int,
+) -> None:
+    receipt_id = _parse_receipt_id(callback.data or '', C2C_CALLBACK_APPROVE_PREFIX)
+    if receipt_id is None:
+        return
+
+    service = C2cPaymentService(callback.bot)
+    success, message, receipt = await service.approve_receipt(
+        db,
+        receipt_id,
+        admin_telegram_id,
+    )
+
+    if not success:
+        logger.warning('C2C approve failed', receipt_id=receipt_id, message=message)
+        return
+
+    admin_label = callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    new_text = f'✅ <b>Approved</b> — receipt #{receipt_id} by @{admin_label}'
+    if receipt and receipt.status == C2cReceiptStatus.APPROVED.value and callback.message:
+        try:
+            if callback.message.text:
+                await callback.message.edit_text(new_text, parse_mode='HTML', reply_markup=None)
+            elif callback.message.caption:
+                await callback.message.edit_caption(caption=new_text, parse_mode='HTML', reply_markup=None)
+        except TelegramBadRequest as error:
+            if 'message is not modified' not in str(error).lower():
+                logger.warning('Could not edit C2C admin message on approve', error=error)
+
+
+async def execute_c2c_reject(
+    callback: types.CallbackQuery,
+    db: AsyncSession,
+    admin_telegram_id: int,
+) -> None:
+    receipt_id = _parse_receipt_id(callback.data or '', C2C_CALLBACK_REJECT_PREFIX)
+    if receipt_id is None:
+        return
+
+    service = C2cPaymentService(callback.bot)
+    success, message, receipt = await service.reject_receipt(
+        db,
+        receipt_id,
+        admin_telegram_id,
+    )
+
+    if not success:
+        logger.warning('C2C reject failed', receipt_id=receipt_id, message=message)
+        return
+
+    admin_label = callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    new_text = f'❌ <b>Rejected</b> — receipt #{receipt_id} by @{admin_label}'
+    if receipt and receipt.status == C2cReceiptStatus.REJECTED.value and callback.message:
+        try:
+            if callback.message.text:
+                await callback.message.edit_text(new_text, parse_mode='HTML', reply_markup=None)
+            elif callback.message.caption:
+                await callback.message.edit_caption(caption=new_text, parse_mode='HTML', reply_markup=None)
+        except TelegramBadRequest as error:
+            if 'message is not modified' not in str(error).lower():
+                logger.warning('Could not edit C2C admin message on reject', error=error)
+
+
 @admin_required
 @error_handler
 async def handle_c2c_approve(callback: types.CallbackQuery, db_user: User, db: AsyncSession) -> None:
@@ -44,31 +110,14 @@ async def handle_c2c_approve(callback: types.CallbackQuery, db_user: User, db: A
     await callback.answer()
 
     if not _admin_chat_ok(callback):
-        logger.warning('C2C approve in wrong chat', receipt_id=receipt_id, chat_id=callback.message.chat.id if callback.message else None)
+        logger.warning(
+            'C2C approve in wrong chat',
+            receipt_id=receipt_id,
+            chat_id=callback.message.chat.id if callback.message else None,
+        )
         return
 
-    service = C2cPaymentService(callback.bot)
-    success, message, receipt = await service.approve_receipt(
-        db,
-        receipt_id,
-        callback.from_user.id,
-    )
-
-    if not success:
-        logger.warning('C2C approve failed', receipt_id=receipt_id, message=message)
-        return
-
-    admin_label = callback.from_user.username or str(callback.from_user.id)
-    new_text = f'✅ <b>Approved</b> — receipt #{receipt_id} by @{admin_label}'
-    if receipt and receipt.status == C2cReceiptStatus.APPROVED.value:
-        try:
-            if callback.message.text:
-                await callback.message.edit_text(new_text, parse_mode='HTML', reply_markup=None)
-            elif callback.message.caption:
-                await callback.message.edit_caption(caption=new_text, parse_mode='HTML', reply_markup=None)
-        except TelegramBadRequest as error:
-            if 'message is not modified' not in str(error).lower():
-                logger.warning('Could not edit C2C admin message on approve', error=error)
+    await execute_c2c_approve(callback, db, callback.from_user.id)
 
 
 @admin_required
@@ -82,31 +131,14 @@ async def handle_c2c_reject(callback: types.CallbackQuery, db_user: User, db: As
     await callback.answer()
 
     if not _admin_chat_ok(callback):
-        logger.warning('C2C reject in wrong chat', receipt_id=receipt_id, chat_id=callback.message.chat.id if callback.message else None)
+        logger.warning(
+            'C2C reject in wrong chat',
+            receipt_id=receipt_id,
+            chat_id=callback.message.chat.id if callback.message else None,
+        )
         return
 
-    service = C2cPaymentService(callback.bot)
-    success, message, receipt = await service.reject_receipt(
-        db,
-        receipt_id,
-        callback.from_user.id,
-    )
-
-    if not success:
-        logger.warning('C2C reject failed', receipt_id=receipt_id, message=message)
-        return
-
-    admin_label = callback.from_user.username or str(callback.from_user.id)
-    new_text = f'❌ <b>Rejected</b> — receipt #{receipt_id} by @{admin_label}'
-    if receipt and receipt.status == C2cReceiptStatus.REJECTED.value:
-        try:
-            if callback.message.text:
-                await callback.message.edit_text(new_text, parse_mode='HTML', reply_markup=None)
-            elif callback.message.caption:
-                await callback.message.edit_caption(caption=new_text, parse_mode='HTML', reply_markup=None)
-        except TelegramBadRequest as error:
-            if 'message is not modified' not in str(error).lower():
-                logger.warning('Could not edit C2C admin message on reject', error=error)
+    await execute_c2c_reject(callback, db, callback.from_user.id)
 
 
 def register_admin_handlers(dp) -> None:
