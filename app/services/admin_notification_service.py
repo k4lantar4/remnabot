@@ -1187,7 +1187,10 @@ class AdminNotificationService:
                         label=user_id_label, user_id=user_id_display
                     ),
                     notify_texts.t('ADMIN_NOTIFY_RENEWAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
-                        username=html.escape(getattr(user, 'username', None) or 'отсутствует')
+                        username=html.escape(
+                            getattr(user, 'username', None)
+                            or notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
+                        )
                     ),
                     '',
                     promo_block,
@@ -2746,22 +2749,34 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
+            default_admin = notify_texts.t('ADMIN_NOTIFY_BULK_BAN_ADMIN_DEFAULT', 'Администратор')
             message_lines = [
-                '🛑 <b>МАССОВАЯ БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ</b>',
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_TITLE', '🛑 <b>МАССОВАЯ БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ</b>'),
                 '',
-                f'👮 <b>Администратор:</b> {html.escape(admin_name)}',
-                f'🆔 <b>ID администратора:</b> {admin_user_id}',
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_ADMIN', '👮 <b>Администратор:</b> {name}').format(
+                    name=html.escape(admin_name or default_admin)
+                ),
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_ADMIN_ID', '🆔 <b>ID администратора:</b> {id}').format(
+                    id=admin_user_id
+                ),
                 '',
-                '📊 <b>Результаты:</b>',
-                f'✅ Успешно заблокировано: {successfully_banned}',
-                f'❌ Не найдено: {not_found}',
-                f'💥 Ошибок: {errors}',
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_RESULTS', '📊 <b>Результаты:</b>'),
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_SUCCESS', '✅ Успешно заблокировано: {count}').format(
+                    count=successfully_banned
+                ),
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_NOT_FOUND', '❌ Не найдено: {count}').format(count=not_found),
+                notify_texts.t('ADMIN_NOTIFY_BULK_BAN_ERRORS', '💥 Ошибок: {count}').format(count=errors),
             ]
 
             total_processed = successfully_banned + not_found + errors
             if total_processed > 0:
                 success_rate = (successfully_banned / total_processed) * 100
-                message_lines.append(f'📈 Успешность: {success_rate:.1f}%')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_BULK_BAN_RATE', '📈 Успешность: {rate}%').format(
+                        rate=f'{success_rate:.1f}'
+                    )
+                )
 
             message_lines.extend(
                 [
