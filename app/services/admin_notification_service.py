@@ -76,6 +76,13 @@ class NotificationCategory(StrEnum):
 logger = structlog.get_logger(__name__)
 
 
+def _admin_notify_texts():
+    from app.localization.texts import get_texts
+
+    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+    return get_texts(lang)
+
+
 class AdminNotificationService:
     def __init__(self, bot: Bot):
         self.bot = bot
@@ -545,22 +552,23 @@ class AdminNotificationService:
             if not self._is_enabled():
                 return False
 
+            notify_texts = _admin_notify_texts()
             # Определяем тип операции и заголовок
             if purchase_type == 'tariff_switch':
-                event_title = '🔄 СМЕНА ТАРИФА'
-                user_status = 'Смена тарифа'
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_SWITCH', '🔄 СМЕНА ТАРИФА')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_SWITCH', 'Смена тарифа')
             elif was_trial_conversion:
-                event_title = '🔄 КОНВЕРСИЯ ИЗ ТРИАЛА'
-                user_status = 'Конверсия'
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_TRIAL', '🔄 КОНВЕРСИЯ ИЗ ТРИАЛА')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_TRIAL', 'Конверсия')
             elif purchase_type == 'first_purchase':
-                event_title = '💎 ПОКУПКА ПОДПИСКИ'
-                user_status = 'Первая покупка'
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_FIRST', '💎 ПОКУПКА ПОДПИСКИ')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_FIRST', 'Первая покупка')
             elif purchase_type == 'renewal' or (purchase_type is None and user.has_had_paid_subscription):
-                event_title = '💎 ПРОДЛЕНИЕ ПОДПИСКИ'
-                user_status = 'Продление'
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_RENEWAL', '💎 ПРОДЛЕНИЕ ПОДПИСКИ')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_RENEWAL', 'Продление')
             else:
-                event_title = '💎 ПОКУПКА ПОДПИСКИ'
-                user_status = 'Первая покупка'
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_FIRST', '💎 ПОКУПКА ПОДПИСКИ')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_FIRST', 'Первая покупка')
 
             # Получаем название тарифа
             tariff_name = await self._get_tariff_name(db, subscription)
@@ -587,7 +595,9 @@ class AdminNotificationService:
 
             # Тариф (если есть)
             if tariff_name:
-                message_lines.append(f'🏷️ Тариф: <b>{tariff_name}</b>')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_TARIFF_LINE', '🏷️ Тариф: <b>{name}</b>').format(name=tariff_name)
+                )
 
             message_lines.extend(
                 [
@@ -600,13 +610,19 @@ class AdminNotificationService:
             )
 
             # Баланс после покупки
-            message_lines.append(f'💰 Баланс: {settings.format_price(user.balance_kopeks)}')
+            message_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_BALANCE_LINE', '💰 Баланс: {balance}').format(
+                    balance=settings.format_price(user.balance_kopeks)
+                )
+            )
 
             # Реферер (только если есть)
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
                 if referrer_info != 'Нет':
-                    message_lines.append(f'🔗 Реф: {referrer_info}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_REF_LINE', '🔗 Реф: {referrer}').format(referrer=referrer_info)
+                    )
 
             # ID транзакции (только если есть)
             if transaction:
@@ -1000,32 +1016,55 @@ class AdminNotificationService:
             user_id_label = self._get_user_identifier_label(user)
             user_id_display = self._get_user_identifier_display(user)
 
-            message = f"""⏰ <b>ПРОДЛЕНИЕ ПОДПИСКИ</b>
-
-👤 <b>Пользователь:</b> {user_display}
-🆔 <b>{user_id_label}:</b> {user_id_display}
-📱 <b>Username:</b> @{html.escape(getattr(user, 'username', None) or 'отсутствует')}
-
-{promo_block}
-
-💰 <b>Платеж:</b>
-💵 Сумма: {settings.format_price(abs(transaction.amount_kopeks))}
-💳 Способ: {payment_method}
-🆔 ID транзакции: {transaction.id}
-
-📅 <b>Продление:</b>
-➕ Добавлено дней: {extended_days}
-📆 Было до: {format_local_datetime(old_end_date, '%d.%m.%Y %H:%M')}
-📆 Стало до: {format_local_datetime(current_end_date, '%d.%m.%Y %H:%M')}
-
-📱 <b>Текущие параметры:</b>
-📊 Трафик: {self._format_traffic(subscription.traffic_limit_gb)}
-📱 Устройства: {subscription.device_limit}
-🌐 Серверы: {servers_info}
-
-💰 <b>Баланс после операции:</b> {settings.format_price(current_balance)}
-
-⏰ <i>{format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S')}</i>"""
+            notify_texts = _admin_notify_texts()
+            message = '\n'.join(
+                [
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_TITLE', '⏰ <b>ПРОДЛЕНИЕ ПОДПИСКИ</b>'),
+                    '',
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_USER', '👤 <b>Пользователь:</b> {user}').format(
+                        user=user_display
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                        label=user_id_label, user_id=user_id_display
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                        username=html.escape(getattr(user, 'username', None) or 'отсутствует')
+                    ),
+                    '',
+                    promo_block,
+                    '',
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_PAYMENT', '💰 <b>Платеж:</b>'),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_AMOUNT', '💵 Сумма: {amount}').format(
+                        amount=settings.format_price(abs(transaction.amount_kopeks))
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_METHOD', '💳 Способ: {method}').format(method=payment_method),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_TX', '🆔 ID транзакции: {tx_id}').format(tx_id=transaction.id),
+                    '',
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_SECTION', '📅 <b>Продление:</b>'),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_DAYS', '➕ Добавлено дней: {days}').format(days=extended_days),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_WAS', '📆 Было до: {date}').format(
+                        date=format_local_datetime(old_end_date, '%d.%m.%Y %H:%M')
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_NOW', '📆 Стало до: {date}').format(
+                        date=format_local_datetime(current_end_date, '%d.%m.%Y %H:%M')
+                    ),
+                    '',
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_PARAMS', '📱 <b>Текущие параметры:</b>'),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_TRAFFIC', '📊 Трафик: {traffic}').format(
+                        traffic=self._format_traffic(subscription.traffic_limit_gb)
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_DEVICES', '📱 Устройства: {devices}').format(
+                        devices=subscription.device_limit
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_SERVERS', '🌐 Серверы: {servers}').format(servers=servers_info),
+                    '',
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_BALANCE_AFTER', '💰 <b>Баланс после операции:</b> {balance}').format(
+                        balance=settings.format_price(current_balance)
+                    ),
+                    '',
+                    f'<i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
+                ]
+            )
 
             return await self._send_message(message, category=NotificationCategory.RENEWALS)
 
