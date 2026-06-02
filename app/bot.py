@@ -172,10 +172,10 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     start.register_handlers(dp)
     menu.register_handlers(dp)
     subscription.register_handlers(dp)
-    balance.register_balance_handlers(dp)
     from app.plugins.c2c import register_c2c_plugin
 
     register_c2c_plugin(dp)
+    balance.register_balance_handlers(dp)
     promocode.register_handlers(dp)
     referral.register_handlers(dp)
     support.register_handlers(dp)

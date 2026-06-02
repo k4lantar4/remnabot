@@ -10,11 +10,11 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database.models import User
+from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.keyboards.inline import get_back_keyboard
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
-from app.plugins.c2c.config_helpers import format_card_message, get_next_card
+from app.plugins.c2c.config_helpers import format_card_message, get_card_by_index, get_next_card
 from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_DOCUMENT,
     C2C_RECEIPT_TYPE_PHOTO,
@@ -27,6 +27,82 @@ from app.utils.decorators import error_handler
 
 
 logger = structlog.get_logger(__name__)
+
+
+async def _resolve_c2c_receipt_for_user(
+    db: AsyncSession,
+    db_user: User,
+    state: FSMContext,
+) -> tuple[C2cReceipt | None, str | None]:
+    """Resolve pending receipt from FSM data or DB; sync FSM when recovered from DB."""
+    data = await state.get_data()
+    receipt_id = data.get('c2c_receipt_id')
+    receipt: C2cReceipt | None = None
+
+    if receipt_id is not None:
+        try:
+            receipt = await c2c_crud.get_c2c_receipt_by_id(db, int(receipt_id))
+        except (TypeError, ValueError):
+            receipt = None
+        if receipt and receipt.user_id != db_user.id:
+            receipt = None
+
+    if receipt and receipt.status == C2cReceiptStatus.PENDING.value:
+        return receipt, None
+
+    pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
+    if pending:
+        await state.update_data(c2c_receipt_id=pending.id)
+        await state.set_state(C2cStates.waiting_for_receipt)
+        logger.info(
+            'C2C receipt session recovered from pending row',
+            user_id=db_user.id,
+            receipt_id=pending.id,
+            stale_fsm_receipt_id=receipt_id,
+        )
+        return pending, None
+
+    if receipt_id is not None:
+        return None, 'C2C_RECEIPT_NOT_FOUND'
+    return None, 'C2C_NO_ACTIVE_RECEIPT'
+
+
+async def _send_c2c_card_instructions(
+    *,
+    target: types.Message | types.CallbackQuery,
+    db_user: User,
+    receipt: C2cReceipt,
+    state: FSMContext,
+) -> None:
+    """Show card details and switch FSM to waiting_for_receipt."""
+    texts = get_texts(db_user.language)
+    card = get_card_by_index(receipt.card_index)
+    if card:
+        card_text = format_card_message(card, receipt.amount_kopeks, settings.C2C_GUIDE_TEXT)
+        body = texts.t(
+            'C2C_SEND_RECEIPT',
+            '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
+        ).format(card_info=card_text)
+    else:
+        card_info = (
+            f'💳 Pending transfer #{receipt.id}\n'
+            f'💰 {settings.format_price(receipt.amount_kopeks)}'
+        )
+        body = texts.t(
+            'C2C_SEND_RECEIPT',
+            '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
+        ).format(card_info=card_info)
+
+    keyboard = get_back_keyboard(db_user.language, callback_data='menu_balance')
+    await state.update_data(c2c_receipt_id=receipt.id, payment_method='c2c')
+    await state.set_state(C2cStates.waiting_for_receipt)
+
+    message = target.message if isinstance(target, types.CallbackQuery) else target
+    reply_markup = keyboard
+    if isinstance(target, types.CallbackQuery):
+        await target.message.edit_text(body, parse_mode='HTML', reply_markup=reply_markup)
+    else:
+        await message.answer(body, parse_mode='HTML', reply_markup=reply_markup)
 
 
 async def _check_restriction_topup(callback: types.CallbackQuery, db_user: User) -> bool:
@@ -52,7 +128,12 @@ async def _check_restriction_topup(callback: types.CallbackQuery, db_user: User)
 
 
 @error_handler
-async def start_c2c_payment(callback: types.CallbackQuery, db_user: User, state: FSMContext) -> None:
+async def start_c2c_payment(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+    db: AsyncSession,
+) -> None:
     texts = get_texts(db_user.language)
 
     if await _check_restriction_topup(callback, db_user):
@@ -72,6 +153,12 @@ async def start_c2c_payment(callback: types.CallbackQuery, db_user: User, state:
         )
         return
 
+    pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
+    if pending:
+        await _send_c2c_card_instructions(target=callback, db_user=db_user, receipt=pending, state=state)
+        await callback.answer()
+        return
+
     min_amount_rub = settings.C2C_MIN_AMOUNT_KOPEKS / 100
     max_amount_rub = settings.C2C_MAX_AMOUNT_KOPEKS / 100
     display_name = settings.get_c2c_display_name()
@@ -84,7 +171,7 @@ async def start_c2c_payment(callback: types.CallbackQuery, db_user: User, state:
     keyboard = get_back_keyboard(db_user.language)
     await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode='HTML')
     await state.set_state(BalanceStates.waiting_for_amount)
-    await state.update_data(payment_method='c2c')
+    await state.update_data(payment_method='c2c', c2c_receipt_id=None)
     await callback.answer()
 
 
@@ -136,13 +223,7 @@ async def process_c2c_payment_amount(
 
     pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
     if pending:
-        await message.answer(
-            texts.t(
-                'C2C_PENDING_RECEIPT_EXISTS',
-                '⏳ You already have pending receipt #{id}. Wait for admin review or contact support.',
-            ).format(id=pending.id),
-            reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
-        )
+        await _send_c2c_card_instructions(target=message, db_user=db_user, receipt=pending, state=state)
         return
 
     try:
@@ -162,18 +243,8 @@ async def process_c2c_payment_amount(
         card_label=card.get('label'),
     )
 
-    card_text = format_card_message(card, amount_kopeks, settings.C2C_GUIDE_TEXT)
-    await message.answer(
-        texts.t(
-            'C2C_SEND_RECEIPT',
-            '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
-        ).format(card_info=card_text),
-        parse_mode='HTML',
-        reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
-    )
-
-    await state.update_data(c2c_receipt_id=receipt.id)
-    await state.set_state(C2cStates.waiting_for_receipt)
+    await _send_c2c_card_instructions(target=message, db_user=db_user, receipt=receipt, state=state)
+    await db.commit()
 
 
 @error_handler
@@ -184,34 +255,18 @@ async def process_c2c_receipt(
     state: FSMContext,
 ) -> None:
     texts = get_texts(db_user.language)
-    data = await state.get_data()
-    receipt_id = data.get('c2c_receipt_id')
-
-    if not receipt_id:
+    receipt, error_key = await _resolve_c2c_receipt_for_user(db, db_user, state)
+    if not receipt:
+        fallback = (
+            '❌ Receipt not found. Start card-to-card payment again.'
+            if error_key == 'C2C_RECEIPT_NOT_FOUND'
+            else '❌ No active card transfer session. Start again from balance menu.'
+        )
         await message.answer(
-            texts.t('C2C_NO_ACTIVE_RECEIPT', '❌ No active card transfer session. Start again from balance menu.'),
+            texts.t(error_key or 'C2C_NO_ACTIVE_RECEIPT', fallback),
             reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
         )
         await state.clear()
-        return
-
-    receipt = await c2c_crud.get_c2c_receipt_by_id(db, int(receipt_id))
-    if not receipt or receipt.user_id != db_user.id:
-        await message.answer(
-            texts.t('C2C_RECEIPT_NOT_FOUND', '❌ Receipt not found. Start card-to-card payment again.'),
-            reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
-        )
-        await state.clear()
-        return
-
-    pending_other = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
-    if pending_other and pending_other.id != receipt.id:
-        await message.answer(
-            texts.t(
-                'C2C_PENDING_RECEIPT_EXISTS',
-                '⏳ You already have pending receipt #{id}.',
-            ).format(id=pending_other.id),
-        )
         return
 
     receipt_type: str | None = None
