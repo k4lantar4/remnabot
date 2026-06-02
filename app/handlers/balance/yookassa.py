@@ -41,7 +41,13 @@ async def start_yookassa_payment(callback: types.CallbackQuery, db_user: User, s
         return
 
     if not settings.is_yookassa_enabled():
-        await callback.answer('❌ Оплата картой через YooKassa временно недоступна', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_YOOKASSA_PAYMENT_UNAVAILABLE',
+                '❌ Оплата картой через YooKassa временно недоступна',
+            ),
+            show_alert=True,
+        )
         return
 
     min_amount_rub = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
@@ -87,7 +93,10 @@ async def start_yookassa_sbp_payment(callback: types.CallbackQuery, db_user: Use
         return
 
     if not settings.is_yookassa_enabled() or not settings.YOOKASSA_SBP_ENABLED:
-        await callback.answer('❌ Оплата через СБП временно недоступна', show_alert=True)
+        await callback.answer(
+            texts.t('CB_SBP_PAYMENT_UNAVAILABLE', '❌ Оплата через СБП временно недоступна'),
+            show_alert=True,
+        )
         return
 
     min_amount_rub = settings.YOOKASSA_MIN_AMOUNT_KOPEKS / 100
@@ -512,7 +521,12 @@ async def process_yookassa_sbp_payment_amount(
 
 
 @error_handler
-async def check_yookassa_payment_status(callback: types.CallbackQuery, db: AsyncSession):
+async def check_yookassa_payment_status(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
 
@@ -521,7 +535,10 @@ async def check_yookassa_payment_status(callback: types.CallbackQuery, db: Async
         payment = await get_yookassa_payment_by_local_id(db, local_payment_id)
 
         if not payment:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(
+                texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'),
+                show_alert=True,
+            )
             return
 
         status_emoji = {
@@ -562,4 +579,7 @@ async def check_yookassa_payment_status(callback: types.CallbackQuery, db: Async
 
     except Exception as e:
         logger.error('Ошибка проверки статуса платежа', error=e)
-        await callback.answer('❌ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '❌ Ошибка проверки статуса'),
+            show_alert=True,
+        )
