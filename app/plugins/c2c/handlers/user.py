@@ -279,9 +279,17 @@ async def process_c2c_receipt(
     elif message.document:
         receipt_type = C2C_RECEIPT_TYPE_DOCUMENT
         receipt_file_id = message.document.file_id
-    elif message.text:
-        receipt_type = C2C_RECEIPT_TYPE_TEXT
+    elif message.text and not message.text.startswith('/'):
         receipt_text = message.text.strip()
+        if not receipt_text:
+            await message.answer(
+                texts.t(
+                    'C2C_INVALID_RECEIPT',
+                    '❌ Send a photo, document, or text receipt (not stickers or voice).',
+                ),
+            )
+            return
+        receipt_type = C2C_RECEIPT_TYPE_TEXT
     else:
         await message.answer(
             texts.t(
@@ -329,5 +337,5 @@ def register_user_handlers(dp) -> None:
     dp.message.register(
         process_c2c_receipt,
         C2cStates.waiting_for_receipt,
-        F.photo | F.document | F.text,
+        F.photo | F.document | (F.text & ~F.text.startswith('/')),
     )
