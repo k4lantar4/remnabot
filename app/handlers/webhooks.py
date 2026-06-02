@@ -8,6 +8,7 @@ from app.database.crud.user import add_user_balance, get_user_by_id
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, TransactionType
 from app.external.tribute import TributeService
+from app.localization.texts import get_texts
 
 
 logger = structlog.get_logger(__name__)
@@ -110,6 +111,7 @@ async def handle_successful_payment(message: types.Message):
                     user = await get_user_by_id(db, user_id)
 
                     if user:
+                        texts = get_texts(user.language)
                         await add_user_balance(db, user, amount_kopeks, 'Пополнение через Telegram Stars')
 
                         await create_transaction(
@@ -123,8 +125,10 @@ async def handle_successful_payment(message: types.Message):
                         )
 
                         await message.answer(
-                            f'✅ Баланс успешно пополнен на {settings.format_price(amount_kopeks)}!\n\n'
-                            'Средства зачислены на ваш баланс!'
+                            texts.t(
+                                'STARS_BALANCE_TOPUP_SUCCESS',
+                                '✅ Баланс успешно пополнен на {amount}!\n\nСредства зачислены на ваш баланс!',
+                            ).format(amount=settings.format_price(amount_kopeks))
                         )
 
                         logger.info(
@@ -148,4 +152,9 @@ async def handle_pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery):
 
     except Exception as e:
         logger.error('Ошибка в pre-checkout query', error=e)
-        await pre_checkout_query.answer(ok=False, error_message='Ошибка обработки платежа')
+        language = getattr(getattr(pre_checkout_query, 'from_user', None), 'language_code', None) or 'fa'
+        texts = get_texts(language)
+        await pre_checkout_query.answer(
+            ok=False,
+            error_message=texts.t('CB_PAYMENT_PROCESS_ERROR', 'Ошибка обработки платежа'),
+        )

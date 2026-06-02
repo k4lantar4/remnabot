@@ -2027,6 +2027,8 @@
   "MSG_HELEKET_INVOICE_CREATE_ERROR": "❌ ایجاد فاکتور Heleket ناموفق بود. بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.",
   "MSG_HELEKET_PAYMENT_LINK_ERROR": "❌ دریافت لینک پرداخت Heleket ناموفق بود",
   "BALANCE_HISTORY_EMPTY": "📊 تاریخچه عملیات خالی است",
+  "STARS_BALANCE_TOPUP_SUCCESS": "✅ موجودی {amount} شارژ شد!\n\nمبلغ به موجودی شما واریز شد!",
+  "CB_PAYMENT_PROCESS_ERROR": "خطا در پردازش پرداخت",
   "TARIFF_CONFIRM_RENEW_BTN": "✅ تأیید تمدید",
   "MSG_MULENPAY_PAYMENT_UNAVAILABLE": "❌ پرداخت از طریق {provider} موقتاً در دسترس نیست",
   "TARIFF_NO_AVAILABLE": "😔 <b>تعرفه‌ای موجود نیست</b>\n\nمتأسفانه اکنون تعرفه‌ای برای خرید وجود ندارد.",
