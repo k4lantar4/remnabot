@@ -1856,17 +1856,20 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             is_cabinet = purchase.source == 'cabinet'
 
             # Event title
             if is_cabinet and purchase.is_gift:
-                event_title = '🎁 ПОДАРОК ИЗ КАБИНЕТА'
+                event_title = notify_texts.t('ADMIN_NOTIFY_GUEST_CABINET_GIFT', '🎁 ПОДАРОК ИЗ КАБИНЕТА')
             elif is_pending_activation:
-                event_title = '⏳ ПОКУПКА С ЛЕНДИНГА (ожидает активации)'
+                event_title = notify_texts.t(
+                    'ADMIN_NOTIFY_GUEST_LANDING_PENDING', '⏳ ПОКУПКА С ЛЕНДИНГА (ожидает активации)'
+                )
             elif purchase.is_gift:
-                event_title = '🎁 ПОКУПКА В ПОДАРОК С ЛЕНДИНГА'
+                event_title = notify_texts.t('ADMIN_NOTIFY_GUEST_LANDING_GIFT', '🎁 ПОКУПКА В ПОДАРОК С ЛЕНДИНГА')
             else:
-                event_title = '🛒 ПОКУПКА С ЛЕНДИНГА'
+                event_title = notify_texts.t('ADMIN_NOTIFY_GUEST_LANDING_PURCHASE', '🛒 ПОКУПКА С ЛЕНДИНГА')
 
             # Contact info
             contact_display = html.escape(purchase.contact_value or '—')
@@ -1884,9 +1887,17 @@ class AdminNotificationService:
                 buyer = getattr(purchase, 'buyer', None)
                 if buyer:
                     buyer_name = f'@{buyer.username}' if buyer.username else buyer.email or f'id:{buyer.id}'
-                    message_lines.append(f'👤 Покупатель: <code>{html.escape(buyer_name)}</code>')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_GUEST_BUYER', '👤 Покупатель: <code>{contact}</code>').format(
+                            contact=html.escape(buyer_name)
+                        )
+                    )
                 else:
-                    message_lines.append(f'{contact_icon} Покупатель: <code>{contact_display}</code>')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_GUEST_BUYER_ICON', '{icon} Покупатель: <code>{contact}</code>').format(
+                            icon=contact_icon, contact=contact_display
+                        )
+                    )
             else:
                 # Landing: show page slug and buyer contact
                 landing_slug = '—'
@@ -1899,16 +1910,32 @@ class AdminNotificationService:
                 except Exception:
                     if purchase.landing_id:
                         landing_slug = f'ID:{purchase.landing_id}'
-                message_lines.append(f'🌐 Страница: <b>/buy/{html.escape(landing_slug)}</b>')
-                message_lines.append(f'{contact_icon} Покупатель: <code>{contact_display}</code>')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_GUEST_LANDING_PAGE', '🌐 Страница: <b>/buy/{slug}</b>').format(
+                        slug=html.escape(landing_slug)
+                    )
+                )
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_GUEST_BUYER_ICON', '{icon} Покупатель: <code>{contact}</code>').format(
+                        icon=contact_icon, contact=contact_display
+                    )
+                )
 
             if purchase.is_gift:
                 if purchase.gift_recipient_value:
                     recipient_icon = '📧' if purchase.gift_recipient_type == 'email' else '📱'
                     recipient_value = html.escape(purchase.gift_recipient_value)
-                    message_lines.append(f'{recipient_icon} Получатель: <code>{recipient_value}</code>')
+                    message_lines.append(
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_GUEST_RECIPIENT', '{icon} Получатель: <code>{contact}</code>'
+                        ).format(icon=recipient_icon, contact=recipient_value)
+                    )
                 else:
-                    message_lines.append('🔗 Получатель: <i>по коду активации</i>')
+                    message_lines.append(
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_GUEST_RECIPIENT_CODE', '🔗 Получатель: <i>по коду активации</i>'
+                        )
+                    )
                 if purchase.gift_message:
                     raw_msg = purchase.gift_message[:100]
                     suffix = '…' if len(purchase.gift_message) > 100 else ''
@@ -1917,9 +1944,13 @@ class AdminNotificationService:
             # Payment details in blockquote
             payment_lines = [
                 '<blockquote>',
-                f'🏷️ Тариф: <b>{html.escape(tariff_name)}</b>',
-                f'📅 Период: {purchase.period_days} дн.',
-                f'💵 <b>{settings.format_price(purchase.amount_kopeks)}</b> • {payment_method}',
+                notify_texts.t('ADMIN_NOTIFY_GUEST_TARIFF', '🏷️ Тариф: <b>{name}</b>').format(
+                    name=html.escape(tariff_name)
+                ),
+                notify_texts.t('ADMIN_NOTIFY_GUEST_PERIOD', '📅 Период: {days} дн.').format(days=purchase.period_days),
+                notify_texts.t('ADMIN_NOTIFY_GUEST_PAYMENT', '💵 <b>{amount}</b> • {method}').format(
+                    amount=settings.format_price(purchase.amount_kopeks), method=payment_method
+                ),
             ]
 
             if purchase.payment_id:
