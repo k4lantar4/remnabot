@@ -1574,7 +1574,7 @@
   "SUPPORT_INFO": "🛠️ <b>پشتیبانی</b>\n\nبرای کمک با ما تماس بگیرید.",
   "SUSPICIOUS_DISPLAY_NAME_BLOCKED": "🚫 نام نمایشی شما شبیه لینک یا اکانت سرویسی است. لطفاً نام را در تلگرام تغییر دهید و دوباره تلاش کنید.",
   "SWITCH_TRAFFIC_BUTTON": "🔄 تغییر ترافیک",
-  "SWITCH_TRAFFIC_CONFIRM": "تغییر بسته ترافیک؟\n\nبسته جدید: {package}\nهزینه: {cost}",
+  "SWITCH_TRAFFIC_CONFIRM": "🔄 <b>تأیید تغییر ترافیک</b>\n\nحد فعلی: {current_traffic}\nحد جدید: {new_traffic}\n\nعمل: {action}\n💰 {cost}\n\nتأیید می‌کنید؟",
   "SWITCH_TRAFFIC_INFO": "📊 <b>تغییر بسته ترافیک</b>",
   "SWITCH_TRAFFIC_SUCCESS_DECREASE": "\n✅ ترافیک کاهش یافت!\n\n📊 قبلی: {old_traffic} → جدید: {new_traffic}\nℹ️ بازپرداخت ندارد\n",
   "SWITCH_TRAFFIC_SUCCESS_INCREASE": "\n✅ ترافیک افزایش یافت!\n\n📊 قبلی: {old_traffic} → جدید: {new_traffic}\n💰 کسر: {amount}\n",
@@ -2281,5 +2281,18 @@
   "TRAFFIC_TOPUP_PERIOD_DAYS": " (برای {days} روز)",
   "TRAFFIC_TOPUP_BTN_UNLIMITED": "♾️ ترافیک نامحدود - {price}{period}",
   "TRAFFIC_TOPUP_BTN_GB": "📊 +{gb} گیگ ترافیک - {price}{period}",
-  "TRAFFIC_TOPUP_DISCOUNT_SUFFIX": " (تخفیف {percent}%: -{amount})"
+  "TRAFFIC_TOPUP_DISCOUNT_SUFFIX": " (تخفیف {percent}%: -{amount})",
+  "TRAFFIC_TOPUP_SUB_BTN": "📊 {name} ({days_left})",
+  "TRAFFIC_RESET_PRICE_INFO": "\n\n💡 <i>محاسبه قیمت:</i>\n• ترافیک پایه: {base}\n• خریداری‌شده: {purchased}",
+  "TRAFFIC_RESET_BALANCE_LINE": "\n\n💰 موجودی: {balance}",
+  "TRAFFIC_RESET_MISSING_LINE": "\n⚠️ کسری: {missing}",
+  "ADD_TRAFFIC_SUCCESS_HEADER": "✅ ترافیک با موفقیت اضافه شد!\n\n",
+  "ADD_TRAFFIC_SUCCESS_UNLIMITED": "🎉 اکنون ترافیک نامحدود دارید!",
+  "ADD_TRAFFIC_SUCCESS_ADDED_GB": "📈 اضافه شد: {gb} گیگ\n",
+  "ADD_TRAFFIC_SUCCESS_NEW_LIMIT": "حد جدید: {limit}",
+  "ADD_TRAFFIC_SUCCESS_CHARGED": "\n💰 کسر شد: {amount}",
+  "TRAFFIC_SWITCH_ACTION_INCREASE": "افزایش به {limit}",
+  "TRAFFIC_SWITCH_ACTION_DECREASE": "کاهش به {limit}",
+  "TRAFFIC_SWITCH_COST_SURCHARGE": "مابه‌التفاوت: {price}{period}",
+  "TRAFFIC_SWITCH_NO_REFUND": "بازپرداخت ندارد"
 }

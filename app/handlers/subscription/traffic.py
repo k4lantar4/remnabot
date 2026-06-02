@@ -81,7 +81,10 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
                 keyboard.append(
                     [
                         types.InlineKeyboardButton(
-                            text=f'📊 {tariff_name} ({days_left}д.)',
+                            text=texts.t('TRAFFIC_TOPUP_SUB_BTN', '📊 {name} ({days_left})').format(
+                                name=tariff_name,
+                                days_left=texts.t('SUBSCRIPTION_TIME_LEFT_DAYS', '{days} дн.').format(days=days_left),
+                            ),
                             callback_data=f'st:{sub.id}',
                         )
                     ]
@@ -290,20 +293,23 @@ async def handle_reset_traffic(
     price_info = ''
     if purchased_gb > 0 and settings.get_traffic_reset_price_mode() == 'traffic_with_purchased':
         base_traffic_gb = subscription.traffic_limit_gb - purchased_gb
-        price_info = (
-            f'\n\n💡 <i>Расчет цены:</i>\n'
-            f'• Базовый трафик: {texts.format_traffic(base_traffic_gb)}\n'
-            f'• Докупленный: {texts.format_traffic(purchased_gb)}'
-        )
+        price_info = texts.t(
+            'TRAFFIC_RESET_PRICE_INFO',
+            '\n\n💡 <i>Расчет цены:</i>\n• Базовый трафик: {base}\n• Докупленный: {purchased}',
+        ).format(base=texts.format_traffic(base_traffic_gb), purchased=texts.format_traffic(purchased_gb))
 
     # Проверяем достаточно ли средств
     has_enough_balance = db_user.balance_kopeks >= reset_price
     missing_kopeks = max(0, reset_price - db_user.balance_kopeks)
 
     # Формируем текст о балансе
-    balance_info = f'\n\n💰 На балансе: {texts.format_price(db_user.balance_kopeks)}'
+    balance_info = texts.t('TRAFFIC_RESET_BALANCE_LINE', '\n\n💰 На балансе: {balance}').format(
+        balance=texts.format_price(db_user.balance_kopeks)
+    )
     if not has_enough_balance:
-        balance_info += f'\n⚠️ Не хватает: {texts.format_price(missing_kopeks)}'
+        balance_info += texts.t('TRAFFIC_RESET_MISSING_LINE', '\n⚠️ Не хватает: {missing}').format(
+            missing=texts.format_price(missing_kopeks)
+        )
 
     await callback.message.edit_text(
         texts.t(
@@ -742,17 +748,24 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         except Exception as e:
             logger.error('Ошибка отправки уведомления о докупке трафика', error=e)
 
-        success_text = '✅ Трафик успешно добавлен!\n\n'
+        success_text = texts.t('ADD_TRAFFIC_SUCCESS_HEADER', '✅ Трафик успешно добавлен!\n\n')
         if traffic_gb == 0:
-            success_text += '🎉 Теперь у вас безлимитный трафик!'
+            success_text += texts.t('ADD_TRAFFIC_SUCCESS_UNLIMITED', '🎉 Теперь у вас безлимитный трафик!')
         else:
-            success_text += f'📈 Добавлено: {traffic_gb} ГБ\n'
-            success_text += f'Новый лимит: {texts.format_traffic(subscription.traffic_limit_gb)}'
+            success_text += texts.t('ADD_TRAFFIC_SUCCESS_ADDED_GB', '📈 Добавлено: {gb} ГБ\n').format(gb=traffic_gb)
+            success_text += texts.t('ADD_TRAFFIC_SUCCESS_NEW_LIMIT', 'Новый лимит: {limit}').format(
+                limit=texts.format_traffic(subscription.traffic_limit_gb)
+            )
 
         if price > 0:
-            success_text += f'\n💰 Списано: {texts.format_price(price)}'
+            success_text += texts.t('ADD_TRAFFIC_SUCCESS_CHARGED', '\n💰 Списано: {amount}').format(
+                amount=texts.format_price(price)
+            )
             if total_discount_value > 0:
-                success_text += f' (скидка {traffic_discount_pct}%: -{texts.format_price(total_discount_value)})'
+                success_text += texts.t(
+                    'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
+                    ' (скидка {percent}%: -{amount})',
+                ).format(percent=traffic_discount_pct, amount=texts.format_price(total_discount_value))
 
         await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
@@ -918,6 +931,11 @@ async def confirm_switch_traffic(
 
         if total_price_difference > 0 and db_user.balance_kopeks < total_price_difference:
             missing_kopeks = total_price_difference - db_user.balance_kopeks
+            period_suffix = (
+                texts.t('TRAFFIC_TOPUP_PERIOD_ONE_DAY', ' (за 1 день)')
+                if days_remaining == 1
+                else texts.t('TRAFFIC_TOPUP_PERIOD_DAYS', ' (за {days} дн.)').format(days=days_remaining)
+            )
             message_text = texts.t(
                 'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
                 (
@@ -928,7 +946,7 @@ async def confirm_switch_traffic(
                     'Выберите способ пополнения. Сумма подставится автоматически.'
                 ),
             ).format(
-                required=f'{texts.format_price(total_price_difference)} (за {days_remaining} дн.)',
+                required=f'{texts.format_price(total_price_difference)}{period_suffix}',
                 balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
                 missing=texts.format_price(missing_kopeks, round_kopeks=False),
             )
@@ -944,22 +962,45 @@ async def confirm_switch_traffic(
             await callback.answer()
             return
 
-        action_text = f'увеличить до {texts.format_traffic(new_traffic_gb)}'
-        cost_text = f'Доплата: {texts.format_price(total_price_difference)} (за {days_remaining} дн.)'
+        period_suffix = (
+            texts.t('TRAFFIC_TOPUP_PERIOD_ONE_DAY', ' (за 1 день)')
+            if days_remaining == 1
+            else texts.t('TRAFFIC_TOPUP_PERIOD_DAYS', ' (за {days} дн.)').format(days=days_remaining)
+        )
+        action_text = texts.t('TRAFFIC_SWITCH_ACTION_INCREASE', 'увеличить до {limit}').format(
+            limit=texts.format_traffic(new_traffic_gb)
+        )
+        cost_text = texts.t('TRAFFIC_SWITCH_COST_SURCHARGE', 'Доплата: {price}{period}').format(
+            price=texts.format_price(total_price_difference),
+            period=period_suffix,
+        )
         if discount_savings_per_month > 0:
             total_discount_savings = int(discount_savings_per_month * days_remaining / 30)
-            cost_text += f' (скидка {traffic_discount_percent}%: -{texts.format_price(total_discount_savings)})'
+            cost_text += texts.t(
+                'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
+                ' (скидка {percent}%: -{amount})',
+            ).format(percent=traffic_discount_percent, amount=texts.format_price(total_discount_savings))
     else:
         total_price_difference = 0
-        action_text = f'уменьшить до {texts.format_traffic(new_traffic_gb)}'
-        cost_text = 'Возврат средств не производится'
+        action_text = texts.t('TRAFFIC_SWITCH_ACTION_DECREASE', 'уменьшить до {limit}').format(
+            limit=texts.format_traffic(new_traffic_gb)
+        )
+        cost_text = texts.t('TRAFFIC_SWITCH_NO_REFUND', 'Возврат средств не производится')
 
-    confirm_text = '🔄 <b>Подтверждение переключения трафика</b>\n\n'
-    confirm_text += f'Текущий лимит: {texts.format_traffic(current_traffic)}\n'
-    confirm_text += f'Новый лимит: {texts.format_traffic(new_traffic_gb)}\n\n'
-    confirm_text += f'Действие: {action_text}\n'
-    confirm_text += f'💰 {cost_text}\n\n'
-    confirm_text += 'Подтвердить переключение?'
+    confirm_text = texts.t(
+        'SWITCH_TRAFFIC_CONFIRM',
+        '\n🔄 <b>Подтверждение переключения трафика</b>\n\n'
+        'Текущий лимит: {current_traffic}\n'
+        'Новый лимит: {new_traffic}\n\n'
+        'Действие: {action}\n'
+        '💰 {cost}\n\n'
+        'Подтвердить переключение?\n',
+    ).format(
+        current_traffic=texts.format_traffic(current_traffic),
+        new_traffic=texts.format_traffic(new_traffic_gb),
+        action=action_text,
+        cost=cost_text,
+    )
 
     await callback.message.edit_text(
         confirm_text,
@@ -1076,16 +1117,22 @@ async def execute_switch_traffic(
             logger.error('Ошибка отправки уведомления об изменении трафика', error=e)
 
         if new_traffic_gb > current_traffic:
-            success_text = '✅ Лимит трафика увеличен!\n\n'
-            success_text += f'📊 Было: {texts.format_traffic(current_traffic)} → '
-            success_text += f'Стало: {texts.format_traffic(new_traffic_gb)}\n'
-            if price_difference > 0:
-                success_text += f'💰 Списано: {texts.format_price(price_difference)}'
+            success_text = texts.t(
+                'SWITCH_TRAFFIC_SUCCESS_INCREASE',
+                '\n✅ Лимит трафика увеличен!\n\n📊 Было: {old_traffic} → Стало: {new_traffic}\n💰 Списано: {amount}\n',
+            ).format(
+                old_traffic=texts.format_traffic(current_traffic),
+                new_traffic=texts.format_traffic(new_traffic_gb),
+                amount=texts.format_price(price_difference) if price_difference > 0 else '',
+            )
         elif new_traffic_gb < current_traffic:
-            success_text = '✅ Лимит трафика уменьшен!\n\n'
-            success_text += f'📊 Было: {texts.format_traffic(current_traffic)} → '
-            success_text += f'Стало: {texts.format_traffic(new_traffic_gb)}\n'
-            success_text += 'ℹ️ Возврат средств не производится'
+            success_text = texts.t(
+                'SWITCH_TRAFFIC_SUCCESS_DECREASE',
+                '\n✅ Лимит трафика уменьшен!\n\n📊 Было: {old_traffic} → Стало: {new_traffic}\nℹ️ Возврат средств не производится\n',
+            ).format(
+                old_traffic=texts.format_traffic(current_traffic),
+                new_traffic=texts.format_traffic(new_traffic_gb),
+            )
 
         await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
