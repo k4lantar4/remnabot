@@ -648,9 +648,9 @@ class AdminNotificationService:
                 extra={
                     'period_days': period_days,
                     'was_trial_conversion': was_trial_conversion,
-                    'payment_method': self._get_payment_method_display(transaction.payment_method)
-                    if transaction
-                    else 'Баланс',
+                    'payment_method': self._get_payment_method_display(
+                        transaction.payment_method if transaction else None
+                    ),
                 },
             )
 
@@ -680,7 +680,7 @@ class AdminNotificationService:
 
             display_squads = await self._squads_for_admin_display(db, subscription)
             servers_info = await self._get_servers_info(display_squads)
-            payment_method = self._get_payment_method_display(transaction.payment_method) if transaction else 'Баланс'
+            payment_method = self._get_payment_method_display(transaction.payment_method if transaction else None)
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
 
@@ -707,9 +707,16 @@ class AdminNotificationService:
             message_lines.extend(
                 [
                     '',
-                    f'💵 <b>{settings.format_price(total_amount)}</b> • {payment_method}',
-                    f'📅 {period_days} дн. • до {format_local_datetime(subscription.end_date, "%d.%m.%Y")}',
-                    f'📊 {self._format_traffic(subscription.traffic_limit_gb)} • 📱 {subscription.device_limit} устр.',
+                    notify_texts.t('ADMIN_NOTIFY_PURCHASE_PAYMENT', '💵 <b>{amount}</b> • {method}').format(
+                        amount=settings.format_price(total_amount), method=payment_method
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_PURCHASE_PERIOD', '📅 {days} дн. • до {date}').format(
+                        days=period_days, date=format_local_datetime(subscription.end_date, '%d.%m.%Y')
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_PURCHASE_PARAMS', '📊 {traffic} • 📱 {devices} устр.').format(
+                        traffic=self._format_traffic(subscription.traffic_limit_gb),
+                        devices=subscription.device_limit,
+                    ),
                     f'🌐 {servers_info}',
                 ]
             )
@@ -767,12 +774,13 @@ class AdminNotificationService:
             repo_url = f'https://github.com/{repo}'
             timestamp = format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S')
 
+            notify_texts = _admin_notify_texts()
             if latest_version.prerelease:
-                header = '🧪 <b>Pre-release</b>'
+                header = notify_texts.t('ADMIN_NOTIFY_VERSION_PRERELEASE', '🧪 <b>Pre-release</b>')
             elif latest_version.is_dev:
-                header = '🔧 <b>Dev build</b>'
+                header = notify_texts.t('ADMIN_NOTIFY_VERSION_DEV', '🔧 <b>Dev build</b>')
             else:
-                header = '🆕 <b>Доступно обновление</b>'
+                header = notify_texts.t('ADMIN_NOTIFY_VERSION_AVAILABLE', '🆕 <b>Доступно обновление</b>')
 
             # -- message prefix (everything before blockquote) --
             prefix_lines = [
@@ -787,10 +795,14 @@ class AdminNotificationService:
             # -- message suffix (everything after blockquote) --
             suffix_lines = ['']
             if total_updates > 1:
-                suffix_lines.append(f'Доступно обновлений: <b>{total_updates}</b>')
+                suffix_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_VERSION_COUNT', 'Доступно обновлений: <b>{count}</b>').format(
+                        count=total_updates
+                    )
+                )
             suffix_lines.extend(
                 [
-                    f'<a href="{repo_url}">Репозиторий</a>',
+                    notify_texts.t('ADMIN_NOTIFY_VERSION_REPO', '<a href="{url}">Репозиторий</a>').format(url=repo_url),
                     '',
                     f'<i>{timestamp}</i>',
                 ]
@@ -822,15 +834,20 @@ class AdminNotificationService:
             return False
 
         try:
-            message = f"""⚠️ <b>ОШИБКА ПРОВЕРКИ ОБНОВЛЕНИЙ</b>
-
-    📦 <b>Текущая версия:</b> <code>{current_version}</code>
-    ❌ <b>Ошибка:</b> {error_message}
-
-    🔄 Следующая попытка через час.
-    ⚙️ Проверьте доступность GitHub API и настройки сети.
-
-    ⚙️ <i>Система автоматических обновлений • {format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S')}</i>"""
+            notify_texts = _admin_notify_texts()
+            message = notify_texts.t(
+                'ADMIN_NOTIFY_VERSION_ERROR_BODY',
+                '⚠️ <b>ОШИБКА ПРОВЕРКИ ОБНОВЛЕНИЙ</b>\n\n'
+                '📦 <b>Текущая версия:</b> <code>{version}</code>\n'
+                '❌ <b>Ошибка:</b> {error}\n\n'
+                '🔄 Следующая попытка через час.\n'
+                '⚙️ Проверьте доступность GitHub API и настройки сети.\n\n'
+                '⚙️ <i>Система автоматических обновлений • {timestamp}</i>',
+            ).format(
+                version=current_version,
+                error=error_message,
+                timestamp=format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S'),
+            )
 
             return await self._send_message(message, category=NotificationCategory.ERRORS)
 
@@ -2066,58 +2083,74 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             details = details or {}
+            yes_label = notify_texts.t('ADMIN_NOTIFY_YES', 'Да')
+            no_label = notify_texts.t('ADMIN_NOTIFY_NO', 'Нет')
 
             if event_type == 'enable':
                 if details.get('auto_enabled', False):
                     icon = '⚠️'
-                    title = 'АВТОМАТИЧЕСКОЕ ВКЛЮЧЕНИЕ ТЕХРАБОТ'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_AUTO_ENABLE', 'АВТОМАТИЧЕСКОЕ ВКЛЮЧЕНИЕ ТЕХРАБОТ')
                 else:
                     icon = '🔧'
-                    title = 'ВКЛЮЧЕНИЕ ТЕХРАБОТ'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_ENABLE', 'ВКЛЮЧЕНИЕ ТЕХРАБОТ')
 
             elif event_type == 'disable':
                 icon = '✅'
-                title = 'ОТКЛЮЧЕНИЕ ТЕХРАБОТ'
+                title = notify_texts.t('ADMIN_NOTIFY_MAINT_DISABLE', 'ОТКЛЮЧЕНИЕ ТЕХРАБОТ')
 
             elif event_type == 'api_status':
                 if status == 'online':
                     icon = '🟢'
-                    title = 'API REMNAWAVE ВОССТАНОВЛЕНО'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_API_ONLINE', 'API REMNAWAVE ВОССТАНОВЛЕНО')
                 else:
                     icon = '🔴'
-                    title = 'API REMNAWAVE НЕДОСТУПНО'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_API_OFFLINE', 'API REMNAWAVE НЕДОСТУПНО')
 
             elif event_type == 'monitoring':
                 if status == 'started':
                     icon = '🔍'
-                    title = 'МОНИТОРИНГ ЗАПУЩЕН'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_STARTED', 'МОНИТОРИНГ ЗАПУЩЕН')
                 else:
                     icon = '⏹️'
-                    title = 'МОНИТОРИНГ ОСТАНОВЛЕН'
+                    title = notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_STOPPED', 'МОНИТОРИНГ ОСТАНОВЛЕН')
             else:
                 icon = 'ℹ️'
-                title = 'СИСТЕМА ТЕХРАБОТ'
+                title = notify_texts.t('ADMIN_NOTIFY_MAINT_SYSTEM', 'СИСТЕМА ТЕХРАБОТ')
 
             message_parts = [f'{icon} <b>{title}</b>', '']
 
             if event_type == 'enable':
                 if details.get('reason'):
-                    message_parts.append(f'📋 <b>Причина:</b> {details["reason"]}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_REASON', '📋 <b>Причина:</b> {reason}').format(
+                            reason=details['reason']
+                        )
+                    )
 
                 if details.get('enabled_at'):
                     enabled_at = details['enabled_at']
                     if isinstance(enabled_at, str):
                         enabled_at = datetime.fromisoformat(enabled_at)
                     message_parts.append(
-                        f'🕐 <b>Время включения:</b> {format_local_datetime(enabled_at, "%d.%m.%Y %H:%M:%S")}'
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_ENABLED_AT', '🕐 <b>Время включения:</b> {time}').format(
+                            time=format_local_datetime(enabled_at, '%d.%m.%Y %H:%M:%S')
+                        )
                     )
 
                 message_parts.append(
-                    f'🤖 <b>Автоматически:</b> {"Да" if details.get("auto_enabled", False) else "Нет"}'
+                    notify_texts.t('ADMIN_NOTIFY_MAINT_AUTO_FLAG', '🤖 <b>Автоматически:</b> {value}').format(
+                        value=yes_label if details.get('auto_enabled', False) else no_label
+                    )
                 )
                 message_parts.append('')
-                message_parts.append('❗ Обычные пользователи временно не могут использовать бота.')
+                message_parts.append(
+                    notify_texts.t(
+                        'ADMIN_NOTIFY_MAINT_USERS_BLOCKED',
+                        '❗ Обычные пользователи временно не могут использовать бота.',
+                    )
+                )
 
             elif event_type == 'disable':
                 if details.get('disabled_at'):
@@ -2125,7 +2158,9 @@ class AdminNotificationService:
                     if isinstance(disabled_at, str):
                         disabled_at = datetime.fromisoformat(disabled_at)
                     message_parts.append(
-                        f'🕐 <b>Время отключения:</b> {format_local_datetime(disabled_at, "%d.%m.%Y %H:%M:%S")}'
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_DISABLED_AT', '🕐 <b>Время отключения:</b> {time}').format(
+                            time=format_local_datetime(disabled_at, '%d.%m.%Y %H:%M:%S')
+                        )
                     )
 
                 if details.get('duration'):
@@ -2134,58 +2169,110 @@ class AdminNotificationService:
                         hours = int(duration // 3600)
                         minutes = int((duration % 3600) // 60)
                         if hours > 0:
-                            duration_str = f'{hours}ч {minutes}мин'
+                            duration_str = notify_texts.t(
+                                'ADMIN_NOTIFY_MAINT_DURATION_HM', '{hours}ч {minutes}мин'
+                            ).format(hours=hours, minutes=minutes)
                         else:
-                            duration_str = f'{minutes}мин'
-                        message_parts.append(f'⏱️ <b>Длительность:</b> {duration_str}')
+                            duration_str = notify_texts.t('ADMIN_NOTIFY_MAINT_DURATION_M', '{minutes}мин').format(
+                                minutes=minutes
+                            )
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_DURATION', '⏱️ <b>Длительность:</b> {duration}').format(
+                                duration=duration_str
+                            )
+                        )
 
                 message_parts.append(
-                    f'🤖 <b>Было автоматическим:</b> {"Да" if details.get("was_auto", False) else "Нет"}'
+                    notify_texts.t('ADMIN_NOTIFY_MAINT_WAS_AUTO', '🤖 <b>Было автоматическим:</b> {value}').format(
+                        value=yes_label if details.get('was_auto', False) else no_label
+                    )
                 )
                 message_parts.append('')
-                message_parts.append('✅ Сервис снова доступен для пользователей.')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_MAINT_SERVICE_RESTORED', '✅ Сервис снова доступен для пользователей.')
+                )
 
             elif event_type == 'api_status':
-                message_parts.append(f'🔗 <b>API URL:</b> {details.get("api_url", "неизвестно")}')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_MAINT_API_URL', '🔗 <b>API URL:</b> {url}').format(
+                        url=details.get('api_url', notify_texts.t('ADMIN_NOTIFY_UNKNOWN', 'неизвестно'))
+                    )
+                )
 
                 if status == 'online':
                     if details.get('response_time'):
-                        message_parts.append(f'⚡ <b>Время отклика:</b> {details["response_time"]} сек')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_RESPONSE_TIME', '⚡ <b>Время отклика:</b> {sec} сек').format(
+                                sec=details['response_time']
+                            )
+                        )
 
                     if details.get('consecutive_failures', 0) > 0:
-                        message_parts.append(f'🔄 <b>Неудачных попыток было:</b> {details["consecutive_failures"]}')
+                        message_parts.append(
+                            notify_texts.t(
+                                'ADMIN_NOTIFY_MAINT_FAILURES_WERE', '🔄 <b>Неудачных попыток было:</b> {count}'
+                            ).format(count=details['consecutive_failures'])
+                        )
 
                     message_parts.append('')
-                    message_parts.append('API снова отвечает на запросы.')
+                    message_parts.append(notify_texts.t('ADMIN_NOTIFY_MAINT_API_BACK', 'API снова отвечает на запросы.'))
 
                 else:
                     if details.get('consecutive_failures'):
-                        message_parts.append(f'🔄 <b>Попытка №:</b> {details["consecutive_failures"]}')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_ATTEMPT', '🔄 <b>Попытка №:</b> {count}').format(
+                                count=details['consecutive_failures']
+                            )
+                        )
 
                     if details.get('error'):
                         error_msg = str(details['error'])[:100]
-                        message_parts.append(f'❌ <b>Ошибка:</b> {error_msg}')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_ERROR', '❌ <b>Ошибка:</b> {error}').format(error=error_msg)
+                        )
 
                     message_parts.append('')
-                    message_parts.append('⚠️ Началась серия неудачных проверок API.')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_API_FAIL_SERIES', '⚠️ Началась серия неудачных проверок API.')
+                    )
 
             elif event_type == 'monitoring':
                 if status == 'started':
                     if details.get('check_interval'):
-                        message_parts.append(f'🔄 <b>Интервал проверки:</b> {details["check_interval"]} сек')
+                        message_parts.append(
+                            notify_texts.t(
+                                'ADMIN_NOTIFY_MAINT_CHECK_INTERVAL', '🔄 <b>Интервал проверки:</b> {sec} сек'
+                            ).format(sec=details['check_interval'])
+                        )
 
                     if details.get('auto_enable_configured') is not None:
-                        auto_enable = 'Включено' if details['auto_enable_configured'] else 'Отключено'
-                        message_parts.append(f'🤖 <b>Автовключение:</b> {auto_enable}')
+                        auto_enable = (
+                            notify_texts.t('ADMIN_NOTIFY_ENABLED', 'Включено')
+                            if details['auto_enable_configured']
+                            else notify_texts.t('ADMIN_NOTIFY_DISABLED', 'Отключено')
+                        )
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_AUTO_ENABLE_CFG', '🤖 <b>Автовключение:</b> {value}').format(
+                                value=auto_enable
+                            )
+                        )
 
                     if details.get('max_failures'):
-                        message_parts.append(f'🎯 <b>Порог ошибок:</b> {details["max_failures"]}')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_MAX_FAILURES', '🎯 <b>Порог ошибок:</b> {count}').format(
+                                count=details['max_failures']
+                            )
+                        )
 
                     message_parts.append('')
-                    message_parts.append('Система будет следить за доступностью API.')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_ACTIVE', 'Система будет следить за доступностью API.')
+                    )
 
                 else:
-                    message_parts.append('Автоматический мониторинг API остановлен.')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_STOPPED_MSG', 'Автоматический мониторинг API остановлен.')
+                    )
 
             message_parts.append('')
             message_parts.append(f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>')
@@ -2203,13 +2290,26 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             details = details or {}
 
             status_config = {
-                'online': {'icon': '🟢', 'title': 'ПАНЕЛЬ REMNAWAVE ДОСТУПНА', 'alert_type': 'success'},
-                'offline': {'icon': '🔴', 'title': 'ПАНЕЛЬ REMNAWAVE НЕДОСТУПНА', 'alert_type': 'error'},
-                'degraded': {'icon': '🟡', 'title': 'ПАНЕЛЬ REMNAWAVE РАБОТАЕТ СО СБОЯМИ', 'alert_type': 'warning'},
-                'maintenance': {'icon': '🔧', 'title': 'ПАНЕЛЬ REMNAWAVE НА ОБСЛУЖИВАНИИ', 'alert_type': 'info'},
+                'online': {
+                    'icon': '🟢',
+                    'title': notify_texts.t('ADMIN_NOTIFY_PANEL_ONLINE', 'ПАНЕЛЬ REMNAWAVE ДОСТУПНА'),
+                },
+                'offline': {
+                    'icon': '🔴',
+                    'title': notify_texts.t('ADMIN_NOTIFY_PANEL_OFFLINE', 'ПАНЕЛЬ REMNAWAVE НЕДОСТУПНА'),
+                },
+                'degraded': {
+                    'icon': '🟡',
+                    'title': notify_texts.t('ADMIN_NOTIFY_PANEL_DEGRADED', 'ПАНЕЛЬ REMNAWAVE РАБОТАЕТ СО СБОЯМИ'),
+                },
+                'maintenance': {
+                    'icon': '🔧',
+                    'title': notify_texts.t('ADMIN_NOTIFY_PANEL_MAINTENANCE', 'ПАНЕЛЬ REMNAWAVE НА ОБСЛУЖИВАНИИ'),
+                },
             }
 
             config = status_config.get(status, status_config['offline'])
@@ -2217,60 +2317,105 @@ class AdminNotificationService:
             message_parts = [f'{config["icon"]} <b>{config["title"]}</b>', '']
 
             if details.get('api_url'):
-                message_parts.append(f'🔗 <b>URL:</b> {details["api_url"]}')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_PANEL_URL', '🔗 <b>URL:</b> {url}').format(url=details['api_url'])
+                )
 
             if details.get('response_time'):
-                message_parts.append(f'⚡ <b>Время отклика:</b> {details["response_time"]} сек')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_PANEL_RESPONSE', '⚡ <b>Время отклика:</b> {sec} сек').format(
+                        sec=details['response_time']
+                    )
+                )
 
             if details.get('last_check'):
                 last_check = details['last_check']
                 if isinstance(last_check, str):
                     last_check = datetime.fromisoformat(last_check)
-                message_parts.append(f'🕐 <b>Последняя проверка:</b> {format_local_datetime(last_check, "%H:%M:%S")}')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_PANEL_LAST_CHECK', '🕐 <b>Последняя проверка:</b> {time}').format(
+                        time=format_local_datetime(last_check, '%H:%M:%S')
+                    )
+                )
 
             if status == 'online':
                 if details.get('uptime'):
-                    message_parts.append(f'⏱️ <b>Время работы:</b> {details["uptime"]}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_UPTIME', '⏱️ <b>Время работы:</b> {uptime}').format(
+                            uptime=details['uptime']
+                        )
+                    )
 
                 if details.get('users_online'):
-                    message_parts.append(f'👥 <b>Пользователей онлайн:</b> {details["users_online"]}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_USERS_ONLINE', '👥 <b>Пользователей онлайн:</b> {count}').format(
+                            count=details['users_online']
+                        )
+                    )
 
                 message_parts.append('')
-                message_parts.append('✅ Все системы работают нормально.')
+                message_parts.append(notify_texts.t('ADMIN_NOTIFY_PANEL_ALL_OK', '✅ Все системы работают нормально.'))
 
             elif status == 'offline':
                 if details.get('error'):
                     error_msg = str(details['error'])[:150]
-                    message_parts.append(f'❌ <b>Ошибка:</b> {error_msg}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_ERROR', '❌ <b>Ошибка:</b> {error}').format(error=error_msg)
+                    )
 
                 if details.get('consecutive_failures'):
-                    message_parts.append(f'🔄 <b>Неудачных попыток:</b> {details["consecutive_failures"]}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_FAILURES', '🔄 <b>Неудачных попыток:</b> {count}').format(
+                            count=details['consecutive_failures']
+                        )
+                    )
 
                 message_parts.append('')
-                message_parts.append('⚠️ Панель недоступна. Проверьте соединение и статус сервера.')
+                message_parts.append(
+                    notify_texts.t(
+                        'ADMIN_NOTIFY_PANEL_OFFLINE_HINT',
+                        '⚠️ Панель недоступна. Проверьте соединение и статус сервера.',
+                    )
+                )
 
             elif status == 'degraded':
                 if details.get('issues'):
                     issues = details['issues']
                     if isinstance(issues, list):
-                        message_parts.append('⚠️ <b>Обнаруженные проблемы:</b>')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_PANEL_ISSUES', '⚠️ <b>Обнаруженные проблемы:</b>')
+                        )
                         for issue in issues[:3]:
                             message_parts.append(f'   • {issue}')
                     else:
-                        message_parts.append(f'⚠️ <b>Проблема:</b> {issues}')
+                        message_parts.append(
+                            notify_texts.t('ADMIN_NOTIFY_PANEL_ISSUE', '⚠️ <b>Проблема:</b> {issue}').format(issue=issues)
+                        )
 
                 message_parts.append('')
-                message_parts.append('Панель работает, но возможны задержки или сбои.')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_PANEL_DEGRADED_HINT', 'Панель работает, но возможны задержки или сбои.')
+                )
 
             elif status == 'maintenance':
                 if details.get('maintenance_reason'):
-                    message_parts.append(f'🔧 <b>Причина:</b> {html.escape(details["maintenance_reason"])}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_MAINT_REASON', '🔧 <b>Причина:</b> {reason}').format(
+                            reason=html.escape(details['maintenance_reason'])
+                        )
+                    )
 
                 if details.get('estimated_duration'):
-                    message_parts.append(f'⏰ <b>Ожидаемая длительность:</b> {details["estimated_duration"]}')
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_PANEL_MAINT_DURATION', '⏰ <b>Ожидаемая длительность:</b> {duration}').format(
+                            duration=details['estimated_duration']
+                        )
+                    )
 
                 message_parts.append('')
-                message_parts.append('Панель временно недоступна для обслуживания.')
+                message_parts.append(
+                    notify_texts.t('ADMIN_NOTIFY_PANEL_MAINT_HINT', 'Панель временно недоступна для обслуживания.')
+                )
 
             message_parts.append('')
             message_parts.append(f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>')
