@@ -189,16 +189,23 @@ async def show_subscription_detail(
     state: FSMContext,
 ) -> None:
     """Show detail view for a single subscription (IDOR protected)."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split(':')
     if len(parts) < 2:
-        await callback.answer('Неверный формат', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_FORMAT', 'Неверный формат'),
+            show_alert=True,
+        )
         return
 
     sub_id = int(parts[1])
     subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
 
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(
+            texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'),
+            show_alert=True,
+        )
         return
 
     # Persist active sub_id so downstream handlers without sub_id in callback_data
@@ -242,14 +249,21 @@ async def _resolve_and_store_sub(
     state: FSMContext,
 ) -> Subscription | None:
     """Extract sub_id from callback, validate ownership, store in FSM state."""
+    texts = get_texts(db_user.language)
     sub_id = _extract_sub_id(callback)
     if sub_id is None:
-        await callback.answer('Неверный формат', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_FORMAT', 'Неверный формат'),
+            show_alert=True,
+        )
         return None
 
     subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(
+            texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'),
+            show_alert=True,
+        )
         return None
 
     # Store in FSM state so downstream handlers can use it
@@ -388,18 +402,31 @@ async def handle_subscription_delete_confirm(
     state: FSMContext,
 ) -> None:
     """Show delete confirmation for an expired/disabled subscription."""
+    texts = get_texts(db_user.language)
     sub_id = _extract_sub_id(callback)
     if sub_id is None:
-        await callback.answer('Неверный формат', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_FORMAT', 'Неверный формат'),
+            show_alert=True,
+        )
         return
 
     subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(
+            texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'),
+            show_alert=True,
+        )
         return
 
     if subscription.actual_status not in ('expired', 'disabled'):
-        await callback.answer('Можно удалить только истекшую или отключённую подписку', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_SUBSCRIPTION_DELETE_ONLY_EXPIRED',
+                'Можно удалить только истекшую или отключённую подписку',
+            ),
+            show_alert=True,
+        )
         return
 
     tariff_name = subscription.tariff.name if subscription.tariff else 'Подписка'
@@ -430,19 +457,32 @@ async def handle_subscription_delete_execute(
     state: FSMContext,
 ) -> None:
     """Actually delete an expired/disabled subscription."""
+    texts = get_texts(db_user.language)
     sub_id = _extract_sub_id(callback)
     if sub_id is None:
-        await callback.answer('Неверный формат', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_FORMAT', 'Неверный формат'),
+            show_alert=True,
+        )
         return
 
     subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(
+            texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'),
+            show_alert=True,
+        )
         return
 
     deletable_statuses = {SubscriptionStatus.EXPIRED.value, SubscriptionStatus.DISABLED.value}
     if getattr(subscription, 'actual_status', subscription.status) not in deletable_statuses:
-        await callback.answer('Можно удалить только истекшую или отключённую подписку', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_SUBSCRIPTION_DELETE_ONLY_EXPIRED',
+                'Можно удалить только истекшую или отключённую подписку',
+            ),
+            show_alert=True,
+        )
         return
 
     # Delete from RemnaWave panel (stops webhooks / phantom notifications)
@@ -466,7 +506,10 @@ async def handle_subscription_delete_execute(
         user_id=db_user.id,
     )
 
-    await callback.answer('Подписка удалена', show_alert=True)
+    await callback.answer(
+        texts.t('CB_SUBSCRIPTION_DELETED', 'Подписка удалена'),
+        show_alert=True,
+    )
 
     # Return to subscriptions list
     await show_my_subscriptions(callback, db_user, db, state)
