@@ -74,6 +74,19 @@ class C2cPaymentService:
         if not admin_chat_id or not self.bot:
             return False, 'C2C admin chat is not configured', None
 
+        configured_c2c_raw = (settings.C2C_ADMIN_CHAT_ID or '').strip()
+        if configured_c2c_raw:
+            try:
+                configured_c2c_id = int(configured_c2c_raw)
+            except (ValueError, TypeError):
+                configured_c2c_id = None
+            if configured_c2c_id is not None and configured_c2c_id != admin_chat_id:
+                logger.warning(
+                    'C2C_ADMIN_CHAT_ID does not match resolved admin supergroup; using notifications chat',
+                    configured_chat_id=configured_c2c_id,
+                    resolved_chat_id=admin_chat_id,
+                )
+
         if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
             return False, 'Receipt text is empty', None
 
@@ -89,6 +102,13 @@ class C2cPaymentService:
             'parse_mode': 'HTML',
             'reply_markup': keyboard,
         }
+        logger.info(
+            'Sending C2C receipt to admin chat',
+            receipt_id=receipt.id,
+            chat_id=send_kwargs.get('chat_id'),
+            message_thread_id=send_kwargs.get('message_thread_id'),
+            forum_topics_enabled=settings.admin_forum_topics_apply_to_chat(admin_chat_id),
+        )
 
         try:
             if receipt_type == C2C_RECEIPT_TYPE_PHOTO and receipt_file_id:
