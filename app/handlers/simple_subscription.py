@@ -175,24 +175,38 @@ async def start_simple_subscription_purchase(
     show_devices = settings.is_devices_selection_enabled()
 
     message_lines = [
-        '⚡ <b>Простая покупка подписки</b>',
+        texts.t('SIMPLE_SUBSCRIPTION_TITLE', '⚡ <b>Простая покупка подписки</b>'),
         '',
-        f'📅 Период: {subscription_params["period_days"]} дней',
+        texts.t('SIMPLE_SUBSCRIPTION_PERIOD', '📅 Период: {days} дней').format(
+            days=subscription_params['period_days']
+        ),
     ]
 
     if show_devices:
-        message_lines.append(f'📱 Устройства: {subscription_params["device_limit"]}')
+        message_lines.append(
+            texts.t('SIMPLE_SUBSCRIPTION_DEVICES', '📱 Устройства: {devices}').format(
+                devices=subscription_params['device_limit']
+            )
+        )
 
     traffic_limit_gb = subscription_params['traffic_limit_gb']
-    traffic_label = 'Безлимит' if traffic_limit_gb == 0 else f'{traffic_limit_gb} ГБ'
+    traffic_label = (
+        texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимит')
+        if traffic_limit_gb == 0
+        else f'{traffic_limit_gb} ГБ'
+    )
 
     message_lines.extend(
         [
-            f'📊 Трафик: {traffic_label}',
-            f'🌍 Сервер: {server_label}',
+            texts.t('SIMPLE_SUBSCRIPTION_TRAFFIC', '📊 Трафик: {traffic}').format(traffic=traffic_label),
+            texts.t('SIMPLE_SUBSCRIPTION_SERVER', '🌍 Сервер: {server}').format(server=server_label),
             '',
-            f'💰 Стоимость: {settings.format_price(price_kopeks)}',
-            f'💳 Ваш баланс: {settings.format_price(user_balance_kopeks)}',
+            texts.t('SIMPLE_SUBSCRIPTION_COST', '💰 Стоимость: {cost}').format(
+                cost=settings.format_price(price_kopeks)
+            ),
+            texts.t('SIMPLE_SUBSCRIPTION_BALANCE', '💳 Ваш баланс: {balance}').format(
+                balance=settings.format_price(user_balance_kopeks)
+            ),
             '',
         ]
     )
