@@ -868,9 +868,12 @@ async def start_create_tariff(
     await state.update_data(language=db_user.language)
 
     await callback.message.edit_text(
-        '📦 <b>Создание тарифа</b>\n\n'
-        'Шаг 1/6: Введите название тарифа\n\n'
-        'Пример: <i>Базовый</i>, <i>Премиум</i>, <i>Бизнес</i>',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP1',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Шаг 1/6: Введите название тарифа\n\n'
+            'Пример: <i>Базовый</i>, <i>Премиум</i>, <i>Бизнес</i>',
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -892,22 +895,25 @@ async def process_tariff_name(
     name = message.text.strip()
 
     if len(name) < 2:
-        await message.answer('Название должно быть не короче 2 символов')
+        await message.answer(texts.t('ADMIN_TARIFF_NAME_TOO_SHORT', 'Название должно быть не короче 2 символов'))
         return
 
     if len(name) > 50:
-        await message.answer('Название должно быть не длиннее 50 символов')
+        await message.answer(texts.t('ADMIN_TARIFF_NAME_TOO_LONG', 'Название должно быть не длиннее 50 символов'))
         return
 
     await state.update_data(tariff_name=name)
     await state.set_state(AdminStates.creating_tariff_traffic)
 
     await message.answer(
-        '📦 <b>Создание тарифа</b>\n\n'
-        f'Название: <b>{name}</b>\n\n'
-        'Шаг 2/6: Введите лимит трафика в ГБ\n\n'
-        'Введите <code>0</code> для безлимитного трафика\n'
-        'Пример: <i>100</i>, <i>500</i>, <i>0</i>',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP2',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n\n'
+            'Шаг 2/6: Введите лимит трафика в ГБ\n\n'
+            'Введите <code>0</code> для безлимитного трафика\n'
+            'Пример: <i>100</i>, <i>500</i>, <i>0</i>',
+        ).format(name=name),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -931,7 +937,7 @@ async def process_tariff_traffic(
         if traffic < 0:
             raise ValueError
     except ValueError:
-        await message.answer('Введите корректное число (0 или больше)')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_NONNEG_INT', 'Введите корректное число (0 или больше)'))
         return
 
     data = await state.get_data()
@@ -941,11 +947,14 @@ async def process_tariff_traffic(
     traffic_display = format_traffic(traffic)
 
     await message.answer(
-        '📦 <b>Создание тарифа</b>\n\n'
-        f'Название: <b>{data["tariff_name"]}</b>\n'
-        f'Трафик: <b>{traffic_display}</b>\n\n'
-        'Шаг 3/6: Введите лимит устройств\n\n'
-        'Пример: <i>1</i>, <i>3</i>, <i>5</i>',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP3',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n'
+            'Трафик: <b>{traffic}</b>\n\n'
+            'Шаг 3/6: Введите лимит устройств\n\n'
+            'Пример: <i>1</i>, <i>3</i>, <i>5</i>',
+        ).format(name=data['tariff_name'], traffic=traffic_display),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -969,7 +978,7 @@ async def process_tariff_devices(
         if devices < 1:
             raise ValueError
     except ValueError:
-        await message.answer('Введите корректное число (1 или больше)')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_POSITIVE_INT', 'Введите корректное число (1 или больше)'))
         return
 
     data = await state.get_data()
@@ -979,14 +988,17 @@ async def process_tariff_devices(
     traffic_display = format_traffic(data['tariff_traffic'])
 
     await message.answer(
-        '📦 <b>Создание тарифа</b>\n\n'
-        f'Название: <b>{data["tariff_name"]}</b>\n'
-        f'Трафик: <b>{traffic_display}</b>\n'
-        f'Устройств: <b>{devices}</b>\n\n'
-        'Шаг 4/6: Введите уровень тарифа (1-10)\n\n'
-        'Уровень используется для визуального отображения\n'
-        '1 - базовый, 10 - максимальный\n'
-        'Пример: <i>1</i>, <i>2</i>, <i>3</i>',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP4',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n'
+            'Трафик: <b>{traffic}</b>\n'
+            'Устройств: <b>{devices}</b>\n\n'
+            'Шаг 4/6: Введите уровень тарифа (1-10)\n\n'
+            'Уровень используется для визуального отображения\n'
+            '1 - базовый, 10 - максимальный\n'
+            'Пример: <i>1</i>, <i>2</i>, <i>3</i>',
+        ).format(name=data['tariff_name'], traffic=traffic_display, devices=devices),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -1010,7 +1022,7 @@ async def process_tariff_tier(
         if tier < 1 or tier > 10:
             raise ValueError
     except ValueError:
-        await message.answer('Введите число от 1 до 10')
+        await message.answer(texts.t('ADMIN_TARIFF_INVALID_TIER', 'Введите число от 1 до 10'))
         return
 
     data = await state.get_data()
@@ -1018,18 +1030,35 @@ async def process_tariff_tier(
 
     traffic_display = format_traffic(data['tariff_traffic'])
 
-    # Шаг 5/6: Выбор типа тарифа
     await message.answer(
-        '📦 <b>Создание тарифа</b>\n\n'
-        f'Название: <b>{data["tariff_name"]}</b>\n'
-        f'Трафик: <b>{traffic_display}</b>\n'
-        f'Устройств: <b>{data["tariff_devices"]}</b>\n'
-        f'Уровень: <b>{tier}</b>\n\n'
-        'Шаг 5/6: Выберите тип тарифа',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP5',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n'
+            'Трафик: <b>{traffic}</b>\n'
+            'Устройств: <b>{devices}</b>\n'
+            'Уровень: <b>{tier}</b>\n\n'
+            'Шаг 5/6: Выберите тип тарифа',
+        ).format(
+            name=data['tariff_name'],
+            traffic=traffic_display,
+            devices=data['tariff_devices'],
+            tier=tier,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text='📅 Периодный (месяцы)', callback_data='tariff_type_periodic')],
-                [InlineKeyboardButton(text='🔄 Суточный (оплата за день)', callback_data='tariff_type_daily')],
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('ADMIN_TARIFF_TYPE_PERIODIC_BTN', '📅 Периодный (месяцы)'),
+                        callback_data='tariff_type_periodic',
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('ADMIN_TARIFF_TYPE_DAILY_BTN', '🔄 Суточный (оплата за день)'),
+                        callback_data='tariff_type_daily',
+                    )
+                ],
                 [InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')],
             ]
         ),
@@ -1055,16 +1084,24 @@ async def select_tariff_type_periodic(
     traffic_display = format_traffic(data['tariff_traffic'])
 
     await callback.message.edit_text(
-        '📦 <b>Создание тарифа</b>\n\n'
-        f'Название: <b>{data["tariff_name"]}</b>\n'
-        f'Трафик: <b>{traffic_display}</b>\n'
-        f'Устройств: <b>{data["tariff_devices"]}</b>\n'
-        f'Уровень: <b>{data["tariff_tier"]}</b>\n'
-        f'Тип: <b>📅 Периодный</b>\n\n'
-        'Шаг 6/6: Введите цены на периоды\n\n'
-        'Формат: <code>дней:цена_в_копейках</code>\n'
-        'Несколько периодов через запятую\n\n'
-        'Пример:\n<code>30:9900, 90:24900, 180:44900, 360:79900</code>',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP6_PERIODIC',
+            '📦 <b>Создание тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n'
+            'Трафик: <b>{traffic}</b>\n'
+            'Устройств: <b>{devices}</b>\n'
+            'Уровень: <b>{tier}</b>\n'
+            'Тип: <b>📅 Периодный</b>\n\n'
+            'Шаг 6/6: Введите цены на периоды\n\n'
+            'Формат: <code>дней:цена_в_копейках</code>\n'
+            'Несколько периодов через запятую\n\n'
+            'Пример:\n<code>30:9900, 90:24900, 180:44900, 360:79900</code>',
+        ).format(
+            name=data['tariff_name'],
+            traffic=traffic_display,
+            devices=data['tariff_devices'],
+            tier=data['tariff_tier'],
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -1093,14 +1130,28 @@ async def select_tariff_type_daily(
     traffic_display = format_traffic(data['tariff_traffic'])
 
     await callback.message.edit_text(
-        '📦 <b>Создание суточного тарифа</b>\n\n'
-        f'Название: <b>{data["tariff_name"]}</b>\n'
-        f'Трафик: <b>{traffic_display}</b>\n'
-        f'Устройств: <b>{data["tariff_devices"]}</b>\n'
-        f'Уровень: <b>{data["tariff_tier"]}</b>\n'
-        f'Тип: <b>🔄 Суточный</b>\n\n'
-        'Шаг 6/6: Введите суточную цену в рублях\n\n'
-        'Пример: <i>50</i> (50 ₽/день), <i>99.90</i> (99.90 ₽/день)',
+        texts.t(
+            'ADMIN_TARIFF_CREATE_STEP6_DAILY',
+            '📦 <b>Создание суточного тарифа</b>\n\n'
+            'Название: <b>{name}</b>\n'
+            'Трафик: <b>{traffic}</b>\n'
+            'Устройств: <b>{devices}</b>\n'
+            'Уровень: <b>{tier}</b>\n'
+            'Тип: <b>🔄 Суточный</b>\n\n'
+            'Шаг 6/6: Введите суточную цену в рублях\n\n'
+            'Пример: <i>50</i> ({example1}), <i>99.90</i> ({example2})',
+        ).format(
+            name=data['tariff_name'],
+            traffic=traffic_display,
+            devices=data['tariff_devices'],
+            tier=data['tariff_tier'],
+            example1=texts.t('ADMIN_TARIFF_DAILY_EXAMPLE', '{price}/день').format(
+                price=settings.format_price(5000)
+            ),
+            example2=texts.t('ADMIN_TARIFF_DAILY_EXAMPLE', '{price}/день').format(
+                price=settings.format_price(9990)
+            ),
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data='admin_tariffs')]]
         ),
@@ -1118,15 +1169,18 @@ async def process_tariff_prices(
     state: FSMContext,
 ):
     """Обрабатывает цены тарифа."""
-    get_texts(db_user.language)
+    texts = get_texts(db_user.language)
 
     prices = _parse_period_prices(message.text.strip())
 
     if not prices:
         await message.answer(
-            'Не удалось распознать цены.\n\n'
-            'Формат: <code>дней:цена_в_копейках</code>\n'
-            'Пример: <code>30:9900, 90:24900</code>',
+            texts.t(
+                'ADMIN_TARIFF_PRICES_PARSE_ERROR',
+                'Не удалось распознать цены.\n\n'
+                'Формат: <code>дней:цена_в_копейках</code>\n'
+                'Пример: <code>30:9900, 90:24900</code>',
+            ),
             parse_mode='HTML',
         )
         return
@@ -1135,7 +1189,7 @@ async def process_tariff_prices(
     await state.update_data(tariff_prices=prices)
 
     format_traffic(data['tariff_traffic'])
-    _format_period_prices_display(prices)
+    _format_period_prices_display(prices, db_user.language)
 
     # Создаем тариф
     tariff = await create_tariff(
@@ -1153,7 +1207,8 @@ async def process_tariff_prices(
     subs_count = 0
 
     await message.answer(
-        '✅ <b>Тариф создан!</b>\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_CREATED', '✅ <b>Тариф создан!</b>\n\n')
+        + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
