@@ -3140,6 +3140,7 @@ async def get_detailed_referral_stats(db: AsyncSession, user_id: int) -> dict:
 @error_handler
 async def extend_user_subscription(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
+    texts = get_texts(db_user.language)
 
     await state.update_data(extending_user_id=user_id, admin_subscription_id=subscription_id)
 
@@ -3151,37 +3152,53 @@ async def extend_user_subscription(callback: types.CallbackQuery, db_user: User,
     )
 
     await callback.message.edit_text(
-        '⏰ <b>Продление подписки</b>\n\n'
-        'Введите количество дней для изменения:\n'
-        '• Положительные значения продлят подписку\n'
-        '• Отрицательные сократят срок подписки\n'
-        '• Диапазон: от -365 до 365 дней (0 недопустимо)\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_SUB_EXTEND_TITLE', '⏰ <b>Продление подписки</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_SUB_EXTEND_PROMPT',
+            'Введите количество дней для изменения:\n'
+            '• Положительные значения продлят подписку\n'
+            '• Отрицательные сократят срок подписки\n'
+            '• Диапазон: от -365 до 365 дней (0 недопустимо)\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     types.InlineKeyboardButton(
-                        text='-7 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_-7'
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=-7),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_-7',
                     ),
                     types.InlineKeyboardButton(
-                        text='-30 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_-30'
-                    ),
-                ],
-                [
-                    types.InlineKeyboardButton(text='7 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_7'),
-                    types.InlineKeyboardButton(
-                        text='30 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_30'
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=-30),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_-30',
                     ),
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text='90 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_90'
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=7),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_7',
                     ),
                     types.InlineKeyboardButton(
-                        text='180 дней', callback_data=f'admin_sub_extend_days_{user_id}{_sid}_180'
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=30),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_30',
                     ),
                 ],
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=back_cb)],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=90),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_90',
+                    ),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=180),
+                        callback_data=f'admin_sub_extend_days_{user_id}{_sid}_180',
+                    ),
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=back_cb,
+                    )
+                ],
             ]
         ),
     )
@@ -3193,6 +3210,7 @@ async def extend_user_subscription(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def process_subscription_extension_days(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     # days is always the last part (may be negative, e.g. '-7')
     days = int(parts[-1])
@@ -3211,27 +3229,38 @@ async def process_subscription_extension_days(callback: types.CallbackQuery, db_
     )
 
     if days == 0 or days < -365 or days > 365:
-        await callback.answer('❌ Количество дней должно быть от -365 до 365, исключая 0', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'ADMIN_USER_SUB_EXTEND_DAYS_INVALID',
+                '❌ Количество дней должно быть от -365 до 365, исключая 0',
+            ),
+            show_alert=True,
+        )
         return
 
     success = await _extend_subscription_by_days(db, user_id, days, db_user.id, subscription_id=subscription_id)
 
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
     if success:
         if days > 0:
-            action_text = f'продлена на {days} дней'
+            action_text = texts.t('ADMIN_USER_SUB_EXTENDED_PLUS', '✅ Подписка продлена на {days} дней').format(
+                days=days
+            )
         else:
-            action_text = f'уменьшена на {abs(days)} дней'
+            action_text = texts.t('ADMIN_USER_SUB_EXTENDED_MINUS', '✅ Подписка уменьшена на {days} дней').format(
+                days=abs(days)
+            )
         await callback.message.edit_text(
-            f'✅ Подписка пользователя {action_text}',
+            action_text,
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка продления подписки',
+            texts.t('ADMIN_USER_SUB_EXTEND_ERROR', '❌ Ошибка продления подписки'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3243,12 +3272,13 @@ async def process_subscription_extension_days(callback: types.CallbackQuery, db_
 async def process_subscription_extension_text(
     message: types.Message, db_user: User, state: FSMContext, db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('extending_user_id')
     subscription_id = data.get('admin_subscription_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
 
@@ -3257,32 +3287,42 @@ async def process_subscription_extension_text(
         if subscription_id
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
 
     try:
         days = int(message.text.strip())
 
         if days == 0 or days < -365 or days > 365:
-            await message.answer('❌ Количество дней должно быть от -365 до 365, исключая 0')
+            await message.answer(
+                texts.t(
+                    'ADMIN_USER_SUB_EXTEND_DAYS_INVALID',
+                    '❌ Количество дней должно быть от -365 до 365, исключая 0',
+                )
+            )
             return
 
         success = await _extend_subscription_by_days(db, user_id, days, db_user.id, subscription_id=subscription_id)
 
         if success:
             if days > 0:
-                action_text = f'продлена на {days} дней'
+                action_text = texts.t('ADMIN_USER_SUB_EXTENDED_PLUS', '✅ Подписка продлена на {days} дней').format(
+                    days=days
+                )
             else:
-                action_text = f'уменьшена на {abs(days)} дней'
+                action_text = texts.t('ADMIN_USER_SUB_EXTENDED_MINUS', '✅ Подписка уменьшена на {days} дней').format(
+                    days=abs(days)
+                )
             await message.answer(
-                f'✅ Подписка пользователя {action_text}',
+                action_text,
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка продления подписки')
+            await message.answer(texts.t('ADMIN_USER_SUB_EXTEND_ERROR', '❌ Ошибка продления подписки'))
 
     except ValueError:
-        await message.answer('❌ Введите корректное число дней')
+        await message.answer(texts.t('ADMIN_USER_SUB_GRANT_DAYS_INPUT_INVALID', '❌ Введите корректное число дней'))
         return
 
     await state.clear()
@@ -3292,6 +3332,7 @@ async def process_subscription_extension_text(
 @error_handler
 async def add_subscription_traffic(callback: types.CallbackQuery, db_user: User, state: FSMContext):
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
+    texts = get_texts(db_user.language)
 
     await state.update_data(traffic_user_id=user_id, admin_subscription_id=subscription_id)
 
@@ -3303,33 +3344,48 @@ async def add_subscription_traffic(callback: types.CallbackQuery, db_user: User,
     )
 
     await callback.message.edit_text(
-        '📊 <b>Добавление трафика</b>\n\n'
-        'Введите количество ГБ для добавления:\n'
-        '• Например: 50, 100, 500\n'
-        '• Максимум: 10000 ГБ\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_SUB_TRAFFIC_ADD_TITLE', '📊 <b>Добавление трафика</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_SUB_TRAFFIC_ADD_PROMPT',
+            'Введите количество ГБ для добавления:\n'
+            '• Например: 50, 100, 500\n'
+            '• Максимум: 10000 ГБ\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text='50 ГБ', callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_50'),
                     types.InlineKeyboardButton(
-                        text='100 ГБ', callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_100'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=50),
+                        callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_50',
+                    ),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=100),
+                        callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_100',
                     ),
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text='500 ГБ', callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_500'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=500),
+                        callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_500',
                     ),
                     types.InlineKeyboardButton(
-                        text='1000 ГБ', callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_1000'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_GB_BTN', '{gb} ГБ').format(gb=1000),
+                        callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_1000',
                     ),
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text='♾️ Безлимит', callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_0'
+                        text=texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_BTN', '♾️ Безлимит'),
+                        callback_data=f'admin_sub_traffic_add_{user_id}{_sid}_0',
                     ),
                 ],
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=back_cb)],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=back_cb,
+                    )
+                ],
             ]
         ),
     )
@@ -3341,6 +3397,7 @@ async def add_subscription_traffic(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def process_traffic_addition_button(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     gb = int(parts[-1])
     if parts[-2].startswith('s') and parts[-2][1:].isdigit():
@@ -3355,22 +3412,29 @@ async def process_traffic_addition_button(callback: types.CallbackQuery, db_user
         if subscription_id
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
 
     success = await _add_subscription_traffic(db, user_id, gb, db_user.id, subscription_id=subscription_id)
 
     if success:
-        traffic_text = '♾️ безлимитный' if gb == 0 else f'{gb} ГБ'
+        traffic_text = (
+            texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', '♾️ безлимитный')
+            if gb == 0
+            else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=gb)
+        )
         await callback.message.edit_text(
-            f'✅ К подписке пользователя добавлен трафик: {traffic_text}',
+            texts.t('ADMIN_USER_SUB_TRAFFIC_ADDED', '✅ К подписке добавлен трафик: {traffic}').format(
+                traffic=traffic_text
+            ),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка добавления трафика',
+            texts.t('ADMIN_USER_SUB_TRAFFIC_ADD_ERROR', '❌ Ошибка добавления трафика'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3380,12 +3444,13 @@ async def process_traffic_addition_button(callback: types.CallbackQuery, db_user
 @admin_required
 @error_handler
 async def process_traffic_addition_text(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('traffic_user_id')
     subscription_id = data.get('admin_subscription_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
 
@@ -3394,29 +3459,43 @@ async def process_traffic_addition_text(message: types.Message, db_user: User, s
         if subscription_id
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
 
     try:
         gb = int(message.text.strip())
 
         if gb < 0 or gb > 10000:
-            await message.answer('❌ Количество ГБ должно быть от 0 до 10000 (0 = безлимит)')
+            await message.answer(
+                texts.t(
+                    'ADMIN_USER_SUB_TRAFFIC_GB_INVALID',
+                    '❌ Количество ГБ должно быть от 0 до 10000 (0 = безлимит)',
+                )
+            )
             return
 
         success = await _add_subscription_traffic(db, user_id, gb, db_user.id, subscription_id=subscription_id)
 
         if success:
-            traffic_text = '♾️ безлимитный' if gb == 0 else f'{gb} ГБ'
+            traffic_text = (
+                texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', '♾️ безлимитный')
+                if gb == 0
+                else texts.t('ADMIN_USER_SUB_TRAFFIC_GB', '{gb} ГБ').format(gb=gb)
+            )
             await message.answer(
-                f'✅ К подписке пользователя добавлен трафик: {traffic_text}',
+                texts.t('ADMIN_USER_SUB_TRAFFIC_ADDED', '✅ К подписке добавлен трафик: {traffic}').format(
+                    traffic=traffic_text
+                ),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка добавления трафика')
+            await message.answer(texts.t('ADMIN_USER_SUB_TRAFFIC_ADD_ERROR', '❌ Ошибка добавления трафика'))
 
     except ValueError:
-        await message.answer('❌ Введите корректное число ГБ')
+        await message.answer(
+            texts.t('ADMIN_USER_SUB_TRAFFIC_GB_INPUT_INVALID', '❌ Введите корректное число ГБ')
+        )
         return
 
     await state.clear()
@@ -3426,6 +3505,7 @@ async def process_traffic_addition_text(message: types.Message, db_user: User, s
 @error_handler
 async def deactivate_user_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
+    texts = get_texts(db_user.language)
 
     _sid = f'_s{subscription_id}' if subscription_id else ''
     back_cb = (
@@ -3435,9 +3515,12 @@ async def deactivate_user_subscription(callback: types.CallbackQuery, db_user: U
     )
 
     await callback.message.edit_text(
-        '🚫 <b>Деактивация подписки</b>\n\n'
-        'Вы уверены, что хотите деактивировать подписку этого пользователя?\n'
-        'Пользователь потеряет доступ к сервису.',
+        texts.t('ADMIN_USER_SUB_DEACTIVATE_TITLE', '🚫 <b>Деактивация подписки</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_SUB_DEACTIVATE_CONFIRM',
+            'Вы уверены, что хотите деактивировать подписку этого пользователя?\n'
+            'Пользователь потеряет доступ к сервису.',
+        ),
         reply_markup=get_confirmation_keyboard(
             f'admin_sub_deactivate_confirm_{user_id}{_sid}', back_cb, db_user.language
         ),
@@ -3448,6 +3531,7 @@ async def deactivate_user_subscription(callback: types.CallbackQuery, db_user: U
 @admin_required
 @error_handler
 async def confirm_subscription_deactivation(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     back_cb = (
@@ -3455,21 +3539,22 @@ async def confirm_subscription_deactivation(callback: types.CallbackQuery, db_us
         if subscription_id
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
 
     success = await _deactivate_user_subscription(db, user_id, db_user.id, subscription_id=subscription_id)
 
     if success:
         await callback.message.edit_text(
-            '✅ Подписка пользователя деактивирована',
+            texts.t('ADMIN_USER_SUB_DEACTIVATED', '✅ Подписка пользователя деактивирована'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка деактивации подписки',
+            texts.t('ADMIN_USER_SUB_DEACTIVATE_ERROR', '❌ Ошибка деактивации подписки'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3480,17 +3565,25 @@ async def confirm_subscription_deactivation(callback: types.CallbackQuery, db_us
 @error_handler
 async def delete_user_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Show confirmation for deleting a subscription (multi-tariff only)."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     if not subscription_id or not settings.is_multi_tariff_enabled():
-        await callback.answer('Удаление доступно только в мультитарифном режиме', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_SUB_DELETE_MULTI_ONLY', 'Удаление доступно только в мультитарифном режиме'),
+            show_alert=True,
+        )
         return
 
     back_cb = f'admin_user_sub_select_{user_id}_{subscription_id}'
     _sid = f'_s{subscription_id}'
 
     await callback.message.edit_text(
-        '🗑 <b>Удаление подписки</b>\n\n⚠️ Подписка будет полностью удалена из системы.\nЭто действие необратимо!',
+        texts.t('ADMIN_USER_SUB_DELETE_TITLE', '🗑 <b>Удаление подписки</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_SUB_DELETE_CONFIRM',
+            '⚠️ Подписка будет полностью удалена из системы.\nЭто действие необратимо!',
+        ),
         reply_markup=get_confirmation_keyboard(f'admin_sub_delete_confirm_{user_id}{_sid}', back_cb, db_user.language),
     )
     await callback.answer()
@@ -3500,17 +3593,21 @@ async def delete_user_subscription(callback: types.CallbackQuery, db_user: User,
 @error_handler
 async def confirm_subscription_deletion(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Delete a subscription permanently (multi-tariff only)."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     if not subscription_id or not settings.is_multi_tariff_enabled():
-        await callback.answer('Удаление доступно только в мультитарифном режиме', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_USER_SUB_DELETE_MULTI_ONLY', 'Удаление доступно только в мультитарифном режиме'),
+            show_alert=True,
+        )
         return
 
     from app.database.crud.subscription import get_subscription_by_id_for_user
 
     subscription = await get_subscription_by_id_for_user(db, subscription_id, user_id)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_SUB_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
         return
 
     # Disable on Remnawave side first
@@ -3537,10 +3634,11 @@ async def confirm_subscription_deletion(callback: types.CallbackQuery, db_user: 
     )
 
     back_cb = f'admin_user_subscription_{user_id}'
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK_LIST', '📱 К подпискам')
     await callback.message.edit_text(
-        '✅ Подписка удалена',
+        texts.t('ADMIN_USER_SUB_DELETED', '✅ Подписка удалена'),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подпискам', callback_data=back_cb)]]
+            inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
         ),
     )
     await callback.answer()
@@ -3549,6 +3647,7 @@ async def confirm_subscription_deletion(callback: types.CallbackQuery, db_user: 
 @admin_required
 @error_handler
 async def activate_user_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
 
     back_cb = (
@@ -3556,21 +3655,22 @@ async def activate_user_subscription(callback: types.CallbackQuery, db_user: Use
         if subscription_id
         else f'admin_user_subscription_{user_id}'
     )
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
 
     success = await _activate_user_subscription(db, user_id, db_user.id, subscription_id=subscription_id)
 
     if success:
         await callback.message.edit_text(
-            '✅ Подписка пользователя активирована',
+            texts.t('ADMIN_USER_SUB_ACTIVATED', '✅ Подписка пользователя активирована'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка активации подписки',
+            texts.t('ADMIN_USER_SUB_ACTIVATE_ERROR', '❌ Ошибка активации подписки'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='📱 К подписке', callback_data=back_cb)]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3580,34 +3680,25 @@ async def activate_user_subscription(callback: types.CallbackQuery, db_user: Use
 @admin_required
 @error_handler
 async def grant_trial_subscription(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
+    back_cb = f'admin_user_subscription_{user_id}'
 
     success = await _grant_trial_subscription(db, user_id, db_user.id)
 
     if success:
         await callback.message.edit_text(
-            '✅ Пользователю выдан триальный период',
+            texts.t('ADMIN_USER_SUB_TRIAL_GRANTED', '✅ Пользователю выдан триальный период'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка выдачи триального периода',
+            texts.t('ADMIN_USER_SUB_TRIAL_ERROR', '❌ Ошибка выдачи триального периода'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3617,27 +3708,48 @@ async def grant_trial_subscription(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def grant_paid_subscription(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await state.update_data(granting_user_id=user_id)
 
     await callback.message.edit_text(
-        '💎 <b>Выдача подписки</b>\n\n'
-        'Введите количество дней подписки:\n'
-        '• Например: 30, 90, 180, 365\n'
-        '• Максимум: 730 дней\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_SUB_GRANT_TITLE', '💎 <b>Выдача подписки</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_SUB_GRANT_PROMPT',
+            'Введите количество дней подписки:\n'
+            '• Например: 30, 90, 180, 365\n'
+            '• Максимум: 730 дней\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text='30 дней', callback_data=f'admin_sub_grant_days_{user_id}_30'),
-                    types.InlineKeyboardButton(text='90 дней', callback_data=f'admin_sub_grant_days_{user_id}_90'),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=30),
+                        callback_data=f'admin_sub_grant_days_{user_id}_30',
+                    ),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=90),
+                        callback_data=f'admin_sub_grant_days_{user_id}_90',
+                    ),
                 ],
                 [
-                    types.InlineKeyboardButton(text='180 дней', callback_data=f'admin_sub_grant_days_{user_id}_180'),
-                    types.InlineKeyboardButton(text='365 дней', callback_data=f'admin_sub_grant_days_{user_id}_365'),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=180),
+                        callback_data=f'admin_sub_grant_days_{user_id}_180',
+                    ),
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_SUB_EXTEND_DAYS_BTN', '{days} дней').format(days=365),
+                        callback_data=f'admin_sub_grant_days_{user_id}_365',
+                    ),
                 ],
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_user_subscription_{user_id}')],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data=f'admin_user_subscription_{user_id}',
+                    )
+                ],
             ]
         ),
     )
@@ -3649,36 +3761,27 @@ async def grant_paid_subscription(callback: types.CallbackQuery, db_user: User, 
 @admin_required
 @error_handler
 async def process_subscription_grant_days(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     user_id = int(parts[-2])
     days = int(parts[-1])
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
+    back_cb = f'admin_user_subscription_{user_id}'
 
     success = await _grant_paid_subscription(db, user_id, days, db_user.id)
 
     if success:
         await callback.message.edit_text(
-            f'✅ Пользователю выдана подписка на {days} дней',
+            texts.t('ADMIN_USER_SUB_GRANTED', '✅ Пользователю выдана подписка на {days} дней').format(days=days),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
     else:
         await callback.message.edit_text(
-            '❌ Ошибка выдачи подписки',
+            texts.t('ADMIN_USER_SUB_GRANT_ERROR', '❌ Ошибка выдачи подписки'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
-                        )
-                    ]
-                ]
+                inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
             ),
         )
 
@@ -3688,41 +3791,41 @@ async def process_subscription_grant_days(callback: types.CallbackQuery, db_user
 @admin_required
 @error_handler
 async def process_subscription_grant_text(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('granting_user_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
+
+    back_btn = texts.t('ADMIN_USER_SUB_BTN_BACK', '📱 К подписке')
+    back_cb = f'admin_user_subscription_{user_id}'
 
     try:
         days = int(message.text.strip())
 
         if days <= 0 or days > 730:
-            await message.answer('❌ Количество дней должно быть от 1 до 730')
+            await message.answer(
+                texts.t('ADMIN_USER_SUB_GRANT_DAYS_INVALID', '❌ Количество дней должно быть от 1 до 730')
+            )
             return
 
         success = await _grant_paid_subscription(db, user_id, days, db_user.id)
 
         if success:
             await message.answer(
-                f'✅ Пользователю выдана подписка на {days} дней',
+                texts.t('ADMIN_USER_SUB_GRANTED', '✅ Пользователю выдана подписка на {days} дней').format(days=days),
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            types.InlineKeyboardButton(
-                                text='📱 К подписке', callback_data=f'admin_user_subscription_{user_id}'
-                            )
-                        ]
-                    ]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=back_btn, callback_data=back_cb)]]
                 ),
             )
         else:
-            await message.answer('❌ Ошибка выдачи подписки')
+            await message.answer(texts.t('ADMIN_USER_SUB_GRANT_ERROR', '❌ Ошибка выдачи подписки'))
 
     except ValueError:
-        await message.answer('❌ Введите корректное число дней')
+        await message.answer(texts.t('ADMIN_USER_SUB_GRANT_DAYS_INPUT_INVALID', '❌ Введите корректное число дней'))
         return
 
     await state.clear()
