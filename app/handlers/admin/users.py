@@ -1350,10 +1350,11 @@ async def delete_user_account(callback: types.CallbackQuery, db_user: User, db: 
 @admin_required
 @error_handler
 async def process_user_search(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     query = message.text.strip()
 
     if not query:
-        await message.answer('❌ Введите корректный запрос для поиска')
+        await message.answer(texts.t('ADMIN_USER_SEARCH_EMPTY_QUERY', '❌ Введите корректный запрос для поиска'))
         return
 
     user_service = UserService()
@@ -1361,16 +1362,26 @@ async def process_user_search(message: types.Message, db_user: User, state: FSMC
 
     if not search_results['users']:
         await message.answer(
-            f"🔍 По запросу '<b>{html.escape(query)}</b>' ничего не найдено",
+            texts.t('ADMIN_USER_SEARCH_NO_RESULTS', "🔍 По запросу '<b>{query}</b>' ничего не найдено").format(
+                query=html.escape(query)
+            ),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_users')]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data='admin_users'
+                        )
+                    ]
+                ]
             ),
         )
         await state.clear()
         return
 
-    text = f"🔍 <b>Результаты поиска:</b> '{html.escape(query)}'\n\n"
-    text += 'Выберите пользователя:'
+    text = texts.t('ADMIN_USER_SEARCH_RESULTS_HEADER', "🔍 <b>Результаты поиска:</b> '{query}'\n\n").format(
+        query=html.escape(query)
+    )
+    text += texts.t('ADMIN_USER_SEARCH_CHOOSE_USER', 'Выберите пользователя:')
 
     keyboard = []
 
@@ -1411,7 +1422,13 @@ async def process_user_search(message: types.Message, db_user: User, state: FSMC
 
         keyboard.append([types.InlineKeyboardButton(text=button_text, callback_data=f'admin_user_manage_{user.id}')])
 
-    keyboard.append([types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_users')])
+    keyboard.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data='admin_users'
+            )
+        ]
+    )
 
     await message.answer(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard))
     await state.clear()
