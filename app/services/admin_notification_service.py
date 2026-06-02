@@ -1239,6 +1239,7 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             promo_group = await self._get_user_promo_group(db, user)
             promo_block = self._format_promo_group_block(promo_group)
             type_display = self._get_promocode_type_display(promocode_data.get('type'))
@@ -1246,20 +1247,29 @@ class AdminNotificationService:
             user_display = self._get_user_display(user)
             user_id_label = self._get_user_identifier_label(user)
             user_id_display = self._get_user_identifier_display(user)
+            username_none = notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
 
             message_lines = [
-                '🎫 <b>АКТИВАЦИЯ ПРОМОКОДА</b>',
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TITLE', '🎫 <b>АКТИВАЦИЯ ПРОМОКОДА</b>'),
                 '',
-                f'👤 <b>Пользователь:</b> {user_display}',
-                f'🆔 <b>{user_id_label}:</b> {user_id_display}',
-                f'📱 <b>Username:</b> @{html.escape(getattr(user, "username", None) or "отсутствует")}',
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_USER', '👤 <b>Пользователь:</b> {user}').format(
+                    user=user_display
+                ),
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                    label=user_id_label, user_id=user_id_display
+                ),
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                    username=html.escape(getattr(user, 'username', None) or username_none)
+                ),
                 '',
                 promo_block,
                 '',
-                '🎟️ <b>Промокод:</b>',
-                f'🔖 Код: <code>{promocode_data.get("code")}</code>',
-                f'🧾 Тип: {type_display}',
-                f'📊 Использования: {usage_info}',
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_SECTION', '🎟️ <b>Промокод:</b>'),
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_CODE', '🔖 Код: <code>{code}</code>').format(
+                    code=promocode_data.get('code')
+                ),
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE', '🧾 Тип: {type}').format(type=type_display),
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_USES', '📊 Использования: {uses}').format(uses=usage_info),
             ]
 
             promo_type = promocode_data.get('type')
@@ -1267,37 +1277,69 @@ class AdminNotificationService:
             subscription_days = promocode_data.get('subscription_days', 0)
 
             if promo_type == PromoCodeType.DISCOUNT.value:
-                message_lines.append(f'💸 Скидка: {balance_bonus}%')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PROMOCODE_DISCOUNT', '💸 Скидка: {percent}%').format(
+                        percent=balance_bonus
+                    )
+                )
                 if subscription_days:
-                    message_lines.append(f'⏳ Срок действия скидки: {subscription_days} ч.')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_PROMOCODE_DISCOUNT_HOURS', '⏳ Срок действия скидки: {hours} ч.').format(
+                            hours=subscription_days
+                        )
+                    )
                 else:
-                    message_lines.append('⏳ Срок действия скидки: до первой покупки')
+                    message_lines.append(
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_PROMOCODE_DISCOUNT_UNTIL_PURCHASE',
+                            '⏳ Срок действия скидки: до первой покупки',
+                        )
+                    )
             else:
                 if balance_bonus:
-                    message_lines.append(f'💰 Бонус на баланс: {settings.format_price(balance_bonus)}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_BONUS', '💰 Бонус на баланс: {amount}').format(
+                            amount=settings.format_price(balance_bonus)
+                        )
+                    )
                 if subscription_days:
-                    message_lines.append(f'📅 Доп. дни подписки: {subscription_days}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_PROMOCODE_EXTRA_DAYS', '📅 Доп. дни подписки: {days}').format(
+                            days=subscription_days
+                        )
+                    )
 
             valid_until = promocode_data.get('valid_until')
             if valid_until:
-                message_lines.append(
-                    f'⏳ Действует до: {format_local_datetime(valid_until, "%d.%m.%Y %H:%M")}'
+                valid_until_display = (
+                    format_local_datetime(valid_until, '%d.%m.%Y %H:%M')
                     if isinstance(valid_until, datetime)
-                    else f'⏳ Действует до: {valid_until}'
+                    else valid_until
                 )
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PROMOCODE_VALID_UNTIL', '⏳ Действует до: {date}').format(
+                        date=valid_until_display
+                    )
+                )
+
+            balance_line = (
+                notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_CHANGE', '{before} → {after}').format(
+                    before=settings.format_price(balance_before_kopeks),
+                    after=settings.format_price(balance_after_kopeks),
+                )
+                if balance_before_kopeks is not None and balance_after_kopeks is not None
+                else notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_UNCHANGED', 'ℹ️ Баланс не изменился')
+            )
 
             message_lines.extend(
                 [
                     '',
-                    '💼 <b>Баланс:</b>',
-                    (
-                        f'{settings.format_price(balance_before_kopeks)} → {settings.format_price(balance_after_kopeks)}'
-                        if balance_before_kopeks is not None and balance_after_kopeks is not None
-                        else 'ℹ️ Баланс не изменился'
-                    ),
+                    notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_SECTION', '💼 <b>Баланс:</b>'),
+                    balance_line,
                     '',
-                    '📝 <b>Эффект:</b>',
-                    effect_description.strip() or '✅ Промокод активирован',
+                    notify_texts.t('ADMIN_NOTIFY_PROMOCODE_EFFECT_SECTION', '📝 <b>Эффект:</b>'),
+                    effect_description.strip()
+                    or notify_texts.t('ADMIN_NOTIFY_PROMOCODE_EFFECT_DEFAULT', '✅ Промокод активирован'),
                     '',
                     f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
                 ]
