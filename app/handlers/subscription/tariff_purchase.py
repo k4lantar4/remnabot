@@ -2795,7 +2795,8 @@ def get_tariff_switch_confirm_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text='✅ Подтвердить переключение', callback_data=f'tariff_sw_confirm:{tariff_id}:{period}'
+                    text=texts.t('TARIFF_CONFIRM_SWITCH_BTN', '✅ Подтвердить переключение'),
+                    callback_data=f'tariff_sw_confirm:{tariff_id}:{period}',
                 )
             ],
             [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_sw_select:{tariff_id}')],
