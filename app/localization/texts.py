@@ -181,15 +181,20 @@ class Texts:
                 return default
             raise
 
+    def _apply_display_currency(self, value: Any) -> Any:
+        if isinstance(value, str) and self.language.split('-')[0].lower() == 'fa':
+            return settings.apply_price_display_symbol(value)
+        return value
+
     def _get_value(self, item: str) -> Any:
         if item == 'RULES_TEXT':
             return _get_cached_rules_value(self.language)
 
         if item in self._values:
-            return self._values[item]
+            return self._apply_display_currency(self._values[item])
 
         if item in self._fallback_values:
-            return self._fallback_values[item]
+            return self._apply_display_currency(self._fallback_values[item])
 
         _logger.warning("Missing localization key '' for language ''", item=item, language=self.language)
         raise KeyError(item)

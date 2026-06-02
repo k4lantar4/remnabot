@@ -2,6 +2,8 @@
 
 import html
 
+from app.config import settings
+
 
 def safe_html_name(name: str | None) -> str:
     """HTML-escape a display name for Telegram HTML messages."""
@@ -24,14 +26,9 @@ def format_traffic(gb: int) -> str:
 
 
 def format_price_kopeks(kopeks: int, compact: bool = False) -> str:
-    """Форматирует цену из копеек в рубли."""
-    rubles = kopeks / 100
-    if compact:
-        # Компактный формат - округляем до рублей
-        return f'{int(round(rubles))}₽'
-    if rubles == int(rubles):
-        return f'{int(rubles)} ₽'
-    return f'{rubles:.2f} ₽'
+    """Форматирует цену для отображения (делегирует settings.format_price)."""
+    text = settings.format_price(kopeks, round_kopeks=compact)
+    return text.replace(' ', '', 1) if compact else text
 
 
 def format_period(days: int) -> str:

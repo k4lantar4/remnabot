@@ -904,6 +904,8 @@ class Settings(BaseSettings):
 
     # Округление цен при отображении (≤50 коп вниз, >50 коп вверх)
     PRICE_ROUNDING_ENABLED: bool = True
+    # User-facing currency suffix (replaces ₽ in format_price and optional text cleanup)
+    PRICE_DISPLAY_SUFFIX: str = ' تومان'
 
     LOG_LEVEL: str = 'INFO'
     LOG_FILE: str = 'logs/bot.log'
@@ -1715,6 +1717,18 @@ class Settings(BaseSettings):
     def is_language_selection_enabled(self) -> bool:
         return bool(getattr(self, 'LANGUAGE_SELECTION_ENABLED', True))
 
+    def _price_display_suffix(self) -> str:
+        suffix = (self.PRICE_DISPLAY_SUFFIX or ' تومان').strip()
+        return f' {suffix}' if suffix else ' تومان'
+
+    def apply_price_display_symbol(self, text: str) -> str:
+        """Last-layer override: ₽ → PRICE_DISPLAY_SUFFIX in user-visible strings."""
+        if '₽' not in text:
+            return text
+        spaced = self._price_display_suffix()
+        compact = spaced.lstrip()
+        return text.replace(' ₽', spaced).replace('₽', compact)
+
     def format_price(self, price_kopeks: int, round_kopeks: bool | None = None) -> str:
         """
         Форматирует цену в копейках для отображения пользователю.
@@ -1725,10 +1739,11 @@ class Settings(BaseSettings):
                          Если None, использует настройку PRICE_ROUNDING_ENABLED.
 
         Returns:
-            Отформатированная строка цены (например, "150 ₽")
+            Отформатированная строка цены (например, "150 تومان")
         """
         # Используем настройку если не передано явно
         should_round = round_kopeks if round_kopeks is not None else self.PRICE_ROUNDING_ENABLED
+        suffix = self._price_display_suffix()
 
         sign = '-' if price_kopeks < 0 else ''
         abs_kopeks = abs(price_kopeks)
@@ -1738,14 +1753,14 @@ class Settings(BaseSettings):
             # Округление: ≤50 коп вниз, >50 коп вверх
             if kopeks > 50:
                 rubles += 1
-            return f'{sign}{rubles} ₽'
+            return f'{sign}{rubles}{suffix}'
 
         # Без округления - показываем точное значение
         if kopeks:
             value = f'{sign}{rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
-            return f'{value} ₽'
+            return f'{value}{suffix}'
 
-        return f'{sign}{rubles} ₽'
+        return f'{sign}{rubles}{suffix}'
 
     def get_reports_chat_id(self) -> str | None:
         if self.ADMIN_REPORTS_CHAT_ID:
