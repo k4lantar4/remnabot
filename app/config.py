@@ -457,6 +457,14 @@ class Settings(BaseSettings):
     YOOKASSA_RECURRENT_REQUIRED: bool = False
     YOOKASSA_TEST_MODE: bool = False
     SUPPORT_TOPUP_ENABLED: bool = True
+    C2C_ENABLED: bool = False
+    C2C_ADMIN_CHAT_ID: str | None = None
+    C2C_CARDS: str = '[]'
+    C2C_GUIDE_TEXT: str = 'Transfer the exact amount and send a receipt screenshot.'
+    C2C_MIN_AMOUNT_KOPEKS: int = 10000
+    C2C_MAX_AMOUNT_KOPEKS: int = 10000000
+    C2C_RECEIPT_TTL_HOURS: int = 24
+    C2C_DISPLAY_NAME: str = 'Card-to-Card 💳'
     PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED: bool = False
     PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES: int = 10
 
@@ -2089,6 +2097,50 @@ class Settings(BaseSettings):
 
     def is_support_topup_enabled(self) -> bool:
         return bool(self.SUPPORT_TOPUP_ENABLED)
+
+    def is_c2c_enabled(self) -> bool:
+        return self.C2C_ENABLED and bool(self.get_c2c_cards())
+
+    def get_c2c_admin_chat_id(self) -> int | None:
+        chat_id = self.C2C_ADMIN_CHAT_ID or self.ADMIN_NOTIFICATIONS_CHAT_ID
+        if not chat_id:
+            return None
+        try:
+            return int(chat_id)
+        except (ValueError, TypeError):
+            return None
+
+    def get_c2c_cards(self) -> list[dict[str, str]]:
+        import json
+
+        raw = (self.C2C_CARDS or '').strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(parsed, list):
+            return []
+        cards: list[dict[str, str]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            number = str(item.get('number', '')).strip()
+            if not number:
+                continue
+            cards.append(
+                {
+                    'label': str(item.get('label', '')).strip() or 'Card',
+                    'number': number,
+                    'holder': str(item.get('holder', '')).strip(),
+                }
+            )
+        return cards
+
+    def get_c2c_display_name(self) -> str:
+        name = (self.C2C_DISPLAY_NAME or '').strip()
+        return name or 'Card-to-Card 💳'
 
     def get_yookassa_return_url(self) -> str:
         if self.YOOKASSA_RETURN_URL:
