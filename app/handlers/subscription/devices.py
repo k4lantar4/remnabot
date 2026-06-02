@@ -94,9 +94,13 @@ async def get_current_devices_detailed(db_user: User, subscription=None) -> dict
         return {'count': 0, 'devices': []}
 
 
-async def get_servers_display_names(squad_uuids: list[str]) -> str:
+async def get_servers_display_names(squad_uuids: list[str], language: str | None = None) -> str:
+    from app.localization.texts import get_texts
+
+    lang = language or settings.DEFAULT_LANGUAGE or 'ru'
+    texts = get_texts(lang)
     if not squad_uuids:
-        return 'Нет серверов'
+        return texts.t('SUBSCRIPTION_NO_SERVERS', 'Нет серверов')
 
     try:
         from app.database.crud.server_squad import get_server_squad_by_uuid
