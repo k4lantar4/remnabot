@@ -45,7 +45,10 @@ async def start_heleket_payment(
         return
 
     if not settings.is_heleket_enabled():
-        await callback.answer('❌ Оплата через Heleket недоступна', show_alert=True)
+        await callback.answer(
+            texts.t('CB_HELEKET_PAYMENT_UNAVAILABLE', '❌ Оплата через Heleket недоступна'),
+            show_alert=True,
+        )
         return
 
     markup = settings.get_heleket_markup_percent()
@@ -264,19 +267,27 @@ async def process_heleket_payment_amount(
 @error_handler
 async def check_heleket_payment_status(
     callback: types.CallbackQuery,
+    db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
-        await callback.answer('Некорректный идентификатор платежа', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_PAYMENT_ID', 'Некорректный идентификатор платежа'),
+            show_alert=True,
+        )
         return
 
     from app.database.crud.heleket import get_heleket_payment_by_id
 
     payment = await get_heleket_payment_by_id(db, local_payment_id)
     if not payment:
-        await callback.answer('Платёж не найден', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_NOT_FOUND_PLAIN', 'Платёж не найден'),
+            show_alert=True,
+        )
         return
 
     language = getattr(payment.user, 'language', None) or settings.DEFAULT_LANGUAGE
