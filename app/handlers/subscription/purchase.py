@@ -390,7 +390,11 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                     else:
                         daily_kopeks = raw_daily_kopeks
                     daily_price = daily_kopeks / 100
-                    tariff_info_lines.append(f'Цена: {daily_price:.2f} ₽/день')
+                    tariff_info_lines.append(
+                        texts.t('TARIFF_DAILY_PRICE_LINE', 'Цена: {price}/день').format(
+                            price=texts.format_price(daily_kopeks, round_kopeks=False)
+                        )
+                    )
 
                     # Прогресс-бар до следующего списания
                     last_charge = getattr(subscription, 'last_daily_charge_at', None)
@@ -398,7 +402,9 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                     if is_paused:
                         tariff_info_lines.append('')
-                        tariff_info_lines.append('⏸️ <b>Подписка приостановлена</b>')
+                        tariff_info_lines.append(
+                            texts.t('DAILY_SUBSCRIPTION_PAUSED', '⏸️ Подписка приостановлена')
+                        )
                         # Показываем оставшееся время даже при паузе
                         if last_charge:
                             next_charge = last_charge + timedelta(hours=24)
@@ -407,8 +413,15 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                                 time_until = next_charge - now
                                 hours_left = time_until.seconds // 3600
                                 minutes_left = (time_until.seconds % 3600) // 60
-                                tariff_info_lines.append(f'⏳ Осталось: {hours_left}ч {minutes_left}мин')
-                                tariff_info_lines.append('💤 Списание приостановлено')
+                                tariff_info_lines.append(
+                                    texts.t(
+                                        'DAILY_CHARGE_TIME_LEFT',
+                                        '⏳ Осталось: {hours}ч {minutes}мин',
+                                    ).format(hours=hours_left, minutes=minutes_left)
+                                )
+                                tariff_info_lines.append(
+                                    texts.t('DAILY_CHARGE_PAUSED', '💤 Списание приостановлено')
+                                )
                     elif last_charge:
                         next_charge = last_charge + timedelta(hours=24)
                         now = datetime.now(UTC)
@@ -430,11 +443,18 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                             progress_bar = '▓' * filled + '░' * empty
 
                             tariff_info_lines.append('')
-                            tariff_info_lines.append(f'⏳ До списания: {hours_left}ч {minutes_left}мин')
+                            tariff_info_lines.append(
+                                texts.t(
+                                    'DAILY_CHARGE_TIME_UNTIL',
+                                    '⏳ До списания: {hours}ч {minutes}мин',
+                                ).format(hours=hours_left, minutes=minutes_left)
+                            )
                             tariff_info_lines.append(f'[{progress_bar}] {percent:.0f}%')
                     else:
                         tariff_info_lines.append('')
-                        tariff_info_lines.append('⏳ Первое списание скоро')
+                        tariff_info_lines.append(
+                            texts.t('DAILY_FIRST_CHARGE_SOON', '⏳ Первое списание скоро')
+                        )
 
                 tariff_info_block = '\n<blockquote expandable>' + '\n'.join(tariff_info_lines) + '</blockquote>'
 
@@ -568,8 +588,14 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                         days=days_remaining
                     )
 
-                message += f'• {purchase.traffic_gb} ГБ — {time_text}\n'
-                message += f'  {bar} {progress_percent:.0f}% | до {expire_date}\n'
+                message += texts.t(
+                    'TRAFFIC_PURCHASED_ITEM_LINE',
+                    '• {gb} ГБ — {time}',
+                ).format(gb=purchase.traffic_gb, time=time_text) + '\n'
+                message += texts.t(
+                    'TRAFFIC_PURCHASED_PROGRESS_LINE',
+                    '  {bar} {percent}% | до {date}',
+                ).format(bar=bar, percent=f'{progress_percent:.0f}', date=expire_date) + '\n'
 
             message += texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_FOOTER', '</blockquote>')
 
