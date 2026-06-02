@@ -131,7 +131,11 @@ class C2cPaymentService:
                 body = admin_text
                 if receipt_text:
                     safe_receipt = html.escape(receipt_text)
-                    body = f'{admin_text}\n\n📎 <b>Receipt:</b>\n{safe_receipt}'
+                    from app.localization.texts import get_texts
+
+                    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+                    attach_label = get_texts(lang).t('ADMIN_NOTIFY_C2C_RECEIPT_ATTACH', '📎 <b>Receipt:</b>')
+                    body = f'{admin_text}\n\n{attach_label}\n{safe_receipt}'
                 admin_message = await send_with_admin_topic_fallback(
                     lambda kw: self.bot.send_message(text=body, **kw),
                     send_kwargs,
@@ -349,14 +353,24 @@ class C2cPaymentService:
 
     @staticmethod
     def _build_admin_notification_text(receipt: C2cReceipt, user: User) -> str:
+        from app.localization.texts import get_texts
+
+        lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+        texts = get_texts(lang)
         name = user.full_name or user.username or f'User {user.id}'
         telegram_id = user.telegram_id or '—'
         card_label = receipt.card_label or '—'
-        return (
-            f'🔔 <b>C2C Receipt #{receipt.id}</b>\n'
-            f'👤 <b>User:</b> {name} (ID: {telegram_id})\n'
-            f'💰 <b>Amount:</b> {settings.format_price(receipt.amount_kopeks)}\n'
-            f'💳 <b>Card shown:</b> {card_label}'
+        return '\n'.join(
+            [
+                texts.t('ADMIN_NOTIFY_C2C_TITLE', '🔔 <b>C2C Receipt #{receipt_id}</b>').format(receipt_id=receipt.id),
+                texts.t('ADMIN_NOTIFY_C2C_USER', '👤 <b>User:</b> {name} (ID: {telegram_id})').format(
+                    name=name, telegram_id=telegram_id
+                ),
+                texts.t('ADMIN_NOTIFY_C2C_AMOUNT', '💰 <b>Amount:</b> {amount}').format(
+                    amount=settings.format_price(receipt.amount_kopeks)
+                ),
+                texts.t('ADMIN_NOTIFY_C2C_CARD', '💳 <b>Card shown:</b> {card}').format(card=card_label),
+            ]
         )
 
 
