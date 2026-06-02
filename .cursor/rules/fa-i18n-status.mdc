@@ -36,6 +36,7 @@ Continue fa-i18n: next slice from status. One handler/keyboard + fa.json per com
 
 ## Done (P1 user + P1 admin — Jun 3 2026)
 
+- [x] **Display units (fa):** `8567004d`..`b08d5826` — `format_period(fa)`, keyboards `inline.py`, `common` traffic switch, `tariff_purchase`/`pricing`/`purchase`/`my_subscriptions`, `menu` `format_price` (no DB/`tariff.name` change)
 - [x] P1 user: `traffic.py` `8bbf52f7`, `devices.py` `fc83b0dd`, `countries.py` `43772e26`, `menu.py` fragments `8b76b72d`
 - [x] P1 admin users: U3 `92c0e2b3`, U4 `4c23ad51`, U5 `051cfed6`, U6–U10 `df978ace` (+ list/search/stats keys in fa.json)
 - [x] P1 admin tariffs: T1 `a36eea3a` … T6 `4dadc9eb`, T7–T12 `fb82555a`
