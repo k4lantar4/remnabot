@@ -599,11 +599,12 @@ async def view_tariff(
     db: AsyncSession,
 ):
     """Просмотр тарифа."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
@@ -624,18 +625,23 @@ async def toggle_tariff(
     db: AsyncSession,
 ):
     """Переключает активность тарифа."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     tariff = await update_tariff(db, tariff, is_active=not tariff.is_active)
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
-    status = 'активирован' if tariff.is_active else 'деактивирован'
-    await callback.answer(f'Тариф {status}', show_alert=True)
+    status_key = 'ADMIN_TARIFF_TOGGLED_ACTIVE' if tariff.is_active else 'ADMIN_TARIFF_TOGGLED_INACTIVE'
+    status_fallback = 'активирован' if tariff.is_active else 'деактивирован'
+    await callback.answer(
+        texts.t('ADMIN_TARIFF_TOGGLED', 'Тариф {status}').format(status=texts.t(status_key, status_fallback)),
+        show_alert=True,
+    )
 
     await callback.message.edit_text(
         format_tariff_info(tariff, db_user.language, subs_count),
@@ -654,21 +660,28 @@ async def toggle_trial_tariff(
     """Переключает тариф как триальный."""
     from app.database.crud.tariff import clear_trial_tariff, set_trial_tariff
 
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     if tariff.is_trial_available:
-        # Снимаем флаг триала
         await clear_trial_tariff(db)
-        await callback.answer('Триал снят с тарифа', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_TARIFF_TRIAL_REMOVED', 'Триал снят с тарифа'),
+            show_alert=True,
+        )
     else:
-        # Устанавливаем этот тариф как триальный (снимает флаг с других)
         await set_trial_tariff(db, tariff_id)
-        await callback.answer(f'Тариф «{tariff.name}» установлен как триальный', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_TARIFF_TRIAL_SET', 'Тариф «{name}» установлен как триальный').format(
+                name=tariff.name
+            ),
+            show_alert=True,
+        )
 
     # Перезагружаем тариф
     tariff = await get_tariff_by_id(db, tariff_id)
@@ -689,24 +702,30 @@ async def toggle_daily_tariff(
     db: AsyncSession,
 ):
     """Переключает суточный режим тарифа."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     is_daily = getattr(tariff, 'is_daily', False)
 
     if is_daily:
-        # Отключаем суточный режим
         tariff = await update_tariff(db, tariff, is_daily=False, daily_price_kopeks=0)
-        await callback.answer('Суточный режим отключен', show_alert=True)
-    else:
-        # Включаем суточный режим (с ценой по умолчанию)
-        tariff = await update_tariff(db, tariff, is_daily=True, daily_price_kopeks=5000)  # 50 руб по умолчанию
         await callback.answer(
-            'Суточный режим включен. Цена: 50 ₽/день\nНастройте цену через кнопку «💰 Суточная цена»', show_alert=True
+            texts.t('ADMIN_TARIFF_DAILY_DISABLED', 'Суточный режим отключен'),
+            show_alert=True,
+        )
+    else:
+        tariff = await update_tariff(db, tariff, is_daily=True, daily_price_kopeks=5000)
+        await callback.answer(
+            texts.t(
+                'ADMIN_TARIFF_DAILY_ENABLED',
+                'Суточный режим включен. Цена: {price}/день\nНастройте цену через кнопку «💰 Суточная цена»',
+            ).format(price=settings.format_price(5000)),
+            show_alert=True,
         )
 
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
