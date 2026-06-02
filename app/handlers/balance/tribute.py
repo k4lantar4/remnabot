@@ -37,7 +37,10 @@ async def start_tribute_payment(
         return
 
     if not settings.TRIBUTE_ENABLED:
-        await callback.answer('❌ Оплата картой временно недоступна', show_alert=True)
+        await callback.answer(
+            texts.t('CB_CARD_PAYMENT_UNAVAILABLE', '❌ Оплата картой временно недоступна'),
+            show_alert=True,
+        )
         return
 
     try:
@@ -51,7 +54,10 @@ async def start_tribute_payment(
         )
 
         if not payment_url:
-            await callback.answer('❌ Ошибка создания платежа', show_alert=True)
+            await callback.answer(
+                texts.t('PAYMENT_CREATE_ERROR', '❌ Ошибка создания платежа'),
+                show_alert=True,
+            )
             return
 
         keyboard = types.InlineKeyboardMarkup(
@@ -85,6 +91,9 @@ async def start_tribute_payment(
 
     except Exception as e:
         logger.error('Ошибка создания Tribute платежа', error=e)
-        await callback.answer('❌ Ошибка создания платежа', show_alert=True)
+        await callback.answer(
+            texts.t('PAYMENT_CREATE_ERROR', '❌ Ошибка создания платежа'),
+            show_alert=True,
+        )
 
     await callback.answer()
