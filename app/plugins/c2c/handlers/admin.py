@@ -41,11 +41,11 @@ async def handle_c2c_approve(callback: types.CallbackQuery, db_user: User, db: A
         await callback.answer('Invalid callback', show_alert=True)
         return
 
-    if not _admin_chat_ok(callback):
-        await callback.answer('Wrong chat context', show_alert=True)
-        return
-
     await callback.answer()
+
+    if not _admin_chat_ok(callback):
+        logger.warning('C2C approve in wrong chat', receipt_id=receipt_id, chat_id=callback.message.chat.id if callback.message else None)
+        return
 
     service = C2cPaymentService(callback.bot)
     success, message, receipt = await service.approve_receipt(
@@ -79,11 +79,11 @@ async def handle_c2c_reject(callback: types.CallbackQuery, db_user: User, db: As
         await callback.answer('Invalid callback', show_alert=True)
         return
 
-    if not _admin_chat_ok(callback):
-        await callback.answer('Wrong chat context', show_alert=True)
-        return
-
     await callback.answer()
+
+    if not _admin_chat_ok(callback):
+        logger.warning('C2C reject in wrong chat', receipt_id=receipt_id, chat_id=callback.message.chat.id if callback.message else None)
+        return
 
     service = C2cPaymentService(callback.bot)
     success, message, receipt = await service.reject_receipt(

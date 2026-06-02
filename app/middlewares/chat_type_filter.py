@@ -17,8 +17,16 @@ from aiogram import BaseMiddleware
 from aiogram.enums import ChatType
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
+from app.config import settings
+from app.plugins.c2c.constants import C2C_CALLBACK_APPROVE_PREFIX, C2C_CALLBACK_REJECT_PREFIX
+
 
 logger = structlog.get_logger(__name__)
+
+
+def _is_c2c_admin_review_callback(callback: CallbackQuery) -> bool:
+    data = callback.data or ''
+    return data.startswith(C2C_CALLBACK_APPROVE_PREFIX) or data.startswith(C2C_CALLBACK_REJECT_PREFIX)
 
 
 class ChatTypeFilterMiddleware(BaseMiddleware):
@@ -37,6 +45,12 @@ class ChatTypeFilterMiddleware(BaseMiddleware):
             chat = event.message.chat
 
         if chat is not None and chat.type != ChatType.PRIVATE:
+            if (
+                isinstance(event, CallbackQuery)
+                and _is_c2c_admin_review_callback(event)
+                and settings.get_c2c_admin_chat_id() == chat.id
+            ):
+                return await handler(event, data)
             logger.debug(
                 'Dropping non-private chat event',
                 chat_id=chat.id,
