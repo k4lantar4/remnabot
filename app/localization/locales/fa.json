@@ -2263,6 +2263,12 @@
   "ADMIN_USERS_LIST_POTENTIAL_TITLE": "👥 <b>مشتریان بالقوه</b>",
   "ADMIN_USERS_LIST_HINT": "برای مدیریت روی کاربر بزنید:",
   "ADMIN_TARIFF_CREATE_BTN": "➕ ایجاد تعرفه",
+  "ADMIN_TARIFF_MODE_DISABLED": "⚠️ <b>حالت تعرفه غیرفعال است</b>\n\nبرای استفاده از تعرفه‌ها تنظیم کنید:\n<code>SALES_MODE=tariffs</code>\n\nحالت فعلی: <code>classic</code>",
+  "ADMIN_TARIFF_LIST_TITLE": "📦 <b>تعرفه‌ها</b>\n\n",
+  "ADMIN_TARIFF_LIST_PAGE_TITLE": "📦 <b>تعرفه‌ها</b> (صفحه {page}/{total_pages})\n\n",
+  "ADMIN_TARIFF_LIST_STATS": "کل: {total} (فعال: {active})\nاشتراک روی تعرفه‌ها: {subs}\n\n",
+  "ADMIN_TARIFF_LIST_HINT": "برای مشاهده و ویرایش یک تعرفه انتخاب کنید:",
+  "ADMIN_TARIFF_LIST_EMPTY": "📦 <b>تعرفه‌ها</b>\n\nهنوز تعرفه‌ای ایجاد نشده.\nاولین تعرفه را برای شروع بسازید.",
   "BALANCE_TOPPED_UP_CART_PROMPT": "می‌خواهید خرید را ادامه دهید؟",
   "TOPUP_AMOUNT_MIN": "حداقل مبلغ شارژ: {amount}",
   "TOPUP_AMOUNT_MAX": "حداکثر مبلغ شارژ: {amount}",
@@ -2311,5 +2317,13 @@
   "MY_SUB_STATUS_SUFFIX_UNTIL": " — تا {end_date} ({days} روز)",
   "MAIN_MENU_TARIFF_LINE": "\n📦 تعرفه: {name}",
   "ACTIVATION_RENEW_SUCCESS": "✅ اشتراک برای {period} روز تمدید شد — {amount}",
-  "ACTIVATION_NEW_SUCCESS": "✅ اشتراک برای {period} روز فعال شد — {amount}"
+  "ACTIVATION_NEW_SUCCESS": "✅ اشتراک برای {period} روز فعال شد — {amount}",
+  "ADMIN_USERS_LIST_EMPTY": "👥 کاربری یافت نشد",
+  "ADMIN_USERS_LIST_TITLE": "👥 <b>فهرست کاربران</b> (صفحه {page}/{total_pages})\n\n",
+  "ADMIN_USERS_LIST_CAMPAIGN_EMPTY": "📢 کاربری با کمپین یافت نشد",
+  "ADMIN_USERS_MENU_BODY": "👥 <b>مدیریت کاربران</b>\n\n📊 <b>آمار:</b>\n• کل: {total_users}\n• فعال: {active_users}\n• مسدود: {blocked_users}\n\n📈 <b>کاربران جدید:</b>\n• امروز: {new_today}\n• هفته: {new_week}\n• ماه: {new_month}\n\nعملیات را انتخاب کنید:",
+  "ADMIN_USERS_FILTERS_PROMPT": "⚙️ <b>فیلتر کاربران</b>\n\nفیلتر را برای نمایش کاربران انتخاب کنید:\n",
+  "ADMIN_USERS_SEARCH_PROMPT": "🔍 <b>جستجوی کاربر</b>\n\nبرای جستجو وارد کنید:\n• شناسه تلگرام\n• نام‌کاربری (بدون @)\n• نام یا نام خانوادگی\n\nیا /cancel برای لغو",
+  "ADMIN_USER_STATS_DETAILED": "📊 <b>آمار تفصیلی کاربران</b>\n\n👥 <b>کلی:</b>\n• کل: {total_users}\n• فعال: {active_users}\n• مسدود: {blocked_users}\n\n📱 <b>اشتراک:</b>\n• با اشتراک فعال: {users_with_subscription}\n• آزمایشی: {trial_users}\n• بدون اشتراک: {users_without_subscription}\n\n💰 <b>مالی:</b>\n• میانگین موجودی: {avg_balance}\n\n📈 <b>ثبت‌نام:</b>\n• امروز: {new_today}\n• هفته: {new_week}\n• ماه: {new_month}\n\n📊 <b>فعالیت:</b>\n• نرخ تبدیل: {conversion_rate:.1f}%\n• سهم آزمایشی: {trial_share:.1f}%",
+  "ADMIN_STATS_REFRESH": "🔄 به‌روزرسانی"
 }

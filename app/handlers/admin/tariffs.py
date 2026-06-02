@@ -372,10 +372,13 @@ async def show_tariffs_list(
     # Проверяем режим продаж
     if not settings.is_tariffs_mode():
         await callback.message.edit_text(
-            '⚠️ <b>Режим тарифов отключен</b>\n\n'
-            'Для использования тарифов установите:\n'
-            '<code>SALES_MODE=tariffs</code>\n\n'
-            'Текущий режим: <code>classic</code>',
+            texts.t(
+                'ADMIN_TARIFF_MODE_DISABLED',
+                '⚠️ <b>Режим тарифов отключен</b>\n\n'
+                'Для использования тарифов установите:\n'
+                '<code>SALES_MODE=tariffs</code>\n\n'
+                'Текущий режим: <code>classic</code>',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='admin_panel')]]
             ),
@@ -388,10 +391,18 @@ async def show_tariffs_list(
 
     if not tariffs_data:
         await callback.message.edit_text(
-            '📦 <b>Тарифы</b>\n\nТарифы ещё не созданы.\nСоздайте первый тариф для начала работы.',
+            texts.t(
+                'ADMIN_TARIFF_LIST_EMPTY',
+                '📦 <b>Тарифы</b>\n\nТарифы ещё не созданы.\nСоздайте первый тариф для начала работы.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text='➕ Создать тариф', callback_data='admin_tariff_create')],
+                    [
+                        InlineKeyboardButton(
+                            text=texts.t('ADMIN_TARIFF_CREATE_BTN', '➕ Создать тариф'),
+                            callback_data='admin_tariff_create',
+                        )
+                    ],
                     [InlineKeyboardButton(text=texts.BACK, callback_data='admin_panel')],
                 ]
             ),
@@ -407,10 +418,12 @@ async def show_tariffs_list(
     active_count = sum(1 for t, _ in tariffs_data if t.is_active)
 
     await callback.message.edit_text(
-        f'📦 <b>Тарифы</b>\n\n'
-        f'Всего: {len(tariffs_data)} (активных: {active_count})\n'
-        f'Подписок на тарифах: {total_subs}\n\n'
-        'Выберите тариф для просмотра и редактирования:',
+        texts.t('ADMIN_TARIFF_LIST_TITLE', '📦 <b>Тарифы</b>\n\n')
+        + texts.t(
+            'ADMIN_TARIFF_LIST_STATS',
+            'Всего: {total} (активных: {active})\nПодписок на тарифах: {subs}\n\n',
+        ).format(total=len(tariffs_data), active=active_count, subs=total_subs)
+        + texts.t('ADMIN_TARIFF_LIST_HINT', 'Выберите тариф для просмотра и редактирования:'),
         reply_markup=get_tariffs_list_keyboard(page_data, db_user.language, 0, total_pages),
         parse_mode='HTML',
     )
@@ -425,7 +438,7 @@ async def show_tariffs_page(
     db: AsyncSession,
 ):
     """Показывает страницу списка тарифов."""
-    get_texts(db_user.language)
+    texts = get_texts(db_user.language)
     page = int(callback.data.split(':')[1])
 
     tariffs_data = await get_tariffs_with_subscriptions_count(db, include_inactive=True)
@@ -439,10 +452,15 @@ async def show_tariffs_page(
     active_count = sum(1 for t, _ in tariffs_data if t.is_active)
 
     await callback.message.edit_text(
-        f'📦 <b>Тарифы</b> (стр. {page + 1}/{total_pages})\n\n'
-        f'Всего: {len(tariffs_data)} (активных: {active_count})\n'
-        f'Подписок на тарифах: {total_subs}\n\n'
-        'Выберите тариф для просмотра и редактирования:',
+        texts.t(
+            'ADMIN_TARIFF_LIST_PAGE_TITLE',
+            '📦 <b>Тарифы</b> (стр. {page}/{total_pages})\n\n',
+        ).format(page=page + 1, total_pages=total_pages)
+        + texts.t(
+            'ADMIN_TARIFF_LIST_STATS',
+            'Всего: {total} (активных: {active})\nПодписок на тарифах: {subs}\n\n',
+        ).format(total=len(tariffs_data), active=active_count, subs=total_subs)
+        + texts.t('ADMIN_TARIFF_LIST_HINT', 'Выберите тариф для просмотра и редактирования:'),
         reply_markup=get_tariffs_list_keyboard(page_data, db_user.language, page, total_pages),
         parse_mode='HTML',
     )
