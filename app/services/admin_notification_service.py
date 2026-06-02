@@ -83,6 +83,10 @@ def _admin_notify_texts():
     return get_texts(lang)
 
 
+def _referrer_none_label() -> str:
+    return _admin_notify_texts().t('ADMIN_NOTIFY_REFERRER_NONE', 'Нет')
+
+
 class AdminNotificationService:
     def __init__(self, bot: Bot):
         self.bot = bot
@@ -112,25 +116,32 @@ class AdminNotificationService:
             self.category_enabled[cat] = getattr(settings, key, True)
 
     async def _get_referrer_info(self, db: AsyncSession, referred_by_id: int | None) -> str:
+        notify_texts = _admin_notify_texts()
         if not referred_by_id:
-            return 'Нет'
+            return _referrer_none_label()
 
         try:
             referrer = await get_user_by_id(db, referred_by_id)
             if not referrer:
-                return f'ID {referred_by_id} (не найден)'
+                return notify_texts.t('ADMIN_NOTIFY_REFERRER_NOT_FOUND', 'ID {id} (не найден)').format(
+                    id=referred_by_id
+                )
 
             if referrer.username:
-                return f'@{html.escape(referrer.username)} (ID: {referred_by_id})'
+                return notify_texts.t(
+                    'ADMIN_NOTIFY_REFERRER_USERNAME', '@{username} (ID: {id})'
+                ).format(username=html.escape(referrer.username), id=referred_by_id)
             if referrer.telegram_id:
-                return f'ID {referrer.telegram_id}'
+                return notify_texts.t('ADMIN_NOTIFY_REFERRER_TELEGRAM_ID', 'ID {telegram_id}').format(
+                    telegram_id=referrer.telegram_id
+                )
             if referrer.email:
                 return f'📧 {html.escape(referrer.email)}'
             return f'User#{referred_by_id}'
 
         except Exception as e:
             logger.error('Ошибка получения данных рефера', referred_by_id=referred_by_id, error=e)
-            return f'ID {referred_by_id}'
+            return notify_texts.t('ADMIN_NOTIFY_REFERRER_ID_ONLY', 'ID {id}').format(id=referred_by_id)
 
     async def _get_user_promo_group(self, db: AsyncSession, user: User) -> PromoGroup | None:
         if getattr(user, 'promo_group', None):
@@ -190,13 +201,14 @@ class AdminNotificationService:
 
     def _get_user_identifier_label(self, user: User) -> str:
         """Get label for user identifier (Telegram ID or Email)."""
+        notify_texts = _admin_notify_texts()
         telegram_id = getattr(user, 'telegram_id', None)
         if telegram_id:
-            return 'Telegram ID'
+            return notify_texts.t('ADMIN_NOTIFY_LABEL_TELEGRAM_ID', 'Telegram ID')
         email = getattr(user, 'email', None)
         if email:
-            return 'Email'
-        return 'ID'
+            return notify_texts.t('ADMIN_NOTIFY_LABEL_EMAIL', 'Email')
+        return notify_texts.t('ADMIN_NOTIFY_LABEL_ID', 'ID')
 
     async def _record_subscription_event(
         self,
@@ -244,17 +256,31 @@ class AdminNotificationService:
                 )
 
     def _format_promo_group_discounts(self, promo_group: PromoGroup) -> list[str]:
+        notify_texts = _admin_notify_texts()
         discount_lines: list[str] = []
 
         discount_map = {
-            'servers': ('Серверы', promo_group.server_discount_percent),
-            'traffic': ('Трафик', promo_group.traffic_discount_percent),
-            'devices': ('Устройства', promo_group.device_discount_percent),
+            'servers': (
+                notify_texts.t('ADMIN_NOTIFY_PROMO_DISCOUNT_SERVERS', 'Серверы'),
+                promo_group.server_discount_percent,
+            ),
+            'traffic': (
+                notify_texts.t('ADMIN_NOTIFY_PROMO_DISCOUNT_TRAFFIC', 'Трафик'),
+                promo_group.traffic_discount_percent,
+            ),
+            'devices': (
+                notify_texts.t('ADMIN_NOTIFY_PROMO_DISCOUNT_DEVICES', 'Устройства'),
+                promo_group.device_discount_percent,
+            ),
         }
 
         for title, percent in discount_map.values():
             if percent and percent > 0:
-                discount_lines.append(f'• {title}: -{percent}%')
+                discount_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PROMO_DISCOUNT_LINE', '• {title}: -{percent}%').format(
+                        title=title, percent=percent
+                    )
+                )
 
         period_discounts_raw = promo_group.period_discounts or {}
         period_items: list[tuple[int, int]] = []
@@ -273,13 +299,22 @@ class AdminNotificationService:
         period_items.sort(key=lambda item: item[0])
 
         if period_items:
-            formatted_periods = ', '.join(f'{days} д. — -{percent}%' for days, percent in period_items)
-            discount_lines.append(f'• Периоды: {formatted_periods}')
+            formatted_periods = ', '.join(
+                notify_texts.t('ADMIN_NOTIFY_PROMO_PERIOD_ITEM', '{days} д. — -{percent}%').format(
+                    days=days, percent=percent
+                )
+                for days, percent in period_items
+            )
+            discount_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_PROMO_PERIODS', '• Периоды: {periods}').format(periods=formatted_periods)
+            )
 
         if promo_group.apply_discounts_to_addons:
-            discount_lines.append('• Доп. услуги: ✅ скидка действует')
+            discount_lines.append(
+                notify_texts.t('ADMIN_NOTIFY_PROMO_ADDONS_YES', '• Доп. услуги: ✅ скидка действует')
+            )
         else:
-            discount_lines.append('• Доп. услуги: ❌ без скидки')
+            discount_lines.append(notify_texts.t('ADMIN_NOTIFY_PROMO_ADDONS_NO', '• Доп. услуги: ❌ без скидки'))
 
         return discount_lines
 
@@ -287,36 +322,56 @@ class AdminNotificationService:
         self,
         promo_group: PromoGroup | None,
         *,
-        title: str = 'Промогруппа',
+        title: str | None = None,
         icon: str = '🏷️',
     ) -> str:
+        notify_texts = _admin_notify_texts()
+        block_title = title or notify_texts.t('ADMIN_NOTIFY_PROMO_GROUP_TITLE', 'Промогруппа')
         if not promo_group:
-            return f'{icon} <b>{title}:</b> —'
+            return notify_texts.t('ADMIN_NOTIFY_PROMO_GROUP_EMPTY', '{icon} <b>{title}:</b> —').format(
+                icon=icon, title=block_title
+            )
 
-        lines = [f'{icon} <b>{title}:</b> {html.escape(promo_group.name)}']
+        lines = [
+            notify_texts.t('ADMIN_NOTIFY_PROMO_GROUP_NAMED', '{icon} <b>{title}:</b> {name}').format(
+                icon=icon, title=block_title, name=html.escape(promo_group.name)
+            )
+        ]
 
         discount_lines = self._format_promo_group_discounts(promo_group)
         if discount_lines:
-            lines.append('💸 <b>Скидки:</b>')
+            lines.append(notify_texts.t('ADMIN_NOTIFY_PROMO_DISCOUNTS_HEADER', '💸 <b>Скидки:</b>'))
             lines.extend(discount_lines)
         else:
-            lines.append('💸 <b>Скидки:</b> отсутствуют')
+            lines.append(notify_texts.t('ADMIN_NOTIFY_PROMO_NO_DISCOUNTS', '💸 <b>Скидки:</b> отсутствуют'))
 
         return '\n'.join(lines)
 
     def _get_promocode_type_display(self, promo_type: str | None) -> str:
+        notify_texts = _admin_notify_texts()
         mapping = {
-            PromoCodeType.BALANCE.value: '💰 Бонус на баланс',
-            PromoCodeType.SUBSCRIPTION_DAYS.value: '⏰ Доп. дни подписки',
-            PromoCodeType.TRIAL_SUBSCRIPTION.value: '🎁 Триал подписка',
-            PromoCodeType.PROMO_GROUP.value: '👥 Промогруппа',
-            PromoCodeType.DISCOUNT.value: '💸 Скидка',
+            PromoCodeType.BALANCE.value: notify_texts.t(
+                'ADMIN_NOTIFY_PROMOCODE_TYPE_BALANCE', '💰 Бонус на баланс'
+            ),
+            PromoCodeType.SUBSCRIPTION_DAYS.value: notify_texts.t(
+                'ADMIN_NOTIFY_PROMOCODE_TYPE_DAYS', '⏰ Доп. дни подписки'
+            ),
+            PromoCodeType.TRIAL_SUBSCRIPTION.value: notify_texts.t(
+                'ADMIN_NOTIFY_PROMOCODE_TYPE_TRIAL', '🎁 Триал подписка'
+            ),
+            PromoCodeType.PROMO_GROUP.value: notify_texts.t(
+                'ADMIN_NOTIFY_PROMOCODE_TYPE_GROUP', '👥 Промогруппа'
+            ),
+            PromoCodeType.DISCOUNT.value: notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_DISCOUNT', '💸 Скидка'),
         }
 
         if not promo_type:
-            return 'ℹ️ Не указан'
+            return notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_UNKNOWN', 'ℹ️ Не указан')
 
-        return mapping.get(promo_type, f'ℹ️ {promo_type}')
+        return mapping.get(
+            promo_type,
+            notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_RAW', 'ℹ️ {type}').format(type=promo_type),
+        )
 
     def _format_campaign_bonus(self, campaign: AdvertisingCampaign, *, tariff_name: str | None = None) -> list[str]:
         if campaign.is_balance_bonus:
@@ -461,7 +516,7 @@ class AdminNotificationService:
             # Реферер — только если есть
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
-                if referrer_info != 'Нет':
+                if referrer_info != _referrer_none_label():
                     message_lines.append(f'🔗 <b>Реферер:</b> {referrer_info}')
 
             message_lines.append('')
@@ -619,7 +674,7 @@ class AdminNotificationService:
             # Реферер (только если есть)
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
-                if referrer_info != 'Нет':
+                if referrer_info != _referrer_none_label():
                     message_lines.append(
                         notify_texts.t('ADMIN_NOTIFY_REF_LINE', '🔗 Реф: {referrer}').format(referrer=referrer_info)
                     )
@@ -1709,55 +1764,86 @@ class AdminNotificationService:
         return await self._send_message(text, category=NotificationCategory.INFRASTRUCTURE)
 
     def _get_payment_method_display(self, payment_method: str | None) -> str:
+        notify_texts = _admin_notify_texts()
         if not payment_method:
-            return '💰 С баланса'
+            return notify_texts.t('ADMIN_NOTIFY_PAYMENT_BALANCE', '💰 С баланса')
 
         method_names: dict[str, str] = {
-            'telegram_stars': '⭐ Telegram Stars',
-            'yookassa': '💳 YooKassa (карта)',
-            'tribute': '💎 Tribute (карта)',
-            'mulenpay': f'💳 {settings.get_mulenpay_display_name()} (карта)',
-            'pal24': f'🏦 {settings.get_pal24_display_name()} (СБП)',
-            'cryptobot': f'🪙 {settings.get_cryptobot_display_name()} (крипто)',
-            'heleket': f'🪙 {settings.get_heleket_display_name()} (крипто)',
-            'wata': f'💳 {settings.get_wata_display_name()}',
-            'platega': f'💳 {settings.get_platega_display_name()}',
-            'cloudpayments': f'💳 {settings.get_cloudpayments_display_name()}',
-            'freekassa': f'💳 {settings.get_freekassa_display_name()}',
-            'kassa_ai': f'💳 {settings.get_kassa_ai_display_name()}',
-            'manual': '🛠️ Вручную (админ)',
-            'balance': '💰 С баланса',
+            'telegram_stars': notify_texts.t('ADMIN_NOTIFY_PAYMENT_STARS', '⭐ Telegram Stars'),
+            'yookassa': notify_texts.t('ADMIN_NOTIFY_PAYMENT_YOOKASSA', '💳 YooKassa (карта)'),
+            'tribute': notify_texts.t('ADMIN_NOTIFY_PAYMENT_TRIBUTE', '💎 Tribute (карта)'),
+            'mulenpay': notify_texts.t('ADMIN_NOTIFY_PAYMENT_MULENPAY', '💳 {name} (карта)').format(
+                name=settings.get_mulenpay_display_name()
+            ),
+            'pal24': notify_texts.t('ADMIN_NOTIFY_PAYMENT_PAL24', '🏦 {name} (СБП)').format(
+                name=settings.get_pal24_display_name()
+            ),
+            'cryptobot': notify_texts.t('ADMIN_NOTIFY_PAYMENT_CRYPTO', '🪙 {name} (крипто)').format(
+                name=settings.get_cryptobot_display_name()
+            ),
+            'heleket': notify_texts.t('ADMIN_NOTIFY_PAYMENT_CRYPTO', '🪙 {name} (крипто)').format(
+                name=settings.get_heleket_display_name()
+            ),
+            'wata': notify_texts.t('ADMIN_NOTIFY_PAYMENT_GENERIC', '💳 {name}').format(
+                name=settings.get_wata_display_name()
+            ),
+            'platega': notify_texts.t('ADMIN_NOTIFY_PAYMENT_GENERIC', '💳 {name}').format(
+                name=settings.get_platega_display_name()
+            ),
+            'cloudpayments': notify_texts.t('ADMIN_NOTIFY_PAYMENT_GENERIC', '💳 {name}').format(
+                name=settings.get_cloudpayments_display_name()
+            ),
+            'freekassa': notify_texts.t('ADMIN_NOTIFY_PAYMENT_GENERIC', '💳 {name}').format(
+                name=settings.get_freekassa_display_name()
+            ),
+            'kassa_ai': notify_texts.t('ADMIN_NOTIFY_PAYMENT_GENERIC', '💳 {name}').format(
+                name=settings.get_kassa_ai_display_name()
+            ),
+            'manual': notify_texts.t('ADMIN_NOTIFY_PAYMENT_MANUAL', '🛠️ Вручную (админ)'),
+            'balance': notify_texts.t('ADMIN_NOTIFY_PAYMENT_BALANCE', '💰 С баланса'),
         }
 
-        return method_names.get(payment_method, f'💳 {html.escape(payment_method)}')
+        return method_names.get(
+            payment_method,
+            notify_texts.t('ADMIN_NOTIFY_PAYMENT_OTHER', '💳 {method}').format(method=html.escape(payment_method)),
+        )
 
     def _format_traffic(self, traffic_gb: int) -> str:
+        notify_texts = _admin_notify_texts()
         if traffic_gb == 0:
-            return '∞ Безлимит'
-        return f'{traffic_gb} ГБ'
+            return notify_texts.t('ADMIN_NOTIFY_TRAFFIC_UNLIMITED', '∞ Безлимит')
+        return notify_texts.t('ADMIN_NOTIFY_TRAFFIC_GB', '{gb} ГБ').format(gb=traffic_gb)
 
     def _get_subscription_status(self, subscription: Subscription | None) -> str:
+        notify_texts = _admin_notify_texts()
         if not subscription:
-            return '❌ Нет подписки'
+            return notify_texts.t('ADMIN_NOTIFY_SUBSCRIPTION_NONE', '❌ Нет подписки')
 
         if subscription.is_trial:
-            return f'🎯 Триал (до {format_local_datetime(subscription.end_date, "%d.%m")})'
+            return notify_texts.t('ADMIN_NOTIFY_SUBSCRIPTION_TRIAL', '🎯 Триал (до {date})').format(
+                date=format_local_datetime(subscription.end_date, '%d.%m')
+            )
         if subscription.is_active:
-            return f'✅ Активна (до {format_local_datetime(subscription.end_date, "%d.%m")})'
-        return '❌ Неактивна'
+            return notify_texts.t('ADMIN_NOTIFY_SUBSCRIPTION_ACTIVE', '✅ Активна (до {date})').format(
+                date=format_local_datetime(subscription.end_date, '%d.%m')
+            )
+        return notify_texts.t('ADMIN_NOTIFY_SUBSCRIPTION_INACTIVE', '❌ Неактивна')
 
     async def _get_servers_info(self, squad_uuids: list) -> str:
+        notify_texts = _admin_notify_texts()
         if not squad_uuids:
-            return '❌ Нет серверов'
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_NONE', '❌ Нет серверов')
 
         try:
             from app.handlers.subscription import get_servers_display_names
 
             servers_names = await get_servers_display_names(squad_uuids)
-            return f'{len(squad_uuids)} шт. ({servers_names})'
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_WITH_NAMES', '{count} шт. ({names})').format(
+                count=len(squad_uuids), names=servers_names
+            )
         except Exception as e:
             logger.warning('Не удалось получить названия серверов', error=e)
-            return f'{len(squad_uuids)} шт.'
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT', '{count} шт.').format(count=len(squad_uuids))
 
     async def send_maintenance_status_notification(
         self, event_type: str, status: str, details: dict[str, Any] = None
@@ -2060,7 +2146,7 @@ class AdminNotificationService:
             # Реферер (только если есть)
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
-                if referrer_info != 'Нет':
+                if referrer_info != _referrer_none_label():
                     message_lines.append(f'🔗 Реф: {referrer_info}')
 
             message_lines.extend(
