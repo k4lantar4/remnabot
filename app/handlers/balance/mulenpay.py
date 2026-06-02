@@ -269,14 +269,15 @@ async def process_mulenpay_payment_amount(
 
 
 @error_handler
-async def check_mulenpay_payment_status(callback: types.CallbackQuery, db: AsyncSession):
+async def check_mulenpay_payment_status(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
         payment_service = PaymentService(callback.bot)
         status_info = await payment_service.get_mulenpay_payment_status(db, local_payment_id)
 
         if not status_info:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
             return
 
         payment = status_info['payment']
@@ -317,10 +318,10 @@ async def check_mulenpay_payment_status(callback: types.CallbackQuery, db: Async
 
         if len(message_text) > 190:
             await callback.message.answer(message_text)
-            await callback.answer('ℹ️ Статус платежа отправлен в чат', show_alert=True)
+            await callback.answer(texts.t('CB_PAYMENT_STATUS_SENT_TO_CHAT', 'ℹ️ Статус платежа отправлен в чат'), show_alert=True)
         else:
             await callback.answer(message_text, show_alert=True)
 
     except Exception as e:
         logger.error('Ошибка проверки статуса', get_mulenpay_display_name=settings.get_mulenpay_display_name(), error=e)
-        await callback.answer('❌ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '❌ Ошибка проверки статуса'), show_alert=True)
