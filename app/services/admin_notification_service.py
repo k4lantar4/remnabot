@@ -2297,16 +2297,19 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
 
             # Определяем заголовок по типу операции
             update_titles = {
-                'traffic': '📊 ДОКУПКА ТРАФИКА',
-                'devices': '📱 ДОКУПКА УСТРОЙСТВ',
-                'servers': '🌐 СМЕНА СЕРВЕРОВ',
+                'traffic': notify_texts.t('ADMIN_NOTIFY_ADDON_TRAFFIC_TITLE', '📊 ДОКУПКА ТРАФИКА'),
+                'devices': notify_texts.t('ADMIN_NOTIFY_ADDON_DEVICES_TITLE', '📱 ДОКУПКА УСТРОЙСТВ'),
+                'servers': notify_texts.t('ADMIN_NOTIFY_ADDON_SERVERS_TITLE', '🌐 СМЕНА СЕРВЕРОВ'),
             }
-            title = update_titles.get(update_type, '⚙️ ИЗМЕНЕНИЕ ПОДПИСКИ')
+            title = update_titles.get(
+                update_type, notify_texts.t('ADMIN_NOTIFY_ADDON_GENERIC_TITLE', '⚙️ ИЗМЕНЕНИЕ ПОДПИСКИ')
+            )
 
             # Получаем название тарифа
             tariff_name = await self._get_tariff_name(db, subscription)
@@ -2315,7 +2318,9 @@ class AdminNotificationService:
             message_lines = [
                 f'<b>{title}</b>',
                 '',
-                f'👤 {user_display} ({user_id_display})',
+                notify_texts.t('ADMIN_NOTIFY_ADDON_USER', '👤 {user} ({user_id})').format(
+                    user=user_display, user_id=user_id_display
+                ),
             ]
 
             # Добавляем username только если есть
@@ -2325,7 +2330,9 @@ class AdminNotificationService:
 
             # Тариф (если есть)
             if tariff_name:
-                message_lines.append(f'🏷️ Тариф: <b>{tariff_name}</b>')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_TARIFF', '🏷️ Тариф: <b>{name}</b>').format(name=tariff_name)
+                )
 
             message_lines.append('')
 
@@ -2333,27 +2340,45 @@ class AdminNotificationService:
             if update_type == 'servers':
                 old_servers_info = await self._format_servers_detailed(old_value)
                 new_servers_info = await self._format_servers_detailed(new_value)
-                message_lines.append(f'🔄 {old_servers_info} → {new_servers_info}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_CHANGE', '🔄 {old} → {new}').format(
+                        old=old_servers_info, new=new_servers_info
+                    )
+                )
             elif update_type == 'traffic':
                 old_formatted = self._format_update_value(old_value, update_type)
                 new_formatted = self._format_update_value(new_value, update_type)
-                message_lines.append(f'🔄 {old_formatted} → {new_formatted}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_CHANGE', '🔄 {old} → {new}').format(
+                        old=old_formatted, new=new_formatted
+                    )
+                )
             elif update_type == 'devices':
-                message_lines.append(f'🔄 {old_value} → {new_value} устр.')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_DEVICES_CHANGE', '🔄 {old} → {new} устр.').format(
+                        old=old_value, new=new_value
+                    )
+                )
             else:
-                message_lines.append(f'🔄 {old_value} → {new_value}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_CHANGE', '🔄 {old} → {new}').format(old=old_value, new=new_value)
+                )
 
             # Стоимость операции
             if price_paid > 0:
                 message_lines.append(f'💵 <b>{settings.format_price(price_paid)}</b>')
             else:
-                message_lines.append('💸 Бесплатно')
+                message_lines.append(notify_texts.t('ADMIN_NOTIFY_ADDON_FREE', '💸 Бесплатно'))
 
             message_lines.extend(
                 [
                     '',
-                    f'📅 До {format_local_datetime(subscription.end_date, "%d.%m.%Y")}',
-                    f'💰 Баланс: {settings.format_price(user.balance_kopeks)}',
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_UNTIL', '📅 До {date}').format(
+                        date=format_local_datetime(subscription.end_date, '%d.%m.%Y')
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_ADDON_BALANCE', '💰 Баланс: {balance}').format(
+                        balance=settings.format_price(user.balance_kopeks)
+                    ),
                 ]
             )
 
@@ -2361,7 +2386,9 @@ class AdminNotificationService:
             if user.referred_by_id:
                 referrer_info = await self._get_referrer_info(db, user.referred_by_id)
                 if referrer_info != _referrer_none_label():
-                    message_lines.append(f'🔗 Реф: {referrer_info}')
+                    message_lines.append(
+                        notify_texts.t('ADMIN_NOTIFY_ADDON_REF', '🔗 Реф: {referrer}').format(referrer=referrer_info)
+                    )
 
             message_lines.extend(
                 [
@@ -2377,32 +2404,43 @@ class AdminNotificationService:
             return False
 
     async def _format_servers_detailed(self, server_uuids: list[str]) -> str:
+        notify_texts = _admin_notify_texts()
         if not server_uuids:
-            return 'Нет серверов'
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_NONE_SHORT', 'Нет серверов')
 
         try:
             from app.handlers.subscription import get_servers_display_names
 
             servers_names = await get_servers_display_names(server_uuids)
+            none_label = notify_texts.t('ADMIN_NOTIFY_SERVERS_NONE_SHORT', 'Нет серверов')
 
-            if servers_names and servers_names != 'Нет серверов':
-                return f'{len(server_uuids)} серверов ({servers_names})'
-            return f'{len(server_uuids)} серверов'
+            if servers_names and servers_names != none_label:
+                return notify_texts.t('ADMIN_NOTIFY_SERVERS_DETAILED', '{count} серверов ({names})').format(
+                    count=len(server_uuids), names=servers_names
+                )
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
+                count=len(server_uuids)
+            )
 
         except Exception as e:
             logger.warning('Ошибка получения названий серверов для уведомления', error=e)
-            return f'{len(server_uuids)} серверов'
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
+                count=len(server_uuids)
+            )
 
     def _format_update_value(self, value: Any, update_type: str) -> str:
+        notify_texts = _admin_notify_texts()
         if update_type == 'traffic':
             if value == 0:
-                return '♾ Безлимитный'
-            return f'{value} ГБ'
+                return notify_texts.t('ADMIN_NOTIFY_TRAFFIC_UNLIMITED_SHORT', '♾ Безлимитный')
+            return notify_texts.t('ADMIN_NOTIFY_TRAFFIC_GB', '{gb} ГБ').format(gb=value)
         if update_type == 'devices':
-            return f'{value} устройств'
+            return notify_texts.t('ADMIN_NOTIFY_DEVICES_COUNT', '{count} устройств').format(count=value)
         if update_type == 'servers':
             if isinstance(value, list):
-                return f'{len(value)} серверов'
+                return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
+                    count=len(value)
+                )
             return str(value)
         return str(value)
 
