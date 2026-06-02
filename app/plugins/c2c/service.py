@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from aiogram import Bot
@@ -20,6 +22,7 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_TEXT,
 )
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
+from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info
 
 
@@ -67,41 +70,48 @@ class C2cPaymentService:
         if not admin_chat_id or not self.bot:
             return False, 'C2C admin chat is not configured', None
 
+        if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
+            return False, 'Receipt text is empty', None
+
         admin_text = self._build_admin_notification_text(receipt, user)
         keyboard = get_c2c_admin_review_keyboard(receipt.id)
+        notification_service = AdminNotificationService(self.bot)
+        delivery_kwargs = notification_service.build_delivery_kwargs(
+            chat_id=admin_chat_id,
+            category=NotificationCategory.BALANCE,
+        )
+        send_kwargs: dict[str, Any] = {
+            **delivery_kwargs,
+            'parse_mode': 'HTML',
+            'reply_markup': keyboard,
+        }
 
         try:
             if receipt_type == C2C_RECEIPT_TYPE_PHOTO and receipt_file_id:
                 admin_message = await self.bot.send_photo(
-                    chat_id=admin_chat_id,
                     photo=receipt_file_id,
                     caption=admin_text,
-                    reply_markup=keyboard,
-                    parse_mode='HTML',
+                    **send_kwargs,
                 )
             elif receipt_type == C2C_RECEIPT_TYPE_DOCUMENT and receipt_file_id:
                 admin_message = await self.bot.send_document(
-                    chat_id=admin_chat_id,
                     document=receipt_file_id,
                     caption=admin_text,
-                    reply_markup=keyboard,
-                    parse_mode='HTML',
+                    **send_kwargs,
                 )
-            else:
+            elif receipt_type == C2C_RECEIPT_TYPE_TEXT:
                 body = admin_text
                 if receipt_text:
-                    body = f'{admin_text}\n\n📎 <b>Receipt:</b>\n{receipt_text}'
-                admin_message = await self.bot.send_message(
-                    chat_id=admin_chat_id,
-                    text=body,
-                    reply_markup=keyboard,
-                    parse_mode='HTML',
-                )
+                    safe_receipt = html.escape(receipt_text)
+                    body = f'{admin_text}\n\n📎 <b>Receipt:</b>\n{safe_receipt}'
+                admin_message = await self.bot.send_message(text=body, **send_kwargs)
+            else:
+                return False, 'Unsupported receipt type', None
         except Exception as error:
             logger.error('Failed to send C2C receipt to admin chat', receipt_id=receipt.id, error=error)
             return False, 'Failed to notify administrators', None
 
-        receipt.admin_chat_id = admin_chat_id
+        receipt.admin_chat_id = admin_message.chat.id
         receipt.admin_message_id = admin_message.message_id
         await db.flush()
         return True, 'OK', admin_message.message_id
