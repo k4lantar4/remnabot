@@ -1987,5 +1987,20 @@
   "CB_PAYMENT_CREATE_FAILED": "❌ ایجاد پرداخت ناموفق بود. بعداً تلاش کنید.",
   "CB_PLATEGA_NOT_CONFIGURED": "❌ Platega پیکربندی نشده",
   "CB_PAYMENT_CREATE_ERROR_GENERIC": "❌ خطا در ایجاد پرداخت. بعداً تلاش کنید.",
-  "CB_RENEWAL_ERROR": "⚠ خطا در تمدید اشتراک"
+  "CB_RENEWAL_ERROR": "⚠ خطا در تمدید اشتراک",
+  "CB_TARIFF_UNAVAILABLE": "تعرفه در دسترس نیست",
+  "CB_TARIFF_PERIOD_UNAVAILABLE": "دوره انتخاب‌شده برای این تعرفه موجود نیست",
+  "CB_INSUFFICIENT_BALANCE": "موجودی کافی نیست",
+  "CB_CUSTOM_TRAFFIC_UNAVAILABLE": "ترافیک سفارشی برای این تعرفه در دسترس نیست",
+  "CB_PERIOD_UNAVAILABLE": "دوره در دسترس نیست",
+  "CB_NOT_DAILY_TARIFF": "این تعرفه روزانه نیست",
+  "CB_INVALID_TARIFF_PRICE": "قیمت تعرفه نامعتبر است",
+  "CB_NO_TARIFFS_AVAILABLE": "تعرفه‌ای موجود نیست",
+  "CB_NO_RENEWAL_TARIFFS": "تعرفه‌ای برای تمدید موجود نیست",
+  "CB_TARIFF_NOT_FOUND": "تعرفه یافت نشد",
+  "CB_TARIFF_UPGRADE_UNAVAILABLE": "ارتقای تعرفه ممکن نیست",
+  "CB_TARIFF_DOWNGRADE_UNAVAILABLE": "کاهش تعرفه ممکن نیست",
+  "CB_CURRENT_TARIFF_NOT_FOUND": "تعرفه فعلی یافت نشد",
+  "CB_CART_DATA_CORRUPTED": "❌ داده سبد آسیب دیده",
+  "CB_TARIFF_NO_LONGER_AVAILABLE": "❌ تعرفه دیگر در دسترس نیست"
 }

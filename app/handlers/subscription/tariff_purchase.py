@@ -607,11 +607,12 @@ async def select_tariff(
     state: FSMContext,
 ):
     """Обрабатывает выбор тарифа."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # В мульти-тарифе проверяем не куплен ли уже этот тариф
@@ -777,13 +778,14 @@ async def handle_custom_days_change(
     state: FSMContext,
 ):
     """Обрабатывает изменение количества дней."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
     delta = int(parts[2])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     state_data = await state.get_data()
@@ -841,6 +843,7 @@ async def handle_custom_traffic_change(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Обрабатывает изменение количества трафика."""
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
@@ -848,7 +851,7 @@ async def handle_custom_traffic_change(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     state_data = await state.get_data()
@@ -900,11 +903,12 @@ async def handle_custom_confirm(
     state: FSMContext,
 ):
     """Подтверждает покупку тарифа с кастомными параметрами."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Lock user BEFORE price computation to prevent TOCTOU on promo offer
@@ -930,13 +934,13 @@ async def handle_custom_confirm(
 
     # Проверяем, что цена за период валидна (original_total — цена до скидок)
     if result.original_total == 0 and not tariff.can_purchase_custom_days():
-        await callback.answer('Выбранный период недоступен для этого тарифа', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_PERIOD_UNAVAILABLE', 'Выбранный период недоступен для этого тарифа'), show_alert=True)
         return
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     user_balance = db_user.balance_kopeks or 0
     if total_price > 0 and user_balance < total_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -1179,6 +1183,7 @@ async def select_tariff_period_with_traffic(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Обрабатывает выбор периода для тарифа с кастомным трафиком - показывает экран настройки трафика."""
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
@@ -1186,11 +1191,11 @@ async def select_tariff_period_with_traffic(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     if not tariff.can_purchase_custom_traffic():
-        await callback.answer('Кастомный трафик недоступен для этого тарифа', show_alert=True)
+        await callback.answer(texts.t('CB_CUSTOM_TRAFFIC_UNAVAILABLE', 'Кастомный трафик недоступен для этого тарифа'), show_alert=True)
         return
 
     user_balance = db_user.balance_kopeks or 0
@@ -1245,13 +1250,14 @@ async def select_tariff_period(
     state: FSMContext,
 ):
     """Обрабатывает выбор периода для тарифа."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
     period = int(parts[2])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Получаем скидку для выбранного периода
@@ -1360,6 +1366,7 @@ async def confirm_tariff_purchase(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Подтверждает покупку тарифа и создает подписку."""
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
@@ -1367,12 +1374,12 @@ async def confirm_tariff_purchase(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Validate period is available for this tariff
     if str(period) not in (tariff.period_prices or {}):
-        await callback.answer('Период недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_PERIOD_UNAVAILABLE', 'Период недоступен'), show_alert=True)
         return
 
     # Lock user BEFORE price computation to prevent TOCTOU on promo offer
@@ -1437,7 +1444,7 @@ async def confirm_tariff_purchase(
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
     if final_price > 0 and user_balance < final_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -1783,22 +1790,23 @@ async def confirm_daily_tariff_purchase(
     state: FSMContext,
 ):
     """Подтверждает покупку суточного тарифа."""
+    texts = get_texts(db_user.language)
 
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     is_daily = getattr(tariff, 'is_daily', False)
     if not is_daily:
-        await callback.answer('Это не суточный тариф', show_alert=True)
+        await callback.answer(texts.t('CB_NOT_DAILY_TARIFF', 'Это не суточный тариф'), show_alert=True)
         return
 
     daily_price = getattr(tariff, 'daily_price_kopeks', 0)
     if daily_price <= 0:
-        await callback.answer('Некорректная цена тарифа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_TARIFF_PRICE', 'Некорректная цена тарифа'), show_alert=True)
         return
 
     # Lock user BEFORE price computation to prevent TOCTOU on promo offer
@@ -1821,7 +1829,7 @@ async def confirm_daily_tariff_purchase(
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
     if final_daily_price > 0 and user_balance < final_daily_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -2070,6 +2078,7 @@ async def confirm_daily_tariff_purchase(
 
 def _calc_extra_devices_cost(tariff: Tariff, subscription_device_limit: int, period_days: int) -> int:
     """Рассчитывает стоимость дополнительных устройств сверх тарифа для периода."""
+    texts = get_texts(db_user.language)
     additional = max(0, subscription_device_limit - (tariff.device_limit or 1))
     if additional <= 0:
         return 0
@@ -2155,6 +2164,7 @@ async def show_tariff_extend(
     db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     """Показывает экран продления по текущему тарифу."""
     get_texts(db_user.language)
 
@@ -2204,7 +2214,7 @@ async def show_tariff_extend(
     else:
         subscription = await get_subscription_by_user_id(db, db_user.id)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
         return
 
     if not subscription.tariff_id:
@@ -2212,7 +2222,7 @@ async def show_tariff_extend(
         promo_group_id = getattr(db_user, 'promo_group_id', None)
         tariffs = await get_tariffs_for_user(db, promo_group_id)
         if not tariffs:
-            await callback.answer('Нет доступных тарифов', show_alert=True)
+            await callback.answer(texts.t('CB_NO_TARIFFS_AVAILABLE', 'Нет доступных тарифов'), show_alert=True)
             return
 
         keyboard = []
@@ -2221,7 +2231,7 @@ async def show_tariff_extend(
                 continue
             keyboard.append([InlineKeyboardButton(text=f'📦 {t.name}', callback_data=f'tariff_select:{t.id}')])
         if not keyboard:
-            await callback.answer('Нет доступных тарифов для продления', show_alert=True)
+            await callback.answer(texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True)
             return
         keyboard.append([InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
 
@@ -2237,7 +2247,7 @@ async def show_tariff_extend(
 
     tariff = await get_tariff_by_id(db, subscription.tariff_id)
     if not tariff:
-        await callback.answer('Тариф не найден', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
     # Скрытый/неактивный тариф (например, триальный после промокода) —
@@ -2247,7 +2257,7 @@ async def show_tariff_extend(
         tariffs = await get_tariffs_for_user(db, promo_group_id)
         active_tariffs = [t for t in tariffs if not t.is_daily]
         if not active_tariffs:
-            await callback.answer('Нет доступных тарифов для продления', show_alert=True)
+            await callback.answer(texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True)
             return
 
         keyboard = []
@@ -2318,7 +2328,7 @@ async def select_tariff_extend_period(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
@@ -2419,23 +2429,24 @@ async def confirm_tariff_extend(
     state: FSMContext,
 ):
     """Подтверждает продление по тарифу."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
     period = int(parts[2])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Validate period is available for this tariff
     if str(period) not in (tariff.period_prices or {}):
-        await callback.answer('Период недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_PERIOD_UNAVAILABLE', 'Период недоступен'), show_alert=True)
         return
 
     subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
         return
 
     actual_device_limit = subscription.device_limit or tariff.device_limit
@@ -2459,7 +2470,7 @@ async def confirm_tariff_extend(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
     if final_price > 0 and user_balance < final_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -2614,6 +2625,7 @@ def format_tariff_switch_list_text(
     has_period_discounts: bool = False,
 ) -> str:
     """Форматирует текст со списком тарифов для переключения."""
+    texts = get_texts(db_user.language)
     lines = [
         '📦 <b>Смена тарифа</b>',
         f'📌 Текущий: <b>{current_tariff_name}</b>',
@@ -2861,11 +2873,12 @@ async def select_tariff_switch(
     state: FSMContext,
 ):
     """Обрабатывает выбор тарифа для переключения."""
+    texts = get_texts(db_user.language)
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Проверяем разрешение на смену в данном направлении
@@ -2880,10 +2893,10 @@ async def select_tariff_switch(
             )
             _, is_up = _calculate_instant_switch_cost(cur_tariff_sw, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer('Повышение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer('Понижение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
                 return
 
     traffic = format_traffic(tariff.traffic_limit_gb)
@@ -2957,6 +2970,8 @@ async def select_tariff_switch(
     else:
         # Для обычного тарифа показываем выбор периода
         info_text = f"""📦 <b>{html.escape(tariff.name)}</b>
+    texts = get_texts(db_user.language)
+    texts = get_texts(db_user.language)
 
 <b>Параметры нового тарифа:</b>
 • Трафик: {traffic}
@@ -2985,6 +3000,7 @@ async def select_tariff_switch_period(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Обрабатывает выбор периода для переключения тарифа."""
 
     parts = callback.data.split(':')
@@ -2993,7 +3009,7 @@ async def select_tariff_switch_period(
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     data = await state.get_data()
@@ -3083,18 +3099,19 @@ async def confirm_tariff_switch(
     state: FSMContext,
 ):
     """Подтверждает переключение тарифа."""
+    texts = get_texts(db_user.language)
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
     period = int(parts[2])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Validate period is available for this tariff
     if str(period) not in (tariff.period_prices or {}):
-        await callback.answer('Период недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_PERIOD_UNAVAILABLE', 'Период недоступен'), show_alert=True)
         return
 
     from app.database.crud.user import lock_user_for_pricing
@@ -3104,7 +3121,7 @@ async def confirm_tariff_switch(
     # Проверяем наличие подписки (switched FROM — resolved via FSM state)
     subscription, _sw_confirm_sub_id = await _resolve_subscription(callback, db_user, db, state)
     if not subscription:
-        await callback.answer('У вас нет активной подписки', show_alert=True)
+        await callback.answer(texts.t('NO_ACTIVE_SUBSCRIPTION', 'У вас нет активной подписки'), show_alert=True)
         return
 
     # Проверяем разрешение на смену в данном направлении
@@ -3114,10 +3131,10 @@ async def confirm_tariff_switch(
             rem_days = max(0, (subscription.end_date - datetime.now(UTC)).days) if subscription.end_date else 0
             _, is_up = _calculate_instant_switch_cost(cur_tariff_obj, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer('Повышение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer('Понижение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
                 return
 
     # Calculate price via PricingEngine (handles per-category discounts + extra devices)
@@ -3137,7 +3154,7 @@ async def confirm_tariff_switch(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
     if final_price > 0 and user_balance < final_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -3337,22 +3354,23 @@ async def confirm_daily_tariff_switch(
     state: FSMContext,
 ):
     """Подтверждает смену на суточный тариф."""
+    texts = get_texts(db_user.language)
 
     tariff_id = int(callback.data.split(':')[1])
     tariff = await get_tariff_by_id(db, tariff_id)
 
     if not tariff or not tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     is_daily = getattr(tariff, 'is_daily', False)
     if not is_daily:
-        await callback.answer('Это не суточный тариф', show_alert=True)
+        await callback.answer(texts.t('CB_NOT_DAILY_TARIFF', 'Это не суточный тариф'), show_alert=True)
         return
 
     daily_price = getattr(tariff, 'daily_price_kopeks', 0)
     if daily_price <= 0:
-        await callback.answer('Некорректная цена тарифа', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_TARIFF_PRICE', 'Некорректная цена тарифа'), show_alert=True)
         return
 
     # Lock user BEFORE price computation to prevent TOCTOU on promo offer
@@ -3375,13 +3393,13 @@ async def confirm_daily_tariff_switch(
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
     if final_daily_price > 0 and user_balance < final_daily_price:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Проверяем наличие подписки — ищем подписку FROM (текущую), не TO (новый тариф)
     subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
     if not subscription:
-        await callback.answer('У вас нет активной подписки', show_alert=True)
+        await callback.answer(texts.t('NO_ACTIVE_SUBSCRIPTION', 'У вас нет активной подписки'), show_alert=True)
         return
 
     # Проверяем разрешение на смену в данном направлении
@@ -3391,10 +3409,10 @@ async def confirm_daily_tariff_switch(
             rem_days = max(0, (subscription.end_date - datetime.now(UTC)).days) if subscription.end_date else 0
             _, is_up = _calculate_instant_switch_cost(cur_tariff_daily, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer('Повышение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer('Понижение тарифа недоступно', show_alert=True)
+                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
                 return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -3624,6 +3642,7 @@ def _calculate_instant_switch_cost(
     db_user: User | None = None,
 ) -> tuple[int, bool]:
     """Рассчитывает стоимость мгновенного переключения тарифа.
+    texts = get_texts(db_user.language)
 
     Делегирует расчёт в PricingEngine.calculate_tariff_switch_cost().
     Returns:
@@ -3795,7 +3814,7 @@ async def show_instant_switch_list(
     # Получаем текущий тариф
     current_tariff = await get_tariff_by_id(db, subscription.tariff_id)
     if not current_tariff:
-        await callback.answer('Текущий тариф не найден', show_alert=True)
+        await callback.answer(texts.t('CB_CURRENT_TARIFF_NOT_FOUND', 'Текущий тариф не найден'), show_alert=True)
         return
 
     # Рассчитываем оставшиеся дни
@@ -3881,13 +3900,14 @@ async def preview_instant_switch(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Показывает превью мгновенного переключения тарифа."""
 
     tariff_id = int(callback.data.split(':')[1])
     new_tariff = await get_tariff_by_id(db, tariff_id)
 
     if not new_tariff or not new_tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Получаем данные из состояния
@@ -3898,13 +3918,13 @@ async def preview_instant_switch(
     # Resolve the subscription being switched FROM (via FSM state active_subscription_id)
     subscription, _isw_sub_id = await _resolve_subscription(callback, db_user, db, state)
     if not subscription or not subscription.tariff_id:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
         return
 
     current_tariff_id = current_tariff_id or subscription.tariff_id
     current_tariff = await get_tariff_by_id(db, current_tariff_id)
     if not current_tariff:
-        await callback.answer('Текущий тариф не найден', show_alert=True)
+        await callback.answer(texts.t('CB_CURRENT_TARIFF_NOT_FOUND', 'Текущий тариф не найден'), show_alert=True)
         return
 
     if not remaining_days and subscription.end_date:
@@ -3915,10 +3935,10 @@ async def preview_instant_switch(
 
     # Проверяем разрешение на смену в данном направлении
     if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-        await callback.answer('Повышение тарифа недоступно', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
         return
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        await callback.answer('Понижение тарифа недоступно', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
         return
 
     # Проверяем баланс
@@ -4056,19 +4076,20 @@ async def confirm_instant_switch(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     """Подтверждает мгновенное переключение тарифа."""
 
     tariff_id = int(callback.data.split(':')[1])
     new_tariff = await get_tariff_by_id(db, tariff_id)
 
     if not new_tariff or not new_tariff.is_active:
-        await callback.answer('Тариф недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
     # Проверяем подписку (switched FROM — resolved via FSM state)
     subscription, _isw_confirm_sub_id = await _resolve_subscription(callback, db_user, db, state)
     if not subscription:
-        await callback.answer('Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
         return
 
     from app.database.crud.user import lock_user_for_pricing
@@ -4078,7 +4099,7 @@ async def confirm_instant_switch(
     # Recompute upgrade_cost under lock (FSM-stored value may be stale)
     current_tariff = await get_tariff_by_id(db, subscription.tariff_id) if subscription.tariff_id else None
     if not current_tariff:
-        await callback.answer('Текущий тариф не найден', show_alert=True)
+        await callback.answer(texts.t('CB_CURRENT_TARIFF_NOT_FOUND', 'Текущий тариф не найден'), show_alert=True)
         return
     remaining_days = max(0, (subscription.end_date - datetime.now(UTC)).days) if subscription.end_date else 0
 
@@ -4097,16 +4118,16 @@ async def confirm_instant_switch(
 
     # Проверяем разрешение на смену в данном направлении
     if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-        await callback.answer('Повышение тарифа недоступно', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
         return
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        await callback.answer('Понижение тарифа недоступно', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
         return
 
     # Проверяем баланс если это upgrade (use locked user's fresh balance)
     user_balance = db_user.balance_kopeks or 0
     if is_upgrade and user_balance < upgrade_cost:
-        await callback.answer('Недостаточно средств на балансе', show_alert=True)
+        await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -4400,12 +4421,12 @@ async def return_to_saved_tariff_cart(
     tariff_id = cart_data.get('tariff_id')
 
     if not tariff_id:
-        await callback.answer('❌ Данные корзины повреждены', show_alert=True)
+        await callback.answer(texts.t('CB_CART_DATA_CORRUPTED', '❌ Данные корзины повреждены'), show_alert=True)
         return
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
-        await callback.answer('❌ Тариф больше недоступен', show_alert=True)
+        await callback.answer(texts.t('CB_TARIFF_NO_LONGER_AVAILABLE', '❌ Тариф больше недоступен'), show_alert=True)
         # Очищаем корзину (per-subscription в multi-tariff)
         _cart_sub_id = cart_data.get('subscription_id')
         if _cart_sub_id and settings.is_multi_tariff_enabled():
@@ -4546,7 +4567,7 @@ async def return_to_saved_tariff_cart(
             parse_mode='HTML',
         )
 
-    await callback.answer('✅ Корзина восстановлена!')
+    await callback.answer(texts.t('CB_CART_RESTORED', '✅ Корзина восстановлена!'))
 
 
 def register_tariff_purchase_handlers(dp: Dispatcher):
