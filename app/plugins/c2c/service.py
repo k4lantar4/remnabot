@@ -22,7 +22,11 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_TEXT,
 )
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
-from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
+from app.services.admin_notification_service import (
+    AdminNotificationService,
+    NotificationCategory,
+    send_with_admin_topic_fallback,
+)
 from app.utils.user_utils import format_referrer_info
 
 
@@ -88,23 +92,32 @@ class C2cPaymentService:
 
         try:
             if receipt_type == C2C_RECEIPT_TYPE_PHOTO and receipt_file_id:
-                admin_message = await self.bot.send_photo(
-                    photo=receipt_file_id,
-                    caption=admin_text,
-                    **send_kwargs,
+                admin_message = await send_with_admin_topic_fallback(
+                    lambda kw: self.bot.send_photo(
+                        photo=receipt_file_id,
+                        caption=admin_text,
+                        **kw,
+                    ),
+                    send_kwargs,
                 )
             elif receipt_type == C2C_RECEIPT_TYPE_DOCUMENT and receipt_file_id:
-                admin_message = await self.bot.send_document(
-                    document=receipt_file_id,
-                    caption=admin_text,
-                    **send_kwargs,
+                admin_message = await send_with_admin_topic_fallback(
+                    lambda kw: self.bot.send_document(
+                        document=receipt_file_id,
+                        caption=admin_text,
+                        **kw,
+                    ),
+                    send_kwargs,
                 )
             elif receipt_type == C2C_RECEIPT_TYPE_TEXT:
                 body = admin_text
                 if receipt_text:
                     safe_receipt = html.escape(receipt_text)
                     body = f'{admin_text}\n\n📎 <b>Receipt:</b>\n{safe_receipt}'
-                admin_message = await self.bot.send_message(text=body, **send_kwargs)
+                admin_message = await send_with_admin_topic_fallback(
+                    lambda kw: self.bot.send_message(text=body, **kw),
+                    send_kwargs,
+                )
             else:
                 return False, 'Unsupported receipt type', None
         except Exception as error:
