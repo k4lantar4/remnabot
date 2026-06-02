@@ -278,7 +278,7 @@ async def start_pal24_payment(
         return
 
     if not settings.is_pal24_enabled():
-        await callback.answer('❌ Оплата через PayPalych временно недоступна', show_alert=True)
+        await callback.answer(texts.t('CB_PAL24_PAYMENT_UNAVAILABLE', '❌ Оплата через PayPalych временно недоступна'), show_alert=True)
         return
 
     # Формируем текст сообщения в зависимости от доступных способов оплаты
@@ -470,15 +470,17 @@ async def handle_pal24_method_selection(
 @error_handler
 async def check_pal24_payment_status(
     callback: types.CallbackQuery,
+    db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
         payment_service = PaymentService(callback.bot)
         status_info = await payment_service.get_pal24_payment_status(db, local_payment_id)
 
         if not status_info:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'), show_alert=True)
             return
 
         payment = status_info['payment']
@@ -655,4 +657,4 @@ async def check_pal24_payment_status(
 
     except Exception as e:
         logger.error('Ошибка проверки статуса PayPalych', error=e)
-        await callback.answer('❌ Ошибка проверки статуса', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_STATUS_CHECK_ERROR', '❌ Ошибка проверки статуса'), show_alert=True)
