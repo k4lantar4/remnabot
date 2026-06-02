@@ -116,12 +116,22 @@ async def _check_restriction_topup(callback: types.CallbackQuery, db_user: User)
     support_url = settings.get_support_contact_url()
     keyboard: list[list[types.InlineKeyboardButton]] = []
     if support_url:
-        keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+        keyboard.append(
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('BALANCE_RESTRICTED_APPEAL_BTN', '🆘 Обжаловать'),
+                    url=support_url,
+                )
+            ]
+        )
     keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')])
 
     await callback.message.edit_text(
-        f'🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n'
-        'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+        texts.t('BALANCE_RESTRICTED_TITLE', '🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n').format(reason=reason)
+        + texts.t(
+            'BALANCE_RESTRICTED_BODY',
+            'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+        ),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
     await callback.answer()
@@ -185,10 +195,21 @@ async def process_c2c_payment_amount(
         support_url = settings.get_support_contact_url()
         keyboard: list[list[types.InlineKeyboardButton]] = []
         if support_url:
-            keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+            keyboard.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('BALANCE_RESTRICTED_APPEAL_BTN', '🆘 Обжаловать'),
+                        url=support_url,
+                    )
+                ]
+            )
         keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')])
         await message.answer(
-            f'🚫 <b>Пополнение ограничено</b>\n\n{reason}',
+            texts.t('BALANCE_RESTRICTED_TITLE', '🚫 <b>Пополнение ограничено</b>\n\n{reason}\n\n').format(reason=reason)
+            + texts.t(
+                'BALANCE_RESTRICTED_BODY',
+                'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            ),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
             parse_mode='HTML',
         )
