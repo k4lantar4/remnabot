@@ -563,7 +563,7 @@ def _build_cabinet_main_menu_keyboard(
 
     # -- Moderator panel (only when not admin — admin row handled above) --
     if is_moderator and not is_admin:
-        keyboard_rows.append([InlineKeyboardButton(text='🧑‍⚖️ Модерация', callback_data='moderator_panel')])
+        keyboard_rows.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
@@ -799,7 +799,7 @@ def get_main_menu_keyboard(
         logger.debug('DEBUG KEYBOARD: Админ кнопка НЕ добавлена')
     # Moderator access (limited support panel)
     if (not is_admin) and is_moderator:
-        keyboard.append([InlineKeyboardButton(text='🧑‍⚖️ Модерация', callback_data='moderator_panel')])
+        keyboard.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -1267,7 +1267,7 @@ def get_payment_methods_keyboard_with_cart(
 
     # Добавляем кнопку "Очистить корзину"
     keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text='🗑️ Очистить корзину и вернуться', callback_data='clear_saved_cart')]
+        [InlineKeyboardButton(text=texts.t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'), callback_data='clear_saved_cart')]
     )
 
     # Добавляем кнопку возврата к оформлению подписки
@@ -1285,8 +1285,8 @@ def get_subscription_confirm_keyboard_with_cart(language: str = 'ru') -> InlineK
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='✅ Подтвердить покупку', callback_data='subscription_confirm')],
-            [InlineKeyboardButton(text='🗑️ Очистить корзину', callback_data='clear_saved_cart')],
+            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'), callback_data='subscription_confirm')],
+            [InlineKeyboardButton(text=texts.t('CLEAR_CART_BUTTON', '🗑️ Очистить корзину'), callback_data='clear_saved_cart')],
             [
                 InlineKeyboardButton(
                     text=texts.BACK,
