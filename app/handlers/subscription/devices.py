@@ -128,20 +128,23 @@ async def get_servers_display_names(squad_uuids: list[str], language: str | None
 
         if not server_names:
             if len(squad_uuids) == 1:
-                return '🎯 Тестовый сервер'
-            return f'{len(squad_uuids)} стран'
+                return texts.t('SUBSCRIPTION_TEST_SERVER', '🎯 Тестовый сервер')
+            return texts.t('SUBSCRIPTION_SERVERS_COUNT', '{count} стран').format(count=len(squad_uuids))
 
         if len(server_names) > 6:
             displayed = ', '.join(server_names[:6])
             remaining = len(server_names) - 6
-            return f'{displayed} и ещё {remaining}'
+            return texts.t(
+                'SUBSCRIPTION_SERVERS_AND_MORE',
+                '{displayed} и ещё {remaining}',
+            ).format(displayed=displayed, remaining=remaining)
         return ', '.join(server_names)
 
     except Exception as e:
         logger.error('Ошибка получения названий серверов', error=e)
         if len(squad_uuids) == 1:
-            return '🎯 Тестовый сервер'
-        return f'{len(squad_uuids)} стран'
+            return texts.t('SUBSCRIPTION_TEST_SERVER', '🎯 Тестовый сервер')
+        return texts.t('SUBSCRIPTION_SERVERS_COUNT', '{count} стран').format(count=len(squad_uuids))
 
 
 async def get_current_devices_count(db_user: User, subscription=None) -> str:
@@ -376,7 +379,11 @@ async def confirm_change_devices(
         )
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_ONE_DAY', '1 день')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_DAYS', '{days} дн.').format(days=charged_days)
+        )
 
         if price > 0 and db_user.balance_kopeks < price:
             missing_kopeks = price - db_user.balance_kopeks
@@ -933,7 +940,7 @@ async def show_devices_page(
             ).format(device=html_mod.escape(device_info))
 
     devices_text += texts.t(
-        'DEVICE_MANAGEMENT_ACTIONS',
+        'DEVICE_MANAGEMENT_ACTIONS_RENAME',
         (
             '\n💡 <b>Действия:</b>\n'
             '• ✏️ — переименовать устройство (видно только вам)\n'
@@ -1546,7 +1553,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_ONE_DAY', '1 день')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_DAYS', '{days} дн.').format(days=charged_days)
+        )
     else:
         # Для обычных тарифов - по дням (как в кабинете)
         now = datetime.now(UTC)
@@ -1565,7 +1576,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_ONE_DAY', '1 день')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_DAYS', '{days} дн.').format(days=charged_days)
+        )
 
     logger.info(
         'Добавление устройств: ₽/мес × = ₽ (скидка ₽)',

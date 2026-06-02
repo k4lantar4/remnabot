@@ -2294,5 +2294,22 @@
   "TRAFFIC_SWITCH_ACTION_INCREASE": "افزایش به {limit}",
   "TRAFFIC_SWITCH_ACTION_DECREASE": "کاهش به {limit}",
   "TRAFFIC_SWITCH_COST_SURCHARGE": "مابه‌التفاوت: {price}{period}",
-  "TRAFFIC_SWITCH_NO_REFUND": "بازپرداخت ندارد"
+  "TRAFFIC_SWITCH_NO_REFUND": "بازپرداخت ندارد",
+  "SUBSCRIPTION_TEST_SERVER": "🎯 سرور آزمایشی",
+  "SUBSCRIPTION_SERVERS_COUNT": "{count} کشور",
+  "SUBSCRIPTION_SERVERS_AND_MORE": "{displayed} و {remaining} مورد دیگر",
+  "ADDON_PERIOD_ONE_DAY": "۱ روز",
+  "ADDON_PERIOD_DAYS": "{days} روز",
+  "ADDON_PERIOD_FOR_ONE_DAY": " (برای ۱ روز)",
+  "ADDON_PERIOD_FOR_DAYS": " (برای {days} روز)",
+  "DEVICE_RENAME_PROMPT": "✏️ <b>نام جدید دستگاه</b>\n\nفعلی: <code>{current}</code>\n\nنام جدید (حداکثر {max_len} کاراکتر).\nبرای حذف نام «-» یا <code>/clear</code> بفرستید.\nلغو — /cancel",
+  "DEVICE_RENAME_CANCEL_BTN": "✖️ لغو",
+  "DEVICE_MANAGEMENT_ACTIONS_RENAME": "\n💡 <b>عملیات:</b>\n• ✏️ — تغییر نام (فقط برای شما)\n• 🔄 — بازنشانی دستگاه\n• یا همه را یکجا بازنشانی کنید",
+  "MY_SUB_STATUS_SUFFIX_EXPIRED": " — منقضی",
+  "MY_SUB_STATUS_SUFFIX_DISABLED": " — غیرفعال",
+  "MY_SUB_STATUS_SUFFIX_LIMITED": " — سقف ترافیک",
+  "MY_SUB_STATUS_SUFFIX_UNTIL": " — تا {end_date} ({days} روز)",
+  "MAIN_MENU_TARIFF_LINE": "\n📦 تعرفه: {name}",
+  "ACTIVATION_RENEW_SUCCESS": "✅ اشتراک برای {period} روز تمدید شد — {amount}",
+  "ACTIVATION_NEW_SUCCESS": "✅ اشتراک برای {period} روز فعال شد — {amount}"
 }
