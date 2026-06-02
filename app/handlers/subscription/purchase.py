@@ -55,6 +55,7 @@ from app.services.trial_activation_service import (
 )
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
+from app.utils.formatting import format_traffic
 
 
 logger = structlog.get_logger(__name__)
@@ -909,7 +910,10 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
             except Exception as e:
                 logger.error('Ошибка получения триального тарифа для платного триала', error=e)
 
-        traffic_label = 'Безлимит' if paid_trial_traffic == 0 else f'{paid_trial_traffic} ГБ'
+        if paid_trial_traffic == 0:
+            traffic_label = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимит')
+        else:
+            traffic_label = format_traffic(paid_trial_traffic, db_user.language)
 
         message_lines = [
             texts.t('PAID_TRIAL_HEADER', '⚡ <b>Пробная подписка</b>'),
@@ -1643,12 +1647,18 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
             traffic_value = prepared_cart_data.get('traffic_limit_gb')
         if traffic_value is None:
             traffic_value = settings.get_fixed_traffic_limit()
-        traffic_display = 'Безлимитный' if traffic_value == 0 else f'{traffic_value} ГБ'
+        if traffic_value == 0:
+            traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
+        else:
+            traffic_display = format_traffic(traffic_value, db_user.language)
     else:
         traffic_value = prepared_cart_data.get('traffic_gb')
         if traffic_value is None:
             traffic_value = prepared_cart_data.get('traffic_limit_gb', 0)
-        traffic_display = 'Безлимитный' if traffic_value == 0 else f'{traffic_value} ГБ'
+        if traffic_value == 0:
+            traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
+        else:
+            traffic_display = format_traffic(traffic_value, db_user.language)
 
     summary_lines = [
         '🛒 Восстановленная корзина',
@@ -3816,7 +3826,10 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             await callback.answer(texts.t('CB_ORDER_PREPARE_FAILED', '❌ Не удалось подготовить заказ. Попробуйте позже.'), show_alert=True)
             return
 
-        traffic_label = 'Безлимит' if trial_traffic == 0 else f'{trial_traffic} ГБ'
+        if trial_traffic == 0:
+            traffic_label = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимит')
+        else:
+            traffic_label = format_traffic(trial_traffic, db_user.language)
 
         if payment_method == 'stars':
             # Оплата через Telegram Stars
@@ -4489,9 +4502,10 @@ async def handle_simple_subscription_purchase(
         price_breakdown_4=price_breakdown.get('servers_price', 0),
         price_breakdown_5=price_breakdown.get('total_discount', 0),
     )
-    traffic_text = (
-        'Безлимит' if subscription_params['traffic_limit_gb'] == 0 else f'{subscription_params["traffic_limit_gb"]} ГБ'
-    )
+    if subscription_params['traffic_limit_gb'] == 0:
+        traffic_text = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимит')
+    else:
+        traffic_text = format_traffic(subscription_params['traffic_limit_gb'], db_user.language)
 
     if user_balance_kopeks >= price_kopeks:
         # Если баланс достаточный, предлагаем оплатить с баланса
