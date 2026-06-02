@@ -450,27 +450,56 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text='🛒 Вернуться к оформлению подписки', callback_data='return_to_saved_cart'
+                            text=texts.t(
+                                'RETURN_TO_SUBSCRIPTION_CHECKOUT',
+                                '⬅️ Вернуться к оформлению подписки',
+                            ),
+                            callback_data='return_to_saved_cart',
                         )
                     ],
-                    [types.InlineKeyboardButton(text='💰 Мой баланс', callback_data='menu_balance')],
-                    [types.InlineKeyboardButton(text='🏠 Главное меню', callback_data='back_to_menu')],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('MY_BALANCE_BUTTON', '💰 Мой баланс'),
+                            callback_data='menu_balance',
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('MAIN_MENU_BUTTON', '🏠 Главное меню'),
+                            callback_data='back_to_menu',
+                        )
+                    ],
                 ]
             )
 
             if 0 < total_price <= user.balance_kopeks:
-                balance_hint = 'Средств на балансе достаточно для оформления.'
+                success_text = texts.t(
+                    'BALANCE_TOPPED_UP_CART_SUFFICIENT',
+                    '✅ Баланс пополнен на {amount}!\n\n💰 Текущий баланс: {balance}\n\n'
+                    '🛒 У вас есть сохранённая корзина на {cart_total}\n'
+                    'Средств на балансе достаточно для оформления.',
+                ).format(
+                    amount=texts.format_price(amount_kopeks),
+                    balance=texts.format_price(user.balance_kopeks),
+                    cart_total=texts.format_price(total_price),
+                )
             else:
                 missing = max(total_price - user.balance_kopeks, 0)
-                # Без округления, иначе при не хватке <50 копеек покажется «0 ₽».
-                balance_hint = f'Не хватает: {texts.format_price(missing, round_kopeks=False)}'
+                success_text = texts.t(
+                    'BALANCE_TOPPED_UP_CART_INSUFFICIENT',
+                    '✅ Баланс пополнен на {amount}!\n\n💰 Текущий баланс: {balance}\n\n'
+                    '🛒 У вас есть сохранённая корзина на {cart_total}\n'
+                    'Не хватает: {missing}',
+                ).format(
+                    amount=texts.format_price(amount_kopeks),
+                    balance=texts.format_price(user.balance_kopeks),
+                    cart_total=texts.format_price(total_price),
+                    missing=texts.format_price(missing, round_kopeks=False),
+                )
 
-            success_text = (
-                f'✅ Баланс пополнен на {texts.format_price(amount_kopeks)}!\n\n'
-                f'💰 Текущий баланс: {texts.format_price(user.balance_kopeks)}\n\n'
-                f'🛒 У вас есть сохранённая корзина на {texts.format_price(total_price)}\n'
-                f'{balance_hint}\n\n'
-                f'Хотите продолжить оформление?'
+            success_text += '\n\n' + texts.t(
+                'BALANCE_TOPPED_UP_CART_PROMPT',
+                'Хотите продолжить оформление?',
             )
 
             await bot.send_message(
@@ -553,14 +582,20 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
         if payment_method != 'c2c':
             if amount_rubles < 1:
                 await message.answer(
-                    'Минимальная сумма пополнения: 1 ₽',
+                    texts.t(
+                        'TOPUP_AMOUNT_MIN',
+                        'Минимальная сумма пополнения: {amount}',
+                    ).format(amount=texts.format_price(100)),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return
 
             if amount_rubles > 50000:
                 await message.answer(
-                    'Максимальная сумма пополнения: 50,000 ₽',
+                    texts.t(
+                        'TOPUP_AMOUNT_MAX',
+                        'Максимальная сумма пополнения: {amount}',
+                    ).format(amount=texts.format_price(5_000_000)),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return
@@ -604,7 +639,10 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
                 return
 
         if not await route_payment_by_method(message, db_user, amount_kopeks, state, payment_method):
-            await message.answer('Неизвестный способ оплаты')
+            await message.answer(
+                texts.t('CB_UNKNOWN_PAYMENT_METHOD', '❌ Неизвестный способ оплаты'),
+                reply_markup=get_back_keyboard(db_user.language),
+            )
 
     except ValueError:
         await message.answer(texts.INVALID_AMOUNT, reply_markup=get_back_keyboard(db_user.language))
