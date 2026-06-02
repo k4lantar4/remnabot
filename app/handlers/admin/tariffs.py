@@ -61,16 +61,21 @@ def _parse_period_prices(text: str) -> dict[str, int]:
     return prices
 
 
-def _format_period_prices_display(prices: dict[str, int]) -> str:
+def _format_period_prices_display(prices: dict[str, int], language: str) -> str:
     """Форматирует цены периодов для отображения."""
+    texts = get_texts(language)
     if not prices:
-        return 'Не заданы'
+        return texts.t('ADMIN_TARIFF_PRICES_NOT_SET', 'Не заданы')
 
     lines = []
     for period_str in sorted(prices.keys(), key=int):
         period = int(period_str)
         price = prices[period_str]
-        lines.append(f'  • {format_period(period)}: {format_price_kopeks(price)}')
+        lines.append(
+            texts.t('ADMIN_TARIFF_PERIOD_PRICE_LINE', '  • {period}: {price}').format(
+                period=format_period(period), price=settings.format_price(price)
+            )
+        )
 
     return '\n'.join(lines)
 
@@ -138,14 +143,26 @@ def get_tariff_view_keyboard(
     # Редактирование полей
     buttons.append(
         [
-            InlineKeyboardButton(text='✏️ Название', callback_data=f'admin_tariff_edit_name:{tariff.id}'),
-            InlineKeyboardButton(text='📝 Описание', callback_data=f'admin_tariff_edit_desc:{tariff.id}'),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_NAME', '✏️ Название'),
+                callback_data=f'admin_tariff_edit_name:{tariff.id}',
+            ),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_DESC', '📝 Описание'),
+                callback_data=f'admin_tariff_edit_desc:{tariff.id}',
+            ),
         ]
     )
     buttons.append(
         [
-            InlineKeyboardButton(text='📊 Трафик', callback_data=f'admin_tariff_edit_traffic:{tariff.id}'),
-            InlineKeyboardButton(text='📱 Устройства', callback_data=f'admin_tariff_edit_devices:{tariff.id}'),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_TRAFFIC', '📊 Трафик'),
+                callback_data=f'admin_tariff_edit_traffic:{tariff.id}',
+            ),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_DEVICES', '📱 Устройства'),
+                callback_data=f'admin_tariff_edit_devices:{tariff.id}',
+            ),
         ]
     )
     # Цены за периоды только для обычных тарифов (не суточных)
@@ -153,47 +170,71 @@ def get_tariff_view_keyboard(
     if not is_daily:
         buttons.append(
             [
-                InlineKeyboardButton(text='💰 Цены', callback_data=f'admin_tariff_edit_prices:{tariff.id}'),
-                InlineKeyboardButton(text='🎚️ Уровень', callback_data=f'admin_tariff_edit_tier:{tariff.id}'),
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_PRICES', '💰 Цены'),
+                    callback_data=f'admin_tariff_edit_prices:{tariff.id}',
+                ),
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_TIER', '🎚️ Уровень'),
+                    callback_data=f'admin_tariff_edit_tier:{tariff.id}',
+                ),
             ]
         )
     else:
         buttons.append(
             [
-                InlineKeyboardButton(text='🎚️ Уровень', callback_data=f'admin_tariff_edit_tier:{tariff.id}'),
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_TIER', '🎚️ Уровень'),
+                    callback_data=f'admin_tariff_edit_tier:{tariff.id}',
+                ),
             ]
         )
     buttons.append(
         [
             InlineKeyboardButton(
-                text='📱💰 Цена за устройство', callback_data=f'admin_tariff_edit_device_price:{tariff.id}'
+                text=texts.t('ADMIN_TARIFF_BTN_DEVICE_PRICE', '📱💰 Цена за устройство'),
+                callback_data=f'admin_tariff_edit_device_price:{tariff.id}',
             ),
             InlineKeyboardButton(
-                text='📱🔒 Макс. устройств', callback_data=f'admin_tariff_edit_max_devices:{tariff.id}'
+                text=texts.t('ADMIN_TARIFF_BTN_MAX_DEVICES', '📱🔒 Макс. устройств'),
+                callback_data=f'admin_tariff_edit_max_devices:{tariff.id}',
             ),
-        ]
-    )
-    buttons.append(
-        [
-            InlineKeyboardButton(text='⏰ Дни триала', callback_data=f'admin_tariff_edit_trial_days:{tariff.id}'),
         ]
     )
     buttons.append(
         [
             InlineKeyboardButton(
-                text='📈 Докупка трафика', callback_data=f'admin_tariff_edit_traffic_topup:{tariff.id}'
+                text=texts.t('ADMIN_TARIFF_BTN_TRIAL_DAYS', '⏰ Дни триала'),
+                callback_data=f'admin_tariff_edit_trial_days:{tariff.id}',
             ),
         ]
     )
     buttons.append(
         [
-            InlineKeyboardButton(text='🔄 Сброс трафика', callback_data=f'admin_tariff_edit_reset_mode:{tariff.id}'),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_TRAFFIC_TOPUP', '📈 Докупка трафика'),
+                callback_data=f'admin_tariff_edit_traffic_topup:{tariff.id}',
+            ),
         ]
     )
     buttons.append(
         [
-            InlineKeyboardButton(text='🌐 Серверы', callback_data=f'admin_tariff_edit_squads:{tariff.id}'),
-            InlineKeyboardButton(text='👥 Промогруппы', callback_data=f'admin_tariff_edit_promo:{tariff.id}'),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_RESET_MODE', '🔄 Сброс трафика'),
+                callback_data=f'admin_tariff_edit_reset_mode:{tariff.id}',
+            ),
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_SERVERS', '🌐 Серверы'),
+                callback_data=f'admin_tariff_edit_squads:{tariff.id}',
+            ),
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_PROMO', '👥 Промогруппы'),
+                callback_data=f'admin_tariff_edit_promo:{tariff.id}',
+            ),
         ]
     )
 
@@ -203,7 +244,8 @@ def get_tariff_view_keyboard(
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text='💰 Суточная цена', callback_data=f'admin_tariff_edit_daily_price:{tariff.id}'
+                    text=texts.t('ADMIN_TARIFF_BTN_DAILY_PRICE', '💰 Суточная цена'),
+                    callback_data=f'admin_tariff_edit_daily_price:{tariff.id}',
                 ),
             ]
         )
@@ -212,23 +254,52 @@ def get_tariff_view_keyboard(
     # Переключение триала
     if tariff.is_trial_available:
         buttons.append(
-            [InlineKeyboardButton(text='🎁 ❌ Убрать триал', callback_data=f'admin_tariff_toggle_trial:{tariff.id}')]
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_REMOVE_TRIAL', '🎁 ❌ Убрать триал'),
+                    callback_data=f'admin_tariff_toggle_trial:{tariff.id}',
+                )
+            ]
         )
     else:
         buttons.append(
-            [InlineKeyboardButton(text='🎁 Сделать триальным', callback_data=f'admin_tariff_toggle_trial:{tariff.id}')]
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_MAKE_TRIAL', '🎁 Сделать триальным'),
+                    callback_data=f'admin_tariff_toggle_trial:{tariff.id}',
+                )
+            ]
         )
 
     # Переключение активности
     if tariff.is_active:
         buttons.append(
-            [InlineKeyboardButton(text='❌ Деактивировать', callback_data=f'admin_tariff_toggle:{tariff.id}')]
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_DEACTIVATE', '❌ Деактивировать'),
+                    callback_data=f'admin_tariff_toggle:{tariff.id}',
+                )
+            ]
         )
     else:
-        buttons.append([InlineKeyboardButton(text='✅ Активировать', callback_data=f'admin_tariff_toggle:{tariff.id}')])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('ADMIN_TARIFF_BTN_ACTIVATE', '✅ Активировать'),
+                    callback_data=f'admin_tariff_toggle:{tariff.id}',
+                )
+            ]
+        )
 
     # Удаление
-    buttons.append([InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'admin_tariff_delete:{tariff.id}')])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_BTN_DELETE', '🗑️ Удалить'),
+                callback_data=f'admin_tariff_delete:{tariff.id}',
+            )
+        ]
+    )
 
     # Назад к списку
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='admin_tariffs')])
@@ -236,85 +307,115 @@ def get_tariff_view_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def _format_traffic_reset_mode(mode: str | None) -> str:
+def _format_traffic_reset_mode(mode: str | None, language: str) -> str:
     """Форматирует режим сброса трафика для отображения."""
+    texts = get_texts(language)
     mode_labels = {
-        'DAY': '📅 Ежедневно',
-        'WEEK': '📆 Еженедельно',
-        'MONTH': '🗓️ Ежемесячно',
-        'MONTH_ROLLING': '🔄 Скользящий месяц',
-        'NO_RESET': '🚫 Никогда',
+        'DAY': texts.t('ADMIN_TARIFF_RESET_DAY', '📅 Ежедневно'),
+        'WEEK': texts.t('ADMIN_TARIFF_RESET_WEEK', '📆 Еженедельно'),
+        'MONTH': texts.t('ADMIN_TARIFF_RESET_MONTH', '🗓️ Ежемесячно'),
+        'MONTH_ROLLING': texts.t('ADMIN_TARIFF_RESET_MONTH_ROLLING', '🔄 Скользящий месяц'),
+        'NO_RESET': texts.t('ADMIN_TARIFF_RESET_NEVER', '🚫 Никогда'),
     }
     if mode is None:
-        return f'🌐 Глобальная настройка ({settings.DEFAULT_TRAFFIC_RESET_STRATEGY})'
-    return mode_labels.get(mode, f'⚠️ Неизвестно ({mode})')
+        return texts.t(
+            'ADMIN_TARIFF_RESET_GLOBAL',
+            '🌐 Глобальная настройка ({strategy})',
+        ).format(strategy=settings.DEFAULT_TRAFFIC_RESET_STRATEGY)
+    return mode_labels.get(
+        mode,
+        texts.t('ADMIN_TARIFF_RESET_UNKNOWN', '⚠️ Неизвестно ({mode})').format(mode=mode),
+    )
 
 
-def _format_traffic_topup_packages(tariff: Tariff) -> str:
+def _format_traffic_topup_packages(tariff: Tariff, language: str) -> str:
     """Форматирует пакеты докупки трафика для отображения."""
+    texts = get_texts(language)
     if not getattr(tariff, 'traffic_topup_enabled', False):
-        return '❌ Отключено'
+        return texts.t('ADMIN_TARIFF_TOPUP_DISABLED', '❌ Отключено')
 
     packages = tariff.get_traffic_topup_packages() if hasattr(tariff, 'get_traffic_topup_packages') else {}
     if not packages:
-        return '✅ Включено, но пакеты не настроены'
+        return texts.t('ADMIN_TARIFF_TOPUP_ENABLED_NO_PACKAGES', '✅ Включено, но пакеты не настроены')
 
-    lines = ['✅ Включено']
+    lines = [texts.t('ADMIN_TARIFF_TOPUP_ENABLED', '✅ Включено')]
     for gb in sorted(packages.keys()):
         price = packages[gb]
-        lines.append(f'  • {gb} ГБ: {format_price_kopeks(price)}')
+        lines.append(
+            texts.t('ADMIN_TARIFF_TOPUP_PACKAGE_LINE', '  • {gb} ГБ: {price}').format(
+                gb=gb, price=settings.format_price(price)
+            )
+        )
 
     return '\n'.join(lines)
 
 
 def format_tariff_info(tariff: Tariff, language: str, subs_count: int = 0) -> str:
     """Форматирует информацию о тарифе."""
-    get_texts(language)
+    texts = get_texts(language)
 
-    status = '✅ Активен' if tariff.is_active else '❌ Неактивен'
+    status = (
+        texts.t('ADMIN_TARIFF_STATUS_ACTIVE', '✅ Активен')
+        if tariff.is_active
+        else texts.t('ADMIN_TARIFF_STATUS_INACTIVE', '❌ Неактивен')
+    )
     traffic = format_traffic(tariff.traffic_limit_gb)
-    prices_display = _format_period_prices_display(tariff.period_prices or {})
+    prices_display = _format_period_prices_display(tariff.period_prices or {}, language)
 
     # Форматируем список серверов
     squads_list = tariff.allowed_squads or []
-    squads_display = f'{len(squads_list)} серверов' if squads_list else 'Все серверы'
+    squads_display = (
+        texts.t('ADMIN_TARIFF_SQUADS_COUNT', '{count} серверов').format(count=len(squads_list))
+        if squads_list
+        else texts.t('ADMIN_TARIFF_SQUADS_ALL', 'Все серверы')
+    )
 
     # Форматируем промогруппы
     promo_groups = tariff.allowed_promo_groups or []
     if promo_groups:
         promo_display = ', '.join(pg.name for pg in promo_groups)
     else:
-        promo_display = 'Доступен всем'
+        promo_display = texts.t('ADMIN_TARIFF_PROMO_ALL', 'Доступен всем')
 
-    trial_status = '✅ Да' if tariff.is_trial_available else '❌ Нет'
+    trial_status = (
+        texts.t('ADMIN_TARIFF_YES', '✅ Да')
+        if tariff.is_trial_available
+        else texts.t('ADMIN_TARIFF_NO', '❌ Нет')
+    )
 
     # Форматируем дни триала
     trial_days = getattr(tariff, 'trial_duration_days', None)
     if trial_days:
-        trial_days_display = f'{trial_days} дней'
+        trial_days_display = texts.t('ADMIN_TARIFF_TRIAL_DAYS_VALUE', '{days} дней').format(days=trial_days)
     else:
-        trial_days_display = f'По умолчанию ({settings.TRIAL_DURATION_DAYS} дней)'
+        trial_days_display = texts.t(
+            'ADMIN_TARIFF_TRIAL_DAYS_DEFAULT',
+            'По умолчанию ({days} дней)',
+        ).format(days=settings.TRIAL_DURATION_DAYS)
 
     # Форматируем цену за устройство
     device_price = getattr(tariff, 'device_price_kopeks', None)
     if device_price is not None and device_price > 0:
-        device_price_display = format_price_kopeks(device_price) + '/мес'
+        device_price_display = texts.t(
+            'ADMIN_TARIFF_DEVICE_PRICE_VALUE',
+            '{price}/мес',
+        ).format(price=settings.format_price(device_price))
     else:
-        device_price_display = 'Недоступно'
+        device_price_display = texts.t('ADMIN_TARIFF_DEVICE_PRICE_UNAVAILABLE', 'Недоступно')
 
     # Форматируем макс. устройств
     max_devices = getattr(tariff, 'max_device_limit', None)
     if max_devices is not None and max_devices > 0:
         max_devices_display = str(max_devices)
     else:
-        max_devices_display = '∞ (без лимита)'
+        max_devices_display = texts.t('ADMIN_TARIFF_MAX_DEVICES_UNLIMITED', '∞ (без лимита)')
 
     # Форматируем докупку трафика
-    traffic_topup_display = _format_traffic_topup_packages(tariff)
+    traffic_topup_display = _format_traffic_topup_packages(tariff, language)
 
     # Форматируем режим сброса трафика
     traffic_reset_mode = getattr(tariff, 'traffic_reset_mode', None)
-    traffic_reset_display = _format_traffic_reset_mode(traffic_reset_mode)
+    traffic_reset_display = _format_traffic_reset_mode(traffic_reset_mode, language)
 
     # Форматируем суточный тариф
     is_daily = getattr(tariff, 'is_daily', False)
@@ -322,39 +423,62 @@ def format_tariff_info(tariff: Tariff, language: str, subs_count: int = 0) -> st
 
     # Формируем блок цен в зависимости от типа тарифа
     if is_daily:
-        price_block = f'<b>💰 Суточная цена:</b> {format_price_kopeks(daily_price_kopeks)}/день'
-        tariff_type = '🔄 Суточный'
+        price_block = texts.t(
+            'ADMIN_TARIFF_DAILY_PRICE_BLOCK',
+            '<b>💰 Суточная цена:</b> {price}/день',
+        ).format(price=settings.format_price(daily_price_kopeks))
+        tariff_type = texts.t('ADMIN_TARIFF_TYPE_DAILY', '🔄 Суточный')
     else:
-        price_block = f'<b>Цены:</b>\n{prices_display}'
-        tariff_type = '📅 Периодный'
+        price_block = texts.t('ADMIN_TARIFF_PRICES_BLOCK', '<b>Цены:</b>\n{prices}').format(prices=prices_display)
+        tariff_type = texts.t('ADMIN_TARIFF_TYPE_PERIODIC', '📅 Периодный')
 
-    return f"""📦 <b>Тариф: {html.escape(tariff.name)}</b>
+    desc_block = (
+        texts.t('ADMIN_TARIFF_DESC_LINE', '📝 {desc}').format(desc=html.escape(tariff.description))
+        if tariff.description
+        else ''
+    )
 
-{status} | {tariff_type}
-🎚️ Уровень: {tariff.tier_level}
-📊 Порядок: {tariff.display_order}
-
-<b>Параметры:</b>
-• Трафик: {traffic}
-• Устройств: {tariff.device_limit}
-• Макс. устройств: {max_devices_display}
-• Цена за доп. устройство: {device_price_display}
-• Триал: {trial_status}
-• Дней триала: {trial_days_display}
-
-<b>Докупка трафика:</b>
-{traffic_topup_display}
-
-<b>Сброс трафика:</b> {traffic_reset_display}
-
-{price_block}
-
-<b>Серверы:</b> {squads_display}
-<b>Промогруппы:</b> {promo_display}
-
-📊 Подписок на тарифе: {subs_count}
-
-{f'📝 {html.escape(tariff.description)}' if tariff.description else ''}"""
+    return texts.t(
+        'ADMIN_TARIFF_INFO',
+        '📦 <b>Тариф: {name}</b>\n\n'
+        '{status} | {tariff_type}\n'
+        '🎚️ Уровень: {tier}\n'
+        '📊 Порядок: {order}\n\n'
+        '<b>Параметры:</b>\n'
+        '• Трафик: {traffic}\n'
+        '• Устройств: {devices}\n'
+        '• Макс. устройств: {max_devices}\n'
+        '• Цена за доп. устройство: {device_price}\n'
+        '• Триал: {trial}\n'
+        '• Дней триала: {trial_days}\n\n'
+        '<b>Докупка трафика:</b>\n'
+        '{traffic_topup}\n\n'
+        '<b>Сброс трафика:</b> {traffic_reset}\n\n'
+        '{price_block}\n\n'
+        '<b>Серверы:</b> {squads}\n'
+        '<b>Промогруппы:</b> {promo}\n\n'
+        '📊 Подписок на тарифе: {subs}\n\n'
+        '{desc}',
+    ).format(
+        name=html.escape(tariff.name),
+        status=status,
+        tariff_type=tariff_type,
+        tier=tariff.tier_level,
+        order=tariff.display_order,
+        traffic=traffic,
+        devices=tariff.device_limit,
+        max_devices=max_devices_display,
+        device_price=device_price_display,
+        trial=trial_status,
+        trial_days=trial_days_display,
+        traffic_topup=traffic_topup_display,
+        traffic_reset=traffic_reset_display,
+        price_block=price_block,
+        squads=squads_display,
+        promo=promo_display,
+        subs=subs_count,
+        desc=desc_block,
+    )
 
 
 @admin_required
