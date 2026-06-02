@@ -2190,7 +2190,8 @@ def get_tariff_extend_confirm_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text='✅ Подтвердить продление', callback_data=f'tariff_ext_confirm:{tariff_id}:{period}'
+                    text=texts.t('TARIFF_CONFIRM_RENEW_BTN', '✅ Подтвердить продление'),
+                    callback_data=f'tariff_ext_confirm:{tariff_id}:{period}',
                 )
             ],
             [InlineKeyboardButton(text=texts.BACK, callback_data='subscription_extend')],
