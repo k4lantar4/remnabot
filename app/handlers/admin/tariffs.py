@@ -762,11 +762,14 @@ async def start_edit_daily_price(
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
 
     await callback.message.edit_text(
-        f'💰 <b>Редактирование суточной цены</b>\n\n'
-        f'Тариф: {html.escape(tariff.name)}\n'
-        f'Текущая цена: {format_price_kopeks(current_price)}/день\n\n'
-        'Введите новую цену за день в рублях.\n'
-        'Пример: <code>50</code> или <code>99.90</code>',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_DAILY_PRICE_PROMPT',
+            '💰 <b>Редактирование суточной цены</b>\n\n'
+            'Тариф: {name}\n'
+            'Текущая цена: {price}/день\n\n'
+            'Введите новую цену за день в рублях.\n'
+            'Пример: <code>50</code> или <code>99.90</code>',
+        ).format(name=html.escape(tariff.name), price=settings.format_price(current_price)),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -784,7 +787,7 @@ async def process_daily_price_input(
     state: FSMContext,
 ):
     """Обрабатывает ввод суточной цены (создание и редактирование)."""
-    get_texts(db_user.language)
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
@@ -792,12 +795,15 @@ async def process_daily_price_input(
     try:
         price_rubles = float(message.text.strip().replace(',', '.'))
         if price_rubles <= 0:
-            raise ValueError('Цена должна быть положительной')
+            raise ValueError('positive')
 
         price_kopeks = int(price_rubles * 100)
     except ValueError:
         await message.answer(
-            '❌ Некорректная цена. Введите положительное число.\nПример: <code>50</code> или <code>99.90</code>',
+            texts.t(
+                'ADMIN_TARIFF_DAILY_PRICE_INVALID',
+                '❌ Некорректная цена. Введите положительное число.\nПример: <code>50</code> или <code>99.90</code>',
+            ),
             parse_mode='HTML',
         )
         return
@@ -821,7 +827,8 @@ async def process_daily_price_input(
         await state.clear()
 
         await message.answer(
-            '✅ <b>Суточный тариф создан!</b>\n\n' + format_tariff_info(tariff, db_user.language, 0),
+            texts.t('ADMIN_TARIFF_DAILY_CREATED', '✅ <b>Суточный тариф создан!</b>\n\n')
+            + format_tariff_info(tariff, db_user.language, 0),
             reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
             parse_mode='HTML',
         )
@@ -833,7 +840,7 @@ async def process_daily_price_input(
 
         tariff = await get_tariff_by_id(db, tariff_id)
         if not tariff:
-            await message.answer('Тариф не найден')
+            await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
             await state.clear()
             return
 
@@ -843,7 +850,10 @@ async def process_daily_price_input(
         subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
         await message.answer(
-            f'✅ Суточная цена установлена: {format_price_kopeks(price_kopeks)}/день\n\n'
+            texts.t(
+                'ADMIN_TARIFF_DAILY_PRICE_SET',
+                '✅ Суточная цена установлена: {price}/день\n\n',
+            ).format(price=settings.format_price(price_kopeks))
             + format_tariff_info(tariff, db_user.language, subs_count),
             reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
             parse_mode='HTML',
@@ -1690,16 +1700,25 @@ async def start_edit_tariff_device_price(
 
     device_price = getattr(tariff, 'device_price_kopeks', None)
     if device_price is not None and device_price > 0:
-        current_price = format_price_kopeks(device_price) + '/мес'
+        current_price = texts.t(
+            'ADMIN_TARIFF_DEVICE_PRICE_VALUE',
+            '{price}/мес',
+        ).format(price=settings.format_price(device_price))
     else:
-        current_price = 'Недоступно (докупка устройств запрещена)'
+        current_price = texts.t(
+            'ADMIN_TARIFF_DEVICE_PRICE_FORBIDDEN',
+            'Недоступно (докупка устройств запрещена)',
+        )
 
     await callback.message.edit_text(
-        f'📱💰 <b>Редактирование цены за устройство</b>\n\n'
-        f'Текущая цена: <b>{current_price}</b>\n\n'
-        'Введите цену в копейках за одно устройство в месяц.\n\n'
-        '• <code>0</code> или <code>-</code> — докупка устройств недоступна\n'
-        '• Например: <code>5000</code> = 50₽/мес за устройство',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_DEVICE_PRICE_PROMPT',
+            '📱💰 <b>Редактирование цены за устройство</b>\n\n'
+            'Текущая цена: <b>{price}</b>\n\n'
+            'Введите цену в копейках за одно устройство в месяц.\n\n'
+            '• <code>0</code> или <code>-</code> — докупка устройств недоступна\n'
+            '• Например: <code>5000</code> = {example}/мес за устройство',
+        ).format(price=current_price, example=settings.format_price(5000)),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1717,12 +1736,13 @@ async def process_edit_tariff_device_price(
     state: FSMContext,
 ):
     """Обрабатывает новую цену за устройство."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1737,8 +1757,11 @@ async def process_edit_tariff_device_price(
                 raise ValueError
         except ValueError:
             await message.answer(
-                'Введите корректное число (0 или больше).\n'
-                'Для отключения докупки введите <code>0</code> или <code>-</code>',
+                texts.t(
+                    'ADMIN_TARIFF_DEVICE_PRICE_INVALID',
+                    'Введите корректное число (0 или больше).\n'
+                    'Для отключения докупки введите <code>0</code> или <code>-</code>',
+                ),
                 parse_mode='HTML',
             )
             return
@@ -1749,7 +1772,8 @@ async def process_edit_tariff_device_price(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Цена за устройство изменена!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_DEVICE_PRICE_CHANGED', '✅ Цена за устройство изменена!\n\n')
+        + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1782,15 +1806,18 @@ async def start_edit_tariff_max_devices(
     if max_devices is not None and max_devices > 0:
         current_max = str(max_devices)
     else:
-        current_max = '∞ (без лимита)'
+        current_max = texts.t('ADMIN_TARIFF_MAX_DEVICES_UNLIMITED', '∞ (без лимита)')
 
     await callback.message.edit_text(
-        f'📱🔒 <b>Редактирование макс. устройств</b>\n\n'
-        f'Текущее значение: <b>{current_max}</b>\n'
-        f'Базовое кол-во устройств: <b>{tariff.device_limit}</b>\n\n'
-        'Введите максимальное количество устройств, которое пользователь может докупить.\n\n'
-        '• <code>0</code> или <code>-</code> — без ограничений\n'
-        '• Например: <code>5</code> = максимум 5 устройств на тарифе',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_MAX_DEVICES_PROMPT',
+            '📱🔒 <b>Редактирование макс. устройств</b>\n\n'
+            'Текущее значение: <b>{current}</b>\n'
+            'Базовое кол-во устройств: <b>{base}</b>\n\n'
+            'Введите максимальное количество устройств, которое пользователь может докупить.\n\n'
+            '• <code>0</code> или <code>-</code> — без ограничений\n'
+            '• Например: <code>5</code> = максимум 5 устройств на тарифе',
+        ).format(current=current_max, base=tariff.device_limit),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1808,12 +1835,13 @@ async def process_edit_tariff_max_devices(
     state: FSMContext,
 ):
     """Обрабатывает новое макс. кол-во устройств."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1828,8 +1856,11 @@ async def process_edit_tariff_max_devices(
                 raise ValueError
         except ValueError:
             await message.answer(
-                'Введите корректное число (1 или больше).\n'
-                'Для снятия ограничения введите <code>0</code> или <code>-</code>',
+                texts.t(
+                    'ADMIN_TARIFF_MAX_DEVICES_INVALID',
+                    'Введите корректное число (1 или больше).\n'
+                    'Для снятия ограничения введите <code>0</code> или <code>-</code>',
+                ),
                 parse_mode='HTML',
             )
             return
@@ -1840,7 +1871,8 @@ async def process_edit_tariff_max_devices(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Макс. устройств изменено!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_MAX_DEVICES_CHANGED', '✅ Макс. устройств изменено!\n\n')
+        + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
@@ -1871,16 +1903,22 @@ async def start_edit_tariff_trial_days(
 
     trial_days = getattr(tariff, 'trial_duration_days', None)
     if trial_days:
-        current_days = f'{trial_days} дней'
+        current_days = texts.t('ADMIN_TARIFF_TRIAL_DAYS_VALUE', '{days} дней').format(days=trial_days)
     else:
-        current_days = f'По умолчанию ({settings.TRIAL_DURATION_DAYS} дней)'
+        current_days = texts.t(
+            'ADMIN_TARIFF_TRIAL_DAYS_DEFAULT',
+            'По умолчанию ({days} дней)',
+        ).format(days=settings.TRIAL_DURATION_DAYS)
 
     await callback.message.edit_text(
-        f'⏰ <b>Редактирование дней триала</b>\n\n'
-        f'Текущее значение: <b>{current_days}</b>\n\n'
-        'Введите количество дней триала.\n\n'
-        f'• <code>0</code> или <code>-</code> — использовать настройку по умолчанию ({settings.TRIAL_DURATION_DAYS} дней)\n'
-        '• Например: <code>7</code> = 7 дней триала',
+        texts.t(
+            'ADMIN_TARIFF_EDIT_TRIAL_DAYS_PROMPT',
+            '⏰ <b>Редактирование дней триала</b>\n\n'
+            'Текущее значение: <b>{current}</b>\n\n'
+            'Введите количество дней триала.\n\n'
+            '• <code>0</code> или <code>-</code> — использовать настройку по умолчанию ({default_days} дней)\n'
+            '• Например: <code>7</code> = 7 дней триала',
+        ).format(current=current_days, default_days=settings.TRIAL_DURATION_DAYS),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text=texts.CANCEL, callback_data=f'admin_tariff_view:{tariff_id}')]]
         ),
@@ -1898,12 +1936,13 @@ async def process_edit_tariff_trial_days(
     state: FSMContext,
 ):
     """Обрабатывает новое количество дней триала."""
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     tariff_id = data.get('tariff_id')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff:
-        await message.answer('Тариф не найден')
+        await message.answer(texts.t('ADMIN_TARIFF_NOT_FOUND', 'Тариф не найден'))
         await state.clear()
         return
 
@@ -1918,8 +1957,11 @@ async def process_edit_tariff_trial_days(
                 raise ValueError
         except ValueError:
             await message.answer(
-                'Введите корректное число дней (1 или больше).\n'
-                'Для использования настройки по умолчанию введите <code>0</code> или <code>-</code>',
+                texts.t(
+                    'ADMIN_TARIFF_TRIAL_DAYS_INVALID',
+                    'Введите корректное число дней (1 или больше).\n'
+                    'Для использования настройки по умолчанию введите <code>0</code> или <code>-</code>',
+                ),
                 parse_mode='HTML',
             )
             return
@@ -1930,7 +1972,8 @@ async def process_edit_tariff_trial_days(
     subs_count = await get_tariff_subscriptions_count(db, tariff_id)
 
     await message.answer(
-        '✅ Дни триала изменены!\n\n' + format_tariff_info(tariff, db_user.language, subs_count),
+        texts.t('ADMIN_TARIFF_TRIAL_DAYS_CHANGED', '✅ Дни триала изменены!\n\n')
+        + format_tariff_info(tariff, db_user.language, subs_count),
         reply_markup=get_tariff_view_keyboard(tariff, db_user.language),
         parse_mode='HTML',
     )
