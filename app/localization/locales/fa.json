@@ -1939,5 +1939,11 @@
   "CB_INVALID_PAYMENT_ID": "شناسه پرداخت نامعتبر",
   "CB_PAYMENT_NOT_FOUND_PLAIN": "پرداخت یافت نشد",
   "CB_YOOKASSA_PAYMENT_UNAVAILABLE": "❌ پرداخت کارت از طریق YooKassa موقتاً در دسترس نیست",
-  "CB_SBP_PAYMENT_UNAVAILABLE": "❌ پرداخت SBP موقتاً در دسترس نیست"
+  "CB_SBP_PAYMENT_UNAVAILABLE": "❌ پرداخت SBP موقتاً در دسترس نیست",
+  "CB_CONFIRM_TOKEN_NOT_FOUND": "❌ توکن تأیید یافت نشد",
+  "CB_PAYMENT_INFO_SENT": "اطلاعات پرداخت ارسال شد",
+  "CB_PAYMENT_PROCESS_ERROR": "❌ خطا در پردازش پرداخت",
+  "CB_INVALID_REQUEST": "❌ درخواست نامعتبر",
+  "CB_UNKNOWN_PAYMENT_METHOD": "❌ روش پرداخت ناشناخته",
+  "CB_REQUEST_PROCESS_ERROR": "❌ خطا در پردازش درخواست"
 }

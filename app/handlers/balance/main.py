@@ -576,7 +576,8 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
 
 
 @error_handler
-async def handle_sbp_payment(callback: types.CallbackQuery, db: AsyncSession):
+async def handle_sbp_payment(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         local_payment_id = int(callback.data.split('_')[-1])
 
@@ -585,7 +586,10 @@ async def handle_sbp_payment(callback: types.CallbackQuery, db: AsyncSession):
         payment = await get_yookassa_payment_by_local_id(db, local_payment_id)
 
         if not payment:
-            await callback.answer('❌ Платеж не найден', show_alert=True)
+            await callback.answer(
+                texts.t('CB_PAYMENT_NOT_FOUND', '❌ Платеж не найден'),
+                show_alert=True,
+            )
             return
 
         import json
@@ -594,7 +598,10 @@ async def handle_sbp_payment(callback: types.CallbackQuery, db: AsyncSession):
         confirmation_token = metadata.get('confirmation_token')
 
         if not confirmation_token:
-            await callback.answer('❌ Токен подтверждения не найден', show_alert=True)
+            await callback.answer(
+                texts.t('CB_CONFIRM_TOKEN_NOT_FOUND', '❌ Токен подтверждения не найден'),
+                show_alert=True,
+            )
             return
 
         await callback.message.answer(
@@ -607,11 +614,17 @@ async def handle_sbp_payment(callback: types.CallbackQuery, db: AsyncSession):
             parse_mode='HTML',
         )
 
-        await callback.answer('Информация об оплате отправлена', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_INFO_SENT', 'Информация об оплате отправлена'),
+            show_alert=True,
+        )
 
     except Exception as e:
         logger.error('Ошибка обработки embedded платежа СБП', error=e)
-        await callback.answer('❌ Ошибка обработки платежа', show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_PROCESS_ERROR', '❌ Ошибка обработки платежа'),
+            show_alert=True,
+        )
 
 
 @error_handler
@@ -620,15 +633,19 @@ async def handle_topup_amount_callback(
     db_user: User,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     try:
         _, method, amount_str = callback.data.split('|', 2)
         amount_kopeks = int(amount_str)
     except ValueError:
-        await callback.answer('❌ Некорректный запрос', show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'),
+            show_alert=True,
+        )
         return
 
     if amount_kopeks <= 0:
-        await callback.answer('❌ Некорректная сумма', show_alert=True)
+        await callback.answer(texts.INVALID_AMOUNT, show_alert=True)
         return
 
     try:
@@ -668,14 +685,20 @@ async def handle_topup_amount_callback(
             await state.update_data(payment_method=method)
             await state.set_state(BalanceStates.waiting_for_amount)
             if not await route_payment_by_method(callback.message, db_user, amount_kopeks, state, method):
-                await callback.answer('❌ Неизвестный способ оплаты', show_alert=True)
+                await callback.answer(
+                    texts.t('CB_UNKNOWN_PAYMENT_METHOD', '❌ Неизвестный способ оплаты'),
+                    show_alert=True,
+                )
                 return
 
         await callback.answer()
 
     except Exception as error:
         logger.error('Ошибка быстрого пополнения', error=error)
-        await callback.answer('❌ Ошибка обработки запроса', show_alert=True)
+        await callback.answer(
+            texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
+            show_alert=True,
+        )
 
 
 def register_balance_handlers(dp: Dispatcher):
