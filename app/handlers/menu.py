@@ -1181,7 +1181,7 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
     current_time = datetime.now(UTC)
     lines: list[str] = []
     for sub in subscriptions:
-        tariff_name = html.escape(sub.tariff.name) if sub.tariff else 'Подписка'
+        tariff_name = html.escape(sub.tariff.name) if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
         actual = sub.actual_status
 
         if actual in ('active', 'trial'):
@@ -1192,15 +1192,18 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             emoji = '🔴'
 
         if actual == 'expired':
-            status_suffix = ' — истекла'
+            status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_EXPIRED', ' — истекла')
         elif actual == 'disabled':
-            status_suffix = ' — отключена'
+            status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_DISABLED', ' — отключена')
         elif actual == 'limited':
-            status_suffix = ' — лимит трафика'
+            status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_LIMITED', ' — лимит трафика')
         elif sub.end_date and sub.end_date > current_time:
             days_left = (sub.end_date - current_time).days
             end_str = format_local_datetime(sub.end_date, '%d.%m.%Y')
-            status_suffix = f' — до {end_str} ({days_left} дн.)'
+            status_suffix = texts.t(
+                'MY_SUB_STATUS_SUFFIX_UNTIL',
+                ' — до {end_date} ({days} дн.)',
+            ).format(end_date=end_str, days=days_left)
         else:
             status_suffix = ''
 
@@ -1240,7 +1243,10 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
                 tariff = await get_tariff_by_id(db, subscription.tariff_id)
                 if tariff:
                     is_daily_tariff = getattr(tariff, 'is_daily', False)
-                    tariff_info_block = f'\n📦 Тариф: {html.escape(tariff.name)}'
+                    tariff_info_block = texts.t(
+                        'MAIN_MENU_TARIFF_LINE',
+                        '\n📦 Тариф: {name}',
+                    ).format(name=html.escape(tariff.name))
             except Exception as e:
                 logger.debug('Не удалось загрузить тариф для главного меню', error=e)
 
@@ -1444,9 +1450,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
 
             await callback.answer(
                 texts.t(
-                    'ACTIVATION_SUCCESS',
-                    f'✅ Подписка продлена на {best_period} дней за {pricing.final_total // 100} ₽!',
-                ),
+                    'ACTIVATION_RENEW_SUCCESS',
+                    '✅ Подписка продлена на {period} дней за {amount}!',
+                ).format(period=best_period, amount=texts.format_price(pricing.final_total)),
                 show_alert=True,
             )
         else:
@@ -1493,8 +1499,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
 
             await callback.answer(
                 texts.t(
-                    'ACTIVATION_SUCCESS', f'✅ Подписка активирована на {best_period} дней за {best_price // 100} ₽!'
-                ),
+                    'ACTIVATION_NEW_SUCCESS',
+                    '✅ Подписка активирована на {period} дней за {amount}!',
+                ).format(period=best_period, amount=texts.format_price(best_price)),
                 show_alert=True,
             )
 
