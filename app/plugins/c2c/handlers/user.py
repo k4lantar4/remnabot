@@ -200,23 +200,21 @@ async def process_c2c_payment_amount(
         return
 
     if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS:
-        min_rubles = settings.C2C_MIN_AMOUNT_KOPEKS / 100
         await message.answer(
             texts.t(
                 'C2C_AMOUNT_TOO_LOW',
-                '❌ Minimum amount for card-to-card: {min:.0f}',
-            ).format(min=min_rubles),
+                '❌ Minimum amount for card-to-card: {min}',
+            ).format(min=texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return
 
     if amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
-        max_rubles = settings.C2C_MAX_AMOUNT_KOPEKS / 100
         await message.answer(
             texts.t(
                 'C2C_AMOUNT_TOO_HIGH',
-                '❌ Maximum amount for card-to-card: {max:,.0f}',
-            ).format(max=max_rubles).replace(',', ' '),
+                '❌ Maximum amount for card-to-card: {max}',
+            ).format(max=texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return

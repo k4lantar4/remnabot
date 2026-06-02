@@ -58,6 +58,35 @@ def _redact_telegram_secrets(text: str) -> str:
     return _BOT_TOKEN_RE.sub('bot[REDACTED]', text)
 
 
+def is_message_thread_not_found(error: Exception) -> bool:
+    """True when Telegram rejects message_thread_id (deleted/invalid forum topic)."""
+    if not isinstance(error, TelegramBadRequest):
+        return False
+    return 'message thread not found' in str(error).lower()
+
+
+def without_message_thread_id(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Copy delivery kwargs without message_thread_id (fallback to main group chat)."""
+    return {key: value for key, value in kwargs.items() if key != 'message_thread_id'}
+
+
+async def send_with_admin_topic_fallback(coro_factory, kwargs: dict[str, Any]) -> Any:
+    """Call coro_factory(kwargs); on missing forum topic, retry without message_thread_id."""
+    try:
+        return await coro_factory(kwargs)
+    except TelegramBadRequest as error:
+        thread_id = kwargs.get('message_thread_id')
+        if thread_id is not None and is_message_thread_not_found(error):
+            logger.warning(
+                'Admin forum topic not found, retrying without message_thread_id',
+                chat_id=kwargs.get('chat_id'),
+                message_thread_id=thread_id,
+                error=_redact_telegram_secrets(str(error))[:200],
+            )
+            return await coro_factory(without_message_thread_id(kwargs))
+        raise
+
+
 class NotificationCategory(StrEnum):
     """Категории уведомлений для маршрутизации по топикам."""
 
@@ -1478,6 +1507,15 @@ class AdminNotificationService:
                 return False
 
             except TelegramBadRequest as e:
+                if message_kwargs.get('message_thread_id') and is_message_thread_not_found(e):
+                    logger.warning(
+                        'Admin forum topic not found, retrying without message_thread_id',
+                        chat_id=self.chat_id,
+                        message_thread_id=message_kwargs.get('message_thread_id'),
+                        error=_redact_telegram_secrets(str(e))[:200],
+                    )
+                    message_kwargs = without_message_thread_id(message_kwargs)
+                    continue
                 logger.warning(
                     'Ошибка отправки уведомления в админ-чат',
                     error=_redact_telegram_secrets(str(e))[:200],
