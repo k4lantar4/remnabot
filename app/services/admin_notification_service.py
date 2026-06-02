@@ -1421,6 +1421,19 @@ class AdminNotificationService:
                 return topic
         return self.topic_id
 
+    def build_delivery_kwargs(
+        self,
+        *,
+        chat_id: int,
+        category: NotificationCategory | None = None,
+    ) -> dict[str, Any]:
+        """Build chat_id and optional message_thread_id for a specific admin supergroup."""
+        kwargs: dict[str, Any] = {'chat_id': chat_id}
+        thread_id = self._resolve_topic_id(category)
+        if thread_id is not None:
+            kwargs['message_thread_id'] = thread_id
+        return kwargs
+
     async def _send_message(
         self,
         text: str,
