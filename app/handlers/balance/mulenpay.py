@@ -114,7 +114,11 @@ async def process_mulenpay_payment_amount(
     mulenpay_name_html = settings.get_mulenpay_display_name_html()
 
     if not settings.is_mulenpay_enabled():
-        await message.answer(f'❌ Оплата через {mulenpay_name} временно недоступна')
+        await message.answer(
+            texts.t('MSG_MULENPAY_PAYMENT_UNAVAILABLE', '❌ Оплата через {provider} временно недоступна').format(
+                provider=mulenpay_name
+            )
+        )
         return
 
     if amount_kopeks < settings.MULENPAY_MIN_AMOUNT_KOPEKS:
