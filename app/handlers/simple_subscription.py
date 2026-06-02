@@ -48,16 +48,29 @@ async def start_simple_subscription_purchase(
 
     # Проверка ограничения на покупку/продление подписки
     if getattr(db_user, 'restriction_subscription', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
-            keyboard.append([types.InlineKeyboardButton(text='🆘 Обжаловать', url=support_url)])
+            keyboard.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('USER_RESTRICTION_APPEAL_BUTTON', '🆘 Обжаловать'),
+                        url=support_url,
+                    )
+                ]
+            )
         keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='subscription')])
 
         await callback.message.edit_text(
-            f'🚫 <b>Покупка подписки ограничена</b>\n\n{reason}\n\n'
-            'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            texts.t(
+                'USER_RESTRICTION_SUBSCRIPTION_BLOCKED',
+                '🚫 <b>Покупка/продление подписки ограничено</b>\n\n{reason}\n\n'
+                'Если вы считаете это ошибкой, вы можете обжаловать решение.',
+            ).format(reason=reason),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
         )
         await callback.answer()
@@ -393,7 +406,11 @@ async def handle_simple_subscription_pay_with_balance(
     if current_subscription and not getattr(current_subscription, 'is_trial', False) and current_subscription.is_active:
         # У пользователя есть активная платная подписка - требуем подтверждение
         await callback.answer(
-            '⚠️ У вас уже есть активная платная подписка. Пожалуйста, подтвердите покупку.', show_alert=True
+            texts.t(
+                'CB_SIMPLE_SUB_ACTIVE_PAID_CONFIRM',
+                '⚠️ У вас уже есть активная платная подписка. Пожалуйста, подтвердите покупку.',
+            ),
+            show_alert=True,
         )
         return
 
@@ -693,7 +710,10 @@ async def handle_simple_subscription_pay_with_balance(
             exc_info=True,
         )
         await callback.answer(
-            '❌ Ошибка оплаты подписки. Попробуйте позже или обратитесь в поддержку.',
+            texts.t(
+                'CB_SIMPLE_SUB_PAYMENT_ERROR',
+                '❌ Ошибка оплаты подписки. Попробуйте позже или обратитесь в поддержку.',
+            ),
             show_alert=True,
         )
         await state.clear()
@@ -707,8 +727,12 @@ async def handle_simple_subscription_pay_with_balance_disabled(
     db: AsyncSession,
 ):
     """Показывает уведомление, если баланса недостаточно для прямой оплаты."""
+    texts = get_texts(db_user.language)
     await callback.answer(
-        '❌ Недостаточно средств на балансе. Пополните баланс или выберите другой способ оплаты.',
+        texts.t(
+            'CB_SIMPLE_SUB_BALANCE_TOPUP_HINT',
+            '❌ Недостаточно средств на балансе. Пополните баланс или выберите другой способ оплаты.',
+        ),
         show_alert=True,
     )
 
@@ -843,7 +867,10 @@ async def handle_simple_subscription_payment_method(
     if current_subscription and not getattr(current_subscription, 'is_trial', False) and current_subscription.is_active:
         # У пользователя есть активная платная подписка - показываем сообщение
         await callback.answer(
-            '⚠️ У вас уже есть активная платная подписка. Пожалуйста, подтвердите покупку через главное меню.',
+            texts.t(
+                'CB_SIMPLE_SUB_ACTIVE_PAID_CONFIRM_MENU',
+                '⚠️ У вас уже есть активная платная подписка. Пожалуйста, подтвердите покупку через главное меню.',
+            ),
             show_alert=True,
         )
         return
@@ -1116,7 +1143,10 @@ async def handle_simple_subscription_payment_method(
             amount_rubles = price_kopeks / 100
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
-                    '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через CryptoBot',
+                    texts.t(
+                        'CB_PAYMENT_AMOUNT_RANGE_RUB',
+                        '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через {provider}',
+                    ).format(provider='CryptoBot'),
                     show_alert=True,
                 )
                 return
@@ -1132,13 +1162,19 @@ async def handle_simple_subscription_payment_method(
             amount_usd = round(amount_rubles / usd_rate, 2)
             if amount_usd < 1:
                 await callback.answer(
-                    '❌ Минимальная сумма для оплаты через CryptoBot — примерно 1 USD',
+                    texts.t(
+                        'CB_SIMPLE_SUB_CRYPTOBOT_MIN_USD',
+                        '❌ Минимальная сумма для оплаты через CryptoBot — примерно 1 USD',
+                    ),
                     show_alert=True,
                 )
                 return
             if amount_usd > 1000:
                 await callback.answer(
-                    '❌ Максимальная сумма для оплаты через CryptoBot — 1000 USD',
+                    texts.t(
+                        'CB_SIMPLE_SUB_CRYPTOBOT_MAX_USD',
+                        '❌ Максимальная сумма для оплаты через CryptoBot — 1000 USD',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1158,7 +1194,10 @@ async def handle_simple_subscription_payment_method(
 
             if not crypto_result:
                 await callback.answer(
-                    '❌ Ошибка создания платежа через CryptoBot. Попробуйте позже или обратитесь в поддержку.',
+                    texts.t(
+                        'MSG_PAYMENT_CREATE_ERROR_SUPPORT',
+                        '❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1171,7 +1210,10 @@ async def handle_simple_subscription_payment_method(
 
             if not payment_url:
                 await callback.answer(
-                    '❌ Не удалось получить ссылку для оплаты. Обратитесь в поддержку.',
+                    texts.t(
+                        'MSG_PAYMENT_LINK_ERROR',
+                        '❌ Ошибка получения ссылки для оплаты. Обратитесь в поддержку.',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1227,7 +1269,10 @@ async def handle_simple_subscription_payment_method(
             amount_rubles = price_kopeks / 100
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
-                    '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через Heleket',
+                    texts.t(
+                        'CB_PAYMENT_AMOUNT_RANGE_RUB',
+                        '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через {provider}',
+                    ).format(provider='Heleket'),
                     show_alert=True,
                 )
                 return
@@ -1245,7 +1290,10 @@ async def handle_simple_subscription_payment_method(
 
             if not heleket_result:
                 await callback.answer(
-                    '❌ Ошибка создания платежа Heleket. Попробуйте позже или обратитесь в поддержку.',
+                    texts.t(
+                        'MSG_PAYMENT_CREATE_ERROR_SUPPORT',
+                        '❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1253,7 +1301,10 @@ async def handle_simple_subscription_payment_method(
             payment_url = heleket_result.get('payment_url')
             if not payment_url:
                 await callback.answer(
-                    '❌ Не удалось получить ссылку для оплаты Heleket. Обратитесь в поддержку.',
+                    texts.t(
+                        'MSG_PAYMENT_LINK_ERROR',
+                        '❌ Ошибка получения ссылки для оплаты. Обратитесь в поддержку.',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1336,14 +1387,23 @@ async def handle_simple_subscription_payment_method(
             mulenpay_name = settings.get_mulenpay_display_name()
             if not settings.is_mulenpay_enabled():
                 await callback.answer(
-                    f'❌ Оплата через {mulenpay_name} временно недоступна',
+                    texts.t(
+                        'CB_PAYMENT_PROVIDER_UNAVAILABLE',
+                        '❌ Оплата через {provider} временно недоступна',
+                    ).format(provider=mulenpay_name),
                     show_alert=True,
                 )
                 return
 
             if price_kopeks < settings.MULENPAY_MIN_AMOUNT_KOPEKS or price_kopeks > settings.MULENPAY_MAX_AMOUNT_KOPEKS:
                 await callback.answer(
-                    f'❌ Сумма для Mulen Pay должна быть в пределах от {settings.format_price(settings.MULENPAY_MIN_AMOUNT_KOPEKS)} до {settings.format_price(settings.MULENPAY_MAX_AMOUNT_KOPEKS)}',
+                    texts.t(
+                        'CB_MULENPAY_AMOUNT_RANGE',
+                        '❌ Сумма для Mulen Pay должна быть в пределах от {min_amount} до {max_amount}',
+                    ).format(
+                        min_amount=settings.format_price(settings.MULENPAY_MIN_AMOUNT_KOPEKS),
+                        max_amount=settings.format_price(settings.MULENPAY_MAX_AMOUNT_KOPEKS),
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1605,7 +1665,13 @@ async def handle_simple_subscription_payment_method(
                 return
             if price_kopeks < settings.WATA_MIN_AMOUNT_KOPEKS or price_kopeks > settings.WATA_MAX_AMOUNT_KOPEKS:
                 await callback.answer(
-                    f'❌ Сумма для WATA должна быть между {settings.format_price(settings.WATA_MIN_AMOUNT_KOPEKS)} и {settings.format_price(settings.WATA_MAX_AMOUNT_KOPEKS)}.',
+                    texts.t(
+                        'CB_WATA_AMOUNT_RANGE',
+                        '❌ Сумма для WATA должна быть между {min_amount} и {max_amount}.',
+                    ).format(
+                        min_amount=settings.format_price(settings.WATA_MIN_AMOUNT_KOPEKS),
+                        max_amount=settings.format_price(settings.WATA_MAX_AMOUNT_KOPEKS),
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1693,7 +1759,11 @@ async def handle_simple_subscription_payment_method(
     except Exception as e:
         logger.error('Ошибка обработки метода оплаты простой подписки', error=e)
         await callback.answer(
-            '❌ Ошибка обработки запроса. Попробуйте позже или обратитесь в поддержку.', show_alert=True
+            texts.t(
+                'CB_SIMPLE_SUB_REQUEST_ERROR',
+                '❌ Ошибка обработки запроса. Попробуйте позже или обратитесь в поддержку.',
+            ),
+            show_alert=True,
         )
         await state.clear()
 
@@ -2441,7 +2511,10 @@ async def confirm_simple_subscription_purchase(
             exc_info=True,
         )
         await callback.answer(
-            '❌ Ошибка оплаты подписки. Попробуйте позже или обратитесь в поддержку.',
+            texts.t(
+                'CB_SIMPLE_SUB_PAYMENT_ERROR',
+                '❌ Ошибка оплаты подписки. Попробуйте позже или обратитесь в поддержку.',
+            ),
             show_alert=True,
         )
         await state.clear()
