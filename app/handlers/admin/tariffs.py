@@ -112,7 +112,14 @@ def get_tariffs_list_keyboard(
         buttons.append(nav_buttons)
 
     # Кнопка создания
-    buttons.append([InlineKeyboardButton(text='➕ Создать тариф', callback_data='admin_tariff_create')])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_TARIFF_CREATE_BTN', '➕ Создать тариф'),
+                callback_data='admin_tariff_create',
+            )
+        ]
+    )
 
     # Кнопка назад
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='admin_panel')])
