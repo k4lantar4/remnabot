@@ -250,21 +250,37 @@ async def handle_reset_traffic(
 ):
     from app.config import settings
 
+    texts = get_texts(db_user.language)
+
     if settings.is_traffic_topup_blocked():
-        await callback.answer('⚠️ В текущем режиме трафик фиксированный и не может быть сброшен', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_TRAFFIC_FIXED_CANNOT_RESET',
+                '⚠️ В текущем режиме трафик фиксированный и не может быть сброшен',
+            ),
+            show_alert=True,
+        )
         return
 
-    texts = get_texts(db_user.language)
     subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
         return
 
     if not subscription or subscription.is_trial:
-        await callback.answer('⌛ Эта функция доступна только для платных подписок', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_PAID_SUBSCRIPTION_ONLY',
+                '⌛ Эта функция доступна только для платных подписок',
+            ),
+            show_alert=True,
+        )
         return
 
     if subscription.traffic_limit_gb == 0:
-        await callback.answer('⌛ У вас безлимитный трафик', show_alert=True)
+        await callback.answer(
+            texts.t('TRAFFIC_ALREADY_UNLIMITED', '⌛ У вас безлимитный трафик'),
+            show_alert=True,
+        )
         return
 
     reset_price = _calculate_traffic_reset_price(subscription)
@@ -311,21 +327,31 @@ async def confirm_reset_traffic(
 ):
     from app.config import settings
 
+    texts = get_texts(db_user.language)
+
     if settings.is_traffic_topup_blocked():
-        await callback.answer('⚠️ В текущем режиме трафик фиксированный', show_alert=True)
+        await callback.answer(
+            texts.t('TRAFFIC_FIXED_MODE', '⚠️ В текущем режиме трафик фиксированный'),
+            show_alert=True,
+        )
         return
 
     if settings.is_multi_tariff_enabled():
         _state_data = await state.get_data() if state else {}
         if not _state_data.get('active_subscription_id'):
-            await callback.answer('Выберите подписку через "Мои подписки"', show_alert=True)
+            await callback.answer(
+                texts.t(
+                    'CB_SELECT_SUBSCRIPTION_VIA_MY_SUBS',
+                    'Выберите подписку через "Мои подписки"',
+                ),
+                show_alert=True,
+            )
             return
 
     from app.database.crud.user import lock_user_for_pricing
 
     db_user = await lock_user_for_pricing(db, db_user.id)
 
-    texts = get_texts(db_user.language)
     # Re-resolve after lock since db_user was refreshed
     subscription, _ = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
@@ -365,7 +391,10 @@ async def confirm_reset_traffic(
         success = await subtract_user_balance(db, db_user, reset_price, 'Сброс трафика')
 
         if not success:
-            await callback.answer('⌛ Ошибка списания средств', show_alert=True)
+            await callback.answer(
+                texts.t('PAYMENT_FAILED', '⌛ Ошибка списания средств'),
+                show_alert=True,
+            )
             return
 
         subscription.traffic_used_gb = 0.0
@@ -528,17 +557,26 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         if tariff and tariff.can_topup_traffic():
             base_price = tariff.get_traffic_topup_price(traffic_gb) or 0
         else:
-            await callback.answer('⚠️ На вашем тарифе докупка трафика недоступна', show_alert=True)
+            await callback.answer(
+                texts.t('TARIFF_TRAFFIC_TOPUP_DISABLED', '⚠️ На вашем тарифе докупка трафика недоступна'),
+                show_alert=True,
+            )
             return
     else:
         # Стандартный режим
         if settings.is_traffic_topup_blocked():
-            await callback.answer('⚠️ В текущем режиме трафик фиксированный', show_alert=True)
+            await callback.answer(
+                texts.t('TRAFFIC_FIXED_MODE', '⚠️ В текущем режиме трафик фиксированный'),
+                show_alert=True,
+            )
             return
         base_price = settings.get_traffic_topup_price(traffic_gb)
 
     if base_price == 0 and traffic_gb != 0:
-        await callback.answer('⚠️ Цена для этого пакета не настроена', show_alert=True)
+        await callback.answer(
+            texts.t('CB_TRAFFIC_PACKAGE_PRICE_NOT_SET', '⚠️ Цена для этого пакета не настроена'),
+            show_alert=True,
+        )
         return
 
     # Lock user BEFORE price computation to prevent TOCTOU on group discount
@@ -635,7 +673,10 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         )
 
         if not success:
-            await callback.answer('⚠️ Ошибка списания средств', show_alert=True)
+            await callback.answer(
+                texts.t('PAYMENT_FAILED', '⚠️ Ошибка списания средств'),
+                show_alert=True,
+            )
             return
 
         if traffic_gb == 0:
@@ -713,8 +754,12 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
 
 
 async def handle_no_traffic_packages(callback: types.CallbackQuery, db_user: User):
+    texts = get_texts(db_user.language)
     await callback.answer(
-        '⚠️ В данный момент нет доступных пакетов трафика. Обратитесь в техподдержку для получения информации.',
+        texts.t(
+            'CB_NO_TRAFFIC_PACKAGES_AVAILABLE',
+            '⚠️ В данный момент нет доступных пакетов трафика. Обратитесь в техподдержку для получения информации.',
+        ),
         show_alert=True,
     )
 
@@ -724,17 +769,27 @@ async def handle_switch_traffic(
 ):
     from app.config import settings
 
+    texts = get_texts(db_user.language)
+
     if settings.is_traffic_topup_blocked():
-        await callback.answer('⚠️ В текущем режиме трафик фиксированный', show_alert=True)
+        await callback.answer(
+            texts.t('TRAFFIC_FIXED_MODE', '⚠️ В текущем режиме трафик фиксированный'),
+            show_alert=True,
+        )
         return
 
-    texts = get_texts(db_user.language)
     subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
         return
 
     if not subscription or subscription.is_trial:
-        await callback.answer('⚠️ Эта функция доступна только для платных подписок', show_alert=True)
+        await callback.answer(
+            texts.t(
+                'CB_PAID_SUBSCRIPTION_ONLY',
+                '⚠️ Эта функция доступна только для платных подписок',
+            ),
+            show_alert=True,
+        )
         return
 
     # Проверяем настройку тарифа
@@ -743,7 +798,13 @@ async def handle_switch_traffic(
 
         tariff = await get_tariff_by_id(db, subscription.tariff_id)
         if tariff and not tariff.allow_traffic_topup:
-            await callback.answer('⚠️ Для вашего тарифа переключение трафика недоступно', show_alert=True)
+            await callback.answer(
+                texts.t(
+                    'CB_TRAFFIC_SWITCH_UNAVAILABLE',
+                    '⚠️ Для вашего тарифа переключение трафика недоступно',
+                ),
+                show_alert=True,
+            )
             return
 
     current_traffic = subscription.traffic_limit_gb
@@ -800,7 +861,10 @@ async def confirm_switch_traffic(
     base_traffic = current_traffic - purchased_traffic
 
     if new_traffic_gb == current_traffic:
-        await callback.answer('ℹ️ Лимит трафика не изменился', show_alert=True)
+        await callback.answer(
+            texts.t('TRAFFIC_NO_CHANGE', 'ℹ️ Лимит трафика не изменился'),
+            show_alert=True,
+        )
         return
 
     # Используем базовый трафик для определения текущей цены пакета
@@ -934,7 +998,10 @@ async def execute_switch_traffic(
             )
 
             if not success:
-                await callback.answer('⚠️ Ошибка списания средств', show_alert=True)
+                await callback.answer(
+                    texts.t('PAYMENT_FAILED', '⚠️ Ошибка списания средств'),
+                    show_alert=True,
+                )
                 return
 
             days_remaining = max(1, math.ceil((subscription.end_date - datetime.now(UTC)).total_seconds() / 86400))

@@ -1953,5 +1953,12 @@
   "CB_SUBSCRIPTION_DATA_OUTDATED": "❌ داده اشتراک منقضی شده. از ابتدا شروع کنید.",
   "CB_SERVER_UNAVAILABLE_FOR_PROMO": "❌ سرور برای گروه تخفیف شما در دسترس نیست",
   "CB_SELECT_AT_LEAST_ONE_COUNTRY": "⚠️ حداقل یک کشور انتخاب کنید!",
-  "CB_NO_CHANGES_DETECTED": "⚠️ تغییری یافت نشد"
+  "CB_NO_CHANGES_DETECTED": "⚠️ تغییری یافت نشد",
+  "CB_PURCHASE_CANCELLED": "❌ خرید لغو شد",
+  "CB_TRAFFIC_FIXED_CANNOT_RESET": "⚠️ در این حالت ترافیک ثابت است و قابل بازنشانی نیست",
+  "CB_PAID_SUBSCRIPTION_ONLY": "⌛ این قابلیت فقط برای اشتراک پولی است",
+  "CB_SELECT_SUBSCRIPTION_VIA_MY_SUBS": "اشتراک را از «اشتراک‌های من» انتخاب کنید",
+  "CB_TRAFFIC_PACKAGE_PRICE_NOT_SET": "⚠️ قیمت این بسته تنظیم نشده",
+  "CB_TRAFFIC_SWITCH_UNAVAILABLE": "⚠️ تغییر ترافیک برای تعرفه شما ممکن نیست",
+  "CB_NO_TRAFFIC_PACKAGES_AVAILABLE": "⚠️ در حال حاضر بسته ترافیکی موجود نیست. با پشتیبانی تماس بگیرید."
 }
