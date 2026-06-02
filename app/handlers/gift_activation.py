@@ -16,7 +16,8 @@ from app.services.guest_purchase_service import GuestPurchaseError, activate_pur
 
 logger = structlog.get_logger(__name__)
 
-_GIFT_NOT_FOUND = 'Подарок не найден или недоступен.'
+_GIFT_NOT_FOUND_KEY = 'GIFT_NOT_FOUND'
+_GIFT_NOT_FOUND_FALLBACK = 'Подарок не найден или недоступен.'
 
 
 async def handle_gift_activate(callback: types.CallbackQuery) -> None:
@@ -35,17 +36,17 @@ async def handle_gift_activate(callback: types.CallbackQuery) -> None:
 
     parts = callback.data.split(':', 1)
     if len(parts) != 2:
-        await callback.answer(_GIFT_NOT_FOUND, show_alert=True)
+        await callback.answer(texts.t(_GIFT_NOT_FOUND_KEY, _GIFT_NOT_FOUND_FALLBACK), show_alert=True)
         return
 
     try:
         purchase_id = int(parts[1])
     except ValueError:
-        await callback.answer(_GIFT_NOT_FOUND, show_alert=True)
+        await callback.answer(texts.t(_GIFT_NOT_FOUND_KEY, _GIFT_NOT_FOUND_FALLBACK), show_alert=True)
         return
 
     await callback.answer()
-    await callback.message.edit_text('⏳ Активируем подарок...', parse_mode=None)
+    await callback.message.edit_text(texts.t('GIFT_ACTIVATING', '⏳ Активируем подарок...'), parse_mode=None)
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
@@ -56,12 +57,12 @@ async def handle_gift_activate(callback: types.CallbackQuery) -> None:
         purchase = result.scalars().first()
 
         if not purchase or purchase.user_id is None or purchase.user is None:
-            await callback.message.edit_text(_GIFT_NOT_FOUND, parse_mode=None)
+            await callback.message.edit_text(texts.t(_GIFT_NOT_FOUND_KEY, _GIFT_NOT_FOUND_FALLBACK), parse_mode=None)
             return
 
         # Verify the callback sender is the actual recipient
         if purchase.user.telegram_id != callback.from_user.id:
-            await callback.message.edit_text(_GIFT_NOT_FOUND, parse_mode=None)
+            await callback.message.edit_text(texts.t(_GIFT_NOT_FOUND_KEY, _GIFT_NOT_FOUND_FALLBACK), parse_mode=None)
             return
 
         # Resolve tariff info inside session (selectin-loaded relationships)
@@ -78,10 +79,16 @@ async def handle_gift_activate(callback: types.CallbackQuery) -> None:
                 error=exc.message,
             )
             if exc.status_code >= 500:
-                await callback.message.edit_text('Произошла ошибка при активации. Попробуйте позже.', parse_mode=None)
+                await callback.message.edit_text(
+                    texts.t('GIFT_ACTIVATION_ERROR', 'Произошла ошибка при активации. Попробуйте позже.'),
+                    parse_mode=None,
+                )
             else:
                 await callback.message.edit_text(
-                    f'Не удалось активировать подарок: {html_mod.escape(exc.message)}',
+                    texts.t(
+                        'GIFT_ACTIVATION_FAILED',
+                        'Не удалось активировать подарок: {error}',
+                    ).format(error=html_mod.escape(exc.message)),
                     parse_mode=None,
                 )
             return
@@ -91,14 +98,20 @@ async def handle_gift_activate(callback: types.CallbackQuery) -> None:
                 purchase_id=purchase_id,
                 telegram_id=callback.from_user.id,
             )
-            await callback.message.edit_text('Произошла ошибка при активации. Попробуйте позже.', parse_mode=None)
+            await callback.message.edit_text(
+                texts.t('GIFT_ACTIVATION_ERROR', 'Произошла ошибка при активации. Попробуйте позже.'),
+                parse_mode=None,
+            )
             return
 
     period_text = f'{period_days} дн.' if period_days else ''
     tariff_text = f'{tariff_name} — {period_text}' if tariff_name else period_text
 
     await callback.message.edit_text(
-        f'✅ <b>Подарок активирован!</b>\n{tariff_text}\n\nВаша подписка обновлена.',
+        texts.t(
+            'GIFT_ACTIVATED_SUCCESS',
+            '✅ <b>Подарок активирован!</b>\n{tariff_text}\n\nВаша подписка обновлена.',
+        ).format(tariff_text=tariff_text),
     )
 
 
