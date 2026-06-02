@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from aiogram import F, types
@@ -153,12 +154,6 @@ async def start_c2c_payment(
         )
         return
 
-    pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
-    if pending:
-        await _send_c2c_card_instructions(target=callback, db_user=db_user, receipt=pending, state=state)
-        await callback.answer()
-        return
-
     min_amount_rub = settings.C2C_MIN_AMOUNT_KOPEKS / 100
     max_amount_rub = settings.C2C_MAX_AMOUNT_KOPEKS / 100
     display_name = settings.get_c2c_display_name()
@@ -219,11 +214,6 @@ async def process_c2c_payment_amount(
         )
         return
 
-    pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
-    if pending:
-        await _send_c2c_card_instructions(target=message, db_user=db_user, receipt=pending, state=state)
-        return
-
     try:
         card, card_index = await get_next_card()
     except ValueError:
@@ -233,13 +223,32 @@ async def process_c2c_payment_amount(
         )
         return
 
-    receipt = await c2c_crud.create_pending_receipt(
-        db,
-        user_id=db_user.id,
-        amount_kopeks=amount_kopeks,
-        card_index=card_index,
-        card_label=card.get('label'),
-    )
+    pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
+    if pending:
+        if pending.receipt_type:
+            await message.answer(
+                texts.t(
+                    'C2C_PENDING_REVIEW',
+                    '⏳ You already have receipt #{id} awaiting review. Please wait for admin decision.',
+                ).format(id=pending.id),
+                reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
+            )
+            return
+        pending.amount_kopeks = amount_kopeks
+        pending.card_index = card_index
+        pending.card_label = card.get('label')
+        pending.expires_at = datetime.now(UTC) + timedelta(hours=settings.C2C_RECEIPT_TTL_HOURS)
+        pending.updated_at = datetime.now(UTC)
+        await db.flush()
+        receipt = pending
+    else:
+        receipt = await c2c_crud.create_pending_receipt(
+            db,
+            user_id=db_user.id,
+            amount_kopeks=amount_kopeks,
+            card_index=card_index,
+            card_label=card.get('label'),
+        )
 
     await _send_c2c_card_instructions(target=message, db_user=db_user, receipt=receipt, state=state)
     await db.commit()
