@@ -71,7 +71,9 @@ def test_build_delivery_kwargs_includes_balance_topic_for_notifications_chat(
     assert kwargs == {'chat_id': -1001111111111, 'message_thread_id': 42}
 
 
-def test_admin_topic_fallback_chain_order():
+def test_admin_topic_fallback_chain_order(monkeypatch: pytest.MonkeyPatch):
+    cfg = _settings()
+    monkeypatch.setattr('app.plugins.c2c.admin_delivery.settings', cfg)
     kwargs = {'chat_id': -1001, 'message_thread_id': 42}
     chain = _admin_topic_fallback_chain(kwargs)
     assert chain[0]['message_thread_id'] == 42
