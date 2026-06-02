@@ -1454,14 +1454,14 @@ async def save_cart_and_redirect_to_topup(
 
 
 async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     # Получаем данные корзины из Redis
     cart_data = await user_cart_service.get_user_cart(db_user.id)
 
     if not cart_data:
-        await callback.answer('❌ Сохраненная корзина не найдена', show_alert=True)
+        await callback.answer(texts.t('CB_SAVED_CART_NOT_FOUND', '❌ Сохраненная корзина не найдена'), show_alert=True)
         return
 
-    texts = get_texts(db_user.language)
 
     # Проверяем режим корзины - если это тарифная корзина, перенаправляем на соответствующий обработчик
     cart_mode = cart_data.get('cart_mode')
@@ -1482,7 +1482,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
     prepared_cart_data = dict(cart_data)
 
     if 'period_days' not in prepared_cart_data:
-        await callback.answer('❌ Корзина повреждена. Оформите подписку заново.', show_alert=True)
+        await callback.answer(texts.t('CB_CART_CORRUPTED', '❌ Корзина повреждена. Оформите подписку заново.'), show_alert=True)
         # Multi-tariff safe: try per-subscription deletion to avoid nuking other carts
         corrupted_sub_id = None
         try:
@@ -1568,7 +1568,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
                 reply_markup=insufficient_keyboard,
             )
         else:
-            await callback.answer('ℹ️ Пополните баланс, чтобы завершить оформление.')
+            await callback.answer(texts.t('CB_TOPUP_TO_COMPLETE', 'ℹ️ Пополните баланс, чтобы завершить оформление.'))
         return
 
     countries = await _get_available_countries(db_user.promo_group_id)
@@ -1630,7 +1630,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
     if _message_needs_update(callback.message, summary_text, confirm_keyboard):
         await callback.message.edit_text(summary_text, reply_markup=confirm_keyboard, parse_mode='HTML')
 
-    await callback.answer('✅ Корзина восстановлена!')
+    await callback.answer(texts.t('CB_CART_RESTORED', '✅ Корзина восстановлена!'))
 
 
 async def handle_extend_subscription(
@@ -1767,7 +1767,7 @@ async def handle_extend_subscription(
             continue
 
     if not renewal_prices:
-        await callback.answer('⚠ Нет доступных периодов для продления', show_alert=True)
+        await callback.answer(texts.t('CB_NO_RENEWAL_PERIODS', '⚠ Нет доступных периодов для продления'), show_alert=True)
         return
 
     prices_text = ''
@@ -1862,11 +1862,11 @@ async def handle_extend_subscription(
 async def confirm_extend_subscription(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
+    texts = get_texts(db_user.language)
     if not callback.data:
-        await callback.answer('⚠ Ошибка данных', show_alert=True)
+        await callback.answer(texts.t('CB_DATA_ERROR', '⚠ Ошибка данных'), show_alert=True)
         return
     days = int(callback.data.split('_')[2])
-    texts = get_texts(db_user.language)
 
     # Block classic subscription renewal when tariff mode is active
     if settings.is_tariffs_mode():
@@ -1893,13 +1893,13 @@ async def confirm_extend_subscription(
             subscription = await get_subscription_by_id_for_user(db, _fsm_sub_id, db_user.id)
         else:
             # Multi-tariff without FSM state — cannot determine which subscription
-            await callback.answer('Выберите подписку через "Мои подписки"', show_alert=True)
+            await callback.answer(texts.t('CB_SELECT_SUBSCRIPTION_VIA_MY_SUBS', 'Выберите подписку через "Мои подписки"'), show_alert=True)
             return
     else:
         subscription = db_user.subscription
 
     if not subscription:
-        await callback.answer('⚠ У вас нет активной подписки', show_alert=True)
+        await callback.answer(texts.t('NO_ACTIVE_SUBSCRIPTION', '⚠ У вас нет активной подписки'), show_alert=True)
         return
 
     from app.database.crud.user import lock_user_for_pricing
@@ -1947,7 +1947,7 @@ async def confirm_extend_subscription(
 
     except Exception as e:
         logger.error('⚠ ОШИБКА РАСЧЕТА ЦЕНЫ', error=e)
-        await callback.answer('⚠ Ошибка расчета стоимости', show_alert=True)
+        await callback.answer(texts.t('CB_PRICE_CALC_ERROR', '⚠ Ошибка расчета стоимости'), show_alert=True)
         return
 
     if price > 0 and db_user.balance_kopeks < price:
@@ -2015,7 +2015,7 @@ async def confirm_extend_subscription(
             payment_method=PaymentMethod.BALANCE,
         )
     except SubscriptionRenewalChargeError:
-        await callback.answer('⚠ Ошибка списания средств', show_alert=True)
+        await callback.answer(texts.t('PAYMENT_FAILED', '⚠ Ошибка списания средств'), show_alert=True)
         return
     except Exception as e:
         logger.error('⚠ КРИТИЧЕСКАЯ ОШИБКА ПРОДЛЕНИЯ', error=e)
@@ -2089,7 +2089,7 @@ async def select_period(callback: types.CallbackQuery, state: FSMContext, db_use
         available_packages = [pkg for pkg in settings.get_traffic_packages() if pkg['enabled']]
 
         if not available_packages:
-            await callback.answer('⚠️ Пакеты трафика не настроены', show_alert=True)
+            await callback.answer(texts.t('TRAFFIC_PACKAGES_NOT_CONFIGURED', '⚠️ Пакеты трафика не настроены'), show_alert=True)
             return
 
         await callback.message.edit_text(
@@ -2193,8 +2193,9 @@ async def select_devices(callback: types.CallbackQuery, state: FSMContext, db_us
 
 
 async def devices_continue(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     if callback.data != 'devices_continue':
-        await callback.answer('⚠️ Некорректный запрос', show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_REQUEST', '⚠️ Некорректный запрос'), show_alert=True)
         return
 
     if await present_subscription_summary(callback, state, db_user):
@@ -2300,7 +2301,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                 price_difference=price_difference / 100,
                 max_allowed_increase=max_allowed_increase / 100,
             )
-            await callback.answer('Цена изменилась. Пожалуйста, начните оформление заново.', show_alert=True)
+            await callback.answer(texts.t('CB_PRICE_CHANGED_RESTART', 'Цена изменилась. Пожалуйста, начните оформление заново.'), show_alert=True)
             return
         if price_difference > 100:  # допуск 1₽
             logger.warning(
@@ -2941,7 +2942,7 @@ async def handle_subscription_settings(callback: types.CallbackQuery, db_user: U
     texts = get_texts(db_user.language)
 
     if settings.is_multi_tariff_enabled():
-        await callback.answer('Настройки доступны через "Мои подписки"', show_alert=True)
+        await callback.answer(texts.t('CB_SETTINGS_VIA_MY_SUBS', 'Настройки доступны через "Мои подписки"'), show_alert=True)
         return
 
     subscription = db_user.subscription
@@ -3011,6 +3012,7 @@ async def handle_subscription_settings(callback: types.CallbackQuery, db_user: U
 
 
 async def clear_saved_cart(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     # Очищаем как FSM, так и Redis.
     # NOTE: Intentionally deletes ALL carts (global + per-subscription cascade)
     # because this is an explicit user action ("clear my cart").  In multi-tariff
@@ -3022,7 +3024,7 @@ async def clear_saved_cart(callback: types.CallbackQuery, state: FSMContext, db_
 
     await show_main_menu(callback, db_user, db)
 
-    await callback.answer('🗑️ Корзина очищена')
+    await callback.answer(texts.t('CB_CART_CLEARED', '🗑️ Корзина очищена'))
 
 
 # ============== ХЕНДЛЕР ПАУЗЫ СУТОЧНОЙ ПОДПИСКИ ==============
@@ -3262,7 +3264,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
 
     trial_price_kopeks = get_trial_activation_charge_amount()
     if trial_price_kopeks <= 0:
-        await callback.answer('❌ Ошибка: триал бесплатный', show_alert=True)
+        await callback.answer(texts.t('CB_TRIAL_IS_FREE', '❌ Ошибка: триал бесплатный'), show_alert=True)
         return
 
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0) or 0
@@ -3668,7 +3670,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
 
     trial_price_kopeks = get_trial_activation_charge_amount()
     if trial_price_kopeks <= 0:
-        await callback.answer('❌ Ошибка: триал бесплатный', show_alert=True)
+        await callback.answer(texts.t('CB_TRIAL_IS_FREE', '❌ Ошибка: триал бесплатный'), show_alert=True)
         return
 
     # Определяем метод оплаты
@@ -3732,7 +3734,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
         )
 
         if not pending_subscription:
-            await callback.answer('❌ Не удалось подготовить заказ. Попробуйте позже.', show_alert=True)
+            await callback.answer(texts.t('CB_ORDER_PREPARE_FAILED', '❌ Не удалось подготовить заказ. Попробуйте позже.'), show_alert=True)
             return
 
         traffic_label = 'Безлимит' if trial_traffic == 0 else f'{trial_traffic} ГБ'
@@ -3786,7 +3788,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('confirmation_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             qr_url = payment_result.get('qr_code_url') or payment_result.get('confirmation_url')
@@ -3824,7 +3826,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('confirmation_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             await callback.message.edit_text(
@@ -3879,7 +3881,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_url:
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             await callback.message.edit_text(
@@ -3917,7 +3919,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('payment_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             await callback.message.edit_text(
@@ -3955,7 +3957,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('payment_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             mulenpay_name = settings.get_mulenpay_display_name()
@@ -3992,7 +3994,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('payment_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             await callback.message.edit_text(
@@ -4030,7 +4032,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('payment_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             await callback.message.edit_text(
@@ -4057,7 +4059,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             # Оплата через Platega
             active_methods = settings.get_platega_active_methods()
             if not active_methods:
-                await callback.answer('❌ Platega не настроена', show_alert=True)
+                await callback.answer(texts.t('CB_PLATEGA_NOT_CONFIGURED', '❌ Platega не настроена'), show_alert=True)
                 return
 
             # Используем первый активный метод
@@ -4075,7 +4077,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
             )
 
             if not payment_result or not payment_result.get('redirect_url'):
-                await callback.answer('❌ Не удалось создать платеж. Попробуйте позже.', show_alert=True)
+                await callback.answer(texts.t('CB_PAYMENT_CREATE_FAILED', '❌ Не удалось создать платеж. Попробуйте позже.'), show_alert=True)
                 return
 
             platega_name = settings.get_platega_display_name()
@@ -4109,7 +4111,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
 
     except Exception as error:
         logger.error('Error processing trial payment method', payment_method=payment_method, error=error)
-        await callback.answer('❌ Произошла ошибка при создании платежа. Попробуйте позже.', show_alert=True)
+        await callback.answer(texts.t('CB_PAYMENT_CREATE_ERROR_GENERIC', '❌ Произошла ошибка при создании платежа. Попробуйте позже.'), show_alert=True)
 
 
 def register_handlers(dp: Dispatcher):
@@ -4342,7 +4344,7 @@ async def handle_simple_subscription_purchase(
     texts = get_texts(db_user.language)
 
     if not settings.SIMPLE_SUBSCRIPTION_ENABLED:
-        await callback.answer('❌ Простая покупка подписки временно недоступна', show_alert=True)
+        await callback.answer(texts.t('CB_SIMPLE_SUB_UNAVAILABLE', '❌ Простая покупка подписки временно недоступна'), show_alert=True)
         return
 
     # Определяем ограничение по устройствам для текущего режима
@@ -4593,7 +4595,7 @@ async def _extend_existing_subscription(
     )
 
     if not success:
-        await callback.answer('⚠ Ошибка списания средств', show_alert=True)
+        await callback.answer(texts.t('PAYMENT_FAILED', '⚠ Ошибка списания средств'), show_alert=True)
         return
 
     # Обновляем параметры подписки
@@ -4659,7 +4661,7 @@ async def _extend_existing_subscription(
                 price_kopeks=price_kopeks,
                 refund_error=refund_error,
             )
-        await callback.answer('⚠ Ошибка продления подписки', show_alert=True)
+        await callback.answer(texts.t('CB_RENEWAL_ERROR', '⚠ Ошибка продления подписки'), show_alert=True)
         return
     await db.refresh(current_subscription)
     await db.refresh(db_user)

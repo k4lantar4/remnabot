@@ -1972,5 +1972,20 @@
   "CB_PAYMENT_CREATE_ERROR": "❌ خطا در ایجاد پرداخت",
   "CB_PAYMENT_DATA_ERROR": "❌ خطا در دریافت داده پرداخت",
   "CB_PAL24_PAYMENT_UNAVAILABLE": "❌ پرداخت PayPalych موقتاً در دسترس نیست",
-  "CB_WATA_PAYMENT_UNAVAILABLE": "❌ پرداخت WATA موقتاً در دسترس نیست"
+  "CB_WATA_PAYMENT_UNAVAILABLE": "❌ پرداخت WATA موقتاً در دسترس نیست",
+  "CB_SAVED_CART_NOT_FOUND": "❌ سبد ذخیره‌شده یافت نشد",
+  "CB_CART_CORRUPTED": "❌ سبد آسیب دیده. دوباره اشتراک بگیرید.",
+  "CB_TOPUP_TO_COMPLETE": "ℹ️ برای تکمیل خرید موجودی را شارژ کنید.",
+  "CB_CART_RESTORED": "✅ سبد بازیابی شد!",
+  "CB_NO_RENEWAL_PERIODS": "⚠ دوره‌ای برای تمدید موجود نیست",
+  "CB_DATA_ERROR": "⚠ خطای داده",
+  "CB_PRICE_CALC_ERROR": "⚠ خطا در محاسبه قیمت",
+  "CB_PRICE_CHANGED_RESTART": "قیمت تغییر کرد. لطفاً از ابتدا شروع کنید.",
+  "CB_SETTINGS_VIA_MY_SUBS": "تنظیمات از «اشتراک‌های من» در دسترس است",
+  "CB_CART_CLEARED": "🗑️ سبد پاک شد",
+  "CB_TRIAL_IS_FREE": "❌ خطا: دوره آزمایشی رایگان است",
+  "CB_PAYMENT_CREATE_FAILED": "❌ ایجاد پرداخت ناموفق بود. بعداً تلاش کنید.",
+  "CB_PLATEGA_NOT_CONFIGURED": "❌ Platega پیکربندی نشده",
+  "CB_PAYMENT_CREATE_ERROR_GENERIC": "❌ خطا در ایجاد پرداخت. بعداً تلاش کنید.",
+  "CB_RENEWAL_ERROR": "⚠ خطا در تمدید اشتراک"
 }
