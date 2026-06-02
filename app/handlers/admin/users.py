@@ -6854,10 +6854,11 @@ def _admin_autopay_available_periods(subscription: Subscription) -> list[int]:
 @error_handler
 async def show_admin_user_autopay(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Admin view of a subscription's autopay settings."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
     subscription = await _load_admin_subscription(db, user_id, subscription_id)
     if subscription is None:
-        await callback.answer('❌ Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_NOT_FOUND', '❌ Подписка не найдена'), show_alert=True)
         return
 
     try:
@@ -6866,35 +6867,54 @@ async def show_admin_user_autopay(callback: types.CallbackQuery, db_user: User, 
         pass
 
     _sid = f'_s{subscription.id}' if subscription_id and settings.is_multi_tariff_enabled() else ''
-    status_text = '✅ Включён' if subscription.autopay_enabled else '❌ Выключен'
+    status_text = (
+        texts.t('ADMIN_USER_AUTOPAY_STATUS_ON', '✅ Включён')
+        if subscription.autopay_enabled
+        else texts.t('ADMIN_USER_AUTOPAY_STATUS_OFF', '❌ Выключен')
+    )
     period_value = getattr(subscription, 'autopay_period_days', None)
-    period_text = f'{period_value} дн.' if period_value else 'по умолчанию (самый дешёвый период тарифа)'
-
-    text = (
-        '💳 <b>Настройки автоплатежа</b>\n\n'
-        f'<b>Статус:</b> {status_text}\n'
-        f'<b>Списание за:</b> {subscription.autopay_days_before} дн. до окончания\n'
-        f'<b>Период продления:</b> {period_text}\n\n'
-        f'Глобальный дефолт периода: '
-        f'{getattr(settings, "DEFAULT_AUTOPAY_PERIOD_DAYS", 0) or "самый короткий период тарифа"}'
+    period_text = (
+        texts.t('ADMIN_USER_AUTOPAY_PERIOD_DAYS', '{days} дн.').format(days=period_value)
+        if period_value
+        else texts.t('ADMIN_USER_AUTOPAY_PERIOD_DEFAULT', 'по умолчанию (самый дешёвый период тарифа)')
+    )
+    global_default = getattr(settings, 'DEFAULT_AUTOPAY_PERIOD_DAYS', 0) or texts.t(
+        'ADMIN_USER_AUTOPAY_GLOBAL_SHORTEST', 'самый короткий период тарифа'
     )
 
-    toggle_label = '❌ Выключить' if subscription.autopay_enabled else '✅ Включить'
+    text = texts.t('ADMIN_USER_AUTOPAY_TITLE', '💳 <b>Настройки автоплатежа</b>\n\n')
+    text += texts.t('ADMIN_USER_AUTOPAY_STATUS_LINE', '<b>Статус:</b> {status}\n').format(status=status_text)
+    text += texts.t('ADMIN_USER_AUTOPAY_DAYS_BEFORE', '<b>Списание за:</b> {days} дн. до окончания\n').format(
+        days=subscription.autopay_days_before
+    )
+    text += texts.t('ADMIN_USER_AUTOPAY_PERIOD_LINE', '<b>Период продления:</b> {period}\n\n').format(period=period_text)
+    text += texts.t('ADMIN_USER_AUTOPAY_GLOBAL_DEFAULT', 'Глобальный дефолт периода: {value}').format(
+        value=global_default
+    )
+
+    toggle_label = (
+        texts.t('ADMIN_USER_AUTOPAY_TOGGLE_OFF', '❌ Выключить')
+        if subscription.autopay_enabled
+        else texts.t('ADMIN_USER_AUTOPAY_TOGGLE_ON', '✅ Включить')
+    )
     keyboard = [
         [types.InlineKeyboardButton(text=toggle_label, callback_data=f'admin_user_autopay_toggle_{user_id}{_sid}')],
         [
             types.InlineKeyboardButton(
-                text='⏰ Дни до списания', callback_data=f'admin_user_autopay_days_{user_id}{_sid}'
+                text=texts.t('ADMIN_USER_AUTOPAY_BTN_DAYS', '⏰ Дни до списания'),
+                callback_data=f'admin_user_autopay_days_{user_id}{_sid}',
             )
         ],
         [
             types.InlineKeyboardButton(
-                text='📅 Период продления', callback_data=f'admin_user_autopay_period_{user_id}{_sid}'
+                text=texts.t('ADMIN_USER_AUTOPAY_BTN_PERIOD', '📅 Период продления'),
+                callback_data=f'admin_user_autopay_period_{user_id}{_sid}',
             )
         ],
         [
             types.InlineKeyboardButton(
-                text='⬅️ К подписке', callback_data=_admin_autopay_back_cb(user_id, subscription_id)
+                text=texts.t('ADMIN_USER_SUB_BTN_BACK', '⬅️ К подписке'),
+                callback_data=_admin_autopay_back_cb(user_id, subscription_id),
             )
         ],
     ]
@@ -6909,14 +6929,15 @@ async def toggle_admin_user_autopay(callback: types.CallbackQuery, db_user: User
     """Admin: flip autopay_enabled on a subscription."""
     from app.database.crud.subscription import update_subscription_autopay
 
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
     subscription = await _load_admin_subscription(db, user_id, subscription_id)
     if subscription is None:
-        await callback.answer('❌ Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_NOT_FOUND', '❌ Подписка не найдена'), show_alert=True)
         return
 
     await update_subscription_autopay(db, subscription, not subscription.autopay_enabled)
-    await callback.answer('✅ Сохранено')
+    await callback.answer(texts.t('ADMIN_USER_AUTOPAY_SAVED', '✅ Сохранено'))
     callback.data = f'admin_user_autopay_{user_id}' + (
         f'_s{subscription_id}' if subscription_id and settings.is_multi_tariff_enabled() else ''
     )
@@ -6927,6 +6948,7 @@ async def toggle_admin_user_autopay(callback: types.CallbackQuery, db_user: User
 @error_handler
 async def show_admin_user_autopay_days(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Admin: show days-before picker."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
     _sid = f'_s{subscription_id}' if subscription_id and settings.is_multi_tariff_enabled() else ''
 
@@ -6935,14 +6957,21 @@ async def show_admin_user_autopay_days(callback: types.CallbackQuery, db_user: U
         keyboard.append(
             [
                 types.InlineKeyboardButton(
-                    text=f'{days} дн.', callback_data=f'admin_user_autopay_days_set_{user_id}{_sid}_{days}'
+                    text=texts.t('ADMIN_USER_AUTOPAY_PERIOD_DAYS', '{days} дн.').format(days=days),
+                    callback_data=f'admin_user_autopay_days_set_{user_id}{_sid}_{days}',
                 )
             ]
         )
-    keyboard.append([types.InlineKeyboardButton(text='⬅️ Назад', callback_data=f'admin_user_autopay_{user_id}{_sid}')])
+    keyboard.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data=f'admin_user_autopay_{user_id}{_sid}'
+            )
+        ]
+    )
 
     await callback.message.edit_text(
-        '⏰ <b>За сколько дней до окончания списывать средства?</b>',
+        texts.t('ADMIN_USER_AUTOPAY_DAYS_PROMPT', '⏰ <b>За сколько дней до окончания списывать средства?</b>'),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
     await callback.answer()
@@ -6954,6 +6983,7 @@ async def set_admin_user_autopay_days(callback: types.CallbackQuery, db_user: Us
     """Admin: persist days-before choice."""
     from app.database.crud.subscription import update_subscription_autopay
 
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     days = int(parts[-1])
     if parts[-2].startswith('s') and parts[-2][1:].isdigit():
@@ -6965,11 +6995,11 @@ async def set_admin_user_autopay_days(callback: types.CallbackQuery, db_user: Us
 
     subscription = await _load_admin_subscription(db, user_id, subscription_id)
     if subscription is None:
-        await callback.answer('❌ Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_NOT_FOUND', '❌ Подписка не найдена'), show_alert=True)
         return
 
     await update_subscription_autopay(db, subscription, subscription.autopay_enabled, days_before=days)
-    await callback.answer(f'✅ Установлено: {days} дн.')
+    await callback.answer(texts.t('ADMIN_USER_AUTOPAY_DAYS_SET', '✅ Установлено: {days} дн.').format(days=days))
 
     _sid = f'_s{subscription_id}' if subscription_id and settings.is_multi_tariff_enabled() else ''
     callback.data = f'admin_user_autopay_{user_id}{_sid}'
@@ -6980,10 +7010,11 @@ async def set_admin_user_autopay_days(callback: types.CallbackQuery, db_user: Us
 @error_handler
 async def show_admin_user_autopay_period(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     """Admin: show period picker."""
+    texts = get_texts(db_user.language)
     user_id, subscription_id = _extract_admin_sub_context(callback.data)
     subscription = await _load_admin_subscription(db, user_id, subscription_id)
     if subscription is None:
-        await callback.answer('❌ Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_NOT_FOUND', '❌ Подписка не найдена'), show_alert=True)
         return
 
     try:
@@ -6995,7 +7026,7 @@ async def show_admin_user_autopay_period(callback: types.CallbackQuery, db_user:
     current = getattr(subscription, 'autopay_period_days', None)
     periods = _admin_autopay_available_periods(subscription)
 
-    default_label = '⚙️ По умолчанию (самый дешёвый)'
+    default_label = texts.t('ADMIN_USER_AUTOPAY_PERIOD_DEFAULT_BTN', '⚙️ По умолчанию (самый дешёвый)')
     if current is None:
         default_label = f'✅ {default_label}'
 
@@ -7008,7 +7039,7 @@ async def show_admin_user_autopay_period(callback: types.CallbackQuery, db_user:
         ]
     ]
     for days in periods:
-        label = f'{days} дн.'
+        label = texts.t('ADMIN_USER_AUTOPAY_PERIOD_DAYS', '{days} дн.').format(days=days)
         if current == days:
             label = f'✅ {label}'
         keyboard.append(
@@ -7018,12 +7049,21 @@ async def show_admin_user_autopay_period(callback: types.CallbackQuery, db_user:
                 )
             ]
         )
-    keyboard.append([types.InlineKeyboardButton(text='⬅️ Назад', callback_data=f'admin_user_autopay_{user_id}{_sid}')])
+    keyboard.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data=f'admin_user_autopay_{user_id}{_sid}'
+            )
+        ]
+    )
 
     await callback.message.edit_text(
-        '📅 <b>Период автоплатежа</b>\n\n'
-        'Выберите период, на который автоплатёж будет продлевать подписку.\n'
-        '<i>"По умолчанию" — глобальный дефолт из .env, иначе самый дешёвый период тарифа.</i>',
+        texts.t(
+            'ADMIN_USER_AUTOPAY_PERIOD_PICKER',
+            '📅 <b>Период автоплатежа</b>\n\n'
+            'Выберите период, на который автоплатёж будет продлевать подписку.\n'
+            '<i>"По умолчанию" — глобальный дефолт из .env, иначе самый дешёвый период тарифа.</i>',
+        ),
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
     await callback.answer()
@@ -7035,6 +7075,7 @@ async def set_admin_user_autopay_period(callback: types.CallbackQuery, db_user: 
     """Admin: persist period choice. Value `0` means clear (use default)."""
     from app.database.crud.subscription import update_subscription_autopay
 
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     days = int(parts[-1])
     if parts[-2].startswith('s') and parts[-2][1:].isdigit():
@@ -7046,12 +7087,12 @@ async def set_admin_user_autopay_period(callback: types.CallbackQuery, db_user: 
 
     subscription = await _load_admin_subscription(db, user_id, subscription_id)
     if subscription is None:
-        await callback.answer('❌ Подписка не найдена', show_alert=True)
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_NOT_FOUND', '❌ Подписка не найдена'), show_alert=True)
         return
 
     if days == 0:
         await update_subscription_autopay(db, subscription, subscription.autopay_enabled, period_days=None)
-        await callback.answer('✅ Используется период по умолчанию')
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_PERIOD_USE_DEFAULT', '✅ Используется период по умолчанию'))
     else:
         try:
             await db.refresh(subscription, ['tariff'])
@@ -7060,11 +7101,14 @@ async def set_admin_user_autopay_period(callback: types.CallbackQuery, db_user: 
 
         available = _admin_autopay_available_periods(subscription)
         if days not in available:
-            await callback.answer('❌ Период недоступен для этой подписки', show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_USER_AUTOPAY_PERIOD_UNAVAILABLE', '❌ Период недоступен для этой подписки'),
+                show_alert=True,
+            )
             return
 
         await update_subscription_autopay(db, subscription, subscription.autopay_enabled, period_days=days)
-        await callback.answer(f'✅ Период: {days} дн.')
+        await callback.answer(texts.t('ADMIN_USER_AUTOPAY_PERIOD_SET', '✅ Период: {days} дн.').format(days=days))
 
     _sid = f'_s{subscription_id}' if subscription_id and settings.is_multi_tariff_enabled() else ''
     callback.data = f'admin_user_autopay_{user_id}{_sid}'
