@@ -147,7 +147,7 @@ async def process_yookassa_payment_amount(
     texts = get_texts(db_user.language)
 
     if not settings.is_yookassa_enabled():
-        await message.answer('❌ Оплата через YooKassa временно недоступна')
+        await message.answer(texts.t('CB_YOOKASSA_PAYMENT_UNAVAILABLE', '❌ Оплата через YooKassa временно недоступна'))
         return
 
     if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
@@ -184,13 +184,23 @@ async def process_yookassa_payment_amount(
         )
 
         if not payment_result:
-            await message.answer('❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.')
+            await message.answer(
+                texts.t(
+                    'MSG_PAYMENT_CREATE_ERROR_SUPPORT',
+                    '❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.',
+                )
+            )
             await state.clear()
             return
 
         confirmation_url = payment_result.get('confirmation_url')
         if not confirmation_url:
-            await message.answer('❌ Ошибка получения ссылки для оплаты. Обратитесь в поддержку.')
+            await message.answer(
+                texts.t(
+                    'MSG_PAYMENT_LINK_ERROR',
+                    '❌ Ошибка получения ссылки для оплаты. Обратитесь в поддержку.',
+                )
+            )
             await state.clear()
             return
 
@@ -271,7 +281,12 @@ async def process_yookassa_payment_amount(
 
     except Exception as e:
         logger.error('Ошибка создания YooKassa платежа', error=e)
-        await message.answer('❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.')
+        await message.answer(
+            texts.t(
+                'MSG_PAYMENT_CREATE_ERROR_SUPPORT',
+                '❌ Ошибка создания платежа. Попробуйте позже или обратитесь в поддержку.',
+            )
+        )
         await state.clear()
 
 
@@ -302,7 +317,7 @@ async def process_yookassa_sbp_payment_amount(
     texts = get_texts(db_user.language)
 
     if not settings.is_yookassa_enabled() or not settings.YOOKASSA_SBP_ENABLED:
-        await message.answer('❌ Оплата через СБП временно недоступна')
+        await message.answer(texts.t('CB_SBP_PAYMENT_UNAVAILABLE', '❌ Оплата через СБП временно недоступна'))
         return
 
     if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
@@ -339,7 +354,12 @@ async def process_yookassa_sbp_payment_amount(
         )
 
         if not payment_result:
-            await message.answer('❌ Ошибка создания платежа через СБП. Попробуйте позже или обратитесь в поддержку.')
+            await message.answer(
+                texts.t(
+                    'MSG_SBP_PAYMENT_CREATE_ERROR',
+                    '❌ Ошибка создания платежа через СБП. Попробуйте позже или обратитесь в поддержку.',
+                )
+            )
             await state.clear()
             return
 
@@ -347,7 +367,12 @@ async def process_yookassa_sbp_payment_amount(
         qr_confirmation_data = payment_result.get('qr_confirmation_data')
 
         if not confirmation_url and not qr_confirmation_data:
-            await message.answer('❌ Ошибка получения данных для оплаты через СБП. Обратитесь в поддержку.')
+            await message.answer(
+                texts.t(
+                    'MSG_SBP_PAYMENT_DATA_ERROR',
+                    '❌ Ошибка получения данных для оплаты через СБП. Обратитесь в поддержку.',
+                )
+            )
             await state.clear()
             return
 
@@ -516,7 +541,12 @@ async def process_yookassa_sbp_payment_amount(
 
     except Exception as e:
         logger.error('Ошибка создания YooKassa СБП платежа', error=e)
-        await message.answer('❌ Ошибка создания платежа через СБП. Попробуйте позже или обратитесь в поддержку.')
+        await message.answer(
+            texts.t(
+                'MSG_SBP_PAYMENT_CREATE_ERROR',
+                '❌ Ошибка создания платежа через СБП. Попробуйте позже или обратитесь в поддержку.',
+            )
+        )
         await state.clear()
 
 

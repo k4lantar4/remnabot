@@ -2018,5 +2018,9 @@
   "MSG_REGISTER_BEFORE_CABINET": "❌ ابتدا در ربات ثبت‌نام کنید، سپس ورود به پنل را امتحان کنید.",
   "WEB_AUTH_CANCELLED": "❌ ورود لغو شد.",
   "WEB_AUTH_INVALID_TOKEN": "❌ خطا: توکن نامعتبر.",
-  "WEB_AUTH_ACCOUNT_INACTIVE": "❌ حساب کاربری غیرفعال است."
+  "WEB_AUTH_ACCOUNT_INACTIVE": "❌ حساب کاربری غیرفعال است.",
+  "MSG_PAYMENT_CREATE_ERROR_SUPPORT": "❌ خطا در ایجاد پرداخت. بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.",
+  "MSG_PAYMENT_LINK_ERROR": "❌ خطا در دریافت لینک پرداخت. با پشتیبانی تماس بگیرید.",
+  "MSG_SBP_PAYMENT_CREATE_ERROR": "❌ خطا در ایجاد پرداخت SBP. بعداً تلاش کنید یا با پشتیبانی تماس بگیرید.",
+  "MSG_SBP_PAYMENT_DATA_ERROR": "❌ خطا در دریافت اطلاعات پرداخت SBP. با پشتیبانی تماس بگیرید."
 }
