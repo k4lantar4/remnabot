@@ -172,6 +172,7 @@ class PaymentMethod(Enum):
     JUPITER = 'jupiter'
     DONUT = 'donut'
     LAVA = 'lava'
+    C2C = 'c2c'
     MANUAL = 'manual'
     BALANCE = 'balance'
 
@@ -996,6 +997,52 @@ class SeverPayPayment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f'<SeverPayPayment(id={self.id}, order_id={self.order_id}, amount={self.amount_rubles}₽, status={self.status})>'
+
+
+class C2cReceiptStatus(str, Enum):
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    EXPIRED = 'expired'
+    CANCELLED = 'cancelled'
+
+
+class C2cReceipt(Base):
+    """Manual card-to-card top-up receipt awaiting admin review."""
+
+    __tablename__ = 'c2c_receipts'
+    __table_args__ = (Index('ix_c2c_receipts_status_created_at', 'status', 'created_at'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    amount_kopeks = Column(Integer, nullable=False)
+    status = Column(String(32), nullable=False, default=C2cReceiptStatus.PENDING.value, index=True)
+
+    receipt_type = Column(String(32), nullable=True)
+    receipt_file_id = Column(String(512), nullable=True)
+    receipt_text = Column(Text, nullable=True)
+    user_receipt_message_id = Column(BigInteger, nullable=True)
+
+    card_index = Column(Integer, nullable=False, default=0)
+    card_label = Column(String(128), nullable=True)
+
+    admin_chat_id = Column(BigInteger, nullable=True)
+    admin_message_id = Column(BigInteger, nullable=True)
+    reviewed_by_telegram_id = Column(BigInteger, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=True)
+
+    created_at = Column(AwareDateTime(), default=func.now(), nullable=False)
+    updated_at = Column(AwareDateTime(), default=func.now(), onupdate=func.now(), nullable=False)
+    expires_at = Column(AwareDateTime(), nullable=True)
+    processed_at = Column(AwareDateTime(), nullable=True)
+
+    user = relationship('User', backref='c2c_receipts')
+    transaction = relationship('Transaction', backref='c2c_receipt')
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f'<C2cReceipt(id={self.id}, user_id={self.user_id}, status={self.status})>'
 
 
 class PayPearPayment(Base):
