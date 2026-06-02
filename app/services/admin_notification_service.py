@@ -2599,13 +2599,16 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
 
             message_lines = [
-                '🤝 <b>ЗАЯВКА НА ПАРТНЁРКУ</b>',
+                notify_texts.t('ADMIN_NOTIFY_PARTNER_APP_TITLE', '🤝 <b>ЗАЯВКА НА ПАРТНЁРКУ</b>'),
                 '',
-                f'👤 {user_display} ({user_id_display})',
+                notify_texts.t('ADMIN_NOTIFY_PARTNER_USER', '👤 {user} ({user_id})').format(
+                    user=user_display, user_id=user_id_display
+                ),
             ]
 
             username = getattr(user, 'username', None)
@@ -2615,20 +2618,42 @@ class AdminNotificationService:
             message_lines.append('')
 
             if application_data.get('company_name'):
-                message_lines.append(f'🏢 Компания: {html.escape(str(application_data["company_name"]))}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_COMPANY', '🏢 Компания: {name}').format(
+                        name=html.escape(str(application_data['company_name']))
+                    )
+                )
             if application_data.get('telegram_channel'):
-                message_lines.append(f'📢 Канал: {html.escape(str(application_data["telegram_channel"]))}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_CHANNEL', '📢 Канал: {channel}').format(
+                        channel=html.escape(str(application_data['telegram_channel']))
+                    )
+                )
             if application_data.get('website_url'):
-                message_lines.append(f'🌐 Сайт: {html.escape(str(application_data["website_url"]))}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_WEBSITE', '🌐 Сайт: {url}').format(
+                        url=html.escape(str(application_data['website_url']))
+                    )
+                )
             if application_data.get('description'):
                 desc = str(application_data['description'])
                 if len(desc) > 200:
                     desc = desc[:197] + '...'
-                message_lines.append(f'📝 {html.escape(desc)}')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_DESCRIPTION', '📝 {desc}').format(desc=html.escape(desc))
+                )
             if application_data.get('expected_monthly_referrals'):
-                message_lines.append(f'👥 Ожидаемых рефералов: {application_data["expected_monthly_referrals"]}/мес')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_REFERRALS', '👥 Ожидаемых рефералов: {count}/мес').format(
+                        count=application_data['expected_monthly_referrals']
+                    )
+                )
             if application_data.get('desired_commission_percent'):
-                message_lines.append(f'💰 Желаемая комиссия: {application_data["desired_commission_percent"]}%')
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PARTNER_COMMISSION', '💰 Желаемая комиссия: {percent}%').format(
+                        percent=application_data['desired_commission_percent']
+                    )
+                )
 
             message_lines.extend(
                 [
@@ -2654,13 +2679,16 @@ class AdminNotificationService:
             return False
 
         try:
+            notify_texts = _admin_notify_texts()
             user_display = self._get_user_display(user)
             user_id_display = self._get_user_identifier_display(user)
 
             message_lines = [
-                '💸 <b>ЗАПРОС НА ВЫВОД СРЕДСТВ</b>',
+                notify_texts.t('ADMIN_NOTIFY_WITHDRAWAL_TITLE', '💸 <b>ЗАПРОС НА ВЫВОД СРЕДСТВ</b>'),
                 '',
-                f'👤 {user_display} ({user_id_display})',
+                notify_texts.t('ADMIN_NOTIFY_PARTNER_USER', '👤 {user} ({user_id})').format(
+                    user=user_display, user_id=user_id_display
+                ),
             ]
 
             username = getattr(user, 'username', None)
@@ -2670,8 +2698,12 @@ class AdminNotificationService:
             message_lines.extend(
                 [
                     '',
-                    f'💵 <b>Сумма: {settings.format_price(amount_kopeks)}</b>',
-                    f'💰 Баланс: {settings.format_price(user.balance_kopeks)}',
+                    notify_texts.t('ADMIN_NOTIFY_WITHDRAWAL_AMOUNT', '💵 <b>Сумма: {amount}</b>').format(
+                        amount=settings.format_price(amount_kopeks)
+                    ),
+                    notify_texts.t('ADMIN_NOTIFY_WITHDRAWAL_BALANCE', '💰 Баланс: {balance}').format(
+                        balance=settings.format_price(user.balance_kopeks)
+                    ),
                 ]
             )
 
@@ -2679,7 +2711,14 @@ class AdminNotificationService:
                 details = str(payment_details)
                 if len(details) > 200:
                     details = details[:197] + '...'
-                message_lines.extend(['', f'💳 Реквизиты: {html.escape(details)}'])
+                message_lines.extend(
+                    [
+                        '',
+                        notify_texts.t('ADMIN_NOTIFY_WITHDRAWAL_DETAILS', '💳 Реквизиты: {details}').format(
+                            details=html.escape(details)
+                        ),
+                    ]
+                )
 
             message_lines.extend(
                 [
