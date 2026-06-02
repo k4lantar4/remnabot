@@ -219,6 +219,13 @@ async def route_payment_by_method(
             await process_riopay_payment_amount(message, db_user, db, amount_kopeks, state)
         return True
 
+    if payment_method == 'c2c':
+        from app.plugins.c2c.integration import route_c2c_payment
+
+        async with AsyncSessionLocal() as db:
+            await route_c2c_payment(message, db_user, db, amount_kopeks, state)
+        return True
+
     return False
 
 
@@ -553,6 +560,23 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
         amount_kopeks = int(amount_rubles * 100)
         data = await state.get_data()
         payment_method = data.get('payment_method', 'stars')
+
+        if payment_method == 'c2c':
+            if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS:
+                min_rubles = settings.C2C_MIN_AMOUNT_KOPEKS / 100
+                await message.answer(
+                    f'❌ Минимальная сумма для перевода на карту: {min_rubles:.0f} ₽',
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+            if amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
+                max_rubles = settings.C2C_MAX_AMOUNT_KOPEKS / 100
+                await message.answer(
+                    f'❌ Максимальная сумма для перевода на карту: {max_rubles:,.0f} ₽'.replace(',', ' '),
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
 
         if payment_method in ['yookassa', 'yookassa_sbp']:
             if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
