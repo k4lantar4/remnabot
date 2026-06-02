@@ -648,7 +648,10 @@ async def execute_change_devices(
                     refund_user.balance_kopeks += price
                     await db.commit()
                 await callback.answer(
-                    f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',
+                    texts.t(
+                        'DEVICES_LIMIT_EXCEEDED_REFUND',
+                        '⚠️ Лимит устройств ({max}) превышен. Баланс возвращён.',
+                    ).format(max=max_devices),
                     show_alert=True,
                 )
                 return
@@ -664,7 +667,10 @@ async def execute_change_devices(
                 refund_user.balance_kopeks += price
                 await db.commit()
                 await callback.answer(
-                    '⚠️ Изменение уже применено. Баланс возвращён.',
+                    texts.t(
+                        'DEVICES_CHANGE_ALREADY_APPLIED_REFUND',
+                        '⚠️ Изменение уже применено. Баланс возвращён.',
+                    ),
                     show_alert=True,
                 )
                 return
@@ -1648,7 +1654,10 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             refund_user.balance_kopeks += price
             await db.commit()
             await callback.answer(
-                f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',
+                texts.t(
+                    'DEVICES_LIMIT_EXCEEDED_REFUND',
+                    '⚠️ Лимит устройств ({max}) превышен. Баланс возвращён.',
+                ).format(max=max_devices),
                 show_alert=True,
             )
             return
