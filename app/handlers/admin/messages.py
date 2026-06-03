@@ -227,18 +227,17 @@ async def _persist_broadcast_result(
 @admin_required
 @error_handler
 async def show_messages_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
-    text = """
-📨 <b>Управление рассылками</b>
-
-Выберите тип рассылки:
-
-- <b>Всем пользователям</b> - рассылка всем активным пользователям
-- <b>По подпискам</b> - фильтрация по типу подписки
-- <b>По критериям</b> - настраиваемые фильтры
-- <b>История</b> - просмотр предыдущих рассылок
-
-⚠️ Будьте осторожны с массовыми рассылками!
-"""
+    texts = get_texts(db_user.language)
+    text = texts.t(
+        'ADMIN_MSG_MENU',
+        '📨 <b>Управление рассылками</b>\n\n'
+        'Выберите тип рассылки:\n\n'
+        '- <b>Всем пользователям</b> - рассылка всем активным пользователям\n'
+        '- <b>По подпискам</b> - фильтрация по типу подписки\n'
+        '- <b>По критериям</b> - настраиваемые фильтры\n'
+        '- <b>История</b> - просмотр предыдущих рассылок\n\n'
+        '⚠️ Будьте осторожны с массовыми рассылками!',
+    )
 
     await safe_edit_or_send_text(
         callback, text, reply_markup=get_admin_messages_keyboard(db_user.language), parse_mode='HTML'
@@ -257,31 +256,52 @@ async def show_pinned_message_menu(
     await state.clear()
     pinned_message = await get_active_pinned_message(db)
 
+    texts = get_texts(db_user.language)
     if pinned_message:
         content_preview = html.escape(pinned_message.content or '')
         last_updated = pinned_message.updated_at or pinned_message.created_at
         timestamp_text = last_updated.strftime('%d.%m.%Y %H:%M') if last_updated else '—'
         media_line = ''
         if pinned_message.media_type:
-            media_label = 'Фото' if pinned_message.media_type == 'photo' else 'Видео'
-            media_line = f'📎 Медиа: {media_label}\n'
-        position_line = '⬆️ Отправлять перед меню' if pinned_message.send_before_menu else '⬇️ Отправлять после меню'
+            media_key = (
+                'ADMIN_MSG_PINNED_MEDIA_PHOTO'
+                if pinned_message.media_type == 'photo'
+                else 'ADMIN_MSG_PINNED_MEDIA_VIDEO'
+            )
+            media_line = texts.t(media_key, '📎 Медиа: {label}\n').format(
+                label='Фото' if pinned_message.media_type == 'photo' else 'Видео'
+            )
+        position_line = (
+            texts.t('ADMIN_MSG_PINNED_POSITION_BEFORE', '⬆️ Отправлять перед меню')
+            if pinned_message.send_before_menu
+            else texts.t('ADMIN_MSG_PINNED_POSITION_AFTER', '⬇️ Отправлять после меню')
+        )
         start_mode_line = (
-            '🔁 При каждом /start' if pinned_message.send_on_every_start else '🚫 Только один раз и при обновлении'
+            texts.t('ADMIN_MSG_PINNED_START_EVERY', '🔁 При каждом /start')
+            if pinned_message.send_on_every_start
+            else texts.t('ADMIN_MSG_PINNED_START_ONCE', '🚫 Только один раз и при обновлении')
         )
         body = (
-            '📌 <b>Закрепленное сообщение</b>\n\n'
-            '📝 Текущий текст:\n'
-            f'<code>{content_preview}</code>\n\n'
-            f'{media_line}'
-            f'{position_line}\n'
-            f'{start_mode_line}\n'
-            f'🕒 Обновлено: {timestamp_text}'
+            texts.t('ADMIN_MSG_PINNED_TITLE', '📌 <b>Закрепленное сообщение</b>')
+            + '\n\n'
+            + texts.t('ADMIN_MSG_PINNED_CURRENT', '📝 Текущий текст:\n<code>{content}</code>\n\n').format(
+                content=content_preview
+            )
+            + media_line
+            + position_line
+            + '\n'
+            + start_mode_line
+            + '\n'
+            + texts.t('ADMIN_MSG_PINNED_UPDATED_AT', '🕒 Обновлено: {time}').format(time=timestamp_text)
         )
     else:
         body = (
-            '📌 <b>Закрепленное сообщение</b>\n\n'
-            'Сообщение не задано. Отправьте новый текст, чтобы разослать и закрепить его у пользователей.'
+            texts.t('ADMIN_MSG_PINNED_TITLE', '📌 <b>Закрепленное сообщение</b>')
+            + '\n\n'
+            + texts.t(
+                'ADMIN_MSG_PINNED_EMPTY',
+                'Сообщение не задано. Отправьте новый текст, чтобы разослать и закрепить его у пользователей.',
+            )
         )
 
     await callback.message.edit_text(
@@ -303,13 +323,24 @@ async def prompt_pinned_message_update(
     db_user: User,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     await state.set_state(AdminStates.editing_pinned_message)
     await callback.message.edit_text(
-        '✏️ <b>Новое закрепленное сообщение</b>\n\n'
-        'Пришлите текст, фото или видео, которое нужно закрепить.\n'
-        'Бот отправит его всем активным пользователям, открепит старое и закрепит новое без уведомлений.',
+        texts.t(
+            'ADMIN_MSG_PINNED_PROMPT',
+            '✏️ <b>Новое закрепленное сообщение</b>\n\n'
+            'Пришлите текст, фото или видео, которое нужно закрепить.\n'
+            'Бот отправит его всем активным пользователям, открепит старое и закрепит новое без уведомлений.',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text='❌ Отмена', callback_data='admin_pinned_message')]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'),
+                        callback_data='admin_pinned_message',
+                    )
+                ]
+            ]
         ),
         parse_mode='HTML',
     )
@@ -324,9 +355,10 @@ async def toggle_pinned_message_position(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     pinned_message = await get_active_pinned_message(db)
     if not pinned_message:
-        await callback.answer('Сначала задайте закрепленное сообщение', show_alert=True)
+        await callback.answer(texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True)
         return
 
     pinned_message.send_before_menu = not pinned_message.send_before_menu
@@ -344,9 +376,10 @@ async def toggle_pinned_message_start_mode(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     pinned_message = await get_active_pinned_message(db)
     if not pinned_message:
-        await callback.answer('Сначала задайте закрепленное сообщение', show_alert=True)
+        await callback.answer(texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True)
         return
 
     pinned_message.send_on_every_start = not pinned_message.send_on_every_start
@@ -364,13 +397,20 @@ async def delete_pinned_message(
     db: AsyncSession,
     state: FSMContext,
 ):
+    texts = get_texts(db_user.language)
     pinned_message = await get_active_pinned_message(db)
     if not pinned_message:
-        await callback.answer('Закрепленное сообщение уже отсутствует', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_MSG_PINNED_ALREADY_GONE', 'Закрепленное сообщение уже отсутствует'),
+            show_alert=True,
+        )
         return
 
     await callback.message.edit_text(
-        '🗑️ <b>Удаление закрепленного сообщения</b>\n\nПодождите, пока бот открепит сообщение у пользователей...',
+        texts.t(
+            'ADMIN_MSG_PINNED_DELETING',
+            '🗑️ <b>Удаление закрепленного сообщения</b>\n\nПодождите, пока бот открепит сообщение у пользователей...',
+        ),
         parse_mode='HTML',
     )
 
@@ -381,7 +421,10 @@ async def delete_pinned_message(
 
     if not deleted:
         await callback.message.edit_text(
-            '❌ Не удалось найти активное закрепленное сообщение для удаления',
+            texts.t(
+                'ADMIN_MSG_PINNED_DELETE_FAIL',
+                '❌ Не удалось найти активное закрепленное сообщение для удаления',
+            ),
             reply_markup=get_admin_messages_keyboard(db_user.language),
             parse_mode='HTML',
         )
@@ -390,11 +433,14 @@ async def delete_pinned_message(
 
     total = unpinned_count + failed_count
     await callback.message.edit_text(
-        '✅ <b>Закрепленное сообщение удалено</b>\n\n'
-        f'👥 Чатов обработано: {total}\n'
-        f'✅ Откреплено: {unpinned_count}\n'
-        f'⚠️ Ошибок: {failed_count}\n\n'
-        'Новое сообщение можно задать кнопкой "Обновить".',
+        texts.t(
+            'ADMIN_MSG_PINNED_DELETED',
+            '✅ <b>Закрепленное сообщение удалено</b>\n\n'
+            '👥 Чатов обработано: {total}\n'
+            '✅ Откреплено: {unpinned}\n'
+            '⚠️ Ошибок: {failed}\n\n'
+            'Новое сообщение можно задать кнопкой "Обновить".',
+        ).format(total=total, unpinned=unpinned_count, failed=failed_count),
         reply_markup=get_admin_messages_keyboard(db_user.language),
         parse_mode='HTML',
     )
