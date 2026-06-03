@@ -894,9 +894,9 @@ async def process_server_limit_edit(message: types.Message, state: FSMContext, d
 @admin_required
 @error_handler
 async def start_server_edit_description(
-    texts = get_texts(db_user.language)
     callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession
 ):
+    texts = get_texts(db_user.language)
     server_id = int(callback.data.split('_')[-1])
     server = await get_server_squad_by_id(db, server_id)
 
@@ -961,12 +961,12 @@ async def process_server_description_edit(message: types.Message, state: FSMCont
 @admin_required
 @error_handler
 async def start_server_edit_promo_groups(
-    texts = get_texts(db_user.language)
     callback: types.CallbackQuery,
     state: FSMContext,
     db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     server_id = int(callback.data.split('_')[-1])
     server = await get_server_squad_by_id(db, server_id)
 
@@ -1017,12 +1017,12 @@ async def start_server_edit_promo_groups(
 @admin_required
 @error_handler
 async def toggle_server_promo_group(
-    texts = get_texts(db_user.language)
     callback: types.CallbackQuery,
     state: FSMContext,
     db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_')
     server_id = int(parts[4])
     group_id = int(parts[5])
@@ -1056,12 +1056,12 @@ async def toggle_server_promo_group(
 @admin_required
 @error_handler
 async def save_server_promo_groups(
-    texts = get_texts(db_user.language)
     callback: types.CallbackQuery,
     state: FSMContext,
     db_user: User,
     db: AsyncSession,
 ):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     if not data:
         await callback.answer('⚠️ Нет данных для сохранения', show_alert=True)

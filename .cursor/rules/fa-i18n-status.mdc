@@ -23,24 +23,25 @@ alwaysApply: true
 |------|-------|
 | Production line | `remnabot/main` ≈ `dev-local` ≈ `fa-i18n` |
 | **Branch** | `fa-i18n-traffic-ui` (P2 batch Jun 3 2026) |
-| **HEAD** | `26379aea` — see `git log -1` |
+| **HEAD** | `c9f6296d` — see `git log -1` |
 | Merge path | `fa-i18n-traffic-ui` → `fa-i18n` → `dev-local` → `main` after user OK |
 
 ## Done (P2 — Jun 3 2026)
 
 - [x] **P2-06..P2-16:** `8d429570` welcome_text, `29b9a6b5` user_messages, `c4e68831` subscriptions, `b144ef5f` statistics, `f69cc127` blocked_users, `e6373385` blacklist, `dfd8b941` backup, `0557b7f9` campaigns, `0394e7cc` promocodes, `26379aea` servers
+- [x] **P2.5:** `756800f3` referrals, `0f6db44e` remnawave, `c9f6296d` messages
 - [x] **maintenance P2-04 finish:** `2b865158` — panel, toggle, monitoring, notify paths
 - [x] Prior P2: users U11–U16, system_logs, bulk_ban, required_channels, rules, updates; user traffic/units; P1 unchanged
 
-## Next (optional P2.5)
+## Done (P2.5 — Jun 3 2026)
 
-| Module | Notes |
-|--------|-------|
-| `referrals.py` | admin referrals if any Cyrillic left |
-| `remnawave.py` | RW admin panel |
-| `messages.py` | admin broadcast |
+- [x] `756800f3` `referrals.py` — full admin referrals/diagnostics/withdrawals (~201 `texts.t`)
+- [x] `0f6db44e` `remnawave.py` — menu, auto-sync, nodes list, stats nav (~94 `texts.t`; large stat bodies still Cyrillic fallbacks)
+- [x] `c9f6296d` `messages.py` — menu + pinned flows (~24 `texts.t`; broadcast FSM bodies still Cyrillic fallbacks)
 
-Deep pass: campaigns/promocodes/servers still have Cyrillic fallbacks inside `texts.t(...)` and some inner FSM strings — extend keys as needed.
+## Next (optional)
+
+Deep pass: `remnawave.py` system/traffic/node detail blocks; `messages.py` broadcast create/history/criteria FSM; campaigns/promocodes inner strings.
 
 ## Smoke (every commit)
 

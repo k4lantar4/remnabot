@@ -109,7 +109,7 @@ def _build_campaign_servers_keyboard(
     toggle_prefix: str = 'campaign_toggle_server_',
     save_callback: str = 'campaign_servers_save',
     back_callback: str = 'admin_campaigns',
-, language=db_user.language) -> types.InlineKeyboardMarkup:
+) -> types.InlineKeyboardMarkup:
     texts = get_texts(language)
     keyboard: list[list[types.InlineKeyboardButton]] = []
 
@@ -1035,7 +1035,8 @@ async def start_edit_campaign_subscription_servers(
         toggle_prefix=f'campaign_edit_toggle_{campaign_id}_',
         save_callback=f'campaign_edit_servers_save_{campaign_id}',
         back_callback=f'admin_campaign_edit_{campaign_id}',
-    , language=db_user.language)
+        language=db_user.language,
+    )
 
     await callback.message.edit_text(
         (
@@ -1091,7 +1092,8 @@ async def toggle_edit_campaign_server(
         toggle_prefix=f'campaign_edit_toggle_{campaign_id}_',
         save_callback=f'campaign_edit_servers_save_{campaign_id}',
         back_callback=f'admin_campaign_edit_{campaign_id}',
-    , language=db_user.language)
+        language=db_user.language,
+    )
 
     await callback.message.edit_reply_markup(reply_markup=keyboard)
     await callback.answer()

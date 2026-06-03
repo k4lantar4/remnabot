@@ -243,20 +243,29 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
 
             message_parts.append(updates_info.rstrip())
 
-        system_info = '\n🔧 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n'
-        system_info += f'🔗 <b>Репозиторий:</b> {version_service.repo}\n'
-        system_info += f'⚡ <b>Автопроверка:</b> {"Включена" if version_service.enabled else "Отключена"}\n'
-        system_info += '🕐 <b>Интервал:</b> Каждый час\n'
+        system_info = texts.t('ADMIN_UPDATES_INFO_SYSTEM', '\n🔧 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n')
+        system_info += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}\n').format(repo=version_service.repo)
+        system_info += texts.t(
+            'ADMIN_UPDATES_AUTO',
+            '⚡ <b>Автопроверка:</b> {status}\n',
+        ).format(
+            status=texts.t('ADMIN_MAINT_ON', 'Включена')
+            if version_service.enabled
+            else texts.t('ADMIN_MAINT_OFF', 'Отключена')
+        )
+        system_info += texts.t('ADMIN_UPDATES_INTERVAL', '🕐 <b>Интервал:</b> Каждый час\n')
 
         if last_check:
-            system_info += f'🕐 <b>Последняя проверка:</b> {last_check.strftime("%d.%m.%Y %H:%M")}\n'
+            system_info += texts.t('ADMIN_UPDATES_LAST_CHECK', '🕐 <b>Последняя проверка:</b> {time}\n').format(
+                time=last_check.strftime('%d.%m.%Y %H:%M')
+            )
 
         message_parts.append(system_info.rstrip())
 
         final_message = '\n'.join(message_parts)
 
         if len(final_message) > 4000:
-            final_message = final_message[:3900] + '\n\n... (информация обрезана)'
+            final_message = final_message[:3900] + texts.t('ADMIN_UPDATES_TRUNCATED', '\n\n... (информация обрезана)')
 
         await callback.message.edit_text(
             final_message,
@@ -271,9 +280,12 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
             return
         logger.error('Ошибка получения информации о версиях', error=e)
         await callback.message.edit_text(
-            f'❌ <b>ОШИБКА ЗАГРУЗКИ</b>\n\n'
-            f'Не удалось получить информацию о версиях.\n\n'
-            f'📦 <b>Текущая версия:</b> <code>{version_service.current_version}</code>',
+            texts.t(
+                'ADMIN_UPDATES_INFO_ERROR',
+                '❌ <b>ОШИБКА ЗАГРУЗКИ</b>\n\n'
+                'Не удалось получить информацию о версиях.\n\n'
+                '📦 <b>Текущая версия:</b> <code>{version}</code>',
+            ).format(version=version_service.current_version),
             reply_markup=get_version_info_keyboard(db_user.language),
             parse_mode='HTML',
         )

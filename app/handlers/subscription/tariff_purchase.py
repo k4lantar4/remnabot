@@ -112,6 +112,35 @@ def _get_user_period_discount(db_user: User, period_days: int) -> tuple[int, int
     return group_discount, personal_discount, display_combined
 
 
+def _is_fa_language(language: str | None) -> bool:
+    return (language or 'ru').split('-')[0].lower() == 'fa'
+
+
+def _tariff_user_display_name(tariff: Tariff, language: str | None) -> str:
+    """User-facing tariff title: FA uses traffic label; other langs use DB name."""
+    if _is_fa_language(language):
+        return format_traffic(tariff.traffic_limit_gb, language)
+    return html.escape(tariff.name)
+
+
+def _instant_switch_button_label(
+    tariff: Tariff,
+    cost: int,
+    is_upgrade: bool,
+    language: str,
+) -> str:
+    texts = get_texts(language)
+    if _is_fa_language(language):
+        if is_upgrade:
+            return texts.t('TARIFF_INSTANT_BTN_UPGRADE', '⬆️ {cost}').format(
+                cost=format_price_kopeks(cost, compact=True),
+            )
+        return texts.t('DEVICE_CHANGE_FREE', 'бесплатно')
+    if is_upgrade:
+        return f'{tariff.name} (+{format_price_kopeks(cost, compact=True)})'
+    return f'{tariff.name} ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
+
+
 def format_tariffs_list_text(
     tariffs: list[Tariff],
     language: str,
@@ -169,8 +198,8 @@ def format_tariffs_list_text(
             f'<b>{html.escape(tariff.name)}</b>{purchased_mark} — {traffic} / {tariff.device_limit} 📱 {price_text}'
         )
 
-        # Описание тарифа если есть
-        if tariff.description:
+        # Описание тарифа если есть (DB text; skip for FA — often Russian admin seed)
+        if tariff.description and not _is_fa_language(language):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -3799,9 +3828,18 @@ def format_instant_switch_list_text(
         else:
             cost_text = texts.t('TARIFF_INSTANT_FREE', '⬇️ Бесплатно')
 
-        lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {cost_text}')
+        lang = db_user.language if db_user else 'ru'
+        if _is_fa_language(lang):
+            lines.append(
+                texts.t(
+                    'TARIFF_INSTANT_ROW_LINE',
+                    '{traffic} / {devices} 📱 {cost}',
+                ).format(traffic=traffic, devices=tariff.device_limit, cost=cost_text)
+            )
+        else:
+            lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {cost_text}')
 
-        if tariff.description:
+        if tariff.description and not _is_fa_language(lang):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -3827,10 +3865,7 @@ def get_instant_switch_keyboard(
         # Рассчитываем стоимость
         cost, is_upgrade = _calculate_instant_switch_cost(current_tariff, tariff, remaining_days, db_user)
 
-        if is_upgrade:
-            btn_text = f'{tariff.name} (+{format_price_kopeks(cost, compact=True)})'
-        else:
-            btn_text = f'{tariff.name} ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
+        btn_text = _instant_switch_button_label(tariff, cost, is_upgrade, language)
 
         buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f'instant_sw_preview:{tariff.id}')])
 
@@ -4022,10 +4057,11 @@ async def preview_instant_switch(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(new_tariff.traffic_limit_gb)
-    current_traffic = format_traffic(current_tariff.traffic_limit_gb)
-
     texts = get_texts(db_user.language)
+    traffic = format_traffic(new_tariff.traffic_limit_gb, db_user.language)
+    current_traffic = format_traffic(current_tariff.traffic_limit_gb, db_user.language)
+    new_tariff_label = _tariff_user_display_name(new_tariff, db_user.language)
+    current_tariff_label = _tariff_user_display_name(current_tariff, db_user.language)
 
     # Проверяем, суточный ли новый тариф
     is_new_daily = getattr(new_tariff, 'is_daily', False)
@@ -4059,10 +4095,10 @@ async def preview_instant_switch(
                     '💰 <b>Цена: {price}/день</b>{discount}\n\n💳 Ваш баланс: {balance}{warning}\n\n'
                     'ℹ️ Средства будут списываться автоматически раз в сутки.',
                 ).format(
-                    current_name=html.escape(current_tariff.name),
+                    current_name=current_tariff_label,
                     current_traffic=current_traffic,
                     current_devices=current_tariff.device_limit,
-                    new_name=html.escape(new_tariff.name),
+                    new_name=new_tariff_label,
                     traffic=traffic,
                     new_devices=new_tariff.device_limit,
                     price=format_price_kopeks(daily_price),
@@ -4082,7 +4118,7 @@ async def preview_instant_switch(
                     '📦 Тариф: <b>{name}</b>\n🔄 Тип: Суточный\n💰 Цена: {price}/день{discount}\n\n'
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>{extra}',
                 ).format(
-                    name=html.escape(new_tariff.name),
+                    name=new_tariff_label,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
                     balance=format_price_kopeks(user_balance),
@@ -4115,10 +4151,10 @@ async def preview_instant_switch(
                     '⏰ Осталось дней: <b>{days}</b>\n💰 <b>Доплата: {cost}</b>\n\n'
                     '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
                 ).format(
-                    current_name=html.escape(current_tariff.name),
+                    current_name=current_tariff_label,
                     current_traffic=current_traffic,
                     current_devices=current_tariff.device_limit,
-                    new_name=html.escape(new_tariff.name),
+                    new_name=new_tariff_label,
                     traffic=traffic,
                     new_devices=new_tariff.device_limit,
                     days=remaining_days,
@@ -4138,7 +4174,7 @@ async def preview_instant_switch(
                     '📦 Новый тариф: <b>{name}</b>\n💰 Требуется доплата: {cost}\n\n'
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
-                    name=html.escape(new_tariff.name),
+                    name=new_tariff_label,
                     cost=format_price_kopeks(upgrade_cost),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4156,10 +4192,10 @@ async def preview_instant_switch(
                 '📦 Новый: <b>{new_name}</b>\n   • Трафик: {traffic}\n   • Устройств: {new_devices}\n\n'
                 '⏰ Осталось дней: <b>{days}</b>\n💰 <b>Бесплатно</b> (понижение/равный тариф)',
             ).format(
-                current_name=html.escape(current_tariff.name),
+                current_name=current_tariff_label,
                 current_traffic=current_traffic,
                 current_devices=current_tariff.device_limit,
-                new_name=html.escape(new_tariff.name),
+                new_name=new_tariff_label,
                 traffic=traffic,
                 new_devices=new_tariff.device_limit,
                 days=remaining_days,

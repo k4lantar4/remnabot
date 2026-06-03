@@ -507,10 +507,10 @@ async def process_promocode_code(message: types.Message, db_user: User, state: F
 @admin_required
 @error_handler
 async def process_promo_group_selection(
-    texts = get_texts(db_user.language)
     callback: types.CallbackQuery, db_user: User, state: FSMContext, db: AsyncSession
 ):
     """Handle promo group selection for promocode"""
+    texts = get_texts(db_user.language)
     try:
         promo_group_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
