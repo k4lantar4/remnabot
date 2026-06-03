@@ -154,14 +154,14 @@ async def start_c2c_payment(
         )
         return
 
-    min_amount_rub = settings.C2C_MIN_AMOUNT_KOPEKS / 100
-    max_amount_rub = settings.C2C_MAX_AMOUNT_KOPEKS / 100
     display_name = settings.get_c2c_display_name()
+    min_amount = texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)
+    max_amount = texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)
 
     message_text = texts.t(
         'C2C_ENTER_AMOUNT',
-        '💳 <b>{name}</b>\n\nEnter top-up amount from {min:.0f} to {max:,.0f}:',
-    ).format(name=display_name, min=min_amount_rub, max=max_amount_rub).replace(',', ' ')
+        '💳 <b>{name}</b>\n\nEnter top-up amount:\nMinimum: {min_amount}\nMaximum: {max_amount}',
+    ).format(name=display_name, min_amount=min_amount, max_amount=max_amount)
 
     keyboard = get_back_keyboard(db_user.language)
     await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode='HTML')
