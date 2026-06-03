@@ -23,32 +23,24 @@ alwaysApply: true
 |------|-------|
 | Production line | `remnabot/main` ≈ `dev-local` ≈ `fa-i18n` |
 | **Branch** | `fa-i18n-traffic-ui` (P2 batch Jun 3 2026) |
-| **HEAD** | `fc7eef0c` — see `git log -1` |
+| **HEAD** | `26379aea` — see `git log -1` |
 | Merge path | `fa-i18n-traffic-ui` → `fa-i18n` → `dev-local` → `main` after user OK |
 
-## Done (P2 partial — Jun 3 2026)
+## Done (P2 — Jun 3 2026)
 
-- [x] **users.py U11–U16:** `78ab7ee0` search, `119da54f` per-user stats, `1594960e` buy-sub, `5ed67b86` buy-tariff, `78f8a77c` change-tariff, `c82606f8` autopay
-- [x] **P2 admin:** `6645e29b` system_logs, `57c6c2da` bulk_ban, `e6991ff0` required_channels, `05c2122f` maintenance (panel core), `f264ca0a` rules, `fc7eef0c` updates
-- [x] **User keyboards / units:** `3d1a2e9f`..`a169984f` traffic switch + `RESET_TRAFFIC_CONFIRM_BTN`; `8567004d` Persian period display
-- [x] P1 (unchanged): user traffic/devices/countries, admin users U3–U10, tariffs T1–T12, notify N0–N8
+- [x] **P2-06..P2-16:** `8d429570` welcome_text, `29b9a6b5` user_messages, `c4e68831` subscriptions, `b144ef5f` statistics, `f69cc127` blocked_users, `e6373385` blacklist, `dfd8b941` backup, `0557b7f9` campaigns, `0394e7cc` promocodes, `26379aea` servers
+- [x] **maintenance P2-04 finish:** `2b865158` — panel, toggle, monitoring, notify paths
+- [x] Prior P2: users U11–U16, system_logs, bulk_ban, required_channels, rules, updates; user traffic/units; P1 unchanged
 
-## Next (P2 remainder — 10 modules, still 0× `texts.t`)
+## Next (optional P2.5)
 
-| Module | Plan id |
-|--------|---------|
-| `welcome_text.py` | P2-06 |
-| `user_messages.py` | P2-07 |
-| `subscriptions.py` | P2-09 |
-| `statistics.py` | P2-10 |
-| `blocked_users.py` | P2-11 |
-| `blacklist.py` | P2-12 |
-| `backup.py` | P2-13 |
-| `campaigns.py` | P2-14 |
-| `promocodes.py` | P2-15 |
-| `servers.py` | P2-16 |
+| Module | Notes |
+|--------|-------|
+| `referrals.py` | admin referrals if any Cyrillic left |
+| `remnawave.py` | RW admin panel |
+| `messages.py` | admin broadcast |
 
-Also: finish `maintenance.py` callback toasts (toggle/monitoring/notify paths); optional P2.5 `referrals.py`, `remnawave.py`, `messages.py`.
+Deep pass: campaigns/promocodes/servers still have Cyrillic fallbacks inside `texts.t(...)` and some inner FSM strings — extend keys as needed.
 
 ## Smoke (every commit)
 
