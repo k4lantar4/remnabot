@@ -77,9 +77,9 @@ async def view_current_rules(callback: types.CallbackQuery, db_user: User, db: A
         is_valid, error_msg = validate_html_tags(current_rules)
         warning = ''
         if not is_valid:
-            warning = texts.t('ADMIN_RULES_HTML_WARNING', '\n\n⚠️ <b>Внимание:</b> В правилах найдена ошибка HTML: {error}').format(
-                error=error_msg
-            )
+            warning = texts.t(
+                'ADMIN_RULES_HTML_WARNING', '\n\n⚠️ <b>Внимание:</b> В правилах найдена ошибка HTML: {error}'
+            ).format(error=error_msg)
 
         await callback.message.edit_text(
             texts.t('ADMIN_RULES_VIEW', '📋 <b>Текущие правила сервиса</b>\n\n{content}{warning}').format(
@@ -111,7 +111,10 @@ async def view_current_rules(callback: types.CallbackQuery, db_user: User, db: A
     except Exception as e:
         logger.error('Ошибка при показе правил', error=e)
         await callback.message.edit_text(
-            texts.t('ADMIN_RULES_LOAD_ERROR', '❌ Ошибка при загрузке правил. Возможно, в тексте есть некорректные HTML теги.'),
+            texts.t(
+                'ADMIN_RULES_LOAD_ERROR',
+                '❌ Ошибка при загрузке правил. Возможно, в тексте есть некорректные HTML теги.',
+            ),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -160,7 +163,11 @@ async def start_edit_rules(callback: types.CallbackQuery, db_user: User, state: 
                             text=texts.t('ADMIN_RULES_BTN_HTML', 'ℹ️ HTML помощь'), callback_data='admin_rules_help'
                         )
                     ],
-                    [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules')],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'
+                        )
+                    ],
                 ]
             ),
         )
@@ -182,7 +189,9 @@ async def process_rules_edit(message: types.Message, db_user: User, state: FSMCo
     new_rules = message.text
 
     if len(new_rules) > 4000:
-        await message.answer(texts.t('ADMIN_RULES_TOO_LONG', '❌ Текст правил слишком длинный (максимум 4000 символов)'))
+        await message.answer(
+            texts.t('ADMIN_RULES_TOO_LONG', '❌ Текст правил слишком длинный (максимум 4000 символов)')
+        )
         return
 
     is_valid, error_msg = validate_html_tags(new_rules)
@@ -201,25 +210,36 @@ async def process_rules_edit(message: types.Message, db_user: User, state: FSMCo
                             text=texts.t('ADMIN_RULES_BTN_HTML', 'ℹ️ HTML помощь'), callback_data='admin_rules_help'
                         )
                     ],
-                    [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules')],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'
+                        )
+                    ],
                 ]
             ),
         )
         return
 
     try:
-        preview_text = texts.t('ADMIN_RULES_PREVIEW', '📋 <b>Предварительный просмотр новых правил:</b>\n\n{content}\n\n').format(
-            content=new_rules
+        preview_text = texts.t(
+            'ADMIN_RULES_PREVIEW', '📋 <b>Предварительный просмотр новых правил:</b>\n\n{content}\n\n'
+        ).format(content=new_rules)
+        preview_text += texts.t(
+            'ADMIN_RULES_PREVIEW_WARN', '⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n'
         )
-        preview_text += texts.t('ADMIN_RULES_PREVIEW_WARN', '⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n')
         preview_text += texts.t('ADMIN_RULES_PREVIEW_SAVE', 'Сохранить изменения?')
 
         if len(preview_text) > 4000:
-            preview_text = texts.t('ADMIN_RULES_PREVIEW_SHORT', '📋 <b>Предварительный просмотр новых правил:</b>\n\n{preview}\n\n').format(
-                preview=_safe_preview(new_rules, 500)
+            preview_text = texts.t(
+                'ADMIN_RULES_PREVIEW_SHORT', '📋 <b>Предварительный просмотр новых правил:</b>\n\n{preview}\n\n'
+            ).format(preview=_safe_preview(new_rules, 500))
+            preview_text += texts.t(
+                'ADMIN_RULES_PREVIEW_WARN',
+                '⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n',
             )
-            preview_text += texts.t('ADMIN_RULES_PREVIEW_WARN', '⚠️ <b>Внимание!</b> Новые правила будут показываться всем пользователям.\n\n')
-            preview_text += texts.t('ADMIN_RULES_PREVIEW_SIZE', 'Текст правил: {size} символов\n').format(size=len(new_rules))
+            preview_text += texts.t('ADMIN_RULES_PREVIEW_SIZE', 'Текст правил: {size} символов\n').format(
+                size=len(new_rules)
+            )
             preview_text += texts.t('ADMIN_RULES_PREVIEW_SAVE', 'Сохранить изменения?')
 
         await message.answer(
@@ -230,7 +250,9 @@ async def process_rules_edit(message: types.Message, db_user: User, state: FSMCo
                         types.InlineKeyboardButton(
                             text=texts.t('ADMIN_SYNC_CONFIRM', '✅ Сохранить'), callback_data='admin_save_rules'
                         ),
-                        types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'),
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'
+                        ),
                     ]
                 ]
             ),
@@ -254,7 +276,9 @@ async def process_rules_edit(message: types.Message, db_user: User, state: FSMCo
                         types.InlineKeyboardButton(
                             text=texts.t('ADMIN_SYNC_CONFIRM', '✅ Сохранить'), callback_data='admin_save_rules'
                         ),
-                        types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'),
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_rules'
+                        ),
                     ]
                 ]
             ),
@@ -456,10 +480,15 @@ async def show_html_help(callback: types.CallbackQuery, db_user: User, db: Async
             inline_keyboard=[
                 [
                     types.InlineKeyboardButton(
-                        text=texts.t('ADMIN_RULES_BTN_EDIT', '📝 Редактировать правила'), callback_data='admin_edit_rules'
+                        text=texts.t('ADMIN_RULES_BTN_EDIT', '📝 Редактировать правила'),
+                        callback_data='admin_edit_rules',
                     )
                 ],
-                [types.InlineKeyboardButton(text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data='admin_rules')],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_BACK_TO_LIST', '⬅️ Назад'), callback_data='admin_rules'
+                    )
+                ],
             ]
         ),
     )

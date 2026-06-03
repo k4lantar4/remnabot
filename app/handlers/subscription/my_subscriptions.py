@@ -141,13 +141,21 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
 
     if not is_inactive:
         buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'), callback_data='subscription_autopay')]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'), callback_data='subscription_autopay'
+                )
+            ]
         )
         buttons.append(
             [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_TRAFFIC', '📊 Трафик'), callback_data=f'st:{sub_id}')]
         )
         buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'), callback_data=f'sd:{sub_id}')]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'), callback_data=f'sd:{sub_id}'
+                )
+            ]
         )
 
     if is_inactive:

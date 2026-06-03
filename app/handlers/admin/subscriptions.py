@@ -322,7 +322,9 @@ async def show_subscriptions_stats(callback: types.CallbackQuery, db_user: User,
         renewals=stats.get('renewals_count', 0),
     )
 
-    keyboard = [[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '◀️ Назад'), callback_data='admin_subscriptions')]]
+    keyboard = [
+        [types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '◀️ Назад'), callback_data='admin_subscriptions')]
+    ]
 
     await callback.message.edit_text(text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard))
     await callback.answer()

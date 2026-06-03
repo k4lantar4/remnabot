@@ -339,9 +339,7 @@ async def show_blocked_users_menu(
     if scan_result:
         text += texts.t(
             'ADMIN_BLOCKED_LAST_SCAN',
-            '\n\n📊 <b>Последнее сканирование:</b>\n'
-            '• Заблокированных: {blocked}\n'
-            '• Активных: {active}',
+            '\n\n📊 <b>Последнее сканирование:</b>\n• Заблокированных: {blocked}\n• Активных: {active}',
         ).format(blocked=scan_result.get('blocked_count', 0), active=scan_result.get('active_users', 0))
 
     await callback.message.edit_text(
@@ -482,9 +480,7 @@ async def show_blocked_list(
     text = _blocked_t(texts, BlockedUsersText.BLOCKED_LIST_TITLE.value, count=len(blocked_list))
 
     for user_data in page_users:
-        name = user_data.get('full_name') or user_data.get('username') or texts.t(
-            'ADMIN_BLOCKED_NO_NAME', 'Без имени'
-        )
+        name = user_data.get('full_name') or user_data.get('username') or texts.t('ADMIN_BLOCKED_NO_NAME', 'Без имени')
         telegram_id = user_data.get('telegram_id', '?')
         text += _blocked_t(
             texts,

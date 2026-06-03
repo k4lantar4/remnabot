@@ -85,10 +85,7 @@ async def _send_c2c_card_instructions(
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
         ).format(card_info=card_text)
     else:
-        card_info = (
-            f'💳 Pending transfer #{receipt.id}\n'
-            f'💰 {settings.format_price(receipt.amount_kopeks)}'
-        )
+        card_info = f'💳 Pending transfer #{receipt.id}\n💰 {settings.format_price(receipt.amount_kopeks)}'
         body = texts.t(
             'C2C_SEND_RECEIPT',
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
@@ -340,9 +337,7 @@ async def process_c2c_receipt(
 
     if not success:
         await message.answer(
-            texts.t('C2C_RECEIPT_SUBMIT_FAILED', '❌ Failed to submit receipt: {reason}').format(
-                reason=error_message
-            ),
+            texts.t('C2C_RECEIPT_SUBMIT_FAILED', '❌ Failed to submit receipt: {reason}').format(reason=error_message),
         )
         return
 

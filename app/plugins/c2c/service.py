@@ -16,12 +16,12 @@ from app.database.crud.transaction import create_transaction, get_transaction_by
 from app.database.crud.user import add_user_balance, get_user_by_id, lock_user_for_update
 from app.database.models import C2cReceipt, C2cReceiptStatus, PaymentMethod, Transaction, TransactionType, User
 from app.plugins.c2c import crud as c2c_crud
+from app.plugins.c2c.admin_delivery import build_delivery_kwargs, send_with_admin_topic_fallback
 from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_DOCUMENT,
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
-from app.plugins.c2c.admin_delivery import build_delivery_kwargs, send_with_admin_topic_fallback
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
 from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info
@@ -164,9 +164,7 @@ class C2cPaymentService:
         if receipt.status != C2cReceiptStatus.PENDING.value:
             return False, 'Already processed', receipt
 
-        existing = await get_transaction_by_external_id(
-            db, c2c_external_id(receipt_id), PaymentMethod.C2C
-        )
+        existing = await get_transaction_by_external_id(db, c2c_external_id(receipt_id), PaymentMethod.C2C)
         if existing:
             receipt.status = C2cReceiptStatus.APPROVED.value
             receipt.transaction_id = existing.id
@@ -183,9 +181,7 @@ class C2cPaymentService:
         old_balance = user.balance_kopeks
         was_first_topup = not user.has_made_first_topup
 
-        description = (
-            f'Card-to-card top-up: {settings.format_price(receipt.amount_kopeks)} (receipt #{receipt_id})'
-        )
+        description = f'Card-to-card top-up: {settings.format_price(receipt.amount_kopeks)} (receipt #{receipt_id})'
 
         credited = await add_user_balance(
             db,
@@ -296,7 +292,10 @@ class C2cPaymentService:
 
         description_for_referral = f'Пополнение C2C: {settings.format_price(amount_kopeks)}'
         lower_description = description_for_referral.lower()
-        allow_referral = any(word in lower_description for word in ['пополнение', 'c2c', 'topup']) and 'бонус' not in lower_description
+        allow_referral = (
+            any(word in lower_description for word in ['пополнение', 'c2c', 'topup'])
+            and 'бонус' not in lower_description
+        )
 
         if allow_referral:
             try:

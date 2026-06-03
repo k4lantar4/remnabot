@@ -439,9 +439,7 @@ async def confirm_reset_traffic(
         await callback.message.edit_text(
             texts.t(
                 'TRAFFIC_RESET_SUCCESS',
-                '✅ Трафик успешно сброшен!\n\n'
-                '🔄 Использованный трафик обнулен\n'
-                '📊 Лимит: {limit}',
+                '✅ Трафик успешно сброшен!\n\n🔄 Использованный трафик обнулен\n📊 Лимит: {limit}',
             ).format(limit=texts.format_traffic(subscription.traffic_limit_gb)),
             reply_markup=get_back_keyboard(db_user.language),
         )

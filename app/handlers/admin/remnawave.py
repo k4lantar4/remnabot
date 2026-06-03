@@ -96,9 +96,7 @@ def _build_auto_sync_view(texts, status: RemnaWaveAutoSyncStatus) -> tuple[str, 
         finished_text = format_datetime(status.last_run_finished_at)
         started_text = format_datetime(status.last_run_started_at) if status.last_run_started_at else '—'
         duration = status.last_run_finished_at - status.last_run_started_at if status.last_run_started_at else None
-        duration_text = (
-            f' ({_format_duration(texts, duration.total_seconds())})' if duration else ''
-        )
+        duration_text = f' ({_format_duration(texts, duration.total_seconds())})' if duration else ''
         reason_map = {
             'manual': texts.t('ADMIN_RW_SYNC_REASON_MANUAL', 'вручную'),
             'auto': texts.t('ADMIN_RW_SYNC_REASON_AUTO', 'по расписанию'),

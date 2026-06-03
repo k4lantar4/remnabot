@@ -563,7 +563,13 @@ def _build_cabinet_main_menu_keyboard(
 
     # -- Moderator panel (only when not admin — admin row handled above) --
     if is_moderator and not is_admin:
-        keyboard_rows.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel'
+                )
+            ]
+        )
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
@@ -799,7 +805,13 @@ def get_main_menu_keyboard(
         logger.debug('DEBUG KEYBOARD: Админ кнопка НЕ добавлена')
     # Moderator access (limited support panel)
     if (not is_admin) and is_moderator:
-        keyboard.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel'
+                )
+            ]
+        )
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -1267,7 +1279,12 @@ def get_payment_methods_keyboard_with_cart(
 
     # Добавляем кнопку "Очистить корзину"
     keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text=texts.t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'), callback_data='clear_saved_cart')]
+        [
+            InlineKeyboardButton(
+                text=texts.t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'),
+                callback_data='clear_saved_cart',
+            )
+        ]
     )
 
     # Добавляем кнопку возврата к оформлению подписки
@@ -1285,8 +1302,17 @@ def get_subscription_confirm_keyboard_with_cart(language: str = 'ru') -> InlineK
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'), callback_data='subscription_confirm')],
-            [InlineKeyboardButton(text=texts.t('CLEAR_CART_BUTTON', '🗑️ Очистить корзину'), callback_data='clear_saved_cart')],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
+                    callback_data='subscription_confirm',
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CLEAR_CART_BUTTON', '🗑️ Очистить корзину'), callback_data='clear_saved_cart'
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=texts.BACK,
@@ -2678,12 +2704,12 @@ def get_change_devices_keyboard(
                     ).format(percent=discount_percent, amount=texts.format_price(total_discount))
                 action_text = ''
             else:
-                price_text = f" ({texts.t('DEVICE_CHANGE_FREE', 'бесплатно')})"
+                price_text = f' ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
                 action_text = ''
         else:
             emoji = '➖'
             action_text = ''
-            price_text = f" ({texts.t('DEVICE_CHANGE_NO_REFUND', 'без возврата')})"
+            price_text = f' ({texts.t("DEVICE_CHANGE_NO_REFUND", "без возврата")})'
 
         button_text = f'{emoji} {devices_count} устр.{action_text}{price_text}'
 

@@ -50,9 +50,7 @@ async def get_c2c_receipt_by_id(db: AsyncSession, receipt_id: int) -> C2cReceipt
 
 
 async def get_c2c_receipt_for_update(db: AsyncSession, receipt_id: int) -> C2cReceipt | None:
-    result = await db.execute(
-        select(C2cReceipt).where(C2cReceipt.id == receipt_id).with_for_update()
-    )
+    result = await db.execute(select(C2cReceipt).where(C2cReceipt.id == receipt_id).with_for_update())
     return result.scalar_one_or_none()
 
 

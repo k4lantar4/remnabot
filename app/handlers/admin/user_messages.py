@@ -373,9 +373,7 @@ async def toggle_message_status(callback: types.CallbackQuery, db_user: User, db
         if message.is_active
         else texts.t('ADMIN_USER_MSG_TOGGLED_INACTIVE', 'деактивировано')
     )
-    await callback.answer(
-        texts.t('ADMIN_USER_MSG_TOGGLED', '✅ Сообщение {status}').format(status=status_text)
-    )
+    await callback.answer(texts.t('ADMIN_USER_MSG_TOGGLED', '✅ Сообщение {status}').format(status=status_text))
 
     await view_user_message(callback, db_user, db)
 

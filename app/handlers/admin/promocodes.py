@@ -19,12 +19,12 @@ from app.database.crud.promocode import (
     update_promocode,
 )
 from app.database.models import PromoCodeType, User
-from app.localization.texts import get_texts
 from app.keyboards.admin import (
     get_admin_pagination_keyboard,
     get_admin_promocodes_keyboard,
     get_promocode_type_keyboard,
 )
+from app.localization.texts import get_texts
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
 from app.utils.formatters import format_datetime
@@ -70,7 +70,13 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
         await callback.message.edit_text(
             texts.t('ADMIN_PROMOCODES_EMPTY', '🎫 Промокоды не найдены'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes'
+                        )
+                    ]
+                ]
             ),
         )
         await callback.answer()
@@ -133,7 +139,7 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def show_promocodes_list_page(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     """Обработчик пагинации списка промокодов."""
     try:
         page = int(callback.data.split('_')[-1])
@@ -272,7 +278,7 @@ async def show_promocode_edit_menu(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def start_edit_promocode_date(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -305,7 +311,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_amount(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -335,7 +341,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_days(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     # ИСПРАВЛЕНИЕ: берем последний элемент как ID
     try:
         promo_id = int(callback.data.split('_')[-1])
@@ -366,7 +372,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_uses(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -399,7 +405,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_promocode_creation(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     await callback.message.edit_text(
         '🎫 <b>Создание промокода</b>\n\nВыберите тип промокода:',
         reply_markup=get_promocode_type_keyboard(db_user.language),
@@ -410,7 +416,7 @@ async def start_promocode_creation(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def select_promocode_type(callback: types.CallbackQuery, db_user: User, state: FSMContext):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     promo_type = callback.data.split('_')[-1]
 
     type_names = {
@@ -476,7 +482,13 @@ async def process_promocode_code(message: types.Message, db_user: User, state: F
             await message.answer(
                 '❌ Промогруппы не найдены. Создайте хотя бы одну промогруппу.',
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')]]
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes'
+                            )
+                        ]
+                    ]
                 ),
             )
             await state.clear()
@@ -510,7 +522,7 @@ async def process_promo_group_selection(
     callback: types.CallbackQuery, db_user: User, state: FSMContext, db: AsyncSession
 ):
     """Handle promo group selection for promocode"""
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     try:
         promo_group_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -538,7 +550,7 @@ async def process_promo_group_selection(
 @admin_required
 @error_handler
 async def process_promocode_value(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -629,7 +641,7 @@ async def handle_edit_value(message: types.Message, db_user: User, state: FSMCon
 @admin_required
 @error_handler
 async def process_promocode_uses(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -708,7 +720,7 @@ async def handle_edit_uses(message: types.Message, db_user: User, state: FSMCont
 @admin_required
 @error_handler
 async def process_promocode_expiry(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -806,7 +818,7 @@ async def process_promocode_expiry(message: types.Message, db_user: User, state:
 @admin_required
 @error_handler
 async def process_discount_hours(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
-    texts = get_texts(db_user.language)
+    get_texts(db_user.language)
     """Обработчик ввода срока действия скидки в часах для DISCOUNT промокода."""
     data = await state.get_data()
 

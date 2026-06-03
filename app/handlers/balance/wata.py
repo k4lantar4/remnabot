@@ -45,7 +45,9 @@ async def start_wata_payment(
         return
 
     if not settings.is_wata_enabled():
-        await callback.answer(texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'), show_alert=True
+        )
         return
 
     message_text = texts.t(
@@ -261,7 +263,9 @@ async def check_wata_payment_status(
     try:
         local_payment_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True
+        )
         return
 
     payment_service = PaymentService(callback.bot)

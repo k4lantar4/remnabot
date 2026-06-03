@@ -175,9 +175,22 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
         )
 
         keyboard_rows = [
-            [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_REFRESH', '🔄 Обновить'), callback_data='admin_referrals')],
-            [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_TOP', '👥 Топ рефереров'), callback_data='admin_referrals_top')],
-            [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_DIAG', '🔍 Диагностика логов'), callback_data='admin_referral_diagnostics')],
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_REFERRAL_BTN_REFRESH', '🔄 Обновить'), callback_data='admin_referrals'
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_REFERRAL_BTN_TOP', '👥 Топ рефереров'), callback_data='admin_referrals_top'
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_REFERRAL_BTN_DIAG', '🔍 Диагностика логов'),
+                    callback_data='admin_referral_diagnostics',
+                )
+            ],
         ]
 
         # Кнопка заявок на вывод (если функция включена)
@@ -193,8 +206,17 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
 
         keyboard_rows.extend(
             [
-                [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_SETTINGS', '⚙️ Настройки'), callback_data='admin_referrals_settings')],
-                [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_BACK_PANEL', '⬅️ Назад'), callback_data='admin_panel')],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REFERRAL_BTN_SETTINGS', '⚙️ Настройки'),
+                        callback_data='admin_referrals_settings',
+                    )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REFERRAL_BTN_BACK_PANEL', '⬅️ Назад'), callback_data='admin_panel'
+                    )
+                ],
             ]
         )
 
@@ -234,8 +256,16 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
 
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_RETRY', '🔄 Повторить'), callback_data='admin_referrals')],
-                [types.InlineKeyboardButton(text=texts.t('ADMIN_REFERRAL_BTN_BACK_PANEL', '⬅️ Назад'), callback_data='admin_panel')],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REFERRAL_BTN_RETRY', '🔄 Повторить'), callback_data='admin_referrals'
+                    )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REFERRAL_BTN_BACK_PANEL', '⬅️ Назад'), callback_data='admin_panel'
+                    )
+                ],
             ]
         )
 
@@ -325,7 +355,9 @@ async def show_top_referrers_filtered(callback: types.CallbackQuery, db_user: Us
     await _show_top_referrers_filtered(callback, db, period, sort_by, texts=texts)
 
 
-async def _show_top_referrers_filtered(callback: types.CallbackQuery, db: AsyncSession, period: str, sort_by: str, *, texts):
+async def _show_top_referrers_filtered(
+    callback: types.CallbackQuery, db: AsyncSession, period: str, sort_by: str, *, texts
+):
     """Внутренняя функция отображения топа с фильтрами."""
     try:
         top_referrers = await get_top_referrers_by_period(db, period=period, sort_by=sort_by)
@@ -495,8 +527,10 @@ async def show_pending_withdrawal_requests(callback: types.CallbackQuery, db_use
 
     for req in requests[:10]:
         user = await get_user_by_id(db, req.user_id)
-        user_name = html.escape(user.full_name) if user and user.full_name else texts.t(
-            'ADMIN_REFERRAL_UNKNOWN_USER', 'Неизвестно'
+        user_name = (
+            html.escape(user.full_name)
+            if user and user.full_name
+            else texts.t('ADMIN_REFERRAL_UNKNOWN_USER', 'Неизвестно')
         )
         user_tg_id = user.telegram_id if user else 'N/A'
 
@@ -505,10 +539,13 @@ async def show_pending_withdrawal_requests(callback: types.CallbackQuery, db_use
         )
 
         text += f'<b>#{req.id}</b> — {user_name} (ID{user_tg_id})\n'
-        text += texts.t(
-            'ADMIN_REFERRAL_RISK_LINE',
-            '💰 {amount}₽ | {emoji} Риск: {score}/100',
-        ).format(amount=f'{req.amount_kopeks / 100:.0f}', emoji=risk_emoji, score=req.risk_score) + '\n'
+        text += (
+            texts.t(
+                'ADMIN_REFERRAL_RISK_LINE',
+                '💰 {amount}₽ | {emoji} Риск: {score}/100',
+            ).format(amount=f'{req.amount_kopeks / 100:.0f}', emoji=risk_emoji, score=req.risk_score)
+            + '\n'
+        )
         text += f'📅 {req.created_at.strftime("%d.%m.%Y %H:%M")}\n\n'
 
     keyboard_rows = []
@@ -560,8 +597,8 @@ async def view_withdrawal_request(callback: types.CallbackQuery, db_user: User, 
         return
 
     user = await get_user_by_id(db, request.user_id)
-    user_name = html.escape(user.full_name) if user and user.full_name else texts.t(
-        'ADMIN_REFERRAL_UNKNOWN_USER', 'Неизвестно'
+    user_name = (
+        html.escape(user.full_name) if user and user.full_name else texts.t('ADMIN_REFERRAL_UNKNOWN_USER', 'Неизвестно')
     )
     user_tg_id = (user.telegram_id or user.email or f'#{user.id}') if user else 'N/A'
 
@@ -666,7 +703,9 @@ async def approve_withdrawal_request(callback: types.CallbackQuery, db_user: Use
             except Exception as e:
                 logger.error('Ошибка отправки уведомления пользователю', error=e)
 
-        await callback.answer(texts.t('ADMIN_REFERRAL_WD_APPROVED_TOAST', '✅ Заявка одобрена, средства списаны с баланса'))
+        await callback.answer(
+            texts.t('ADMIN_REFERRAL_WD_APPROVED_TOAST', '✅ Заявка одобрена, средства списаны с баланса')
+        )
 
         # Обновляем отображение
         await view_withdrawal_request(callback, db_user, db)
@@ -1105,7 +1144,9 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
             period_display = _ref_period_display(period, texts)
 
         if not report.lost_referrals:
-            await callback.answer(texts.t('ADMIN_REFERRAL_NO_LOST', 'Нет потерянных рефералов для исправления'), show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_REFERRAL_NO_LOST', 'Нет потерянных рефералов для исправления'), show_alert=True
+            )
             return
 
         # Запускаем предпросмотр исправлений
@@ -1143,7 +1184,9 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
                     referrer_display = (
                         html.escape(detail.referrer_name) if detail.referrer_name else f'ID{detail.referrer_id}'
                     )
-                    text += texts.t('ADMIN_REFERRAL_FIX_REFERRER', '   • Реферер: {name}\n').format(name=referrer_display)
+                    text += texts.t('ADMIN_REFERRAL_FIX_REFERRER', '   • Реферер: {name}\n').format(
+                        name=referrer_display
+                    )
                 if detail.had_first_topup:
                     text += texts.t('ADMIN_REFERRAL_FIX_FIRST_TOPUP', '   • Первое пополнение: {amount}\n').format(
                         amount=settings.format_price(detail.topup_amount_kopeks)
@@ -1190,7 +1233,9 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
 
     except Exception as e:
         logger.error('Ошибка в preview_referral_fixes', error=e, exc_info=True)
-        await callback.answer(texts.t('ADMIN_REFERRAL_FIX_PREVIEW_ERROR', 'Ошибка при создании предпросмотра'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_REFERRAL_FIX_PREVIEW_ERROR', 'Ошибка при создании предпросмотра'), show_alert=True
+        )
 
 
 @admin_required
@@ -1228,7 +1273,9 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
             period_display = _ref_period_display(period, texts)
 
         if not report.lost_referrals:
-            await callback.answer(texts.t('ADMIN_REFERRAL_NO_LOST', 'Нет потерянных рефералов для исправления'), show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_REFERRAL_NO_LOST', 'Нет потерянных рефералов для исправления'), show_alert=True
+            )
             return
 
         # Применяем исправления
@@ -1266,7 +1313,9 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
                     referrer_display = (
                         html.escape(detail.referrer_name) if detail.referrer_name else f'ID{detail.referrer_id}'
                     )
-                    text += texts.t('ADMIN_REFERRAL_FIX_REFERRER', '   • Реферер: {name}\n').format(name=referrer_display)
+                    text += texts.t('ADMIN_REFERRAL_FIX_REFERRER', '   • Реферер: {name}\n').format(
+                        name=referrer_display
+                    )
                 if detail.bonus_to_referral_kopeks > 0:
                     text += texts.t('ADMIN_REFERRAL_FIX_BONUS_REFERRAL', '   • Бонус рефералу: {amount}\n').format(
                         amount=settings.format_price(detail.bonus_to_referral_kopeks)
@@ -1330,7 +1379,9 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
 
     except Exception as e:
         logger.error('Ошибка в apply_referral_fixes', error=e, exc_info=True)
-        await callback.answer(texts.t('ADMIN_REFERRAL_FIX_APPLY_ERROR', 'Ошибка при применении исправлений'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_REFERRAL_FIX_APPLY_ERROR', 'Ошибка при применении исправлений'), show_alert=True
+        )
 
 
 # =============================================================================
@@ -1444,7 +1495,9 @@ async def check_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
 
     except Exception as e:
         logger.error('Ошибка в check_missing_bonuses', error=e, exc_info=True)
-        await callback.answer(texts.t('ADMIN_REFERRAL_BONUS_CHECK_ERROR', 'Ошибка при проверке бонусов'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_REFERRAL_BONUS_CHECK_ERROR', 'Ошибка при проверке бонусов'), show_alert=True
+        )
 
 
 @admin_required
@@ -1474,7 +1527,9 @@ async def apply_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
         report = MissingBonusReport.from_dict(report_dict)
 
         if not report.missing_bonuses:
-            await callback.answer(texts.t('ADMIN_REFERRAL_BONUS_NONE', '✅ Нет бонусов для начисления'), show_alert=True)
+            await callback.answer(
+                texts.t('ADMIN_REFERRAL_BONUS_NONE', '✅ Нет бонусов для начисления'), show_alert=True
+            )
             return
 
         # Применяем исправления
@@ -1517,7 +1572,9 @@ async def apply_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
 
     except Exception as e:
         logger.error('Ошибка в apply_missing_bonuses', error=e, exc_info=True)
-        await callback.answer(texts.t('ADMIN_REFERRAL_BONUS_APPLY_ERROR', 'Ошибка при начислении бонусов'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_REFERRAL_BONUS_APPLY_ERROR', 'Ошибка при начислении бонусов'), show_alert=True
+        )
 
 
 @admin_required
@@ -1667,7 +1724,9 @@ async def receive_log_file(message: types.Message, db_user: User, db: AsyncSessi
     )
 
     if not message.document:
-        await message.answer(texts.t('ADMIN_REFERRAL_LOG_SEND_DOC', '❌ Пожалуйста, отправьте файл документом.'), reply_markup=cancel_kb)
+        await message.answer(
+            texts.t('ADMIN_REFERRAL_LOG_SEND_DOC', '❌ Пожалуйста, отправьте файл документом.'), reply_markup=cancel_kb
+        )
         return
 
     # Проверяем расширение файла
