@@ -31,8 +31,22 @@ def format_price_kopeks(kopeks: int, compact: bool = False) -> str:
     return text.replace(' ', '', 1) if compact else text
 
 
-def format_period(days: int) -> str:
-    """Форматирует период."""
+def format_period(days: int, language: str | None = None) -> str:
+    """Форматирует период с учетом языка."""
+    lang = (language or 'ru').split('-')[0].lower()
+    if lang == 'fa':
+        if days == 30:
+            return '1 ماه'
+        if days == 60:
+            return '2 ماه'
+        if days == 90:
+            return '3 ماه'
+        if days == 180:
+            return '6 ماه'
+        if days == 360:
+            return '12 ماه'
+        return f'{days} روز'
+
     mod100 = days % 100
     mod10 = days % 10
     if 11 <= mod100 <= 19:

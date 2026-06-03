@@ -112,6 +112,35 @@ def _get_user_period_discount(db_user: User, period_days: int) -> tuple[int, int
     return group_discount, personal_discount, display_combined
 
 
+def _is_fa_language(language: str | None) -> bool:
+    return (language or 'ru').split('-')[0].lower() == 'fa'
+
+
+def _tariff_user_display_name(tariff: Tariff, language: str | None) -> str:
+    """User-facing tariff title: FA uses traffic label; other langs use DB name."""
+    if _is_fa_language(language):
+        return format_traffic(tariff.traffic_limit_gb, language)
+    return html.escape(tariff.name)
+
+
+def _instant_switch_button_label(
+    tariff: Tariff,
+    cost: int,
+    is_upgrade: bool,
+    language: str,
+) -> str:
+    texts = get_texts(language)
+    if _is_fa_language(language):
+        if is_upgrade:
+            return texts.t('TARIFF_INSTANT_BTN_UPGRADE', '⬆️ {cost}').format(
+                cost=format_price_kopeks(cost, compact=True),
+            )
+        return texts.t('DEVICE_CHANGE_FREE', 'бесплатно')
+    if is_upgrade:
+        return f'{tariff.name} (+{format_price_kopeks(cost, compact=True)})'
+    return f'{tariff.name} ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
+
+
 def format_tariffs_list_text(
     tariffs: list[Tariff],
     language: str,
@@ -133,7 +162,7 @@ def format_tariffs_list_text(
     for tariff in tariffs:
         # Трафик компактно
         traffic_gb = tariff.traffic_limit_gb
-        traffic = '∞' if traffic_gb == 0 else f'{traffic_gb} ГБ'
+        traffic = format_traffic(traffic_gb, language)
 
         # Цена
         is_daily = getattr(tariff, 'is_daily', False)
@@ -169,8 +198,8 @@ def format_tariffs_list_text(
             f'<b>{html.escape(tariff.name)}</b>{purchased_mark} — {traffic} / {tariff.device_limit} 📱 {price_text}'
         )
 
-        # Описание тарифа если есть
-        if tariff.description:
+        # Описание тарифа если есть (DB text; skip for FA — often Russian admin seed)
+        if tariff.description and not _is_fa_language(language):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -225,7 +254,7 @@ def get_tariff_periods_keyboard(
         else:
             price_text = format_price_kopeks(price)
 
-        button_text = f'{format_period(period)} — {price_text}'
+        button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_period:{tariff.id}:{period}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='tariff_list')])
@@ -258,7 +287,7 @@ def get_tariff_periods_keyboard_with_traffic(
         else:
             price_text = format_price_kopeks(price)
 
-        button_text = f'{format_period(period)} — {price_text}'
+        button_text = f'{format_period(period, language)} — {price_text}'
         # Используем другой callback для перехода к настройке трафика
         buttons.append(
             [InlineKeyboardButton(text=button_text, callback_data=f'tariff_period_traffic:{tariff.id}:{period}')]
@@ -512,7 +541,9 @@ async def format_custom_tariff_preview(
         text += texts.t('TARIFF_CUSTOM_DAYS', '📅 Дней: <b>{days}</b> (от {min_days} до {max_days})\n   💰 {price}\n').format(days=days, min_days=tariff.min_days, max_days=tariff.max_days, price=format_price_kopeks(period_price))
     else:
         # Фиксированный период - показываем без возможности изменения
-        text += texts.t('TARIFF_CUSTOM_PERIOD', '📅 Период: <b>{period}</b>\n   💰 {price}\n').format(period=format_period(days), price=format_price_kopeks(period_price))
+        text += texts.t('TARIFF_CUSTOM_PERIOD', '📅 Период: <b>{period}</b>\n   💰 {price}\n').format(
+            period=format_period(days, language), price=format_price_kopeks(period_price)
+        )
 
     if tariff.can_purchase_custom_traffic():
         text += texts.t('TARIFF_CUSTOM_TRAFFIC', '📊 Трафик: <b>{traffic} GB</b> (от {min} до {max})\n   💰 +{price}\n').format(traffic=traffic_gb, min=tariff.min_traffic_gb, max=tariff.max_traffic_gb, price=format_price_kopeks(traffic_price))
@@ -1151,7 +1182,7 @@ async def handle_custom_confirm(
 
         await state.clear()
 
-        traffic_display = format_traffic(traffic_limit)
+        traffic_display = format_traffic(traffic_limit, db_user.language)
 
         await callback.message.edit_text(
             texts.t(
@@ -1163,7 +1194,7 @@ async def handle_custom_confirm(
                 name=html.escape(tariff.name),
                 traffic=traffic_display,
                 devices=tariff.device_limit,
-                period=format_period(custom_days),
+                period=format_period(custom_days, db_user.language),
                 charged=format_price_kopeks(total_price),
             ),
             reply_markup=InlineKeyboardMarkup(
@@ -1285,7 +1316,7 @@ async def select_tariff_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = format_traffic(tariff.traffic_limit_gb, db_user.language)
 
     if user_balance >= final_price:
         # Показываем подтверждение
@@ -1304,7 +1335,7 @@ async def select_tariff_period(
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=tariff.device_limit,
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
                 balance=format_price_kopeks(user_balance),
@@ -1352,7 +1383,7 @@ async def select_tariff_period(
                 '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>\n\n{cart_note}',
             ).format(
                 name=html.escape(tariff.name),
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
                 balance=format_price_kopeks(user_balance),
                 missing=format_price_kopeks(missing),
@@ -1794,7 +1825,7 @@ async def confirm_tariff_purchase(
             name=html.escape(tariff.name),
             traffic=traffic,
             devices=tariff.device_limit,
-            period=format_period(period),
+            period=format_period(period, db_user.language),
             charged=format_price_kopeks(final_price),
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -2171,7 +2202,7 @@ def get_tariff_extend_keyboard(
         else:
             price_text = format_price_kopeks(price)
 
-        button_text = f'{format_period(period)} — {price_text}'
+        button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_extend:{tariff.id}:{period}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')])
@@ -2413,7 +2444,7 @@ async def select_tariff_extend_period(
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=actual_device_limit,
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
                 balance=format_price_kopeks(user_balance),
@@ -2447,7 +2478,7 @@ async def select_tariff_extend_period(
         await callback.message.edit_text(
             f'❌ <b>Недостаточно средств</b>\n\n'
             f'📦 Тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📅 Период: {format_period(period)}\n'
+            f'📅 Период: {format_period(period, db_user.language)}\n'
             f'💰 К оплате: {format_price_kopeks(final_price)}\n\n'
             f'💳 Ваш баланс: {format_price_kopeks(user_balance)}\n'
             f'⚠️ Не хватает: <b>{format_price_kopeks(missing)}</b>\n\n'
@@ -2638,7 +2669,7 @@ async def confirm_tariff_extend(
             f'📦 Тариф: <b>{html.escape(tariff.name)}</b>\n'
             f'📊 Трафик: {traffic}\n'
             f'📱 Устройств: {actual_device_limit}\n'
-            f'📅 Добавлено: {format_period(period)}\n'
+            f'📅 Добавлено: {format_period(period, db_user.language)}\n'
             f'💰 Списано: {format_price_kopeks(final_price)}',
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -2692,7 +2723,7 @@ def format_tariff_switch_list_text(
             continue
 
         traffic_gb = tariff.traffic_limit_gb
-        traffic = '∞' if traffic_gb == 0 else f'{traffic_gb} ГБ'
+        traffic = format_traffic(traffic_gb, db_user.language if db_user else 'ru')
 
         # Проверяем суточный ли тариф
         is_daily = getattr(tariff, 'is_daily', False)
@@ -2776,7 +2807,7 @@ def get_tariff_switch_periods_keyboard(
         else:
             price_text = format_price_kopeks(price)
 
-        button_text = f'{format_period(period)} — {price_text}'
+        button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_sw_period:{tariff.id}:{period}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='tariff_switch')])
@@ -3148,7 +3179,7 @@ async def select_tariff_switch_period(
                 '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>{extra}',
             ).format(
                 name=html.escape(tariff.name),
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
                 balance=format_price_kopeks(user_balance),
                 missing=format_price_kopeks(missing),
@@ -3787,7 +3818,7 @@ def format_instant_switch_list_text(
             continue
 
         traffic_gb = tariff.traffic_limit_gb
-        traffic = '∞' if traffic_gb == 0 else f'{traffic_gb} ГБ'
+        traffic = format_traffic(traffic_gb, db_user.language if db_user else 'ru')
 
         # Рассчитываем стоимость переключения
         cost, is_upgrade = _calculate_instant_switch_cost(current_tariff, tariff, remaining_days, db_user)
@@ -3797,9 +3828,18 @@ def format_instant_switch_list_text(
         else:
             cost_text = texts.t('TARIFF_INSTANT_FREE', '⬇️ Бесплатно')
 
-        lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {cost_text}')
+        lang = db_user.language if db_user else 'ru'
+        if _is_fa_language(lang):
+            lines.append(
+                texts.t(
+                    'TARIFF_INSTANT_ROW_LINE',
+                    '{traffic} / {devices} 📱 {cost}',
+                ).format(traffic=traffic, devices=tariff.device_limit, cost=cost_text)
+            )
+        else:
+            lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {cost_text}')
 
-        if tariff.description:
+        if tariff.description and not _is_fa_language(lang):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -3825,10 +3865,7 @@ def get_instant_switch_keyboard(
         # Рассчитываем стоимость
         cost, is_upgrade = _calculate_instant_switch_cost(current_tariff, tariff, remaining_days, db_user)
 
-        if is_upgrade:
-            btn_text = f'{tariff.name} (+{format_price_kopeks(cost, compact=True)})'
-        else:
-            btn_text = f'{tariff.name} (бесплатно)'
+        btn_text = _instant_switch_button_label(tariff, cost, is_upgrade, language)
 
         buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f'instant_sw_preview:{tariff.id}')])
 
@@ -4020,10 +4057,11 @@ async def preview_instant_switch(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(new_tariff.traffic_limit_gb)
-    current_traffic = format_traffic(current_tariff.traffic_limit_gb)
-
     texts = get_texts(db_user.language)
+    traffic = format_traffic(new_tariff.traffic_limit_gb, db_user.language)
+    current_traffic = format_traffic(current_tariff.traffic_limit_gb, db_user.language)
+    new_tariff_label = _tariff_user_display_name(new_tariff, db_user.language)
+    current_tariff_label = _tariff_user_display_name(current_tariff, db_user.language)
 
     # Проверяем, суточный ли новый тариф
     is_new_daily = getattr(new_tariff, 'is_daily', False)
@@ -4057,10 +4095,10 @@ async def preview_instant_switch(
                     '💰 <b>Цена: {price}/день</b>{discount}\n\n💳 Ваш баланс: {balance}{warning}\n\n'
                     'ℹ️ Средства будут списываться автоматически раз в сутки.',
                 ).format(
-                    current_name=html.escape(current_tariff.name),
+                    current_name=current_tariff_label,
                     current_traffic=current_traffic,
                     current_devices=current_tariff.device_limit,
-                    new_name=html.escape(new_tariff.name),
+                    new_name=new_tariff_label,
                     traffic=traffic,
                     new_devices=new_tariff.device_limit,
                     price=format_price_kopeks(daily_price),
@@ -4080,7 +4118,7 @@ async def preview_instant_switch(
                     '📦 Тариф: <b>{name}</b>\n🔄 Тип: Суточный\n💰 Цена: {price}/день{discount}\n\n'
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>{extra}',
                 ).format(
-                    name=html.escape(new_tariff.name),
+                    name=new_tariff_label,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
                     balance=format_price_kopeks(user_balance),
@@ -4113,10 +4151,10 @@ async def preview_instant_switch(
                     '⏰ Осталось дней: <b>{days}</b>\n💰 <b>Доплата: {cost}</b>\n\n'
                     '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
                 ).format(
-                    current_name=html.escape(current_tariff.name),
+                    current_name=current_tariff_label,
                     current_traffic=current_traffic,
                     current_devices=current_tariff.device_limit,
-                    new_name=html.escape(new_tariff.name),
+                    new_name=new_tariff_label,
                     traffic=traffic,
                     new_devices=new_tariff.device_limit,
                     days=remaining_days,
@@ -4136,7 +4174,7 @@ async def preview_instant_switch(
                     '📦 Новый тариф: <b>{name}</b>\n💰 Требуется доплата: {cost}\n\n'
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
-                    name=html.escape(new_tariff.name),
+                    name=new_tariff_label,
                     cost=format_price_kopeks(upgrade_cost),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4154,10 +4192,10 @@ async def preview_instant_switch(
                 '📦 Новый: <b>{new_name}</b>\n   • Трафик: {traffic}\n   • Устройств: {new_devices}\n\n'
                 '⏰ Осталось дней: <b>{days}</b>\n💰 <b>Бесплатно</b> (понижение/равный тариф)',
             ).format(
-                current_name=html.escape(current_tariff.name),
+                current_name=current_tariff_label,
                 current_traffic=current_traffic,
                 current_devices=current_tariff.device_limit,
-                new_name=html.escape(new_tariff.name),
+                new_name=new_tariff_label,
                 traffic=traffic,
                 new_devices=new_tariff.device_limit,
                 days=remaining_days,
@@ -4544,7 +4582,7 @@ async def return_to_saved_tariff_cart(
 
     total_price = cart_data.get('total_price', 0)
     user_balance = db_user.balance_kopeks or 0
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = format_traffic(tariff.traffic_limit_gb, db_user.language)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     if total_price > 0 and user_balance < total_price:
@@ -4577,7 +4615,7 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period)}\n',
+                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4595,7 +4633,7 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period)}\n',
+                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4665,7 +4703,7 @@ async def return_to_saved_tariff_cart(
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=tariff.device_limit,
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
                 balance=format_price_kopeks(user_balance),
@@ -4703,7 +4741,7 @@ async def return_to_saved_tariff_cart(
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=tariff.device_limit,
-                period=format_period(period),
+                period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
                 balance=format_price_kopeks(user_balance),

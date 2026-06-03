@@ -19,6 +19,7 @@ from app.database.crud.promocode import (
     update_promocode,
 )
 from app.database.models import PromoCodeType, User
+from app.localization.texts import get_texts
 from app.keyboards.admin import (
     get_admin_pagination_keyboard,
     get_admin_promocodes_keyboard,
@@ -35,19 +36,20 @@ logger = structlog.get_logger(__name__)
 @admin_required
 @error_handler
 async def show_promocodes_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     total_codes = await get_promocodes_count(db)
     active_codes = await get_promocodes_count(db, is_active=True)
 
-    text = f"""
-🎫 <b>Управление промокодами</b>
-
-📊 <b>Статистика:</b>
-- Всего промокодов: {total_codes}
-- Активных: {active_codes}
-- Неактивных: {total_codes - active_codes}
-
-Выберите действие:
-"""
+    texts = get_texts(db_user.language)
+    text = texts.t(
+        'ADMIN_PROMOCODES_MENU',
+        '🎫 <b>Управление промокодами</b>\n\n'
+        '📊 <b>Статистика:</b>\n'
+        '- Всего промокодов: {total}\n'
+        '- Активных: {active}\n'
+        '- Неактивных: {inactive}\n\n'
+        'Выберите действие:',
+    ).format(total=total_codes, active=active_codes, inactive=total_codes - active_codes)
 
     await callback.message.edit_text(text, reply_markup=get_admin_promocodes_keyboard(db_user.language))
     await callback.answer()
@@ -56,6 +58,7 @@ async def show_promocodes_menu(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db: AsyncSession, page: int = 1):
+    texts = get_texts(db_user.language)
     limit = 10
     offset = (page - 1) * limit
 
@@ -65,9 +68,9 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
 
     if not promocodes:
         await callback.message.edit_text(
-            '🎫 Промокоды не найдены',
+            texts.t('ADMIN_PROMOCODES_EMPTY', '🎫 Промокоды не найдены'),
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_promocodes')]]
+                inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')]]
             ),
         )
         await callback.answer()
@@ -119,7 +122,7 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
     keyboard.extend(
         [
             [types.InlineKeyboardButton(text='➕ Создать', callback_data='admin_promo_create')],
-            [types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_promocodes')],
+            [types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')],
         ]
     )
 
@@ -130,6 +133,7 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def show_promocodes_list_page(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     """Обработчик пагинации списка промокодов."""
     try:
         page = int(callback.data.split('_')[-1])
@@ -141,11 +145,12 @@ async def show_promocodes_list_page(callback: types.CallbackQuery, db_user: User
 @admin_required
 @error_handler
 async def show_promocode_management(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     promo_id = int(callback.data.split('_')[-1])
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     status_emoji = '✅' if promo.is_active else '❌'
@@ -212,6 +217,7 @@ async def show_promocode_management(callback: types.CallbackQuery, db_user: User
 @admin_required
 @error_handler
 async def show_promocode_edit_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -220,7 +226,7 @@ async def show_promocode_edit_menu(callback: types.CallbackQuery, db_user: User,
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     text = f"""
@@ -266,6 +272,7 @@ async def show_promocode_edit_menu(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def start_edit_promocode_date(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -298,6 +305,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_amount(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -327,6 +335,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_days(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     # ИСПРАВЛЕНИЕ: берем последний элемент как ID
     try:
         promo_id = int(callback.data.split('_')[-1])
@@ -357,6 +366,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_edit_promocode_uses(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -389,6 +399,7 @@ ID промокода: {promo_id}
 @admin_required
 @error_handler
 async def start_promocode_creation(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     await callback.message.edit_text(
         '🎫 <b>Создание промокода</b>\n\nВыберите тип промокода:',
         reply_markup=get_promocode_type_keyboard(db_user.language),
@@ -399,6 +410,7 @@ async def start_promocode_creation(callback: types.CallbackQuery, db_user: User,
 @admin_required
 @error_handler
 async def select_promocode_type(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     promo_type = callback.data.split('_')[-1]
 
     type_names = {
@@ -427,6 +439,7 @@ async def select_promocode_type(callback: types.CallbackQuery, db_user: User, st
 @admin_required
 @error_handler
 async def process_promocode_code(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     code = message.text.strip().upper()
 
     if not code.isalnum() or len(code) < 3 or len(code) > 20:
@@ -463,7 +476,7 @@ async def process_promocode_code(message: types.Message, db_user: User, state: F
             await message.answer(
                 '❌ Промогруппы не найдены. Создайте хотя бы одну промогруппу.',
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_promocodes')]]
+                    inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')]]
                 ),
             )
             await state.clear()
@@ -497,6 +510,7 @@ async def process_promo_group_selection(
     callback: types.CallbackQuery, db_user: User, state: FSMContext, db: AsyncSession
 ):
     """Handle promo group selection for promocode"""
+    texts = get_texts(db_user.language)
     try:
         promo_group_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -524,6 +538,7 @@ async def process_promo_group_selection(
 @admin_required
 @error_handler
 async def process_promocode_value(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -614,6 +629,7 @@ async def handle_edit_value(message: types.Message, db_user: User, state: FSMCon
 @admin_required
 @error_handler
 async def process_promocode_uses(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -692,6 +708,7 @@ async def handle_edit_uses(message: types.Message, db_user: User, state: FSMCont
 @admin_required
 @error_handler
 async def process_promocode_expiry(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
 
     if data.get('editing_promo_id'):
@@ -789,6 +806,7 @@ async def process_promocode_expiry(message: types.Message, db_user: User, state:
 @admin_required
 @error_handler
 async def process_discount_hours(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     """Обработчик ввода срока действия скидки в часах для DISCOUNT промокода."""
     data = await state.get_data()
 
@@ -913,11 +931,12 @@ async def handle_edit_expiry(message: types.Message, db_user: User, state: FSMCo
 @admin_required
 @error_handler
 async def toggle_promocode_status(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     promo_id = int(callback.data.split('_')[-1])
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     new_status = not promo.is_active
@@ -932,12 +951,13 @@ async def toggle_promocode_status(callback: types.CallbackQuery, db_user: User, 
 @admin_required
 @error_handler
 async def toggle_promocode_first_purchase(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     """Переключает режим 'только для первой покупки'."""
     promo_id = int(callback.data.split('_')[-1])
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     new_status = not getattr(promo, 'first_purchase_only', False)
@@ -952,6 +972,7 @@ async def toggle_promocode_first_purchase(callback: types.CallbackQuery, db_user
 @admin_required
 @error_handler
 async def confirm_delete_promocode(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -960,7 +981,7 @@ async def confirm_delete_promocode(callback: types.CallbackQuery, db_user: User,
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     text = f"""
@@ -993,6 +1014,7 @@ ID: {promo_id}
 @admin_required
 @error_handler
 async def delete_promocode_confirmed(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         promo_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
@@ -1001,7 +1023,7 @@ async def delete_promocode_confirmed(callback: types.CallbackQuery, db_user: Use
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     code = promo.code
@@ -1017,11 +1039,12 @@ async def delete_promocode_confirmed(callback: types.CallbackQuery, db_user: Use
 @admin_required
 @error_handler
 async def show_promocode_stats(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     promo_id = int(callback.data.split('_')[-1])
 
     promo = await get_promocode_by_id(db, promo_id)
     if not promo:
-        await callback.answer('❌ Промокод не найден', show_alert=True)
+        await callback.answer(texts.t('ADMIN_PROMOCODE_NOT_FOUND', '❌ Промокод не найден'), show_alert=True)
         return
 
     stats = await get_promocode_statistics(db, promo_id)
@@ -1065,6 +1088,7 @@ async def show_promocode_stats(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def show_general_promocode_stats(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     total_codes = await get_promocodes_count(db)
     active_codes = await get_promocodes_count(db, is_active=True)
 
@@ -1082,7 +1106,7 @@ async def show_general_promocode_stats(callback: types.CallbackQuery, db_user: U
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text='🎫 К промокодам', callback_data='admin_promo_list')],
-            [types.InlineKeyboardButton(text='⬅️ Назад', callback_data='admin_promocodes')],
+            [types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_promocodes')],
         ]
     )
 

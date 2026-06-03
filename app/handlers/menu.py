@@ -1,7 +1,5 @@
 import html
 from datetime import UTC, datetime
-from decimal import Decimal
-
 import structlog
 from aiogram import Dispatcher, F, types
 from aiogram.filters import StateFilter
@@ -44,17 +42,6 @@ from app.utils.timezone import format_local_datetime
 
 
 logger = structlog.get_logger(__name__)
-
-
-def _format_rubles(amount_kopeks: int) -> str:
-    rubles = Decimal(amount_kopeks) / Decimal(100)
-
-    if rubles == rubles.to_integral_value():
-        formatted = f'{rubles:,.0f}'
-    else:
-        formatted = f'{rubles:,.2f}'
-
-    return f'{formatted.replace(",", " ")} ₽'
 
 
 def _collect_period_discounts(group: PromoGroup) -> dict[int, int]:
@@ -355,7 +342,7 @@ async def show_promo_groups_info(
         return
 
     total_spent_kopeks = await get_user_total_spent_kopeks(db, db_user.id)
-    total_spent_text = _format_rubles(total_spent_kopeks)
+    total_spent_text = settings.format_price(total_spent_kopeks)
 
     sorted_groups = sorted(
         promo_groups,
@@ -414,7 +401,7 @@ async def show_promo_groups_info(
                 '📈 До уровня «{name}»: осталось {amount}',
             ).format(
                 name=html.escape(next_group.name),
-                amount=_format_rubles(max(remaining_kopeks, 0)),
+                amount=settings.format_price(max(remaining_kopeks, 0)),
             )
         )
     else:
@@ -437,7 +424,7 @@ async def show_promo_groups_info(
             ).format(
                 status=status_icon,
                 name=html.escape(group.name),
-                amount=_format_rubles(threshold),
+                amount=settings.format_price(threshold),
             )
         )
 

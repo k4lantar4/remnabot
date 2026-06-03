@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.models import User
+from app.utils.formatting import format_traffic
 from app.utils.pricing_utils import (
     format_period_description,
 )
@@ -143,11 +144,11 @@ async def _prepare_subscription_summary(
         if final_traffic_gb == 0:
             traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
         else:
-            traffic_display = f'{final_traffic_gb} ГБ'
+            traffic_display = format_traffic(final_traffic_gb, db_user.language)
     elif summary_data.get('traffic_gb', 0) == 0:
         traffic_display = texts.t('SUBSCRIPTION_ORDER_TRAFFIC_UNLIMITED', 'Безлимитный')
     else:
-        traffic_display = f'{summary_data.get("traffic_gb", 0)} ГБ'
+        traffic_display = format_traffic(summary_data.get('traffic_gb', 0), db_user.language)
 
     # Resolve country display names (still needed for the summary text)
     countries = await _get_available_countries(db_user.promo_group_id)
@@ -160,40 +161,66 @@ async def _prepare_subscription_summary(
 
     # Добавляем строку базового периода только если цена не равна 0
     if base_discount_total > 0 and base_price > 0:
-        base_line = (
-            f'- Базовый период: <s>{texts.format_price(base_price_original)}</s> '
-            f'{texts.format_price(base_price)}'
-            f' (скидка {period_discount_percent}%:'
-            f' -{texts.format_price(base_discount_total)})'
+        base_line = texts.t(
+            'SUBSCRIPTION_ORDER_LINE_BASE_DISCOUNT',
+            '- Базовый период: <s>{was}</s> {now} (скидка {pct}%: -{discount})',
+        ).format(
+            was=texts.format_price(base_price_original),
+            now=texts.format_price(base_price),
+            pct=period_discount_percent,
+            discount=texts.format_price(base_discount_total),
         )
         details_lines.append(base_line)
     elif base_price_original > 0:
-        base_line = f'- Базовый период: {texts.format_price(base_price_original)}'
+        base_line = texts.t('SUBSCRIPTION_ORDER_LINE_BASE', '- Базовый период: {price}').format(
+            price=texts.format_price(base_price_original)
+        )
         details_lines.append(base_line)
 
     if total_traffic_price > 0:
-        traffic_line = (
-            f'- Трафик: {texts.format_price(traffic_price_per_month)}/мес × {months_in_period}'
-            f' = {texts.format_price(total_traffic_price)}'
+        traffic_line = texts.t(
+            'SUBSCRIPTION_ORDER_LINE_TRAFFIC',
+            '- Трафик: {per_month}/мес × {months} = {total}',
+        ).format(
+            per_month=texts.format_price(traffic_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_traffic_price),
         )
         if traffic_discount_total > 0:
-            traffic_line += f' (скидка {traffic_discount_percent}%: -{texts.format_price(traffic_discount_total)})'
+            traffic_line += texts.t(
+                'SUBSCRIPTION_ORDER_DISCOUNT_SUFFIX',
+                ' (скидка {pct}%: -{amount})',
+            ).format(pct=traffic_discount_percent, amount=texts.format_price(traffic_discount_total))
         details_lines.append(traffic_line)
     if total_servers_price > 0:
-        servers_line = (
-            f'- Серверы: {texts.format_price(servers_price_per_month)}/мес × {months_in_period}'
-            f' = {texts.format_price(total_servers_price)}'
+        servers_line = texts.t(
+            'SUBSCRIPTION_ORDER_LINE_SERVERS',
+            '- Серверы: {per_month}/мес × {months} = {total}',
+        ).format(
+            per_month=texts.format_price(servers_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_servers_price),
         )
         if servers_discount_total > 0:
-            servers_line += f' (скидка {servers_discount_percent}%: -{texts.format_price(servers_discount_total)})'
+            servers_line += texts.t(
+                'SUBSCRIPTION_ORDER_DISCOUNT_SUFFIX',
+                ' (скидка {pct}%: -{amount})',
+            ).format(pct=servers_discount_percent, amount=texts.format_price(servers_discount_total))
         details_lines.append(servers_line)
     if devices_selection_enabled and total_devices_price > 0:
-        devices_line = (
-            f'- Доп. устройства: {texts.format_price(devices_price_per_month)}/мес × {months_in_period}'
-            f' = {texts.format_price(total_devices_price)}'
+        devices_line = texts.t(
+            'SUBSCRIPTION_ORDER_LINE_DEVICES',
+            '- Доп. устройства: {per_month}/мес × {months} = {total}',
+        ).format(
+            per_month=texts.format_price(devices_price_per_month),
+            months=months_in_period,
+            total=texts.format_price(total_devices_price),
         )
         if devices_discount_total > 0:
-            devices_line += f' (скидка {devices_discount_percent}%: -{texts.format_price(devices_discount_total)})'
+            devices_line += texts.t(
+                'SUBSCRIPTION_ORDER_DISCOUNT_SUFFIX',
+                ' (скидка {pct}%: -{amount})',
+            ).format(pct=devices_discount_percent, amount=texts.format_price(devices_discount_total))
         details_lines.append(devices_line)
 
     if promo_offer_discount > 0:

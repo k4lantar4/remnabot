@@ -22,38 +22,31 @@ alwaysApply: true
 | Item | Value |
 |------|-------|
 | Production line | `remnabot/main` ≈ `dev-local` ≈ `fa-i18n` |
-| i18n batch base | `7b46148c` (pre-fa-i18n split) |
-| Last full batch | `76a03ec4` — 16 commits + PR #17–#32 merged to `split-base` |
-| **Current HEAD** | see `git log -1` on `fa-i18n-traffic-ui` — P1 admin batch (Jun 3 2026) |
-| Branch for new work | `fa-i18n-traffic-ui` → merge to `fa-i18n` → `dev-local` → `main` after user OK |
+| **Branch** | `fa-i18n-traffic-ui` (P2 batch Jun 3 2026) |
+| **HEAD** | `c9f6296d` — see `git log -1` |
+| Merge path | `fa-i18n-traffic-ui` → `fa-i18n` → `dev-local` → `main` after user OK |
 
-## Session opener (copy-paste)
+## Done (P2 — Jun 3 2026)
 
-```
-@fa-i18n-status.mdc @fa-i18n-execution.mdc
-Continue fa-i18n: next slice from status. One handler/keyboard + fa.json per commit. Smoke + cp fa.json. No new plan.
-```
+- [x] **P2-06..P2-16:** `8d429570` welcome_text, `29b9a6b5` user_messages, `c4e68831` subscriptions, `b144ef5f` statistics, `f69cc127` blocked_users, `e6373385` blacklist, `dfd8b941` backup, `0557b7f9` campaigns, `0394e7cc` promocodes, `26379aea` servers
+- [x] **P2.5:** `756800f3` referrals, `0f6db44e` remnawave, `c9f6296d` messages
+- [x] **maintenance P2-04 finish:** `2b865158` — panel, toggle, monitoring, notify paths
+- [x] Prior P2: users U11–U16, system_logs, bulk_ban, required_channels, rules, updates; user traffic/units; P1 unchanged
 
-## Done (P1 user + P1 admin — Jun 3 2026)
+## Done (P2.5 — Jun 3 2026)
 
-- [x] P1 user: `traffic.py` `8bbf52f7`, `devices.py` `fc83b0dd`, `countries.py` `43772e26`, `menu.py` fragments `8b76b72d`
-- [x] P1 admin users: U3 `92c0e2b3`, U4 `4c23ad51`, U5 `051cfed6`, U6–U10 `df978ace` (+ list/search/stats keys in fa.json)
-- [x] P1 admin tariffs: T1 `a36eea3a` … T6 `4dadc9eb`, T7–T12 `fb82555a`
-- [x] Admin notify: N0 `c0856f26` … N8 `53203ef3`, bulk-ban fix on HEAD
+- [x] `756800f3` `referrals.py` — full admin referrals/diagnostics/withdrawals (~201 `texts.t`)
+- [x] `0f6db44e` `remnawave.py` — menu, auto-sync, nodes list, stats nav (~94 `texts.t`; large stat bodies still Cyrillic fallbacks)
+- [x] `c9f6296d` `messages.py` — menu + pinned flows (~24 `texts.t`; broadcast FSM bodies still Cyrillic fallbacks)
 
-## Next (P2 / cleanup)
+## Next (optional)
 
-| Area | Notes |
-|------|-------|
-| `admin/users.py` | Per-user stats screen, search results, buy-sub/autopay handlers (~165 lines Cyrillic outside fallbacks) |
-| P2 admin | 14 hardcode-only modules |
-| Deferred keyboards | `common.py` traffic switch labels, `inline.py` reset-traffic confirm btn |
+Deep pass: `remnawave.py` system/traffic/node detail blocks; `messages.py` broadcast create/history/criteria FSM; campaigns/promocodes inner strings.
 
 ## Smoke (every commit)
 
 ```bash
-docker compose build bot && docker compose up -d   # or: docker compose run --rm --no-deps bot python -c "import main"
-docker compose exec bot python -c "import main"
+docker compose run --rm --no-deps bot python -c "import main"
 cp app/localization/locales/fa.json ./locales/fa.json
 docker compose restart bot
 grep -r get_admin_texts app/  # must be 0
@@ -61,5 +54,4 @@ grep -r get_admin_texts app/  # must be 0
 
 ## Supersedes
 
-Initial discovery: `.cursor/plans/fa-i18n_execution_plan_be1b33ee.plan.md` (historical only).
-P1 admin plan: `.cursor/plans/p1_admin_fa-i18n_a4ba6920.plan.md` (executed Jun 3 2026).
+P1 plans: `.cursor/plans/p1_admin_fa-i18n_a4ba6920.plan.md`, historical Phase-0 plan.

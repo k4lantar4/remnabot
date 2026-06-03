@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User
+from app.localization.texts import get_texts
 from app.services.version_service import version_service
 from app.utils.decorators import admin_required, error_handler
 
@@ -12,24 +13,45 @@ logger = structlog.get_logger(__name__)
 
 
 def get_updates_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
+    texts = get_texts(language)
     buttons = [
-        [InlineKeyboardButton(text='🔄 Проверить обновления', callback_data='admin_updates_check')],
-        [InlineKeyboardButton(text='📋 Информация о версии', callback_data='admin_updates_info')],
         [
             InlineKeyboardButton(
-                text='🔗 Открыть репозиторий', url=f'https://github.com/{version_service.repo}/releases'
+                text=texts.t('ADMIN_UPDATES_BTN_CHECK', '🔄 Проверить обновления'),
+                callback_data='admin_updates_check',
             )
         ],
-        [InlineKeyboardButton(text='◀️ Назад', callback_data='admin_panel')],
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_UPDATES_BTN_INFO', '📋 Информация о версии'),
+                callback_data='admin_updates_info',
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_UPDATES_BTN_REPO', '🔗 Открыть репозиторий'),
+                url=f'https://github.com/{version_service.repo}/releases',
+            )
+        ],
+        [InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '◀️ Назад'), callback_data='admin_panel')],
     ]
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_version_info_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
+    texts = get_texts(language)
     buttons = [
-        [InlineKeyboardButton(text='🔄 Обновить', callback_data='admin_updates_info')],
-        [InlineKeyboardButton(text='◀️ К обновлениям', callback_data='admin_updates')],
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_UPDATES_BTN_REFRESH', '🔄 Обновить'), callback_data='admin_updates_info'
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('ADMIN_UPDATES_BACK_MENU', '◀️ К обновлениям'), callback_data='admin_updates'
+            )
+        ],
     ]
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -38,6 +60,7 @@ def get_version_info_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
 @admin_required
 @error_handler
 async def show_updates_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         version_info = await version_service.get_version_info()
 
@@ -47,20 +70,32 @@ async def show_updates_menu(callback: types.CallbackQuery, db_user: User, db: As
         last_check = version_info['last_check']
 
         status_icon = '🆕' if has_updates else '✅'
-        status_text = f'Доступно {total_newer} обновлений' if has_updates else 'Актуальная версия'
+        status_text = (
+            texts.t('ADMIN_UPDATES_STATUS_AVAILABLE', 'Доступно {count} обновлений').format(count=total_newer)
+            if has_updates
+            else texts.t('ADMIN_UPDATES_STATUS_CURRENT', 'Актуальная версия')
+        )
 
         last_check_text = ''
         if last_check:
-            last_check_text = f'\n🕐 Последняя проверка: {last_check.strftime("%d.%m.%Y %H:%M")}'
+            last_check_text = texts.t('ADMIN_UPDATES_LAST_CHECK', '\n🕐 Последняя проверка: {time}').format(
+                time=last_check.strftime('%d.%m.%Y %H:%M')
+            )
 
-        message = f"""🔄 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>
-
-📦 <b>Текущая версия:</b> <code>{current_version}</code>
-{status_icon} <b>Статус:</b> {status_text}
-
-🔗 <b>Репозиторий:</b> {version_service.repo}{last_check_text}
-
-ℹ️ Система автоматически проверяет обновления каждый час и отправляет уведомления о новых версиях."""
+        message = texts.t('ADMIN_UPDATES_MENU_TITLE', '🔄 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n')
+        message += texts.t('ADMIN_UPDATES_CURRENT', '📦 <b>Текущая версия:</b> <code>{version}</code>\n').format(
+            version=current_version
+        )
+        message += texts.t('ADMIN_UPDATES_STATUS_LINE', '{icon} <b>Статус:</b> {status}\n\n').format(
+            icon=status_icon, status=status_text
+        )
+        message += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}{last_check}\n\n').format(
+            repo=version_service.repo, last_check=last_check_text
+        )
+        message += texts.t(
+            'ADMIN_UPDATES_HINT',
+            'ℹ️ Система автоматически проверяет обновления каждый час и отправляет уведомления о новых версиях.',
+        )
 
         await callback.message.edit_text(
             message, reply_markup=get_updates_keyboard(db_user.language), parse_mode='HTML'
@@ -73,24 +108,26 @@ async def show_updates_menu(callback: types.CallbackQuery, db_user: User, db: As
             await callback.answer()
             return
         logger.error('Ошибка показа меню обновлений', error=e)
-        await callback.answer('❌ Ошибка загрузки меню обновлений', show_alert=True)
+        await callback.answer(texts.t('ADMIN_UPDATES_MENU_ERROR', '❌ Ошибка загрузки меню обновлений'), show_alert=True)
 
 
 @admin_required
 @error_handler
 async def check_updates(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
-    await callback.answer('🔄 Проверяю обновления...')
+    texts = get_texts(db_user.language)
+    await callback.answer(texts.t('ADMIN_UPDATES_CHECKING', '🔄 Проверяю обновления...'))
 
     try:
         has_updates, newer_releases = await version_service.check_for_updates(force=True)
 
         if not has_updates:
-            message = f"""✅ <b>ОБНОВЛЕНИЯ НЕ НАЙДЕНЫ</b>
-
-📦 <b>Текущая версия:</b> <code>{version_service.current_version}</code>
-🎯 <b>Статус:</b> У вас установлена последняя версия
-
-🔗 <b>Репозиторий:</b> {version_service.repo}"""
+            message = texts.t(
+                'ADMIN_UPDATES_NONE',
+                '✅ <b>ОБНОВЛЕНИЯ НЕ НАЙДЕНЫ</b>\n\n'
+                '📦 <b>Текущая версия:</b> <code>{version}</code>\n'
+                '🎯 <b>Статус:</b> У вас установлена последняя версия\n\n'
+                '🔗 <b>Репозиторий:</b> {repo}',
+            ).format(version=version_service.current_version, repo=version_service.repo)
 
         else:
             updates_list = []
@@ -99,23 +136,37 @@ async def check_updates(callback: types.CallbackQuery, db_user: User, db: AsyncS
                 updates_list.append(f'{i + 1}. {icon} <code>{release.tag_name}</code> • {release.formatted_date}')
 
             updates_text = '\n'.join(updates_list)
-            more_text = f'\n\n📋 И еще {len(newer_releases) - 5} обновлений...' if len(newer_releases) > 5 else ''
+            more_text = (
+                texts.t('ADMIN_UPDATES_MORE', '\n\n📋 И еще {count} обновлений...').format(
+                    count=len(newer_releases) - 5
+                )
+                if len(newer_releases) > 5
+                else ''
+            )
 
-            message = f"""🆕 <b>НАЙДЕНЫ ОБНОВЛЕНИЯ</b>
-
-📦 <b>Текущая версия:</b> <code>{version_service.current_version}</code>
-🎯 <b>Доступно обновлений:</b> {len(newer_releases)}
-
-📋 <b>Последние версии:</b>
-{updates_text}{more_text}
-
-🔗 <b>Репозиторий:</b> {version_service.repo}"""
+            message = texts.t('ADMIN_UPDATES_FOUND_TITLE', '🆕 <b>НАЙДЕНЫ ОБНОВЛЕНИЯ</b>\n\n')
+            message += texts.t('ADMIN_UPDATES_CURRENT', '📦 <b>Текущая версия:</b> <code>{version}</code>\n').format(
+                version=version_service.current_version
+            )
+            message += texts.t('ADMIN_UPDATES_COUNT', '🎯 <b>Доступно обновлений:</b> {count}\n\n').format(
+                count=len(newer_releases)
+            )
+            message += texts.t('ADMIN_UPDATES_LIST_HEADER', '📋 <b>Последние версии:</b>\n{list}{more}\n\n').format(
+                list=updates_text, more=more_text
+            )
+            message += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}').format(repo=version_service.repo)
 
         keyboard = get_updates_keyboard(db_user.language)
 
         if has_updates:
             keyboard.inline_keyboard.insert(
-                -2, [InlineKeyboardButton(text='📋 Подробнее о версиях', callback_data='admin_updates_info')]
+                -2,
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('ADMIN_UPDATES_BTN_DETAILS', '📋 Подробнее о версиях'),
+                        callback_data='admin_updates_info',
+                    )
+                ],
             )
 
         await callback.message.edit_text(message, reply_markup=keyboard, parse_mode='HTML')
@@ -126,10 +177,13 @@ async def check_updates(callback: types.CallbackQuery, db_user: User, db: AsyncS
             return
         logger.error('Ошибка проверки обновлений', error=e)
         await callback.message.edit_text(
-            f'❌ <b>ОШИБКА ПРОВЕРКИ ОБНОВЛЕНИЙ</b>\n\n'
-            f'Не удалось связаться с сервером GitHub.\n'
-            f'Попробуйте позже.\n\n'
-            f'📦 <b>Текущая версия:</b> <code>{version_service.current_version}</code>',
+            texts.t(
+                'ADMIN_UPDATES_CHECK_ERROR',
+                '❌ <b>ОШИБКА ПРОВЕРКИ ОБНОВЛЕНИЙ</b>\n\n'
+                'Не удалось связаться с сервером GitHub.\n'
+                'Попробуйте позже.\n\n'
+                '📦 <b>Текущая версия:</b> <code>{version}</code>',
+            ).format(version=version_service.current_version),
             reply_markup=get_updates_keyboard(db_user.language),
             parse_mode='HTML',
         )
@@ -138,7 +192,8 @@ async def check_updates(callback: types.CallbackQuery, db_user: User, db: AsyncS
 @admin_required
 @error_handler
 async def show_version_info(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
-    await callback.answer('📋 Загружаю информацию о версиях...')
+    texts = get_texts(db_user.language)
+    await callback.answer(texts.t('ADMIN_UPDATES_INFO_LOADING', '📋 Загружаю информацию о версиях...'))
 
     try:
         version_info = await version_service.get_version_info()
@@ -149,21 +204,29 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
         has_updates = version_info['has_updates']
         last_check = version_info['last_check']
 
-        current_info = '📦 <b>ТЕКУЩАЯ ВЕРСИЯ</b>\n\n'
+        current_info = texts.t('ADMIN_UPDATES_INFO_CURRENT', '📦 <b>ТЕКУЩАЯ ВЕРСИЯ</b>\n\n')
 
         if current_release:
-            current_info += f'🏷️ <b>Версия:</b> <code>{current_release.tag_name}</code>\n'
-            current_info += f'📅 <b>Дата релиза:</b> {current_release.formatted_date}\n'
+            current_info += texts.t('ADMIN_UPDATES_INFO_TAG', '🏷️ <b>Версия:</b> <code>{tag}</code>\n').format(
+                tag=current_release.tag_name
+            )
+            current_info += texts.t('ADMIN_UPDATES_INFO_DATE', '📅 <b>Дата релиза:</b> {date}\n').format(
+                date=current_release.formatted_date
+            )
             if current_release.short_description:
-                current_info += f'📝 <b>Описание:</b>\n{current_release.short_description}\n'
+                current_info += texts.t('ADMIN_UPDATES_INFO_DESC', '📝 <b>Описание:</b>\n{desc}\n').format(
+                    desc=current_release.short_description
+                )
         else:
-            current_info += f'🏷️ <b>Версия:</b> <code>{current_version}</code>\n'
-            current_info += 'ℹ️ <b>Статус:</b> Информация о релизе недоступна\n'
+            current_info += texts.t('ADMIN_UPDATES_INFO_TAG', '🏷️ <b>Версия:</b> <code>{tag}</code>\n').format(
+                tag=current_version
+            )
+            current_info += texts.t('ADMIN_UPDATES_INFO_UNAVAILABLE', 'ℹ️ <b>Статус:</b> Информация о релизе недоступна\n')
 
         message_parts = [current_info]
 
         if has_updates and newer_releases:
-            updates_info = '\n🆕 <b>ДОСТУПНЫЕ ОБНОВЛЕНИЯ</b>\n\n'
+            updates_info = texts.t('ADMIN_UPDATES_INFO_AVAILABLE', '\n🆕 <b>ДОСТУПНЫЕ ОБНОВЛЕНИЯ</b>\n\n')
 
             for i, release in enumerate(newer_releases):
                 icon = '🔥' if i == 0 else '📦'
@@ -180,20 +243,29 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
 
             message_parts.append(updates_info.rstrip())
 
-        system_info = '\n🔧 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n'
-        system_info += f'🔗 <b>Репозиторий:</b> {version_service.repo}\n'
-        system_info += f'⚡ <b>Автопроверка:</b> {"Включена" if version_service.enabled else "Отключена"}\n'
-        system_info += '🕐 <b>Интервал:</b> Каждый час\n'
+        system_info = texts.t('ADMIN_UPDATES_INFO_SYSTEM', '\n🔧 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n')
+        system_info += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}\n').format(repo=version_service.repo)
+        system_info += texts.t(
+            'ADMIN_UPDATES_AUTO',
+            '⚡ <b>Автопроверка:</b> {status}\n',
+        ).format(
+            status=texts.t('ADMIN_MAINT_ON', 'Включена')
+            if version_service.enabled
+            else texts.t('ADMIN_MAINT_OFF', 'Отключена')
+        )
+        system_info += texts.t('ADMIN_UPDATES_INTERVAL', '🕐 <b>Интервал:</b> Каждый час\n')
 
         if last_check:
-            system_info += f'🕐 <b>Последняя проверка:</b> {last_check.strftime("%d.%m.%Y %H:%M")}\n'
+            system_info += texts.t('ADMIN_UPDATES_LAST_CHECK', '🕐 <b>Последняя проверка:</b> {time}\n').format(
+                time=last_check.strftime('%d.%m.%Y %H:%M')
+            )
 
         message_parts.append(system_info.rstrip())
 
         final_message = '\n'.join(message_parts)
 
         if len(final_message) > 4000:
-            final_message = final_message[:3900] + '\n\n... (информация обрезана)'
+            final_message = final_message[:3900] + texts.t('ADMIN_UPDATES_TRUNCATED', '\n\n... (информация обрезана)')
 
         await callback.message.edit_text(
             final_message,
@@ -208,9 +280,12 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
             return
         logger.error('Ошибка получения информации о версиях', error=e)
         await callback.message.edit_text(
-            f'❌ <b>ОШИБКА ЗАГРУЗКИ</b>\n\n'
-            f'Не удалось получить информацию о версиях.\n\n'
-            f'📦 <b>Текущая версия:</b> <code>{version_service.current_version}</code>',
+            texts.t(
+                'ADMIN_UPDATES_INFO_ERROR',
+                '❌ <b>ОШИБКА ЗАГРУЗКИ</b>\n\n'
+                'Не удалось получить информацию о версиях.\n\n'
+                '📦 <b>Текущая версия:</b> <code>{version}</code>',
+            ).format(version=version_service.current_version),
             reply_markup=get_version_info_keyboard(db_user.language),
             parse_mode='HTML',
         )

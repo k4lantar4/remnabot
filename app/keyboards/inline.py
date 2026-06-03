@@ -2547,8 +2547,6 @@ def get_add_traffic_keyboard_from_tariff(
         sub_id: ID подписки для формирования обратной ссылки в multi-tariff режиме
     """
     texts = get_texts(language)
-    language_code = (language or DEFAULT_LANGUAGE).split('-')[0].lower()
-    use_russian_fallback = language_code in {'ru', 'fa'}
     back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
 
     if not packages:
@@ -2577,18 +2575,21 @@ def get_add_traffic_keyboard_from_tariff(
             discount_percent,
         )
 
-        period_text = ' /мес' if use_russian_fallback else ' /mo'
-
-        if use_russian_fallback:
-            text = f'📊 +{gb} ГБ трафика - {discounted_price // 100} ₽{period_text}'
-        else:
-            text = f'📊 +{gb} GB traffic - {discounted_price // 100} ₽{period_text}'
+        period_text = texts.t('TRAFFIC_TOPUP_PERIOD_MONTH', ' /mo')
+        text = texts.t(
+            'TRAFFIC_TOPUP_BTN_GB',
+            '📊 +{gb} ГБ трафика - {price}{period}',
+        ).format(
+            gb=gb,
+            price=texts.format_price(discounted_price),
+            period=period_text,
+        )
 
         if discount_percent > 0 and discount_value > 0:
-            if use_russian_fallback:
-                text += f' (скидка {discount_percent}%: -{discount_value // 100}₽)'
-            else:
-                text += f' (discount {discount_percent}%: -{discount_value // 100}₽)'
+            text += texts.t(
+                'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
+                ' (скидка {percent}%: -{amount})',
+            ).format(percent=discount_percent, amount=texts.format_price(discount_value))
 
         buttons.append([InlineKeyboardButton(text=text, callback_data=f'add_traffic_{gb}')])
 
@@ -2614,7 +2615,11 @@ def get_change_devices_keyboard(
         now = datetime.now(UTC)
         days_left = max(1, math.ceil((subscription_end_date - now).total_seconds() / 86400))
         price_multiplier = days_left / 30
-        period_text = f' (за {days_left} дн.)' if days_left > 1 else ' (за 1 день)'
+        period_text = (
+            texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+            if days_left == 1
+            else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=days_left)
+        )
     else:
         price_multiplier = 1
         period_text = ''
@@ -2664,18 +2669,21 @@ def get_change_devices_keyboard(
                 )
                 total_price = int(discounted_per_month * price_multiplier)
                 total_price = max(100, total_price)  # Минимум 1 рубль
-                price_text = f' (+{total_price // 100}₽{period_text})'
+                price_text = f' (+{texts.format_price(total_price)}{period_text})'
                 total_discount = int(discount_per_month * price_multiplier)
                 if discount_percent > 0 and total_discount > 0:
-                    price_text += f' (скидка {discount_percent}%: -{total_discount // 100}₽)'
+                    price_text += texts.t(
+                        'DEVICE_CHANGE_DISCOUNT_INFO',
+                        ' (скидка {percent}%: -{amount})',
+                    ).format(percent=discount_percent, amount=texts.format_price(total_discount))
                 action_text = ''
             else:
-                price_text = ' (бесплатно)'
+                price_text = f" ({texts.t('DEVICE_CHANGE_FREE', 'бесплатно')})"
                 action_text = ''
         else:
             emoji = '➖'
             action_text = ''
-            price_text = ' (без возврата)'
+            price_text = f" ({texts.t('DEVICE_CHANGE_NO_REFUND', 'без возврата')})"
 
         button_text = f'{emoji} {devices_count} устр.{action_text}{price_text}'
 
@@ -2732,7 +2740,10 @@ def get_reset_traffic_confirm_keyboard(
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f'✅ Сбросить за {settings.format_price(price_kopeks)}', callback_data='confirm_reset_traffic'
+                    text=texts.t('RESET_TRAFFIC_CONFIRM_BTN', '✅ Сбросить за {price}').format(
+                        price=settings.format_price(price_kopeks)
+                    ),
+                    callback_data='confirm_reset_traffic',
                 )
             ]
         )
@@ -2816,7 +2827,14 @@ def get_manage_countries_keyboard(
             total_price = int(discounted_per_month * price_multiplier)
             total_price = max(100, total_price) if total_price > 0 else 0
             if days_left > 30:
-                price_text = f' ({discounted_per_month // 100}₽/мес × {days_left} дн. = {total_price // 100}₽)'
+                price_text = texts.t(
+                    'COUNTRY_KB_PRICE_PRORATE',
+                    ' ({per_month}/мес × {days} дн. = {total})',
+                ).format(
+                    per_month=texts.format_price(discounted_per_month),
+                    days=days_left,
+                    total=texts.format_price(total_price),
+                )
                 logger.info(
                     '🔍 Сервер : ₽/мес × дн./30 = ₽ (скидка ₽)',
                     name=name,
@@ -2826,10 +2844,15 @@ def get_manage_countries_keyboard(
                     discount_per_month=int(discount_per_month * price_multiplier) / 100,
                 )
             else:
-                price_text = f' ({total_price // 100}₽)'
+                price_text = texts.t('COUNTRY_KB_PRICE_SIMPLE', ' ({price})').format(
+                    price=texts.format_price(total_price)
+                )
             total_discount_for_server = int(discount_per_month * price_multiplier)
             if discount_percent > 0 and total_discount_for_server > 0:
-                price_text += f' (скидка {discount_percent}%: -{total_discount_for_server // 100}₽)'
+                price_text += texts.t(
+                    'COUNTRY_KB_DISCOUNT_SUFFIX',
+                    ' (скидка {percent}%: -{amount})',
+                ).format(percent=discount_percent, amount=texts.format_price(total_discount_for_server))
             display_name = f'{icon} {name}{price_text}'
         else:
             display_name = f'{icon} {name}'
@@ -2837,10 +2860,12 @@ def get_manage_countries_keyboard(
         buttons.append([InlineKeyboardButton(text=display_name, callback_data=f'country_manage_{uuid}')])
 
     if total_cost > 0:
-        apply_text = f'✅ Применить изменения ({total_cost // 100} ₽)'
+        apply_text = texts.t('COUNTRY_KB_APPLY', '✅ Применить изменения ({price})').format(
+            price=texts.format_price(total_cost)
+        )
         logger.info('🔍 Общая стоимость новых серверов: ₽', total_cost=total_cost / 100)
     else:
-        apply_text = '✅ Применить изменения'
+        apply_text = texts.t('COUNTRY_KB_APPLY_FREE', '✅ Применить изменения')
 
     buttons.append([InlineKeyboardButton(text=apply_text, callback_data='countries_apply')])
 
