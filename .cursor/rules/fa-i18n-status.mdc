@@ -39,9 +39,13 @@ alwaysApply: true
 - [x] `0f6db44e` `remnawave.py` — menu, auto-sync, nodes list, stats nav (~94 `texts.t`; large stat bodies still Cyrillic fallbacks)
 - [x] `c9f6296d` `messages.py` — menu + pinned flows (~24 `texts.t`; broadcast FSM bodies still Cyrillic fallbacks)
 
+## Done (hotfix — Jun 3 2026)
+
+- [x] `ADMIN_USER_MANAGEMENT_PROFILE` fa.json placeholders aligned with `ru.json` / `users.py` (`registration`, `language`, `transactions`, `registration_days`) — fixes KeyError `registered_at` on admin user card (fa admin language).
+
 ## Next (optional)
 
-Deep pass: `remnawave.py` system/traffic/node detail blocks; `messages.py` broadcast create/history/criteria FSM; campaigns/promocodes inner strings.
+Deep pass: `remnawave.py` system/traffic/node detail blocks; `messages.py` broadcast create/history/criteria FSM; campaigns/promocodes inner strings; audit other fa keys for placeholder drift vs `ru.json`.
 
 ## Smoke (every commit)
 
