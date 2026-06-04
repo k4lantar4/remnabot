@@ -1,0 +1,31 @@
+---
+description: Fork features as plugins (C2C reference) — minimal upstream touch
+globs: app/plugins/**,app/bot.py,app/handlers/balance/main.py,migrations/**
+alwaysApply: false
+---
+
+# Custom plugin pattern (C2C reference)
+
+Reference: `app/plugins/c2c/` — service, handlers, crud, `integration.py`, config helpers, dedicated migration.
+
+## Structure
+
+- `handlers/`, `service.py`, `crud.py`, `integration.py`, `constants.py`, `states.py`, `keyboards.py`
+- Tests under `tests/plugins/<name>/`
+
+## Upstream touch (minimal)
+
+- `integration.py`: `append_*_button`, `route_*_payment`
+- `balance/main.py`: one `if payment_method == 'x'` branch
+- `bot.py`: `register_*_plugin` (prefer gate with `settings.is_*_enabled()`)
+
+## Conventions
+
+- Feature flag in `settings` + `.env`
+- User-facing amounts: `settings.format_price` (display rule)
+- User strings: `texts.t('KEY', fallback)` + locale keys
+- DB: dedicated Alembic revision; do not reshape unrelated upstream tables
+
+Branch: `feat/<name>`. Commits: `feat(c2c): …` style.
+
+Language/currency-only work: **no new plugin** — use localization/currency rules.

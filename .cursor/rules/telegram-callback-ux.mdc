@@ -1,0 +1,51 @@
+---
+description: Answer Telegram callbacks early to avoid loading spinner / perceived hangs
+globs: app/handlers/**/*.py
+alwaysApply: false
+---
+
+# Telegram callback UX (aiogram)
+
+Until `callback.answer()` runs, Telegram shows a **loading** state on the button. Late answers feel like a hang.
+
+## Rule
+
+After cheap validation (parse `callback.data`, load row by id, quick guards):
+
+1. Call `await callback.answer()` or `await callback.answer(texts.t('KEY', '…'), show_alert=True)` **first**.
+2. Then run slow work: `edit_text` / `edit_message`, DB, Redis, RemnaWave API, `subtract_user_balance`.
+
+```python
+# BAD — spinner until everything finishes
+await callback.message.edit_text(...)
+await state.update_data(...)
+await callback.answer()
+
+# GOOD — preview / navigation
+await callback.answer()
+await callback.message.edit_text(...)
+
+# GOOD — confirm purchase (after balance/price checks)
+if user_balance < final_price:
+    await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', '…'), show_alert=True)
+    return
+try:
+    await callback.answer()
+except Exception:
+    pass
+# then subtract_user_balance, panel sync, edit_text
+```
+
+## Where this matters most
+
+- `app/handlers/subscription/tariff_purchase.py` — `select_tariff_period` and similar preview handlers.
+- `app/handlers/subscription/purchase.py` — `confirm_purchase` (often missing early answer).
+- `menu.py`, `simple_subscription.py`, `devices.py`, `traffic.py`.
+
+## Not caused by i18n
+
+`texts.t` / fa.json do not delay answer; **order of answer vs I/O** does. Fix order, not locale files, for spinner issues.
+
+## Errors
+
+On exception, ensure error paths still call `callback.answer()` when possible so the spinner clears.

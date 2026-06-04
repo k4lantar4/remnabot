@@ -52,12 +52,16 @@ Deep pass: `remnawave.py` system/traffic/node detail blocks; `messages.py` broad
 
 ## Smoke (every commit)
 
+See `delivery-cycle.mdc` and `localization-upstream.mdc`:
+
 ```bash
 docker compose run --rm --no-deps bot python -c "import main"
 cp app/localization/locales/fa.json ./locales/fa.json
 docker compose restart bot
 grep -r get_admin_texts app/  # must be 0
 ```
+
+Currency: layer 2 `currency-display-toman.mdc`; FX layer 3 `currency-fx-boundaries.mdc` — never both in one commit.
 
 ## Supersedes
 

@@ -1,0 +1,32 @@
+---
+description: FX layer — Stars, USDT, exchange_rate; one unit per branch; no guess-and-patch
+globs: app/config.py,app/handlers/balance/**,app/services/payment/**,app/handlers/subscription/purchase.py,app/handlers/simple_subscription.py,app/handlers/stars_payments.py,app/external/**
+alwaysApply: false
+---
+
+# Currency FX boundaries (layer 3)
+
+Converting internal integers to **other units** for providers/APIs — not the same as showing Toman (layer 2: `currency-display-toman.mdc`).
+
+## Three layers (pick one per branch)
+
+1. **Integer** — `balance_kopeks`, pricing engine (business tasks only)
+2. **Display** — `format_price`, suffix (see display rule)
+3. **FX** — this file: `kopeks_to_rubles`, `TELEGRAM_STARS_RATE_RUB`, `stars_to_rubles`, crypto assets, `Payment.exchange_rate`
+
+**Forbidden:** one PR/commit that edits both `format_price` and Stars/crypto rates or webhook amounts.
+
+## Before editing FX
+
+State in commit/PR: **which unit** (⭐ / USDT / …) and **rate basis** (1:1 with display integer or documented exception).
+
+- One provider or one helper family per commit series
+- User-visible amounts in these files: still use `format_price` — no new inline FX math
+- If rate rules are unclear → **stop**; list options in PR; wait for user — no three conflicting patches
+
+## Examples in codebase
+
+- Stars: `TELEGRAM_STARS_RATE_RUB`, `rubles_to_stars` / `stars_to_rubles` in `app/config.py`
+- Crypto: `CRYPTOBOT_*`, `HELEKET_*`, `payment.exchange_rate` on webhooks
+
+i18n-only work: do not touch FX — `payment-providers-frozen.mdc`.

@@ -1,0 +1,21 @@
+---
+description: Merge upstream into fork without losing fa, plugins, or display currency
+alwaysApply: false
+---
+
+# Fork upstream merge
+
+Use branch `chore/merge-upstream-*` from `main`. Full cycle: `delivery-cycle.mdc`.
+
+## Checklist
+
+1. `git fetch upstream` — never commit on `upstream-main`
+2. Resolve hot files: `purchase.py`, `tariff_purchase.py`, `start.py`, `inline.py`, `texts.py`, `balance/main.py`, `bot.py`
+3. **Keep overlay:** `app/plugins/**`, `app/localization/locales/fa.json`, `PRICE_DISPLAY_*` in config
+4. `balance/main.py` conflicts: keep C2C (and other) hooks **and** upstream provider branches
+5. Post-merge: `import main`, Alembic at head, user smoke — one fa path, price display, C2C if enabled
+6. Merge to `dev-local` → `main` only after user approval
+
+## Rollback
+
+`git revert` on merge commit — not `reset --hard` on shared branches.

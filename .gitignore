@@ -49,6 +49,13 @@
 !.github/
 !.github/**
 
+# Cursor agent rules & plans (fork workflow — keep in sync across hosts)
+!.cursor/
+!.cursor/rules/
+!.cursor/rules/**
+!.cursor/plans/
+!.cursor/plans/**
+
 # ========== BLACKLIST: игнорируемые внутри папок ==========
 
 # Python

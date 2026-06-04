@@ -1,0 +1,74 @@
+---
+description: Git branches, naming, merge flow, and how to ship changes on this fork
+alwaysApply: true
+---
+
+# Git & branch workflow (remnabot / RemnaWave bot)
+
+## Remotes
+
+| Remote | Role |
+|--------|------|
+| `origin` | Upstream read-only (`BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot`) — **no push** |
+| `upstream` | Same upstream, fetch only |
+| `remnabot` | **Your fork** — push feature branches here |
+| `remnabot/main` | Production line for this deployment |
+
+## Branch map (current model)
+
+| Branch | Purpose |
+|--------|---------|
+| `upstream-main` | Mirror of upstream `main` (e.g. 3.58.x) — **sync only**, no custom commits |
+| `main` | **Production** — infra + merged custom work (`docker-compose`, `.env` on server) |
+| `dev-local` | Backup of custom work; merge target before `main` |
+| `fa-i18n` | Feature line for Persian user-facing i18n (when active) |
+
+Flow for custom work: **`feature-branch` → `dev-local` → `main`** (only after smoke + explicit approval). Mandatory steps: `delivery-cycle.mdc`.
+
+## Branch naming
+
+| Pattern | Use |
+|---------|-----|
+| `fa-i18n` | Persian localization (existing long-lived branch) |
+| `fix/<short-topic>` | Small bugfix (e.g. `fix/callback-answer-purchase`) |
+| `feat/<short-topic>` | User-facing feature (e.g. `feat/c2c`) |
+| `i18n/<short-topic>` | Persian locale slice |
+| `chore/<short-topic>` | Deploy, deps, infra without behavior change |
+
+- Use **lowercase**, **hyphens**, English slug (no spaces).
+- Do **not** commit on `upstream-main` or rewrite `main` history.
+
+## How to create changes
+
+1. **Checkout** the feature branch (`fa-i18n` or new branch from `main`).
+2. **One concern per commit**: max one handler/keyboard file (+ `fa.json` if keys needed). See `localization-upstream.mdc`.
+3. **Commit message** (examples):
+   - `i18n(fa): localize traffic callback toasts`
+   - `fix(callback): answer early in confirm_purchase`
+   - `chore(deploy): sync fa.json to mounted locales`
+4. **Push**: `git push remnabot <branch>` after each commit on feature work.
+5. **Smoke** before next commit: `delivery-cycle.mdc` (agent `import main`; user Telegram/cabinet/web).
+
+## Merge & upstream
+
+- Merge to `main`: only after checklist passes and user says so.
+- Prefer **fast-forward merge** `fa-i18n` → `dev-local` → `main`, then `git push remnabot main`.
+- Before merging upstream: `git fetch upstream` and review conflicts on hot files (`purchase.py`, `tariff_purchase.py`, `start.py`, `inline.py`, `texts.py`).
+- **Never** `git push --force` to `main` / `master`.
+
+## Rollback
+
+- One bad commit: `git revert <sha>` — **not** `reset --hard` on shared branches.
+
+## Do not commit
+
+- `.env`, secrets, `locales/` unless intentional deploy artifact (usually copy `fa.json` on server, do not commit local mount dir).
+
+## Status check (quick)
+
+```bash
+git branch --show-current
+git status -sb
+git log -3 --oneline
+git rev-list --count remnabot/main..HEAD   # unpushed commits
+```

@@ -1,0 +1,37 @@
+---
+description: Features without tech debt — branch, smoke, PR; C2C plugin pattern for custom work
+alwaysApply: true
+---
+
+# Feature development
+
+## Principles
+
+- **No tech debt:** reuse existing services, handlers, keyboards, `texts.t`; no parallel implementations
+- **Integrated & safe:** smallest correct diff; preserve business logic and upstream hot paths (`purchase.py`, `tariff_purchase.py`, `start.py`, `inline.py`, `texts.py`) unless the user asks otherwise
+- **One concern per branch/commit** — see `delivery-cycle.mdc`
+
+## Workflow
+
+1. New branch from `main` — never commit features directly on `main`
+2. Implement; agent smoke (`import main`)
+3. Commit; push/PR when ready
+4. **User smoke** (bot / cabinet / web as relevant)
+5. Merge `dev-local` → `main` **only after explicit user approval** — see `git-branch-workflow.mdc`
+
+Agent must **not** push/merge production without user approval.
+
+## What kind of work?
+
+| Type | Approach |
+|------|----------|
+| Custom feature (e.g. C2C) | `app/plugins/<name>/` + thin hooks — `custom-plugin-pattern.mdc` |
+| Persian UI / strings | `localization-upstream.mdc` — not a plugin |
+| User-visible currency label | `currency-display-toman.mdc` — not FX in the same commit |
+
+## Definition of done
+
+- [ ] Focused branch and commits
+- [ ] No regressions; scope reviewed
+- [ ] User smoke passed on relevant surfaces
+- [ ] User approved PR → then merge

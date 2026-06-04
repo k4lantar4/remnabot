@@ -1,0 +1,56 @@
+---
+description: Persian (fa) user i18n isolated from structure — upstream merge safe
+alwaysApply: true
+---
+
+# Localization (fa) — upstream-safe
+
+Philosophy: **isolated strings only** — fast slices, no structural refactors. User-facing Cyrillic/English → Persian.
+
+Upstream merge must stay easy: linear diffs, Cyrillic fallbacks in code, no renames for translation.
+
+## Scope
+
+| In scope | Out of scope |
+|----------|----------------|
+| `app/localization/locales/fa.json` | `app/handlers/admin/**` (admin uses `get_texts(user.language)`) |
+| `app/handlers/**` except admin | `app/handlers/balance/**` (payment providers) |
+| `app/keyboards/inline.py`, `reply.py` | `ru.json` codemods, bulk refactors |
+
+## Per change
+
+- **One commit** = at most one handler/keyboard file + `fa.json` if new keys needed
+- `await callback.answer(texts.t('KEY', 'ru fallback'), …)` — keep Cyrillic in the **second** argument
+- If `KEY` already Persian in `fa.json`, **only edit JSON**
+- `get_texts(user.language)` — never `get_admin_texts`, never module-level `texts =`, never bulk `MSG_*`
+
+## Do not
+
+- Localize admin panels as part of fa work
+- Multi-file handler commits; regex/log/docstring edits for i18n
+- Touch currency FX (`currency-fx-boundaries.mdc`) in the same commit
+
+## Placeholders
+
+Mirror `ru.json` key names in `.format()` — wrong names cause `KeyError`.
+
+## Prices in strings
+
+Use `{price}` from `settings.format_price` / `texts.format_price` — see `currency-display-toman.mdc`. No new `₽` in user strings.
+
+## Surfaces
+
+Bot + cabinet + miniapp parity — `user-surface-parity.mdc`. Callback spinner order — `telegram-callback-ux.mdc`.
+
+## After each commit
+
+Follow `delivery-cycle.mdc`. Quick check:
+
+```bash
+docker compose run --rm --no-deps bot python -c "import main"
+cp app/localization/locales/fa.json ./locales/fa.json  # if fa.json changed
+docker compose restart bot
+grep -r get_admin_texts app/  # must be 0
+```
+
+Progress log: update `fa-i18n-status.mdc` after fa sessions.

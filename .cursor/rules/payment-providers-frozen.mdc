@@ -1,0 +1,21 @@
+---
+description: Do not edit provider flows for i18n; FX only via currency-fx-boundaries
+globs: app/handlers/balance/**,app/services/payment/**
+alwaysApply: false
+---
+
+# Payment providers (frozen for i18n)
+
+## For Persian / display Toman work
+
+- **Do not** change provider payment flows, webhook amount logic, or API payloads for “showing Toman”
+- **Do not** add inline `/100` or rate hacks in handlers here
+
+## Allowed (narrow)
+
+- **C2C plugin:** user-facing card text + `format_price` in `app/plugins/c2c/` only
+- **FX changes:** only under `currency-fx-boundaries.mdc` — one provider per commit series, documented rate
+
+## Internal amounts
+
+YooKassa, Stars, crypto, etc. keep existing integer semantics; user label comes from layer 2 (`format_price`), not from rewriting provider math in this layer.

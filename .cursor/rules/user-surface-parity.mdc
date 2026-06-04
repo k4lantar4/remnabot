@@ -1,0 +1,23 @@
+---
+description: fa and display currency must match across bot, cabinet, and miniapp
+alwaysApply: true
+---
+
+# User surface parity
+
+Hidden failure mode: Persian or Toman fixed in the bot only while cabinet/miniapp still show `₽` or Cyrillic.
+
+## Same slice
+
+| Change | Touch at least |
+|--------|----------------|
+| Price/balance keys in `fa.json` | Bot handler **and** `app/cabinet/routes/**` **and** `app/webapi/routes/miniapp.py` |
+| Display amounts | `texts.format_price` / API fields built via `settings.format_price` |
+
+If one file per commit is required by `localization-upstream.mdc`, note in PR: **cabinet/miniapp follow-up** or extend the commit to cover all three.
+
+## Out of parity scope
+
+- Admin Telegram panels (separate track; `get_texts(db_user.language)`)
+- Payment provider internals (`app/handlers/balance/**`, `app/services/payment/**`)
+- Admin group notifications (`AdminNotificationService` — Persian per `fa-i18n-status.mdc`)

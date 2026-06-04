@@ -1,0 +1,41 @@
+---
+description: Mandatory branch → commit → PR → merge → deploy → user smoke cycle
+alwaysApply: true
+---
+
+# Delivery cycle (obligatory)
+
+Every change ships through this cycle. See also `git-branch-workflow.mdc` for remotes and merge paths.
+
+## Start
+
+- **Any change, however small** → new branch from `main` (`fix/`, `feat/`, `i18n/`, `chore/`)
+- **Each commit** = one concern (one handler, or only `fa.json`, or only display currency)
+- Before the next commit: `docker compose run --rm --no-deps bot python -c "import main"`
+
+## When off-track
+
+Signs: several different approaches in a row, upstream conflict mess, or temporary hacks.
+
+1. **Stop**
+2. **Revert to stable:** `git revert <sha>` or `git reset --hard <last-good>` on **this feature branch only**
+3. **Never** `reset --hard` / force-push on `main` or `dev-local` unless the user explicitly asks
+4. Redesign (currency layer 1/2/3, or i18n scope); second attempt in a **new commit**, not endless uncommitted edits
+
+Agent must **not** try multiple currency/i18n strategies uncommitted; must **not** skip commit because the diff is tiny; must **not** merge without user smoke approval.
+
+## Cycle (do not skip steps)
+
+| Step | Action | Owner |
+|------|--------|-------|
+| 1 | Branch from `main` | agent |
+| 2 | Minimal implementation | agent |
+| 3 | **Commit** | agent |
+| 4 | Agent smoke: `import main` (+ build if needed) | agent |
+| 5 | Push branch + **PR** | agent (push only when user allows) |
+| 6 | User smoke: Telegram bot / cabinet / web | **user** |
+| 7 | Merge to `dev-local` → `main` after PR approval | **user** |
+| 8 | Deploy: copy `fa.json` to `./locales/` if changed; `docker compose build` + `restart bot` | agent or user |
+| 9 | User smoke on running containers | **user** |
+
+Rollback on shared lines: `git revert <sha>` — not `reset --hard` on `main`.

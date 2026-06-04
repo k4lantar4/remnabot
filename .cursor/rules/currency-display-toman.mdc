@@ -1,0 +1,31 @@
+---
+description: Display-layer Toman (factor 1) — bot, cabinet, miniapp; no stack renames
+globs: app/handlers/**,app/cabinet/**,app/webapi/**,app/keyboards/**,app/plugins/**/config_helpers.py,app/utils/price_display.py,app/utils/formatting.py,app/utils/formatters.py,app/localization/**,app/config.py
+alwaysApply: false
+---
+
+# Currency display — Toman (layer 2 only)
+
+**Layer 2 only.** FX (Stars, USDT, rates) → `currency-fx-boundaries.mdc`. Never mix layer 2 and 3 in one commit/PR.
+
+## Rules
+
+| OK | Forbidden |
+|----|-----------|
+| `settings.format_price` / `texts.format_price` | `TELEGRAM_STARS_RATE_*`, `kopeks_to_rubles` in same task |
+| `PRICE_DISPLAY_SUFFIX` (`تومان`), `apply_price_display_symbol` | Rename `*_kopeks` columns/fields |
+| `{price}` from formatter in locales | New `₽` in user-facing strings |
+| Same integer in balance vs missing-amount UI | Ad-hoc `/100` or multiply in handlers |
+| bot + cabinet + miniapp together | Changing webhook/provider amounts |
+
+## Factor 1 (UX)
+
+Stored integer = **Toman unit** for the user. Names (`price_kopeks`, DB columns) do not matter for display work.
+
+## `format_price` / divmod(100)
+
+If changing display scaling, use a **dedicated** commit (e.g. `fix(currency): unify format_price display unit`) and price smoke — **not** in the same commit as Stars/crypto FX.
+
+## Smoke (user)
+
+Top-up, purchase, or C2C card line: amounts show **تومان** only; balance vs “missing” amounts stay consistent.
