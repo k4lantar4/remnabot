@@ -1,0 +1,14 @@
+# Optional local dev overrides. Copy to docker-compose.override.yml (gitignored).
+# Usage: docker compose --profile dev up -d cabinet-frontend
+#
+# Tradeoffs:
+# - Mounting src/ needs Vite dev server in container (change command), not stock nginx.
+# - Mounting dist/ after `npm run build` on host is simpler; rebuild on each change.
+# - Production: default docker-compose.yml only (built image, no src mount).
+
+services:
+  cabinet-frontend:
+    profiles:
+      - dev
+    volumes:
+      - ../bedolaga-cabinet/dist:/usr/share/nginx/html:ro
