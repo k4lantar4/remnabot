@@ -21,10 +21,12 @@ alwaysApply: true
 
 | Item | Value |
 |------|-------|
-| Production line | `remnabot/main` ≈ `dev-local` ≈ `fa-i18n` |
-| **Branch** | `fa-i18n-traffic-ui` (P2 batch Jun 3 2026) |
-| **HEAD** | `c9f6296d` — see `git log -1` |
-| Merge path | `fa-i18n-traffic-ui` → `fa-i18n` → `dev-local` → `main` after user OK |
+| App version | **3.59.0** (upstream merge Jun 4 2026) |
+| Production line | `remnabot/main` — local `main` / `dev-local` at `eafd1efa` (**23 commits** ahead until push) |
+| **Branch** | `main` (merged via `chore/merge-upstream-3.59`) |
+| **HEAD** | `eafd1efa` — `chore(migrations): chain 0089 dedup no-op after C2C 0088` |
+| Upstream merge | `9f08086a` — subscriptions revive, dedup startup, YooKassa idempotency, sales stats API; **no new fa-i18n slice** |
+| Merge path | `chore/merge-upstream-3.59` → `dev-local` → `main` (FF, Jun 4 2026) |
 
 ## Done (P2 — Jun 3 2026)
 
@@ -38,6 +40,11 @@ alwaysApply: true
 - [x] `756800f3` `referrals.py` — full admin referrals/diagnostics/withdrawals (~201 `texts.t`)
 - [x] `0f6db44e` `remnawave.py` — menu, auto-sync, nodes list, stats nav (~94 `texts.t`; large stat bodies still Cyrillic fallbacks)
 - [x] `c9f6296d` `messages.py` — menu + pinned flows (~24 `texts.t`; broadcast FSM bodies still Cyrillic fallbacks)
+
+## Done (upstream 3.59 — Jun 4 2026)
+
+- [x] Merge upstream 3.59.0 on `chore/merge-upstream-3.59`; Alembic `0087` → `0088` (C2C) → `0089` (dedup no-op)
+- [x] i18n audit post-merge: `get_admin_texts` = 0; `_admin_notify_texts()` intact; no i18n commits
 
 ## Next (optional)
 
