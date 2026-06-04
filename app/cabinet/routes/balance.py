@@ -28,6 +28,7 @@ from app.services.payment_verification_service import (
     run_manual_check,
 )
 from app.utils.currency_converter import currency_converter
+from app.utils.price_display import display_amount_from_kopeks
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -66,7 +67,7 @@ async def get_balance(
 
     return BalanceResponse(
         balance_kopeks=fresh_user.balance_kopeks,
-        balance_rubles=fresh_user.balance_kopeks / 100,
+        balance_rubles=display_amount_from_kopeks(fresh_user.balance_kopeks),
     )
 
 

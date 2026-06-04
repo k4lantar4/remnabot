@@ -611,7 +611,7 @@ async def switch_traffic_package(
         if final_price > 0 and user.balance_kopeks < final_price:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f'Insufficient balance. Need {final_price / 100:.2f} RUB',
+                detail=f'Insufficient balance. Need {settings.format_price(final_price)}',
             )
 
         # Charge balance
