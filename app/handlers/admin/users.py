@@ -52,6 +52,7 @@ from app.utils.formatting import user_html_link
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
+from app.utils.price_display import kopeks_from_display_amount
 from app.utils.user_utils import get_effective_referral_commission_percent
 
 
@@ -2475,7 +2476,7 @@ async def start_balance_edit(callback: types.CallbackQuery, db_user: User, state
         texts.t('ADMIN_USER_BALANCE_EDIT_TITLE', '💰 <b>Изменение баланса</b>\n\n')
         + texts.t(
             'ADMIN_USER_BALANCE_EDIT_PROMPT',
-            'Введите сумму для изменения баланса:\n'
+            'Введите сумму в единицах отображения (как на балансе в боте):\n'
             '• Положительное число для пополнения\n'
             '• Отрицательное число для списания\n'
             '• Примеры: 100, -50, 25.5\n\n'
@@ -2646,12 +2647,15 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
     back_btn = texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю')
 
     try:
-        amount_rubles = float(message.text.replace(',', '.'))
-        amount_kopeks = int(amount_rubles * 100)
+        amount_display = float(message.text.replace(',', '.'))
+        amount_kopeks = kopeks_from_display_amount(amount_display)
 
         if abs(amount_kopeks) > 10000000:
             await message.answer(
-                texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ Слишком большая сумма (максимум 100,000 ₽)')
+                texts.t(
+                    'ADMIN_USER_BALANCE_TOO_LARGE',
+                    '❌ Слишком большая сумма (максимум 100,000 в единицах отображения)',
+                )
             )
             return
 
@@ -2659,9 +2663,9 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
 
         description = f'Изменение баланса администратором {db_user.full_name}'
         if amount_kopeks > 0:
-            description = f'Пополнение администратором: +{int(amount_rubles)} ₽'
+            description = f'Пополнение администратором: +{settings.format_price(abs(amount_kopeks))}'
         else:
-            description = f'Списание администратором: {int(amount_rubles)} ₽'
+            description = f'Списание администратором: {settings.format_price(abs(amount_kopeks))}'
 
         success = await user_service.update_user_balance(
             db, user_id, amount_kopeks, description, db_user.id, bot=message.bot, admin_name=db_user.full_name

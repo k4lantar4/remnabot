@@ -30,6 +30,8 @@ from app.database.crud.user import (
 from app.database.models import PaymentMethod, PromoGroup, Subscription, User, UserStatus
 from app.services.subscription_service import SubscriptionService
 
+from app.utils.price_display import kopeks_from_display_amount
+
 from ..dependencies import get_db_session, require_api_token
 from ..schemas.users import (
     BalanceUpdateRequest,
@@ -313,7 +315,12 @@ async def update_balance(
     _: Any = Security(require_api_token),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
-    if payload.amount_kopeks == 0:
+    if payload.amount_kopeks is not None:
+        amount_kopeks = payload.amount_kopeks
+    else:
+        amount_kopeks = kopeks_from_display_amount(payload.amount_display)
+
+    if amount_kopeks == 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Amount must be non-zero')
 
     # First check if the provided ID is a telegram_id
@@ -327,11 +334,11 @@ async def update_balance(
     if not found_user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, 'User not found')
 
-    if payload.amount_kopeks > 0:
+    if amount_kopeks > 0:
         success = await add_user_balance(
             db,
             found_user,
-            amount_kopeks=payload.amount_kopeks,
+            amount_kopeks=amount_kopeks,
             description=payload.description or 'Корректировка через веб-API',
             create_transaction=payload.create_transaction,
             payment_method=PaymentMethod.MANUAL,
@@ -340,7 +347,7 @@ async def update_balance(
         success = await subtract_user_balance(
             db,
             found_user,
-            amount_kopeks=abs(payload.amount_kopeks),
+            amount_kopeks=abs(amount_kopeks),
             description=payload.description or 'Корректировка через веб-API',
             create_transaction=payload.create_transaction,
             payment_method=PaymentMethod.MANUAL,
