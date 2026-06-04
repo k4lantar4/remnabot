@@ -5,9 +5,11 @@ This module provides a centralized way to:
 - Calculate prices with all applicable discounts (promo groups, promo offers)
 - Format price buttons consistently across all flows
 - Ensure uniform discount display throughout the application
+- Convert between stored kopeks and user-facing display amounts (÷100 / ×100)
 """
 
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import structlog
 
@@ -16,6 +18,28 @@ from app.database.models import User
 
 
 logger = structlog.get_logger(__name__)
+
+
+def display_amount_from_kopeks(kopeks: int) -> float:
+    """User-facing display unit (same as balance_rubles and format_price whole part)."""
+    return kopeks / 100
+
+
+def kopeks_from_display_amount(amount: float | Decimal) -> int:
+    """
+    Convert display unit to kopeks (single ×100, ROUND_HALF_UP).
+
+    Preserves sign for negative adjustments (e.g. -50 display → -5000 kopeks).
+    """
+    decimal_amount = Decimal(str(amount))
+    sign = -1 if decimal_amount < 0 else 1
+    decimal_amount = abs(decimal_amount)
+    try:
+        decimal_amount = decimal_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    kopeks = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * kopeks
 
 
 @dataclass
