@@ -3925,5 +3925,16 @@
   "CABINET_PANEL_UPDATE_FAILED": "به‌روزرسانی پنل VPN ناموفق بود. بعداً تلاش کنید.",
   "CABINET_DEVICES_REDUCE_SUCCESS": "حد دستگاه با موفقیت کاهش یافت",
   "CABINET_DEVICES_REDUCE_SUCCESS_REMOVED": "حد دستگاه کاهش یافت ({count} دستگاه حذف شد)",
-  "DEVICES_ADD_LEDGER_DESC_DISCOUNT": "خرید {count} دستگاه اضافی (تخفیف {percent}%)"
+  "DEVICES_ADD_LEDGER_DESC_DISCOUNT": "خرید {count} دستگاه اضافی (تخفیف {percent}%)",
+  "CABINET_PURCHASE_TRAFFIC_UNLIMITED": "♾️ نامحدود",
+  "CABINET_PURCHASE_TARIFF_SUCCESS": "تعرفه «{name}» با موفقیت فعال شد",
+  "TARIFF_PURCHASE_CART_DESC": "خرید تعرفه {name} برای {days} روز",
+  "TARIFF_DAILY_PURCHASE_CART_DESC": "خرید تعرفه روزانه {name}",
+  "TARIFF_PURCHASE_LEDGER_DESC": "خرید تعرفه «{name}» برای {days} روز",
+  "TARIFF_DAILY_ACTIVATION_LEDGER_DESC": "فعال‌سازی تعرفه روزانه «{name}»",
+  "TARIFF_LEDGER_DISCOUNT_SUFFIX": " (تخفیف {percent}%)",
+  "TARIFF_LEDGER_PROMO_SUFFIX": " (پرومو -{percent}%)",
+  "TARIFF_REFUND_ALREADY_ACTIVE": "بازگشت: تعرفه «{name}» از قبل فعال است",
+  "TARIFF_RENEW_CART_DESC": "تمدید تعرفه {name} برای {days} روز",
+  "TRIAL_ACTIVATION_LEDGER_DESC": "فعال‌سازی اشتراک آزمایشی"
 }
