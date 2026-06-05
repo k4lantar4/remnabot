@@ -3945,5 +3945,17 @@
   "CABINET_TARIFF_SWITCH_DEVICES_RESET": " (دستگاه‌ها بازنشانی شد)",
   "TARIFF_RENEW_LEDGER_DESC": "تمدید اشتراک برای {days} روز",
   "TARIFF_RENEW_LEDGER_DESC_NAMED": "تمدید اشتراک برای {days} روز ({name})",
-  "CABINET_INSUFFICIENT_FUNDS_CONCURRENT": "موجودی کافی نیست (بررسی همزمان)"
+  "CABINET_INSUFFICIENT_FUNDS_CONCURRENT": "موجودی کافی نیست (بررسی همزمان)",
+  "PAYMENT_STATUS_PENDING": "در انتظار پرداخت",
+  "PAYMENT_STATUS_PROCESSING": "در حال پردازش",
+  "PAYMENT_STATUS_PAID": "پرداخت‌شده",
+  "PAYMENT_STATUS_CANCELLED": "لغو شده",
+  "PAYMENT_STATUS_ERROR": "خطا",
+  "PAYMENT_STATUS_UNKNOWN": "نامشخص",
+  "PAYMENT_STATUS_HOLD": "معلق",
+  "PAYMENT_STATUS_DECLINED": "رد شده",
+  "PAYMENT_STATUS_EXPIRED": "منقضی",
+  "PAYMENT_STATUS_AUTHORIZED": "تأیید اولیه",
+  "PAYMENT_STATUS_CREATED": "ایجاد شده",
+  "PAYMENT_STATUS_AMOUNT_MISMATCH": "عدم تطابق مبلغ"
 }
