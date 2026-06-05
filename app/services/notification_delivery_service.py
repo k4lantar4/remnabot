@@ -15,6 +15,7 @@ from aiogram import Bot
 
 from app.config import settings
 from app.database.models import User, UserStatus
+from app.utils.price_display import display_amount_from_kopeks, display_balance_from_storage
 from app.utils.timezone import format_email_datetime
 
 
@@ -447,10 +448,10 @@ class NotificationDeliveryService:
         """Notify user about balance top-up."""
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': float(new_balance_kopeks),
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 
@@ -519,7 +520,7 @@ class NotificationDeliveryService:
         """Notify user about successful autopay."""
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
             'formatted_amount': settings.format_price(amount_kopeks),
             # Localize + humanize (see expiring branch above).
             'new_expires_at': format_email_datetime(new_expires_at),
@@ -607,8 +608,8 @@ class NotificationDeliveryService:
         """Notify user about referral bonus."""
         context = {
             'bonus_kopeks': bonus_kopeks,
-            'bonus_rubles': bonus_kopeks / 100,
-            'formatted_bonus': settings.format_price(bonus_kopeks),
+            'bonus_rubles': display_balance_from_storage(bonus_kopeks),
+            'formatted_bonus': settings.format_balance(bonus_kopeks),
             'referral_name': referral_name,
         }
 
@@ -674,8 +675,8 @@ class NotificationDeliveryService:
         """Notify user about withdrawal request approval."""
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'comment': comment or '',
         }
 
@@ -698,8 +699,8 @@ class NotificationDeliveryService:
         """Notify user about withdrawal request rejection."""
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'comment': comment or '',
         }
 
@@ -723,10 +724,10 @@ class NotificationDeliveryService:
         """Notify user about daily subscription debit."""
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': float(new_balance_kopeks),
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
             'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 
