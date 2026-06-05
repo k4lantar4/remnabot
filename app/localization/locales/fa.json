@@ -3961,5 +3961,7 @@
   "CABINET_WHEEL_STARS_NOT_ENABLED": "پرداخت Stars فعال نیست",
   "CABINET_WHEEL_NO_SUBSCRIPTION": "برای استفاده از چرخ شانس اشتراک فعال لازم است",
   "CABINET_WHEEL_DAILY_LIMIT": "به سقف چرخش روزانه رسیده‌اید",
-  "CABINET_WHEEL_INVOICE_ERROR": "خطا در ایجاد فاکتور"
+  "CABINET_WHEEL_INVOICE_ERROR": "خطا در ایجاد فاکتور",
+  "CABINET_WITHDRAWAL_NOT_FOUND": "درخواست یافت نشد",
+  "CABINET_WITHDRAWAL_CANCEL_PENDING_ONLY": "فقط درخواست در انتظار قابل لغو است"
 }
