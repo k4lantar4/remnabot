@@ -65,7 +65,11 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
         traffic = f'{used}/{format_traffic(sub.traffic_limit_gb, language)}'
 
     # Devices
-    devices = f'{sub.device_limit} устр.' if sub.device_limit else ''
+    devices = (
+        texts.t('MY_SUB_DEVICES_COUNT_SHORT', '{count} устр.').format(count=sub.device_limit)
+        if sub.device_limit
+        else ''
+    )
 
     # End date
     end_date = sub.end_date.strftime('%d.%m.%Y') if sub.end_date else '—'
@@ -81,9 +85,14 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
 
 def _build_subscriptions_keyboard(subscriptions: list, language: str) -> types.InlineKeyboardMarkup:
     """Build inline keyboard with per-subscription management buttons."""
+    texts = get_texts(language)
     buttons = []
     for idx, sub in enumerate(subscriptions, 1):
-        tariff_name = sub.tariff.name if sub.tariff else f'Подписка #{sub.id}'
+        tariff_name = (
+            sub.tariff.name
+            if sub.tariff
+            else texts.t('SUBSCRIPTION_CONNECT_PICKER_FALLBACK_NAME', 'Подписка #{id}').format(id=sub.id)
+        )
         buttons.append(
             [
                 types.InlineKeyboardButton(
@@ -93,19 +102,16 @@ def _build_subscriptions_keyboard(subscriptions: list, language: str) -> types.I
             ]
         )
 
-    # "Buy another tariff" button
-    texts = get_texts(language)
-    buy_text = getattr(texts, 'MENU_BUY_SUBSCRIPTION', 'Купить ещё тариф')
+    buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
     buttons.append(
         [
             types.InlineKeyboardButton(text=f'➕ {buy_text}', callback_data='menu_buy'),
         ]
     )
-    # Back button
     buttons.append(
         [
             types.InlineKeyboardButton(
-                text=texts.t('MY_SUB_BTN_BACK', '◀️ Назад'),
+                text=texts.BACK,
                 callback_data='back_to_menu',
             ),
         ]
@@ -208,7 +214,7 @@ async def show_my_subscriptions(
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text=texts.t('MY_SUB_BTN_BACK', '◀️ Назад'),
+                        text=texts.BACK,
                         callback_data='back_to_menu',
                     )
                 ],
@@ -416,7 +422,7 @@ async def handle_subscription_devices(
     keyboard.append(
         [
             types.InlineKeyboardButton(
-                text=texts.t('MY_SUB_BTN_BACK', '◀️ Назад'),
+                text=texts.BACK,
                 callback_data=f'sm:{sub_id}',
             )
         ]
@@ -515,7 +521,7 @@ async def handle_subscription_delete_confirm(
             ],
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_DELETE_CANCEL', '◀️ Отмена'),
+                    text=texts.BACK,
                     callback_data=f'sm:{sub_id}',
                 )
             ],
