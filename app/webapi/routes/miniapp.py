@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 
 from app.bot_factory import create_bot
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.discount_offer import (
     get_latest_claimed_offer_for_user,
     get_offer_by_id,
@@ -3402,7 +3403,7 @@ async def get_subscription_details(
                     daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
                         daily_price_kopeks, _group_pct, _offer_pct
                     )
-            daily_price_label = settings.format_price(daily_price_kopeks) + '/день' if daily_price_kopeks > 0 else None
+            daily_price_label = _format_daily_price_label(daily_price_kopeks, user)
             # Оставшееся время подписки (показываем даже при паузе)
             if subscription.end_date:
                 daily_next_charge_at = subscription.end_date
@@ -3640,9 +3641,7 @@ async def _get_current_tariff_model(db: AsyncSession, subscription, user=None) -
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb)
-        if settings.is_tariffs_mode()
-        else f'{tariff.traffic_limit_gb} ГБ',
+        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb, user),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -4008,23 +4007,27 @@ async def activate_subscription_trial_endpoint(
     if not duration_days and settings.TRIAL_DURATION_DAYS > 0:
         duration_days = settings.TRIAL_DURATION_DAYS
 
-    language_code = _normalize_language_code(user)
     charged_amount_label = settings.format_price(charged_amount) if charged_amount > 0 else None
-    if language_code in {'ru', 'fa'}:
-        if duration_days:
-            message = f'Триал активирован на {duration_days} дн. Приятного пользования!'
-        else:
-            message = 'Триал активирован. Приятного пользования!'
-    elif duration_days:
-        message = f'Trial activated for {duration_days} days. Enjoy!'
+    if duration_days:
+        message = _t(
+            user,
+            'MINIAPP_TRIAL_ACTIVATED_DAYS',
+            'Триал активирован на {days} дн. Приятного пользования!',
+            days=duration_days,
+        )
     else:
-        message = 'Trial activated successfully. Enjoy!'
+        message = _t(user, 'MINIAPP_TRIAL_ACTIVATED', 'Триал активирован. Приятного пользования!')
 
     if charged_amount_label:
-        if language_code in {'ru', 'fa'}:
-            message = f'{message}\n\n💳 С вашего баланса списано {charged_amount_label}.'
-        else:
-            message = f'{message}\n\n💳 {charged_amount_label} has been deducted from your balance.'
+        message = (
+            f'{message}\n\n'
+            + _t(
+                user,
+                'MINIAPP_TRIAL_CHARGED',
+                '💳 С вашего баланса списано {amount}.',
+                amount=charged_amount_label,
+            )
+        )
 
     await with_admin_notification_service(
         lambda service: service.send_trial_activation_notification(
@@ -4435,11 +4438,32 @@ def _normalize_language_code(user: User | None) -> str:
     return language.split('-')[0].lower()
 
 
+def _t(user: User | None, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(_normalize_language_code(user)).t(key, fallback)
+    return text.format(**fmt) if fmt else text
+
+
+def _format_daily_price_label(price_kopeks: int, user: User | None) -> str | None:
+    if price_kopeks <= 0:
+        return None
+    return settings.format_price(price_kopeks) + _t(user, 'MINIAPP_DAILY_PRICE_SUFFIX', '/день')
+
+
+def _insufficient_funds_message(user: User, missing: int) -> str:
+    return _t(
+        user,
+        'CABINET_INSUFFICIENT_FUNDS_MISSING',
+        'Недостаточно средств. Не хватает {missing}',
+        missing=settings.format_price(missing, round_kopeks=False),
+    )
+
+
 def _build_renewal_status_message(user: User | None) -> str:
-    language_code = _normalize_language_code(user)
-    if language_code in {'ru', 'fa'}:
-        return 'Стоимость указана с учётом ваших текущих серверов, трафика и устройств.'
-    return 'Prices already include your current servers, traffic, and devices.'
+    return _t(
+        user,
+        'MINIAPP_RENEWAL_STATUS_NOTE',
+        'Стоимость указана с учётом ваших текущих серверов, трафика и устройств.',
+    )
 
 
 def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
@@ -4453,11 +4477,11 @@ def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
     if expires_at:
         payload['expires_at'] = expires_at
 
-    language_code = _normalize_language_code(user)
-    if language_code in {'ru', 'fa'}:
-        payload['message'] = 'Дополнительная скидка применяется автоматически.'
-    else:
-        payload['message'] = 'Extra discount is applied automatically.'
+    payload['message'] = _t(
+        user,
+        'MINIAPP_PROMO_DISCOUNT_AUTO',
+        'Дополнительная скидка применяется автоматически.',
+    )
 
     return payload
 
@@ -4484,7 +4508,6 @@ def _build_renewal_success_message(
     charged_amount: int,
     promo_discount_value: int = 0,
 ) -> str:
-    language_code = _normalize_language_code(user)
     amount_label = settings.format_price(max(0, charged_amount))
     date_label = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M') if subscription.end_date else ''
 
@@ -4492,38 +4515,48 @@ def _build_renewal_success_message(
     if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff', None):
         tariff_label = f' «{subscription.tariff.name}»'
 
-    if language_code in {'ru', 'fa'}:
-        if charged_amount > 0:
-            message = (
-                f'Подписка{tariff_label} продлена до {date_label}. '
-                if date_label
-                else f'Подписка{tariff_label} продлена. '
-            ) + f'Списано {amount_label}.'
-        else:
-            message = (
-                f'Подписка{tariff_label} продлена до {date_label}.'
-                if date_label
-                else f'Подписка{tariff_label} успешно продлена.'
+    if charged_amount > 0:
+        if date_label:
+            message = _t(
+                user,
+                'MINIAPP_SUBSCRIPTION_RENEWED',
+                'Подписка{tariff_label} продлена до {date_label}. Списано {amount_label}.',
+                tariff_label=tariff_label,
+                date_label=date_label,
+                amount_label=amount_label,
             )
-    elif charged_amount > 0:
-        message = (
-            f'Subscription{tariff_label} renewed until {date_label}. '
-            if date_label
-            else f'Subscription{tariff_label} renewed. '
-        ) + f'Charged {amount_label}.'
+        else:
+            message = _t(
+                user,
+                'MINIAPP_SUBSCRIPTION_RENEWED_NO_DATE',
+                'Подписка{tariff_label} продлена. Списано {amount_label}.',
+                tariff_label=tariff_label,
+                amount_label=amount_label,
+            )
+    elif date_label:
+        message = _t(
+            user,
+            'MINIAPP_SUBSCRIPTION_RENEWED_UNTIL',
+            'Подписка{tariff_label} продлена до {date_label}.',
+            tariff_label=tariff_label,
+            date_label=date_label,
+        )
     else:
-        message = (
-            f'Subscription{tariff_label} renewed until {date_label}.'
-            if date_label
-            else f'Subscription{tariff_label} renewed successfully.'
+        message = _t(
+            user,
+            'MINIAPP_SUBSCRIPTION_RENEWED_SIMPLE',
+            'Подписка{tariff_label} успешно продлена.',
+            tariff_label=tariff_label,
         )
 
     if promo_discount_value > 0:
         discount_label = settings.format_price(promo_discount_value)
-        if language_code in {'ru', 'fa'}:
-            message += f' Применена дополнительная скидка {discount_label}.'
-        else:
-            message += f' Promo discount applied: {discount_label}.'
+        message += _t(
+            user,
+            'MINIAPP_SUBSCRIPTION_RENEWED_PROMO',
+            ' Применена дополнительная скидка {discount_label}.',
+            discount_label=discount_label,
+        )
 
     return message
 
@@ -4533,21 +4566,24 @@ def _build_renewal_pending_message(
     missing_amount: int,
     method: str,
 ) -> str:
-    language_code = _normalize_language_code(user)
     amount_label = settings.format_price(max(0, missing_amount))
     method_title = _format_payment_method_title(method)
 
-    if language_code in {'ru', 'fa'}:
-        if method_title:
-            return (
-                f'Недостаточно средств на балансе. Доплатите {amount_label} через {method_title}, '
-                'чтобы завершить продление.'
-            )
-        return f'Недостаточно средств на балансе. Доплатите {amount_label}, чтобы завершить продление.'
-
     if method_title:
-        return f'Not enough balance. Pay the remaining {amount_label} via {method_title} to finish the renewal.'
-    return f'Not enough balance. Pay the remaining {amount_label} to finish the renewal.'
+        return _t(
+            user,
+            'MINIAPP_INSUFFICIENT_BALANCE_TOPUP',
+            'Недостаточно средств на балансе. Доплатите {amount_label} через {method_title}, '
+            'чтобы завершить продление.',
+            amount_label=amount_label,
+            method_title=method_title,
+        )
+    return _t(
+        user,
+        'MINIAPP_INSUFFICIENT_BALANCE_TOPUP_NO_METHOD',
+        'Недостаточно средств на балансе. Доплатите {amount_label}, чтобы завершить продление.',
+        amount_label=amount_label,
+    )
 
 
 def _parse_period_identifier(identifier: str | None) -> int | None:
@@ -5770,9 +5806,7 @@ async def update_subscription_servers_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': (
-                    f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
-                ),
+                'message': _insufficient_funds_message(user, missing),
             },
         )
 
@@ -5961,9 +5995,7 @@ async def update_subscription_traffic_endpoint(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': (
-                        f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
-                    ),
+                    'message': _insufficient_funds_message(user, missing),
                 },
             )
 
@@ -6137,9 +6169,7 @@ async def update_subscription_devices_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': (
-                    f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
-                ),
+                'message': _insufficient_funds_message(user, missing),
             },
         )
 
@@ -6238,11 +6268,11 @@ async def update_subscription_devices_endpoint(
 # =============================================================================
 
 
-def _format_traffic_limit_label(traffic_gb: int) -> str:
+def _format_traffic_limit_label(traffic_gb: int, user: User | None = None) -> str:
     """Форматирует лимит трафика для отображения."""
     if traffic_gb == 0:
-        return '♾️ Безлимит'
-    return f'{traffic_gb} ГБ'
+        return _t(user, 'CABINET_PURCHASE_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+    return _t(user, 'SUBSCRIPTION_ORDER_TRAFFIC_GB', '{gb} ГБ', gb=traffic_gb)
 
 
 async def _build_tariff_model(
@@ -6337,9 +6367,7 @@ async def _build_tariff_model(
                 raw_daily_price_kopeks, daily_group_pct, daily_offer_pct
             )
 
-    daily_price_label = (
-        settings.format_price(daily_price_kopeks) + '/день' if is_daily and daily_price_kopeks > 0 else None
-    )
+    daily_price_label = _format_daily_price_label(daily_price_kopeks, user) if is_daily else None
 
     return MiniAppTariff(
         id=tariff.id,
@@ -6347,7 +6375,7 @@ async def _build_tariff_model(
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb),
+        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb, user),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -6390,9 +6418,7 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
                 raw_daily_price_kopeks, daily_group_pct, daily_offer_pct
             )
 
-    daily_price_label = (
-        settings.format_price(daily_price_kopeks) + '/день' if is_daily and daily_price_kopeks > 0 else None
-    )
+    daily_price_label = _format_daily_price_label(daily_price_kopeks, user) if is_daily else None
 
     return MiniAppCurrentTariff(
         id=tariff.id,
@@ -6400,7 +6426,7 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb),
+        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb, user),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -6580,7 +6606,7 @@ async def purchase_tariff_endpoint(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                'message': _insufficient_funds_message(user, missing),
                 'missing_amount': missing,
             },
         )
@@ -6703,7 +6729,12 @@ async def purchase_tariff_endpoint(
 
     return MiniAppTariffPurchaseResponse(
         success=True,
-        message=f"Тариф '{tariff.name}' успешно активирован",
+        message=_t(
+            user,
+            'CABINET_PURCHASE_TARIFF_SUCCESS',
+            "Тариф '{name}' успешно активирован",
+            name=tariff.name,
+        ),
         subscription_id=subscription.id,
         tariff_id=tariff.id,
         tariff_name=tariff.name,
@@ -6820,7 +6851,9 @@ async def preview_tariff_switch_endpoint(
         new_tariff_name=new_tariff.name,
         remaining_days=remaining_days,
         upgrade_cost_kopeks=upgrade_cost,
-        upgrade_cost_label=settings.format_price(upgrade_cost) if upgrade_cost > 0 else 'Бесплатно',
+        upgrade_cost_label=settings.format_price(upgrade_cost)
+        if upgrade_cost > 0
+        else _t(user, 'MINIAPP_SWITCH_FREE', 'Бесплатно'),
         balance_kopeks=balance,
         # Когда показываем missing_amount_label с копейками (round_kopeks=False),
         # balance_label тоже должен быть с копейками — иначе пары "Баланс 150 ₽,
@@ -6928,7 +6961,7 @@ async def switch_tariff_endpoint(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                    'message': _insufficient_funds_message(user, missing),
                     'missing_amount': missing,
                 },
             )
@@ -7075,16 +7108,21 @@ async def switch_tariff_endpoint(
                 action='update',
             )
 
-    lang = getattr(user, 'language', settings.DEFAULT_LANGUAGE)
     if upgrade_cost > 0:
-        if lang == 'ru':
-            message = f"Тариф изменён на '{new_tariff.name}'. Списано {settings.format_price(upgrade_cost)}"
-        else:
-            message = f"Switched to '{new_tariff.name}'. Charged {settings.format_price(upgrade_cost)}"
-    elif lang == 'ru':
-        message = f"Тариф изменён на '{new_tariff.name}'"
+        message = _t(
+            user,
+            'MINIAPP_TARIFF_SWITCH_CHARGED',
+            "Тариф изменён на '{name}'. Списано {amount}",
+            name=new_tariff.name,
+            amount=settings.format_price(upgrade_cost),
+        )
     else:
-        message = f"Switched to '{new_tariff.name}'"
+        message = _t(
+            user,
+            'MINIAPP_TARIFF_SWITCH_SUCCESS',
+            "Тариф изменён на '{name}'",
+            name=new_tariff.name,
+        )
 
     return MiniAppTariffSwitchResponse(
         success=True,
@@ -7287,7 +7325,12 @@ async def purchase_traffic_topup_endpoint(
 
     return MiniAppTrafficTopupResponse(
         success=True,
-        message=f'Добавлено {payload.gb} ГБ трафика',
+        message=_t(
+            user,
+            'MINIAPP_TRAFFIC_TOPUP_SUCCESS',
+            'Добавлено {gb} ГБ трафика',
+            gb=payload.gb,
+        ),
         new_traffic_limit_gb=subscription.traffic_limit_gb,
         new_balance_kopeks=user.balance_kopeks,
         charged_kopeks=final_price,
@@ -7545,11 +7588,10 @@ async def toggle_daily_subscription_pause_endpoint(
             except Exception as notif_err:
                 logger.error('Failed to send admin notification for daily resume (miniapp)', error=notif_err)
 
-    lang = getattr(user, 'language', settings.DEFAULT_LANGUAGE)
     if new_paused_state:
-        message = 'Суточная подписка приостановлена' if lang == 'ru' else 'Daily subscription paused'
+        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_PAUSED', 'Суточная подписка приостановлена')
     else:
-        message = 'Суточная подписка возобновлена' if lang == 'ru' else 'Daily subscription resumed'
+        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_RESUMED', 'Суточная подписка возобновлена')
 
     return MiniAppDailySubscriptionToggleResponse(
         success=True,
