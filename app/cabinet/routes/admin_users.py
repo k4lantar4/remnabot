@@ -54,6 +54,7 @@ from app.services.permission_service import PermissionService
 from app.utils.price_display import (
     balance_from_display_amount,
     display_balance_from_storage,
+    display_transaction_amount_from_storage,
 )
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
@@ -757,7 +758,11 @@ async def get_user_detail(
             id=t.id,
             type=t.type,
             amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
+            amount_rubles=(
+                -abs(display_transaction_amount_from_storage(t.amount_kopeks, t.type))
+                if t.type in _EXPENSE_TYPES
+                else display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+            ),
             description=t.description,
             payment_method=t.payment_method,
             is_completed=t.is_completed,
@@ -2903,7 +2908,11 @@ async def get_user_transactions(
             id=t.id,
             type=t.type,
             amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
+            amount_rubles=(
+                -abs(display_transaction_amount_from_storage(t.amount_kopeks, t.type))
+                if t.type in _EXPENSE_TYPES
+                else display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+            ),
             description=t.description,
             payment_method=t.payment_method,
             is_completed=t.is_completed,

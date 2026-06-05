@@ -28,7 +28,7 @@ from app.services.payment_verification_service import (
     run_manual_check,
 )
 from app.utils.currency_converter import currency_converter
-from app.utils.price_display import display_balance_from_storage
+from app.utils.price_display import display_balance_from_storage, display_transaction_amount_from_storage
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -115,7 +115,7 @@ async def get_transactions(
                 id=t.id,
                 type=t.type,
                 amount_kopeks=amount_kopeks,
-                amount_rubles=amount_kopeks / 100,
+                amount_rubles=display_transaction_amount_from_storage(amount_kopeks, t.type),
                 description=t.description,
                 payment_method=t.payment_method,
                 is_completed=t.is_completed,

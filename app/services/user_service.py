@@ -186,10 +186,10 @@ class UserService:
         # Use unified notification delivery service
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': float(amount_kopeks),
             'new_balance_kopeks': user.balance_kopeks,
             'new_balance_rubles': float(user.balance_kopeks),
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'formatted_balance': settings.format_balance(user.balance_kopeks),
             # No description - don't expose admin name to user
         }

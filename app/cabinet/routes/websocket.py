@@ -12,6 +12,7 @@ from app.cabinet.auth.jwt_handler import get_token_payload
 from app.config import settings
 from app.database.crud.user import get_user_by_id
 from app.database.database import AsyncSessionLocal
+from app.utils.price_display import display_balance_from_storage
 
 
 logger = structlog.get_logger(__name__)
@@ -282,9 +283,9 @@ async def notify_user_balance_topup(
         {
             'type': 'balance.topup',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': float(new_balance_kopeks),
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
             'description': description,
         },
     )
@@ -302,9 +303,9 @@ async def notify_user_balance_change(
         {
             'type': 'balance.change',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': float(new_balance_kopeks),
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
             'description': description,
         },
     )

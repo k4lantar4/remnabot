@@ -30,6 +30,39 @@ def display_balance_from_storage(amount_toman: int) -> float:
     return float(amount_toman)
 
 
+# Balance movements stored 1:1 with balance_kopeks after Phase B.
+# Catalog charges (subscription/gift) stay on price_kopeks scale until Phase C.
+_BALANCE_SCALE_TRANSACTION_TYPES = frozenset(
+    {
+        'deposit',
+        'withdrawal',
+        'refund',
+        'failed_refund',
+        'referral_reward',
+        'poll_reward',
+    }
+)
+
+
+def is_balance_scale_transaction(tx_type: str) -> bool:
+    """True when transaction.amount_kopeks uses balance Toman 1:1 storage."""
+    return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES
+
+
+def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) -> float:
+    """
+    User-facing amount_rubles for a transaction row.
+
+    Balance-scale types: 1:1 Toman (Phase B). Catalog-scale types: ÷100 (Phase C).
+    """
+    abs_amount = abs(amount_kopeks)
+    if is_balance_scale_transaction(tx_type):
+        value = float(abs_amount)
+    else:
+        value = abs_amount / 100
+    return -value if amount_kopeks < 0 else value
+
+
 def balance_from_display_amount(amount: float | Decimal) -> int:
     """
     Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).

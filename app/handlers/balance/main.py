@@ -20,6 +20,7 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
+from app.utils.price_display import is_balance_scale_transaction
 
 
 logger = structlog.get_logger(__name__)
@@ -301,11 +302,12 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
     for transaction in unique_transactions:
         is_credit = transaction.type in CREDIT_TRANSACTION_TYPES
         emoji = '💰' if is_credit else '💸'
-        amount_text = (
-            f'+{texts.format_price(transaction.amount_kopeks)}'
-            if is_credit
-            else f'-{texts.format_price(abs(transaction.amount_kopeks))}'
-        )
+        abs_amount = abs(transaction.amount_kopeks)
+        if is_balance_scale_transaction(transaction.type):
+            formatted = texts.format_balance(abs_amount)
+        else:
+            formatted = texts.format_price(abs_amount)
+        amount_text = f'+{formatted}' if is_credit else f'-{formatted}'
 
         text += f'{emoji} {amount_text}\n'
         text += f'📝 {html.escape(transaction.description or "")}\n'
