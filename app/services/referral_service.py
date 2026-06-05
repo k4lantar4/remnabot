@@ -14,6 +14,7 @@ from app.database.models import ReferralEarning, TransactionType, User
 from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
+from app.utils.price_display import catalog_price_in_toman
 from app.utils.user_utils import get_effective_referral_commission_percent
 
 
@@ -666,14 +667,17 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
             user_id=user_id,
             referrer_id=referrer.id,
             topup_amount_kopeks=topup_amount_kopeks,
+            topup_toman=catalog_price_in_toman(topup_amount_kopeks),
             campaign_id=campaign_id,
             commission_percent=commission_percent,
             has_made_first_topup=user.has_made_first_topup,
         )
-        qualifies_for_first_bonus = topup_amount_kopeks >= settings.REFERRAL_MINIMUM_TOPUP_KOPEKS
+        topup_toman = catalog_price_in_toman(topup_amount_kopeks)
+        minimum_topup_toman = catalog_price_in_toman(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)
+        qualifies_for_first_bonus = topup_toman >= minimum_topup_toman
         commission_amount = 0
         if commission_percent > 0:
-            commission_amount = int(topup_amount_kopeks * commission_percent / 100)
+            commission_amount = int(topup_toman * commission_percent / 100)
 
         if not user.has_made_first_topup:
             if not qualifies_for_first_bonus:
@@ -718,7 +722,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                                 f'Ваш реферал <b>{html.escape(user.full_name)}</b> пополнил баланс на '
                                 f'{settings.format_price(topup_amount_kopeks)}\n\n'
                                 f'🎁 Ваша комиссия ({commission_percent}%): '
-                                f'{settings.format_price(commission_amount)}\n\n'
+                                f'{settings.format_balance(commission_amount)}\n\n'
                                 f'💎 Средства зачислены на ваш баланс.'
                             )
                             await send_referral_notification(
@@ -755,10 +759,11 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                 logger.error('Ошибка удаления записи ожидания', error=e)
 
             if settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS > 0:
+                first_topup_bonus_toman = catalog_price_in_toman(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)
                 bonus_ok = await add_user_balance(
                     db,
                     user,
-                    settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
+                    first_topup_bonus_toman,
                     'Бонус за первое пополнение по реферальной программе',
                     transaction_type=TransactionType.REFERRAL_REWARD,
                     bot=bot,
@@ -767,7 +772,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                     logger.info(
                         '💰 Реферал получил бонус ₽',
                         user_id=user.id,
-                        REFERRAL_FIRST_TOPUP_BONUS_KOPEKS=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS / 100,
+                        REFERRAL_FIRST_TOPUP_BONUS_KOPEKS=first_topup_bonus_toman,
                     )
 
                     if bot:
@@ -782,17 +787,16 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                             user.telegram_id,
                             bonus_notification,
                             user=user,
-                            bonus_kopeks=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
+                            bonus_kopeks=first_topup_bonus_toman,
                         )
                 else:
                     logger.error(
                         'Не удалось начислить бонус за первое пополнение',
                         user_id=user.id,
-                        bonus_kopeks=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
+                        bonus_kopeks=first_topup_bonus_toman,
                     )
 
-            commission_amount = int(topup_amount_kopeks * commission_percent / 100)
-            inviter_bonus = settings.REFERRAL_INVITER_BONUS_KOPEKS + commission_amount
+            inviter_bonus = catalog_price_in_toman(settings.REFERRAL_INVITER_BONUS_KOPEKS) + commission_amount
 
             if inviter_bonus > 0:
                 balance_ok = await add_user_balance(
@@ -827,14 +831,14 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                             )
                         if commission_amount > 0:
                             bonus_parts.append(
-                                f'комиссия {commission_percent}% = {settings.format_price(commission_amount)}'
+                                f'комиссия {commission_percent}% = {settings.format_balance(commission_amount)}'
                             )
                         bonus_breakdown = ' + '.join(bonus_parts)
                         inviter_bonus_notification = (
                             f'💰 <b>Реферальная награда!</b>\n\n'
                             f'Ваш реферал <b>{html.escape(user.full_name)}</b> сделал первое пополнение '
                             f'на {settings.format_price(topup_amount_kopeks)}!\n\n'
-                            f'🎁 Ваша награда: {settings.format_price(inviter_bonus)}'
+                            f'🎁 Ваша награда: {settings.format_balance(inviter_bonus)}'
                             f' ({bonus_breakdown})'
                         )
                         if commission_percent > 0:
@@ -893,7 +897,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                         f'Ваш реферал <b>{html.escape(user.full_name)}</b> пополнил баланс на '
                         f'{settings.format_price(topup_amount_kopeks)}\n\n'
                         f'🎁 Ваша комиссия ({commission_percent}%): '
-                        f'{settings.format_price(commission_amount)}\n\n'
+                        f'{settings.format_balance(commission_amount)}\n\n'
                         f'💎 Средства зачислены на ваш баланс.'
                     )
                     await send_referral_notification(
