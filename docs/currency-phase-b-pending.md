@@ -1,28 +1,10 @@
-# Currency Phase B — blocked pending approval
+# Currency Phase B — completed
 
-Phase A (display + cabinet FX fix) must pass user smoke before starting B.
+Phase B executed 2026-06-05. See `currency-phase-b-executed.md` for backup/SQL/smoke.
 
-## Prerequisite (user must approve explicitly)
-
-Persian label for approval: **تایید صفر کردن موجودی**
-
-1. Full database backup
-2. Explicit user confirmation to zero all balances (if that is the chosen migration path)
-
-```sql
--- Example from plan — DO NOT run without approval:
--- UPDATE users SET balance_kopeks = 0;
-```
-
-## Phase B scope (not implemented in Phase A)
-
-- `balance_kopeks` stored as integer Toman 1:1 (no ÷100 in `balance_rubles`)
-- Bot: `User.balance_rubles`, CRUD, cabinet/webapi/miniapp field semantics
-- Cabinet: remove legacy ×100 assumptions in types and forms
-- Smoke B: input 100 → DB +100; purchase/payment regression on separate track
-
-## Out of scope for B (phase C)
+## Remaining (phase C)
 
 - `transactions.amount_kopeks` historical revalue
-- `price_kopeks` / tariff catalog scale
-- Payment provider FX (YooKassa, Stars, etc.)
+- `price_kopeks` / tariff catalog scale alignment with balance
+- Payment provider credit amounts (YooKassa, Stars, etc.)
+- Purchase/payment: balance vs price comparison in one scale

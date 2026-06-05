@@ -284,7 +284,7 @@ async def notify_user_balance_topup(
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks / 100,
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': float(new_balance_kopeks),
             'description': description,
         },
     )
@@ -304,7 +304,7 @@ async def notify_user_balance_change(
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks / 100,
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': float(new_balance_kopeks),
             'description': description,
         },
     )
@@ -465,7 +465,7 @@ async def notify_user_autopay_insufficient_funds(
             'required_kopeks': required_kopeks,
             'required_rubles': required_kopeks / 100,
             'balance_kopeks': balance_kopeks,
-            'balance_rubles': balance_kopeks / 100,
+            'balance_rubles': float(balance_kopeks),
         },
     )
 
@@ -561,7 +561,7 @@ async def notify_user_daily_debit(
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks / 100,
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': float(new_balance_kopeks),
         },
     )
 

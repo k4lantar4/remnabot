@@ -21,8 +21,30 @@ logger = structlog.get_logger(__name__)
 
 
 def display_amount_from_kopeks(kopeks: int) -> float:
-    """User-facing display unit (same as balance_rubles and format_price whole part)."""
+    """User-facing display unit for catalog prices (kopeks ÷ 100)."""
     return kopeks / 100
+
+
+def display_balance_from_storage(amount_toman: int) -> float:
+    """API balance_rubles: stored integer is Toman 1:1 (Phase B)."""
+    return float(amount_toman)
+
+
+def balance_from_display_amount(amount: float | Decimal) -> int:
+    """
+    Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).
+
+    Preserves sign (e.g. -50 display → -50 stored).
+    """
+    decimal_amount = Decimal(str(amount))
+    sign = -1 if decimal_amount < 0 else 1
+    decimal_amount = abs(decimal_amount)
+    try:
+        decimal_amount = decimal_amount.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    toman = int(decimal_amount.to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * toman
 
 
 def kopeks_from_display_amount(amount: float | Decimal) -> int:

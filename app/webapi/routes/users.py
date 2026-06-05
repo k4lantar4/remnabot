@@ -30,7 +30,7 @@ from app.database.crud.user import (
 from app.database.models import PaymentMethod, PromoGroup, Subscription, User, UserStatus
 from app.services.subscription_service import SubscriptionService
 
-from app.utils.price_display import kopeks_from_display_amount
+from app.utils.price_display import balance_from_display_amount
 
 from ..dependencies import get_db_session, require_api_token
 from ..schemas.users import (
@@ -106,7 +106,7 @@ def _serialize_user(user: User) -> UserResponse:
         status=user.status,
         language=user.language,
         balance_kopeks=user.balance_kopeks,
-        balance_rubles=round(user.balance_kopeks / 100, 2),
+        balance_rubles=round(user.balance_rubles, 2),
         referral_code=user.referral_code,
         referred_by_id=user.referred_by_id,
         has_had_paid_subscription=user.has_had_paid_subscription,
@@ -318,7 +318,7 @@ async def update_balance(
     if payload.amount_kopeks is not None:
         amount_kopeks = payload.amount_kopeks
     else:
-        amount_kopeks = kopeks_from_display_amount(payload.amount_display)
+        amount_kopeks = balance_from_display_amount(payload.amount_display)
 
     if amount_kopeks == 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Amount must be non-zero')

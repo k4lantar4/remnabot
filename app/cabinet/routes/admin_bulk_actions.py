@@ -10,7 +10,7 @@ from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.utils.price_display import kopeks_from_display_amount
+from app.utils.price_display import balance_from_display_amount
 from app.database.crud.subscription import (
     add_subscription_traffic,
     create_paid_subscription,
@@ -92,7 +92,7 @@ def _require_amount_kopeks(params: BulkActionParams) -> int:
     if params.amount_kopeks is not None and params.amount_kopeks > 0:
         return params.amount_kopeks
     if params.amount_display is not None and params.amount_display > 0:
-        kopeks = kopeks_from_display_amount(params.amount_display)
+        kopeks = balance_from_display_amount(params.amount_display)
         if kopeks <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -408,7 +408,7 @@ async def _do_add_balance(
         return BulkUserResult(
             user_id=user.id,
             success=True,
-            message=f'Would add {settings.format_price(amount_kopeks)} to balance',
+            message=f'Would add {settings.format_balance(amount_kopeks)} to balance',
             username=user.username,
         )
 
@@ -432,7 +432,7 @@ async def _do_add_balance(
     return BulkUserResult(
         user_id=user.id,
         success=True,
-        message=f'Added {settings.format_price(amount_kopeks)} to balance',
+        message=f'Added {settings.format_balance(amount_kopeks)} to balance',
         username=user.username,
     )
 

@@ -112,7 +112,7 @@ def _serialize_referral_item(referral: dict) -> PartnerReferralItem:
         last_activity=referral.get('last_activity'),
         has_made_first_topup=bool(referral.get('has_made_first_topup', False)),
         balance_kopeks=balance_kopeks,
-        balance_rubles=round(balance_kopeks / 100, 2),
+        balance_rubles=round(float(balance_kopeks), 2),
         total_earned_kopeks=total_earned_kopeks,
         total_earned_rubles=round(total_earned_kopeks / 100, 2),
         topups_count=int(referral.get('topups_count') or 0),

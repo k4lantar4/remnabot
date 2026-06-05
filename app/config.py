@@ -1770,6 +1770,25 @@ class Settings(BaseSettings):
 
         return f'{sign}{rubles}{suffix}'
 
+    def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
+        lang = (language or 'fa').split('-')[0].lower()
+        if lang == 'fa':
+            return f'{abs_amount:,}'.replace(',', '\u066c')
+        if lang in ('ru', 'ua'):
+            return f'{abs_amount:,}'.replace(',', '\u00a0')
+        return f'{abs_amount:,}'
+
+    def format_balance(self, amount_toman: int, language: str | None = None) -> str:
+        """
+        Format stored balance integer (Toman 1:1) for user display.
+
+        Unlike format_price, does not divide by 100. Persian users get fa-IR-style grouping.
+        """
+        sign = '-' if amount_toman < 0 else ''
+        suffix = self._price_display_suffix()
+        grouped = self._group_balance_digits(abs(amount_toman), language)
+        return f'{sign}{grouped}{suffix}'
+
     def get_reports_chat_id(self) -> str | None:
         if self.ADMIN_REPORTS_CHAT_ID:
             return self.ADMIN_REPORTS_CHAT_ID

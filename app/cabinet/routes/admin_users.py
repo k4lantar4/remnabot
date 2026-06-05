@@ -51,7 +51,10 @@ from app.database.models import (
     UserStatus,
 )
 from app.services.permission_service import PermissionService
-from app.utils.price_display import display_amount_from_kopeks, kopeks_from_display_amount
+from app.utils.price_display import (
+    balance_from_display_amount,
+    display_balance_from_storage,
+)
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
 
@@ -658,7 +661,7 @@ async def get_users_stats(
         users_with_trial=users_with_trial,
         users_with_expired_subscription=users_with_expired,
         total_balance_kopeks=total_balance,
-        total_balance_rubles=display_amount_from_kopeks(total_balance),
+        total_balance_rubles=display_balance_from_storage(total_balance),
         avg_balance_kopeks=avg_balance,
         active_today=active_today,
         active_week=active_week,
@@ -1087,7 +1090,7 @@ async def update_user_balance(
     if request.amount_kopeks is not None:
         amount_kopeks = request.amount_kopeks
     else:
-        amount_kopeks = kopeks_from_display_amount(request.amount_display)
+        amount_kopeks = balance_from_display_amount(request.amount_display)
 
     if amount_kopeks >= 0:
         # Add balance
@@ -1140,8 +1143,8 @@ async def update_user_balance(
         old_balance_kopeks=old_balance,
         new_balance_kopeks=user.balance_kopeks,
         message=(
-            f'Balance updated: {settings.format_price(old_balance)} -> '
-            f'{settings.format_price(user.balance_kopeks)}'
+            f'Balance updated: {settings.format_balance(old_balance)} -> '
+            f'{settings.format_balance(user.balance_kopeks)}'
         ),
     )
 

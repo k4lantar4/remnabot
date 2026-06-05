@@ -21,6 +21,8 @@ from app.database.models import (
     UserStatus,
 )
 
+from app.utils.price_display import display_balance_from_storage
+
 from ..dependencies import get_db_session, require_api_token
 
 
@@ -29,6 +31,10 @@ router = APIRouter()
 
 def _kopeks_to_rubles(value: float | None) -> float:
     return round((value or 0) / 100, 2)
+
+
+def _balance_storage_to_rubles(value: float | None) -> float:
+    return display_balance_from_storage(int(value or 0))
 
 
 async def _get_overview(db: AsyncSession) -> dict[str, object]:
@@ -91,7 +97,7 @@ async def _get_overview(db: AsyncSession) -> dict[str, object]:
             'active': active_users,
             'blocked': blocked_users,
             'balance_kopeks': int(total_balance_kopeks),
-            'balance_rubles': _kopeks_to_rubles(total_balance_kopeks),
+            'balance_rubles': _balance_storage_to_rubles(total_balance_kopeks),
         },
         'subscriptions': {
             'active': active_subscriptions,

@@ -90,7 +90,7 @@ class BalanceUpdateRequest(BaseModel):
         default=None,
         ge=-100_000_000,
         le=100_000_000,
-        description='Amount in kopeks (already display × 100)',
+        description='Amount in stored balance units (Toman integer, 1:1)',
     )
     amount_display: float | None = Field(
         default=None,
