@@ -247,7 +247,7 @@ async def set_autopay_period(callback: types.CallbackQuery, db_user: User, db: A
         try:
             days = int(suffix)
         except ValueError:
-            await callback.answer(texts.t('INVALID_REQUEST', 'Invalid request'), show_alert=True)
+            await callback.answer(texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'), show_alert=True)
             return
 
         try:
@@ -303,7 +303,7 @@ async def handle_unlink_card(callback: types.CallbackQuery, db_user: User, db: A
     try:
         card_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t('INVALID_REQUEST', 'Invalid request'), show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'), show_alert=True)
         return
 
     cards = await get_active_payment_methods_by_user(db, db_user.id)
@@ -343,7 +343,7 @@ async def handle_confirm_unlink(callback: types.CallbackQuery, db_user: User, db
     try:
         card_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t('INVALID_REQUEST', 'Invalid request'), show_alert=True)
+        await callback.answer(texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'), show_alert=True)
         return
 
     success = await deactivate_payment_method(db, card_id, db_user.id)
