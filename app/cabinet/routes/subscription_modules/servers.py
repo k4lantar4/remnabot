@@ -201,7 +201,7 @@ async def update_countries(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=(
                 f'Insufficient balance. Need {settings.format_price(total_cost)}, '
-                f'have {settings.format_price(user.balance_kopeks)}'
+                f'have {settings.format_balance(user.balance_kopeks)}'
             ),
         )
 

@@ -701,7 +701,7 @@ async def switch_traffic_package(
         'new_traffic_gb': new_traffic,
         'charged_kopeks': charged,
         'balance_kopeks': user.balance_kopeks,
-        'balance_label': settings.format_price(user.balance_kopeks),
+        'balance_label': settings.format_balance(user.balance_kopeks),
     }
 
 

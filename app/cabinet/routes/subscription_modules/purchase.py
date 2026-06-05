@@ -346,7 +346,7 @@ async def get_purchase_options(
                 'tariffs': tariff_responses,
                 'current_tariff_id': current_tariff_id,
                 'balance_kopeks': user.balance_kopeks,
-                'balance_label': settings.format_price(user.balance_kopeks),
+                'balance_label': settings.format_balance(user.balance_kopeks),
                 # Include subscription status info for frontend decision making
                 'subscription_status': subscription_status,
                 'subscription_is_expired': subscription_is_expired,
@@ -1011,7 +1011,7 @@ async def purchase_tariff(
             'charged_amount': price_kopeks,
             'charged_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
-            'balance_label': settings.format_price(user.balance_kopeks),
+            'balance_label': settings.format_balance(user.balance_kopeks),
         }
 
         # Add discount info if discount was applied

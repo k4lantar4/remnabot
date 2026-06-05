@@ -615,7 +615,7 @@ async def purchase_devices(
             'price_kopeks': price_kopeks,
             'price_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
-            'balance_label': settings.format_price(user.balance_kopeks),
+            'balance_label': settings.format_balance(user.balance_kopeks),
         }
 
         if devices_discount_percent > 0:
