@@ -26,6 +26,7 @@ from app.database.crud.user import get_user_by_id, subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -143,7 +144,7 @@ class DailySubscriptionService:
         )
 
         # Проверяем баланс (при 100% скидке — пропускаем)
-        if daily_price > 0 and user.balance_kopeks < daily_price:
+        if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             # Недостаточно средств - приостанавливаем подписку
             await suspend_daily_subscription_insufficient_balance(db, subscription)
 
@@ -180,7 +181,7 @@ class DailySubscriptionService:
             deducted = await subtract_user_balance(
                 db,
                 user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 description,
                 mark_as_paid_subscription=True,
                 commit=False,

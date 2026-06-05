@@ -63,6 +63,16 @@ def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) ->
     return -value if amount_kopeks < 0 else value
 
 
+def catalog_price_in_toman(price_kopeks: int) -> int:
+    """Convert catalog price_kopeks to Toman for balance comparison/charge."""
+    return price_kopeks // 100
+
+
+def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
+    """True when stored balance (Toman) covers catalog price."""
+    return balance_toman >= catalog_price_in_toman(price_kopeks)
+
+
 def balance_from_display_amount(amount: float | Decimal) -> int:
     """
     Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).

@@ -33,6 +33,7 @@ from app.database.crud.user_device_alias import (
     set_alias,
 )
 from app.database.models import Subscription, TransactionType, User
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 
@@ -169,8 +170,8 @@ async def purchase_devices_legacy(
         )
 
     # Check balance (skip for 100% discount)
-    if total_price > 0 and user.balance_kopeks < total_price:
-        missing = total_price - user.balance_kopeks
+    if total_price > 0 and not user_can_afford(user.balance_kopeks, total_price):
+        missing = max(0, catalog_price_in_toman(total_price) - user.balance_kopeks)
 
         # Сохраняем корзину для автопокупки после пополнения
         try:
@@ -216,7 +217,7 @@ async def purchase_devices_legacy(
     success = await subtract_user_balance(
         db=db,
         user=user,
-        amount_kopeks=total_price,
+        amount_kopeks=catalog_price_in_toman(total_price),
         description=description,
         create_transaction=True,
         payment_method=PaymentMethod.BALANCE,
@@ -246,7 +247,7 @@ async def purchase_devices_legacy(
             select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
         )
         refund_user = user_refund.scalar_one()
-        refund_user.balance_kopeks += total_price
+        refund_user.balance_kopeks += catalog_price_in_toman(total_price)
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -443,8 +444,8 @@ async def purchase_devices(
             price_kopeks = max(100, price_kopeks)
 
         # Check balance (skip for 100% discount)
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-            missing = price_kopeks - user.balance_kopeks
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+            missing = max(0, catalog_price_in_toman(price_kopeks) - user.balance_kopeks)
 
             # Сохраняем корзину для автопокупки после пополнения
             try:
@@ -491,7 +492,7 @@ async def purchase_devices(
         success = await subtract_user_balance(
             db=db,
             user=user,
-            amount_kopeks=price_kopeks,
+            amount_kopeks=catalog_price_in_toman(price_kopeks),
             description=description,
             create_transaction=True,
             payment_method=PaymentMethod.BALANCE,
@@ -521,7 +522,7 @@ async def purchase_devices(
                 select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price_kopeks
+            refund_user.balance_kopeks += catalog_price_in_toman(price_kopeks)
             await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

@@ -17,6 +17,7 @@ from app.database.crud.subscription import (
 )
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import PaymentMethod, Subscription, SubscriptionStatus, TransactionType, User
 from app.keyboards.inline import (
     get_back_keyboard,
@@ -886,7 +887,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
     if trial_price_kopeks > 0:
         # Платный триал - показываем экран с выбором метода оплаты
         user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0) or 0
-        can_pay_from_balance = user_balance_kopeks >= trial_price_kopeks
+        can_pay_from_balance = user_can_afford(user_balance_kopeks, trial_price_kopeks)
 
         # Берём параметры из триального тарифа если доступен
         paid_trial_days = settings.TRIAL_DURATION_DAYS
@@ -1608,8 +1609,8 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
 
     total_price = prepared_cart_data.get('total_price', 0)
 
-    if total_price > 0 and db_user.balance_kopeks < total_price:
-        missing_amount = total_price - db_user.balance_kopeks
+    if total_price > 0 and not user_can_afford(db_user.balance_kopeks, total_price):
+        missing_amount = max(0, catalog_price_in_toman(total_price) - db_user.balance_kopeks)
         insufficient_keyboard = get_insufficient_balance_keyboard_with_cart(
             db_user.language,
             missing_amount,
@@ -1618,7 +1619,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
             f'❌ Все еще недостаточно средств\n\n'
             f'Требуется: {texts.format_price(total_price, round_kopeks=False)}\n'
             f'У вас: {texts.format_balance(db_user.balance_kopeks, round_kopeks=False)}\n'
-            f'Не хватает: {texts.format_price(missing_amount, round_kopeks=False)}'
+            f'Не хватает: {texts.format_balance(missing_amount, round_kopeks=False)}'
         )
 
         if _message_needs_update(callback.message, insufficient_text, insufficient_keyboard):
@@ -2023,8 +2024,8 @@ async def confirm_extend_subscription(
         await callback.answer(texts.t('CB_PRICE_CALC_ERROR', '⚠ Ошибка расчета стоимости'), show_alert=True)
         return
 
-    if price > 0 and db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+        missing_toman = max(0, catalog_price_in_toman(price) - db_user.balance_kopeks)
         required_text = texts.format_price(price)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
@@ -2038,7 +2039,7 @@ async def confirm_extend_subscription(
         ).format(
             required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         # Подготовим данные для сохранения в корзину
@@ -2049,7 +2050,7 @@ async def confirm_extend_subscription(
             'total_price': price,
             'user_id': db_user.id,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'description': f'Продление подписки на {days} дней',
             'consume_promo_offer': bool(promo_offer_discount > 0),
@@ -2066,7 +2067,7 @@ async def confirm_extend_subscription(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -2456,8 +2457,8 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         )
     logger.info('ИТОГО: ₽', final_price=final_price / 100)
 
-    if final_price > 0 and db_user.balance_kopeks < final_price:
-        missing_kopeks = final_price - db_user.balance_kopeks
+    if final_price > 0 and not user_can_afford(db_user.balance_kopeks, final_price):
+        missing_toman = max(0, catalog_price_in_toman(final_price) - db_user.balance_kopeks)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -2470,14 +2471,14 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         ).format(
             required=texts.format_price(final_price, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         # Сохраняем данные корзины в Redis перед переходом к пополнению
         cart_data = {
             **data,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'user_id': db_user.id,
         }
@@ -2489,7 +2490,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -2503,14 +2504,14 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             f'Покупка подписки на {data["period_days"]} дней',
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
         )
 
         if not success:
-            missing_kopeks = final_price - db_user.balance_kopeks
+            missing_toman = max(0, catalog_price_in_toman(final_price) - db_user.balance_kopeks)
             message_text = texts.t(
                 'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
                 (
@@ -2523,7 +2524,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             ).format(
                 required=texts.format_price(final_price, round_kopeks=False),
                 balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-                missing=texts.format_price(missing_kopeks, round_kopeks=False),
+                missing=texts.format_balance(missing_toman, round_kopeks=False),
             )
 
             await callback.message.edit_text(
@@ -2531,7 +2532,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
                     resume_callback=resume_callback,
-                    amount_kopeks=missing_kopeks,
+                    amount_kopeks=missing_toman,
                 ),
                 parse_mode='HTML',
             )
@@ -3179,7 +3180,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
         daily_price = (
             PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
         )
-        if daily_price > 0 and db_user.balance_kopeks < daily_price:
+        if daily_price > 0 and not user_can_afford(db_user.balance_kopeks, daily_price):
             await callback.answer(
                 texts.t(
                     'INSUFFICIENT_BALANCE_FOR_RESUME',
@@ -3198,7 +3199,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
             deducted = await subtract_user_balance(
                 db,
                 db_user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                 mark_as_paid_subscription=True,
             )
@@ -3357,7 +3358,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
         return
 
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0) or 0
-    if user_balance_kopeks < trial_price_kopeks:
+    if not user_can_afford(user_balance_kopeks, trial_price_kopeks):
         await callback.answer(texts.t('INSUFFICIENT_BALANCE', '❌ Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -3365,7 +3366,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
     success = await subtract_user_balance(
         db,
         db_user,
-        trial_price_kopeks,
+        catalog_price_in_toman(trial_price_kopeks),
         texts.t('TRIAL_PAYMENT_DESCRIPTION', 'Оплата пробной подписки'),
         mark_as_paid_subscription=True,
     )
@@ -3468,7 +3469,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                catalog_price_in_toman(trial_price_kopeks),
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )
@@ -3496,7 +3497,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                catalog_price_in_toman(trial_price_kopeks),
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )
@@ -3611,7 +3612,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                catalog_price_in_toman(trial_price_kopeks),
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )
@@ -4507,7 +4508,7 @@ async def handle_simple_subscription_purchase(
     else:
         traffic_text = format_traffic(subscription_params['traffic_limit_gb'], db_user.language)
 
-    if user_balance_kopeks >= price_kopeks:
+    if user_can_afford(user_balance_kopeks, price_kopeks):
         # Если баланс достаточный, предлагаем оплатить с баланса
         simple_lines = [
             '⚡ <b>Простая покупка подписки</b>',
@@ -4631,8 +4632,8 @@ async def _extend_existing_subscription(
     )
 
     # Проверяем баланс пользователя (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and db_user.balance_kopeks < price_kopeks:
-        missing_kopeks = price_kopeks - db_user.balance_kopeks
+    if price_kopeks > 0 and not user_can_afford(db_user.balance_kopeks, price_kopeks):
+        missing_toman = max(0, catalog_price_in_toman(price_kopeks) - db_user.balance_kopeks)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -4645,7 +4646,7 @@ async def _extend_existing_subscription(
         ).format(
             required=texts.format_price(price_kopeks, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         # Подготовим данные для сохранения в корзину
@@ -4658,7 +4659,7 @@ async def _extend_existing_subscription(
             'total_price': price_kopeks,
             'user_id': db_user.id,
             'saved_cart': True,
-            'missing_amount': missing_kopeks,
+            'missing_amount': missing_toman,
             'return_to_cart': True,
             'description': f'Продление подписки на {period_days} дней',
             'device_limit': device_limit,
@@ -4675,7 +4676,7 @@ async def _extend_existing_subscription(
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
-                db_user.language, amount_kopeks=missing_kopeks, has_saved_cart=True
+                db_user.language, amount_kopeks=missing_toman, has_saved_cart=True
             ),
             parse_mode='HTML',
         )
@@ -4686,7 +4687,7 @@ async def _extend_existing_subscription(
     success = await subtract_user_balance(
         db,
         db_user,
-        price_kopeks,
+        catalog_price_in_toman(price_kopeks),
         f'Продление подписки на {period_days} дней',
         consume_promo_offer=consume_promo,
         mark_as_paid_subscription=True,
@@ -4747,7 +4748,7 @@ async def _extend_existing_subscription(
             await add_user_balance(
                 db,
                 db_user,
-                price_kopeks,
+                catalog_price_in_toman(price_kopeks),
                 'Возврат: ошибка продления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
