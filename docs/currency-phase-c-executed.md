@@ -51,7 +51,17 @@ Helpers: `app/utils/price_display.py` — `catalog_price_in_toman`, `user_can_af
 | `app/plugins/c2c/service.py` | `add_user_balance` | Custom plugin — verify separately |
 | `app/cabinet/routes/admin_users.py` | `add_user_balance` | Admin UI — already Toman via `balance_from_display_amount` |
 
-**No provider webhook fix in this phase** — document-only; enable per-provider after rate/amount audit.
+## Phase C+ webhook credits (2026-06-05)
+
+| Provider | Status | Commit scope |
+|----------|--------|--------------|
+| YooKassa | **Shipped** | `balance_kopeks += catalog_price_in_toman(payment.amount_kopeks)`; DEPOSIT tx amount Toman |
+| C2C | **Shipped** | Receipt approval credits Toman; tx row Toman |
+| Referral commission | **Shipped** | `process_referral_topup` converts catalog topup → Toman for commission/minimum |
+| Stars, CryptoBot, Heleket, WATA, CloudPayments | Deferred | Disabled in `.env`; one provider per commit when enabled |
+| mulenpay, pal24, platega, severpay, rollpay, paypear, riopay, lava, overpay, jupiter, donut, freekassa, etoplatezhi, kassa_ai, aurapay, antilopay | Deferred | Same pattern: `catalog_price_in_toman` at credit + DEPOSIT tx |
+
+**Runtime note:** YooKassa currently `YOOKASSA_ENABLED=false` in this deployment; code path fixed for when enabled.
 
 ## Agent smoke (automated)
 
