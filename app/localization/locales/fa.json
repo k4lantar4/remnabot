@@ -3936,5 +3936,11 @@
   "TARIFF_LEDGER_PROMO_SUFFIX": " (پرومو -{percent}%)",
   "TARIFF_REFUND_ALREADY_ACTIVE": "بازگشت: تعرفه «{name}» از قبل فعال است",
   "TARIFF_RENEW_CART_DESC": "تمدید تعرفه {name} برای {days} روز",
-  "TRIAL_ACTIVATION_LEDGER_DESC": "فعال‌سازی اشتراک آزمایشی"
+  "TRIAL_ACTIVATION_LEDGER_DESC": "فعال‌سازی اشتراک آزمایشی",
+  "TARIFF_SWITCH_TO_DAILY_LEDGER_DESC": "تغییر به تعرفه روزانه «{name}»",
+  "TARIFF_SWITCH_FROM_DAILY_LEDGER_DESC": "تغییر از تعرفه روزانه به «{name}» ({days} روز)",
+  "TARIFF_SWITCH_UPGRADE_LEDGER_DESC": "تغییر به تعرفه «{name}» (مابه‌التفاوت {days} روز)",
+  "TARIFF_SWITCH_FREE_LEDGER_DESC": "تغییر به تعرفه «{name}»",
+  "CABINET_TARIFF_SWITCH_SUCCESS": "تغییر از «{old}» به «{new}»{devices_reset}",
+  "CABINET_TARIFF_SWITCH_DEVICES_RESET": " (دستگاه‌ها بازنشانی شد)"
 }
