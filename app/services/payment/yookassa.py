@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.models import PaymentMethod, TransactionType
 from app.utils.payment_logger import payment_logger as logger
+from app.utils.price_display import catalog_price_in_toman
 from app.utils.user_utils import format_referrer_info
 
 
@@ -609,6 +610,11 @@ class YooKassaPaymentMixin:
                 if is_simple_subscription or is_trial_payment
                 else TransactionType.DEPOSIT
             )
+            balance_credit_toman = (
+                catalog_price_in_toman(payment.amount_kopeks)
+                if transaction_type == TransactionType.DEPOSIT
+                else payment.amount_kopeks
+            )
             transaction_description = (
                 f'Оплата подписки через YooKassa: {payment_description}'
                 if is_simple_subscription
@@ -622,7 +628,7 @@ class YooKassaPaymentMixin:
                     db=db,
                     user_id=payment.user_id,
                     type=transaction_type,
-                    amount_kopeks=payment.amount_kopeks,
+                    amount_kopeks=balance_credit_toman,
                     description=transaction_description,
                     payment_method=PaymentMethod.YOOKASSA,
                     external_id=payment.yookassa_payment_id,
@@ -767,7 +773,7 @@ class YooKassaPaymentMixin:
                     old_balance = user.balance_kopeks
                     was_first_topup = not user.has_made_first_topup
 
-                    user.balance_kopeks += payment.amount_kopeks
+                    user.balance_kopeks += balance_credit_toman
                     user.updated_at = datetime.now(UTC)
 
                     # Обновляем пользователя с нужными связями, чтобы избежать проблем с ленивой загрузкой
@@ -857,7 +863,7 @@ class YooKassaPaymentMixin:
                         await emit_transaction_side_effects(
                             db,
                             transaction,
-                            amount_kopeks=payment.amount_kopeks,
+                            amount_kopeks=balance_credit_toman,
                             user_id=payment.user_id,
                             type=transaction_type,
                             payment_method=PaymentMethod.YOOKASSA,
