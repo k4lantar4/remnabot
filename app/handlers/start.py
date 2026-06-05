@@ -204,7 +204,14 @@ async def _activate_pending_gift_after_registration(
         await db.flush()
         await svc_activate(db, gift_purchase.token, skip_notification=True)
         tariff_name = html.escape(gift_purchase.tariff.name) if gift_purchase.tariff else ''
-        tariff_text = f'{tariff_name} — {gift_purchase.period_days} дн.' if tariff_name else ''
+        tariff_text = (
+            texts.t(
+                'GIFT_TARIFF_PERIOD_LINE',
+                '{tariff_name} — {days} дн.',
+            ).format(tariff_name=tariff_name, days=gift_purchase.period_days)
+            if tariff_name
+            else ''
+        )
         await answer_func(
             texts.t(
                 'GIFT_ACTIVATED_SUCCESS',
@@ -524,7 +531,8 @@ async def _apply_campaign_bonus_if_needed(
             'CAMPAIGN_BONUS_TARIFF',
             "🎁 Вам выдан тариф '{tariff_name}' на {days} дней!\n📊 Трафик: {traffic}\n📱 Устройств: {devices}",
         ).format(
-            tariff_name=result.tariff_name or 'Подарочный',
+            tariff_name=result.tariff_name
+            or texts.t('GIFT_DEFAULT_TARIFF_NAME', 'Подарочный'),
             days=result.tariff_duration_days,
             traffic=traffic_text,
             devices=result.subscription_device_limit,
