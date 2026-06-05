@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.crud.user import get_user_by_id
+from app.localization.texts import get_texts
 from app.database.database import AsyncSessionLocal
 from app.database.models import User, UserStatus
 from app.services.blacklist_service import blacklist_service
@@ -137,11 +138,13 @@ async def get_current_cabinet_user(
     if user.telegram_id is not None:
         is_blacklisted, blacklist_reason = await blacklist_service.is_user_blacklisted(user.telegram_id, user.username)
         if is_blacklisted:
+            texts = get_texts(user.language)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     'code': 'blacklisted',
-                    'message': blacklist_reason or 'Доступ запрещен',
+                    'message': blacklist_reason
+                    or texts.t('CABINET_ACCESS_DENIED', 'Доступ запрещен'),
                 },
             )
 
