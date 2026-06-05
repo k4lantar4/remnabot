@@ -2234,9 +2234,8 @@ async def show_tariff_extend(
     db_user: User,
     db: AsyncSession,
 ):
-    texts = get_texts(db_user.language)
     """Показывает экран продления по текущему тарифу."""
-    get_texts(db_user.language)
+    texts = get_texts(db_user.language)
 
     if settings.is_multi_tariff_enabled():
         sub_id = None
@@ -3759,7 +3758,6 @@ def _calculate_instant_switch_cost(
     db_user: User | None = None,
 ) -> tuple[int, bool]:
     """Рассчитывает стоимость мгновенного переключения тарифа.
-    texts = get_texts(db_user.language)
 
     Делегирует расчёт в PricingEngine.calculate_tariff_switch_cost().
     Returns:
