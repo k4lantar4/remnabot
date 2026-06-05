@@ -73,8 +73,8 @@ async def _handle_wheel_spin_payment(
                 texts.t(
                     'STARS_WHEEL_NO_SUBSCRIPTION_REFUND',
                     '❌ Для использования колеса удачи необходима активная подписка.\n'
-                    '💰 {stars_amount} Stars возвращены на баланс в виде {rubles} ₽.',
-                ).format(stars_amount=stars_amount, rubles=f'{kopeks_fallback / 100:.0f}'),
+                    '💰 {stars_amount} Stars возвращены на баланс в виде {amount}.',
+                ).format(stars_amount=stars_amount, amount=settings.format_price(kopeks_fallback)),
             )
             logger.warning(
                 'Wheel spin without subscription, refunded to balance',
@@ -612,8 +612,6 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
         if success:
             rubles_amount = TelegramStarsService.calculate_rubles_from_stars(payment.total_amount)
             amount_kopeks = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
-            amount_text = settings.format_price(amount_kopeks).replace(' ₽', '')
-
             keyboard = await payment_service.build_topup_success_keyboard(user)
 
             transaction_id_short = payment.telegram_payment_charge_id[:8]
@@ -623,12 +621,12 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
                     'STARS_PAYMENT_SUCCESS',
                     '🎉 <b>Платеж успешно обработан!</b>\n\n'
                     '⭐ Потрачено звезд: {stars_spent}\n'
-                    '💰 Зачислено на баланс: {amount} ₽\n'
+                    '💰 Зачислено на баланс: {amount}\n'
                     '🆔 ID транзакции: {transaction_id}...\n\n'
                     'Спасибо за пополнение! 🚀',
                 ).format(
                     stars_spent=payment.total_amount,
-                    amount=amount_text,
+                    amount=settings.format_price(amount_kopeks),
                     transaction_id=transaction_id_short,
                 ),
                 parse_mode='HTML',
