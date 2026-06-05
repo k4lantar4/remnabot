@@ -3886,5 +3886,21 @@
   "SUPPORT_TICKET_UNTITLED": "بدون عنوان",
   "MENU_WEB_ADMIN": "🖥 پنل وب ادمین",
   "COUNTRY_PRICE_FREE": " (رایگان)",
-  "DEVICES_PRICE_INCLUDED": " (شامل)"
+  "DEVICES_PRICE_INCLUDED": " (شامل)",
+  "CABINET_INSUFFICIENT_BALANCE_NEED": "موجودی کافی نیست. مورد نیاز: {amount}",
+  "CABINET_INSUFFICIENT_FUNDS_MISSING": "موجودی کافی نیست. کسری: {missing}",
+  "CABINET_NO_ACTIVE_SUBSCRIPTION": "اشتراک فعال ندارید",
+  "CABINET_NO_SUBSCRIPTION_FOUND": "اشتراک یافت نشد",
+  "CABINET_RATE_LIMITED": "تعداد درخواست زیاد است. {seconds} ثانیه بعد دوباره تلاش کنید.",
+  "CABINET_SUBSCRIPTION_INACTIVE": "اشتراک شما غیرفعال است",
+  "CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED": "خرید اشتراک برای این حساب محدود شده است",
+  "CABINET_TRAFFIC_LIMIT_EXCEEDED": "سقف ترافیک تجاوز شد. حداکثر: {max} گیگ، قابل خرید: {available} گیگ",
+  "CABINET_TRAFFIC_PACKAGE_INVALID": "بسته ترافیک نامعتبر است",
+  "CABINET_TRAFFIC_PACKAGE_NO_PRICE": "قیمت بسته ترافیک {gb} گیگ تنظیم نشده",
+  "CABINET_TRAFFIC_PACKAGE_UNAVAILABLE": "بسته ترافیک {gb} گیگ در دسترس نیست",
+  "CABINET_TRAFFIC_PURCHASE_SUCCESS": "ترافیک با موفقیت خریداری شد",
+  "CABINET_TRAFFIC_REFRESH_FAILED": "به‌روزرسانی داده ترافیک ناموفق بود",
+  "CABINET_TRAFFIC_SWITCH_SUCCESS": "ترافیک از {old} گیگ به {new} گیگ تغییر کرد",
+  "CABINET_TRAFFIC_UNLIMITED_CANNOT_ADD": "امکان افزودن ترافیک به اشتراک نامحدود نیست",
+  "TRAFFIC_TOPUP_LEDGER_DESC_DISCOUNT": "افزودن {gb} گیگ ترافیک (تخفیف {percent}%)"
 }
