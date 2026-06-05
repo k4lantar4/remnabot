@@ -3957,5 +3957,9 @@
   "PAYMENT_STATUS_EXPIRED": "منقضی",
   "PAYMENT_STATUS_AUTHORIZED": "تأیید اولیه",
   "PAYMENT_STATUS_CREATED": "ایجاد شده",
-  "PAYMENT_STATUS_AMOUNT_MISMATCH": "عدم تطابق مبلغ"
+  "PAYMENT_STATUS_AMOUNT_MISMATCH": "عدم تطابق مبلغ",
+  "CABINET_WHEEL_STARS_NOT_ENABLED": "پرداخت Stars فعال نیست",
+  "CABINET_WHEEL_NO_SUBSCRIPTION": "برای استفاده از چرخ شانس اشتراک فعال لازم است",
+  "CABINET_WHEEL_DAILY_LIMIT": "به سقف چرخش روزانه رسیده‌اید",
+  "CABINET_WHEEL_INVOICE_ERROR": "خطا در ایجاد فاکتور"
 }
