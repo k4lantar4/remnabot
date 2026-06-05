@@ -239,13 +239,14 @@ async def get_transaction_by_external_id(
     return result.scalar_one_or_none()
 
 
-async def get_user_transactions(db: AsyncSession, user_id: int, limit: int = 50, offset: int = 0) -> list[Transaction]:
+async def get_user_transactions(
+    db: AsyncSession, user_id: int, limit: int = 50, offset: int = 0, created_after=None
+) -> list[Transaction]:
+    query = select(Transaction).where(Transaction.user_id == user_id)
+    if created_after is not None:
+        query = query.where(Transaction.created_at >= created_after)
     result = await db.execute(
-        select(Transaction)
-        .where(Transaction.user_id == user_id)
-        .order_by(Transaction.created_at.desc())
-        .offset(offset)
-        .limit(limit)
+        query.order_by(Transaction.created_at.desc()).offset(offset).limit(limit)
     )
     return result.scalars().all()
 

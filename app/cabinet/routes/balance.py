@@ -80,15 +80,18 @@ async def get_transactions(
     db: AsyncSession = Depends(get_cabinet_db),
 ):
     """Get transaction history."""
+    cutoff = settings.balance_toman_cutoff
     # Base query
-    query = select(Transaction).where(Transaction.user_id == user.id)
+    query = select(Transaction).where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
 
     # Filter by type
     if type:
         query = query.where(Transaction.type == type)
 
     # Get total count
-    count_query = select(func.count()).select_from(Transaction).where(Transaction.user_id == user.id)
+    count_query = (
+        select(func.count()).select_from(Transaction).where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
+    )
     if type:
         count_query = count_query.where(Transaction.type == type)
 

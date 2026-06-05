@@ -742,7 +742,13 @@ async def get_user_detail(
 
     # Get recent transactions
     transactions_q = (
-        select(Transaction).where(Transaction.user_id == user.id).order_by(Transaction.created_at.desc()).limit(20)
+        select(Transaction)
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.created_at >= settings.balance_toman_cutoff,
+        )
+        .order_by(Transaction.created_at.desc())
+        .limit(20)
     )
     transactions_result = await db.execute(transactions_q)
     transactions = transactions_result.scalars().all()
@@ -2881,13 +2887,19 @@ async def get_user_transactions(
             detail='User not found',
         )
 
-    query = select(Transaction).where(Transaction.user_id == user.id)
+    query = select(Transaction).where(
+        Transaction.user_id == user.id,
+        Transaction.created_at >= settings.balance_toman_cutoff,
+    )
 
     if transaction_type:
         query = query.where(Transaction.type == transaction_type)
 
     # Get total count
-    count_query = select(func.count(Transaction.id)).where(Transaction.user_id == user.id)
+    count_query = select(func.count(Transaction.id)).where(
+        Transaction.user_id == user.id,
+        Transaction.created_at >= settings.balance_toman_cutoff,
+    )
     if transaction_type:
         count_query = count_query.where(Transaction.type == transaction_type)
     total = (await db.execute(count_query)).scalar() or 0

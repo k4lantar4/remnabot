@@ -261,8 +261,11 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
     texts = get_texts(db_user.language)
 
     offset = (page - 1) * TRANSACTIONS_PER_PAGE
+    cutoff = settings.balance_toman_cutoff
 
-    raw_transactions = await get_user_transactions(db, db_user.id, limit=TRANSACTIONS_PER_PAGE * 3, offset=offset)
+    raw_transactions = await get_user_transactions(
+        db, db_user.id, limit=TRANSACTIONS_PER_PAGE * 3, offset=offset, created_after=cutoff
+    )
 
     seen_transactions = set()
     unique_transactions = []
@@ -278,7 +281,7 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
             if len(unique_transactions) >= TRANSACTIONS_PER_PAGE:
                 break
 
-    all_transactions = await get_user_transactions(db, db_user.id, limit=1000)
+    all_transactions = await get_user_transactions(db, db_user.id, limit=1000, created_after=cutoff)
     seen_all = set()
     total_unique = 0
 
