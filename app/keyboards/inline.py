@@ -551,7 +551,9 @@ def _build_cabinet_main_menu_keyboard(
                         )
                     ]
                     if section_cfg.get('enabled', True):
-                        admin_web_text = section_cfg.get('labels', {}).get(language, '') or '🖥 Веб-Админка'
+                        admin_web_text = section_cfg.get('labels', {}).get(language, '') or texts.t(
+                            'MENU_WEB_ADMIN', '🖥 Веб-Админка'
+                        )
                         admin_row.append(_cabinet_button(admin_web_text, '/admin', 'admin_panel'))
                     keyboard_rows.append(admin_row)
                     continue  # bypass max_per_row chunking
@@ -1460,7 +1462,7 @@ def get_countries_keyboard(
         if country['price_kopeks'] > 0:
             price_text = f' (+{texts.format_price(country["price_kopeks"])})'
         else:
-            price_text = ' (Бесплатно)'
+            price_text = texts.t('COUNTRY_PRICE_FREE', ' (Бесплатно)')
 
         keyboard.append(
             [
@@ -1505,7 +1507,9 @@ def get_devices_keyboard(current: int, language: str = DEFAULT_LANGUAGE) -> Inli
 
     for devices in range(start_devices, end_devices):
         price = max(0, devices - settings.DEFAULT_DEVICE_LIMIT) * settings.PRICE_PER_DEVICE
-        price_text = f' (+{texts.format_price(price)})' if price > 0 else ' (вкл.)'
+        price_text = (
+            f' (+{texts.format_price(price)})' if price > 0 else texts.t('DEVICES_PRICE_INCLUDED', ' (вкл.)')
+        )
         emoji = '✅' if devices == current else '⚪'
 
         button_text = f'{emoji} {devices}{price_text}'
@@ -1528,12 +1532,12 @@ def get_devices_keyboard(current: int, language: str = DEFAULT_LANGUAGE) -> Inli
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def _get_device_declension(count: int) -> str:
+def _get_device_declension(count: int, texts) -> str:
     if count % 10 == 1 and count % 100 != 11:
-        return 'устройство'
+        return texts.t('DEVICE_WORD_ONE', 'устройство')
     if count % 10 in [2, 3, 4] and count % 100 not in [12, 13, 14]:
-        return 'устройства'
-    return 'устройств'
+        return texts.t('DEVICE_WORD_FEW', 'устройства')
+    return texts.t('DEVICE_WORD_MANY', 'устройств')
 
 
 def get_subscription_confirm_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
@@ -2406,7 +2410,7 @@ def get_autopay_days_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboar
 
     for days in [1, 3, 7, 14]:
         keyboard.append(
-            [InlineKeyboardButton(text=f'{days} {_get_days_word(days)}', callback_data=f'autopay_days_{days}')]
+            [InlineKeyboardButton(text=f'{days} {_get_days_word(days, texts)}', callback_data=f'autopay_days_{days}')]
         )
 
     keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='subscription_autopay')])
@@ -2429,7 +2433,7 @@ def get_autopay_period_keyboard(
     keyboard.append([InlineKeyboardButton(text=default_label, callback_data='autopay_period_default')])
 
     for days in sorted(available_periods):
-        label = f'{days} {_get_days_word(days)}'
+        label = f'{days} {_get_days_word(days, texts)}'
         if current_period == days:
             label = f'✅ {label}'
         keyboard.append([InlineKeyboardButton(text=label, callback_data=f'autopay_period_{days}')])
@@ -2439,12 +2443,12 @@ def get_autopay_period_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def _get_days_word(days: int) -> str:
+def _get_days_word(days: int, texts) -> str:
     if days % 10 == 1 and days % 100 != 11:
-        return 'день'
+        return texts.t('DAYS_WORD_ONE', 'день')
     if 2 <= days % 10 <= 4 and not (12 <= days % 100 <= 14):
-        return 'дня'
-    return 'дней'
+        return texts.t('DAYS_WORD_FEW', 'дня')
+    return texts.t('DAYS_WORD_MANY', 'дней')
 
 
 # Deprecated: get_extend_subscription_keyboard() was removed.
@@ -3422,7 +3426,7 @@ def get_my_tickets_keyboard(
         # Override status emoji for closed tickets in admin list
         if ticket.get('is_closed', False):
             status_emoji = '✅'
-        title = ticket.get('title', 'Без названия')[:25]
+        title = ticket.get('title', texts.t('SUPPORT_TICKET_UNTITLED', 'Без названия'))[:25]
         button_text = f'{status_emoji} #{ticket["id"]} {title}'
 
         keyboard.append([InlineKeyboardButton(text=button_text, callback_data=f'view_ticket_{ticket["id"]}')])
@@ -3531,7 +3535,7 @@ def get_admin_tickets_keyboard(
         if contact_parts:
             name_parts.append(f'({" | ".join(contact_parts)})')
         name_display = ' '.join(name_parts)
-        title = ticket.get('title', 'Без названия')[:20]
+        title = ticket.get('title', texts.t('SUPPORT_TICKET_UNTITLED', 'Без названия'))[:20]
         locked_emoji = ticket.get('locked_emoji', '')
         button_text = f'{status_emoji} #{ticket["id"]} {locked_emoji} {name_display}: {title}'.replace('  ', ' ')
         row = [InlineKeyboardButton(text=button_text, callback_data=f'admin_view_ticket_{ticket["id"]}')]

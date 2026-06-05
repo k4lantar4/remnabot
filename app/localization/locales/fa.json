@@ -3876,5 +3876,15 @@
   "ADMIN_MSG_PINNED_ALREADY_GONE": "پیام سنجاق‌شده از قبل حذف شده",
   "ADMIN_MSG_PINNED_DELETING": "🗑️ <b>حذف پیام سنجاق‌شده</b>\n\nصبر کنید تا از چت کاربران برداشته شود...",
   "ADMIN_MSG_PINNED_DELETE_FAIL": "❌ پیام سنجاق‌شده فعال برای حذف یافت نشد",
-  "ADMIN_MSG_PINNED_DELETED": "✅ <b>پیام سنجاق‌شده حذف شد</b>\n\n👥 چت‌ها: {total}\n✅ برداشته شد: {unpinned}\n⚠️ خطا: {failed}\n\nبا «به‌روزرسانی» پیام جدید بسازید."
+  "ADMIN_MSG_PINNED_DELETED": "✅ <b>پیام سنجاق‌شده حذف شد</b>\n\n👥 چت‌ها: {total}\n✅ برداشته شد: {unpinned}\n⚠️ خطا: {failed}\n\nبا «به‌روزرسانی» پیام جدید بسازید.",
+  "DAYS_WORD_ONE": "روز",
+  "DAYS_WORD_FEW": "روز",
+  "DAYS_WORD_MANY": "روز",
+  "DEVICE_WORD_ONE": "دستگاه",
+  "DEVICE_WORD_FEW": "دستگاه",
+  "DEVICE_WORD_MANY": "دستگاه",
+  "SUPPORT_TICKET_UNTITLED": "بدون عنوان",
+  "MENU_WEB_ADMIN": "🖥 پنل وب ادمین",
+  "COUNTRY_PRICE_FREE": " (رایگان)",
+  "DEVICES_PRICE_INCLUDED": " (شامل)"
 }
