@@ -2927,6 +2927,8 @@
   "TARIFF_RENEW_PERIOD": "🔄 <b>تمدید اشتراک</b>{discount_hint}\n\n📦 تعرفه: <b>{name}</b>\n📊 ترافیک: {traffic}\n📱 دستگاه: {devices}\n\nدوره تمدید را انتخاب کنید:",
   "TARIFF_RENEW_CONFIRM": "✅ <b>تأیید تمدید</b>\n\n📦 تعرفه: <b>{name}</b>\n📊 ترافیک: {traffic}\n📱 دستگاه: {devices}\n📅 دوره: {period}\n{discount}💰 <b>مبلغ: {total}</b>\n\n💳 موجودی: {balance}\nپس از پرداخت: {after}",
   "TARIFF_RENEW_SUCCESS": "🎉 <b>اشتراک تمدید شد!</b>\n\n📦 تعرفه: <b>{name}</b>\n📊 ترافیک: {traffic}\n📱 دستگاه: {devices}\n📅 دوره: {period}\n💰 کسر شد: {charged}\n\nبرای اتصال به «اشتراک» بروید.",
+  "TARIFF_RENEW_INSUFFICIENT": "❌ <b>موجودی ناکافی</b>\n\n📦 تعرفه: <b>{name}</b>\n📅 دوره: {period}\n💰 مبلغ: {cost}\n\n💳 موجودی: {balance}\n⚠️ کسری: <b>{missing}</b>\n\n{cart_note}",
+  "TARIFF_RENEW_CART_SAVED_NOTE": "🛒 <i>سبد ذخیره شد! پس از شارژ، اشتراک خودکار تمدید می‌شود.</i>",
   "TARIFF_SWITCH_DISABLED": "🚫 <b>تعویض تعرفه غیرفعال</b>\n\nمدیر امکان تعویض را غیرفعال کرده.",
   "TARIFF_SWITCH_NO_AVAILABLE": "😔 <b>تعرفه‌ای برای تعویض نیست</b>\n\nتنها تعرفه موجود را استفاده می‌کنید.",
   "TARIFF_SWITCH_NO_DAYS": "❌ <b>تعویض ممکن نیست</b>\n\nروز فعال باقی‌مانده‌ای برای اشتراک شما نیست.",
