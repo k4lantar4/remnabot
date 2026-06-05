@@ -11,4 +11,4 @@ services:
     profiles:
       - dev
     volumes:
-      - ../bedolaga-cabinet/dist:/usr/share/nginx/html:ro
+      - ./cabinet/dist:/usr/share/nginx/html:ro
