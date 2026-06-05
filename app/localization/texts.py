@@ -203,6 +203,9 @@ class Texts:
     def format_price(kopeks: int, round_kopeks: bool | None = None) -> str:
         return settings.format_price(kopeks, round_kopeks=round_kopeks)
 
+    def format_balance(self, amount_toman: int) -> str:
+        return settings.format_balance(amount_toman, language=self.language)
+
     def format_traffic(self, gb: float, is_limit: bool = True, language: str | None = None) -> str:
         """Format traffic value.
 

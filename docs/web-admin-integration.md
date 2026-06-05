@@ -107,7 +107,7 @@ curl -X POST "http://127.0.0.1:8080/tokens" \
 | `GET` | `/users/{id}` | Детали пользователя. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
 | `POST` | `/users` | Создать пользователя (например, для ручной выдачи доступа).
 | `PATCH` | `/users/{id}` | Обновить профиль пользователя или статус. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
-| `POST` | `/users/{id}/balance` | Корректировка баланса с созданием транзакции. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
+| `POST` | `/users/{id}/balance` | Корректировка баланса с созданием транзакции. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id). См. [корректировка баланса](#корректировка-баланса).
 | `GET` | `/subscriptions` | Список подписок с фильтрами.
 | `POST` | `/subscriptions` | Создать триальную или платную подписку.
 | `POST` | `/subscriptions/{id}/extend` | Продлить подписку на N дней.
@@ -149,6 +149,34 @@ curl -X POST "http://127.0.0.1:8080/tokens" \
 
 > Раздел **promo-offers** в Swagger объединяет работу с персональными предложениями: выдачу скидок/бонусов пользователям, настройку
 > текстов шаблонов и просмотр журнала операций (активации, автосписания, отключения просроченных акций).
+
+### Корректировка баланса
+
+`POST /users/{id}/balance` принимает **ровно одно** из полей:
+
+| Поле | Тип | Назначение |
+|------|-----|------------|
+| `amount_display` | `float` | Число в **единицах отображения** (Toman, factor 1): то же, что `balance_rubles` и текст `balance_label` в miniapp. Сервер один раз умножает на 100 → kopeks в БД. |
+| `amount_kopeks` | `int` | Сумма уже в kopeks (display × 100). Положительное — пополнение, отрицательное — списание. |
+
+Если переданы оба поля или ни одного — ответ `422` с ошибкой валидации.
+
+**Клиентский контракт:**
+
+- Для UI показывайте `balance_rubles` или `balance_label`, **не** сырой `balance_kopeks`.
+- Ввод админа «100» → `{"amount_display": 100}` **или** `{"amount_kopeks": 10000}` — **один** перевод ×100, не оба и не `1000000`.
+- После успешного пополнения на 100 display: `balance_kopeks` увеличивается на `10000`, `balance_rubles` отражает +100.
+
+Пример (Web API):
+
+```bash
+curl -X POST "http://127.0.0.1:8080/users/123456789/balance" \
+  -H "X-API-Key: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"amount_display": 100, "description": "Manual top-up"}'
+```
+
+Cabinet Admin (`POST /admin/users/{user_id}/balance`) использует ту же семантику в теле `UpdateBalanceRequest`.
 
 ### Логи бота
 

@@ -112,7 +112,7 @@ def _serialize_connected_user(user: User) -> ServerConnectedUser:
         last_name=user.last_name,
         status=getattr(getattr(user, 'status', None), 'value', user.status),
         balance_kopeks=int(user.balance_kopeks or 0),
-        balance_rubles=round((user.balance_kopeks or 0) / 100, 2),
+        balance_rubles=round(float(user.balance_kopeks or 0), 2),
         subscription_id=getattr(subscription, 'id', None),
         subscription_status=subscription_status,
         subscription_end_date=getattr(subscription, 'end_date', None),

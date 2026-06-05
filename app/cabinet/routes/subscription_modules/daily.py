@@ -186,5 +186,5 @@ async def toggle_subscription_pause(
         'message': message,
         'is_paused': new_paused_state,
         'balance_kopeks': user.balance_kopeks,
-        'balance_label': settings.format_price(user.balance_kopeks),
+        'balance_label': settings.format_balance(user.balance_kopeks),
     }

@@ -20,6 +20,7 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
+from app.utils.price_display import is_balance_scale_transaction
 
 
 logger = structlog.get_logger(__name__)
@@ -238,7 +239,7 @@ async def show_balance_menu(callback: types.CallbackQuery, db_user: User, db: As
 
     texts = get_texts(db_user.language)
 
-    balance_text = texts.BALANCE_INFO.format(balance=texts.format_price(db_user.balance_kopeks))
+    balance_text = texts.BALANCE_INFO.format(balance=texts.format_balance(db_user.balance_kopeks))
 
     reply_markup = get_balance_keyboard(db_user.language)
 
@@ -260,8 +261,11 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
     texts = get_texts(db_user.language)
 
     offset = (page - 1) * TRANSACTIONS_PER_PAGE
+    cutoff = settings.balance_toman_cutoff
 
-    raw_transactions = await get_user_transactions(db, db_user.id, limit=TRANSACTIONS_PER_PAGE * 3, offset=offset)
+    raw_transactions = await get_user_transactions(
+        db, db_user.id, limit=TRANSACTIONS_PER_PAGE * 3, offset=offset, created_after=cutoff
+    )
 
     seen_transactions = set()
     unique_transactions = []
@@ -277,7 +281,7 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
             if len(unique_transactions) >= TRANSACTIONS_PER_PAGE:
                 break
 
-    all_transactions = await get_user_transactions(db, db_user.id, limit=1000)
+    all_transactions = await get_user_transactions(db, db_user.id, limit=1000, created_after=cutoff)
     seen_all = set()
     total_unique = 0
 
@@ -301,11 +305,12 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
     for transaction in unique_transactions:
         is_credit = transaction.type in CREDIT_TRANSACTION_TYPES
         emoji = '💰' if is_credit else '💸'
-        amount_text = (
-            f'+{texts.format_price(transaction.amount_kopeks)}'
-            if is_credit
-            else f'-{texts.format_price(abs(transaction.amount_kopeks))}'
-        )
+        abs_amount = abs(transaction.amount_kopeks)
+        if is_balance_scale_transaction(transaction.type):
+            formatted = texts.format_balance(abs_amount)
+        else:
+            formatted = texts.format_price(abs_amount)
+        amount_text = f'+{formatted}' if is_credit else f'-{formatted}'
 
         text += f'{emoji} {amount_text}\n'
         text += f'📝 {html.escape(transaction.description or "")}\n'
@@ -480,7 +485,7 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                     'Средств на балансе достаточно для оформления.',
                 ).format(
                     amount=texts.format_price(amount_kopeks),
-                    balance=texts.format_price(user.balance_kopeks),
+                    balance=texts.format_balance(user.balance_kopeks),
                     cart_total=texts.format_price(total_price),
                 )
             else:
@@ -492,7 +497,7 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                     'Не хватает: {missing}',
                 ).format(
                     amount=texts.format_price(amount_kopeks),
-                    balance=texts.format_price(user.balance_kopeks),
+                    balance=texts.format_balance(user.balance_kopeks),
                     cart_total=texts.format_price(total_price),
                     missing=texts.format_price(missing, round_kopeks=False),
                 )

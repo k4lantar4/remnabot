@@ -51,6 +51,11 @@ from app.database.models import (
     UserStatus,
 )
 from app.services.permission_service import PermissionService
+from app.utils.price_display import (
+    balance_from_display_amount,
+    display_balance_from_storage,
+    display_transaction_amount_from_storage,
+)
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
 
@@ -657,7 +662,7 @@ async def get_users_stats(
         users_with_trial=users_with_trial,
         users_with_expired_subscription=users_with_expired,
         total_balance_kopeks=total_balance,
-        total_balance_rubles=total_balance / 100,
+        total_balance_rubles=display_balance_from_storage(total_balance),
         avg_balance_kopeks=avg_balance,
         active_today=active_today,
         active_week=active_week,
@@ -737,7 +742,13 @@ async def get_user_detail(
 
     # Get recent transactions
     transactions_q = (
-        select(Transaction).where(Transaction.user_id == user.id).order_by(Transaction.created_at.desc()).limit(20)
+        select(Transaction)
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.created_at >= settings.balance_toman_cutoff,
+        )
+        .order_by(Transaction.created_at.desc())
+        .limit(20)
     )
     transactions_result = await db.execute(transactions_q)
     transactions = transactions_result.scalars().all()
@@ -753,7 +764,11 @@ async def get_user_detail(
             id=t.id,
             type=t.type,
             amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
+            amount_rubles=(
+                -abs(display_transaction_amount_from_storage(t.amount_kopeks, t.type))
+                if t.type in _EXPENSE_TYPES
+                else display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+            ),
             description=t.description,
             payment_method=t.payment_method,
             is_completed=t.is_completed,
@@ -1083,12 +1098,17 @@ async def update_user_balance(
 
     old_balance = user.balance_kopeks
 
-    if request.amount_kopeks >= 0:
+    if request.amount_kopeks is not None:
+        amount_kopeks = request.amount_kopeks
+    else:
+        amount_kopeks = balance_from_display_amount(request.amount_display)
+
+    if amount_kopeks >= 0:
         # Add balance
         success = await add_user_balance(
             db=db,
             user=user,
-            amount_kopeks=request.amount_kopeks,
+            amount_kopeks=amount_kopeks,
             description=request.description,
             create_transaction=request.create_transaction,
             transaction_type=TransactionType.DEPOSIT,
@@ -1096,7 +1116,7 @@ async def update_user_balance(
         )
     else:
         # Subtract balance
-        amount_to_subtract = abs(request.amount_kopeks)
+        amount_to_subtract = abs(amount_kopeks)
         if user.balance_kopeks < amount_to_subtract:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1126,14 +1146,17 @@ async def update_user_balance(
         user_id=user_id,
         old_balance=old_balance,
         balance_kopeks=user.balance_kopeks,
-        amount_kopeks=format(request.amount_kopeks, '+d'),
+        amount_kopeks=format(amount_kopeks, '+d'),
     )
 
     return UpdateBalanceResponse(
         success=True,
         old_balance_kopeks=old_balance,
         new_balance_kopeks=user.balance_kopeks,
-        message=f'Balance updated: {old_balance / 100:.2f}₽ -> {user.balance_kopeks / 100:.2f}₽',
+        message=(
+            f'Balance updated: {settings.format_balance(old_balance)} -> '
+            f'{settings.format_balance(user.balance_kopeks)}'
+        ),
     )
 
 
@@ -2864,13 +2887,19 @@ async def get_user_transactions(
             detail='User not found',
         )
 
-    query = select(Transaction).where(Transaction.user_id == user.id)
+    query = select(Transaction).where(
+        Transaction.user_id == user.id,
+        Transaction.created_at >= settings.balance_toman_cutoff,
+    )
 
     if transaction_type:
         query = query.where(Transaction.type == transaction_type)
 
     # Get total count
-    count_query = select(func.count(Transaction.id)).where(Transaction.user_id == user.id)
+    count_query = select(func.count(Transaction.id)).where(
+        Transaction.user_id == user.id,
+        Transaction.created_at >= settings.balance_toman_cutoff,
+    )
     if transaction_type:
         count_query = count_query.where(Transaction.type == transaction_type)
     total = (await db.execute(count_query)).scalar() or 0
@@ -2891,7 +2920,11 @@ async def get_user_transactions(
             id=t.id,
             type=t.type,
             amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
+            amount_rubles=(
+                -abs(display_transaction_amount_from_storage(t.amount_kopeks, t.type))
+                if t.type in _EXPENSE_TYPES
+                else display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+            ),
             description=t.description,
             payment_method=t.payment_method,
             is_completed=t.is_completed,

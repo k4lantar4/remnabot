@@ -151,7 +151,7 @@ async def preview_tariff_switch(
         'balance_kopeks': balance,
         # Когда есть нехватка <1₽ (FX-rounding), показ копеек обязателен — без него
         # юзер видит "Баланс 150 ₽, не хватает 0 ₽" и думает что баг.
-        'balance_label': settings.format_price(balance, round_kopeks=False),
+        'balance_label': settings.format_balance(balance),
         'has_enough_balance': has_enough,
         'missing_amount_kopeks': missing,
         'missing_amount_label': settings.format_price(missing, round_kopeks=False) if missing > 0 else '',
@@ -542,7 +542,7 @@ async def switch_tariff(
         'new_tariff_name': new_tariff.name,
         'charged_kopeks': upgrade_cost,
         'balance_kopeks': user.balance_kopeks,
-        'balance_label': settings.format_price(user.balance_kopeks),
+        'balance_label': settings.format_balance(user.balance_kopeks),
     }
 
     # Add discount info if applicable

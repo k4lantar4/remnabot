@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class UserStatusEnum(StrEnum):
@@ -289,11 +289,26 @@ class UserNodeUsageResponse(BaseModel):
 class UpdateBalanceRequest(BaseModel):
     """Request to update user balance."""
 
-    amount_kopeks: int = Field(
-        ..., ge=-2_000_000_000, le=2_000_000_000, description='Amount in kopeks (positive to add, negative to subtract)'
+    amount_kopeks: int | None = Field(
+        default=None,
+        ge=-2_000_000_000,
+        le=2_000_000_000,
+        description='Amount in kopeks (positive to add, negative to subtract)',
+    )
+    amount_display: float | None = Field(
+        default=None,
+        description='Display unit (Toman factor 1): same number the user sees in balance_rubles / balance_label',
     )
     description: str = Field(default='Admin balance adjustment', max_length=500)
     create_transaction: bool = Field(default=True, description='Create transaction record')
+
+    @model_validator(mode='after')
+    def _exactly_one_amount(self):
+        has_kopeks = self.amount_kopeks is not None
+        has_display = self.amount_display is not None
+        if has_kopeks == has_display:
+            raise ValueError('Exactly one of amount_kopeks or amount_display must be provided')
+        return self
 
 
 class UpdateBalanceResponse(BaseModel):

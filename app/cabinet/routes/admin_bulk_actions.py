@@ -10,6 +10,7 @@ from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.utils.price_display import balance_from_display_amount
 from app.database.crud.subscription import (
     add_subscription_traffic,
     create_paid_subscription,
@@ -83,12 +84,25 @@ def _require_traffic_gb(params: BulkActionParams) -> int:
 
 
 def _require_amount_kopeks(params: BulkActionParams) -> int:
-    if not params.amount_kopeks or params.amount_kopeks <= 0:
+    if params.amount_kopeks is not None and params.amount_display is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='params.amount_kopeks must be a positive integer for add_balance action',
+            detail='Provide only one of params.amount_kopeks or params.amount_display for add_balance',
         )
-    return params.amount_kopeks
+    if params.amount_kopeks is not None and params.amount_kopeks > 0:
+        return params.amount_kopeks
+    if params.amount_display is not None and params.amount_display > 0:
+        kopeks = balance_from_display_amount(params.amount_display)
+        if kopeks <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='params.amount_display must convert to a positive kopeks amount',
+            )
+        return kopeks
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail='params.amount_kopeks or params.amount_display must be provided for add_balance action',
+    )
 
 
 def _require_device_limit(params: BulkActionParams) -> int:
@@ -394,7 +408,7 @@ async def _do_add_balance(
         return BulkUserResult(
             user_id=user.id,
             success=True,
-            message=f'Would add {amount_kopeks / 100:.2f}₽ to balance',
+            message=f'Would add {settings.format_balance(amount_kopeks)} to balance',
             username=user.username,
         )
 
@@ -418,7 +432,7 @@ async def _do_add_balance(
     return BulkUserResult(
         user_id=user.id,
         success=True,
-        message=f'Added {amount_kopeks / 100:.2f}₽ to balance',
+        message=f'Added {settings.format_balance(amount_kopeks)} to balance',
         username=user.username,
     )
 

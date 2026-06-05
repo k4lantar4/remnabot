@@ -496,7 +496,7 @@ def _build_user_button_label(user: User) -> str:
 
     balance = getattr(user, 'balance_kopeks', 0)
     if balance:
-        parts.append(f'💰 {settings.format_price(balance)}')
+        parts.append(f'💰 {settings.format_balance(balance)}')
 
     return ' '.join(parts)
 
@@ -1463,7 +1463,7 @@ async def show_selected_user_details(
     if balance:
         lines.append(
             texts.t('ADMIN_PROMO_OFFER_SEND_USER_BALANCE', 'Баланс: {amount}').format(
-                amount=settings.format_price(balance)
+                amount=settings.format_balance(balance)
             )
         )
 

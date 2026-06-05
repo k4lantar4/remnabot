@@ -2,7 +2,7 @@ import html
 import os
 import re
 from collections import defaultdict
-from datetime import time
+from datetime import UTC, datetime, time
 from pathlib import Path
 from typing import ClassVar, Literal
 from urllib.parse import quote as _url_quote, urlparse
@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     LOCALES_PATH: str = './locales'
 
     TIMEZONE: str = Field(default_factory=lambda: os.getenv('TZ', 'UTC'))
+    BALANCE_TOMAN_CUTOFF_UTC: str = '2026-06-05T00:00:00Z'
 
     # strftime pattern used to render datetime values that flow into
     # email templates (subscription_expiring, subscription_renewed,
@@ -1769,6 +1770,33 @@ class Settings(BaseSettings):
             return f'{value}{suffix}'
 
         return f'{sign}{rubles}{suffix}'
+
+    def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
+        lang = (language or 'fa').split('-')[0].lower()
+        if lang == 'fa':
+            return f'{abs_amount:,}'.replace(',', '\u066c')
+        if lang in ('ru', 'ua'):
+            return f'{abs_amount:,}'.replace(',', '\u00a0')
+        return f'{abs_amount:,}'
+
+    def format_balance(self, amount_toman: int, language: str | None = None) -> str:
+        """
+        Format stored balance integer (Toman 1:1) for user display.
+
+        Unlike format_price, does not divide by 100. Persian users get fa-IR-style grouping.
+        """
+        sign = '-' if amount_toman < 0 else ''
+        suffix = self._price_display_suffix()
+        grouped = self._group_balance_digits(abs(amount_toman), language)
+        return f'{sign}{grouped}{suffix}'
+
+    @property
+    def balance_toman_cutoff(self) -> datetime:
+        """UTC datetime: transactions before this use pre-Phase-B storage scale."""
+        raw = self.BALANCE_TOMAN_CUTOFF_UTC.strip()
+        if raw.endswith('Z'):
+            raw = f'{raw[:-1]}+00:00'
+        return datetime.fromisoformat(raw).astimezone(UTC)
 
     def get_reports_chat_id(self) -> str | None:
         if self.ADMIN_REPORTS_CHAT_ID:

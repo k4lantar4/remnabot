@@ -399,7 +399,7 @@ async def confirm_change_devices(
                 ),
             ).format(
                 required=required_text,
-                balance=texts.format_price(db_user.balance_kopeks),
+                balance=texts.format_balance(db_user.balance_kopeks),
                 missing=texts.format_price(missing_kopeks),
             )
 
@@ -1605,7 +1605,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks),
+            balance=texts.format_balance(db_user.balance_kopeks),
             missing=texts.format_price(missing_kopeks),
         )
 

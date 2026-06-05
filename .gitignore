@@ -11,6 +11,7 @@
 !Dockerfile
 !docker-compose.yml
 !docker-compose.local.yml
+!docker-compose.dev.example.yml
 !Makefile
 !pyproject.toml
 !uv.lock
@@ -55,6 +56,8 @@
 !.cursor/rules/**
 !.cursor/plans/
 !.cursor/plans/**
+!caddy-remnawave/
+!caddy-remnawave/**
 
 # ========== BLACKLIST: игнорируемые внутри папок ==========
 

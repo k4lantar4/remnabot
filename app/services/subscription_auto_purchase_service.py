@@ -2831,7 +2831,7 @@ async def try_resume_disabled_daily_after_topup(
             ).format(
                 tariff_name=html.escape(tariff.name),
                 amount=settings.format_price(daily_price),
-                balance=settings.format_price(user.balance_kopeks),
+                balance=settings.format_balance(user.balance_kopeks),
             )
 
             keyboard = InlineKeyboardMarkup(

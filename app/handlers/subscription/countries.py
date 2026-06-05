@@ -350,7 +350,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+            balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
 
@@ -918,7 +918,7 @@ async def confirm_add_countries_to_subscription(
             ),
         ).format(
             required=texts.format_price(total_price, round_kopeks=False),
-            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+            balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
 

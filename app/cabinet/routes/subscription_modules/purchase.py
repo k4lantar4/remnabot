@@ -31,6 +31,7 @@ from app.database.crud.subscription import (
 from app.database.crud.tariff import get_tariff_by_id, get_tariffs_for_user
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import PaymentMethod, Subscription, Tariff, TransactionType, User
 from app.services.notification_delivery_service import (
     NotificationType,
@@ -346,7 +347,7 @@ async def get_purchase_options(
                 'tariffs': tariff_responses,
                 'current_tariff_id': current_tariff_id,
                 'balance_kopeks': user.balance_kopeks,
-                'balance_label': settings.format_price(user.balance_kopeks),
+                'balance_label': settings.format_balance(user.balance_kopeks),
                 # Include subscription status info for frontend decision making
                 'subscription_status': subscription_status,
                 'subscription_is_expired': subscription_is_expired,
@@ -733,8 +734,8 @@ async def purchase_tariff(
             )
 
         # Check balance
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-            missing = price_kopeks - user.balance_kopeks
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+            missing = max(0, catalog_price_in_toman(price_kopeks) - user.balance_kopeks)
 
             # Save cart for auto-purchase after balance top-up
             if is_daily_tariff:
@@ -817,7 +818,7 @@ async def purchase_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             description,
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -1011,7 +1012,7 @@ async def purchase_tariff(
             'charged_amount': price_kopeks,
             'charged_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
-            'balance_label': settings.format_price(user.balance_kopeks),
+            'balance_label': settings.format_balance(user.balance_kopeks),
         }
 
         # Add discount info if discount was applied
@@ -1230,16 +1231,16 @@ async def activate_trial(
         from app.database.crud.user import subtract_user_balance
 
         price_kopeks = settings.TRIAL_ACTIVATION_PRICE
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Insufficient balance. Need {price_kopeks / 100:.2f} RUB',
+                detail=f'Insufficient balance. Need {settings.format_price(price_kopeks)}',
             )
         trial_description = 'Активация триальной подписки'
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             trial_description,
             mark_as_paid_subscription=True,
         )

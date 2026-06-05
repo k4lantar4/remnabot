@@ -28,6 +28,7 @@ from app.services.payment_verification_service import (
     run_manual_check,
 )
 from app.utils.currency_converter import currency_converter
+from app.utils.price_display import display_balance_from_storage, display_transaction_amount_from_storage
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -66,7 +67,7 @@ async def get_balance(
 
     return BalanceResponse(
         balance_kopeks=fresh_user.balance_kopeks,
-        balance_rubles=fresh_user.balance_kopeks / 100,
+        balance_rubles=display_balance_from_storage(fresh_user.balance_kopeks),
     )
 
 
@@ -79,15 +80,18 @@ async def get_transactions(
     db: AsyncSession = Depends(get_cabinet_db),
 ):
     """Get transaction history."""
+    cutoff = settings.balance_toman_cutoff
     # Base query
-    query = select(Transaction).where(Transaction.user_id == user.id)
+    query = select(Transaction).where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
 
     # Filter by type
     if type:
         query = query.where(Transaction.type == type)
 
     # Get total count
-    count_query = select(func.count()).select_from(Transaction).where(Transaction.user_id == user.id)
+    count_query = (
+        select(func.count()).select_from(Transaction).where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
+    )
     if type:
         count_query = count_query.where(Transaction.type == type)
 
@@ -114,7 +118,7 @@ async def get_transactions(
                 id=t.id,
                 type=t.type,
                 amount_kopeks=amount_kopeks,
-                amount_rubles=amount_kopeks / 100,
+                amount_rubles=display_transaction_amount_from_storage(amount_kopeks, t.type),
                 description=t.description,
                 payment_method=t.payment_method,
                 is_completed=t.is_completed,

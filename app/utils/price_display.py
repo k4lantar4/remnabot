@@ -5,9 +5,11 @@ This module provides a centralized way to:
 - Calculate prices with all applicable discounts (promo groups, promo offers)
 - Format price buttons consistently across all flows
 - Ensure uniform discount display throughout the application
+- Convert between stored kopeks and user-facing display amounts (÷100 / ×100)
 """
 
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import structlog
 
@@ -16,6 +18,93 @@ from app.database.models import User
 
 
 logger = structlog.get_logger(__name__)
+
+
+def display_amount_from_kopeks(kopeks: int) -> float:
+    """User-facing display unit for catalog prices (kopeks ÷ 100)."""
+    return kopeks / 100
+
+
+def display_balance_from_storage(amount_toman: int) -> float:
+    """API balance_rubles: stored integer is Toman 1:1 (Phase B)."""
+    return float(amount_toman)
+
+
+# Balance movements stored 1:1 with balance_kopeks after Phase B.
+# Catalog charges (subscription/gift) stay on price_kopeks scale until Phase C.
+_BALANCE_SCALE_TRANSACTION_TYPES = frozenset(
+    {
+        'deposit',
+        'withdrawal',
+        'refund',
+        'failed_refund',
+        'referral_reward',
+        'poll_reward',
+    }
+)
+
+
+def is_balance_scale_transaction(tx_type: str) -> bool:
+    """True when transaction.amount_kopeks uses balance Toman 1:1 storage."""
+    return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES
+
+
+def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) -> float:
+    """
+    User-facing amount_rubles for a transaction row.
+
+    Balance-scale types: 1:1 Toman (Phase B). Catalog-scale types: ÷100 (Phase C).
+    """
+    abs_amount = abs(amount_kopeks)
+    if is_balance_scale_transaction(tx_type):
+        value = float(abs_amount)
+    else:
+        value = abs_amount / 100
+    return -value if amount_kopeks < 0 else value
+
+
+def catalog_price_in_toman(price_kopeks: int) -> int:
+    """Convert catalog price_kopeks to Toman for balance comparison/charge."""
+    return price_kopeks // 100
+
+
+def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
+    """True when stored balance (Toman) covers catalog price."""
+    return balance_toman >= catalog_price_in_toman(price_kopeks)
+
+
+def balance_from_display_amount(amount: float | Decimal) -> int:
+    """
+    Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).
+
+    Preserves sign (e.g. -50 display → -50 stored).
+    """
+    decimal_amount = Decimal(str(amount))
+    sign = -1 if decimal_amount < 0 else 1
+    decimal_amount = abs(decimal_amount)
+    try:
+        decimal_amount = decimal_amount.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    toman = int(decimal_amount.to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * toman
+
+
+def kopeks_from_display_amount(amount: float | Decimal) -> int:
+    """
+    Convert display unit to kopeks (single ×100, ROUND_HALF_UP).
+
+    Preserves sign for negative adjustments (e.g. -50 display → -5000 kopeks).
+    """
+    decimal_amount = Decimal(str(amount))
+    sign = -1 if decimal_amount < 0 else 1
+    decimal_amount = abs(decimal_amount)
+    try:
+        decimal_amount = decimal_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    kopeks = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * kopeks
 
 
 @dataclass

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PromoGroupSummary(BaseModel):
@@ -86,9 +86,26 @@ class UserUpdateRequest(BaseModel):
 
 
 class BalanceUpdateRequest(BaseModel):
-    amount_kopeks: int = Field(..., ge=-100_000_000, le=100_000_000)
+    amount_kopeks: int | None = Field(
+        default=None,
+        ge=-100_000_000,
+        le=100_000_000,
+        description='Amount in stored balance units (Toman integer, 1:1)',
+    )
+    amount_display: float | None = Field(
+        default=None,
+        description='Display unit (Toman factor 1): same number shown in balance_rubles',
+    )
     description: str | None = Field(default='Корректировка через веб-API')
     create_transaction: bool = True
+
+    @model_validator(mode='after')
+    def _exactly_one_amount(self):
+        has_kopeks = self.amount_kopeks is not None
+        has_display = self.amount_display is not None
+        if has_kopeks == has_display:
+            raise ValueError('Exactly one of amount_kopeks or amount_display must be provided')
+        return self
 
 
 class UserSubscriptionCreateRequest(BaseModel):

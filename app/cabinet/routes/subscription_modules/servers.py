@@ -13,6 +13,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import User
 from app.services.subscription_service import SubscriptionService
 
@@ -195,15 +197,18 @@ async def update_countries(
             removed_names.append(server.display_name)
 
     # Check balance
-    if total_cost > 0 and user.balance_kopeks < total_cost:
+    if total_cost > 0 and not user_can_afford(user.balance_kopeks, total_cost):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f'Insufficient balance. Need {total_cost / 100:.2f} RUB, have {user.balance_kopeks / 100:.2f} RUB',
+            detail=(
+                f'Insufficient balance. Need {settings.format_price(total_cost)}, '
+                f'have {settings.format_balance(user.balance_kopeks)}'
+            ),
         )
 
     # Deduct balance and update subscription
     if added and total_cost > 0:
-        success = await subtract_user_balance(db, user, total_cost, f'Adding countries: {", ".join(added_names)}')
+        success = await subtract_user_balance(db, user, catalog_price_in_toman(total_cost), f'Adding countries: {", ".join(added_names)}')
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

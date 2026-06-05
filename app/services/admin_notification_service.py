@@ -724,7 +724,7 @@ class AdminNotificationService:
             # Баланс после покупки
             message_lines.append(
                 notify_texts.t('ADMIN_NOTIFY_BALANCE_LINE', '💰 Баланс: {balance}').format(
-                    balance=settings.format_price(user.balance_kopeks)
+                    balance=settings.format_balance(user.balance_kopeks)
                 )
             )
 
@@ -910,9 +910,9 @@ class AdminNotificationService:
                     'ADMIN_NOTIFY_TOPUP_BALANCE_CHANGE',
                     '📉 {old} → 📈 {new} (<b>+{delta}</b>)',
                 ).format(
-                    old=settings.format_price(old_balance),
-                    new=settings.format_price(user.balance_kopeks),
-                    delta=settings.format_price(balance_change),
+                    old=settings.format_balance(old_balance),
+                    new=settings.format_balance(user.balance_kopeks),
+                    delta=settings.format_balance(balance_change),
                 ),
             ]
         )
@@ -1221,7 +1221,7 @@ class AdminNotificationService:
                     notify_texts.t('ADMIN_NOTIFY_RENEWAL_SERVERS', '🌐 Серверы: {servers}').format(servers=servers_info),
                     '',
                     notify_texts.t('ADMIN_NOTIFY_RENEWAL_BALANCE_AFTER', '💰 <b>Баланс после операции:</b> {balance}').format(
-                        balance=settings.format_price(current_balance)
+                        balance=settings.format_balance(current_balance)
                     ),
                     '',
                     f'<i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
@@ -1364,8 +1364,8 @@ class AdminNotificationService:
 
             balance_line = (
                 notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_CHANGE', '{before} → {after}').format(
-                    before=settings.format_price(balance_before_kopeks),
-                    after=settings.format_price(balance_after_kopeks),
+                    before=settings.format_balance(balance_before_kopeks),
+                    after=settings.format_balance(balance_after_kopeks),
                 )
                 if balance_before_kopeks is not None and balance_after_kopeks is not None
                 else notify_texts.t('ADMIN_NOTIFY_PROMOCODE_BALANCE_UNCHANGED', 'ℹ️ Баланс не изменился')
@@ -1723,7 +1723,7 @@ class AdminNotificationService:
                 [
                     '',
                     notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_BALANCE', '💰 Баланс пользователя: {balance}').format(
-                        balance=settings.format_price(user.balance_kopeks)
+                        balance=settings.format_balance(user.balance_kopeks)
                     ),
                     f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
                 ]
@@ -2525,7 +2525,7 @@ class AdminNotificationService:
                         date=format_local_datetime(subscription.end_date, '%d.%m.%Y')
                     ),
                     notify_texts.t('ADMIN_NOTIFY_ADDON_BALANCE', '💰 Баланс: {balance}').format(
-                        balance=settings.format_price(user.balance_kopeks)
+                        balance=settings.format_balance(user.balance_kopeks)
                     ),
                 ]
             )
@@ -2705,7 +2705,7 @@ class AdminNotificationService:
                         amount=settings.format_price(amount_kopeks)
                     ),
                     notify_texts.t('ADMIN_NOTIFY_WITHDRAWAL_BALANCE', '💰 Баланс: {balance}').format(
-                        balance=settings.format_price(user.balance_kopeks)
+                        balance=settings.format_balance(user.balance_kopeks)
                     ),
                 ]
             )

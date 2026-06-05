@@ -2013,7 +2013,8 @@ class User(Base):
 
     @property
     def balance_rubles(self) -> float:
-        return self.balance_kopeks / 100
+        """Display Toman: balance_kopeks column stores integer Toman 1:1 (Phase B)."""
+        return float(self.balance_kopeks)
 
     @property
     def full_name(self) -> str:

@@ -105,7 +105,7 @@ async def get_referral_info(
         total_earnings_rubles=total_earnings / 100,
         commission_percent=commission_percent,
         available_balance_kopeks=available_balance,
-        available_balance_rubles=available_balance / 100,
+        available_balance_rubles=float(available_balance),
         withdrawn_kopeks=withdrawn,
     )
 

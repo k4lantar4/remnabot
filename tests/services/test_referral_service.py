@@ -11,6 +11,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.services import referral_service
+from app.utils.price_display import catalog_price_in_toman
 
 
 async def test_commission_accrues_before_minimum_first_topup(monkeypatch):
@@ -59,14 +60,14 @@ async def test_commission_accrues_before_minimum_first_topup(monkeypatch):
     add_call = add_user_balance_mock.await_args
     assert add_call is not None
     assert add_call.args[1] is referrer
-    assert add_call.args[2] == 3750
+    assert add_call.args[2] == 37
     assert 'Комиссия' in add_call.args[3]
     assert add_call.kwargs.get('bot') is None
 
     create_referral_earning_mock.assert_awaited_once()
     earning_call = create_referral_earning_mock.await_args
     assert earning_call is not None
-    assert earning_call.kwargs['amount_kopeks'] == 3750
+    assert earning_call.kwargs['amount_kopeks'] == 37
     assert earning_call.kwargs['reason'] == 'referral_commission_topup'
 
 
@@ -119,14 +120,14 @@ async def test_first_topup_inviter_gets_fixed_plus_commission(monkeypatch):
     # add_user_balance called twice: first for referral's own bonus, then for inviter bonus
     assert add_user_balance_mock.await_count == 2
 
-    # Second call is the inviter bonus: fixed 5000 + commission 15% of 50000 = 7500 → total 12500
+    # Second call is the inviter bonus: fixed 50 Toman + commission 15% of 500 Toman = 75 → total 125
     inviter_call = add_user_balance_mock.await_args_list[1]
-    expected_commission = int(50000 * 15 / 100)  # 7500
-    expected_inviter_bonus = 5000 + expected_commission  # 12500
+    expected_commission = int(catalog_price_in_toman(50000) * 15 / 100)  # 75
+    expected_inviter_bonus = catalog_price_in_toman(5000) + expected_commission  # 125
     assert inviter_call.args[2] == expected_inviter_bonus
 
     # With old max() logic, this would have been max(5000, 7500) = 7500 — wrong!
-    assert expected_inviter_bonus == 12500
+    assert expected_inviter_bonus == 125
 
 
 async def test_first_payment_commission_percent_overrides_flat_percent(monkeypatch):
@@ -210,7 +211,7 @@ async def test_second_small_topup_uses_recurring_tier_not_first_payment_percent(
     add_user_balance_mock.assert_awaited_once()
     add_call = add_user_balance_mock.await_args
     assert add_call is not None
-    assert add_call.args[2] == 2250
+    assert add_call.args[2] == 22
     assert 'Комиссия 15%' in add_call.args[3]
 
 
