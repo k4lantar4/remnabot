@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.crud.transaction import create_transaction, get_transaction_by_external_id
 from app.database.crud.user import add_user_balance, get_user_by_id, lock_user_for_update
+from app.utils.price_display import catalog_price_in_toman
 from app.database.models import C2cReceipt, C2cReceiptStatus, PaymentMethod, Transaction, TransactionType, User
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.constants import (
@@ -186,11 +187,12 @@ class C2cPaymentService:
         description = (
             f'Card-to-card top-up: {settings.format_price(receipt.amount_kopeks)} (receipt #{receipt_id})'
         )
+        balance_credit_toman = catalog_price_in_toman(receipt.amount_kopeks)
 
         credited = await add_user_balance(
             db,
             user,
-            receipt.amount_kopeks,
+            balance_credit_toman,
             description=description,
             create_transaction=False,
             payment_method=PaymentMethod.C2C,
@@ -204,7 +206,7 @@ class C2cPaymentService:
             db=db,
             user_id=user.id,
             type=TransactionType.DEPOSIT,
-            amount_kopeks=receipt.amount_kopeks,
+            amount_kopeks=balance_credit_toman,
             description=description,
             payment_method=PaymentMethod.C2C,
             external_id=c2c_external_id(receipt_id),
