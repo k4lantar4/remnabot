@@ -499,7 +499,7 @@ async def _apply_campaign_bonus_if_needed(
             )
 
     if result.bonus_type == 'balance':
-        amount_text = texts.format_price(result.balance_kopeks)
+        amount_text = texts.format_balance(result.balance_kopeks)
         return texts.CAMPAIGN_BONUS_BALANCE.format(
             amount=amount_text,
             name=html.escape(campaign.name),

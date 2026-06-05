@@ -885,7 +885,7 @@ async def process_test_referral_earning(message: types.Message, db_user: User, d
             else texts.t('ADMIN_REFERRAL_TEST_NO_NAME', 'Без имени'),
             tg_id=target_telegram_id,
             amount=f'{amount_rubles:.0f}',
-            balance=f'{target_user.balance_kopeks / 100:.0f}',
+            balance=settings.format_balance(target_user.balance_kopeks),
         ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[

@@ -205,7 +205,7 @@ async def start_simple_subscription_purchase(
                 cost=settings.format_price(price_kopeks)
             ),
             texts.t('SIMPLE_SUBSCRIPTION_BALANCE', '💳 Ваш баланс: {balance}').format(
-                balance=settings.format_price(user_balance_kopeks)
+                balance=settings.format_balance(user_balance_kopeks)
             ),
             '',
         ]
@@ -616,7 +616,7 @@ async def handle_simple_subscription_pay_with_balance(
                 f'🌍 Сервер: {server_label}',
                 '',
                 f'💰 Списано с баланса: {settings.format_price(price_kopeks)}',
-                f'💳 Ваш баланс: {settings.format_price(db_user.balance_kopeks)}',
+                f'💳 Ваш баланс: {settings.format_balance(db_user.balance_kopeks)}',
                 '',
                 "🔗 Для подключения перейдите в раздел 'Подключиться'",
             ]
@@ -2417,7 +2417,7 @@ async def confirm_simple_subscription_purchase(
                 f'🌍 Сервер: {server_label}',
                 '',
                 f'💰 Списано с баланса: {settings.format_price(price_kopeks)}',
-                f'💳 Ваш баланс: {settings.format_price(db_user.balance_kopeks)}',
+                f'💳 Ваш баланс: {settings.format_balance(db_user.balance_kopeks)}',
                 '',
                 "🔗 Для подключения перейдите в раздел 'Подключиться'",
             ]

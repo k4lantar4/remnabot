@@ -323,7 +323,7 @@ class DailySubscriptionService:
         """Уведомляет пользователя о суточном списании."""
         get_texts(getattr(user, 'language', 'ru'))
         amount_rubles = amount_kopeks / 100
-        balance_rubles = user.balance_kopeks / 100
+        balance_rubles = float(user.balance_kopeks)
 
         tariff_label = ''
         if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
@@ -353,7 +353,7 @@ class DailySubscriptionService:
 
         get_texts(getattr(user, 'language', 'ru'))
         required_rubles = required_amount / 100
-        balance_rubles = user.balance_kopeks / 100
+        balance_rubles = float(user.balance_kopeks)
 
         tariff_label = ''
         if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:

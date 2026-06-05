@@ -238,7 +238,7 @@ async def show_balance_menu(callback: types.CallbackQuery, db_user: User, db: As
 
     texts = get_texts(db_user.language)
 
-    balance_text = texts.BALANCE_INFO.format(balance=texts.format_price(db_user.balance_kopeks))
+    balance_text = texts.BALANCE_INFO.format(balance=texts.format_balance(db_user.balance_kopeks))
 
     reply_markup = get_balance_keyboard(db_user.language)
 
@@ -480,7 +480,7 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                     'Средств на балансе достаточно для оформления.',
                 ).format(
                     amount=texts.format_price(amount_kopeks),
-                    balance=texts.format_price(user.balance_kopeks),
+                    balance=texts.format_balance(user.balance_kopeks),
                     cart_total=texts.format_price(total_price),
                 )
             else:
@@ -492,7 +492,7 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                     'Не хватает: {missing}',
                 ).format(
                     amount=texts.format_price(amount_kopeks),
-                    balance=texts.format_price(user.balance_kopeks),
+                    balance=texts.format_balance(user.balance_kopeks),
                     cart_total=texts.format_price(total_price),
                     missing=texts.format_price(missing, round_kopeks=False),
                 )

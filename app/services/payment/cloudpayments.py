@@ -476,7 +476,7 @@ class CloudPaymentsPaymentMixin:
         referrer_info = format_referrer_info(user)
 
         amount_rub = amount_kopeks / 100
-        new_balance = user.balance_kopeks / 100
+        new_balance = float(user.balance_kopeks)
 
         message = texts.t(
             'PAYMENT_SUCCESS_CLOUDPAYMENTS',

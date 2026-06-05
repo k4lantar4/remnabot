@@ -304,7 +304,7 @@ async def handle_reset_traffic(
 
     # Формируем текст о балансе
     balance_info = texts.t('TRAFFIC_RESET_BALANCE_LINE', '\n\n💰 На балансе: {balance}').format(
-        balance=texts.format_price(db_user.balance_kopeks)
+        balance=texts.format_balance(db_user.balance_kopeks)
     )
     if not has_enough_balance:
         balance_info += texts.t('TRAFFIC_RESET_MISSING_LINE', '\n⚠️ Не хватает: {missing}').format(
@@ -387,7 +387,7 @@ async def confirm_reset_traffic(
             ),
         ).format(
             required=texts.format_price(reset_price, round_kopeks=False),
-            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+            balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
 
@@ -664,7 +664,7 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
             ),
         ).format(
             required=texts.format_price(price, round_kopeks=False),
-            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+            balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
 
@@ -947,7 +947,7 @@ async def confirm_switch_traffic(
                 ),
             ).format(
                 required=f'{texts.format_price(total_price_difference)}{period_suffix}',
-                balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+                balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
                 missing=texts.format_price(missing_kopeks, round_kopeks=False),
             )
 

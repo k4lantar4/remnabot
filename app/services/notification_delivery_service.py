@@ -362,7 +362,7 @@ class NotificationDeliveryService:
                 if context.get('formatted_balance'):
                     context['balance'] = context['formatted_balance']
                 elif 'new_balance_kopeks' in context:
-                    context['balance'] = settings.format_price(context['new_balance_kopeks'])
+                    context['balance'] = settings.format_balance(context['new_balance_kopeks'])
             if 'reason' not in context and context.get('comment'):
                 context['reason'] = context['comment']
 
@@ -449,9 +449,9 @@ class NotificationDeliveryService:
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks / 100,
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': float(new_balance_kopeks),
             'formatted_amount': settings.format_price(amount_kopeks),
-            'formatted_balance': settings.format_price(new_balance_kopeks),
+            'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 
         return await self.send_notification(
@@ -726,8 +726,8 @@ class NotificationDeliveryService:
             'amount_rubles': amount_kopeks / 100,
             'formatted_amount': settings.format_price(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
-            'formatted_balance': settings.format_price(new_balance_kopeks),
+            'new_balance_rubles': float(new_balance_kopeks),
+            'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 
         return await self.send_notification(

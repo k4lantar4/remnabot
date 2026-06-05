@@ -950,7 +950,7 @@ class MenuLayoutService:
         """Форматировать динамический текст с плейсхолдерами."""
         # Баланс
         if '{balance}' in text:
-            formatted_balance = texts.format_price(context.balance_kopeks)
+            formatted_balance = texts.format_balance(context.balance_kopeks)
             text = text.replace('{balance}', formatted_balance)
 
         # Имя пользователя

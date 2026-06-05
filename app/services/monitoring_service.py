@@ -1644,7 +1644,7 @@ class MonitoringService:
                 action_text = texts.t(
                     'AUTOPAY_ACTION_CHECK_BALANCE',
                     '💰 Убедитесь, что на балансе достаточно средств: {balance}',
-                ).format(balance=texts.format_price(user.balance_kopeks))
+                ).format(balance=texts.format_balance(user.balance_kopeks))
             elif subscription.autopay_enabled:
                 autopay_status = texts.t(
                     'AUTOPAY_STATUS_NO_CARD',
@@ -1653,7 +1653,7 @@ class MonitoringService:
                 action_text = texts.t(
                     'AUTOPAY_ACTION_CHECK_BALANCE',
                     '💰 Убедитесь, что на балансе достаточно средств: {balance}',
-                ).format(balance=texts.format_price(user.balance_kopeks))
+                ).format(balance=texts.format_balance(user.balance_kopeks))
             else:
                 autopay_status = texts.t(
                     'AUTOPAY_STATUS_OFF',
@@ -2103,7 +2103,7 @@ class MonitoringService:
         try:
             texts = get_texts(user.language)
             message = texts.AUTOPAY_FAILED.format(
-                balance=settings.format_price(balance), required=settings.format_price(required)
+                balance=settings.format_balance(balance), required=settings.format_price(required)
             )
             if (
                 settings.is_multi_tariff_enabled()

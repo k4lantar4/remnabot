@@ -52,7 +52,7 @@ from app.utils.formatting import user_html_link
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
-from app.utils.price_display import kopeks_from_display_amount
+from app.utils.price_display import balance_from_display_amount
 from app.utils.user_utils import get_effective_referral_commission_percent
 
 
@@ -151,7 +151,7 @@ def _build_user_button_text(
     if filter_type == UserFilterType.BALANCE:
         button_text = f'{status_emoji} {sub_emoji} {user.full_name}'
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
         # Use first active subscription from subscriptions list
         first_sub = next((s for s in (getattr(user, 'subscriptions', None) or []) if s.is_active), None)
         if first_sub and first_sub.end_date:
@@ -180,7 +180,7 @@ def _build_user_button_text(
         if filter_type == UserFilterType.BALANCE:
             button_text = f'{status_emoji} {sub_emoji} {short_name}'
             if user.balance_kopeks > 0:
-                button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+                button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
         else:
             button_text = f'{status_emoji} {short_name}'
 
@@ -386,7 +386,7 @@ async def show_users_list(
         button_text = f'{status_emoji} {subscription_emoji} {user.full_name}'
 
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         button_text += f' | 📅 {format_time_ago(user.created_at, db_user.language)}'
 
@@ -397,7 +397,7 @@ async def show_users_list(
 
             button_text = f'{status_emoji} {subscription_emoji} {short_name}'
             if user.balance_kopeks > 0:
-                button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+                button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         keyboard.append([types.InlineKeyboardButton(text=button_text, callback_data=f'admin_user_manage_{user.id}')])
 
@@ -512,7 +512,7 @@ async def show_users_ready_to_renew(
 
         button_text = (
             f'{status_emoji} {subscription_emoji} {user.full_name}'
-            f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            f' | 💰 {settings.format_balance(user.balance_kopeks)}'
             f' | ⏰ {expired_days}д ист.'
         )
 
@@ -521,7 +521,7 @@ async def show_users_ready_to_renew(
             if len(short_name) > 20:
                 short_name = short_name[:17] + '...'
             button_text = (
-                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
             )
 
         keyboard.append(
@@ -633,7 +633,7 @@ async def show_potential_customers(
                 subscription_emoji = '⏰'
 
         button_text = (
-            f'{status_emoji} {subscription_emoji} {user.full_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+            f'{status_emoji} {subscription_emoji} {user.full_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
         )
 
         if len(button_text) > 60:
@@ -641,7 +641,7 @@ async def show_potential_customers(
             if len(short_name) > 20:
                 short_name = short_name[:17] + '...'
             button_text = (
-                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
             )
 
         keyboard.append(
@@ -881,7 +881,7 @@ async def show_users_statistics(callback: types.CallbackQuery, db_user: User, db
         users_with_subscription=users_with_subscription,
         trial_users=trial_users,
         users_without_subscription=users_without_subscription,
-        avg_balance=settings.format_price(int(avg_balance)),
+        avg_balance=settings.format_balance(int(avg_balance)),
         conversion_rate=conversion_rate,
         trial_share=trial_share,
     )
@@ -1252,7 +1252,7 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
     user_id_display = user.telegram_id or user.email or f'#{user.id}'
     text += f'👤 {user_link} (ID: <code>{user_id_display}</code>)\n'
     text += texts.t('ADMIN_USER_TRANSACTIONS_BALANCE', '💰 Текущий баланс: {balance}\n\n').format(
-        balance=settings.format_price(user.balance_kopeks)
+        balance=settings.format_balance(user.balance_kopeks)
     )
 
     if transactions:
@@ -1413,7 +1413,7 @@ async def process_user_search(message: types.Message, db_user: User, state: FSMC
         button_text += f' | 🆔 {user_id_display}'
 
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         if len(button_text) > 60:
             short_name = user.full_name
@@ -1504,7 +1504,7 @@ async def show_user_management(callback: types.CallbackQuery, db_user: User, db:
             username=username_display,
             status=status_text,
             language=user.language,
-            balance=settings.format_price(user.balance_kopeks),
+            balance=settings.format_balance(user.balance_kopeks),
             transactions=profile['transactions_count'],
             registration=format_datetime(user.created_at),
             last_activity=last_activity,
@@ -2648,7 +2648,7 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
 
     try:
         amount_display = float(message.text.replace(',', '.'))
-        amount_kopeks = kopeks_from_display_amount(amount_display)
+        amount_kopeks = balance_from_display_amount(amount_display)
 
         if abs(amount_kopeks) > 10000000:
             await message.answer(
@@ -2663,9 +2663,9 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
 
         description = f'Изменение баланса администратором {db_user.full_name}'
         if amount_kopeks > 0:
-            description = f'Пополнение администратором: +{settings.format_price(abs(amount_kopeks))}'
+            description = f'Пополнение администратором: +{settings.format_balance(abs(amount_kopeks))}'
         else:
-            description = f'Списание администратором: {settings.format_price(abs(amount_kopeks))}'
+            description = f'Списание администратором: {settings.format_balance(abs(amount_kopeks))}'
 
         success = await user_service.update_user_balance(
             db, user_id, amount_kopeks, description, db_user.id, bot=message.bot, admin_name=db_user.full_name
@@ -3167,7 +3167,7 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
         days=profile['registration_days']
     )
     text += texts.t('ADMIN_USER_STATS_BASIC_BALANCE', '• Баланс: {balance}\n').format(
-        balance=settings.format_price(user.balance_kopeks)
+        balance=settings.format_balance(user.balance_kopeks)
     )
     text += texts.t('ADMIN_USER_STATS_BASIC_TX', '• Транзакций: {count}\n').format(count=profile['transactions_count'])
     text += texts.t('ADMIN_USER_STATS_BASIC_LANG', '• Язык: {lang}\n\n').format(lang=user.language)
@@ -5418,7 +5418,7 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
         user_link=target_user_link, user_id=target_user_id_display
     )
     text += texts.t('ADMIN_USER_BUY_SUB_BALANCE', '💰 Баланс пользователя: {balance}\n\n').format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_balance(target_user.balance_kopeks)
     )
     if (subscription.traffic_limit_gb or 0) <= 0:
         traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', 'Безлимит')
@@ -5502,7 +5502,7 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
                 '📉 Не хватает: {missing}\n\n'
                 'Пополните баланс пользователя перед покупкой.',
             ).format(
-                balance=settings.format_price(target_user.balance_kopeks, round_kopeks=False),
+                balance=settings.format_balance(target_user.balance_kopeks, round_kopeks=False),
                 price=settings.format_price(price_kopeks, round_kopeks=False),
                 missing=settings.format_price(missing_kopeks, round_kopeks=False),
             ),
@@ -5531,7 +5531,7 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
         price=settings.format_price(price_kopeks)
     )
     text += texts.t('ADMIN_USER_BUY_SUB_BALANCE', '💰 Баланс пользователя: {balance}\n\n').format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_balance(target_user.balance_kopeks)
     )
     if (subscription.traffic_limit_gb or 0) <= 0:
         traffic_text = texts.t('ADMIN_USER_SUB_TRAFFIC_UNLIMITED_LABEL', 'Безлимит')
@@ -5917,7 +5917,7 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
         user_link=target_user_link, user_id=target_user_id_display
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_balance(target_user.balance_kopeks)
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_CHOOSE', '📦 <b>Выберите тариф:</b>\n\n')
 
@@ -5998,7 +5998,7 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
         user_link=target_user_link, user_id=target_user_id_display
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_balance(target_user.balance_kopeks)
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_SELECTED', '📦 <b>Тариф: {name}</b>\n').format(name=html.escape(tariff.name))
     text += texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_LINE', '📊 Трафик: {traffic}\n').format(traffic=traffic)
@@ -6079,7 +6079,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
                 '📉 Не хватает: {missing}\n\n'
                 'Пополните баланс пользователя перед покупкой.',
             ).format(
-                balance=settings.format_price(target_user.balance_kopeks, round_kopeks=False),
+                balance=settings.format_balance(target_user.balance_kopeks, round_kopeks=False),
                 price=settings.format_price(price_kopeks, round_kopeks=False),
                 missing=settings.format_price(missing, round_kopeks=False),
             ),
@@ -6111,7 +6111,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
         user_link=target_user_link, user_id=target_user_id_display
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_BALANCE', '💰 Баланс: {balance}\n\n').format(
-        balance=settings.format_price(target_user.balance_kopeks)
+        balance=settings.format_balance(target_user.balance_kopeks)
     )
     text += texts.t('ADMIN_USER_BUY_TARIFF_SELECTED', '📦 <b>Тариф: {name}</b>\n').format(name=html.escape(tariff.name))
     text += texts.t('ADMIN_USER_BUY_TARIFF_TRAFFIC_LINE', '📊 Трафик: {traffic}\n').format(traffic=traffic)

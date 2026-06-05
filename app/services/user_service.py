@@ -93,7 +93,7 @@ class UserService:
             # У пользователя есть активная подписка - обычное сообщение
             message = (
                 f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'Спасибо за использование нашего сервиса! 🎉'
             )
             extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
@@ -111,7 +111,7 @@ class UserService:
             # НЕТ активной подписки - БОЛЬШОЕ ПРЕДУПРЕЖДЕНИЕ
             message = (
                 f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'{"─" * 25}\n\n'
                 f'⚠️ <b>ВАЖНО!</b> ⚠️\n\n'
                 f'🔴 <b>ПОДПИСКА НЕ АКТИВНА!</b>\n\n'
@@ -153,7 +153,7 @@ class UserService:
             message = (
                 f'{emoji} <b>Баланс пополнен!</b>\n\n'
                 f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_price(user.balance_kopeks)}\n\n'
+                f'💳 <b>Текущий баланс:</b> {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'Спасибо за использование нашего сервиса! 🎉'
             )
         else:
@@ -163,7 +163,7 @@ class UserService:
             message = (
                 f'{emoji} <b>Средства списаны с баланса</b>\n\n'
                 f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_price(user.balance_kopeks)}\n\n'
+                f'💳 <b>Текущий баланс:</b> {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'Если у вас есть вопросы, обратитесь в поддержку.'
             )
 
@@ -188,9 +188,9 @@ class UserService:
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks / 100,
             'new_balance_kopeks': user.balance_kopeks,
-            'new_balance_rubles': user.balance_kopeks / 100,
+            'new_balance_rubles': float(user.balance_kopeks),
             'formatted_amount': settings.format_price(amount_kopeks),
-            'formatted_balance': settings.format_price(user.balance_kopeks),
+            'formatted_balance': settings.format_balance(user.balance_kopeks),
             # No description - don't expose admin name to user
         }
 

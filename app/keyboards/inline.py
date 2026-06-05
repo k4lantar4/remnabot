@@ -343,9 +343,9 @@ def _get_balance_text(cached_styles: dict, language: str, texts, balance_kopeks:
     if custom_bal:
         return custom_bal
     if hasattr(texts, 'BALANCE_BUTTON') and safe_balance > 0:
-        return texts.BALANCE_BUTTON.format(balance=texts.format_price(safe_balance))
+        return texts.BALANCE_BUTTON.format(balance=texts.format_balance(safe_balance))
     return texts.t('BALANCE_BUTTON_DEFAULT', '💰 Баланс: {balance}').format(
-        balance=texts.format_price(safe_balance),
+        balance=texts.format_balance(safe_balance),
     )
 
 
@@ -606,12 +606,12 @@ def get_main_menu_keyboard(
 
     safe_balance = balance_kopeks or 0
     if hasattr(texts, 'BALANCE_BUTTON') and safe_balance > 0:
-        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_price(safe_balance))
+        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_balance(safe_balance))
     else:
         balance_button_text = texts.t(
             'BALANCE_BUTTON_DEFAULT',
             '💰 Баланс: {balance}',
-        ).format(balance=texts.format_price(safe_balance))
+        ).format(balance=texts.format_balance(safe_balance))
 
     keyboard: list[list[InlineKeyboardButton]] = []
     paired_buttons: list[InlineKeyboardButton] = []
