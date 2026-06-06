@@ -856,6 +856,17 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         # Unregistered → fall through to normal /start (contests need a subscription anyway).
         start_parameter = None
 
+    # Handle C2C top-up deep link: /start topup_c2c (cabinet → bot amount prompt).
+    if start_parameter == 'topup_c2c':
+        user = db_user or await get_user_by_telegram_id(db, message.from_user.id)
+        if user and user.status != UserStatus.DELETED.value:
+            from app.plugins.c2c.integration import open_c2c_topup_from_message
+
+            await open_c2c_topup_from_message(message, user, state)
+            return
+        # Unregistered → fall through to normal /start.
+        start_parameter = None
+
     # Keitaro/affiliate click ID rides on /start as `{campaign}_subid_{click_id}`
     # (64 chars total). Pull the click_id into FSM state and continue campaign
     # lookup with the bare campaign portion.
