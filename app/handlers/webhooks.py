@@ -55,11 +55,18 @@ async def tribute_webhook(request):
                     user = await get_user_by_id(db, processed_data['user_id'])
 
                     if user:
+                        # Атомарно: баланс и единственная DEPOSIT-транзакция (с external_id)
+                        # коммитятся вместе ниже (db.commit()). add_user_balance не создаёт
+                        # свою транзакцию (иначе была бы вторая, безымянная запись) и не
+                        # коммитит сам (иначе при сбое второго шага баланс зачислялся, а
+                        # транзакции с external_id не было → ретвебхук зачислял повторно).
                         await add_user_balance(
                             db,
                             user,
                             processed_data['amount_kopeks'],
                             f'Пополнение через Tribute: {processed_data["payment_id"]}',
+                            create_transaction=False,
+                            commit=False,
                         )
 
                         await create_transaction(
@@ -70,6 +77,7 @@ async def tribute_webhook(request):
                             description='Пополнение через Tribute',
                             payment_method=PaymentMethod.TRIBUTE,
                             external_id=processed_data['payment_id'],
+                            commit=False,
                         )
 
                         logger.info('✅ Обработан Tribute платеж', processed_data=processed_data['payment_id'])
@@ -112,7 +120,17 @@ async def handle_successful_payment(message: types.Message):
 
                     if user:
                         texts = get_texts(user.language)
-                        await add_user_balance(db, user, amount_kopeks, 'Пополнение через Telegram Stars')
+                        # Атомарно: баланс + единственная DEPOSIT-транзакция с external_id
+                        # коммитятся вместе ниже. add_user_balance без своей транзакции и без
+                        # самостоятельного коммита — иначе двойная запись + orphan при сбое.
+                        await add_user_balance(
+                            db,
+                            user,
+                            amount_kopeks,
+                            'Пополнение через Telegram Stars',
+                            create_transaction=False,
+                            commit=False,
+                        )
 
                         await create_transaction(
                             db=db,
@@ -122,6 +140,7 @@ async def handle_successful_payment(message: types.Message):
                             description='Пополнение через Telegram Stars',
                             payment_method=PaymentMethod.TELEGRAM_STARS,
                             external_id=payment.telegram_payment_charge_id,
+                            commit=False,
                         )
 
                         await message.answer(

@@ -21,13 +21,14 @@ alwaysApply: true
 
 | Item | Value |
 |------|-------|
-| App version | **3.59.0** (upstream merge Jun 4 2026) |
-| Production line | `remnabot/main` — local `main` / `dev-local` at `eafd1efa` (**23 commits** ahead until push) |
-| **Branch** | `i18n/p1-remainder` (P1.5 done, not merged) |
-| **HEAD** | `fe607943` — P1.5 remainder (`1ab9cb34`…`fe607943`, 10 commits) |
-| **Production** | `remnabot/main` / local `main` at P1 merge (`48c252c4`+) |
-| Upstream merge | `9f08086a` — subscriptions revive, dedup startup, YooKassa idempotency, sales stats API; **no new fa-i18n slice** |
-| Merge path | `chore/merge-upstream-3.59` → `dev-local` → `main` (FF, Jun 4 2026) |
+| App version | **3.60.0** bot + **1.57.0** cabinet (upstream merge Jun 6 2026) |
+| Production line | `remnabot/main` — local `main` at `03e1c2e8` (P1.5 merged) |
+| **Merge branch** | `chore/merge-cabinet-1.57` @ `83f7e630` (bot 3.60 + cabinet 1.57) |
+| **Bot merge** | `chore/merge-upstream-3.60` @ `3f6c8d23` |
+| **Remotes** | `upstream` + `upstream-cabinet` (push blocked); see `docs/cabinet-upstream.md` |
+| Alembic chain | `0087` → `0088` C2C → `0089` dedup → `0090` wheel idempotency |
+| Upstream merge | 3.60: email-merge API, signed media token, Stars idempotency, wheel charge guard; cabinet 1.57: health blocking, gift claim, nav refresh |
+| Merge path | `chore/merge-cabinet-1.57` → PR → `dev-local` → `main` (**awaiting user smoke + approval**) |
 
 ## Done (P2 — Jun 3 2026)
 
@@ -71,7 +72,18 @@ Branch `i18n/p1-remainder` from `main` (**10 commits**, `1ab9cb34` → `fe607943
 - [x] **referral.py + fa.json:** `REFERRAL_WITHDRAWAL_ALL` key, withdrawal service reasons (`2789d995`, `ad4b73f7`)
 - [x] **inline.py:** device count change keyboard labels (`fe607943`)
 
-**Not merged** — awaiting user smoke + explicit approval (`dev-local` → `main`).
+**Merged to `main`** — `03e1c2e8` (Jun 6 2026).
+
+## Done (upstream 3.60 + cabinet 1.57 — Jun 6 2026)
+
+Branch `chore/merge-cabinet-1.57` from bot merge tip (`4161455f` → `3f6c8d23` → `83f7e630`).
+
+- [x] **Phase 0:** `4161455f` — `upstream-cabinet` remote, `docs/cabinet-upstream.md` archive-merge path
+- [x] **Phase 1 bot:** `3f6c8d23` — fa.json overlay + upstream keys, C2C/toman/plugins preserved, Alembic 0090 wheel
+- [x] **Phase 2 cabinet:** `83f7e630` — archive merge 1.57; `useCurrency.ts` skipFxConversion, fa toman, `verifyEmailMerge`, media token
+- [x] Agent smoke: `import main` OK; cabinet `npm run build` OK (node:20-alpine)
+
+**Not merged to `main`** — awaiting user smoke + explicit approval.
 
 ## Next
 
