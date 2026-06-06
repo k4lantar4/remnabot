@@ -2653,10 +2653,12 @@ def get_change_devices_keyboard(
     start_range = max(min_devices, min(current_devices - 3, max_devices - 6))
     end_range = min(max_devices + 1, max(current_devices + 4, 7))
 
+    device_unit = texts.t('DEVICE_CHANGE_COUNT_UNIT', 'устр.')
+
     for devices_count in range(start_range, end_range):
         if devices_count == current_devices:
             emoji = '✅'
-            action_text = ' (текущее)'
+            suffix = texts.t('DEVICE_CHANGE_CURRENT_SUFFIX', ' (текущее)')
             price_text = ''
         elif devices_count > current_devices:
             emoji = '➕'
@@ -2680,21 +2682,33 @@ def get_change_devices_keyboard(
                         'DEVICE_CHANGE_DISCOUNT_INFO',
                         ' (скидка {percent}%: -{amount})',
                     ).format(percent=discount_percent, amount=texts.format_price(total_discount))
-                action_text = ''
+                suffix = ''
             else:
                 price_text = f" ({texts.t('DEVICE_CHANGE_FREE', 'бесплатно')})"
-                action_text = ''
+                suffix = ''
         else:
             emoji = '➖'
-            action_text = ''
+            suffix = ''
             price_text = f" ({texts.t('DEVICE_CHANGE_NO_REFUND', 'без возврата')})"
 
-        button_text = f'{emoji} {devices_count} устр.{action_text}{price_text}'
+        button_text = texts.t(
+            'DEVICE_CHANGE_COUNT_BTN',
+            '{emoji} {count} {unit}{suffix}{price}',
+        ).format(
+            emoji=emoji,
+            count=devices_count,
+            unit=device_unit,
+            suffix=suffix,
+            price=price_text,
+        )
 
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'change_devices_{devices_count}')])
 
     if current_devices < start_range or current_devices >= end_range:
-        current_button = f'✅ {current_devices} устр. (текущее)'
+        current_button = texts.t(
+            'DEVICE_CHANGE_CURRENT_ROW',
+            '✅ {count} {unit} (текущее)',
+        ).format(count=current_devices, unit=device_unit)
         buttons.insert(
             0, [InlineKeyboardButton(text=current_button, callback_data=f'change_devices_{current_devices}')]
         )
