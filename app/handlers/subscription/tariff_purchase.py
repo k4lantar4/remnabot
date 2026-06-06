@@ -21,6 +21,7 @@ from app.database.crud.subscription import (
 from app.database.crud.tariff import get_tariff_by_id, get_tariffs_for_user
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
 from app.localization.texts import get_texts
@@ -555,13 +556,14 @@ async def format_custom_tariff_preview(
     if has_discount:
         text += texts.t('TARIFF_CUSTOM_DISCOUNT', '\n🎁 <b>Скидка: {percent}%</b>\n').format(percent=discount_percent)
 
-    text += texts.t('TARIFF_CUSTOM_TOTAL', '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}').format(total=format_price_kopeks(total_price), balance=format_price_kopeks(user_balance))
+    charge_toman = catalog_price_in_toman(total_price)
+    text += texts.t('TARIFF_CUSTOM_TOTAL', '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}').format(total=format_price_kopeks(total_price), balance=settings.format_balance(user_balance))
 
-    if user_balance < total_price:
-        missing = total_price - user_balance
-        text += texts.t('TARIFF_CUSTOM_MISSING', '\n⚠️ <b>Не хватает: {missing}</b>').format(missing=format_price_kopeks(missing))
+    if not user_can_afford(user_balance, total_price):
+        missing = max(0, charge_toman - user_balance)
+        text += texts.t('TARIFF_CUSTOM_MISSING', '\n⚠️ <b>Не хватает: {missing}</b>').format(missing=settings.format_balance(missing))
     else:
-        text += texts.t('TARIFF_CUSTOM_AFTER', '\nПосле оплаты: {after}').format(after=format_price_kopeks(user_balance - total_price))
+        text += texts.t('TARIFF_CUSTOM_AFTER', '\nПосле оплаты: {after}').format(after=settings.format_balance(user_balance - charge_toman))
 
     return text
 
@@ -664,7 +666,7 @@ async def select_tariff(
         user_balance = db_user.balance_kopeks or 0
         traffic = format_traffic(tariff.traffic_limit_gb)
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_DAILY_CONFIRM',
@@ -981,7 +983,7 @@ async def handle_custom_confirm(
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     user_balance = db_user.balance_kopeks or 0
-    if total_price > 0 and user_balance < total_price:
+    if total_price > 0 and not user_can_afford(user_balance, total_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -1005,7 +1007,7 @@ async def handle_custom_confirm(
         success = await subtract_user_balance(
             db,
             db_user,
-            total_price,
+            catalog_price_in_toman(total_price),
             texts.t(
                 'TARIFF_PURCHASE_LEDGER_DESC',
                 "Покупка тарифа '{name}' на {days} дней",
@@ -1085,7 +1087,7 @@ async def handle_custom_confirm(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                total_price,
+                catalog_price_in_toman(total_price),
                 'Возврат: ошибка покупки кастомного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1094,7 +1096,7 @@ async def handle_custom_confirm(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=total_price,
+                    amount_kopeks=catalog_price_in_toman(total_price),
                     reason='Возврат: ошибка покупки кастомного тарифа',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -1173,7 +1175,7 @@ async def handle_custom_confirm(
                 None,
                 custom_days,
                 was_trial_conversion=False,
-                amount_kopeks=total_price,
+                amount_kopeks=catalog_price_in_toman(total_price),
                 purchase_type='renewal' if existing_subscription else 'first_purchase',
             )
         except Exception as e:
@@ -1516,7 +1518,7 @@ async def confirm_tariff_purchase(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -1539,7 +1541,7 @@ async def confirm_tariff_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             texts.t(
                 'TARIFF_PURCHASE_LEDGER_DESC',
                 "Покупка тарифа '{name}' на {days} дней",
@@ -1597,7 +1599,7 @@ async def confirm_tariff_purchase(
                     refund_success = await add_user_balance(
                         db,
                         db_user,
-                        final_price,
+                        catalog_price_in_toman(final_price),
                         'Возврат: превышен лимит подписок',
                         create_transaction=True,
                         transaction_type=TransactionType.REFUND,
@@ -1606,7 +1608,7 @@ async def confirm_tariff_purchase(
                     if not refund_success:
                         await _persist_failed_refund(
                             user_id=db_user.id,
-                            amount_kopeks=final_price,
+                            amount_kopeks=catalog_price_in_toman(final_price),
                             reason='Возврат: превышен лимит подписок',
                             error=Exception('add_user_balance returned False'),
                         )
@@ -1671,7 +1673,7 @@ async def confirm_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: тариф уже активен',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1680,7 +1682,7 @@ async def confirm_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_price,
+                    amount_kopeks=catalog_price_in_toman(final_price),
                     reason='Возврат: тариф уже активен (add_user_balance returned False)',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -1694,7 +1696,7 @@ async def confirm_tariff_purchase(
             logger.critical('CRITICAL: не удалось вернуть средства', user_id=db_user.id, refund_error=refund_error)
             await _persist_failed_refund(
                 user_id=db_user.id,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 reason='Возврат: тариф уже активен',
                 error=refund_error,
             )
@@ -1713,7 +1715,7 @@ async def confirm_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка покупки тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1722,7 +1724,7 @@ async def confirm_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_price,
+                    amount_kopeks=catalog_price_in_toman(final_price),
                     reason='Возврат: ошибка покупки тарифа (add_user_balance returned False)',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -1741,7 +1743,7 @@ async def confirm_tariff_purchase(
             )
             await _persist_failed_refund(
                 user_id=db_user.id,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 reason='Возврат: ошибка покупки тарифа',
                 error=refund_error,
             )
@@ -1812,7 +1814,7 @@ async def confirm_tariff_purchase(
             None,  # Транзакция отсутствует, оплата с баланса
             period,
             was_trial_conversion=False,
-            amount_kopeks=final_price,
+            amount_kopeks=catalog_price_in_toman(final_price),
             purchase_type='renewal' if existing_subscription else 'first_purchase',
         )
     except Exception as e:
@@ -1912,7 +1914,7 @@ async def confirm_daily_tariff_purchase(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_daily_price > 0 and user_balance < final_daily_price:
+    if final_daily_price > 0 and not user_can_afford(user_balance, final_daily_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -1930,7 +1932,7 @@ async def confirm_daily_tariff_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_daily_price,
+            catalog_price_in_toman(final_daily_price),
             texts.t(
                 'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
                 "Активация суточного тарифа '{name}'",
@@ -2034,7 +2036,7 @@ async def confirm_daily_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_daily_price,
+                catalog_price_in_toman(final_daily_price),
                 'Возврат: ошибка покупки суточного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2043,7 +2045,7 @@ async def confirm_daily_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_daily_price,
+                    amount_kopeks=catalog_price_in_toman(final_daily_price),
                     reason='Возврат: ошибка покупки суточного тарифа',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -2116,7 +2118,7 @@ async def confirm_daily_tariff_purchase(
             None,
             1,  # 1 день
             was_trial_conversion=False,
-            amount_kopeks=final_daily_price,
+            amount_kopeks=catalog_price_in_toman(final_daily_price),
             purchase_type='renewal' if existing_subscription else 'first_purchase',
         )
     except Exception as e:
@@ -2583,7 +2585,7 @@ async def confirm_tariff_extend(
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -2601,7 +2603,7 @@ async def confirm_tariff_extend(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             texts.t(
                 'TARIFF_RENEW_LEDGER_DESC_NAMED',
                 'Продление подписки на {days} дней ({name})',
@@ -2683,7 +2685,7 @@ async def confirm_tariff_extend(
                 None,  # Транзакция отсутствует, оплата с баланса
                 period,
                 was_trial_conversion=was_trial,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 purchase_type='renewal',
             )
         except Exception as e:
@@ -3050,7 +3052,7 @@ async def select_tariff_switch(
             if remaining_days > 1:
                 days_warning = texts.t('TARIFF_DAILY_SWITCH_WARNING', '\n\n⚠️ <b>Внимание!</b> У вас осталось {days} дн. подписки.\nПри смене на суточный тариф они будут утеряны!').format(days=remaining_days)
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_DAILY_SWITCH_CONFIRM',
@@ -3302,7 +3304,7 @@ async def confirm_tariff_switch(
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -3320,7 +3322,7 @@ async def confirm_tariff_switch(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             texts.t(
                 'TARIFF_PURCHASE_LEDGER_DESC',
                 "Покупка тарифа '{name}' на {days} дней",
@@ -3442,7 +3444,7 @@ async def confirm_tariff_switch(
                 None,  # Транзакция отсутствует, оплата с баланса
                 days_for_new_tariff,  # Итоговый срок подписки
                 was_trial_conversion=False,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 purchase_type='tariff_switch',
             )
         except Exception as e:
@@ -3556,7 +3558,7 @@ async def confirm_daily_tariff_switch(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_daily_price > 0 and user_balance < final_daily_price:
+    if final_daily_price > 0 and not user_can_afford(user_balance, final_daily_price):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -3593,7 +3595,7 @@ async def confirm_daily_tariff_switch(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_daily_price,
+            catalog_price_in_toman(final_daily_price),
             texts.t(
                 'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
                 "Переход на суточный тариф '{name}'",
@@ -3731,7 +3733,7 @@ async def confirm_daily_tariff_switch(
                 None,
                 1,  # 1 день
                 was_trial_conversion=False,
-                amount_kopeks=final_daily_price,
+                amount_kopeks=catalog_price_in_toman(final_daily_price),
                 purchase_type='tariff_switch',
             )
         except Exception as e:
@@ -3783,7 +3785,7 @@ async def confirm_daily_tariff_switch(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_daily_price,
+                catalog_price_in_toman(final_daily_price),
                 'Возврат: ошибка смены на суточный тариф',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -3792,7 +3794,7 @@ async def confirm_daily_tariff_switch(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_daily_price,
+                    amount_kopeks=catalog_price_in_toman(final_daily_price),
                     reason='Возврат: ошибка смены на суточный тариф',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -4161,7 +4163,7 @@ async def preview_instant_switch(
         discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
         user_balance = db_user.balance_kopeks or 0
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSTANT_DAILY_SWITCH',
@@ -4347,7 +4349,7 @@ async def confirm_instant_switch(
 
     # Проверяем баланс если это upgrade (use locked user's fresh balance)
     user_balance = db_user.balance_kopeks or 0
-    if is_upgrade and user_balance < upgrade_cost:
+    if is_upgrade and not user_can_afford(user_balance, upgrade_cost):
         await callback.answer(texts.t('CB_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе'), show_alert=True)
         return
 
@@ -4367,7 +4369,7 @@ async def confirm_instant_switch(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                upgrade_cost,
+                catalog_price_in_toman(upgrade_cost),
                 texts.t(
                     'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
                     "Переход на тариф '{name}' (доплата за {days} дней)",
@@ -4436,11 +4438,11 @@ async def confirm_instant_switch(
 
             # Списываем первый день если ещё не списано (upgrade_cost был 0)
             if upgrade_cost == 0 and daily_price > 0:
-                if user_balance >= daily_price:
+                if user_can_afford(user_balance, daily_price):
                     success = await subtract_user_balance(
                         db,
                         db_user,
-                        daily_price,
+                        catalog_price_in_toman(daily_price),
                         texts.t(
                             'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
                             "Переход на суточный тариф '{name}'",
@@ -4569,7 +4571,7 @@ async def confirm_instant_switch(
                     None,
                     remaining_days,
                     was_trial_conversion=False,
-                    amount_kopeks=upgrade_cost,
+                    amount_kopeks=catalog_price_in_toman(upgrade_cost),
                     purchase_type='tariff_switch',
                 )
             except Exception as e:
@@ -4692,8 +4694,8 @@ async def return_to_saved_tariff_cart(
     traffic = format_traffic(tariff.traffic_limit_gb, db_user.language)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if total_price > 0 and user_balance < total_price:
-        missing = total_price - user_balance
+    if total_price > 0 and not user_can_afford(user_balance, total_price):
+        missing = max(0, catalog_price_in_toman(total_price) - user_balance)
 
         if cart_mode == 'daily_tariff_purchase':
             await callback.message.edit_text(
