@@ -20,7 +20,7 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
-from app.utils.price_display import is_balance_scale_transaction
+from app.utils.price_display import balance_from_display_amount, is_balance_scale_transaction
 
 
 logger = structlog.get_logger(__name__)
@@ -579,10 +579,14 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
             await message.answer(texts.INVALID_AMOUNT, reply_markup=get_back_keyboard(db_user.language))
             return
 
-        amount_rubles = float(amount_text.replace(',', '.'))
-        amount_kopeks = int(amount_rubles * 100)
         data = await state.get_data()
         payment_method = data.get('payment_method', 'stars')
+
+        if payment_method == 'c2c':
+            amount_kopeks = balance_from_display_amount(amount_text)
+        else:
+            amount_rubles = float(amount_text.replace(',', '.'))
+            amount_kopeks = int(amount_rubles * 100)
 
         if payment_method != 'c2c':
             if amount_rubles < 1:
@@ -611,7 +615,7 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
                     texts.t(
                         'C2C_AMOUNT_TOO_LOW',
                         '❌ Minimum amount for card-to-card: {min}',
-                    ).format(min=texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)),
+                    ).format(min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS)),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return
@@ -621,7 +625,7 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
                     texts.t(
                         'C2C_AMOUNT_TOO_HIGH',
                         '❌ Maximum amount for card-to-card: {max}',
-                    ).format(max=texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)),
+                    ).format(max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS)),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return

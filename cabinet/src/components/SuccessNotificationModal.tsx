@@ -83,15 +83,14 @@ export default function SuccessNotificationModal() {
   const isDevicesPurchased = data.type === 'devices_purchased';
   const isTrafficPurchased = data.type === 'traffic_purchased';
 
-  // Format amount
+  // Balance top-ups use Toman 1:1 integers from the API (Phase B).
   const formattedAmount = data.amountKopeks
-    ? `${formatAmount(data.amountKopeks / 100)} ${currencySymbol}`
+    ? `${formatAmount(isBalanceTopup ? data.amountKopeks : data.amountKopeks / 100)} ${currencySymbol}`
     : null;
 
-  // Format new balance
   const formattedBalance =
     data.newBalanceKopeks !== undefined
-      ? `${formatAmount(data.newBalanceKopeks / 100)} ${currencySymbol}`
+      ? `${formatAmount(isBalanceTopup ? data.newBalanceKopeks : data.newBalanceKopeks / 100)} ${currencySymbol}`
       : null;
 
   // Format expiry date

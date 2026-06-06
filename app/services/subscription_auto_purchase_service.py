@@ -17,6 +17,7 @@ from app.config import settings
 from app.database.crud.subscription import extend_subscription
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -436,7 +437,7 @@ async def _auto_extend_subscription(
     if prepared is None:
         return False
 
-    if prepared.price_kopeks > 0 and user.balance_kopeks < prepared.price_kopeks:
+    if prepared.price_kopeks > 0 and not user_can_afford(user.balance_kopeks, prepared.price_kopeks):
         logger.info(
             '🔁 Автопокупка: у пользователя недостаточно средств для продления (<)',
             format_user_id=_format_user_id(user),
@@ -458,7 +459,7 @@ async def _auto_extend_subscription(
         deducted = await subtract_user_balance(
             db,
             user,
-            prepared.price_kopeks,
+            catalog_price_in_toman(prepared.price_kopeks),
             prepared.description,
             consume_promo_offer=prepared.consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -526,7 +527,7 @@ async def _auto_extend_subscription(
             await add_user_balance(
                 db,
                 user,
-                prepared.price_kopeks,
+                catalog_price_in_toman(prepared.price_kopeks),
                 'Возврат: ошибка автопродления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -821,7 +822,7 @@ async def _auto_purchase_tariff(
     final_price = result.final_total
     consume_promo = result.promo_offer_discount > 0
 
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         logger.info(
             '🔁 Автопокупка тарифа: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -841,7 +842,7 @@ async def _auto_purchase_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            final_price,
+            catalog_price_in_toman(final_price),
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -915,7 +916,7 @@ async def _auto_purchase_tariff(
             await add_user_balance(
                 db,
                 user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка автопокупки тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1159,7 +1160,7 @@ async def _auto_purchase_daily_tariff(
     final_price, _, _ = PricingEngine.apply_stacked_discounts(daily_price, group_pct, offer_pct)
     consume_promo = offer_pct > 0
 
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         logger.info(
             '🔁 Автопокупка суточного тарифа: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -1174,7 +1175,7 @@ async def _auto_purchase_daily_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            final_price,
+            catalog_price_in_toman(final_price),
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1279,7 +1280,7 @@ async def _auto_purchase_daily_tariff(
             await add_user_balance(
                 db,
                 user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка автопокупки суточного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1569,7 +1570,7 @@ async def _auto_add_devices(
         )
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
         logger.info(
             '🔁 Автопокупка устройств: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -1584,7 +1585,7 @@ async def _auto_add_devices(
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             description,
             create_transaction=True,
             payment_method=PaymentMethod.BALANCE,
@@ -1928,7 +1929,7 @@ async def _auto_add_traffic(
         )
 
     # Verify balance (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
         logger.info(
             '🔁 Автопокупка трафика: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -1943,7 +1944,7 @@ async def _auto_add_traffic(
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             description,
             create_transaction=True,
             payment_method=PaymentMethod.BALANCE,
@@ -1984,7 +1985,7 @@ async def _auto_add_traffic(
             await add_user_balance(
                 db,
                 user,
-                price_kopeks,
+                catalog_price_in_toman(price_kopeks),
                 'Возврат: ошибка автопокупки трафика',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2257,7 +2258,7 @@ async def try_auto_extend_expired_after_topup(
         return False
 
     # Check balance (skip for 100% discount)
-    if renewal_cost > 0 and user.balance_kopeks < renewal_cost:
+    if renewal_cost > 0 and not user_can_afford(user.balance_kopeks, renewal_cost):
         logger.info(
             '🔄 Автопродление expired: недостаточно средств',
             format_user_id=_format_user_id(user),
@@ -2299,7 +2300,7 @@ async def try_auto_extend_expired_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            renewal_cost,
+            catalog_price_in_toman(renewal_cost),
             description,
             consume_promo_offer=consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -2352,7 +2353,7 @@ async def try_auto_extend_expired_after_topup(
             await add_user_balance(
                 db,
                 user,
-                renewal_cost,
+                catalog_price_in_toman(renewal_cost),
                 'Возврат: ошибка автопродления истёкшей подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2608,7 +2609,7 @@ async def try_resume_disabled_daily_after_topup(
     )
 
     # Check balance (при 100% скидке — пропускаем)
-    if daily_price > 0 and user.balance_kopeks < daily_price:
+    if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
         logger.info(
             '🔄 Авто-возобновление daily: недостаточно средств',
             format_user_id=_format_user_id(user),
@@ -2643,7 +2644,7 @@ async def try_resume_disabled_daily_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            daily_price,
+            catalog_price_in_toman(daily_price),
             description,
             mark_as_paid_subscription=True,
         )
@@ -2683,7 +2684,7 @@ async def try_resume_disabled_daily_after_topup(
             await add_user_balance(
                 db,
                 user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 'Возврат: ошибка авто-возобновления суточной подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -3161,7 +3162,7 @@ async def _process_legacy_generic_cart(
         )
         return False
 
-    if pricing.final_total > 0 and user.balance_kopeks < pricing.final_total:
+    if pricing.final_total > 0 and not user_can_afford(user.balance_kopeks, pricing.final_total):
         logger.info(
             'Автопокупка: у пользователя недостаточно средств',
             format_user_id=_format_user_id(user),

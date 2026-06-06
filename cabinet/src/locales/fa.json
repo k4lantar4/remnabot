@@ -640,6 +640,10 @@
       "lava": {
         "description": "پرداخت با کارت یا SBP از طریق Lava Business"
       },
+      "c2c": {
+        "name": "کارت به کارت",
+        "description": "واریز دستی و ارسال رسید در ربات تلگرام"
+      },
       "apple_iap": {
         "description": "پرداخت از طریق Apple In-App Purchase"
       }
@@ -658,6 +662,7 @@
     "maxAmount": "حداکثر",
     "notAvailable": "در دسترس نیست",
     "useBot": "لطفاً برای شارژ از ربات تلگرام استفاده کنید.",
+    "openInBot": "ادامه در تلگرام",
     "page": "صفحه {{current}} از {{total}}",
     "invalidAmount": "مبلغ نامعتبر",
     "promocode": {

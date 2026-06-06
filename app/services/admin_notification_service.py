@@ -866,9 +866,16 @@ class AdminNotificationService:
         subscription: Subscription | None,
         promo_group: PromoGroup | None,
     ) -> str:
+        from app.utils.price_display import is_balance_scale_transaction
+
         notify_texts = _admin_notify_texts()
         payment_method = self._get_payment_method_display(transaction.payment_method)
         balance_change = user.balance_kopeks - old_balance
+        tx_amount_display = (
+            settings.format_balance(transaction.amount_kopeks)
+            if is_balance_scale_transaction(transaction.type)
+            else settings.format_price(transaction.amount_kopeks)
+        )
         subscription_status = self._get_subscription_status(subscription)
         timestamp = format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S')
         user_display = self._get_user_display(user)
@@ -903,7 +910,7 @@ class AdminNotificationService:
         message_lines.extend(
             [
                 notify_texts.t('ADMIN_NOTIFY_TOPUP_AMOUNT', '💵 <b>{amount}</b> | {method}').format(
-                    amount=settings.format_price(transaction.amount_kopeks), method=payment_method
+                    amount=tx_amount_display, method=payment_method
                 ),
                 '',
                 notify_texts.t(

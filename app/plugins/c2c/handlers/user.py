@@ -21,9 +21,9 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
+from app.plugins.c2c.integration import activate_c2c_topup_fsm, build_c2c_topup_prompt
 from app.plugins.c2c.service import C2cPaymentService
 from app.plugins.c2c.states import C2cStates
-from app.states import BalanceStates
 from app.utils.decorators import error_handler
 
 
@@ -87,7 +87,7 @@ async def _send_c2c_card_instructions(
     else:
         card_info = (
             f'💳 Pending transfer #{receipt.id}\n'
-            f'💰 {settings.format_price(receipt.amount_kopeks)}'
+            f'💰 {settings.format_balance(receipt.amount_kopeks)}'
         )
         body = texts.t(
             'C2C_SEND_RECEIPT',
@@ -164,19 +164,9 @@ async def start_c2c_payment(
         )
         return
 
-    display_name = settings.get_c2c_display_name()
-    min_amount = texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)
-    max_amount = texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)
-
-    message_text = texts.t(
-        'C2C_ENTER_AMOUNT',
-        '💳 <b>{name}</b>\n\nEnter top-up amount:\nMinimum: {min_amount}\nMaximum: {max_amount}',
-    ).format(name=display_name, min_amount=min_amount, max_amount=max_amount)
-
-    keyboard = get_back_keyboard(db_user.language)
+    message_text, keyboard = build_c2c_topup_prompt(db_user)
     await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode='HTML')
-    await state.set_state(BalanceStates.waiting_for_amount)
-    await state.update_data(payment_method='c2c', c2c_receipt_id=None)
+    await activate_c2c_topup_fsm(state)
     await callback.answer()
 
 
@@ -220,7 +210,7 @@ async def process_c2c_payment_amount(
             texts.t(
                 'C2C_AMOUNT_TOO_LOW',
                 '❌ Minimum amount for card-to-card: {min}',
-            ).format(min=texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)),
+            ).format(min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return
@@ -230,7 +220,7 @@ async def process_c2c_payment_amount(
             texts.t(
                 'C2C_AMOUNT_TOO_HIGH',
                 '❌ Maximum amount for card-to-card: {max}',
-            ).format(max=texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)),
+            ).format(max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return

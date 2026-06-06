@@ -15,6 +15,7 @@ import { Button } from '@/components/primitives/Button';
 import { ChevronDownIcon, ChevronRightIcon, CreditCardIcon, WalletIcon } from '@/components/icons';
 import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { isPaidStatus, isFailedStatus } from '../utils/paymentStatus';
+import { usePlatform } from '@/platform';
 
 export default function Balance() {
   const { t } = useTranslation();
@@ -23,6 +24,7 @@ export default function Balance() {
   const { formatAmount, currencySymbol } = useCurrency();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { openTelegramLink } = usePlatform();
   const paymentHandledRef = useRef(false);
 
   // Fetch balance from API
@@ -319,7 +321,18 @@ export default function Balance() {
                     key={method.id}
                     interactive={method.is_available}
                     className={!method.is_available ? 'cursor-not-allowed opacity-50' : ''}
-                    onClick={() => method.is_available && navigate(`/balance/top-up/${method.id}`)}
+                    onClick={() => {
+                      if (!method.is_available) return;
+                      if (method.bot_deeplink) {
+                        if (method.bot_deeplink.includes('t.me/')) {
+                          openTelegramLink(method.bot_deeplink);
+                        } else {
+                          window.open(method.bot_deeplink, '_blank', 'noopener,noreferrer');
+                        }
+                        return;
+                      }
+                      navigate(`/balance/top-up/${method.id}`);
+                    }}
                   >
                     <div className="font-semibold text-dark-100">
                       {translatedName || method.name}
@@ -330,8 +343,20 @@ export default function Balance() {
                       </div>
                     )}
                     <div className="mt-3 text-xs text-dark-600">
-                      {formatAmount(method.min_amount_kopeks / 100, 0)} {t('common.rangeTo', 'to')}{' '}
-                      {formatAmount(method.max_amount_kopeks / 100, 0)} {currencySymbol}
+                      {formatAmount(
+                        method.id === 'c2c'
+                          ? method.min_amount_kopeks
+                          : method.min_amount_kopeks / 100,
+                        0,
+                      )}{' '}
+                      {t('common.rangeTo', 'to')}{' '}
+                      {formatAmount(
+                        method.id === 'c2c'
+                          ? method.max_amount_kopeks
+                          : method.max_amount_kopeks / 100,
+                        0,
+                      )}{' '}
+                      {currencySymbol}
                     </div>
                   </Card>
                 );

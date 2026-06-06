@@ -61,6 +61,7 @@ class PaymentMethodResponse(BaseModel):
     # сразу (seamless flow внутри MiniApp WebView). Если False — показывает панель
     # "Открыть страницу оплаты" с кнопкой.
     open_url_direct: bool = False
+    bot_deeplink: str | None = None
 
 
 class TopUpRequest(BaseModel):

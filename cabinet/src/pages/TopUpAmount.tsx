@@ -280,6 +280,39 @@ export default function TopUpAmount() {
     );
   }
 
+  if (method.bot_deeplink) {
+    const handleOpenBot = () => {
+      if (method.bot_deeplink?.includes('t.me/')) {
+        openTelegramLink(method.bot_deeplink);
+      } else if (method.bot_deeplink) {
+        window.open(method.bot_deeplink, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    return (
+      <motion.div
+        className="mx-auto max-w-lg space-y-5"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.div variants={staggerItem}>
+          <BentoCard className="space-y-4 p-5">
+            <p className="text-sm text-dark-300">{t('balance.useBot')}</p>
+            <button
+              type="button"
+              onClick={handleOpenBot}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent-500 font-bold text-white transition-colors hover:bg-accent-400 active:bg-accent-600"
+            >
+              <ExternalLinkIcon />
+              <span>{t('balance.openInBot', { defaultValue: 'Continue in Telegram' })}</span>
+            </button>
+          </BentoCard>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
   const hasOptions = method.options && method.options.length > 0;
   const orderedOptions = sortOptionsWithSbpFirst(method.options);
   const minRubles = method.min_amount_kopeks / 100;
