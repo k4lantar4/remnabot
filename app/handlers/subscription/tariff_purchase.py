@@ -3833,7 +3833,9 @@ def format_instant_switch_list_text(
         cost, is_upgrade = _calculate_instant_switch_cost(current_tariff, tariff, remaining_days, db_user)
 
         if is_upgrade:
-            cost_text = f'⬆️ +{format_price_kopeks(cost, compact=True)}'
+            cost_text = texts.t('TARIFF_INSTANT_UPGRADE_COST', '⬆️ +{cost}').format(
+                cost=format_price_kopeks(cost, compact=True),
+            )
         else:
             cost_text = texts.t('TARIFF_INSTANT_FREE', '⬇️ Бесплатно')
 
@@ -3947,9 +3949,12 @@ async def show_instant_switch_list(
 
     if not subscription.end_date or subscription.end_date <= now:
         await callback.message.edit_text(
-            '❌ <b>Переключение недоступно</b>\n\n'
-            'У вашей подписки не осталось активных дней.\n'
-            'Используйте продление или покупку нового тарифа.',
+            texts.t(
+                'TARIFF_INSTANT_NO_DAYS',
+                '❌ <b>Переключение недоступно</b>\n\n'
+                'У вашей подписки не осталось активных дней.\n'
+                'Используйте продление или покупку нового тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -4503,13 +4508,21 @@ async def confirm_instant_switch(
         # Для суточного тарифа другое сообщение об успехе
         if is_new_daily:
             await callback.message.edit_text(
-                f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-                f'📦 Новый тариф: <b>{html.escape(new_tariff.name)}</b>\n'
-                f'📊 Трафик: {traffic}\n'
-                f'📱 Устройств: {new_tariff.device_limit}\n'
-                f'🔄 Тип: Суточный\n'
-                f'💰 Списано: {format_price_kopeks(daily_price)}\n\n'
-                f'ℹ️ Следующее списание через 24 часа.',
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_DAILY_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '🔄 Тип: Суточный\n'
+                    '💰 Списано: {charged}\n\n'
+                    'ℹ️ Следующее списание через 24 часа.',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    charged=format_price_kopeks(daily_price),
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -4527,17 +4540,28 @@ async def confirm_instant_switch(
             )
         else:
             if is_upgrade:
-                cost_text = f'💰 Списано: {format_price_kopeks(upgrade_cost)}'
+                cost_text = texts.t('TARIFF_SWITCH_COST_CHARGED', '💰 Списано: {cost}').format(
+                    cost=format_price_kopeks(upgrade_cost),
+                )
             else:
-                cost_text = '💰 Бесплатно'
+                cost_text = texts.t('TARIFF_SWITCH_COST_FREE', '💰 Бесплатно')
 
             await callback.message.edit_text(
-                f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-                f'📦 Новый тариф: <b>{html.escape(new_tariff.name)}</b>\n'
-                f'📊 Трафик: {traffic}\n'
-                f'📱 Устройств: {new_tariff.device_limit}\n'
-                f'⏰ Осталось дней: {remaining_days}\n'
-                f'{cost_text}',
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '⏰ Осталось дней: {days}\n'
+                    '{cost}',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    days=remaining_days,
+                    cost=cost_text,
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
