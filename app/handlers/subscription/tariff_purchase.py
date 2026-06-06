@@ -707,7 +707,10 @@ async def select_tariff(
                 'saved_cart': True,
                 'missing_amount': missing,
                 'return_to_cart': True,
-                'description': f'Покупка суточного тарифа {tariff.name}',
+                'description': texts.t(
+                    'TARIFF_DAILY_PURCHASE_CART_DESC',
+                    'Покупка суточного тарифа {name}',
+                ).format(name=tariff.name),
                 'traffic_limit_gb': tariff.traffic_limit_gb,
                 'device_limit': tariff.device_limit,
                 'allowed_squads': tariff.allowed_squads or [],
@@ -1003,7 +1006,10 @@ async def handle_custom_confirm(
             db,
             db_user,
             total_price,
-            f'Покупка тарифа {tariff.name} на {custom_days} дней',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=custom_days),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -1151,7 +1157,10 @@ async def handle_custom_confirm(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=total_price,
-            description=f'Покупка тарифа {tariff.name} на {custom_days} дней',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=custom_days),
         )
 
         # Отправляем уведомление админу
@@ -1366,7 +1375,10 @@ async def select_tariff_period(
             'saved_cart': True,
             'missing_amount': missing,
             'return_to_cart': True,
-            'description': f'Покупка тарифа {tariff.name} на {period} дней',
+            'description': texts.t(
+                'TARIFF_PURCHASE_CART_DESC',
+                'Покупка тарифа {name} на {days} дней',
+            ).format(name=tariff.name, days=period),
             'traffic_limit_gb': tariff.traffic_limit_gb,
             'device_limit': tariff.device_limit,
             'allowed_squads': tariff.allowed_squads or [],
@@ -1528,7 +1540,10 @@ async def confirm_tariff_purchase(
             db,
             db_user,
             final_price,
-            f'Покупка тарифа {tariff.name} на {period} дней',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -1779,7 +1794,10 @@ async def confirm_tariff_purchase(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Покупка тарифа {tariff.name} на {period} дней',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
         )
     except Exception as e:
         logger.error('Ошибка создания транзакции', error=e)
@@ -1913,7 +1931,10 @@ async def confirm_daily_tariff_purchase(
             db,
             db_user,
             final_daily_price,
-            f'Покупка суточного тарифа {tariff.name} (первый день)',
+            texts.t(
+                'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
+                "Активация суточного тарифа '{name}'",
+            ).format(name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -2079,7 +2100,10 @@ async def confirm_daily_tariff_purchase(
         user_id=db_user.id,
         type=TransactionType.SUBSCRIPTION_PAYMENT,
         amount_kopeks=final_daily_price,
-        description=f'Покупка суточного тарифа {tariff.name} (первый день)',
+        description=texts.t(
+            'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
+            "Активация суточного тарифа '{name}'",
+        ).format(name=tariff.name),
     )
 
     # Отправляем уведомление админу
@@ -2258,12 +2282,12 @@ async def show_tariff_extend(
                         _t = await get_tariff_by_id(db, sub.tariff_id)
                         tariff_name = _t.name if _t else f'#{sub.id}'
                     else:
-                        tariff_name = f'Подписка #{sub.id}'
+                        tariff_name = texts.t('TARIFF_RENEW_SUB_FALLBACK', 'Подписка #{id}').format(id=sub.id)
                     days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
                     keyboard.append(
                         [
                             InlineKeyboardButton(
-                                text=f'🔄 {tariff_name} ({days_left}д.)',
+                                text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
                                 callback_data=f'se:{sub.id}',
                             )
                         ]
@@ -2465,7 +2489,10 @@ async def select_tariff_extend_period(
             'saved_cart': True,
             'missing_amount': missing,
             'return_to_cart': True,
-            'description': f'Продление тарифа {tariff.name} на {period} дней',
+            'description': texts.t(
+                'TARIFF_RENEW_CART_DESC',
+                'Продление тарифа {name} на {days} дней',
+            ).format(name=tariff.name, days=period),
             'traffic_limit_gb': tariff.traffic_limit_gb,
             'device_limit': actual_device_limit,
             'allowed_squads': tariff.allowed_squads or [],
@@ -2575,7 +2602,10 @@ async def confirm_tariff_extend(
             db,
             db_user,
             final_price,
-            f'Продление тарифа {tariff.name} на {period} дней',
+            texts.t(
+                'TARIFF_RENEW_LEDGER_DESC_NAMED',
+                'Продление подписки на {days} дней ({name})',
+            ).format(days=period, name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -2637,7 +2667,10 @@ async def confirm_tariff_extend(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Продление тарифа {tariff.name} на {period} дней',
+            description=texts.t(
+                'TARIFF_RENEW_LEDGER_DESC_NAMED',
+                'Продление подписки на {days} дней ({name})',
+            ).format(days=period, name=tariff.name),
         )
 
         # Отправляем уведомление админу
@@ -2925,7 +2958,7 @@ async def show_tariff_switch_list(
         return
 
     # Получаем текущий тариф для отображения
-    current_tariff_name = 'Неизвестно'
+    current_tariff_name = texts.t('TARIFF_UNKNOWN_NAME', 'Неизвестно')
     if current_tariff_id:
         current_tariff = await get_tariff_by_id(db, current_tariff_id)
         if current_tariff:
@@ -3139,7 +3172,7 @@ async def select_tariff_switch_period(
     traffic = format_traffic(tariff.traffic_limit_gb)
 
     # Получаем текущий тариф для отображения
-    current_tariff_name = 'Неизвестно'
+    current_tariff_name = texts.t('TARIFF_UNKNOWN_NAME', 'Неизвестно')
     if current_tariff_id:
         current_tariff = await get_tariff_by_id(db, current_tariff_id)
         if current_tariff:
@@ -3151,7 +3184,7 @@ async def select_tariff_switch_period(
         max(0, (subscription.end_date - datetime.now(UTC)).days)
 
     # При смене тарифа устанавливается ровно оплаченный период
-    time_info = f'⏰ Будет установлено: {period} дней'
+    time_info = texts.t('TARIFF_SWITCH_TIME_SET', '⏰ Будет установлено: {period} дней').format(period=period)
 
     if user_balance >= final_price:
         discount_text = ''
@@ -3288,7 +3321,10 @@ async def confirm_tariff_switch(
             db,
             db_user,
             final_price,
-            f'Смена тарифа на {tariff.name} ({period} дней)',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -3390,7 +3426,10 @@ async def confirm_tariff_switch(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Смена тарифа на {tariff.name}',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=days_for_new_tariff),
         )
 
         # Отправляем уведомление админу
@@ -3425,16 +3464,25 @@ async def confirm_tariff_switch(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         # При смене тарифа устанавливается оплаченный период
-        time_info = f'📅 Период: {days_for_new_tariff} дней'
+        time_info = texts.t('TARIFF_SWITCH_SUCCESS_PERIOD', '📅 Период: {period} дней').format(period=days_for_new_tariff)
 
         await callback.message.edit_text(
-            f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-            f'📦 Новый тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {tariff.device_limit}\n'
-            f'💰 Списано: {format_price_kopeks(final_price)}\n'
-            f'{time_info}\n\n'
-            f'Перейдите в раздел «Подписка» для просмотра деталей.',
+            texts.t(
+                'TARIFF_SWITCH_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '💰 Списано: {charged}\n'
+                '{time_info}\n\n'
+                'Перейдите в раздел «Подписка» для просмотра деталей.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_price),
+                time_info=time_info,
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -3546,7 +3594,10 @@ async def confirm_daily_tariff_switch(
             db,
             db_user,
             final_daily_price,
-            f'Смена на суточный тариф {tariff.name} (первый день)',
+            texts.t(
+                'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                "Переход на суточный тариф '{name}'",
+            ).format(name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -3664,7 +3715,10 @@ async def confirm_daily_tariff_switch(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_daily_price,
-            description=f'Смена на суточный тариф {tariff.name} (первый день)',
+            description=texts.t(
+                'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                "Переход на суточный тариф '{name}'",
+            ).format(name=tariff.name),
         )
 
         # Отправляем уведомление админу
@@ -3688,13 +3742,21 @@ async def confirm_daily_tariff_switch(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         await callback.message.edit_text(
-            f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-            f'📦 Новый тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {tariff.device_limit}\n'
-            f'🔄 Тип: Суточный\n'
-            f'💰 Списано: {format_price_kopeks(final_daily_price)}\n\n'
-            f'ℹ️ Следующее списание через 24 часа.',
+            texts.t(
+                'TARIFF_SWITCH_DAILY_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '🔄 Тип: Суточный\n'
+                '💰 Списано: {charged}\n\n'
+                'ℹ️ Следующее списание через 24 часа.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_daily_price),
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -3833,7 +3895,9 @@ def format_instant_switch_list_text(
         cost, is_upgrade = _calculate_instant_switch_cost(current_tariff, tariff, remaining_days, db_user)
 
         if is_upgrade:
-            cost_text = f'⬆️ +{format_price_kopeks(cost, compact=True)}'
+            cost_text = texts.t('TARIFF_INSTANT_UPGRADE_COST', '⬆️ +{cost}').format(
+                cost=format_price_kopeks(cost, compact=True),
+            )
         else:
             cost_text = texts.t('TARIFF_INSTANT_FREE', '⬇️ Бесплатно')
 
@@ -3947,9 +4011,12 @@ async def show_instant_switch_list(
 
     if not subscription.end_date or subscription.end_date <= now:
         await callback.message.edit_text(
-            '❌ <b>Переключение недоступно</b>\n\n'
-            'У вашей подписки не осталось активных дней.\n'
-            'Используйте продление или покупку нового тарифа.',
+            texts.t(
+                'TARIFF_INSTANT_NO_DAYS',
+                '❌ <b>Переключение недоступно</b>\n\n'
+                'У вашей подписки не осталось активных дней.\n'
+                'Используйте продление или покупку нового тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -4301,7 +4368,10 @@ async def confirm_instant_switch(
                 db,
                 db_user,
                 upgrade_cost,
-                f'Переключение на тариф {new_tariff.name}',
+                texts.t(
+                    'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
+                    "Переход на тариф '{name}' (доплата за {days} дней)",
+                ).format(name=new_tariff.name, days=remaining_days),
                 consume_promo_offer=consume_promo,
                 mark_as_paid_subscription=True,
             )
@@ -4371,7 +4441,10 @@ async def confirm_instant_switch(
                         db,
                         db_user,
                         daily_price,
-                        f'Переключение на суточный тариф {new_tariff.name} (первый день)',
+                        texts.t(
+                            'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                            "Переход на суточный тариф '{name}'",
+                        ).format(name=new_tariff.name),
                         consume_promo_offer=consume_promo_for_daily,
                         mark_as_paid_subscription=True,
                     )
@@ -4386,7 +4459,10 @@ async def confirm_instant_switch(
                         user_id=db_user.id,
                         type=TransactionType.SUBSCRIPTION_PAYMENT,
                         amount_kopeks=daily_price,
-                        description=f'Переключение на суточный тариф {new_tariff.name} (первый день)',
+                        description=texts.t(
+                            'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                            "Переход на суточный тариф '{name}'",
+                        ).format(name=new_tariff.name),
                     )
 
                     # Уведомление админу о списании за первый день суточного тарифа
@@ -4477,7 +4553,10 @@ async def confirm_instant_switch(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=upgrade_cost,
-                description=f'Переключение на тариф {new_tariff.name}',
+                description=texts.t(
+                    'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
+                    "Переход на тариф '{name}' (доплата за {days} дней)",
+                ).format(name=new_tariff.name, days=remaining_days),
             )
 
             # Отправляем уведомление админу
@@ -4503,13 +4582,21 @@ async def confirm_instant_switch(
         # Для суточного тарифа другое сообщение об успехе
         if is_new_daily:
             await callback.message.edit_text(
-                f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-                f'📦 Новый тариф: <b>{html.escape(new_tariff.name)}</b>\n'
-                f'📊 Трафик: {traffic}\n'
-                f'📱 Устройств: {new_tariff.device_limit}\n'
-                f'🔄 Тип: Суточный\n'
-                f'💰 Списано: {format_price_kopeks(daily_price)}\n\n'
-                f'ℹ️ Следующее списание через 24 часа.',
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_DAILY_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '🔄 Тип: Суточный\n'
+                    '💰 Списано: {charged}\n\n'
+                    'ℹ️ Следующее списание через 24 часа.',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    charged=format_price_kopeks(daily_price),
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -4527,17 +4614,28 @@ async def confirm_instant_switch(
             )
         else:
             if is_upgrade:
-                cost_text = f'💰 Списано: {format_price_kopeks(upgrade_cost)}'
+                cost_text = texts.t('TARIFF_SWITCH_COST_CHARGED', '💰 Списано: {cost}').format(
+                    cost=format_price_kopeks(upgrade_cost),
+                )
             else:
-                cost_text = '💰 Бесплатно'
+                cost_text = texts.t('TARIFF_SWITCH_COST_FREE', '💰 Бесплатно')
 
             await callback.message.edit_text(
-                f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-                f'📦 Новый тариф: <b>{html.escape(new_tariff.name)}</b>\n'
-                f'📊 Трафик: {traffic}\n'
-                f'📱 Устройств: {new_tariff.device_limit}\n'
-                f'⏰ Осталось дней: {remaining_days}\n'
-                f'{cost_text}',
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '⏰ Осталось дней: {days}\n'
+                    '{cost}',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    days=remaining_days,
+                    cost=cost_text,
+                ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -4624,7 +4722,10 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
+                    type_line=texts.t(
+                        'TARIFF_PERIOD_TYPE_LINE',
+                        '📅 Период: {period}\n',
+                    ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4642,7 +4743,10 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
+                    type_line=texts.t(
+                        'TARIFF_PERIOD_TYPE_LINE',
+                        '📅 Период: {period}\n',
+                    ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
