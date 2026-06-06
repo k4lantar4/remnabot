@@ -2282,12 +2282,12 @@ async def show_tariff_extend(
                         _t = await get_tariff_by_id(db, sub.tariff_id)
                         tariff_name = _t.name if _t else f'#{sub.id}'
                     else:
-                        tariff_name = f'Подписка #{sub.id}'
+                        tariff_name = texts.t('TARIFF_RENEW_SUB_FALLBACK', 'Подписка #{id}').format(id=sub.id)
                     days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
                     keyboard.append(
                         [
                             InlineKeyboardButton(
-                                text=f'🔄 {tariff_name} ({days_left}д.)',
+                                text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
                                 callback_data=f'se:{sub.id}',
                             )
                         ]
@@ -2958,7 +2958,7 @@ async def show_tariff_switch_list(
         return
 
     # Получаем текущий тариф для отображения
-    current_tariff_name = 'Неизвестно'
+    current_tariff_name = texts.t('TARIFF_UNKNOWN_NAME', 'Неизвестно')
     if current_tariff_id:
         current_tariff = await get_tariff_by_id(db, current_tariff_id)
         if current_tariff:
@@ -3172,7 +3172,7 @@ async def select_tariff_switch_period(
     traffic = format_traffic(tariff.traffic_limit_gb)
 
     # Получаем текущий тариф для отображения
-    current_tariff_name = 'Неизвестно'
+    current_tariff_name = texts.t('TARIFF_UNKNOWN_NAME', 'Неизвестно')
     if current_tariff_id:
         current_tariff = await get_tariff_by_id(db, current_tariff_id)
         if current_tariff:
