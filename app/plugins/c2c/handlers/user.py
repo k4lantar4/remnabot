@@ -165,8 +165,8 @@ async def start_c2c_payment(
         return
 
     display_name = settings.get_c2c_display_name()
-    min_amount = texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)
-    max_amount = texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)
+    min_amount = texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS)
+    max_amount = texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS)
 
     message_text = texts.t(
         'C2C_ENTER_AMOUNT',
@@ -220,7 +220,7 @@ async def process_c2c_payment_amount(
             texts.t(
                 'C2C_AMOUNT_TOO_LOW',
                 '❌ Minimum amount for card-to-card: {min}',
-            ).format(min=texts.format_price(settings.C2C_MIN_AMOUNT_KOPEKS)),
+            ).format(min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return
@@ -230,7 +230,7 @@ async def process_c2c_payment_amount(
             texts.t(
                 'C2C_AMOUNT_TOO_HIGH',
                 '❌ Maximum amount for card-to-card: {max}',
-            ).format(max=texts.format_price(settings.C2C_MAX_AMOUNT_KOPEKS)),
+            ).format(max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS)),
             reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
         )
         return
