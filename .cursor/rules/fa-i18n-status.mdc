@@ -72,7 +72,18 @@ Branch `i18n/p1-remainder` from `main` (**10 commits**, `1ab9cb34` → `fe607943
 - [x] **referral.py + fa.json:** `REFERRAL_WITHDRAWAL_ALL` key, withdrawal service reasons (`2789d995`, `ad4b73f7`)
 - [x] **inline.py:** device count change keyboard labels (`fe607943`)
 
-**Not merged** — awaiting user smoke + explicit approval (`dev-local` → `main`).
+**Merged to `main`** — `03e1c2e8` (Jun 6 2026).
+
+## Done (upstream 3.60 + cabinet 1.57 — Jun 6 2026)
+
+Branch `chore/merge-cabinet-1.57` from bot merge tip (`4161455f` → `3f6c8d23` → `83f7e630`).
+
+- [x] **Phase 0:** `4161455f` — `upstream-cabinet` remote, `docs/cabinet-upstream.md` archive-merge path
+- [x] **Phase 1 bot:** `3f6c8d23` — fa.json overlay + upstream keys, C2C/toman/plugins preserved, Alembic 0090 wheel
+- [x] **Phase 2 cabinet:** `83f7e630` — archive merge 1.57; `useCurrency.ts` skipFxConversion, fa toman, `verifyEmailMerge`, media token
+- [x] Agent smoke: `import main` OK; cabinet `npm run build` OK (node:20-alpine)
+
+**Not merged to `main`** — awaiting user smoke + explicit approval.
 
 ## Next
 
