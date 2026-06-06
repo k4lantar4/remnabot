@@ -208,6 +208,12 @@ async def get_payment_methods(
                 )
             options = formatted_options or None
 
+        bot_deeplink = None
+        if method_id == 'c2c':
+            bot_username = settings.get_bot_username()
+            if bot_username:
+                bot_deeplink = f'https://t.me/{bot_username}?start=topup_c2c'
+
         methods.append(
             PaymentMethodResponse(
                 id=method_id,
@@ -218,6 +224,7 @@ async def get_payment_methods(
                 is_available=True,
                 options=options,
                 open_url_direct=bool(method_data.get('open_url_direct', False)),
+                bot_deeplink=bot_deeplink,
             )
         )
 
