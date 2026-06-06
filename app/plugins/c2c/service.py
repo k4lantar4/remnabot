@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.crud.transaction import create_transaction, get_transaction_by_external_id
 from app.database.crud.user import add_user_balance, get_user_by_id, lock_user_for_update
-from app.utils.price_display import catalog_price_in_toman
 from app.database.models import C2cReceipt, C2cReceiptStatus, PaymentMethod, Transaction, TransactionType, User
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.constants import (
@@ -184,10 +183,10 @@ class C2cPaymentService:
         old_balance = user.balance_kopeks
         was_first_topup = not user.has_made_first_topup
 
+        balance_credit_toman = receipt.amount_kopeks
         description = (
-            f'Card-to-card top-up: {settings.format_price(receipt.amount_kopeks)} (receipt #{receipt_id})'
+            f'Card-to-card top-up: {settings.format_balance(balance_credit_toman)} (receipt #{receipt_id})'
         )
-        balance_credit_toman = catalog_price_in_toman(receipt.amount_kopeks)
 
         credited = await add_user_balance(
             db,
@@ -226,7 +225,7 @@ class C2cPaymentService:
             db,
             user,
             transaction,
-            receipt.amount_kopeks,
+            balance_credit_toman,
             old_balance=old_balance,
             was_first_topup=was_first_topup,
         )
@@ -270,7 +269,7 @@ class C2cPaymentService:
                         '❌ <b>Your card transfer receipt was rejected</b>\n\n'
                         'Receipt #{id} for {amount} was not approved.\n'
                         'Contact support if you believe this is a mistake.',
-                    ).format(id=receipt.id, amount=texts.format_price(receipt.amount_kopeks)),
+                    ).format(id=receipt.id, amount=texts.format_balance(receipt.amount_kopeks)),
                     parse_mode='HTML',
                 )
             except Exception as error:
@@ -285,7 +284,7 @@ class C2cPaymentService:
         db: AsyncSession,
         user: User,
         transaction: Transaction,
-        amount_kopeks: int,
+        balance_credit_toman: int,
         *,
         old_balance: int,
         was_first_topup: bool,
@@ -296,7 +295,7 @@ class C2cPaymentService:
         referrer_info = format_referrer_info(user)
         topup_status = '🆕 Первое пополнение' if was_first_topup else '🔄 Пополнение'
 
-        description_for_referral = f'Пополнение C2C: {settings.format_price(amount_kopeks)}'
+        description_for_referral = f'Пополнение C2C: {settings.format_balance(balance_credit_toman)}'
         lower_description = description_for_referral.lower()
         allow_referral = any(word in lower_description for word in ['пополнение', 'c2c', 'topup']) and 'бонус' not in lower_description
 
@@ -304,7 +303,8 @@ class C2cPaymentService:
             try:
                 from app.services.referral_service import process_referral_topup
 
-                await process_referral_topup(db, user.id, amount_kopeks, self.bot)
+                # Referral service expects catalog kopeks scale (÷100 → Toman).
+                await process_referral_topup(db, user.id, balance_credit_toman * 100, self.bot)
             except Exception as error:
                 logger.error('C2C referral topup error', user_id=user.id, error=error)
 
@@ -338,7 +338,7 @@ class C2cPaymentService:
                 payment_service = PaymentService(self.bot)
                 await payment_service._send_payment_success_notification(
                     user.telegram_id,
-                    amount_kopeks,
+                    balance_credit_toman,
                     user=user,
                     db=db,
                     payment_method_title=settings.get_c2c_display_name(),
@@ -349,7 +349,7 @@ class C2cPaymentService:
         try:
             from app.services.payment.common import send_cart_notification_after_topup
 
-            await send_cart_notification_after_topup(user, amount_kopeks, db, self.bot)
+            await send_cart_notification_after_topup(user, balance_credit_toman, db, self.bot)
         except Exception as error:
             logger.error('C2C cart notification error', user_id=user.id, error=error)
 
@@ -369,7 +369,7 @@ class C2cPaymentService:
                     name=name, telegram_id=telegram_id
                 ),
                 texts.t('ADMIN_NOTIFY_C2C_AMOUNT', '💰 <b>Amount:</b> {amount}').format(
-                    amount=settings.format_price(receipt.amount_kopeks)
+                    amount=settings.format_balance(receipt.amount_kopeks)
                 ),
                 texts.t('ADMIN_NOTIFY_C2C_CARD', '💳 <b>Card shown:</b> {card}').format(card=card_label),
             ]

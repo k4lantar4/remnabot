@@ -87,7 +87,7 @@ async def _send_c2c_card_instructions(
     else:
         card_info = (
             f'💳 Pending transfer #{receipt.id}\n'
-            f'💰 {settings.format_price(receipt.amount_kopeks)}'
+            f'💰 {settings.format_balance(receipt.amount_kopeks)}'
         )
         body = texts.t(
             'C2C_SEND_RECEIPT',

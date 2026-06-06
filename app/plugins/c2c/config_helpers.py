@@ -61,6 +61,6 @@ def format_card_message(card: C2cCard, amount_kopeks: int, guide_text: str) -> s
         f'💳 <b>{card["label"]}</b>\n\n'
         f'🔢 <b>Card number:</b> <code>{card["number"]}</code>'
         f'{holder_line}\n\n'
-        f'💰 <b>Amount to transfer:</b> {settings.format_price(amount_kopeks)}'
+        f'💰 <b>Amount to transfer:</b> {settings.format_balance(amount_kopeks)}'
         f'{guide_block}'
     )
