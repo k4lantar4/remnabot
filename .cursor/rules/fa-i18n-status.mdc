@@ -12,7 +12,7 @@ alwaysApply: true
 | Topic | Decision |
 |-------|----------|
 | Admin group notifications | Persian (`AdminNotificationService`) |
-| miniapp / cabinet UI | P1 user surfaces done (`i18n/p1-user-surfaces`); admin panels still P2 |
+| miniapp / cabinet UI | P1 user surfaces **merged** (Jun 6 2026); admin panels P2 |
 | `./locales/` untracked | **Intentional** — Docker mount copy. Source of truth: `app/localization/locales/fa.json`. After fa.json change: `cp app/localization/locales/fa.json ./locales/fa.json` + restart bot. **Do not commit** `locales/`. |
 | Admin panel language | `get_texts(db_user.language)` — not fixed ru |
 | Disabled providers | Skip (CryptoBot, Heleket, WATA, Stars off in `.env`) |
@@ -23,9 +23,9 @@ alwaysApply: true
 |------|-------|
 | App version | **3.59.0** (upstream merge Jun 4 2026) |
 | Production line | `remnabot/main` — local `main` / `dev-local` at `eafd1efa` (**23 commits** ahead until push) |
-| **Branch** | `i18n/p1-user-surfaces` (P1 user surfaces; not yet merged to `main`) |
-| **HEAD** | `848ba980` — `i18n(fa): localize miniapp user-facing API messages` |
-| **Production** | `main` / `dev-local` at `eafd1efa` (upstream 3.59 merge) |
+| **Branch** | `main` / `dev-local` (P1 merged Jun 6 2026) |
+| **HEAD** | `48c252c4`+ — P1 user surfaces + `fix(i18n): format_balance round_kopeks` |
+| **Production** | `remnabot/main` after P1 merge |
 | Upstream merge | `9f08086a` — subscriptions revive, dedup startup, YooKassa idempotency, sales stats API; **no new fa-i18n slice** |
 | Merge path | `chore/merge-upstream-3.59` → `dev-local` → `main` (FF, Jun 4 2026) |
 
@@ -47,24 +47,41 @@ alwaysApply: true
 - [x] Merge upstream 3.59.0 on `chore/merge-upstream-3.59`; Alembic `0087` → `0088` (C2C) → `0089` (dedup no-op)
 - [x] i18n audit post-merge: `get_admin_texts` = 0; `_admin_notify_texts()` intact; no i18n commits
 
-## Done (P1 user surfaces — Jun 2026)
+## Done (P1 user surfaces — merged Jun 6 2026)
 
-Branch `i18n/p1-user-surfaces` — bot handlers, inline keyboards, cabinet routes, miniapp API; `get_texts(user.language)` + `fa.json` parity across user surfaces.
+Branch `i18n/p1-user-surfaces` → `dev-local` → `main` (**30 commits**). Hot-path bot + cabinet + miniapp parity; `get_texts(user.language)` + `fa.json`.
 
-- [x] **Bot purchase/subscription:** `77c7a1cf` `purchase.py`, `4b4a6a5a` `tariff_purchase` (partial), `a9c8934a` `simple_subscription`, `44467d5f` `menu` (`INSUFFICIENT_FUNDS_DETAILED`), `411e04c2` `my_subscriptions`
-- [x] **Bot traffic/devices/geo:** `9994e5fd` traffic ledger, `23cf69b1` devices, `db5348b9` countries
-- [x] **Bot payments/links:** `ebcfae05` autopay (`INVALID_REQUEST` fix), `15ad4866` links+happ, `1a51822e` `stars_payments`, `82031d59` `start.py` gifts
-- [x] **Bot promo/support/UI:** `7816ca6f` promo `texts.t`, `d4239199` promocode, `6208ac9a` tickets, `fdcf4031` inline keyboards
-- [x] **Cabinet:** `9fc212a2` traffic, `594fad91` devices, `5ccd5ec7` purchase, `13c43786`/`c5b33f18` tariff_switch + renewal, `6fe62e86` balance status
-- [x] **Cabinet extras:** `2ff7ee0d`/`78d55e57`/`64d2df68` wheel/withdrawal/deps
-- [x] **Miniapp:** `848ba980` user-facing API messages
+- [x] **Bot purchase/subscription:** `purchase.py`, `tariff_purchase` (partial), `simple_subscription`, `menu`, `my_subscriptions`
+- [x] **Bot traffic/devices/geo:** traffic, devices, countries, autopay, links
+- [x] **Bot payments/UI:** stars_payments, start gifts, promo, promocode, tickets, inline keyboards
+- [x] **Cabinet:** traffic, devices, purchase, tariff_switch, renewal, balance status, wheel, withdrawal, deps
+- [x] **Miniapp:** user-facing API messages
+- [x] **Fixes:** `5bf7481f` tariff NameError, `3dd41031` FIXED_TRAFFIC_LIMIT_GB, `48c252c4` format_balance `round_kopeks`
+
+**P1 scope closed** — remainder deferred to P1.5 (see Next).
 
 ## Next
 
-- **P2 admin plan** — deep pass on remaining admin handlers (see P2 Done above for partial coverage).
-- **Remaining P1 gaps:** `tariff_purchase` switch strings (~154), inline change-devices устр., referral withdrawal keys, balance manual-check messages.
-- **Email templates** — separate plan (out of bot/cabinet/miniapp slice).
-- **P2 optional deep pass:** `remnawave.py` system/traffic/node detail blocks; `messages.py` broadcast FSM; campaigns/promocodes inner strings.
+**Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file) + plan `docs/superpowers/plans/2026-06-06-fa-i18n-p1-user-surfaces.md` (Tasks wrap-up / remainder).
+
+### P1.5 remainder (~1500 true breakage lines; ~25–35 commits)
+
+| Priority | File | ~lines |
+|----------|------|--------|
+| 1 | `app/handlers/subscription/tariff_purchase.py` | 243 |
+| 2 | `app/handlers/subscription/purchase.py` | 201 |
+| 3 | `app/handlers/subscription/devices.py` | 129 |
+| 4 | `app/handlers/simple_subscription.py` | 143 |
+| 5 | `app/webapi/routes/miniapp.py` | 67 |
+| 6 | `app/handlers/referral.py` + `REFERRAL_WITHDRAWAL_ALL` fa key | 63 |
+| 7 | `app/keyboards/inline.py` (`устр.`, `(текущее)`) | 37 |
+| 8 | `app/handlers/menu.py`, `start.py`, `balance/main.py` | partial |
+
+Branch: `i18n/p1-remainder` from `main` after merge.
+
+### P2 admin (separate)
+
+Plan: `docs/superpowers/plans/2026-06-06-fa-i18n-p2-admin-bot.md`. Email templates: separate plan.
 
 ## Smoke (every commit)
 
