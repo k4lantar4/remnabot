@@ -23,9 +23,9 @@ alwaysApply: true
 |------|-------|
 | App version | **3.59.0** (upstream merge Jun 4 2026) |
 | Production line | `remnabot/main` — local `main` / `dev-local` at `eafd1efa` (**23 commits** ahead until push) |
-| **Branch** | `main` / `dev-local` (P1 merged Jun 6 2026) |
-| **HEAD** | `48c252c4`+ — P1 user surfaces + `fix(i18n): format_balance round_kopeks` |
-| **Production** | `remnabot/main` after P1 merge |
+| **Branch** | `i18n/p1-remainder` (P1.5 done, not merged) |
+| **HEAD** | `fe607943` — P1.5 remainder (`1ab9cb34`…`fe607943`, 10 commits) |
+| **Production** | `remnabot/main` / local `main` at P1 merge (`48c252c4`+) |
 | Upstream merge | `9f08086a` — subscriptions revive, dedup startup, YooKassa idempotency, sales stats API; **no new fa-i18n slice** |
 | Merge path | `chore/merge-upstream-3.59` → `dev-local` → `main` (FF, Jun 4 2026) |
 
@@ -58,26 +58,34 @@ Branch `i18n/p1-user-surfaces` → `dev-local` → `main` (**30 commits**). Hot-
 - [x] **Miniapp:** user-facing API messages
 - [x] **Fixes:** `5bf7481f` tariff NameError, `3dd41031` FIXED_TRAFFIC_LIMIT_GB, `48c252c4` format_balance `round_kopeks`
 
-**P1 scope closed** — remainder deferred to P1.5 (see Next).
+**P1 scope closed** — P1.5 remainder done on branch (see Done P1.5); P1.5b deferred (see Next).
+
+## Done (P1.5 remainder — Jun 6 2026)
+
+Branch `i18n/p1-remainder` from `main` (**10 commits**, `1ab9cb34` → `fe607943`). Slices 1a–6 complete.
+
+- [x] **tariff_purchase.py:** instant/period switch success, ledger descriptions, renewal picker, unknown tariff name (`1ab9cb34`, `606ffa1e`, `6265f33e`, `232b66b2`)
+- [x] **purchase.py:** paid trial payment UI labels (`457074fc`)
+- [x] **devices.py:** change-prompt Persian text (`87856d82`)
+- [x] **miniapp.py:** device API error messages (`b869e10f`)
+- [x] **referral.py + fa.json:** `REFERRAL_WITHDRAWAL_ALL` key, withdrawal service reasons (`2789d995`, `ad4b73f7`)
+- [x] **inline.py:** device count change keyboard labels (`fe607943`)
+
+**Not merged** — awaiting user smoke + explicit approval (`dev-local` → `main`).
 
 ## Next
 
-**Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file) + plan `docs/superpowers/plans/2026-06-06-fa-i18n-p1-user-surfaces.md` (Tasks wrap-up / remainder).
+**Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
 
-### P1.5 remainder (~1500 true breakage lines; ~25–35 commits)
+### P1.5b deferred (from original P1.5 list)
 
-| Priority | File | ~lines |
-|----------|------|--------|
-| 1 | `app/handlers/subscription/tariff_purchase.py` | 243 |
-| 2 | `app/handlers/subscription/purchase.py` | 201 |
-| 3 | `app/handlers/subscription/devices.py` | 129 |
-| 4 | `app/handlers/simple_subscription.py` | 143 |
-| 5 | `app/webapi/routes/miniapp.py` | 67 |
-| 6 | `app/handlers/referral.py` + `REFERRAL_WITHDRAWAL_ALL` fa key | 63 |
-| 7 | `app/keyboards/inline.py` (`устр.`, `(текущее)`) | 37 |
-| 8 | `app/handlers/menu.py`, `start.py`, `balance/main.py` | partial |
+| Priority | File | Notes |
+|----------|------|-------|
+| 1 | `app/handlers/simple_subscription.py` | ~143 Cyrillic lines |
+| 2 | `app/handlers/menu.py`, `start.py`, `balance/main.py` | partial remainder |
+| — | `app/cabinet/routes/withdrawal.py` | optional language-parity follow-up |
 
-Branch: `i18n/p1-remainder` from `main` after merge.
+Branch: new `i18n/p1-remainder-b` (or continue `i18n/p1-remainder`) from `main` after P1.5 merge.
 
 ### P2 admin (separate)
 
