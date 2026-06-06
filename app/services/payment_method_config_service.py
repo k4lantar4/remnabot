@@ -240,6 +240,13 @@ def _get_method_defaults() -> dict:
                 {'id': 'sbp', 'name': 'СБП'},
             ],
         },
+        'c2c': {
+            'default_display_name': settings.get_c2c_display_name(),
+            'is_configured': settings.is_c2c_enabled(),
+            'default_min': settings.C2C_MIN_AMOUNT_KOPEKS,
+            'default_max': settings.C2C_MAX_AMOUNT_KOPEKS,
+            'available_sub_options': None,
+        },
     }
 
 
@@ -291,6 +298,7 @@ DEFAULT_METHOD_ORDER = [
     'jupiter',
     'donut',
     'lava',
+    'c2c',
 ]
 
 
@@ -329,7 +337,7 @@ async def ensure_payment_method_configs(db: AsyncSession) -> None:
                 sub_options=sub_options,
                 min_amount_kopeks=None,
                 max_amount_kopeks=None,
-                user_type_filter='all',
+                user_type_filter='telegram' if method_id == 'c2c' else 'all',
                 first_topup_filter='any',
                 promo_group_filter_mode='all',
             )
@@ -368,7 +376,7 @@ async def ensure_payment_method_configs(db: AsyncSession) -> None:
                 sub_options=sub_options,
                 min_amount_kopeks=None,
                 max_amount_kopeks=None,
-                user_type_filter='all',
+                user_type_filter='telegram' if method_id == 'c2c' else 'all',
                 first_topup_filter='any',
                 promo_group_filter_mode='all',
             )
