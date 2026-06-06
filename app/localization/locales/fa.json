@@ -2712,6 +2712,7 @@
   "REFERRAL_WITHDRAWAL_COOLDOWN": "⏱ فاصله برداشت: هر <b>{days}</b> روز یک‌بار",
   "REFERRAL_WITHDRAWAL_READY": "✅ می‌توانید درخواست برداشت دهید",
   "REFERRAL_WITHDRAWAL_REQUEST_BUTTON": "📝 ثبت درخواست",
+  "REFERRAL_WITHDRAWAL_ALL": "برداشت همه ({amount})",
   "REFERRAL_WITHDRAWAL_ENTER_AMOUNT": "💸 مبلغ برداشت را به روبل وارد کنید\\n\\nموجود: <b>{amount}</b>",
   "REFERRAL_WITHDRAWAL_INVALID_AMOUNT": "❌ مبلغ مثبت وارد کنید",
   "REFERRAL_WITHDRAWAL_MIN_ERROR": "❌ حداقل مبلغ: {amount}",

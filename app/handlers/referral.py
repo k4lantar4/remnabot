@@ -635,7 +635,9 @@ async def start_withdrawal_request(callback: types.CallbackQuery, db_user: User,
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('REFERRAL_WITHDRAWAL_ALL', f'Вывести всё ({available / 100:.0f}₽)'),
+                    text=texts.t('REFERRAL_WITHDRAWAL_ALL', 'Вывести всё ({amount})').format(
+                        amount=texts.format_price(available)
+                    ),
                     callback_data=f'referral_withdrawal_amount_{available}',
                 )
             ],
