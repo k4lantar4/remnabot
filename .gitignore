@@ -58,6 +58,8 @@
 !.cursor/plans/**
 !caddy-remnawave/
 !caddy-remnawave/**
+!cabinet/
+!cabinet/**
 
 # ========== BLACKLIST: игнорируемые внутри папок ==========
 

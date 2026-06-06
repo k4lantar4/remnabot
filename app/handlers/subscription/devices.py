@@ -387,7 +387,12 @@ async def confirm_change_devices(
 
         if price > 0 and db_user.balance_kopeks < price:
             missing_kopeks = price - db_user.balance_kopeks
-            required_text = f'{texts.format_price(price)} (за {period_label})'
+            period_suffix = (
+                texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+                if charged_days <= 1
+                else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=charged_days)
+            )
+            required_text = f'{texts.format_price(price)}{period_suffix}'
             message_text = texts.t(
                 'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
                 (
@@ -613,7 +618,13 @@ async def execute_change_devices(
     try:
         if price > 0:
             success = await subtract_user_balance(
-                db, db_user, price, f'Изменение количества устройств с {current_devices} до {new_devices_count}'
+                db,
+                db_user,
+                price,
+                texts.t(
+                    'DEVICES_CHANGE_LEDGER_DESC',
+                    'Изменение количества устройств с {old} до {new}',
+                ).format(old=current_devices, new=new_devices_count),
             )
 
             if not success:
@@ -629,7 +640,10 @@ async def execute_change_devices(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=price,
-                description=f'Изменение устройств с {current_devices} до {new_devices_count} за {charged_days} дн.',
+                description=texts.t(
+                    'DEVICES_CHANGE_LEDGER_DESC_DAYS',
+                    'Изменение устройств с {old} до {new} за {days} дн.',
+                ).format(old=current_devices, new=new_devices_count, days=charged_days),
             )
 
         # Re-lock subscription after subtract_user_balance committed (released all locks)
@@ -1593,7 +1607,12 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
 
     if price > 0 and db_user.balance_kopeks < price:
         missing_kopeks = price - db_user.balance_kopeks
-        required_text = f'{texts.format_price(price)} (за {period_label})'
+        period_suffix = (
+            texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=charged_days)
+        )
+        required_text = f'{texts.format_price(price)}{period_suffix}'
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -1640,7 +1659,13 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
 
     try:
         success = await subtract_user_balance(
-            db, db_user, price, f'Добавление {devices_count} устройств на {period_label}'
+            db,
+            db_user,
+            price,
+            texts.t(
+                'DEVICES_ADD_LEDGER_DESC',
+                'Добавление {count} устройств на {period}',
+            ).format(count=devices_count, period=period_label),
         )
 
         if not success:
@@ -1703,7 +1728,10 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=price,
-            description=f'Добавление {devices_count} устройств на {period_label}',
+            description=texts.t(
+                'DEVICES_ADD_LEDGER_DESC',
+                'Добавление {count} устройств на {period}',
+            ).format(count=devices_count, period=period_label),
         )
 
         await db.refresh(db_user)
@@ -1721,14 +1749,35 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         except Exception as e:
             logger.error('Ошибка отправки уведомления о докупке устройств', error=e)
 
-        success_text = (
-            '✅ Устройства успешно добавлены!\n\n'
-            f'📱 Добавлено: {devices_count} устройств\n'
-            f'Новый лимит: {subscription.device_limit} устройств\n'
+        period_suffix = (
+            texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=charged_days)
         )
-        success_text += f'💰 Списано: {texts.format_price(price)} (за {period_label})'
+        success_text = texts.t(
+            'DEVICES_ADD_SUCCESS_HEADER',
+            '✅ Устройства успешно добавлены!\n\n',
+        )
+        success_text += texts.t(
+            'DEVICES_ADD_SUCCESS_ADDED_LINE',
+            '📱 Добавлено: {count} устройств\n',
+        ).format(count=devices_count)
+        success_text += texts.t(
+            'DEVICES_ADD_SUCCESS_LIMIT_LINE',
+            'Новый лимит: {limit} устройств\n',
+        ).format(limit=subscription.device_limit)
+        success_text += texts.t(
+            'DEVICES_ADD_SUCCESS_CHARGED',
+            '💰 Списано: {amount}{period}',
+        ).format(amount=texts.format_price(price), period=period_suffix)
         if total_discount > 0:
-            success_text += f' (скидка {devices_discount_percent}%: -{texts.format_price(total_discount)})'
+            success_text += texts.t(
+                'DEVICE_CHANGE_DISCOUNT_INFO',
+                ' (скидка {percent}%: -{amount})',
+            ).format(
+                percent=devices_discount_percent,
+                amount=texts.format_price(total_discount),
+            )
 
         await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 
@@ -1998,28 +2047,25 @@ async def show_device_connection_help(
         )
         return
 
-    help_text = f"""
-📱 <b>Как подключить устройство заново</b>
-
-После сброса устройства вам нужно:
-
-<b>1. Получить ссылку подписки:</b>
-📋 Скопируйте ссылку ниже или найдите её в разделе "Моя подписка"
-
-<b>2. Настроить VPN приложение:</b>
-• Откройте ваше VPN приложение
-• Найдите функцию "Добавить подписку" или "Import"
-• Вставьте скопированную ссылку
-
-<b>3. Подключиться:</b>
-• Выберите сервер
-• Нажмите "Подключить"
-
-<b>🔗 Ваша ссылка подписки:</b>
-<code>{html_mod.escape(subscription_link)}</code>
-
-💡 <b>Совет:</b> Сохраните эту ссылку - она понадобится для подключения новых устройств
-"""
+    help_text = texts.t(
+        'DEVICE_RECONNECT_HELP_BODY',
+        (
+            '📱 <b>Как подключить устройство заново</b>\n\n'
+            'После сброса устройства вам нужно:\n\n'
+            '<b>1. Получить ссылку подписки:</b>\n'
+            '📋 Скопируйте ссылку ниже или найдите её в разделе "Моя подписка"\n\n'
+            '<b>2. Настроить VPN приложение:</b>\n'
+            '• Откройте ваше VPN приложение\n'
+            '• Найдите функцию "Добавить подписку" или "Import"\n'
+            '• Вставьте скопированную ссылку\n\n'
+            '<b>3. Подключиться:</b>\n'
+            '• Выберите сервер\n'
+            '• Нажмите "Подключить"\n\n'
+            '<b>🔗 Ваша ссылка подписки:</b>\n'
+            '<code>{subscription_link}</code>\n\n'
+            '💡 <b>Совет:</b> Сохраните эту ссылку - она понадобится для подключения новых устройств'
+        ),
+    ).format(subscription_link=html_mod.escape(subscription_link))
 
     await callback.message.edit_text(
         help_text, reply_markup=get_device_management_help_keyboard(db_user.language), parse_mode='HTML'

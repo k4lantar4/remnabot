@@ -21,6 +21,7 @@ from app.cabinet.schemas.wheel import (
     WheelPrizeDisplay,
 )
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.wheel import (
     get_or_create_wheel_config,
     get_user_spin_history,
@@ -34,6 +35,11 @@ from app.services.wheel_service import wheel_service
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix='/wheel', tags=['Fortune Wheel'])
+
+
+def _t(user: User, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(user.language).t(key, fallback)
+    return text.format(**fmt) if fmt else text
 
 
 @router.get('/config', response_model=WheelConfigResponse)
@@ -231,13 +237,13 @@ async def create_stars_invoice(
     if not config.is_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Колесо удачи недоступно',
+            detail=_t(user, 'STARS_WHEEL_UNAVAILABLE', 'Колесо удачи недоступно'),
         )
 
     if not config.spin_cost_stars_enabled or not config.spin_cost_stars:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Оплата Stars не включена',
+            detail=_t(user, 'CABINET_WHEEL_STARS_NOT_ENABLED', 'Оплата Stars не включена'),
         )
 
     # Проверяем наличие активной подписки (multi-tariff aware)
@@ -259,7 +265,7 @@ async def create_stars_invoice(
     if not subscription or not subscription.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Для использования колеса необходима активная подписка',
+            detail=_t(user, 'CABINET_WHEEL_NO_SUBSCRIPTION', 'Для использования колеса необходима активная подписка'),
         )
 
     # Проверяем лимит спинов
@@ -267,7 +273,7 @@ async def create_stars_invoice(
     if config.daily_spin_limit > 0 and spins_today >= config.daily_spin_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Достигнут дневной лимит спинов',
+            detail=_t(user, 'CABINET_WHEEL_DAILY_LIMIT', 'Достигнут дневной лимит спинов'),
         )
 
     # Проверяем наличие призов
@@ -275,7 +281,7 @@ async def create_stars_invoice(
     if not prizes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Призы не настроены',
+            detail=_t(user, 'STARS_WHEEL_NO_PRIZES', 'Призы не настроены'),
         )
 
     stars_amount = config.spin_cost_stars
@@ -309,5 +315,5 @@ async def create_stars_invoice(
         logger.error('Error creating invoice', error=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Ошибка создания инвойса',
+            detail=_t(user, 'CABINET_WHEEL_INVOICE_ERROR', 'Ошибка создания инвойса'),
         )

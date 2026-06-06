@@ -379,8 +379,15 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
 
     try:
         if added and total_cost > 0:
+            countries_label = ', '.join(added_names)
             success = await subtract_user_balance(
-                db, db_user, total_cost, f'Добавление стран: {", ".join(added_names)} за {charged_days} дн.'
+                db,
+                db_user,
+                total_cost,
+                texts.t(
+                    'COUNTRIES_ADD_BALANCE_LEDGER_DESC_DAYS',
+                    'Добавление стран: {countries} за {days} дн.',
+                ).format(countries=countries_label, days=charged_days),
             )
             if not success:
                 await callback.answer(
@@ -394,7 +401,10 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=total_cost,
-                description=f'Добавление стран к подписке: {", ".join(added_names)} за {charged_days} дн.',
+                description=texts.t(
+                    'COUNTRIES_ADD_LEDGER_DESC_DAYS',
+                    'Добавление стран к подписке: {countries} за {days} дн.',
+                ).format(countries=countries_label, days=charged_days),
             )
 
         if added:
@@ -907,6 +917,12 @@ async def confirm_add_countries_to_subscription(
 
     if new_countries and total_price > 0 and db_user.balance_kopeks < total_price:
         missing_kopeks = total_price - db_user.balance_kopeks
+        period_suffix = (
+            texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
+            if charged_days <= 1
+            else texts.t('ADDON_PERIOD_FOR_DAYS', ' (за {days} дн.)').format(days=charged_days)
+        )
+        required_text = f'{texts.format_price(total_price, round_kopeks=False)}{period_suffix}'
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -917,7 +933,7 @@ async def confirm_add_countries_to_subscription(
                 'Выберите способ пополнения. Сумма подставится автоматически.'
             ),
         ).format(
-            required=texts.format_price(total_price, round_kopeks=False),
+            required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
@@ -947,8 +963,15 @@ async def confirm_add_countries_to_subscription(
             return
 
         if new_countries and total_price > 0:
+            countries_label = ', '.join(new_countries_names)
             success = await subtract_user_balance(
-                db, db_user, total_price, f'Добавление стран к подписке: {", ".join(new_countries_names)}'
+                db,
+                db_user,
+                total_price,
+                texts.t(
+                    'COUNTRIES_ADD_LEDGER_DESC',
+                    'Добавление стран к подписке: {countries}',
+                ).format(countries=countries_label),
             )
 
             if not success:
@@ -963,7 +986,10 @@ async def confirm_add_countries_to_subscription(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=total_price,
-                description=f'Добавление стран к подписке: {", ".join(new_countries_names)}',
+                description=texts.t(
+                    'COUNTRIES_ADD_LEDGER_DESC',
+                    'Добавление стран к подписке: {countries}',
+                ).format(countries=countries_label),
             )
 
         subscription.connected_squads = selected_countries

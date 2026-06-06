@@ -89,7 +89,7 @@ services:
 
   cabinet-frontend:
     build:
-      context: ../bedolaga-cabinet
+      context: ./cabinet
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}

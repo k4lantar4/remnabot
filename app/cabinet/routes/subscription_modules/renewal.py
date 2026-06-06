@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.models import PaymentMethod, SubscriptionStatus, User
 from app.services.pricing_engine import pricing_engine
@@ -32,6 +33,28 @@ from ...schemas.subscription import (
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+def _t(user: User, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(user.language).t(key, fallback)
+    return text.format(**fmt) if fmt else text
+
+
+def _renewal_ledger_desc(user: User, days: int, name: str | None = None) -> str:
+    if name:
+        return _t(
+            user,
+            'TARIFF_RENEW_LEDGER_DESC_NAMED',
+            'Продление подписки на {days} дней ({name})',
+            days=days,
+            name=name,
+        )
+    return _t(
+        user,
+        'TARIFF_RENEW_LEDGER_DESC',
+        'Продление подписки на {days} дней',
+        days=days,
+    )
 
 
 @router.get('/renewal-options', response_model=list[RenewalOptionResponse])
@@ -208,8 +231,7 @@ async def renew_subscription(
             'saved_cart': True,
             'missing_amount': missing,
             'return_to_cart': True,
-            'description': f'Продление подписки на {request.period_days} дней'
-            + (f' ({tariff_name})' if tariff_name else ''),
+            'description': _renewal_ledger_desc(user, request.period_days, tariff_name),
             'discount_percent': discount_percent,
             'consume_promo_offer': promo_offer_discount_value > 0,
             'source': 'cabinet',
@@ -236,7 +258,12 @@ async def renew_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                'message': _t(
+                    user,
+                    'CABINET_INSUFFICIENT_FUNDS_MISSING',
+                    'Недостаточно средств. Не хватает {missing}',
+                    missing=settings.format_price(missing, round_kopeks=False),
+                ),
                 'missing_amount': missing,
                 'cart_saved': True,
                 'cart_mode': 'extend',
@@ -245,7 +272,11 @@ async def renew_subscription(
 
     # Centralized renewal: balance deduction, extension, RemnaWave sync, admin notification,
     # server price recording, and compensating refund on failure.
-    renewal_description = f'Продление подписки на {request.period_days} дней' + (f' ({tariff.name})' if tariff else '')
+    renewal_description = _renewal_ledger_desc(
+        user,
+        request.period_days,
+        tariff.name if tariff else None,
+    )
     renewal_service = SubscriptionRenewalService()
 
     try:
@@ -262,7 +293,11 @@ async def renew_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': 'Недостаточно средств (concurrent check)',
+                'message': _t(
+                    user,
+                    'CABINET_INSUFFICIENT_FUNDS_CONCURRENT',
+                    'Недостаточно средств (concurrent check)',
+                ),
             },
         )
 

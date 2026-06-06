@@ -259,12 +259,23 @@ async def handle_ticket_message_input(message: types.Message, state: FSMContext,
         # Ограничим длину подтверждения чтобы не упереться в лимиты
         safe_title = html.escape(title if len(title) <= 200 else (title[:197] + '...'))
         creation_text = (
-            f'✅ <b>Тикет #{ticket.id} создан</b>\n\n'
-            f'📝 Заголовок: {safe_title}\n'
-            f'📊 Статус: {ticket.status_emoji} '
-            f'{texts.t("TICKET_STATUS_OPEN", "Открыт")}\n'
-            f'📅 Создан: {format_local_datetime(ticket.created_at, "%d.%m.%Y %H:%M")}\n'
-            + ('📎 Вложение: фото\n' if media_type == 'photo' else '')
+            texts.t('TICKET_CREATED_HEADER', '✅ <b>Тикет #{ticket_id} создан</b>\n\n').format(ticket_id=ticket.id)
+            + texts.t('TICKET_LABEL_TITLE', '📝 Заголовок: {title}').format(title=safe_title)
+            + '\n'
+            + texts.t('TICKET_LABEL_STATUS', '📊 Статус: {emoji} {status}').format(
+                emoji=ticket.status_emoji,
+                status=texts.t('TICKET_STATUS_OPEN', 'Открыт'),
+            )
+            + '\n'
+            + texts.t('TICKET_LABEL_CREATED', '📅 Создан: {created}').format(
+                created=format_local_datetime(ticket.created_at, '%d.%m.%Y %H:%M')
+            )
+            + '\n'
+            + (
+                texts.t('TICKET_ATTACHMENT_PHOTO', '📎 Вложение: фото') + '\n'
+                if media_type == 'photo'
+                else ''
+            )
         )
 
         data_prompt = await state.get_data()
@@ -542,19 +553,33 @@ async def view_ticket(callback: types.CallbackQuery, db_user: User, db: AsyncSes
     }.get(ticket.status, ticket.status)
 
     header = (
-        f'🎫 Тикет #{ticket.id}\n\n'
-        f'📝 Заголовок: {html.escape(ticket.title or "")}\n'
-        f'📊 Статус: {ticket.status_emoji} {status_text}\n'
-        f'📅 Создан: {format_local_datetime(ticket.created_at, "%d.%m.%Y %H:%M")}\n\n'
+        texts.t('TICKET_DETAIL_HEADER', '🎫 Тикет #{ticket_id}\n\n').format(ticket_id=ticket.id)
+        + texts.t('TICKET_LABEL_TITLE', '📝 Заголовок: {title}').format(title=html.escape(ticket.title or ''))
+        + '\n'
+        + texts.t('TICKET_LABEL_STATUS', '📊 Статус: {emoji} {status}').format(
+            emoji=ticket.status_emoji,
+            status=status_text,
+        )
+        + '\n'
+        + texts.t('TICKET_LABEL_CREATED', '📅 Создан: {created}').format(
+            created=format_local_datetime(ticket.created_at, '%d.%m.%Y %H:%M')
+        )
+        + '\n\n'
     )
     message_blocks: list[str] = []
     if ticket.messages:
-        message_blocks.append(f'💬 Сообщения ({len(ticket.messages)}):\n\n')
+        message_blocks.append(
+            texts.t('TICKET_MESSAGES_HEADER', '💬 Сообщения ({count}):\n\n').format(count=len(ticket.messages))
+        )
         for msg in ticket.messages:
-            sender = '👤 Вы' if msg.is_user_message else '🛠️ Поддержка'
+            sender = (
+                texts.t('TICKET_SENDER_USER', '👤 Вы')
+                if msg.is_user_message
+                else texts.t('TICKET_SENDER_SUPPORT', '🛠️ Поддержка')
+            )
             block = f'{sender} ({format_local_datetime(msg.created_at, "%d.%m %H:%M")}):\n{html.escape(msg.message_text or "")}\n\n'
             if getattr(msg, 'has_media', False) and getattr(msg, 'media_type', None) == 'photo':
-                block += '📎 Вложение: фото\n\n'
+                block += texts.t('TICKET_ATTACHMENT_PHOTO', '📎 Вложение: фото') + '\n\n'
             message_blocks.append(block)
     pages = _split_text_into_pages(header, message_blocks, max_len=3500)
     total_pages = len(pages)

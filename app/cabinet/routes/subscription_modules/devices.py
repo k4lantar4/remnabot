@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cabinet.utils.device_ownership import verify_hwid_belongs_to_user
 from app.config import settings
 from app.database.crud.tariff import get_tariff_by_id
+from app.localization.texts import get_texts
 from app.database.crud.user_device_alias import (
     delete_alias,
     get_aliases_for_user,
@@ -45,6 +46,40 @@ from .helpers import _apply_addon_discount, resolve_subscription
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+def _t(user: User, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(user.language).t(key, fallback)
+    return text.format(**fmt) if fmt else text
+
+
+def _device_period_label(user: User, days_left: int) -> str:
+    if days_left <= 1:
+        return _t(user, 'ADDON_PERIOD_ONE_DAY', '1 день')
+    return _t(user, 'ADDON_PERIOD_DAYS', '{days} дн.', days=days_left)
+
+
+def _device_purchase_description(
+    user: User,
+    count: int,
+    days_left: int,
+    discount_percent: int = 0,
+) -> str:
+    if discount_percent > 0:
+        return _t(
+            user,
+            'DEVICES_ADD_LEDGER_DESC_DISCOUNT',
+            'Покупка {count} доп. устройств (скидка {percent}%)',
+            count=count,
+            percent=discount_percent,
+        )
+    return _t(
+        user,
+        'DEVICES_ADD_LEDGER_DESC',
+        'Добавление {count} устройств на {period}',
+        count=count,
+        period=_device_period_label(user, days_left),
+    )
 
 
 def _resolve_panel_uuid(subscription: Subscription | None, user: User) -> str | None:
@@ -69,13 +104,16 @@ async def purchase_devices_legacy(
     if getattr(user, 'restriction_subscription', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Subscription purchases are restricted for this account',
+            detail=_t(user, 'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED', 'Subscription purchases are restricted for this account'),
         )
 
     # Resolve subscription (ownership validated), then lock the row for concurrent safety
     resolved = await resolve_subscription(db, user, subscription_id)
     if not resolved:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No subscription found')
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
+        )
 
     result = await db.execute(
         select(Subscription)
@@ -88,13 +126,13 @@ async def purchase_devices_legacy(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='No subscription found',
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
         )
 
     if subscription.status not in ['active', 'trial']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Ваша подписка неактивна',
+            detail=_t(user, 'CABINET_SUBSCRIPTION_INACTIVE', 'Ваша подписка неактивна'),
         )
 
     # Get tariff for device price (if exists)
@@ -115,7 +153,7 @@ async def purchase_devices_legacy(
     if not device_price or device_price <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Докупка устройств недоступна',
+            detail=_t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
         )
 
     # Устройства в пределах тарифного лимита — бесплатные
@@ -166,7 +204,12 @@ async def purchase_devices_legacy(
     if max_device_limit and new_devices > max_device_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Максимальное количество устройств: {max_device_limit}',
+            detail=_t(
+                user,
+                'CABINET_DEVICES_MAX_LIMIT',
+                'Максимальное количество устройств: {limit}',
+                limit=max_device_limit,
+            ),
         )
 
     # Check balance (skip for 100% discount)
@@ -196,11 +239,15 @@ async def purchase_devices_legacy(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'error': 'Insufficient balance',
-                'required_kopeks': total_price,
-                'current_kopeks': user.balance_kopeks,
-                'missing_kopeks': missing,
+                'message': _t(
+                    user,
+                    'CABINET_INSUFFICIENT_FUNDS_MISSING',
+                    'Недостаточно средств. Не хватает {missing}',
+                    missing=settings.format_balance(missing, round_kopeks=False),
+                ),
+                'missing_amount': missing,
                 'cart_saved': True,
+                'cart_mode': 'add_devices',
             },
         )
 
@@ -208,11 +255,9 @@ async def purchase_devices_legacy(
     from app.database.crud.user import subtract_user_balance
     from app.database.models import PaymentMethod
 
-    # Build description with discount info
-    if devices_discount_percent > 0:
-        description = f'Покупка {request.devices} доп. устройств (скидка {devices_discount_percent}%)'
-    else:
-        description = f'Покупка {request.devices} доп. устройств'
+    description = _device_purchase_description(
+        user, request.devices, days_left, devices_discount_percent
+    )
 
     success = await subtract_user_balance(
         db=db,
@@ -226,7 +271,7 @@ async def purchase_devices_legacy(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail='Insufficient funds',
+            detail=_t(user, 'PAYMENT_FAILED', 'Insufficient funds'),
         )
 
     # Re-lock subscription after subtract_user_balance committed (which released all locks).
@@ -251,7 +296,12 @@ async def purchase_devices_legacy(
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f'Максимальное количество устройств: {max_device_limit}. Баланс возвращён.',
+            detail=_t(
+                user,
+                'DEVICES_LIMIT_EXCEEDED_REFUND',
+                'Максимальное количество устройств: {max}. Баланс возвращён.',
+                max=max_device_limit,
+            ),
         )
 
     # Add devices (under lock)
@@ -307,7 +357,7 @@ async def purchase_devices_legacy(
         logger.error('Failed to send admin notification for device purchase', error=e)
 
     response: dict[str, Any] = {
-        'message': 'Devices added successfully',
+        'message': _t(user, 'CABINET_DEVICES_ADD_SUCCESS', 'Devices added successfully'),
         'devices_added': request.devices,
         'new_device_limit': actual_new,
         'amount_paid_kopeks': total_price,
@@ -332,14 +382,17 @@ async def purchase_devices(
     if getattr(user, 'restriction_subscription', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Subscription purchases are restricted for this account',
+            detail=_t(user, 'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED', 'Subscription purchases are restricted for this account'),
         )
 
     try:
         # Resolve subscription (ownership validated), then lock the row for concurrent safety
         resolved = await resolve_subscription(db, user, subscription_id)
         if not resolved:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='У вас нет активной подписки')
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_t(user, 'CABINET_NO_ACTIVE_SUBSCRIPTION', 'У вас нет активной подписки'),
+            )
 
         result = await db.execute(
             select(Subscription)
@@ -352,13 +405,13 @@ async def purchase_devices(
         if not subscription:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail='У вас нет активной подписки',
+                detail=_t(user, 'CABINET_NO_ACTIVE_SUBSCRIPTION', 'У вас нет активной подписки'),
             )
 
         if subscription.status not in ['active', 'trial']:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail='Ваша подписка неактивна',
+                detail=_t(user, 'CABINET_SUBSCRIPTION_INACTIVE', 'Ваша подписка неактивна'),
             )
 
         # Get tariff for device price (if exists)
@@ -380,7 +433,7 @@ async def purchase_devices(
         if not device_price or device_price <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail='Докупка устройств недоступна',
+                detail=_t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
             )
 
         # Check max device limit (under row lock — prevents concurrent purchases exceeding limit)
@@ -389,7 +442,12 @@ async def purchase_devices(
         if max_device_limit and new_device_count > max_device_limit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Максимальное количество устройств: {max_device_limit}',
+                detail=_t(
+                    user,
+                    'CABINET_DEVICES_MAX_LIMIT',
+                    'Максимальное количество устройств: {limit}',
+                    limit=max_device_limit,
+                ),
             )
 
         # Calculate prorated price based on remaining days
@@ -471,11 +529,15 @@ async def purchase_devices(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'error': 'Insufficient balance',
-                    'required_kopeks': price_kopeks,
-                    'current_kopeks': user.balance_kopeks,
-                    'missing_kopeks': missing,
+                    'message': _t(
+                        user,
+                        'CABINET_INSUFFICIENT_FUNDS_MISSING',
+                        'Недостаточно средств. Не хватает {missing}',
+                        missing=settings.format_balance(missing, round_kopeks=False),
+                    ),
+                    'missing_amount': missing,
                     'cart_saved': True,
+                    'cart_mode': 'add_devices',
                 },
             )
 
@@ -483,11 +545,9 @@ async def purchase_devices(
         from app.database.crud.user import subtract_user_balance
         from app.database.models import PaymentMethod
 
-        # Build description with discount info
-        if devices_discount_percent > 0:
-            description = f'Покупка {request.devices} доп. устройств (скидка {devices_discount_percent}%)'
-        else:
-            description = f'Покупка {request.devices} доп. устройств'
+        description = _device_purchase_description(
+            user, request.devices, days_left, devices_discount_percent
+        )
 
         success = await subtract_user_balance(
             db=db,
@@ -501,7 +561,7 @@ async def purchase_devices(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail='Insufficient funds',
+                detail=_t(user, 'PAYMENT_FAILED', 'Insufficient funds'),
             )
 
         # Re-lock subscription after subtract_user_balance committed (which released all locks).
@@ -526,7 +586,12 @@ async def purchase_devices(
             await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f'Максимальное количество устройств: {max_device_limit}. Баланс возвращён.',
+                detail=_t(
+                    user,
+                    'DEVICES_LIMIT_EXCEEDED_REFUND',
+                    'Максимальное количество устройств: {max}. Баланс возвращён.',
+                    max=max_device_limit,
+                ),
             )
 
         # Increase device limit (under lock)
@@ -610,7 +675,12 @@ async def purchase_devices(
 
         response: dict[str, Any] = {
             'success': True,
-            'message': f'Добавлено {request.devices} устройств',
+            'message': _t(
+                user,
+                'CABINET_DEVICES_ADDED',
+                'Добавлено {count} устройств',
+                count=request.devices,
+            ),
             'devices_added': request.devices,
             'new_device_limit': subscription.device_limit,
             'price_kopeks': price_kopeks,
@@ -632,7 +702,7 @@ async def purchase_devices(
         logger.error('Failed to purchase devices for user', user_id=user.id, error=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Не удалось обработать покупку устройств',
+            detail=_t(user, 'CABINET_DEVICES_PURCHASE_FAILED', 'Не удалось обработать покупку устройств'),
         )
 
 
@@ -649,13 +719,13 @@ async def save_devices_cart(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='У вас нет активной подписки',
+            detail=_t(user, 'CABINET_NO_ACTIVE_SUBSCRIPTION', 'У вас нет активной подписки'),
         )
 
     if subscription.status not in ['active', 'trial']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Ваша подписка неактивна',
+            detail=_t(user, 'CABINET_SUBSCRIPTION_INACTIVE', 'Ваша подписка неактивна'),
         )
 
     # Get tariff for device price (if exists)
@@ -674,7 +744,7 @@ async def save_devices_cart(
     if not device_price or device_price <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Докупка устройств недоступна',
+            detail=_t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
         )
 
     # Check max device limit
@@ -683,7 +753,12 @@ async def save_devices_cart(
     if max_device_limit and new_device_count > max_device_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Максимальное количество устройств: {max_device_limit}',
+            detail=_t(
+                user,
+                'CABINET_DEVICES_MAX_LIMIT',
+                'Максимальное количество устройств: {limit}',
+                limit=max_device_limit,
+            ),
         )
 
     # Calculate prorated price based on remaining days
@@ -758,7 +833,7 @@ async def get_device_price(
     if not subscription or subscription.status not in ['active', 'trial']:
         return {
             'available': False,
-            'reason': 'Нет активной подписки',
+            'reason': _t(user, 'CABINET_NO_ACTIVE_SUBSCRIPTION', 'Нет активной подписки'),
         }
 
     tariff = None
@@ -779,7 +854,7 @@ async def get_device_price(
     if not device_price or device_price <= 0:
         return {
             'available': False,
-            'reason': 'Докупка устройств недоступна',
+            'reason': _t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
         }
 
     # Check max device limit
@@ -789,7 +864,12 @@ async def get_device_price(
     if max_device_limit and current_devices >= max_device_limit:
         return {
             'available': False,
-            'reason': f'Достигнут максимум устройств ({max_device_limit})',
+            'reason': _t(
+                user,
+                'CABINET_DEVICES_MAX_REACHED',
+                'Достигнут максимум устройств ({limit})',
+                limit=max_device_limit,
+            ),
             'current_device_limit': current_devices,
             'max_device_limit': max_device_limit,
         }
@@ -797,7 +877,12 @@ async def get_device_price(
     if max_device_limit and current_devices + devices > max_device_limit:
         return {
             'available': False,
-            'reason': f'Можно добавить максимум {can_add} устройств',
+            'reason': _t(
+                user,
+                'CABINET_DEVICES_CAN_ADD_MAX',
+                'Можно добавить максимум {count} устройств',
+                count=can_add,
+            ),
             'current_device_limit': current_devices,
             'max_device_limit': max_device_limit,
             'can_add': can_add,
@@ -889,7 +974,7 @@ async def get_devices(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='No subscription found',
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
         )
 
     _puuid = _resolve_panel_uuid(subscription, user)
@@ -994,11 +1079,17 @@ async def rename_device(
     # подписок. Сам alias всё равно глобальный per (user, hwid).
     subscription = await resolve_subscription(db, user, subscription_id)
     if not subscription:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No subscription found')
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
+        )
 
     hwid = (hwid or '').strip()
     if not hwid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='hwid is required')
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_t(user, 'CABINET_DEVICE_HWID_REQUIRED', 'hwid is required'),
+        )
 
     # Guard against orphan rows: only accept rename requests for devices
     # the user actually owns in RemnaWave panel right now. Multi-tariff
@@ -1006,7 +1097,7 @@ async def rename_device(
     if not await verify_hwid_belongs_to_user(user, hwid):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='Device not found on your account',
+            detail=_t(user, 'CABINET_DEVICE_NOT_FOUND', 'Device not found on your account'),
         )
 
     normalized = normalize_alias(request.name)
@@ -1033,14 +1124,14 @@ async def delete_device(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='No subscription found',
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
         )
 
     _puuid = _resolve_panel_uuid(subscription, user)
     if not _puuid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='User UUID not found',
+            detail=_t(user, 'CABINET_USER_UUID_NOT_FOUND', 'User UUID not found'),
         )
 
     try:
@@ -1051,7 +1142,7 @@ async def delete_device(
 
             return {
                 'success': True,
-                'message': 'Device deleted successfully',
+                'message': _t(user, 'CABINET_DEVICE_DELETE_SUCCESS', 'Device deleted successfully'),
                 'deleted_hwid': hwid,
             }
 
@@ -1059,7 +1150,7 @@ async def delete_device(
         logger.error('Error deleting device', error=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Failed to delete device',
+            detail=_t(user, 'CABINET_DEVICE_DELETE_FAILED', 'Failed to delete device'),
         )
 
 
@@ -1077,14 +1168,14 @@ async def delete_all_devices(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='No subscription found',
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
         )
 
     _puuid = _resolve_panel_uuid(subscription, user)
     if not _puuid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='User UUID not found',
+            detail=_t(user, 'CABINET_USER_UUID_NOT_FOUND', 'User UUID not found'),
         )
 
     try:
@@ -1096,7 +1187,7 @@ async def delete_all_devices(
             if not response:
                 return {
                     'success': True,
-                    'message': 'No devices to delete',
+                    'message': _t(user, 'CABINET_DEVICES_NONE_TO_DELETE', 'No devices to delete'),
                     'deleted_count': 0,
                 }
 
@@ -1104,7 +1195,7 @@ async def delete_all_devices(
             if not devices_list:
                 return {
                     'success': True,
-                    'message': 'No devices to delete',
+                    'message': _t(user, 'CABINET_DEVICES_NONE_TO_DELETE', 'No devices to delete'),
                     'deleted_count': 0,
                 }
 
@@ -1121,7 +1212,12 @@ async def delete_all_devices(
 
             return {
                 'success': True,
-                'message': f'Deleted {deleted_count} devices',
+                'message': _t(
+                    user,
+                    'CABINET_DEVICES_DELETED_COUNT',
+                    'Deleted {count} devices',
+                    count=deleted_count,
+                ),
                 'deleted_count': deleted_count,
             }
 
@@ -1129,7 +1225,7 @@ async def delete_all_devices(
         logger.error('Error deleting all devices', error=e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Failed to delete devices',
+            detail=_t(user, 'CABINET_DEVICES_DELETE_FAILED', 'Failed to delete devices'),
         )
 
 
@@ -1150,7 +1246,7 @@ async def get_device_reduction_info(
     if not subscription:
         return {
             'available': False,
-            'reason': 'No subscription found',
+            'reason': _t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
             'current_device_limit': 0,
             'min_device_limit': 1,
             'can_reduce': 0,
@@ -1161,7 +1257,11 @@ async def get_device_reduction_info(
     if subscription.is_trial:
         return {
             'available': False,
-            'reason': 'Device reduction is not available for trial subscriptions',
+            'reason': _t(
+                user,
+                'CABINET_DEVICES_REDUCTION_TRIAL_UNAVAILABLE',
+                'Device reduction is not available for trial subscriptions',
+            ),
             'current_device_limit': subscription.device_limit or 1,
             'min_device_limit': 1,
             'can_reduce': 0,
@@ -1178,7 +1278,7 @@ async def get_device_reduction_info(
     if current_device_limit <= min_device_limit:
         return {
             'available': False,
-            'reason': 'Already at minimum device limit',
+            'reason': _t(user, 'CABINET_DEVICES_ALREADY_MINIMUM', 'Already at minimum device limit'),
             'current_device_limit': current_device_limit,
             'min_device_limit': min_device_limit,
             'can_reduce': 0,
@@ -1223,13 +1323,16 @@ async def reduce_devices(
     if not new_device_limit or new_device_limit < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Invalid new_device_limit',
+            detail=_t(user, 'CABINET_DEVICES_INVALID_LIMIT', 'Invalid new_device_limit'),
         )
 
     # Resolve subscription (ownership validated), then lock the row for concurrent safety
     resolved = await resolve_subscription(db, user, subscription_id)
     if not resolved:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No subscription found')
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
+        )
 
     result = await db.execute(
         select(Subscription)
@@ -1242,13 +1345,17 @@ async def reduce_devices(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail='No subscription found',
+            detail=_t(user, 'CABINET_NO_SUBSCRIPTION_FOUND', 'No subscription found'),
         )
 
     if subscription.is_trial:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Device reduction is not available for trial subscriptions',
+            detail=_t(
+                user,
+                'CABINET_DEVICES_REDUCTION_TRIAL_UNAVAILABLE',
+                'Device reduction is not available for trial subscriptions',
+            ),
         )
 
     # Minimum device limit for decrease is always 1 (tariff's device_limit is the
@@ -1261,13 +1368,22 @@ async def reduce_devices(
     if new_device_limit >= current_device_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='New device limit must be less than current limit',
+            detail=_t(
+                user,
+                'CABINET_DEVICES_LIMIT_MUST_DECREASE',
+                'New device limit must be less than current limit',
+            ),
         )
 
     if new_device_limit < min_device_limit:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Cannot reduce below minimum device limit ({min_device_limit}) for your tariff',
+            detail=_t(
+                user,
+                'DEVICES_MIN_LIMIT_REACHED',
+                'Cannot reduce below minimum device limit ({limit}) for your tariff',
+                limit=min_device_limit,
+            ),
         )
 
     # Get connected devices and remove excess (last connected ones)
@@ -1336,7 +1452,11 @@ async def reduce_devices(
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail='Не удалось обновить VPN-панель. Попробуйте позже.',
+            detail=_t(
+                user,
+                'CABINET_PANEL_UPDATE_FAILED',
+                'Не удалось обновить VPN-панель. Попробуйте позже.',
+            ),
         )
 
     logger.info(
@@ -1347,10 +1467,19 @@ async def reduce_devices(
         devices_removed=devices_removed_count if devices_removed_count > 0 else None,
     )
 
+    if devices_removed_count > 0:
+        message = _t(
+            user,
+            'CABINET_DEVICES_REDUCE_SUCCESS_REMOVED',
+            'Device limit reduced successfully ({count} devices removed)',
+            count=devices_removed_count,
+        )
+    else:
+        message = _t(user, 'CABINET_DEVICES_REDUCE_SUCCESS', 'Device limit reduced successfully')
+
     return {
         'success': True,
-        'message': 'Device limit reduced successfully'
-        + (f' ({devices_removed_count} devices removed)' if devices_removed_count > 0 else ''),
+        'message': message,
         'old_device_limit': old_device_limit,
         'new_device_limit': new_device_limit,
         'devices_removed': devices_removed_count,

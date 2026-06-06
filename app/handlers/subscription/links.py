@@ -54,19 +54,29 @@ async def handle_connect_subscription(
                     _t = await _get_tariff(db, sub.tariff_id)
                     tariff_name = _t.name if _t else f'#{sub.id}'
                 else:
-                    tariff_name = f'Подписка #{sub.id}'
+                    tariff_name = texts.t(
+                        'SUBSCRIPTION_CONNECT_PICKER_FALLBACK_NAME',
+                        'Подписка #{id}',
+                    ).format(id=sub.id)
                 days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
+                days_label = texts.t('SUBSCRIPTION_TIME_LEFT_DAYS', '{days} дн.').format(days=days_left)
                 keyboard.append(
                     [
                         types.InlineKeyboardButton(
-                            text=f'🔗 {tariff_name} ({days_left}д.)',
+                            text=texts.t(
+                                'SUBSCRIPTION_CONNECT_PICKER_ITEM',
+                                '🔗 {name} ({days_left})',
+                            ).format(name=tariff_name, days_left=days_label),
                             callback_data=f'sl:{sub.id}',
                         )
                     ]
                 )
-            keyboard.append([types.InlineKeyboardButton(text='◀️ Назад', callback_data='back_to_menu')])
+            keyboard.append([types.InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
             await callback.message.edit_text(
-                '🔗 <b>Подключиться</b>\n\nВыберите подписку:',
+                texts.t(
+                    'SUBSCRIPTION_CONNECT_PICKER_TITLE',
+                    '🔗 <b>Подключиться</b>\n\nВыберите подписку:',
+                ),
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
             )
             await callback.answer()

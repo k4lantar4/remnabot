@@ -171,15 +171,18 @@ async def process_promocode(message: types.Message, db_user: User, state: FSMCon
         for sub in eligible:
             name = sub.get('tariff_name', f'#{sub["id"]}')
             days = sub.get('days_left', 0)
+            days_label = texts.t('SUBSCRIPTION_TIME_LEFT_DAYS', '{days} дн.').format(days=days)
             buttons.append(
                 [
                     types.InlineKeyboardButton(
-                        text=f'{name} ({days} дн.)',
+                        text=f'{name} ({days_label})',
                         callback_data=f'promo_sub:{sub["id"]}:{promo_code}',
                     )
                 ]
             )
-        buttons.append([types.InlineKeyboardButton(text='❌ Отмена', callback_data='back_to_menu')])
+        buttons.append(
+            [types.InlineKeyboardButton(text=texts.t('CANCEL', '❌ Отмена'), callback_data='back_to_menu')]
+        )
         await message.answer(
             texts.t(
                 'PROMOCODE_SELECT_SUBSCRIPTION',

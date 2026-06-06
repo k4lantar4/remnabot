@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
@@ -31,6 +32,11 @@ from .helpers import _subscription_to_response, resolve_subscription
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+def _t(user: User, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(user.language).t(key, fallback)
+    return text.format(**fmt) if fmt else text
 
 
 @router.post('/tariff/switch/preview')
@@ -124,12 +130,12 @@ async def preview_tariff_switch(
     if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Повышение тарифа недоступно',
+            detail=_t(user, 'CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'),
         )
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Понижение тарифа недоступно',
+            detail=_t(user, 'CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'),
         )
     base_upgrade_cost = switch_result.raw_cost
     discount_value = switch_result.discount_value
@@ -147,7 +153,9 @@ async def preview_tariff_switch(
         'new_tariff_name': new_tariff.name,
         'remaining_days': remaining_days,
         'upgrade_cost_kopeks': upgrade_cost,
-        'upgrade_cost_label': settings.format_price(upgrade_cost) if upgrade_cost > 0 else 'Бесплатно',
+        'upgrade_cost_label': settings.format_price(upgrade_cost)
+        if upgrade_cost > 0
+        else _t(user, 'DEVICE_CHANGE_FREE', 'Бесплатно'),
         'balance_kopeks': balance,
         # Когда есть нехватка <1₽ (FX-rounding), показ копеек обязателен — без него
         # юзер видит "Баланс 150 ₽, не хватает 0 ₽" и думает что баг.
@@ -287,12 +295,12 @@ async def switch_tariff(
     if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Повышение тарифа недоступно',
+            detail=_t(user, 'CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'),
         )
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Понижение тарифа недоступно',
+            detail=_t(user, 'CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'),
         )
 
     # Validate daily price for switching TO daily
@@ -316,21 +324,48 @@ async def switch_tariff(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Insufficient funds. Missing {settings.format_price(missing, round_kopeks=False)}',
+                    'message': _t(
+                        user,
+                        'CABINET_INSUFFICIENT_FUNDS_MISSING',
+                        'Недостаточно средств. Не хватает {missing}',
+                        missing=settings.format_price(missing, round_kopeks=False),
+                    ),
                     'missing_amount': missing,
                 },
             )
 
         if switching_to_daily:
-            description = f"Переход на суточный тариф '{new_tariff.name}'"
+            description = _t(
+                user,
+                'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                "Переход на суточный тариф '{name}'",
+                name=new_tariff.name,
+            )
         elif switching_from_daily:
-            description = f"Переход с суточного на тариф '{new_tariff.name}' ({new_period_days} дней)"
+            description = _t(
+                user,
+                'TARIFF_SWITCH_FROM_DAILY_LEDGER_DESC',
+                "Переход с суточного на тариф '{name}' ({days} дней)",
+                name=new_tariff.name,
+                days=new_period_days,
+            )
         else:
-            description = f"Переход на тариф '{new_tariff.name}' (доплата за {remaining_days} дней)"
+            description = _t(
+                user,
+                'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
+                "Переход на тариф '{name}' (доплата за {days} дней)",
+                name=new_tariff.name,
+                days=remaining_days,
+            )
 
         # Add discount info to description if applicable
         if period_discount_percent > 0 and discount_value > 0:
-            description += f' (скидка {period_discount_percent}%)'
+            description += _t(
+                user,
+                'TARIFF_LEDGER_DISCOUNT_SUFFIX',
+                ' (скидка {percent}%)',
+                percent=period_discount_percent,
+            )
 
         success = await subtract_user_balance(
             db,
@@ -359,7 +394,12 @@ async def switch_tariff(
         )
     else:
         # Free switch (downgrade) — record in history
-        description = f"Переход на тариф '{new_tariff.name}'"
+        description = _t(
+            user,
+            'TARIFF_SWITCH_FREE_LEDGER_DESC',
+            "Переход на тариф '{name}'",
+            name=new_tariff.name,
+        )
         await create_transaction(
             db=db,
             user_id=user.id,
@@ -534,8 +574,16 @@ async def switch_tariff(
 
     response: dict[str, Any] = {
         'success': True,
-        'message': f"Switched from '{old_tariff_name}' to '{new_tariff.name}'"
-        + (' (devices reset)' if devices_reset else ''),
+        'message': _t(
+            user,
+            'CABINET_TARIFF_SWITCH_SUCCESS',
+            "Переход с «{old}» на «{new}»{devices_reset}",
+            old=old_tariff_name,
+            new=new_tariff.name,
+            devices_reset=_t(user, 'CABINET_TARIFF_SWITCH_DEVICES_RESET', ' (устройства сброшены)')
+            if devices_reset
+            else '',
+        ),
         'subscription': _subscription_to_response(subscription, user=user),
         'old_tariff_name': old_tariff_name,
         'new_tariff_id': new_tariff.id,

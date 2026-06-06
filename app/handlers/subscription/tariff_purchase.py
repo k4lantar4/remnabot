@@ -2148,7 +2148,6 @@ async def confirm_daily_tariff_purchase(
 
 def _calc_extra_devices_cost(tariff: Tariff, subscription_device_limit: int, period_days: int) -> int:
     """Рассчитывает стоимость дополнительных устройств сверх тарифа для периода."""
-    texts = get_texts(db_user.language)
     additional = max(0, subscription_device_limit - (tariff.device_limit or 1))
     if additional <= 0:
         return 0
@@ -2235,9 +2234,8 @@ async def show_tariff_extend(
     db_user: User,
     db: AsyncSession,
 ):
-    texts = get_texts(db_user.language)
     """Показывает экран продления по текущему тарифу."""
-    get_texts(db_user.language)
+    texts = get_texts(db_user.language)
 
     if settings.is_multi_tariff_enabled():
         sub_id = None
@@ -2476,13 +2474,22 @@ async def select_tariff_extend_period(
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
-            f'❌ <b>Недостаточно средств</b>\n\n'
-            f'📦 Тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📅 Период: {format_period(period, db_user.language)}\n'
-            f'💰 К оплате: {format_price_kopeks(final_price)}\n\n'
-            f'💳 Ваш баланс: {format_price_kopeks(user_balance)}\n'
-            f'⚠️ Не хватает: <b>{format_price_kopeks(missing)}</b>\n\n'
-            f'🛒 <i>Корзина сохранена! После пополнения баланса подписка будет продлена автоматически.</i>',
+            texts.t(
+                'TARIFF_RENEW_INSUFFICIENT',
+                '❌ <b>Недостаточно средств</b>\n\n'
+                '📦 Тариф: <b>{name}</b>\n📅 Период: {period}\n💰 К оплате: {cost}\n\n'
+                '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>\n\n{cart_note}',
+            ).format(
+                name=html.escape(tariff.name),
+                period=format_period(period, db_user.language),
+                cost=format_price_kopeks(final_price),
+                balance=format_price_kopeks(user_balance),
+                missing=format_price_kopeks(missing),
+                cart_note=texts.t(
+                    'TARIFF_RENEW_CART_SAVED_NOTE',
+                    '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет продлена автоматически.</i>',
+                ),
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
@@ -2665,12 +2672,18 @@ async def confirm_tariff_extend(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         await callback.message.edit_text(
-            f'🎉 <b>Подписка успешно продлена!</b>\n\n'
-            f'📦 Тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {actual_device_limit}\n'
-            f'📅 Добавлено: {format_period(period, db_user.language)}\n'
-            f'💰 Списано: {format_price_kopeks(final_price)}',
+            texts.t(
+                'TARIFF_RENEW_SUCCESS',
+                '🎉 <b>Подписка успешно продлена!</b>\n\n'
+                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
+                '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=actual_device_limit,
+                period=format_period(period, db_user.language),
+                charged=format_price_kopeks(final_price),
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -3061,19 +3074,16 @@ async def select_tariff_switch(
             )
     else:
         # Для обычного тарифа показываем выбор периода
-        info_text = f"""📦 <b>{html.escape(tariff.name)}</b>
-    texts = get_texts(db_user.language)
-    texts = get_texts(db_user.language)
-
-<b>Параметры нового тарифа:</b>
-• Трафик: {traffic}
-• Устройств: {tariff.device_limit}
-"""
+        info_text = texts.t(
+            'TARIFF_INFO_HEADER',
+            '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}',
+        ).format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
 
         if tariff.description:
             info_text += f'\n📝 {html.escape(tariff.description)}\n'
 
-        info_text += '\n⚠️ Оплачивается полная стоимость тарифа.\nВыберите период:'
+        info_text += '\n' + texts.t('TARIFF_SWITCH_FULL_PRICE', '⚠️ Оплачивается полная стоимость.')
+        info_text += texts.t('TARIFF_INFO_SELECT_PERIOD', '\nВыберите период подписки:')
 
         await callback.message.edit_text(
             info_text,
@@ -3748,7 +3758,6 @@ def _calculate_instant_switch_cost(
     db_user: User | None = None,
 ) -> tuple[int, bool]:
     """Рассчитывает стоимость мгновенного переключения тарифа.
-    texts = get_texts(db_user.language)
 
     Делегирует расчёт в PricingEngine.calculate_tariff_switch_cost().
     Returns:
@@ -4690,7 +4699,10 @@ async def return_to_saved_tariff_cart(
         discount_text = ''
         if discount_percent > 0:
             original_price = int(total_price / (1 - discount_percent / 100))
-            discount_text = f'\n🎁 Скидка: {discount_percent}% (-{format_price_kopeks(original_price - total_price)})'
+            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
+                percent=discount_percent,
+                amount=format_price_kopeks(original_price - total_price),
+            )
 
         await callback.message.edit_text(
             texts.t(
@@ -4728,7 +4740,10 @@ async def return_to_saved_tariff_cart(
         discount_text = ''
         if discount_percent > 0:
             original_price = int(total_price / (1 - discount_percent / 100))
-            discount_text = f'\n🎁 Скидка: {discount_percent}% (-{format_price_kopeks(original_price - total_price)})'
+            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
+                percent=discount_percent,
+                amount=format_price_kopeks(original_price - total_price),
+            )
 
         await callback.message.edit_text(
             texts.t(
