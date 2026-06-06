@@ -1217,6 +1217,16 @@ class Settings(BaseSettings):
         except (TypeError, ValueError):
             return 10
 
+    @field_validator('FIXED_TRAFFIC_LIMIT_GB', mode='before')
+    @classmethod
+    def coerce_fixed_traffic_limit_gb(cls, value: int | str | None) -> int:
+        if value is None or value == '':
+            return 100
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 100
+
     @field_validator('LOG_FILE', mode='before')
     @classmethod
     def ensure_log_dir(cls, v):
