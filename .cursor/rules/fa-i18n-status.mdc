@@ -21,13 +21,14 @@ alwaysApply: true
 
 | Item | Value |
 |------|-------|
-| App version | **3.59.0** (upstream merge Jun 4 2026) |
-| Production line | `remnabot/main` — local `main` / `dev-local` at `eafd1efa` (**23 commits** ahead until push) |
-| **Branch** | `i18n/p1-remainder` (P1.5 done, not merged) |
-| **HEAD** | `fe607943` — P1.5 remainder (`1ab9cb34`…`fe607943`, 10 commits) |
-| **Production** | `remnabot/main` / local `main` at P1 merge (`48c252c4`+) |
-| Upstream merge | `9f08086a` — subscriptions revive, dedup startup, YooKassa idempotency, sales stats API; **no new fa-i18n slice** |
-| Merge path | `chore/merge-upstream-3.59` → `dev-local` → `main` (FF, Jun 4 2026) |
+| App version | **3.60.0** bot + **1.57.0** cabinet (upstream merge Jun 6 2026) |
+| Production line | `remnabot/main` — local `main` at `03e1c2e8` (P1.5 merged) |
+| **Merge branch** | `chore/merge-cabinet-1.57` @ `83f7e630` (bot 3.60 + cabinet 1.57) |
+| **Bot merge** | `chore/merge-upstream-3.60` @ `3f6c8d23` |
+| **Remotes** | `upstream` + `upstream-cabinet` (push blocked); see `docs/cabinet-upstream.md` |
+| Alembic chain | `0087` → `0088` C2C → `0089` dedup → `0090` wheel idempotency |
+| Upstream merge | 3.60: email-merge API, signed media token, Stars idempotency, wheel charge guard; cabinet 1.57: health blocking, gift claim, nav refresh |
+| Merge path | `chore/merge-cabinet-1.57` → PR → `dev-local` → `main` (**awaiting user smoke + approval**) |
 
 ## Done (P2 — Jun 3 2026)
 
