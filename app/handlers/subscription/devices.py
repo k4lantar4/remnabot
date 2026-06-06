@@ -1954,12 +1954,15 @@ async def handle_app_selection(callback: types.CallbackQuery, db_user: User, db:
 async def handle_specific_app_guide(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
+    texts = get_texts(db_user.language)
     parts = callback.data.split('_', 2)
     if len(parts) < 3:
-        await callback.answer('Invalid callback data', show_alert=True)
+        await callback.answer(
+            texts.t('UNKNOWN_CALLBACK_ALERT', '❓ Неизвестная команда. Попробуйте ещё раз.'),
+            show_alert=True,
+        )
         return
     _, device_type, app_id = parts
-    texts = get_texts(db_user.language)
     subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
         return
