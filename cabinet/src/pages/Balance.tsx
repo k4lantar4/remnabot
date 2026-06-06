@@ -343,8 +343,20 @@ export default function Balance() {
                       </div>
                     )}
                     <div className="mt-3 text-xs text-dark-600">
-                      {formatAmount(method.min_amount_kopeks / 100, 0)} {t('common.rangeTo', 'to')}{' '}
-                      {formatAmount(method.max_amount_kopeks / 100, 0)} {currencySymbol}
+                      {formatAmount(
+                        method.id === 'c2c'
+                          ? method.min_amount_kopeks
+                          : method.min_amount_kopeks / 100,
+                        0,
+                      )}{' '}
+                      {t('common.rangeTo', 'to')}{' '}
+                      {formatAmount(
+                        method.id === 'c2c'
+                          ? method.max_amount_kopeks
+                          : method.max_amount_kopeks / 100,
+                        0,
+                      )}{' '}
+                      {currencySymbol}
                     </div>
                   </Card>
                 );
