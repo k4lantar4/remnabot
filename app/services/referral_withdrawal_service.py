@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.models import (
     ReferralEarning,
     Transaction,
@@ -187,7 +188,7 @@ class ReferralWithdrawalService:
         return result.scalar_one_or_none()
 
     async def can_request_withdrawal(
-        self, db: AsyncSession, user_id: int, *, stats: dict | None = None
+        self, db: AsyncSession, user_id: int, *, stats: dict | None = None, language: str | None = None
     ) -> tuple[bool, str, dict]:
         """
         Проверяет, может ли пользователь запросить вывод.
@@ -195,9 +196,17 @@ class ReferralWithdrawalService:
         Принимает предвычисленные stats для избежания повторного запроса.
         """
         if not settings.is_referral_withdrawal_enabled():
+            if language:
+                texts = get_texts(language)
+                reason = texts.t(
+                    'REFERRAL_WITHDRAWAL_REASON_DISABLED',
+                    'Функция вывода реферального баланса отключена',
+                )
+            else:
+                reason = 'Функция вывода реферального баланса отключена'
             return (
                 False,
-                'Функция вывода реферального баланса отключена',
+                reason,
                 {
                     'total_earned': 0,
                     'own_deposits': 0,
@@ -218,7 +227,15 @@ class ReferralWithdrawalService:
         min_amount = settings.REFERRAL_WITHDRAWAL_MIN_AMOUNT_KOPEKS
 
         if available < min_amount:
-            return False, f'Минимальная сумма вывода: {min_amount / 100:.0f}₽. Доступно: {available / 100:.0f}₽', stats
+            if language:
+                texts = get_texts(language)
+                reason = texts.t(
+                    'REFERRAL_WITHDRAWAL_REASON_MIN_AMOUNT',
+                    'Минимальная сумма вывода: {min}. Доступно: {available}',
+                ).format(min=texts.format_price(min_amount), available=texts.format_price(available))
+            else:
+                reason = f'Минимальная сумма вывода: {min_amount / 100:.0f}₽. Доступно: {available / 100:.0f}₽'
+            return False, reason, stats
 
         # Проверяем cooldown (пропускаем в тестовом режиме)
         last_request = await self.get_last_withdrawal_request(db, user_id)
@@ -230,11 +247,27 @@ class ReferralWithdrawalService:
 
                 if datetime.now(UTC) < cooldown_end:
                     days_left = (cooldown_end - datetime.now(UTC)).days + 1
-                    return False, f'Следующий запрос на вывод будет доступен через {days_left} дн.', stats
+                    if language:
+                        texts = get_texts(language)
+                        reason = texts.t(
+                            'REFERRAL_WITHDRAWAL_REASON_COOLDOWN',
+                            'Следующий запрос на вывод будет доступен через {days_left} дн.',
+                        ).format(days_left=days_left)
+                    else:
+                        reason = f'Следующий запрос на вывод будет доступен через {days_left} дн.'
+                    return False, reason, stats
 
             # Проверяем, нет ли активной заявки
             if last_request.status == WithdrawalRequestStatus.PENDING.value:
-                return False, 'У вас уже есть активная заявка на рассмотрении', stats
+                if language:
+                    texts = get_texts(language)
+                    reason = texts.t(
+                        'REFERRAL_WITHDRAWAL_REASON_PENDING',
+                        'У вас уже есть активная заявка на рассмотрении',
+                    )
+                else:
+                    reason = 'У вас уже есть активная заявка на рассмотрении'
+                return False, reason, stats
 
         return True, 'OK', stats
 
@@ -418,7 +451,13 @@ class ReferralWithdrawalService:
     # ==================== СОЗДАНИЕ И УПРАВЛЕНИЕ ЗАЯВКАМИ ====================
 
     async def create_withdrawal_request(
-        self, db: AsyncSession, user_id: int, amount_kopeks: int, payment_details: str
+        self,
+        db: AsyncSession,
+        user_id: int,
+        amount_kopeks: int,
+        payment_details: str,
+        *,
+        language: str | None = None,
     ) -> tuple[WithdrawalRequest | None, str]:
         """
         Создаёт заявку на вывод с анализом на отмывание.
@@ -428,19 +467,36 @@ class ReferralWithdrawalService:
         await db.execute(select(User).where(User.id == user_id).with_for_update())
 
         # Проверяем возможность вывода (stats возвращаются для переиспользования)
-        can_request, reason, stats = await self.can_request_withdrawal(db, user_id)
+        can_request, reason, stats = await self.can_request_withdrawal(db, user_id, language=language)
         if not can_request:
             return None, reason
 
         available = stats['available_total']
 
         if amount_kopeks > available:
-            return None, f'Недостаточно средств. Доступно: {available / 100:.0f}₽'
+            if language:
+                texts = get_texts(language)
+                error = texts.t(
+                    'REFERRAL_WITHDRAWAL_REASON_INSUFFICIENT',
+                    'Недостаточно средств. Доступно: {available}',
+                ).format(available=texts.format_price(available))
+            else:
+                error = f'Недостаточно средств. Доступно: {available / 100:.0f}₽'
+            return None, error
 
         # В режиме "только реф. баланс" проверяем реф. баланс
         if settings.REFERRAL_WITHDRAWAL_ONLY_REFERRAL_BALANCE:
             if amount_kopeks > stats['available_referral']:
-                return None, f'Недостаточно реферального баланса. Доступно: {stats["available_referral"] / 100:.0f}₽'
+                available_referral = stats['available_referral']
+                if language:
+                    texts = get_texts(language)
+                    error = texts.t(
+                        'REFERRAL_WITHDRAWAL_REASON_INSUFFICIENT_REFERRAL',
+                        'Недостаточно реферального баланса. Доступно: {available}',
+                    ).format(available=texts.format_price(available_referral))
+                else:
+                    error = f'Недостаточно реферального баланса. Доступно: {available_referral / 100:.0f}₽'
+                return None, error
 
         # Анализируем на отмывание
         analysis = await self.analyze_for_money_laundering(db, user_id)

@@ -571,7 +571,9 @@ async def show_withdrawal_info(callback: types.CallbackQuery, db_user: User, db:
     cooldown_days = settings.REFERRAL_WITHDRAWAL_COOLDOWN_DAYS
 
     # Проверяем возможность вывода
-    can_request, reason, _stats = await referral_withdrawal_service.can_request_withdrawal(db, db_user.id)
+    can_request, reason, _stats = await referral_withdrawal_service.can_request_withdrawal(
+        db, db_user.id, language=db_user.language
+    )
 
     text = texts.t('REFERRAL_WITHDRAWAL_TITLE', '💸 <b>Вывод реферального баланса</b>') + '\n\n'
 
@@ -616,7 +618,9 @@ async def start_withdrawal_request(callback: types.CallbackQuery, db_user: User,
     texts = get_texts(db_user.language)
 
     # Повторная проверка
-    can_request, reason, wd_stats = await referral_withdrawal_service.can_request_withdrawal(db, db_user.id)
+    can_request, reason, wd_stats = await referral_withdrawal_service.can_request_withdrawal(
+        db, db_user.id, language=db_user.language
+    )
     if not can_request:
         await callback.answer(reason, show_alert=True)
         return
@@ -803,7 +807,7 @@ async def confirm_withdrawal_request(callback: types.CallbackQuery, db_user: Use
 
     # Создаём заявку
     request, error = await referral_withdrawal_service.create_withdrawal_request(
-        db, db_user.id, amount_kopeks, payment_details
+        db, db_user.id, amount_kopeks, payment_details, language=db_user.language
     )
 
     if error:
