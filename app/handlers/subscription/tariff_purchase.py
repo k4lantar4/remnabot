@@ -3151,7 +3151,7 @@ async def select_tariff_switch_period(
         max(0, (subscription.end_date - datetime.now(UTC)).days)
 
     # При смене тарифа устанавливается ровно оплаченный период
-    time_info = f'⏰ Будет установлено: {period} дней'
+    time_info = texts.t('TARIFF_SWITCH_TIME_SET', '⏰ Будет установлено: {period} дней').format(period=period)
 
     if user_balance >= final_price:
         discount_text = ''
@@ -3425,16 +3425,25 @@ async def confirm_tariff_switch(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         # При смене тарифа устанавливается оплаченный период
-        time_info = f'📅 Период: {days_for_new_tariff} дней'
+        time_info = texts.t('TARIFF_SWITCH_SUCCESS_PERIOD', '📅 Период: {period} дней').format(period=days_for_new_tariff)
 
         await callback.message.edit_text(
-            f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-            f'📦 Новый тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {tariff.device_limit}\n'
-            f'💰 Списано: {format_price_kopeks(final_price)}\n'
-            f'{time_info}\n\n'
-            f'Перейдите в раздел «Подписка» для просмотра деталей.',
+            texts.t(
+                'TARIFF_SWITCH_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '💰 Списано: {charged}\n'
+                '{time_info}\n\n'
+                'Перейдите в раздел «Подписка» для просмотра деталей.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_price),
+                time_info=time_info,
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -3688,13 +3697,21 @@ async def confirm_daily_tariff_switch(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         await callback.message.edit_text(
-            f'🎉 <b>Тариф успешно изменён!</b>\n\n'
-            f'📦 Новый тариф: <b>{html.escape(tariff.name)}</b>\n'
-            f'📊 Трафик: {traffic}\n'
-            f'📱 Устройств: {tariff.device_limit}\n'
-            f'🔄 Тип: Суточный\n'
-            f'💰 Списано: {format_price_kopeks(final_daily_price)}\n\n'
-            f'ℹ️ Следующее списание через 24 часа.',
+            texts.t(
+                'TARIFF_SWITCH_DAILY_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '🔄 Тип: Суточный\n'
+                '💰 Списано: {charged}\n\n'
+                'ℹ️ Следующее списание через 24 часа.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_daily_price),
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
