@@ -1978,6 +1978,7 @@
   "MINIAPP_TARIFF_SWITCH_SUCCESS": "تعرفه به «{name}» تغییر کرد",
   "MINIAPP_TRAFFIC_TOPUP_SUCCESS": "افزوده شد: {gb} گیگ ترافیک",
   "MINIAPP_TRIAL_ACTIVATED": "آزمایشی فعال شد. خوش استفاده!",
+  "MINIAPP_DEVICES_CONCURRENT_APPLIED": "تغییر قبلاً با درخواست همزمان اعمال شده است. موجودی بازگردانده شد.",
   "MINIAPP_TRIAL_ACTIVATED_DAYS": "آزمایشی به مدت {days} روز فعال شد. خوش استفاده!",
   "MINIAPP_TRIAL_CHARGED": "💳 از موجودی شما {amount} کسر شد.",
   "MULENPAY_PAYMENT_ERROR": "❌ خطا در پرداخت MulenPay.",

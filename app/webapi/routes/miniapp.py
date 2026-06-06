@@ -4486,11 +4486,13 @@ def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
     return payload
 
 
-def _format_payment_method_title(method: str) -> str:
+def _format_payment_method_title(method: str, user: User | None = None) -> str:
+    key = (method or '').lower()
+    if key == 'yookassa_sbp':
+        return _t(user, 'PAYMENT_SBP_YOOKASSA', 'YooKassa СБП')
     mapping = {
         'cryptobot': 'CryptoBot',
         'yookassa': 'YooKassa',
-        'yookassa_sbp': 'YooKassa СБП',
         'mulenpay': 'MulenPay',
         'pal24': 'Pal24',
         'wata': 'WataPay',
@@ -4498,7 +4500,6 @@ def _format_payment_method_title(method: str) -> str:
         'tribute': 'Tribute',
         'stars': 'Telegram Stars',
     }
-    key = (method or '').lower()
     return mapping.get(key, method.title() if method else '')
 
 
@@ -4567,7 +4568,7 @@ def _build_renewal_pending_message(
     method: str,
 ) -> str:
     amount_label = settings.format_price(max(0, missing_amount))
-    method_title = _format_payment_method_title(method)
+    method_title = _format_payment_method_title(method, user)
 
     if method_title:
         return _t(
@@ -6104,7 +6105,10 @@ async def update_subscription_devices_endpoint(
     if not tariff_device_price or tariff_device_price <= 0:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail={'code': 'devices_unavailable', 'message': 'Докупка устройств недоступна'},
+            detail={
+                'code': 'devices_unavailable',
+                'message': _t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
+            },
         )
 
     # Enforce tariff max device limit
@@ -6113,7 +6117,12 @@ async def update_subscription_devices_endpoint(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'devices_limit_exceeded',
-                'message': f'Превышен максимальный лимит устройств ({tariff_max_device_limit})',
+                'message': _t(
+                    user,
+                    'DEVICES_LIMIT_EXCEEDED',
+                    'Превышен максимальный лимит устройств ({limit})',
+                    limit=tariff_max_device_limit,
+                ),
             },
         )
 
@@ -6225,14 +6234,23 @@ async def update_subscription_devices_endpoint(
                     status.HTTP_409_CONFLICT,
                     detail={
                         'code': 'already_applied',
-                        'message': 'Изменение уже применено параллельным запросом. Баланс возвращён.',
+                        'message': _t(
+                            user,
+                            'MINIAPP_DEVICES_CONCURRENT_APPLIED',
+                            'Изменение уже применено параллельным запросом. Баланс возвращён.',
+                        ),
                     },
                 )
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail={
                     'code': 'devices_limit_exceeded',
-                    'message': f'Превышен максимальный лимит устройств ({tariff_max_device_limit}). Баланс возвращён.',
+                    'message': _t(
+                        user,
+                        'DEVICES_LIMIT_EXCEEDED_REFUND',
+                        'Превышен максимальный лимит устройств ({max}). Баланс возвращён.',
+                        max=tariff_max_device_limit,
+                    ),
                 },
             )
 
