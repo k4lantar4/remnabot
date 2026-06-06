@@ -3017,6 +3017,7 @@
   "TARIFF_CONFIRM_SWITCH_BTN": "✅ تأیید تعویض",
   "TARIFF_DISCOUNT_LINE": "\n💎 تخفیف: {percent}%",
   "TARIFF_DAILY_TYPE_LINE": "🔄 نوع: روزانه\n",
+  "TARIFF_PERIOD_TYPE_LINE": "📅 دوره: {period}\n",
   "TARIFF_DAYS_LABEL": "📅 {days} روز",
   "TARIFF_GB_LABEL": "📊 {gb} GB",
   "TARIFF_CART_RESTORE_RENEW": "✅ <b>تأیید تمدید</b>\n\n📦 تعرفه: <b>{name}</b>\n📊 ترافیک: {traffic}\n📱 دستگاه: {devices}\n📅 دوره: {period}\n{discount}💰 <b>جمع: {total}</b>\n\n💳 موجودی: {balance}\nپس از پرداخت: {after}",

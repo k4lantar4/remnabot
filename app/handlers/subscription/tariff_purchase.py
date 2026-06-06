@@ -707,7 +707,10 @@ async def select_tariff(
                 'saved_cart': True,
                 'missing_amount': missing,
                 'return_to_cart': True,
-                'description': f'Покупка суточного тарифа {tariff.name}',
+                'description': texts.t(
+                    'TARIFF_DAILY_PURCHASE_CART_DESC',
+                    'Покупка суточного тарифа {name}',
+                ).format(name=tariff.name),
                 'traffic_limit_gb': tariff.traffic_limit_gb,
                 'device_limit': tariff.device_limit,
                 'allowed_squads': tariff.allowed_squads or [],
@@ -1003,7 +1006,10 @@ async def handle_custom_confirm(
             db,
             db_user,
             total_price,
-            f'Покупка тарифа {tariff.name} на {custom_days} дней',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=custom_days),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -1151,7 +1157,10 @@ async def handle_custom_confirm(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=total_price,
-            description=f'Покупка тарифа {tariff.name} на {custom_days} дней',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=custom_days),
         )
 
         # Отправляем уведомление админу
@@ -1366,7 +1375,10 @@ async def select_tariff_period(
             'saved_cart': True,
             'missing_amount': missing,
             'return_to_cart': True,
-            'description': f'Покупка тарифа {tariff.name} на {period} дней',
+            'description': texts.t(
+                'TARIFF_PURCHASE_CART_DESC',
+                'Покупка тарифа {name} на {days} дней',
+            ).format(name=tariff.name, days=period),
             'traffic_limit_gb': tariff.traffic_limit_gb,
             'device_limit': tariff.device_limit,
             'allowed_squads': tariff.allowed_squads or [],
@@ -1528,7 +1540,10 @@ async def confirm_tariff_purchase(
             db,
             db_user,
             final_price,
-            f'Покупка тарифа {tariff.name} на {period} дней',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -1779,7 +1794,10 @@ async def confirm_tariff_purchase(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Покупка тарифа {tariff.name} на {period} дней',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
         )
     except Exception as e:
         logger.error('Ошибка создания транзакции', error=e)
@@ -1913,7 +1931,10 @@ async def confirm_daily_tariff_purchase(
             db,
             db_user,
             final_daily_price,
-            f'Покупка суточного тарифа {tariff.name} (первый день)',
+            texts.t(
+                'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
+                "Активация суточного тарифа '{name}'",
+            ).format(name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -2079,7 +2100,10 @@ async def confirm_daily_tariff_purchase(
         user_id=db_user.id,
         type=TransactionType.SUBSCRIPTION_PAYMENT,
         amount_kopeks=final_daily_price,
-        description=f'Покупка суточного тарифа {tariff.name} (первый день)',
+        description=texts.t(
+            'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
+            "Активация суточного тарифа '{name}'",
+        ).format(name=tariff.name),
     )
 
     # Отправляем уведомление админу
@@ -2465,7 +2489,10 @@ async def select_tariff_extend_period(
             'saved_cart': True,
             'missing_amount': missing,
             'return_to_cart': True,
-            'description': f'Продление тарифа {tariff.name} на {period} дней',
+            'description': texts.t(
+                'TARIFF_RENEW_CART_DESC',
+                'Продление тарифа {name} на {days} дней',
+            ).format(name=tariff.name, days=period),
             'traffic_limit_gb': tariff.traffic_limit_gb,
             'device_limit': actual_device_limit,
             'allowed_squads': tariff.allowed_squads or [],
@@ -2575,7 +2602,10 @@ async def confirm_tariff_extend(
             db,
             db_user,
             final_price,
-            f'Продление тарифа {tariff.name} на {period} дней',
+            texts.t(
+                'TARIFF_RENEW_LEDGER_DESC_NAMED',
+                'Продление подписки на {days} дней ({name})',
+            ).format(days=period, name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -2637,7 +2667,10 @@ async def confirm_tariff_extend(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Продление тарифа {tariff.name} на {period} дней',
+            description=texts.t(
+                'TARIFF_RENEW_LEDGER_DESC_NAMED',
+                'Продление подписки на {days} дней ({name})',
+            ).format(days=period, name=tariff.name),
         )
 
         # Отправляем уведомление админу
@@ -3288,7 +3321,10 @@ async def confirm_tariff_switch(
             db,
             db_user,
             final_price,
-            f'Смена тарифа на {tariff.name} ({period} дней)',
+            texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=period),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -3390,7 +3426,10 @@ async def confirm_tariff_switch(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Смена тарифа на {tariff.name}',
+            description=texts.t(
+                'TARIFF_PURCHASE_LEDGER_DESC',
+                "Покупка тарифа '{name}' на {days} дней",
+            ).format(name=tariff.name, days=days_for_new_tariff),
         )
 
         # Отправляем уведомление админу
@@ -3555,7 +3594,10 @@ async def confirm_daily_tariff_switch(
             db,
             db_user,
             final_daily_price,
-            f'Смена на суточный тариф {tariff.name} (первый день)',
+            texts.t(
+                'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                "Переход на суточный тариф '{name}'",
+            ).format(name=tariff.name),
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
         )
@@ -3673,7 +3715,10 @@ async def confirm_daily_tariff_switch(
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_daily_price,
-            description=f'Смена на суточный тариф {tariff.name} (первый день)',
+            description=texts.t(
+                'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                "Переход на суточный тариф '{name}'",
+            ).format(name=tariff.name),
         )
 
         # Отправляем уведомление админу
@@ -4323,7 +4368,10 @@ async def confirm_instant_switch(
                 db,
                 db_user,
                 upgrade_cost,
-                f'Переключение на тариф {new_tariff.name}',
+                texts.t(
+                    'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
+                    "Переход на тариф '{name}' (доплата за {days} дней)",
+                ).format(name=new_tariff.name, days=remaining_days),
                 consume_promo_offer=consume_promo,
                 mark_as_paid_subscription=True,
             )
@@ -4393,7 +4441,10 @@ async def confirm_instant_switch(
                         db,
                         db_user,
                         daily_price,
-                        f'Переключение на суточный тариф {new_tariff.name} (первый день)',
+                        texts.t(
+                            'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                            "Переход на суточный тариф '{name}'",
+                        ).format(name=new_tariff.name),
                         consume_promo_offer=consume_promo_for_daily,
                         mark_as_paid_subscription=True,
                     )
@@ -4408,7 +4459,10 @@ async def confirm_instant_switch(
                         user_id=db_user.id,
                         type=TransactionType.SUBSCRIPTION_PAYMENT,
                         amount_kopeks=daily_price,
-                        description=f'Переключение на суточный тариф {new_tariff.name} (первый день)',
+                        description=texts.t(
+                            'TARIFF_SWITCH_TO_DAILY_LEDGER_DESC',
+                            "Переход на суточный тариф '{name}'",
+                        ).format(name=new_tariff.name),
                     )
 
                     # Уведомление админу о списании за первый день суточного тарифа
@@ -4499,7 +4553,10 @@ async def confirm_instant_switch(
                 user_id=db_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=upgrade_cost,
-                description=f'Переключение на тариф {new_tariff.name}',
+                description=texts.t(
+                    'TARIFF_SWITCH_UPGRADE_LEDGER_DESC',
+                    "Переход на тариф '{name}' (доплата за {days} дней)",
+                ).format(name=new_tariff.name, days=remaining_days),
             )
 
             # Отправляем уведомление админу
@@ -4665,7 +4722,10 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
+                    type_line=texts.t(
+                        'TARIFF_PERIOD_TYPE_LINE',
+                        '📅 Период: {period}\n',
+                    ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
@@ -4683,7 +4743,10 @@ async def return_to_saved_tariff_cart(
                     '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>',
                 ).format(
                     name=html.escape(tariff.name),
-                    type_line=f'📅 Период: {format_period(period, db_user.language)}\n',
+                    type_line=texts.t(
+                        'TARIFF_PERIOD_TYPE_LINE',
+                        '📅 Период: {period}\n',
+                    ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
                     balance=format_price_kopeks(user_balance),
                     missing=format_price_kopeks(missing),
