@@ -62,24 +62,20 @@ export function BalanceTab({
     if (balanceAmount === '') return;
     setActionLoading(true);
     try {
-      const displayAmount = toNumber(balanceAmount);
-      const result = await adminUsersApi.updateBalance(userId, {
-        amount_display: isAdd ? displayAmount : -displayAmount,
+      const amount = Math.abs(toNumber(balanceAmount) * 100);
+      await adminUsersApi.updateBalance(userId, {
+        amount_kopeks: isAdd ? amount : -amount,
         description:
           balanceDescription ||
           (isAdd
             ? t('admin.users.detail.balance.addByAdmin')
             : t('admin.users.detail.balance.subtractByAdmin')),
       });
-      if (result.message) {
-        notify.success(result.message, t('common.success'));
-      }
       await onUserRefresh();
       setBalanceAmount('');
       setBalanceDescription('');
     } catch (error) {
       console.error('Failed to update balance:', error);
-      notify.error(t('admin.users.userActions.error'), t('common.error'));
     } finally {
       setActionLoading(false);
     }

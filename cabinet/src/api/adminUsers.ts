@@ -306,9 +306,7 @@ export interface PanelSyncStatusResponse {
 
 // Update types
 export interface UpdateBalanceRequest {
-  /** Display units (Toman 1:1); stored as balance_kopeks integer. XOR with amount_kopeks. */
-  amount_display?: number;
-  amount_kopeks?: number;
+  amount_kopeks: number;
   description?: string;
   create_transaction?: boolean;
 }
