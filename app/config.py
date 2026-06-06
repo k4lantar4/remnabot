@@ -1789,12 +1789,20 @@ class Settings(BaseSettings):
             return f'{abs_amount:,}'.replace(',', '\u00a0')
         return f'{abs_amount:,}'
 
-    def format_balance(self, amount_toman: int, language: str | None = None) -> str:
+    def format_balance(
+        self,
+        amount_toman: int,
+        language: str | None = None,
+        *,
+        round_kopeks: bool | None = None,
+    ) -> str:
         """
         Format stored balance integer (Toman 1:1) for user display.
 
         Unlike format_price, does not divide by 100. Persian users get fa-IR-style grouping.
+        round_kopeks is accepted for call-site parity with format_price and is ignored.
         """
+        _ = round_kopeks
         sign = '-' if amount_toman < 0 else ''
         suffix = self._price_display_suffix()
         grouped = self._group_balance_digits(abs(amount_toman), language)
