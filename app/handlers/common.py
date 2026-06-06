@@ -61,7 +61,7 @@ async def handle_unknown_callback(callback: types.CallbackQuery, db_user: User):
     )
 
     logger.warning(
-        'Неизвестный callback: от пользователя', callback_data=callback.data, from_user_id=callback.from_user.id
+        'Неизвестный callback от пользователя', callback_data=callback.data, from_user_id=callback.from_user.id
     )
 
 
