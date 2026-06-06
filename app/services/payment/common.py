@@ -199,7 +199,7 @@ class PaymentCommonMixin:
 
         try:
             texts = get_texts(user_snapshot.language if user_snapshot else settings.DEFAULT_LANGUAGE)
-            amount_str = settings.format_price(amount_kopeks)
+            amount_str = texts.format_balance(amount_kopeks)
             if payment_method_title and payment_method_title.strip() == settings.get_c2c_display_name().strip():
                 method_display = texts.t('PAYMENT_C2C', payment_method_title)
             elif payment_method_title:
