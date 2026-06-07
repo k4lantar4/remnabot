@@ -2003,7 +2003,7 @@ class RemnaWaveService:
                     # Check MAX_ACTIVE_SUBSCRIPTIONS
                     _user_subs = getattr(_bot_user, 'subscriptions', []) or []
                     _active_count = sum(1 for s in _user_subs if s.status in ('active', 'trial'))
-                    if _active_count >= settings.get_max_active_subscriptions():
+                    if _active_count >= settings.get_max_active_subscriptions_for_user(_bot_user):
                         logger.debug(
                             '⚠️ [multi-tariff] User at max subscriptions, skipping',
                             user_id=_bot_user.id,
@@ -2016,7 +2016,7 @@ class RemnaWaveService:
                         continue
 
                     try:
-                        from app.database.crud.subscription import generate_unique_short_id
+                        from app.database.crud.subscription import generate_unique_short_id, get_next_account_sequence
 
                         _expire_at = self._parse_remnawave_date(panel_user.get('expireAt', ''))
                         _now = self._now_utc()
@@ -2070,6 +2070,7 @@ class RemnaWaveService:
                             subscription_url=panel_user.get('subscriptionUrl', ''),
                             subscription_crypto_link=panel_user.get('subscriptionCryptoLink', ''),
                             tariff_id=_matched_tariff_id,
+                            account_sequence=await get_next_account_sequence(db, _bot_user.id),
                         )
                         db.add(new_sub)
                         subs_by_uuid[panel_uuid] = new_sub
@@ -2431,19 +2432,27 @@ class RemnaWaveService:
                                 # multi-tariff create-path в bulk-sync приклеивает
                                 # `_<remnawave_short_id>` — helper резервирует под него
                                 # место и гарантирует ≤ REMNAWAVE_USERNAME_MAX_LENGTH.
-                                username_suffix = (
-                                    f'_{sub.remnawave_short_id}'
-                                    if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id)
-                                    else ''
-                                )
-                                username = settings.build_remnawave_subscription_username(
-                                    full_name=user.full_name,
-                                    username=user.username,
-                                    telegram_id=user.telegram_id,
-                                    email=user.email,
-                                    user_id=user.id,
-                                    suffix=username_suffix,
-                                )
+                                if settings.is_multi_tariff_enabled() and sub.remnawave_short_id:
+                                    base = settings.REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE.format(
+                                        account_sequence=sub.account_sequence,
+                                    )
+                                    username = settings.build_remnawave_subscription_username(
+                                        full_name=base,
+                                        username=None,
+                                        telegram_id=None,
+                                        email=None,
+                                        user_id=None,
+                                        suffix=f'_{sub.remnawave_short_id}',
+                                    )
+                                else:
+                                    username = settings.build_remnawave_subscription_username(
+                                        full_name=user.full_name,
+                                        username=user.username,
+                                        telegram_id=user.telegram_id,
+                                        email=user.email,
+                                        user_id=user.id,
+                                        suffix='',
+                                    )
 
                                 create_kwargs = dict(
                                     username=username,
