@@ -67,9 +67,11 @@ function StatusBadge({
 
 export default function SubscriptionListCard({
   subscription,
+  isMultiTariff = false,
   onClick,
 }: {
   subscription: SubscriptionListItem;
+  isMultiTariff?: boolean;
   onClick: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -123,6 +125,11 @@ export default function SubscriptionListCard({
           : 'rgba(255,59,92,0.03)'
         : g.cardBg;
 
+  const displayName =
+    isMultiTariff && subscription.account_sequence
+      ? `${subscription.tariff_name || t('subscription.defaultName', 'Подписка')} #${subscription.account_sequence}`
+      : subscription.tariff_name || t('subscription.defaultName', 'Подписка');
+
   return (
     <button
       onClick={handleClick}
@@ -133,7 +140,7 @@ export default function SubscriptionListCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-base font-semibold" style={{ color: g.text }}>
-            {subscription.tariff_name || t('subscription.defaultName', 'Подписка')}
+            {displayName}
           </span>
           <StatusBadge status={subscription.status} isTrial={isTrial} t={t} />
         </div>

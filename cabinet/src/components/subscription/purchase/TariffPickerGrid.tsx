@@ -28,6 +28,7 @@ export interface TariffPickerGridProps {
   purchaseOptions: PurchaseOptions | undefined;
   isTariffsMode: boolean;
   isMultiTariff: boolean;
+  pinnedSubscriptionId?: number;
   onSelectTariff: (tariff: Tariff) => void;
   onSwitchTariff: (tariffId: number) => void;
 }
@@ -38,6 +39,7 @@ export function TariffPickerGrid({
   purchaseOptions,
   isTariffsMode,
   isMultiTariff,
+  pinnedSubscriptionId,
   onSelectTariff,
   onSwitchTariff,
 }: TariffPickerGridProps) {
@@ -116,8 +118,6 @@ export function TariffPickerGrid({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {[...tariffs]
           .filter((tariff) => {
-            // In multi-tariff mode: hide already purchased tariffs
-            if (isMultiTariff && tariff.is_purchased) return false;
             if (subscription?.is_trial && tariff.name.toLowerCase().includes('trial')) {
               return false;
             }
@@ -131,7 +131,10 @@ export function TariffPickerGrid({
             return 0;
           })
           .map((tariff) => {
-            const isCurrentTariff = tariff.is_current || tariff.id === subscription?.tariff_id;
+            const isRenewPin = pinnedSubscriptionId != null;
+            const isMultiRebuy = isMultiTariff && tariff.is_purchased && !isRenewPin;
+            const isCurrentTariff =
+              isRenewPin && (tariff.is_current || tariff.id === subscription?.tariff_id);
             const isSubscriptionExpired =
               isTariffsMode &&
               purchaseOptions &&
@@ -166,6 +169,11 @@ export function TariffPickerGrid({
                   </div>
                   {isCurrentTariff && (
                     <span className="badge-success text-xs">{t('subscription.currentTariff')}</span>
+                  )}
+                  {isMultiRebuy && (
+                    <span className="badge-info text-xs">
+                      {t('subscription.buyNewAccount', 'خرید اکانت جدید')}
+                    </span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-4 text-sm">
@@ -293,6 +301,13 @@ export function TariffPickerGrid({
                       className="btn-secondary flex-1 py-2 text-sm"
                     >
                       {t('subscription.switchTariff.switch')}
+                    </button>
+                  ) : isMultiRebuy ? (
+                    <button
+                      onClick={() => onSelectTariff(tariff)}
+                      className="btn-primary flex-1 py-2 text-sm"
+                    >
+                      {t('subscription.buyNewAccount', 'خرید اکانت جدید')}
                     </button>
                   ) : (
                     <button

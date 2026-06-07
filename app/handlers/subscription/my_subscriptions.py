@@ -51,9 +51,15 @@ def _status_label(sub, texts) -> str:
     return ''
 
 
+def _account_display_name(sub, texts) -> str:
+    tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    seq = getattr(sub, 'account_sequence', 1) or 1
+    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
+
+
 def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     """Format a single subscription for the list view."""
-    tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    tariff_name = _account_display_name(sub, texts)
     emoji = _status_emoji(sub)
     label = _status_label(sub, texts)
 
@@ -88,11 +94,7 @@ def _build_subscriptions_keyboard(subscriptions: list, language: str) -> types.I
     texts = get_texts(language)
     buttons = []
     for idx, sub in enumerate(subscriptions, 1):
-        tariff_name = (
-            sub.tariff.name
-            if sub.tariff
-            else texts.t('SUBSCRIPTION_CONNECT_PICKER_FALLBACK_NAME', 'Подписка #{id}').format(id=sub.id)
-        )
+        tariff_name = _account_display_name(sub, texts)
         buttons.append(
             [
                 types.InlineKeyboardButton(
@@ -261,9 +263,12 @@ async def show_subscription_detail(
 
     # Persist active sub_id so downstream handlers without sub_id in callback_data
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
-    await state.update_data(active_subscription_id=sub_id)
+    await state.update_data(
+        active_subscription_id=sub_id,
+        target_subscription_id=sub_id,
+    )
 
-    tariff_name = subscription.tariff.name if subscription.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    display_name = _account_display_name(subscription, texts)
 
     # Traffic
     if subscription.traffic_limit_gb == 0:
@@ -276,7 +281,7 @@ async def show_subscription_detail(
     status = subscription.status_display
 
     text = (
-        f'📋 <b>{tariff_name}</b>\n\n'
+        f'📋 {texts.t("MY_SUB_DETAIL_HEADER", "<b>{label}</b>").format(label=display_name)}\n\n'
         f'{texts.t("MY_SUB_DETAIL_STATUS", "Статус: {status}").format(status=status)}\n'
         f'{texts.t("MY_SUB_DETAIL_TRAFFIC", "📊 Трафик: {traffic}").format(traffic=traffic)}\n'
         f'{texts.t("MY_SUB_DETAIL_DEVICES", "📱 Устройства: {devices}").format(devices=subscription.device_limit)}\n'
@@ -318,7 +323,10 @@ async def _resolve_and_store_sub(
         return None
 
     # Store in FSM state so downstream handlers can use it
-    await state.update_data(active_subscription_id=sub_id)
+    await state.update_data(
+        active_subscription_id=sub_id,
+        target_subscription_id=sub_id,
+    )
     return subscription
 
 

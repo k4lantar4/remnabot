@@ -1,6 +1,7 @@
 import math
 from datetime import UTC, datetime
 
+import structlog
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +32,8 @@ from app.states import SubscriptionStates
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
+
+logger = structlog.get_logger(__name__)
 
 from .common import (
     _get_period_hint_from_subscription,
@@ -119,6 +122,12 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
     if settings.is_tariffs_mode() and subscription.tariff_id:
         tariff = await get_tariff_by_id(db, subscription.tariff_id)
         if not tariff or not tariff.can_topup_traffic():
+            logger.warning(
+                'traffic_topup_disabled',
+                tariff_id=subscription.tariff_id,
+                subscription_id=subscription.id,
+                user_id=db_user.id,
+            )
             await callback.answer(
                 texts.t(
                     'TARIFF_TRAFFIC_TOPUP_DISABLED',

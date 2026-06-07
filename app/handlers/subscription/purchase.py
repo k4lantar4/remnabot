@@ -1430,6 +1430,9 @@ async def start_subscription_purchase(
 ):
     texts = get_texts(db_user.language)
 
+    if settings.is_multi_tariff_enabled() and state:
+        await state.update_data(target_subscription_id=None)
+
     # Проверяем режим продаж - если tariffs, перенаправляем на выбор тарифов
     if settings.is_tariffs_mode():
         from .tariff_purchase import show_tariffs_list
@@ -1807,7 +1810,7 @@ async def handle_extend_subscription(
         if subscription.tariff_id and settings.is_tariffs_mode():
             from .tariff_purchase import show_tariff_extend
 
-            await show_tariff_extend(callback, db_user, db)
+            await show_tariff_extend(callback, db_user, db, state)
             return
         # Триал без тарифа — предлагаем выбрать
         await callback.message.edit_text(
@@ -1834,7 +1837,7 @@ async def handle_extend_subscription(
             # У подписки есть тариф - перенаправляем на продление по тарифу
             from .tariff_purchase import show_tariff_extend
 
-            await show_tariff_extend(callback, db_user, db)
+            await show_tariff_extend(callback, db_user, db, state)
             return
 
     if settings.is_tariffs_mode():

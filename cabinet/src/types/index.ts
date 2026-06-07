@@ -116,6 +116,7 @@ export interface SubscriptionListItem {
   status: string;
   tariff_id: number | null;
   tariff_name: string | null;
+  account_sequence?: number;
   traffic_limit_gb: number;
   traffic_used_gb: number;
   device_limit: number;

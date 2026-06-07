@@ -27,6 +27,11 @@ logger = structlog.get_logger(__name__)
 
 TRAFFIC_PRICES = get_traffic_prices()
 
+_SUB_ID_CALLBACK_PREFIXES = frozenset({
+    'st', 'sl', 'sd', 'sm', 'se', 'sr', 'sub_del',
+    'subscription_connect',
+})
+
 
 async def resolve_subscription_from_context(
     callback,
@@ -54,7 +59,7 @@ async def resolve_subscription_from_context(
 
     # 1. Try callback_data 'prefix:sub_id'
     parts = (callback.data or '').split(':')
-    if len(parts) >= 2:
+    if len(parts) >= 2 and parts[0] in _SUB_ID_CALLBACK_PREFIXES:
         try:
             sub_id = int(parts[-1])
             sub = await get_subscription_by_id_for_user(db, sub_id, db_user.id)

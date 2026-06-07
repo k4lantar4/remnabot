@@ -296,12 +296,15 @@ class SubscriptionService:
         # short_id (6 hex chars) приклеивается к base; helper гарантирует, что
         # итоговая длина ≤ REMNAWAVE_USERNAME_MAX_LENGTH (исторический баг с
         # `didykmarin_email_didykmarin_703_49883b` — 38 chars вместо 36).
+        base = settings.REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE.format(
+            account_sequence=subscription.account_sequence,
+        )
         username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
+            full_name=base,
+            username=None,
+            telegram_id=None,
+            email=None,
+            user_id=None,
             suffix=f'_{subscription.remnawave_short_id}',
         )
 

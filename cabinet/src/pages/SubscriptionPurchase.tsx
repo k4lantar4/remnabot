@@ -272,6 +272,7 @@ export default function SubscriptionPurchase() {
               purchaseOptions={purchaseOptions}
               isTariffsMode={isTariffsMode}
               isMultiTariff={isMultiTariff}
+              pinnedSubscriptionId={subscriptionId}
               onSelectTariff={(tariff) => {
                 setSelectedTariff(tariff);
                 setShowTariffPurchase(true);

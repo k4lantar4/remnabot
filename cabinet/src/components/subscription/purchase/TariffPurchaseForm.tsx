@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
 import { getErrorMessage, getInsufficientBalanceError } from '../../../utils/subscriptionHelpers';
+import {
+  canAffordCatalog,
+  missingCatalogToman,
+} from '../../../utils/priceUnits';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { usePromoDiscount } from '../../../hooks/usePromoDiscount';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
@@ -161,13 +165,15 @@ export function TariffPurchaseForm({
 
           {(() => {
             const dailyPrice = tariff.daily_price_kopeks || 0;
-            const hasEnoughBalance = balanceKopeks !== undefined && dailyPrice <= balanceKopeks;
+            const hasEnoughBalance =
+              balanceKopeks !== undefined && canAffordCatalog(balanceKopeks, dailyPrice);
 
             return (
               <div className="mt-6">
                 {balanceKopeks !== undefined && !hasEnoughBalance && (
                   <InsufficientBalancePrompt
-                    missingAmountKopeks={dailyPrice - balanceKopeks}
+                    missingAmountKopeks={0}
+                    missingAmountToman={missingCatalogToman(balanceKopeks, dailyPrice)}
                     compact
                     className="mb-4"
                   />
@@ -201,8 +207,11 @@ export function TariffPurchaseForm({
                     <div className="mt-3">
                       <InsufficientBalancePrompt
                         missingAmountKopeks={
+                          getInsufficientBalanceError(purchaseMutation.error)?.missingAmount || 0
+                        }
+                        missingAmountToman={
                           getInsufficientBalanceError(purchaseMutation.error)?.missingAmount ||
-                          dailyPrice - (balanceKopeks || 0)
+                          missingCatalogToman(balanceKopeks || 0, dailyPrice)
                         }
                         compact
                       />
@@ -627,6 +636,9 @@ export function TariffPurchaseForm({
                   <InsufficientBalancePrompt
                     missingAmountKopeks={
                       getInsufficientBalanceError(purchaseMutation.error)?.missingAmount || 0
+                    }
+                    missingAmountToman={
+                      getInsufficientBalanceError(purchaseMutation.error)?.missingAmount
                     }
                     compact
                   />

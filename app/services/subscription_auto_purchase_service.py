@@ -793,14 +793,10 @@ async def _auto_purchase_tariff(
 
         active_subs = await get_active_subscriptions_by_user_id(db, user.id)
         _cart_sub_id = cart_data.get('subscription_id')
+        existing_subscription = None
         if _cart_sub_id:
             existing_subscription = next(
                 (s for s in active_subs if s.id == int(_cart_sub_id)),
-                None,
-            )
-        else:
-            existing_subscription = next(
-                (s for s in active_subs if s.tariff_id == tariff_id),
                 None,
             )
     else:
@@ -1207,14 +1203,10 @@ async def _auto_purchase_daily_tariff(
 
         active_subs = await get_active_subscriptions_by_user_id(db, user.id)
         _cart_sub_id = cart_data.get('subscription_id')
+        existing_subscription = None
         if _cart_sub_id:
             existing_subscription = next(
                 (s for s in active_subs if s.id == int(_cart_sub_id)),
-                None,
-            )
-        else:
-            existing_subscription = next(
-                (s for s in active_subs if s.tariff_id == tariff_id),
                 None,
             )
     else:

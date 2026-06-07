@@ -189,6 +189,7 @@ export default function Subscriptions() {
             <SubscriptionListCard
               key={sub.id}
               subscription={sub}
+              isMultiTariff={isMultiTariff}
               onClick={() => navigate(`/subscriptions/${sub.id}`)}
             />
           ))}
