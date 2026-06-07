@@ -107,6 +107,86 @@ async def _resolve_subscription(callback, db_user, db, state=None):
     return await resolve_subscription_from_context(callback, db_user, db, state)
 
 
+def _renew_account_label(subscription, texts) -> str:
+    tariff_name = subscription.tariff.name if subscription.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    seq = getattr(subscription, 'account_sequence', 1) or 1
+    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
+
+
+def _parse_tariff_extend_callback(data: str) -> tuple[int, int | None, int | None]:
+    """Parse tariff_extend:{tariff_id}[:period][:sub_id]. Legacy 3-part = period without sub_id."""
+    parts = (data or '').split(':')
+    tariff_id = int(parts[1])
+    if len(parts) < 3:
+        return tariff_id, None, None
+    if len(parts) >= 4:
+        return tariff_id, int(parts[2]), int(parts[3])
+    return tariff_id, int(parts[2]), None
+
+
+def _parse_tariff_ext_confirm_callback(data: str) -> tuple[int, int, int | None]:
+    """Parse tariff_ext_confirm:{tariff_id}:{period}[:sub_id]."""
+    parts = (data or '').split(':')
+    tariff_id = int(parts[1])
+    period = int(parts[2])
+    sub_id = int(parts[3]) if len(parts) >= 4 else None
+    return tariff_id, period, sub_id
+
+
+async def _resolve_renew_subscription(
+    db: AsyncSession,
+    db_user: User,
+    state: FSMContext | None,
+    *,
+    sub_id: int | None = None,
+):
+    if sub_id:
+        sub = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+        if sub:
+            return sub
+    if state:
+        try:
+            data = await state.get_data()
+            fsm_sub_id = data.get('target_subscription_id') or data.get('active_subscription_id')
+            if fsm_sub_id:
+                sub = await get_subscription_by_id_for_user(db, int(fsm_sub_id), db_user.id)
+                if sub:
+                    return sub
+        except Exception:
+            pass
+    active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
+    if len(active_subs) == 1:
+        return active_subs[0]
+    return None
+
+
+async def _show_renew_subscription_picker(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    texts,
+) -> None:
+    active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
+    keyboard = []
+    for sub in sorted(active_subs, key=lambda s: s.id):
+        label = _renew_account_label(sub, texts)
+        days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=label, days=days_left),
+                    callback_data=f'se:{sub.id}',
+                )
+            ]
+        )
+    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
+    await callback.message.edit_text(
+        texts.t('TARIFF_RENEW_SELECT_SUB', '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:'),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode='HTML',
+    )
+
+
 def _apply_promo_discount(price: int, group_pct: int, offer_pct: int = 0) -> int:
     """Применяет стекинг скидок к цене (sequential floor division, как PricingEngine)."""
     from app.services.pricing_engine import PricingEngine
@@ -2204,6 +2284,7 @@ def get_tariff_extend_keyboard(
     language: str,
     db_user: User | None = None,
     subscription_device_limit: int | None = None,
+    subscription_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру выбора периода для продления по тарифу с учетом скидок по периодам."""
     from app.services.pricing_engine import PricingEngine
@@ -2243,9 +2324,17 @@ def get_tariff_extend_keyboard(
             price_text = format_price_kopeks(price)
 
         button_text = f'{format_period(period, language)} — {price_text}'
-        buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_extend:{tariff.id}:{period}')])
+        if subscription_id:
+            callback_data = f'tariff_extend:{tariff.id}:{period}:{subscription_id}'
+        else:
+            callback_data = f'tariff_extend:{tariff.id}:{period}'
+        buttons.append([InlineKeyboardButton(text=button_text, callback_data=callback_data)])
 
-    buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')])
+    if subscription_id:
+        back_callback = f'sm:{subscription_id}'
+    else:
+        back_callback = 'menu_subscription'
+    buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_callback)])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -2254,18 +2343,25 @@ def get_tariff_extend_confirm_keyboard(
     tariff_id: int,
     period: int,
     language: str,
+    subscription_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру подтверждения продления по тарифу."""
     texts = get_texts(language)
+    if subscription_id:
+        confirm_callback = f'tariff_ext_confirm:{tariff_id}:{period}:{subscription_id}'
+        back_callback = f'se:{subscription_id}'
+    else:
+        confirm_callback = f'tariff_ext_confirm:{tariff_id}:{period}'
+        back_callback = 'subscription_extend'
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=texts.t('TARIFF_CONFIRM_RENEW_BTN', '✅ Подтвердить продление'),
-                    callback_data=f'tariff_ext_confirm:{tariff_id}:{period}',
+                    callback_data=confirm_callback,
                 )
             ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='subscription_extend')],
+            [InlineKeyboardButton(text=texts.BACK, callback_data=back_callback)],
         ]
     )
 
@@ -2292,30 +2388,7 @@ async def show_tariff_extend(
         else:
             active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
             if len(active_subs) > 1:
-                # Show subscription picker for extending
-                keyboard = []
-                for sub in sorted(active_subs, key=lambda s: s.id):
-                    tariff_name = ''
-                    if sub.tariff_id:
-                        _t = await get_tariff_by_id(db, sub.tariff_id)
-                        tariff_name = _t.name if _t else f'#{sub.id}'
-                    else:
-                        tariff_name = texts.t('TARIFF_RENEW_SUB_FALLBACK', 'Подписка #{id}').format(id=sub.id)
-                    days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
-                    keyboard.append(
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
-                                callback_data=f'se:{sub.id}',
-                            )
-                        ]
-                    )
-                keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
-                await callback.message.edit_text(
-                    texts.t('TARIFF_RENEW_SELECT_SUB', '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:'),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-                    parse_mode='HTML',
-                )
+                await _show_renew_subscription_picker(callback, db_user, db, texts)
                 await callback.answer()
                 return
             if active_subs:
@@ -2399,6 +2472,7 @@ async def show_tariff_extend(
         discount_hint = texts.t('TARIFF_RENEW_DISCOUNT_HINT', '\n🎁 <i>Скидки зависят от выбранного периода</i>')
 
     actual_device_limit = subscription.device_limit or tariff.device_limit
+    account_label = html.escape(_renew_account_label(subscription, texts))
 
     if state is not None:
         await state.update_data(
@@ -2410,16 +2484,22 @@ async def show_tariff_extend(
         texts.t(
             'TARIFF_RENEW_PERIOD',
             '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
+            '🔢 Подписка: <b>{account}</b>\n'
             '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
             'Выберите период продления:',
         ).format(
             discount_hint=discount_hint,
+            account=account_label,
             name=html.escape(tariff.name),
             traffic=traffic,
             devices=actual_device_limit,
         ),
         reply_markup=get_tariff_extend_keyboard(
-            tariff, db_user.language, db_user=db_user, subscription_device_limit=actual_device_limit
+            tariff,
+            db_user.language,
+            db_user=db_user,
+            subscription_device_limit=actual_device_limit,
+            subscription_id=subscription.id,
         ),
         parse_mode='HTML',
     )
@@ -2435,23 +2515,30 @@ async def select_tariff_extend_period(
 ):
     """Обрабатывает выбор периода для продления."""
     texts = get_texts(db_user.language)
-    parts = callback.data.split(':')
-    tariff_id = int(parts[1])
+    tariff_id, period, sub_id = _parse_tariff_extend_callback(callback.data or '')
 
     # Кнопка «Назад» шлёт tariff_extend:{id} без периода — показываем экран выбора периода
-    if len(parts) < 3:
+    if period is None:
         await show_tariff_extend(callback, db_user, db, state)
         return
-
-    period = int(parts[2])
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
         await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
-    subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
-    actual_device_limit = (subscription.device_limit if subscription else None) or tariff.device_limit
+    subscription = await _resolve_renew_subscription(db, db_user, state, sub_id=sub_id)
+    if not subscription:
+        active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
+        if len(active_subs) > 1:
+            await _show_renew_subscription_picker(callback, db_user, db, texts)
+            await callback.answer()
+            return
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    actual_device_limit = subscription.device_limit or tariff.device_limit
+    account_label = html.escape(_renew_account_label(subscription, texts))
 
     # Calculate price via PricingEngine (per-category discounts: period + devices)
     from app.services.pricing_engine import pricing_engine
@@ -2484,10 +2571,12 @@ async def select_tariff_extend_period(
             texts.t(
                 'TARIFF_RENEW_CONFIRM',
                 '✅ <b>Подтверждение продления</b>\n\n'
+                '🔢 Подписка: <b>{account}</b>\n'
                 '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
                 '📅 Период: {period}\n{discount}💰 <b>К оплате: {total}</b>\n\n'
                 '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
             ).format(
+                account=account_label,
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=actual_device_limit,
@@ -2497,7 +2586,9 @@ async def select_tariff_extend_period(
                 balance=ctx['balance_label'],
                 after=ctx['after_label'],
             ),
-            reply_markup=get_tariff_extend_confirm_keyboard(tariff_id, period, db_user.language),
+            reply_markup=get_tariff_extend_confirm_keyboard(
+                tariff_id, period, db_user.language, subscription_id=subscription.id
+            ),
             parse_mode='HTML',
         )
     else:
@@ -2529,9 +2620,11 @@ async def select_tariff_extend_period(
             texts.t(
                 'TARIFF_RENEW_INSUFFICIENT',
                 '❌ <b>Недостаточно средств</b>\n\n'
+                '🔢 Подписка: <b>{account}</b>\n'
                 '📦 Тариф: <b>{name}</b>\n📅 Период: {period}\n💰 К оплате: {cost}\n\n'
                 '💳 Ваш баланс: {balance}\n⚠️ Не хватает: <b>{missing}</b>\n\n{cart_note}',
             ).format(
+                account=account_label,
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
@@ -2570,9 +2663,7 @@ async def confirm_tariff_extend(
 ):
     """Подтверждает продление по тарифу."""
     texts = get_texts(db_user.language)
-    parts = callback.data.split(':')
-    tariff_id = int(parts[1])
-    period = int(parts[2])
+    tariff_id, period, callback_sub_id = _parse_tariff_ext_confirm_callback(callback.data or '')
 
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
@@ -2584,14 +2675,21 @@ async def confirm_tariff_extend(
         await callback.answer(texts.t('CB_PERIOD_UNAVAILABLE', 'Период недоступен'), show_alert=True)
         return
 
-    _state = await state.get_data() if state else {}
-    _sub_id = _state.get('target_subscription_id') or _state.get('active_subscription_id')
-    subscription = None
-    if _sub_id:
-        subscription = await get_subscription_by_id_for_user(db, int(_sub_id), db_user.id)
+    subscription = await _resolve_renew_subscription(db, db_user, state, sub_id=callback_sub_id)
     if not subscription:
+        active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
+        if len(active_subs) > 1:
+            await _show_renew_subscription_picker(callback, db_user, db, texts)
+            await callback.answer()
+            return
         await callback.answer(texts.t('CB_SELECT_SUBSCRIPTION', 'Выберите подписку'), show_alert=True)
         return
+
+    if state is not None:
+        await state.update_data(
+            target_subscription_id=subscription.id,
+            active_subscription_id=subscription.id,
+        )
 
     actual_device_limit = subscription.device_limit or tariff.device_limit
 
@@ -2733,14 +2831,17 @@ async def confirm_tariff_extend(
         await state.clear()
 
         traffic = format_traffic(tariff.traffic_limit_gb)
+        account_label = html.escape(_renew_account_label(subscription, texts))
 
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_RENEW_SUCCESS',
                 '🎉 <b>Подписка успешно продлена!</b>\n\n'
+                '🔢 Подписка: <b>{account}</b>\n'
                 '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
                 '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
             ).format(
+                account=account_label,
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=actual_device_limit,
@@ -4799,12 +4900,14 @@ async def return_to_saved_tariff_cart(
     # "Тариф уже активен" bug in the cart-restore flow.
     if cart_mode in ('tariff_purchase', 'extend'):
         _period_for_pin = cart_data.get('period_days', 30)
+        _cart_sub_id = cart_data.get('subscription_id')
         await state.update_data(
             selected_tariff_id=tariff_id,
             selected_period=_period_for_pin,
             final_price=total_price,
             tariff_discount_percent=discount_percent,
-            target_subscription_id=cart_data.get('subscription_id'),
+            target_subscription_id=_cart_sub_id,
+            active_subscription_id=_cart_sub_id,
         )
 
     if cart_mode == 'daily_tariff_purchase':
@@ -4832,6 +4935,12 @@ async def return_to_saved_tariff_cart(
     elif cart_mode == 'extend':
         period = cart_data.get('period_days', 30)
         ctx = _affordance_context(texts, user_balance, total_price)
+        _cart_sub_id = cart_data.get('subscription_id')
+        account_label = ''
+        if _cart_sub_id:
+            _cart_sub = await get_subscription_by_id_for_user(db, int(_cart_sub_id), db_user.id)
+            if _cart_sub:
+                account_label = html.escape(_renew_account_label(_cart_sub, texts))
 
         discount_text = ''
         if discount_percent > 0:
@@ -4841,14 +4950,22 @@ async def return_to_saved_tariff_cart(
                 amount=format_price_kopeks(original_price - total_price),
             )
 
+        _renew_account_line = (
+            texts.t('TARIFF_RENEW_ACCOUNT_LINE', '🔢 Подписка: <b>{account}</b>\n').format(account=account_label)
+            if account_label
+            else ''
+        )
+
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_CART_RESTORE_RENEW',
                 '✅ <b>Подтверждение продления</b>\n\n'
+                '{account_line}'
                 '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
                 '📅 Период: {period}\n{discount}💰 <b>Итого: {total}</b>\n\n'
                 '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
             ).format(
+                account_line=_renew_account_line,
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 devices=tariff.device_limit,
@@ -4863,10 +4980,19 @@ async def return_to_saved_tariff_cart(
                     [
                         InlineKeyboardButton(
                             text=texts.t('TARIFF_CONFIRM_RENEW_BTN', '✅ Подтвердить продление'),
-                            callback_data=f'tariff_ext_confirm:{tariff_id}:{period}',
+                            callback_data=(
+                                f'tariff_ext_confirm:{tariff_id}:{period}:{_cart_sub_id}'
+                                if _cart_sub_id
+                                else f'tariff_ext_confirm:{tariff_id}:{period}'
+                            ),
                         )
                     ],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_extend:{tariff_id}')],
+                    [
+                        InlineKeyboardButton(
+                            text=texts.BACK,
+                            callback_data=f'se:{_cart_sub_id}' if _cart_sub_id else f'tariff_extend:{tariff_id}',
+                        )
+                    ],
                 ]
             ),
             parse_mode='HTML',
