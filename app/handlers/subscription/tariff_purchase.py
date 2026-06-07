@@ -36,6 +36,19 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 logger = structlog.get_logger(__name__)
 
 
+def _affordance_context(texts, user_balance: int, final_price_kopeks: int) -> dict:
+    """Balance lines for tariff purchase/renew messages (Toman balance vs catalog kopeks)."""
+    price_toman = catalog_price_in_toman(final_price_kopeks)
+    missing_toman = max(0, price_toman - user_balance)
+    return {
+        'can_afford': user_can_afford(user_balance, final_price_kopeks),
+        'balance_label': texts.format_balance(user_balance, round_kopeks=False),
+        'missing_label': texts.format_balance(missing_toman, round_kopeks=False),
+        'after_label': texts.format_balance(user_balance - price_toman, round_kopeks=False),
+        'missing_toman': missing_toman,
+    }
+
+
 def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bool = False) -> bool:
     pinned = state_data.get('target_subscription_id')
     if pinned and existing_sub:
@@ -1363,7 +1376,8 @@ async def select_tariff_period(
 
     traffic = format_traffic(tariff.traffic_limit_gb, db_user.language)
 
-    if user_balance >= final_price:
+    ctx = _affordance_context(texts, user_balance, final_price)
+    if ctx['can_afford']:
         # Показываем подтверждение
         discount_text = ''
         if discount_percent > 0:
@@ -1383,15 +1397,15 @@ async def select_tariff_period(
                 period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
         )
     else:
         # Недостаточно средств - сохраняем корзину для автопокупки
-        missing = final_price - user_balance
+        missing = ctx['missing_toman']
 
         _state_data = await state.get_data()
         _cart_sub_id = _state_data.get('target_subscription_id') if settings.is_multi_tariff_enabled() else None
@@ -1431,8 +1445,8 @@ async def select_tariff_period(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=ctx['balance_label'],
+                missing=ctx['missing_label'],
                 cart_note=texts.t(
                     'TARIFF_CART_SAVED_NOTE',
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
