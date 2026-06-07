@@ -32,6 +32,7 @@ class SubscriptionListItem(BaseModel):
     status: str
     tariff_id: int | None = None
     tariff_name: str | None = None
+    account_sequence: int = 1
     traffic_limit_gb: int = 0
     traffic_used_gb: float = 0.0
     device_limit: int = 1
@@ -60,6 +61,7 @@ def _subscription_to_list_item(sub) -> SubscriptionListItem:
         status=sub.actual_status,
         tariff_id=sub.tariff_id,
         tariff_name=tariff_name,
+        account_sequence=getattr(sub, 'account_sequence', 1) or 1,
         traffic_limit_gb=sub.traffic_limit_gb or 0,
         traffic_used_gb=sub.traffic_used_gb or 0.0,
         device_limit=sub.device_limit or 1,
