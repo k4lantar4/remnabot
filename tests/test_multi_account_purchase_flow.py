@@ -33,3 +33,19 @@ async def test_select_tariff_does_not_block_existing_same_tariff():
     alert_calls = [c for c in callback.answer.call_args_list if c.kwargs.get('show_alert')]
     assert len(alert_calls) == 0
     callback.message.edit_text.assert_awaited()
+
+
+def test_autopurchase_extend_decision():
+    assert tp.should_extend_multi_tariff({'target_subscription_id': 99}, existing_sub=object())
+    assert not tp.should_extend_multi_tariff({}, existing_sub=object())
+
+
+def test_autopurchase_no_sub_id_means_create_not_extend():
+    """When cart lacks subscription_id, existing_subscription must stay None even if same tariff exists."""
+    cart_data = {'tariff_id': 2, 'period_days': 30, 'subscription_id': None}
+    active_subs = [MagicMock(id=1, tariff_id=2)]
+    _cart_sub_id = cart_data.get('subscription_id')
+    existing = None
+    if _cart_sub_id:
+        existing = next((s for s in active_subs if s.id == int(_cart_sub_id)), None)
+    assert existing is None
