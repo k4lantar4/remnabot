@@ -368,6 +368,7 @@
     },
     "total": "جمع کل",
     "purchase": "خرید",
+    "buyNewAccount": "خرید اکانت جدید",
     "step": "مرحله {{current}} از {{total}}",
     "stepPeriod": "دوره",
     "stepTraffic": "ترافیک",

@@ -713,10 +713,6 @@ async def purchase_tariff(
                         user_id=user.id,
                     )
                     existing_subscription = None
-            if existing_subscription is None:
-                from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-                existing_subscription = await get_subscription_by_user_and_tariff(db, user.id, tariff.id)
         else:
             existing_subscription = await get_subscription_by_user_id(db, user.id)
         device_limit = None
@@ -830,6 +826,8 @@ async def purchase_tariff(
             )
 
         subscription = existing_subscription
+        if settings.is_multi_tariff_enabled() and request.subscription_id is None:
+            subscription = None
 
         # Get server squads from tariff
         squads = tariff.allowed_squads or []
