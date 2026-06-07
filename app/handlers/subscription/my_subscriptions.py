@@ -51,9 +51,15 @@ def _status_label(sub, texts) -> str:
     return ''
 
 
+def _account_display_name(sub, texts) -> str:
+    tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    seq = getattr(sub, 'account_sequence', 1) or 1
+    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
+
+
 def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     """Format a single subscription for the list view."""
-    tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    tariff_name = _account_display_name(sub, texts)
     emoji = _status_emoji(sub)
     label = _status_label(sub, texts)
 
@@ -88,11 +94,7 @@ def _build_subscriptions_keyboard(subscriptions: list, language: str) -> types.I
     texts = get_texts(language)
     buttons = []
     for idx, sub in enumerate(subscriptions, 1):
-        tariff_name = (
-            sub.tariff.name
-            if sub.tariff
-            else texts.t('SUBSCRIPTION_CONNECT_PICKER_FALLBACK_NAME', 'Подписка #{id}').format(id=sub.id)
-        )
+        tariff_name = _account_display_name(sub, texts)
         buttons.append(
             [
                 types.InlineKeyboardButton(
