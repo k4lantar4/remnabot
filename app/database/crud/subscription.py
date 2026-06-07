@@ -26,6 +26,13 @@ from app.utils.timezone import format_local_datetime
 logger = structlog.get_logger(__name__)
 
 
+async def get_next_account_sequence(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(
+        select(func.coalesce(func.max(Subscription.account_sequence), 0)).where(Subscription.user_id == user_id)
+    )
+    return int(result.scalar_one()) + 1
+
+
 async def generate_unique_short_id(db: AsyncSession, max_attempts: int = 10) -> str:
     """Generate a unique remnawave_short_id (6 hex chars) with collision check."""
     for _ in range(max_attempts):
@@ -200,6 +207,7 @@ async def create_trial_subscription(
         return existing
 
     short_id = await generate_unique_short_id(db)
+    account_sequence = await get_next_account_sequence(db, user_id)
 
     subscription = Subscription(
         user_id=user_id,
@@ -214,6 +222,7 @@ async def create_trial_subscription(
         autopay_days_before=settings.DEFAULT_AUTOPAY_DAYS_BEFORE,
         tariff_id=tariff_id,
         remnawave_short_id=short_id,
+        account_sequence=account_sequence,
     )
 
     db.add(subscription)
@@ -338,27 +347,6 @@ async def create_paid_subscription(
     tariff_id: int | None = None,
     commit: bool = True,
 ) -> Subscription:
-    # Multi-tariff invariant: at most ONE subscription per (user, tariff). If a
-    # subscription for this tariff has EXPIRED, revive it in place instead of
-    # inserting a duplicate — the partial unique index only guards the alive
-    # statuses, so expired duplicates otherwise piled up. Scope intentionally
-    # narrow: an ACTIVE/LIMITED tariff still falls through to the insert and its
-    # existing unique-index "already active" handling; trials and classic mode
-    # (tariff_id is None) always create a fresh record.
-    if not is_trial and tariff_id is not None and settings.is_multi_tariff_enabled():
-        _existing = await get_subscription_by_user_and_tariff(db, user_id, tariff_id, include_inactive=True)
-        if _existing is not None and not _existing.is_trial and _existing.status == SubscriptionStatus.EXPIRED.value:
-            return await _revive_paid_subscription(
-                db,
-                _existing,
-                duration_days=duration_days,
-                traffic_limit_gb=traffic_limit_gb,
-                device_limit=device_limit,
-                connected_squads=connected_squads,
-                update_server_counters=update_server_counters,
-                commit=commit,
-            )
-
     end_date = datetime.now(UTC) + timedelta(days=duration_days)
 
     if device_limit is None:
@@ -382,6 +370,7 @@ async def create_paid_subscription(
             logger.error('❌ Не удалось получить fallback сквад', user_id=user_id, error=error)
 
     short_id = await generate_unique_short_id(db)
+    account_sequence = await get_next_account_sequence(db, user_id)
 
     subscription = Subscription(
         user_id=user_id,
@@ -396,6 +385,7 @@ async def create_paid_subscription(
         autopay_days_before=settings.DEFAULT_AUTOPAY_DAYS_BEFORE,
         tariff_id=tariff_id,
         remnawave_short_id=short_id,
+        account_sequence=account_sequence,
     )
 
     db.add(subscription)
@@ -1886,6 +1876,7 @@ async def create_subscription_no_commit(
         connected_squads = []
 
     short_id = await generate_unique_short_id(db)
+    account_sequence = await get_next_account_sequence(db, user_id)
     subscription = Subscription(
         user_id=user_id,
         status=status,
@@ -1903,6 +1894,7 @@ async def create_subscription_no_commit(
         autopay_days_before=(
             settings.DEFAULT_AUTOPAY_DAYS_BEFORE if autopay_days_before is None else autopay_days_before
         ),
+        account_sequence=account_sequence,
     )
 
     db.add(subscription)

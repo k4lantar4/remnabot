@@ -142,6 +142,7 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = 'api_key'  # api_key, basic, bearer, cookies, caddy
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = 'Bot user: {full_name} {username}'
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = 'user_{telegram_id}'
+    REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE: str = 'a{account_sequence}'
     REMNAWAVE_USER_DELETE_MODE: str = 'delete'  # "delete" или "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = '03:00'
@@ -2097,6 +2098,11 @@ class Settings(BaseSettings):
     def get_max_active_subscriptions(self) -> int:
         """Максимальное число одновременных подписок (>1 только в multi-tariff)."""
         return self.MAX_ACTIVE_SUBSCRIPTIONS if self.is_multi_tariff_enabled() else 1
+
+    def get_max_active_subscriptions_for_user(self, user) -> int:
+        if getattr(user, 'is_partner', False):
+            return 999_999
+        return self.get_max_active_subscriptions()
 
     def is_tariffs_mode(self) -> bool:
         """Проверяет, включен ли режим продаж 'Тарифы'."""
