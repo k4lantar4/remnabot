@@ -676,7 +676,8 @@ async def select_tariff(
         user_balance = db_user.balance_kopeks or 0
         traffic = format_traffic(tariff.traffic_limit_gb)
 
-        if user_can_afford(user_balance, daily_price):
+        ctx = _affordance_context(texts, user_balance, daily_price)
+        if ctx['can_afford']:
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_DAILY_CONFIRM',
@@ -692,13 +693,13 @@ async def select_tariff(
                     devices=tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=ctx['balance_label'],
                 ),
                 reply_markup=get_daily_tariff_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
+            missing = ctx['missing_toman']
 
             # Ищем существующую подписку для передачи subscription_id в корзину
             if settings.is_multi_tariff_enabled():
@@ -740,8 +741,8 @@ async def select_tariff(
                     name=html.escape(tariff.name),
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                     extra='',
                     cart_note=texts.t(
                         'TARIFF_CART_SAVED_NOTE',
@@ -2273,6 +2274,7 @@ async def show_tariff_extend(
     callback: types.CallbackQuery,
     db_user: User,
     db: AsyncSession,
+    state: FSMContext | None = None,
 ):
     """Показывает экран продления по текущему тарифу."""
     texts = get_texts(db_user.language)
@@ -2398,6 +2400,12 @@ async def show_tariff_extend(
 
     actual_device_limit = subscription.device_limit or tariff.device_limit
 
+    if state is not None:
+        await state.update_data(
+            target_subscription_id=subscription.id,
+            active_subscription_id=subscription.id,
+        )
+
     await callback.message.edit_text(
         texts.t(
             'TARIFF_RENEW_PERIOD',
@@ -2432,7 +2440,7 @@ async def select_tariff_extend_period(
 
     # Кнопка «Назад» шлёт tariff_extend:{id} без периода — показываем экран выбора периода
     if len(parts) < 3:
-        await show_tariff_extend(callback, db_user, db)
+        await show_tariff_extend(callback, db_user, db, state)
         return
 
     period = int(parts[2])
@@ -2466,7 +2474,8 @@ async def select_tariff_extend_period(
 
     traffic = format_traffic(tariff.traffic_limit_gb)
 
-    if user_balance >= final_price:
+    ctx = _affordance_context(texts, user_balance, final_price)
+    if ctx['can_afford']:
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(percent=discount_percent, amount=format_price_kopeks(total_discount))
@@ -2485,14 +2494,14 @@ async def select_tariff_extend_period(
                 period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=get_tariff_extend_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
         )
     else:
-        missing = final_price - user_balance
+        missing = ctx['missing_toman']
 
         # Сохраняем данные корзины для автопокупки после пополнения
         cart_data = {
@@ -2526,8 +2535,8 @@ async def select_tariff_extend_period(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=ctx['balance_label'],
+                missing=ctx['missing_label'],
                 cart_note=texts.t(
                     'TARIFF_RENEW_CART_SAVED_NOTE',
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет продлена автоматически.</i>',
@@ -2546,6 +2555,7 @@ async def select_tariff_extend_period(
         extend_tariff_id=tariff_id,
         extend_period=period,
         extend_discount_percent=discount_percent,
+        target_subscription_id=subscription.id if subscription else None,
         active_subscription_id=subscription.id if subscription else None,
     )
     await callback.answer()
@@ -2574,9 +2584,13 @@ async def confirm_tariff_extend(
         await callback.answer(texts.t('CB_PERIOD_UNAVAILABLE', 'Период недоступен'), show_alert=True)
         return
 
-    subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
+    _state = await state.get_data() if state else {}
+    _sub_id = _state.get('target_subscription_id') or _state.get('active_subscription_id')
+    subscription = None
+    if _sub_id:
+        subscription = await get_subscription_by_id_for_user(db, int(_sub_id), db_user.id)
     if not subscription:
-        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        await callback.answer(texts.t('CB_SELECT_SUBSCRIPTION', 'Выберите подписку'), show_alert=True)
         return
 
     actual_device_limit = subscription.device_limit or tariff.device_limit
@@ -3066,7 +3080,8 @@ async def select_tariff_switch(
             if remaining_days > 1:
                 days_warning = texts.t('TARIFF_DAILY_SWITCH_WARNING', '\n\n⚠️ <b>Внимание!</b> У вас осталось {days} дн. подписки.\nПри смене на суточный тариф они будут утеряны!').format(days=remaining_days)
 
-        if user_can_afford(user_balance, daily_price):
+        ctx = _affordance_context(texts, user_balance, daily_price)
+        if ctx['can_afford']:
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_DAILY_SWITCH_CONFIRM',
@@ -3082,7 +3097,7 @@ async def select_tariff_switch(
                     devices=tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=ctx['balance_label'],
                     warning=days_warning,
                 ),
                 reply_markup=InlineKeyboardMarkup(
@@ -3098,7 +3113,7 @@ async def select_tariff_switch(
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
+            ctx = _affordance_context(texts, user_balance, daily_price)
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSUFFICIENT_DAILY',
@@ -3109,8 +3124,8 @@ async def select_tariff_switch(
                     name=html.escape(tariff.name),
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                     extra=days_warning,
                 ),
                 reply_markup=InlineKeyboardMarkup(
@@ -3202,7 +3217,8 @@ async def select_tariff_switch_period(
     # При смене тарифа устанавливается ровно оплаченный период
     time_info = texts.t('TARIFF_SWITCH_TIME_SET', '⏰ Будет установлено: {period} дней').format(period=period)
 
-    if user_balance >= final_price:
+    ctx = _affordance_context(texts, user_balance, final_price)
+    if ctx['can_afford']:
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(percent=discount_percent, amount=format_price_kopeks(total_discount))
@@ -3222,14 +3238,13 @@ async def select_tariff_switch_period(
                 time_info=time_info,
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=get_tariff_switch_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
         )
     else:
-        missing = final_price - user_balance
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_SWITCH_INSUFFICIENT',
@@ -3240,8 +3255,8 @@ async def select_tariff_switch_period(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
                 cost=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=ctx['balance_label'],
+                missing=ctx['missing_label'],
                 extra='',
             ),
             reply_markup=get_tariff_switch_insufficient_balance_keyboard(tariff_id, period, db_user.language),
@@ -4177,7 +4192,8 @@ async def preview_instant_switch(
         discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
         user_balance = db_user.balance_kopeks or 0
 
-        if user_can_afford(user_balance, daily_price):
+        ctx = _affordance_context(texts, user_balance, daily_price)
+        if ctx['can_afford']:
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSTANT_DAILY_SWITCH',
@@ -4195,14 +4211,13 @@ async def preview_instant_switch(
                     new_devices=new_tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=ctx['balance_label'],
                     warning=daily_warning,
                 ),
                 reply_markup=get_instant_switch_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSUFFICIENT_DAILY',
@@ -4213,8 +4228,8 @@ async def preview_instant_switch(
                     name=new_tariff_label,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                     extra=daily_warning,
                 ),
                 reply_markup=get_instant_switch_insufficient_balance_keyboard(tariff_id, db_user.language),
@@ -4233,7 +4248,8 @@ async def preview_instant_switch(
 
     if is_upgrade:
         # Upgrade - нужна доплата
-        if user_balance >= upgrade_cost:
+        ctx = _affordance_context(texts, user_balance, upgrade_cost)
+        if ctx['can_afford']:
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSTANT_UPGRADE',
@@ -4251,14 +4267,13 @@ async def preview_instant_switch(
                     new_devices=new_tariff.device_limit,
                     days=remaining_days,
                     cost=format_price_kopeks(upgrade_cost),
-                    balance=format_price_kopeks(user_balance),
-                    after=format_price_kopeks(user_balance - upgrade_cost),
+                    balance=ctx['balance_label'],
+                    after=ctx['after_label'],
                 ),
                 reply_markup=get_instant_switch_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
             )
         else:
-            missing = upgrade_cost - user_balance
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_INSTANT_UPGRADE_INSUFFICIENT',
@@ -4268,8 +4283,8 @@ async def preview_instant_switch(
                 ).format(
                     name=new_tariff_label,
                     cost=format_price_kopeks(upgrade_cost),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                 ),
                 reply_markup=get_instant_switch_insufficient_balance_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
@@ -4709,7 +4724,7 @@ async def return_to_saved_tariff_cart(
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     if total_price > 0 and not user_can_afford(user_balance, total_price):
-        missing = max(0, catalog_price_in_toman(total_price) - user_balance)
+        ctx = _affordance_context(texts, user_balance, total_price)
 
         if cart_mode == 'daily_tariff_purchase':
             await callback.message.edit_text(
@@ -4722,8 +4737,8 @@ async def return_to_saved_tariff_cart(
                     name=html.escape(tariff.name),
                     type_line=texts.t('TARIFF_DAILY_TYPE_LINE', '🔄 Тип: Суточный\n'),
                     cost=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                 ),
                 reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
@@ -4743,8 +4758,8 @@ async def return_to_saved_tariff_cart(
                         '📅 Период: {period}\n',
                     ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                 ),
                 reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
                 parse_mode='HTML',
@@ -4764,8 +4779,8 @@ async def return_to_saved_tariff_cart(
                         '📅 Период: {period}\n',
                     ).format(period=format_period(period, db_user.language)),
                     cost=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=ctx['balance_label'],
+                    missing=ctx['missing_label'],
                 ),
                 reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
                 parse_mode='HTML',
@@ -4794,6 +4809,7 @@ async def return_to_saved_tariff_cart(
 
     if cart_mode == 'daily_tariff_purchase':
         daily_price = cart_data.get('daily_price_kopeks', total_price)
+        ctx = _affordance_context(texts, user_balance, daily_price)
 
         await callback.message.edit_text(
             texts.t(
@@ -4807,14 +4823,15 @@ async def return_to_saved_tariff_cart(
                 traffic=traffic,
                 devices=tariff.device_limit,
                 price=format_price_kopeks(daily_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - daily_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=get_daily_tariff_confirm_keyboard(tariff_id, db_user.language),
             parse_mode='HTML',
         )
     elif cart_mode == 'extend':
         period = cart_data.get('period_days', 30)
+        ctx = _affordance_context(texts, user_balance, total_price)
 
         discount_text = ''
         if discount_percent > 0:
@@ -4838,8 +4855,8 @@ async def return_to_saved_tariff_cart(
                 period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - total_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -4856,6 +4873,7 @@ async def return_to_saved_tariff_cart(
         )
     else:  # tariff_purchase
         period = cart_data.get('period_days', 30)
+        ctx = _affordance_context(texts, user_balance, total_price)
 
         discount_text = ''
         if discount_percent > 0:
@@ -4879,8 +4897,8 @@ async def return_to_saved_tariff_cart(
                 period=format_period(period, db_user.language),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - total_price),
+                balance=ctx['balance_label'],
+                after=ctx['after_label'],
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
