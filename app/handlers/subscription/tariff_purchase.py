@@ -36,6 +36,11 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 logger = structlog.get_logger(__name__)
 
 
+def should_extend_multi_tariff(state_data: dict, *, existing_sub) -> bool:
+    pinned = state_data.get('target_subscription_id')
+    return bool(pinned and existing_sub)
+
+
 async def _persist_failed_refund(
     user_id: int,
     amount_kopeks: int,
@@ -1042,17 +1047,19 @@ async def handle_custom_confirm(
     # Определяем трафик
     traffic_limit = custom_traffic if tariff.can_purchase_custom_traffic() else tariff.traffic_limit_gb
 
-    # Проверяем есть ли уже подписка
+    state_data = await state.get_data()
     if settings.is_multi_tariff_enabled():
-        active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
-        existing_subscription = next((s for s in active_subs if s.tariff_id == tariff.id), None)
+        _pinned_sub_id = state_data.get('target_subscription_id')
+        existing_subscription = None
+        if _pinned_sub_id:
+            existing_subscription = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
+            if existing_subscription and existing_subscription.tariff_id != tariff.id:
+                existing_subscription = None
     else:
         existing_subscription = await get_subscription_by_user_id(db, db_user.id)
 
     try:
-        if existing_subscription:
-            # Продлеваем существующую подписку и обновляем параметры тарифа
-            # Сохраняем докупленные устройства при продлении того же тарифа
+        if should_extend_multi_tariff(state_data, existing_sub=existing_subscription) and existing_subscription:
             if existing_subscription.tariff_id == tariff.id:
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
             else:
@@ -1067,7 +1074,42 @@ async def handle_custom_confirm(
                 connected_squads=squads,
             )
         else:
-            # Создаем новую подписку
+            if settings.is_multi_tariff_enabled():
+                active_count = len(await get_active_subscriptions_by_user_id(db, db_user.id))
+                if active_count >= settings.get_max_active_subscriptions_for_user(db_user):
+                    from app.database.crud.user import add_user_balance
+
+                    refund_success = await add_user_balance(
+                        db,
+                        db_user,
+                        catalog_price_in_toman(total_price),
+                        'Возврат: превышен лимит подписок',
+                        create_transaction=True,
+                        transaction_type=TransactionType.REFUND,
+                        commit=False,
+                    )
+                    if not refund_success:
+                        await _persist_failed_refund(
+                            user_id=db_user.id,
+                            amount_kopeks=catalog_price_in_toman(total_price),
+                            reason='Возврат: превышен лимит подписок',
+                            error=Exception('add_user_balance returned False'),
+                        )
+                    if consume_promo and saved_promo_percent > 0:
+                        db_user.promo_offer_discount_percent = saved_promo_percent
+                        db_user.promo_offer_discount_source = saved_promo_source
+                        db_user.promo_offer_discount_expires_at = saved_promo_expires
+                    await db.commit()
+                    try:
+                        await callback.message.edit_text(
+                            texts.t('TARIFF_MAX_SUBSCRIPTIONS', '❌ Максимум подписок: {max}').format(
+                                max=settings.get_max_active_subscriptions_for_user(db_user)
+                            )
+                        )
+                    except Exception:
+                        pass
+                    return
+
             subscription = await create_paid_subscription(
                 db=db,
                 user_id=db_user.id,
@@ -1359,13 +1401,11 @@ async def select_tariff_period(
         # Недостаточно средств - сохраняем корзину для автопокупки
         missing = final_price - user_balance
 
-        # Ищем существующую подписку для передачи subscription_id в корзину
-        if settings.is_multi_tariff_enabled():
-            from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-            _existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
-        else:
-            _existing_sub = await get_subscription_by_user_id(db, db_user.id)
+        _state_data = await state.get_data()
+        _cart_sub_id = _state_data.get('target_subscription_id') if settings.is_multi_tariff_enabled() else None
+        if not _cart_sub_id and not settings.is_multi_tariff_enabled():
+            _legacy_sub = await get_subscription_by_user_id(db, db_user.id)
+            _cart_sub_id = _legacy_sub.id if _legacy_sub else None
 
         # Сохраняем данные корзины для автопокупки после пополнения
         cart_data = {
@@ -1385,7 +1425,7 @@ async def select_tariff_period(
             'device_limit': tariff.device_limit,
             'allowed_squads': tariff.allowed_squads or [],
             'discount_percent': discount_percent,
-            'subscription_id': _existing_sub.id if _existing_sub else None,
+            'subscription_id': _cart_sub_id,
         }
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
@@ -1410,26 +1450,11 @@ async def select_tariff_period(
             parse_mode='HTML',
         )
 
-    # Resolve target subscription_id at preview time and pin it in FSM.
-    # Without this, ``confirm_tariff_purchase`` re-queries by
-    # ``(user_id, tariff_id)`` and can race with concurrent panel
-    # webhooks that briefly flip the active sub's status — falling
-    # through to ``create_paid_subscription`` and hitting the partial
-    # UNIQUE ``uq_subscriptions_user_tariff_active`` (logs "Тариф уже
-    # активен", refunds, leaves user confused).
-    target_subscription_id: int | None = None
-    if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-        _existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
-        target_subscription_id = _existing_sub.id if _existing_sub else None
-
     await state.update_data(
         selected_tariff_id=tariff_id,
         selected_period=period,
         final_price=final_price,
         tariff_discount_percent=discount_percent,
-        target_subscription_id=target_subscription_id,
     )
     await callback.answer()
 
@@ -1467,40 +1492,22 @@ async def confirm_tariff_purchase(
 
     # In multi-tariff mode, prefer the subscription_id pinned in FSM at
     # preview time — that's the EXACT row the user clicked Renew/Buy on.
-    # Re-querying by ``(user_id, tariff_id)`` here is race-vulnerable:
-    # if a concurrent panel webhook briefly flips the active sub's
-    # status between preview and confirm, this query returns None,
-    # the code falls through to ``create_paid_subscription``, and the
-    # partial UNIQUE ``uq_subscriptions_user_tariff_active`` raises
-    # IntegrityError → user sees "Тариф уже активен" in logs, money
-    # debited then refunded, subscription not extended.
-    #
-    # We fall back to the tariff-level lookup only if FSM has no
-    # pinned ID (old session / direct deep-link / state lost) so
-    # legacy flows continue to work.
     if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
         _state_data = await state.get_data() if state else {}
         _pinned_sub_id = _state_data.get('target_subscription_id')
 
         existing_sub = None
         if _pinned_sub_id:
             existing_sub = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
-            # Defence: if admin/user switched tariff between preview
-            # and confirm, the pinned sub may no longer match —
-            # ignore it and fall back to fresh tariff lookup.
             if existing_sub and existing_sub.tariff_id != tariff_id:
                 logger.warning(
-                    'FSM-pinned subscription tariff diverged from confirm tariff; falling back',
+                    'FSM-pinned subscription tariff diverged from confirm tariff; ignoring pin',
                     pinned_sub_id=_pinned_sub_id,
                     pinned_tariff_id=existing_sub.tariff_id,
                     confirm_tariff_id=tariff_id,
                     user_id=db_user.id,
                 )
                 existing_sub = None
-        if existing_sub is None:
-            existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
     else:
         existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
@@ -1578,8 +1585,8 @@ async def confirm_tariff_purchase(
 
     try:
         if settings.is_multi_tariff_enabled():
-            if existing_subscription and existing_subscription.tariff_id == tariff.id:
-                # Extend existing subscription for this tariff
+            _state_data = await state.get_data() if state else {}
+            if should_extend_multi_tariff(_state_data, existing_sub=existing_subscription) and existing_subscription:
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
                 subscription = await extend_subscription(
                     db,
@@ -1591,9 +1598,8 @@ async def confirm_tariff_purchase(
                     connected_squads=squads,
                 )
             else:
-                # Guard: enforce MAX_ACTIVE_SUBSCRIPTIONS limit
                 active_count = len(await get_active_subscriptions_by_user_id(db, db_user.id))
-                if active_count >= settings.get_max_active_subscriptions():
+                if active_count >= settings.get_max_active_subscriptions_for_user(db_user):
                     from app.database.crud.user import add_user_balance
 
                     refund_success = await add_user_balance(
@@ -1620,7 +1626,9 @@ async def confirm_tariff_purchase(
                     await db.commit()
                     try:
                         await callback.message.edit_text(
-                            texts.t('TARIFF_MAX_SUBSCRIPTIONS', '❌ Максимум подписок: {max}').format(max=settings.get_max_active_subscriptions())
+                            texts.t('TARIFF_MAX_SUBSCRIPTIONS', '❌ Максимум подписок: {max}').format(
+                                max=settings.get_max_active_subscriptions_for_user(db_user)
+                            )
                         )
                     except Exception:
                         pass
