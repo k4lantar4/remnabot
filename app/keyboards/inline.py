@@ -619,61 +619,58 @@ def get_main_menu_keyboard(
     paired_buttons: list[InlineKeyboardButton] = []
 
     if has_active_subscription and subscription_is_active:
-        connect_mode = settings.CONNECT_BUTTON_MODE
-        subscription_link = get_display_subscription_link(subscription)
+        if not settings.is_multi_tariff_enabled():
+            connect_mode = settings.CONNECT_BUTTON_MODE
+            subscription_link = get_display_subscription_link(subscription)
 
-        def _fallback_connect_button() -> InlineKeyboardButton:
-            return InlineKeyboardButton(
-                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                callback_data='subscription_connect',
-            )
-
-        if connect_mode == 'miniapp_subscription':
-            if subscription_link:
-                keyboard.append(
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                            web_app=types.WebAppInfo(url=subscription_link),
-                        )
-                    ]
+            def _fallback_connect_button() -> InlineKeyboardButton:
+                return InlineKeyboardButton(
+                    text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
+                    callback_data='subscription_connect',
                 )
-            else:
-                keyboard.append([_fallback_connect_button()])
-        elif connect_mode == 'miniapp_custom':
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                        web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
+
+            if connect_mode == 'miniapp_subscription':
+                if subscription_link:
+                    keyboard.append(
+                        [
+                            InlineKeyboardButton(
+                                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
+                                web_app=types.WebAppInfo(url=subscription_link),
+                            )
+                        ]
                     )
-                ]
-            )
-        elif connect_mode == 'link':
-            if subscription_link:
-                keyboard.append(
-                    [InlineKeyboardButton(text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'), url=subscription_link)]
-                )
-            else:
-                keyboard.append([_fallback_connect_button()])
-        elif connect_mode == 'happ_cryptolink':
-            if subscription_link:
+                else:
+                    keyboard.append([_fallback_connect_button()])
+            elif connect_mode == 'miniapp_custom':
                 keyboard.append(
                     [
                         InlineKeyboardButton(
                             text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                            callback_data=(
-                                'subscription_connect'
-                                if settings.is_multi_tariff_enabled()
-                                else 'open_subscription_link'
-                            ),
+                            web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
                         )
                     ]
                 )
+            elif connect_mode == 'link':
+                if subscription_link:
+                    keyboard.append(
+                        [InlineKeyboardButton(text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'), url=subscription_link)]
+                    )
+                else:
+                    keyboard.append([_fallback_connect_button()])
+            elif connect_mode == 'happ_cryptolink':
+                if subscription_link:
+                    keyboard.append(
+                        [
+                            InlineKeyboardButton(
+                                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
+                                callback_data='open_subscription_link',
+                            )
+                        ]
+                    )
+                else:
+                    keyboard.append([_fallback_connect_button()])
             else:
                 keyboard.append([_fallback_connect_button()])
-        else:
-            keyboard.append([_fallback_connect_button()])
 
         happ_row = get_happ_download_button_row(texts)
         if happ_row:
@@ -686,23 +683,20 @@ def get_main_menu_keyboard(
         paired_buttons.append(InlineKeyboardButton(text=sub_btn_text, callback_data='menu_subscription'))
 
         # Добавляем кнопку докупки трафика для лимитированных подписок
-        # В режиме тарифов проверяем tariff_id (детальная проверка в хендлере)
-        # В классическом режиме проверяем глобальные настройки
-        show_traffic_topup = False
-        if subscription and not subscription.is_trial and (subscription.traffic_limit_gb or 0) > 0:
-            if settings.is_tariffs_mode() and getattr(subscription, 'tariff_id', None):
-                # Режим тарифов - показываем кнопку, проверка настроек тарифа в хендлере
-                show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
-            elif settings.is_traffic_topup_enabled() and not settings.is_traffic_topup_blocked():
-                # Классический режим - проверяем глобальные настройки
-                show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
+        if not settings.is_multi_tariff_enabled():
+            show_traffic_topup = False
+            if subscription and not subscription.is_trial and (subscription.traffic_limit_gb or 0) > 0:
+                if settings.is_tariffs_mode() and getattr(subscription, 'tariff_id', None):
+                    show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
+                elif settings.is_traffic_topup_enabled() and not settings.is_traffic_topup_blocked():
+                    show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
 
-        if show_traffic_topup:
-            paired_buttons.append(
-                InlineKeyboardButton(
-                    text=texts.t('BUY_TRAFFIC_BUTTON', '📈 Докупить трафик'), callback_data='buy_traffic'
+            if show_traffic_topup:
+                paired_buttons.append(
+                    InlineKeyboardButton(
+                        text=texts.t('BUY_TRAFFIC_BUTTON', '📈 Докупить трафик'), callback_data='buy_traffic'
+                    )
                 )
-            )
 
     keyboard.append([InlineKeyboardButton(text=balance_button_text, callback_data='menu_balance')])
 
@@ -719,7 +713,7 @@ def get_main_menu_keyboard(
     if settings.SIMPLE_SUBSCRIPTION_ENABLED:
         simple_purchase_button = InlineKeyboardButton(
             text=texts.MENU_SIMPLE_SUBSCRIPTION,
-            callback_data='simple_subscription_purchase',
+            callback_data='menu_buy' if settings.is_multi_tariff_enabled() else 'simple_subscription_purchase',
         )
 
     subscription_buttons: list[InlineKeyboardButton] = []
@@ -3092,12 +3086,13 @@ def get_app_selection_keyboard(device_type: str, apps: list, language: str = DEF
 
         keyboard.append([InlineKeyboardButton(text=app_name, callback_data=f'app_{device_type}_{app["id"]}')])
 
+    connect_back_cb = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_connect'
     keyboard.extend(
         [
             [
                 InlineKeyboardButton(
                     text=texts.t('CHOOSE_ANOTHER_DEVICE', '📱 Выбрать другое устройство'),
-                    callback_data='subscription_connect',
+                    callback_data=connect_back_cb,
                 )
             ],
             [
@@ -3349,7 +3344,7 @@ def get_updated_subscription_settings_keyboard(
         ]
     )
 
-    if settings.is_subscription_revoke_enabled():
+    if settings.is_subscription_revoke_enabled() and not settings.is_multi_tariff_enabled():
         keyboard.append(
             [
                 InlineKeyboardButton(

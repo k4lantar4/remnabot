@@ -3093,6 +3093,7 @@
   "MY_SUB_STATUS_DISABLED": " (غیرفعال)",
   "MY_SUB_STATUS_LIMITED": " (محدود)",
   "MY_SUB_DEFAULT_NAME": "اشتراک",
+  "MY_SUB_DETAIL_HEADER": "<b>{label}</b>",
   "MY_SUB_TRAFFIC_LINE": "   📊 ترافیک: {traffic}",
   "MY_SUB_DEVICES_LINE": "   📱 دستگاه‌ها: {devices}",
   "MY_SUB_DEVICES_COUNT_SHORT": "{count} دستگاه",
