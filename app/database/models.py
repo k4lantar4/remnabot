@@ -2124,13 +2124,6 @@ class Subscription(Base):
         Index('ix_subscriptions_user_id', 'user_id'),
         Index('ix_subscriptions_user_status', 'user_id', 'status'),
         Index('ix_subscriptions_user_tariff_status', 'user_id', 'tariff_id', 'status'),
-        Index(
-            'uq_subscriptions_user_tariff_active',
-            'user_id',
-            'tariff_id',
-            unique=True,
-            postgresql_where=text("tariff_id IS NOT NULL AND status IN ('active', 'trial', 'limited')"),
-        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -2173,6 +2166,7 @@ class Subscription(Base):
     remnawave_short_id = Column(
         String(16), nullable=False, unique=True, server_default=''
     )  # Permanent short ID for username suffix
+    account_sequence = Column(Integer, nullable=False, default=1)
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)
