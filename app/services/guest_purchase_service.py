@@ -351,15 +351,20 @@ async def fulfill_purchase(
             return purchase
 
         # Check if user already has a subscription
+        hold_for_activation = False
         if settings.is_multi_tariff_enabled():
-            from app.database.crud.subscription import get_subscription_by_user_and_tariff
+            from app.database.crud.subscription import get_active_subscriptions_by_user_id
 
-            # In multi-tariff mode, only block if user already has THIS SPECIFIC tariff active.
-            # Different tariffs can be purchased simultaneously — that's the whole point.
-            existing_subscription = await get_subscription_by_user_and_tariff(db, user.id, tariff.id)
+            active_count = len(await get_active_subscriptions_by_user_id(db, user.id))
+            max_subs = settings.get_max_active_subscriptions_for_user(user)
+            if active_count >= max_subs and not purchase.is_gift:
+                hold_for_activation = True
+            existing_subscription = None
         else:
             existing_subscription = await get_subscription_by_user_id(db, user.id)
-        if existing_subscription is not None and (existing_subscription.is_active or purchase.is_gift):
+        if hold_for_activation or (
+            existing_subscription is not None and (existing_subscription.is_active or purchase.is_gift)
+        ):
             # Active subscription or gift with any existing subscription — hold for manual activation
             purchase.status = GuestPurchaseStatus.PENDING_ACTIVATION.value
             purchase.user_id = user.id
@@ -391,10 +396,11 @@ async def fulfill_purchase(
                 await db.commit()
 
             logger.info(
-                'Guest purchase held for activation (existing subscription)',
+                'Guest purchase held for activation (existing subscription or max cap)',
                 purchase_id=purchase.id,
                 token_prefix=purchase_token[:5],
                 user_id=user.id,
+                hold_for_activation=hold_for_activation,
             )
             return purchase
 
