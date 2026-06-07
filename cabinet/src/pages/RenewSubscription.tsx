@@ -9,12 +9,13 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useHaptic } from '../platform';
 import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { WebBackButton } from '../components/WebBackButton';
+import { canAffordCatalog, missingCatalogToman } from '../utils/priceUnits';
 
 export default function RenewSubscription() {
   const { subscriptionId } = useParams<{ subscriptionId: string }>();
   const subId = subscriptionId ? Number(subscriptionId) : undefined;
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
@@ -124,7 +125,8 @@ export default function RenewSubscription() {
           {t('common.balance', 'Баланс')}
         </span>
         <span className="text-base font-semibold" style={{ color: g.text }}>
-          {formatAmount(balanceKopeks / 100)} {currencySymbol}
+          {formatAmount(i18n.language === 'fa' ? balanceKopeks : balanceKopeks / 100)}{' '}
+          {currencySymbol}
         </span>
       </div>
 
@@ -142,7 +144,7 @@ export default function RenewSubscription() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {options.map((option) => {
             const isSelected = selectedPeriod === option.period_days;
-            const canAfford = balanceKopeks >= option.price_kopeks;
+            const canAfford = canAffordCatalog(balanceKopeks, option.price_kopeks);
             const months = Math.max(1, Math.round(option.period_days / 30));
             const perMonth = option.price_kopeks / months;
 
@@ -200,7 +202,7 @@ export default function RenewSubscription() {
                       'subscription.insufficientBalanceAmount',
                       'Недостаточно средств. Не хватает {{missing}}',
                       {
-                        missing: `${formatAmount((option.price_kopeks - balanceKopeks) / 100)} ${currencySymbol}`,
+                        missing: `${formatAmount(missingCatalogToman(balanceKopeks, option.price_kopeks))} ${currencySymbol}`,
                       },
                     )}
                   </div>
@@ -212,7 +214,13 @@ export default function RenewSubscription() {
       )}
 
       {/* Insufficient balance prompt */}
-      {missingAmount && <InsufficientBalancePrompt missingAmountKopeks={missingAmount} compact />}
+      {missingAmount && (
+        <InsufficientBalancePrompt
+          missingAmountKopeks={missingAmount}
+          missingAmountToman={missingAmount}
+          compact
+        />
+      )}
 
       {/* Error */}
       {error && !missingAmount && (

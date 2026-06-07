@@ -5,6 +5,7 @@ import type { TrialInfo } from '../../types';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTheme } from '../../hooks/useTheme';
 import { getGlassColors } from '../../utils/glassTheme';
+import { canAffordCatalog } from '../../utils/priceUnits';
 import { BoltIcon, SparklesIcon } from '@/components/icons';
 
 interface TrialOfferCardProps {
@@ -27,7 +28,7 @@ export default function TrialOfferCard({
   const { isDark } = useTheme();
   const g = getGlassColors(isDark);
   const isFree = !trialInfo.requires_payment;
-  const canAfford = balanceKopeks >= trialInfo.price_kopeks;
+  const canAfford = canAffordCatalog(balanceKopeks, trialInfo.price_kopeks);
 
   return (
     <div

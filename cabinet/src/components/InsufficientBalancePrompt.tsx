@@ -5,8 +5,10 @@ import { useCurrency } from '../hooks/useCurrency';
 import { InfoIcon, WalletIcon, PlusIcon } from '@/components/icons';
 
 interface InsufficientBalancePromptProps {
-  /** Amount missing in kopeks */
+  /** Amount missing in kopeks (legacy catalog scale) */
   missingAmountKopeks: number;
+  /** Amount missing in Toman when balance is stored 1:1 (Phase B / fa) */
+  missingAmountToman?: number;
   /** Optional custom message */
   message?: string;
   /** Compact mode for inline use */
@@ -19,19 +21,23 @@ interface InsufficientBalancePromptProps {
 
 export default function InsufficientBalancePrompt({
   missingAmountKopeks,
+  missingAmountToman,
   message,
   compact = false,
   className = '',
   onBeforeTopUp,
 }: InsufficientBalancePromptProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { formatAmount, currencySymbol } = useCurrency();
   const [isPreparingTopUp, setIsPreparingTopUp] = useState(false);
 
-  const missingRubles = missingAmountKopeks / 100;
-  const displayAmount = formatAmount(missingRubles);
+  const isFaBalanceScale = i18n.language === 'fa';
+  const missingDisplay = isFaBalanceScale
+    ? (missingAmountToman ?? missingAmountKopeks)
+    : missingAmountKopeks / 100;
+  const displayAmount = formatAmount(missingDisplay);
 
   const handleTopUpClick = async () => {
     if (onBeforeTopUp) {
@@ -45,7 +51,7 @@ export default function InsufficientBalancePrompt({
       }
     }
     const params = new URLSearchParams();
-    params.set('amount', String(Math.ceil(missingRubles)));
+    params.set('amount', String(Math.ceil(missingDisplay)));
     params.set('returnTo', location.pathname);
     navigate(`/balance/top-up?${params.toString()}`);
   };
