@@ -225,10 +225,11 @@ def get_tariffs_keyboard(
     buttons = []
 
     for tariff in tariffs:
-        if tariff.id in purchased_tariff_ids:
-            buttons.append([InlineKeyboardButton(text=f'✅ {tariff.name}', callback_data=f'tariff_select:{tariff.id}')])
+        if settings.is_multi_tariff_enabled() and tariff.id in purchased_tariff_ids:
+            label = texts.t('TARIFF_BUY_ANOTHER_LABEL', '{name} (+)').format(name=tariff.name)
         else:
-            buttons.append([InlineKeyboardButton(text=tariff.name, callback_data=f'tariff_select:{tariff.id}')])
+            label = tariff.name
+        buttons.append([InlineKeyboardButton(text=label, callback_data=f'tariff_select:{tariff.id}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
@@ -642,20 +643,6 @@ async def select_tariff(
     if not tariff or not tariff.is_active:
         await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
-
-    # В мульти-тарифе проверяем не куплен ли уже этот тариф
-    if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_active_subscriptions_by_user_id
-
-        _active = await get_active_subscriptions_by_user_id(db, db_user.id)
-        _existing = next((s for s in _active if s.tariff_id == tariff_id and not s.is_trial), None)
-        if _existing:
-            days_left = max(0, (_existing.end_date - datetime.now(UTC)).days) if _existing.end_date else 0
-            await callback.answer(
-                texts.t('TARIFF_ALREADY_ACTIVE', 'Тариф «{name}» уже активен ({days_left} дн.). Продлите через "Мои подписки".').format(name=tariff.name, days_left=days_left),
-                show_alert=True,
-            )
-            return
 
     # Проверяем, суточный ли это тариф
     is_daily = getattr(tariff, 'is_daily', False)

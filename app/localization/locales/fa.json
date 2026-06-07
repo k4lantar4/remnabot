@@ -2991,6 +2991,7 @@
   "TARIFF_PRICE_FROM": "از {price}{icon}",
   "TARIFF_DAILY_PRICE": "🔄 {price}/روز{icon}",
   "TARIFF_ALREADY_ACTIVE": "تعرفه «{name}» قبلاً فعال است ({days_left} روز). از «اشتراک‌های من» تمدید کنید.",
+  "TARIFF_BUY_ANOTHER_LABEL": "{name} (+)",
   "TARIFF_DAILY_CONFIRM": "✅ <b>تأیید خرید</b>\n\n📦 تعرفه: <b>{name}</b>\n📊 ترافیک: {traffic}\n📱 دستگاه: {devices}\n🔄 نوع: <b>روزانه</b>\n\n💰 <b>قیمت: {price}/روز</b>{discount}\n\n💳 موجودی: {balance}\n\nℹ️ مبلغ هر ۲۴ ساعت خودکار کسر می‌شود.\nمی‌توانید هر زمان اشتراک را متوقف کنید.",
   "TARIFF_INSUFFICIENT_DAILY": "❌ <b>موجودی ناکافی</b>\n\n📦 تعرفه: <b>{name}</b>\n🔄 نوع: روزانه\n💰 قیمت: {price}/روز{discount}\n\n💳 موجودی: {balance}\n⚠️ کسری: <b>{missing}</b>{extra}\n\n{cart_note}",
   "TARIFF_CART_SAVED_NOTE": "🛒 <i>سبد ذخیره شد! پس از شارژ، اشتراک خودکار فعال می‌شود.</i>",
