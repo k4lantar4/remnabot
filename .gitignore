@@ -43,6 +43,8 @@
 !migrations/**
 !docs/
 !docs/**
+!tools/
+!tools/**
 !assets/
 !assets/**
 !locales/
@@ -106,6 +108,7 @@ logs/
 data/
 volumes/
 uploads/
+tools/migration/squad_uuids.json
 *.log
 *.db
 *.sqlite3
