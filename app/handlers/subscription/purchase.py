@@ -1430,6 +1430,9 @@ async def start_subscription_purchase(
 ):
     texts = get_texts(db_user.language)
 
+    if settings.is_multi_tariff_enabled() and state:
+        await state.update_data(target_subscription_id=None)
+
     # Проверяем режим продаж - если tariffs, перенаправляем на выбор тарифов
     if settings.is_tariffs_mode():
         from .tariff_purchase import show_tariffs_list

@@ -36,9 +36,14 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 logger = structlog.get_logger(__name__)
 
 
-def should_extend_multi_tariff(state_data: dict, *, existing_sub) -> bool:
+def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bool = False) -> bool:
     pinned = state_data.get('target_subscription_id')
-    return bool(pinned and existing_sub)
+    if pinned and existing_sub:
+        return True
+    if renew_only:
+        active = state_data.get('active_subscription_id')
+        return bool(active and existing_sub and getattr(existing_sub, 'id', None) == active)
+    return False
 
 
 async def _persist_failed_refund(

@@ -263,7 +263,10 @@ async def show_subscription_detail(
 
     # Persist active sub_id so downstream handlers without sub_id in callback_data
     # (e.g. 'subscription_autopay') can resolve the right subscription via FSM.
-    await state.update_data(active_subscription_id=sub_id)
+    await state.update_data(
+        active_subscription_id=sub_id,
+        target_subscription_id=sub_id,
+    )
 
     tariff_name = subscription.tariff.name if subscription.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
 
@@ -320,7 +323,10 @@ async def _resolve_and_store_sub(
         return None
 
     # Store in FSM state so downstream handlers can use it
-    await state.update_data(active_subscription_id=sub_id)
+    await state.update_data(
+        active_subscription_id=sub_id,
+        target_subscription_id=sub_id,
+    )
     return subscription
 
 
