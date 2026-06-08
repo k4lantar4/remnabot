@@ -116,7 +116,7 @@ from app.utils.subscription_utils import (
     get_display_subscription_link,
     resolve_simple_subscription_device_limit,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 
 from .autopay import (
     handle_autopay_menu,
@@ -513,7 +513,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
         warning=warning_text,
         tariff_info_block=tariff_info_block,
         subscription_type=subscription_type,
-        end_date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M'),
+        end_date=format_user_datetime(subscription.end_date, language=texts.language, fmt='%d.%m.%Y %H:%M'),
         time_left=time_left_text,
         traffic=traffic_used_display,
         servers=servers_display,
@@ -575,7 +575,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                 bar = '▰' * filled + '▱' * (bar_length - filled)
 
                 # Форматируем дату истечения
-                expire_date = purchase.expires_at.strftime('%d.%m.%Y')
+                expire_date = format_user_datetime(purchase.expires_at, language=texts.language, fmt='%d.%m.%Y')
 
                 # Формируем текст о времени
                 if days_remaining == 0:
@@ -2178,7 +2178,7 @@ async def confirm_extend_subscription(
         texts.t('SUBSCRIPTION_RENEWAL_SUCCESS', '✅ Подписка успешно продлена!\n\n')
         + texts.t('SUBSCRIPTION_RENEWAL_ADDED_DAYS', '⏰ Добавлено: {days} дней\n').format(days=days)
         + texts.t('SUBSCRIPTION_RENEWAL_VALID_UNTIL', 'Действует до: {date}\n\n').format(
-            date=format_local_datetime(refreshed_end_date, '%d.%m.%Y %H:%M')
+            date=format_user_datetime(refreshed_end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
         )
         + texts.t('SUBSCRIPTION_RENEWAL_CHARGED', '💰 Списано: {price}').format(price=texts.format_price(price))
     )
@@ -4919,7 +4919,7 @@ async def _extend_existing_subscription(
         texts.t('SUBSCRIPTION_RENEWAL_SUCCESS', '✅ Подписка успешно продлена!\n\n')
         + texts.t('SUBSCRIPTION_RENEWAL_ADDED_DAYS', '⏰ Добавлено: {days} дней\n').format(days=period_days)
         + texts.t('SUBSCRIPTION_RENEWAL_VALID_UNTIL', 'Действует до: {date}\n\n').format(
-            date=format_local_datetime(new_end_date, '%d.%m.%Y %H:%M')
+            date=format_user_datetime(new_end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
         )
         + texts.t('SUBSCRIPTION_RENEWAL_CHARGED', '💰 Списано: {price}').format(price=texts.format_price(price_kopeks))
     )
