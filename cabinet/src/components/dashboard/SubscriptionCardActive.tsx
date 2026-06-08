@@ -8,6 +8,7 @@ import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
 import { useTheme } from '../../hooks/useTheme';
 import { useTrafficZone } from '../../hooks/useTrafficZone';
 import { formatTraffic } from '../../utils/formatTraffic';
+import { formatUserDate } from '../../utils/formatDate';
 import { getGlassColors } from '../../utils/glassTheme';
 import { HoverBorderGradient } from '../ui/hover-border-gradient';
 import { CalendarIcon, RefreshIcon } from '@/components/icons';
@@ -33,7 +34,7 @@ export default function SubscriptionCardActive({
   trafficRefreshCooldown,
   connectedDevices,
 }: SubscriptionCardActiveProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const g = getGlassColors(isDark);
@@ -48,7 +49,7 @@ export default function SubscriptionCardActive({
   const isAtDeviceLimit =
     subscription.device_limit > 0 && connectedDevices >= subscription.device_limit;
 
-  const formattedDate = new Date(subscription.end_date).toLocaleDateString();
+  const formattedDate = formatUserDate(subscription.end_date, i18n.language);
   const daysLeft = subscription.days_left;
 
   // Sparkline placeholder data (hidden until API provides daily usage)
