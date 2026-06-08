@@ -18,6 +18,7 @@ from app.services.payment_service import PaymentService
 from app.services.subscription_purchase_service import SubscriptionPurchaseService
 from app.states import SubscriptionStates
 from app.utils.decorators import error_handler
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import compute_simple_subscription_price
 from app.utils.subscription_utils import (
@@ -1999,7 +2000,7 @@ async def check_simple_pal24_payment_status(
                 status=status_text,
             ),
             texts.t('SIMPLE_SUB_PAYMENT_STATUS_CREATED', '📅 Создан: {created}').format(
-                created=payment.created_at.strftime('%d.%m.%Y %H:%M')
+                created=format_user_datetime(payment.created_at, language=texts.language, fmt='%d.%m.%Y %H:%M')
             ),
         ]
 
@@ -2160,7 +2161,7 @@ async def check_simple_mulenpay_payment_status(
             status=status_text,
         ),
         texts.t('SIMPLE_SUB_PAYMENT_STATUS_CREATED', '📅 Создан: {created}').format(
-            created=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
+            created=format_user_datetime(payment.created_at, language=texts.language, fmt='%d.%m.%Y %H:%M', na_placeholder='—')
         ),
     ]
 
@@ -2249,7 +2250,7 @@ async def check_simple_cryptobot_payment_status(
             status=status_text,
         ),
         texts.t('SIMPLE_SUB_PAYMENT_STATUS_CREATED', '📅 Создан: {created}').format(
-            created=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
+            created=format_user_datetime(payment.created_at, language=texts.language, fmt='%d.%m.%Y %H:%M', na_placeholder='—')
         ),
     ]
 
@@ -2346,7 +2347,7 @@ async def check_simple_heleket_payment_status(
             status=status_text,
         ),
         texts.t('SIMPLE_SUB_PAYMENT_STATUS_CREATED', '📅 Создан: {created}').format(
-            created=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
+            created=format_user_datetime(payment.created_at, language=texts.language, fmt='%d.%m.%Y %H:%M', na_placeholder='—')
         ),
     ]
 
@@ -2446,7 +2447,7 @@ async def check_simple_wata_payment_status(
             status=status_text,
         ),
         texts.t('SIMPLE_SUB_PAYMENT_STATUS_CREATED', '📅 Создан: {created}').format(
-            created=payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '—'
+            created=format_user_datetime(payment.created_at, language=texts.language, fmt='%d.%m.%Y %H:%M', na_placeholder='—')
         ),
     ]
 
