@@ -255,6 +255,8 @@ class Settings(BaseSettings):
     # Multi-tariff mode: allows users to purchase multiple tariffs simultaneously
     # Only works when SALES_MODE='tariffs'
     MULTI_TARIFF_ENABLED: bool = False
+    # Скрыть цены в меню покупки тарифа (список + выбор периода); расчёт при оплате не меняется
+    TARIFF_PURCHASE_HIDE_PRICES: bool = False
     MAX_ACTIVE_SUBSCRIPTIONS: int = 10
 
     # ID тарифа для триала в режиме тарифов (0 = использовать стандартные настройки триала)

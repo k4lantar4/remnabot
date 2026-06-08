@@ -141,6 +141,10 @@ def _is_fa_language(language: str | None) -> bool:
     return (language or 'ru').split('-')[0].lower() == 'fa'
 
 
+def _hide_tariff_purchase_prices() -> bool:
+    return bool(getattr(settings, 'TARIFF_PURCHASE_HIDE_PRICES', False))
+
+
 def _tariff_user_display_name(tariff: Tariff, language: str | None) -> str:
     """User-facing tariff title: FA uses traffic label; other langs use DB name."""
     if _is_fa_language(language):
@@ -179,10 +183,12 @@ def format_tariffs_list_text(
     if purchased_tariff_ids is None:
         purchased_tariff_ids = set()
 
-    if has_period_discounts:
+    if has_period_discounts and not _hide_tariff_purchase_prices():
         lines.append(texts.t('TARIFF_PERIOD_DISCOUNTS_HINT', '🎁 <i>Скидки по периодам</i>'))
 
     lines.append('')
+
+    hide_prices = _hide_tariff_purchase_prices()
 
     for tariff in tariffs:
         # Трафик компактно
@@ -194,7 +200,7 @@ def format_tariffs_list_text(
         price_text = ''
         discount_icon = ''
 
-        if is_daily:
+        if not hide_prices and is_daily:
             # Для суточных тарифов показываем цену за день с учётом скидки промогруппы
             daily_price = getattr(tariff, 'daily_price_kopeks', 0)
             if db_user:
@@ -203,7 +209,7 @@ def format_tariffs_list_text(
                     daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct)
                     discount_icon = '🔥'
             price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(price=format_price_kopeks(daily_price, compact=True), icon=discount_icon)
-        else:
+        elif not hide_prices:
             # Для периодных тарифов показываем минимальную цену
             prices = tariff.period_prices or {}
             if prices:
@@ -265,22 +271,26 @@ def get_tariff_periods_keyboard(
     buttons = []
 
     prices = tariff.period_prices or {}
+    hide_prices = _hide_tariff_purchase_prices()
     for period_str in sorted(prices.keys(), key=int):
         period = int(period_str)
-        price = prices[period_str]
-
-        # Получаем скидку для конкретного периода
-        group_pct, offer_pct, discount_percent = 0, 0, 0
-        if db_user:
-            group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
-
-        if discount_percent > 0:
-            price = _apply_promo_discount(price, group_pct, offer_pct)
-            price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
+        if hide_prices:
+            button_text = format_period(period, language)
         else:
-            price_text = format_price_kopeks(price)
+            price = prices[period_str]
 
-        button_text = f'{format_period(period, language)} — {price_text}'
+            # Получаем скидку для конкретного периода
+            group_pct, offer_pct, discount_percent = 0, 0, 0
+            if db_user:
+                group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
+
+            if discount_percent > 0:
+                price = _apply_promo_discount(price, group_pct, offer_pct)
+                price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
+            else:
+                price_text = format_price_kopeks(price)
+
+            button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_period:{tariff.id}:{period}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='tariff_list')])
@@ -298,23 +308,26 @@ def get_tariff_periods_keyboard_with_traffic(
     buttons = []
 
     prices = tariff.period_prices or {}
+    hide_prices = _hide_tariff_purchase_prices()
     for period_str in sorted(prices.keys(), key=int):
         period = int(period_str)
-        price = prices[period_str]
-
-        # Получаем скидку для конкретного периода
-        group_pct, offer_pct, discount_percent = 0, 0, 0
-        if db_user:
-            group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
-
-        if discount_percent > 0:
-            price = _apply_promo_discount(price, group_pct, offer_pct)
-            price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
+        if hide_prices:
+            button_text = format_period(period, language)
         else:
-            price_text = format_price_kopeks(price)
+            price = prices[period_str]
 
-        button_text = f'{format_period(period, language)} — {price_text}'
-        # Используем другой callback для перехода к настройке трафика
+            # Получаем скидку для конкретного периода
+            group_pct, offer_pct, discount_percent = 0, 0, 0
+            if db_user:
+                group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
+
+            if discount_percent > 0:
+                price = _apply_promo_discount(price, group_pct, offer_pct)
+                price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
+            else:
+                price_text = format_price_kopeks(price)
+
+            button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append(
             [InlineKeyboardButton(text=button_text, callback_data=f'tariff_period_traffic:{tariff.id}:{period}')]
         )
