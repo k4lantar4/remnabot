@@ -409,10 +409,16 @@ def _get_simple_subscription_payment_keyboard(language: str) -> types.InlineKeyb
         yookassa_methods = []
         if settings.YOOKASSA_SBP_ENABLED:
             yookassa_methods.append(
-                types.InlineKeyboardButton(text='🏦 YooKassa (СБП)', callback_data='simple_subscription_yookassa_sbp')
+                types.InlineKeyboardButton(
+                    text=texts.t('SIMPLE_SUB_YOOKASSA_SBP_BTN', '🏦 YooKassa (СБП)'),
+                    callback_data='simple_subscription_yookassa_sbp',
+                )
             )
         yookassa_methods.append(
-            types.InlineKeyboardButton(text='💳 YooKassa (Карта)', callback_data='simple_subscription_yookassa')
+            types.InlineKeyboardButton(
+                text=texts.t('SIMPLE_SUB_YOOKASSA_CARD_BTN', '💳 YooKassa (Карта)'),
+                callback_data='simple_subscription_yookassa',
+            )
         )
         if yookassa_methods:
             keyboard.append(yookassa_methods)
