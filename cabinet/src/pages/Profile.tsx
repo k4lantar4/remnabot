@@ -22,9 +22,10 @@ import { Button } from '@/components/primitives/Button';
 import { Switch } from '@/components/primitives/Switch';
 import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { CopyIcon, CheckIcon, ShareIcon, ArrowRightIcon, PencilIcon } from '@/components/icons';
+import { formatUserDate } from '../utils/formatDate';
 
 export default function Profile() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
@@ -302,7 +303,7 @@ export default function Profile() {
             <div className="flex items-center justify-between py-3">
               <span className="text-dark-400">{t('profile.registeredAt')}</span>
               <span className="font-medium text-dark-100">
-                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
+                {user?.created_at ? formatUserDate(user.created_at, i18n.language) : '-'}
               </span>
             </div>
           </div>

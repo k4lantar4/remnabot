@@ -15,10 +15,11 @@ import { Button } from '@/components/primitives/Button';
 import { ChevronDownIcon, ChevronRightIcon, CreditCardIcon, WalletIcon } from '@/components/icons';
 import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { isPaidStatus, isFailedStatus } from '../utils/paymentStatus';
+import { formatUserDate } from '../utils/formatDate';
 import { usePlatform } from '@/platform';
 
 export default function Balance() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const queryClient = useQueryClient();
   const { formatAmount, currencySymbol } = useCurrency();
@@ -425,7 +426,7 @@ export default function Balance() {
                                   {getTypeLabel(tx.type)}
                                 </span>
                                 <span className="text-xs text-dark-500">
-                                  {new Date(tx.created_at).toLocaleDateString()}
+                                  {formatUserDate(tx.created_at, i18n.language)}
                                 </span>
                               </div>
                               {tx.description && (

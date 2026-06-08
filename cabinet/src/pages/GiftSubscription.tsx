@@ -20,6 +20,7 @@ import { cn } from '../lib/utils';
 import { copyToClipboard } from '../utils/clipboard';
 import { getApiErrorMessage } from '../utils/api-error';
 import { formatPrice } from '../utils/format';
+import { formatUserDate } from '../utils/formatDate';
 import { useCurrency } from '../hooks/useCurrency';
 import { usePlatform, useHaptic } from '@/platform';
 import {
@@ -68,16 +69,6 @@ function isGiftAvailable(status: string): boolean {
 
 function isGiftActivated(gift: SentGift): boolean {
   return gift.status === 'delivered' && gift.activated_by_username != null;
-}
-
-function formatGiftDate(dateStr: string | null): string {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(navigator.language || 'ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
 }
 
 type TabId = 'buy' | 'activate' | 'myGifts';
@@ -869,7 +860,7 @@ function CopiedToast({ onDismiss }: { onDismiss: () => void }) {
 }
 
 function SentGiftCard({ gift }: { gift: SentGift }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showToast, setShowToast] = useState(false);
 
   // Runtime bot username (env var is only a fallback) so the "activate via bot"
@@ -938,7 +929,7 @@ function SentGiftCard({ gift }: { gift: SentGift }) {
 
       {/* Info line */}
       <p className="mb-3 text-xs text-dark-400">
-        {formatGiftDate(gift.created_at)}
+        {formatUserDate(gift.created_at, i18n.language)}
         {' \u2022 '}
         {gift.period_days} {t('gift.daysShort')}
         {' \u2022 '}
@@ -993,7 +984,7 @@ function SentGiftCard({ gift }: { gift: SentGift }) {
 }
 
 function ReceivedGiftCard({ gift }: { gift: ReceivedGift }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const statusKey = getGiftStatusKey(gift.status);
   const statusText = t(statusKey);
@@ -1010,7 +1001,7 @@ function ReceivedGiftCard({ gift }: { gift: ReceivedGift }) {
 
       {/* Info line */}
       <p className="mb-2 text-xs text-dark-400">
-        {formatGiftDate(gift.created_at)}
+        {formatUserDate(gift.created_at, i18n.language)}
         {' \u2022 '}
         {gift.period_days} {t('gift.daysShort')}
         {' \u2022 '}

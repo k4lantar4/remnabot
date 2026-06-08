@@ -10,6 +10,7 @@ import { partnerApi } from '../api/partners';
 import { withdrawalApi } from '../api/withdrawals';
 import { CampaignCard } from '../components/partner/CampaignCard';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatUserDate } from '../utils/formatDate';
 import {
   CheckIcon,
   ClockIcon,
@@ -346,7 +347,7 @@ export default function Referral() {
                     {ref.first_name || ref.username || t('referral.anonymousUser', { id: ref.id })}
                   </div>
                   <div className="mt-0.5 text-xs text-dark-500">
-                    {new Date(ref.created_at).toLocaleDateString(i18n.language)}
+                    {formatUserDate(ref.created_at, i18n.language)}
                   </div>
                 </div>
                 {ref.has_paid ? (
@@ -387,7 +388,7 @@ export default function Referral() {
                   </div>
                   <div className="mt-0.5 text-xs text-dark-500">
                     {t(`referral.reasons.${earning.reason}`, earning.reason)} •{' '}
-                    {new Date(earning.created_at).toLocaleDateString(i18n.language)}
+                    {formatUserDate(earning.created_at, i18n.language)}
                   </div>
                 </div>
                 <div className="font-semibold text-success-400">
@@ -441,7 +442,8 @@ export default function Referral() {
               {partnerStatus?.latest_application?.created_at && (
                 <p className="mt-2 text-xs text-dark-500">
                   {t('referral.partner.submittedAt', {
-                    date: new Date(partnerStatus.latest_application.created_at).toLocaleDateString(
+                    date: formatUserDate(
+                      partnerStatus.latest_application.created_at,
                       i18n.language,
                     ),
                   })}
@@ -628,7 +630,7 @@ export default function Referral() {
                         </span>
                       </div>
                       <div className="mt-0.5 text-xs text-dark-500">
-                        {new Date(item.created_at).toLocaleDateString(i18n.language)}
+                        {formatUserDate(item.created_at, i18n.language)}
                         {item.payment_details && (
                           <span className="ml-1">
                             &bull;{' '}

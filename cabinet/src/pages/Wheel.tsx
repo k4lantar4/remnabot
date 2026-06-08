@@ -13,6 +13,7 @@ import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { PiCaretDown } from 'react-icons/pi';
 import { StarIcon, CalendarIcon, HistoryIcon, CloseIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { formatUserDate } from '../utils/formatDate';
 
 // Icons
 const ChevronIcon = ({ expanded }: { expanded: boolean }) => (
@@ -76,7 +77,7 @@ function neutralRotation(prizes: WheelPrize[]): number {
 }
 
 export default function Wheel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { openInvoice, capabilities } = usePlatform();
   const haptic = useHaptic();
@@ -795,7 +796,7 @@ export default function Wheel() {
                               {item.prize_display_name}
                             </div>
                             <div className="text-xs text-dark-500">
-                              {new Date(item.created_at).toLocaleDateString()}
+                              {formatUserDate(item.created_at, i18n.language)}
                             </div>
                           </div>
                         </div>
