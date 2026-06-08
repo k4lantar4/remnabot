@@ -104,7 +104,7 @@ from app.utils.telegram_webapp import (
     TelegramWebAppAuthError,
     parse_webapp_init_data,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.user_utils import (
     get_detailed_referral_list,
     get_effective_referral_commission_percent,
@@ -4515,7 +4515,11 @@ def _build_renewal_success_message(
     promo_discount_value: int = 0,
 ) -> str:
     amount_label = settings.format_price(max(0, charged_amount))
-    date_label = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M') if subscription.end_date else ''
+    date_label = (
+        format_user_datetime(subscription.end_date, language=user.language, fmt='%d.%m.%Y %H:%M')
+        if subscription.end_date
+        else ''
+    )
 
     tariff_label = ''
     if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff', None):
