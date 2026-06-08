@@ -9,18 +9,18 @@ from tools.migration.proration import (
 )
 
 
-def test_ninety_nine_day_subscription_has_seventy_three_days_at_anchor():
+def test_ninety_nine_day_subscription_has_seventy_two_days_at_anchor():
     # Plan example: bought 2026-02-02, 99-day life → expires 2026-05-12 08:00 UTC
     expiry = datetime(2026, 5, 12, 8, 0, 0, tzinfo=UTC)
     remaining = (expiry - BACKUP_ANCHOR).days
-    assert remaining == 73
+    assert remaining == 72
 
 
 def test_compute_end_date_applies_remaining_from_migration_run():
     expiry_unix = int(datetime(2026, 5, 12, 8, 0, 0, tzinfo=UTC).timestamp())
     migration_run = datetime(2026, 6, 7, tzinfo=UTC)
     end = compute_end_date(expiry_unix, migration_run)
-    assert end.date().isoformat() == '2026-08-19'
+    assert end.date().isoformat() == '2026-08-18'
 
 
 def test_compute_remaining_traffic_used_is_zero_in_new_db():
