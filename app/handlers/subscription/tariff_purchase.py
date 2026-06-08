@@ -30,6 +30,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
+from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 
 
@@ -493,27 +494,28 @@ def _calculate_custom_tariff_price(
     """
     Рассчитывает цену для кастомного тарифа.
 
-    Логика (как в веб-кабинете):
-    1. Цена периода: из period_prices ИЛИ price_per_day * дни (если custom_days)
-    2. Трафик: добавляется СВЕРХУ к цене периода (если custom_traffic)
+    Логика (как в PricingEngine / веб-кабинете):
+    1. custom_traffic: traffic_gb × per_gb × months; period_prices пропускаются
+    2. Иначе: period_prices / custom_days + трафик без умножения на месяцы
 
     Returns:
         tuple: (period_price, traffic_price, total_price)
     """
     period_price = 0
     traffic_price = 0
+    months = calculate_months_from_days(days)
 
-    # Цена за период
-    if tariff.can_purchase_custom_days():
-        # Кастомные дни - используем price_per_day
-        period_price = tariff.get_price_for_custom_days(days) or 0
-    else:
-        # Фиксированные периоды - берём из period_prices
-        period_price = tariff.get_price_for_period(days) or 0
-
-    # Цена за трафик (добавляется сверху)
     if tariff.can_purchase_custom_traffic():
-        traffic_price = tariff.get_price_for_custom_traffic(traffic_gb) or 0
+        per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
+        if per_gb > 0:
+            traffic_price = per_gb * traffic_gb * months
+    else:
+        if tariff.can_purchase_custom_days():
+            period_price = tariff.get_price_for_custom_days(days) or 0
+        else:
+            period_price = tariff.get_price_for_period(days) or 0
+        if hasattr(tariff, 'get_price_for_custom_traffic'):
+            traffic_price = tariff.get_price_for_custom_traffic(traffic_gb) or 0
 
     total_price = period_price + traffic_price
     return period_price, traffic_price, total_price
