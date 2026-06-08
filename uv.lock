@@ -704,6 +704,27 @@ wheels = [
 ]
 
 [[package]]
+name = "jalali-core"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/3c/21e32e3444c572174a5d774643eb2aa8ab60ef68b99a4c3585a0a11428b4/jalali_core-1.0.0.tar.gz", hash = "sha256:f4287c70c630323dcf0a3ab26df905ba4d451e230ac1f65b3bb2f77797894a2b", size = 2752, upload-time = "2024-03-25T09:36:14.934Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/20/a4e942f9685df720a106da292e29a53212b27903749cc563b86b612b113e/jalali_core-1.0.0-py3-none-any.whl", hash = "sha256:84e6f5090eadfb35234f24fad084be831d00da3c0b238ee001e8a1fd49bf7924", size = 3616, upload-time = "2024-03-25T09:36:13.133Z" },
+]
+
+[[package]]
+name = "jdatetime"
+version = "5.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jalali-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7a/6e/b5896a5e627d30f43a95af14ab80f503410875bc2e178989ceaba576cdbb/jdatetime-5.3.0.tar.gz", hash = "sha256:d20eb9fc2a00e86493a6156b2a0e4e579f23379e8fea186a0e603fd36a130227", size = 22177, upload-time = "2026-05-19T07:20:34.48Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/e2/4c45bbf81e7f0f982cfd1f67f81f3c1e90bd3f04299564dea839bd3eef33/jdatetime-5.3.0-py3-none-any.whl", hash = "sha256:85cb960808dc2287c93d4c7431cddcd367ee6d81c321a4db1700ee3e1d8aafcc", size = 12540, upload-time = "2026-05-19T07:20:33.23Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1241,7 +1262,7 @@ wheels = [
 
 [[package]]
 name = "remnawave-bedolaga-telegram-bot"
-version = "3.54.0"
+version = "3.60.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiogram" },
@@ -1254,6 +1275,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "fastapi", extra = ["standard"] },
     { name = "httpx", extra = ["socks"] },
+    { name = "jdatetime" },
     { name = "packaging" },
     { name = "pycryptodome" },
     { name = "pyjwt" },
@@ -1288,6 +1310,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=44.0.1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.129.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.27.0" },
+    { name = "jdatetime", specifier = ">=5.2.0" },
     { name = "packaging", specifier = ">=26.0" },
     { name = "pycryptodome", specifier = ">=3.21.0" },
     { name = "pyjwt", specifier = ">=2.11.0" },
