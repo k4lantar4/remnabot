@@ -23,6 +23,7 @@ from app.localization.texts import get_texts
 from app.keyboards.inline import get_pagination_keyboard
 from app.services.subscription_service import SubscriptionService
 from app.utils.formatting import format_traffic
+from app.utils.jalali_datetime import format_user_datetime
 
 
 logger = structlog.get_logger(__name__)
@@ -93,7 +94,11 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     )
 
     # End date
-    end_date = sub.end_date.strftime('%d.%m.%Y') if sub.end_date else '—'
+    end_date = (
+        format_user_datetime(sub.end_date, language=texts.language, fmt='%d.%m.%Y')
+        if sub.end_date
+        else '—'
+    )
 
     parts = [f'{emoji} <b>{idx}. {tariff_name}</b>{label}']
     parts.append(texts.t('MY_SUB_TRAFFIC_LINE', '   📊 Трафик: {traffic}').format(traffic=traffic))
@@ -324,7 +329,11 @@ async def show_subscription_detail(
         used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
         traffic = f'{used} / {format_traffic(subscription.traffic_limit_gb, db_user.language)}'
 
-    end_date = subscription.end_date.strftime('%d.%m.%Y %H:%M') if subscription.end_date else '—'
+    end_date = (
+        format_user_datetime(subscription.end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
+        if subscription.end_date
+        else '—'
+    )
     status = subscription.status_display
 
     text = (
