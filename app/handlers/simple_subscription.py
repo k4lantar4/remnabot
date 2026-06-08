@@ -1180,11 +1180,23 @@ async def handle_simple_subscription_payment_method(
 
             # Добавляем кнопку оплаты, если доступна ссылка
             if confirmation_url:
-                keyboard_buttons.append([types.InlineKeyboardButton(text='🔗 Перейти к оплате', url=confirmation_url)])
+                keyboard_buttons.append(
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('SIMPLE_SUB_YOOKASSA_PAY_LINK_BTN', '🔗 Перейти к оплате'),
+                            url=confirmation_url,
+                        )
+                    ]
+                )
             else:
                 # Если ссылка недоступна, предлагаем оплатить через ID платежа в приложении банка
                 keyboard_buttons.append(
-                    [types.InlineKeyboardButton(text='📱 Оплатить в приложении банка', callback_data='temp_disabled')]
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('SIMPLE_SUB_YOOKASSA_BANK_APP_BTN', '📱 Оплатить в приложении банка'),
+                            callback_data='temp_disabled',
+                        )
+                    ]
                 )
 
             # Добавляем общие кнопки
