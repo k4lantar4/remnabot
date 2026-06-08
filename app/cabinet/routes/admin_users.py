@@ -318,22 +318,24 @@ async def _sync_subscription_to_panel(
         if expire_at and expire_at <= datetime.now(UTC):
             expire_at = datetime.now(UTC) + timedelta(minutes=1)
 
-        # При multi-tariff create-path ниже приклеивается `_<remnawave_short_id>`.
-        # build_remnawave_subscription_username гарантирует, что итоговая строка
-        # ≤ REMNAWAVE_USERNAME_MAX_LENGTH (исторический баг 38-chars username).
-        username_suffix = (
-            f'_{subscription.remnawave_short_id}'
-            if (settings.is_multi_tariff_enabled() and subscription.remnawave_short_id)
-            else ''
-        )
-        username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-            suffix=username_suffix,
-        )
+        if settings.is_multi_tariff_enabled():
+            username = settings.build_multi_tariff_remnawave_username(
+                telegram_id=user.telegram_id,
+                username=user.username,
+                email=user.email,
+                user_id=user.id,
+                account_sequence=subscription.account_sequence,
+                remnawave_short_id=subscription.remnawave_short_id,
+            )
+        else:
+            username = settings.build_remnawave_subscription_username(
+                full_name=user.full_name,
+                username=user.username,
+                telegram_id=user.telegram_id,
+                email=user.email,
+                user_id=user.id,
+                suffix='',
+            )
 
         description = settings.format_remnawave_user_description(
             full_name=user.full_name,
@@ -3446,21 +3448,24 @@ async def sync_user_to_panel(
         if expire_at and expire_at <= datetime.now(UTC):
             expire_at = datetime.now(UTC) + timedelta(minutes=1)
 
-        # Same precaution as the per-user sync above: multi-tariff create-path
-        # appends `_<remnawave_short_id>`. Helper resрвирует место.
-        username_suffix = (
-            f'_{sub.remnawave_short_id}'
-            if (settings.is_multi_tariff_enabled() and getattr(sub, 'remnawave_short_id', None))
-            else ''
-        )
-        username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-            suffix=username_suffix,
-        )
+        if settings.is_multi_tariff_enabled():
+            username = settings.build_multi_tariff_remnawave_username(
+                telegram_id=user.telegram_id,
+                username=user.username,
+                email=user.email,
+                user_id=user.id,
+                account_sequence=sub.account_sequence,
+                remnawave_short_id=getattr(sub, 'remnawave_short_id', None),
+            )
+        else:
+            username = settings.build_remnawave_subscription_username(
+                full_name=user.full_name,
+                username=user.username,
+                telegram_id=user.telegram_id,
+                email=user.email,
+                user_id=user.id,
+                suffix='',
+            )
 
         description = settings.format_remnawave_user_description(
             full_name=user.full_name,

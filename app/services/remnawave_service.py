@@ -2432,17 +2432,14 @@ class RemnaWaveService:
                                 # multi-tariff create-path в bulk-sync приклеивает
                                 # `_<remnawave_short_id>` — helper резервирует под него
                                 # место и гарантирует ≤ REMNAWAVE_USERNAME_MAX_LENGTH.
-                                if settings.is_multi_tariff_enabled() and sub.remnawave_short_id:
-                                    base = settings.REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE.format(
+                                if settings.is_multi_tariff_enabled():
+                                    username = settings.build_multi_tariff_remnawave_username(
+                                        telegram_id=user.telegram_id,
+                                        username=user.username,
+                                        email=user.email,
+                                        user_id=user.id,
                                         account_sequence=sub.account_sequence,
-                                    )
-                                    username = settings.build_remnawave_subscription_username(
-                                        full_name=base,
-                                        username=None,
-                                        telegram_id=None,
-                                        email=None,
-                                        user_id=None,
-                                        suffix=f'_{sub.remnawave_short_id}',
+                                        remnawave_short_id=sub.remnawave_short_id,
                                     )
                                 else:
                                     username = settings.build_remnawave_subscription_username(

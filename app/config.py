@@ -1573,6 +1573,36 @@ class Settings(BaseSettings):
             result = result[: self.REMNAWAVE_USERNAME_MAX_LENGTH]
         return result
 
+    def build_multi_tariff_remnawave_username(
+        self,
+        *,
+        telegram_id: int | None,
+        username: str | None,
+        email: str | None,
+        user_id: int | None,
+        account_sequence: int,
+        remnawave_short_id: str | None,
+    ) -> str:
+        """Panel username for one subscription in multi-tariff mode.
+
+        Uses REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE for the per-account label
+        (e.g. ``a1``) and appends ``_<remnawave_short_id>`` for uniqueness.
+        Real user identifiers (telegram_id / email / user_id) feed the base template
+        so we never render ``user_unknown``.
+        """
+        account_label = (self.REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE or 'a{account_sequence}').format(
+            account_sequence=account_sequence or 1,
+        )
+        suffix = f'_{remnawave_short_id}' if remnawave_short_id else ''
+        return self.build_remnawave_subscription_username(
+            full_name=account_label,
+            username=username,
+            telegram_id=telegram_id,
+            email=email,
+            user_id=user_id,
+            suffix=suffix,
+        )
+
     @staticmethod
     def parse_daily_time_list(raw_value: str | None) -> list[time]:
         if not raw_value:
