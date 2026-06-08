@@ -1223,7 +1223,7 @@ async def handle_custom_confirm(
                 None,
                 custom_days,
                 was_trial_conversion=False,
-                amount_kopeks=catalog_price_in_toman(total_price),
+                amount_kopeks=total_price,
                 purchase_type='renewal' if existing_subscription else 'first_purchase',
             )
         except Exception as e:
@@ -1829,7 +1829,7 @@ async def confirm_tariff_purchase(
             None,  # Транзакция отсутствует, оплата с баланса
             period,
             was_trial_conversion=False,
-            amount_kopeks=catalog_price_in_toman(final_price),
+            amount_kopeks=final_price,
             purchase_type='renewal' if existing_subscription else 'first_purchase',
         )
     except Exception as e:
@@ -2133,7 +2133,7 @@ async def confirm_daily_tariff_purchase(
             None,
             1,  # 1 день
             was_trial_conversion=False,
-            amount_kopeks=catalog_price_in_toman(final_daily_price),
+            amount_kopeks=final_daily_price,
             purchase_type='renewal' if existing_subscription else 'first_purchase',
         )
     except Exception as e:
@@ -2714,7 +2714,7 @@ async def confirm_tariff_extend(
                 None,  # Транзакция отсутствует, оплата с баланса
                 period,
                 was_trial_conversion=was_trial,
-                amount_kopeks=catalog_price_in_toman(final_price),
+                amount_kopeks=final_price,
                 purchase_type='renewal',
             )
         except Exception as e:
@@ -3474,7 +3474,7 @@ async def confirm_tariff_switch(
                 None,  # Транзакция отсутствует, оплата с баланса
                 days_for_new_tariff,  # Итоговый срок подписки
                 was_trial_conversion=False,
-                amount_kopeks=catalog_price_in_toman(final_price),
+                amount_kopeks=final_price,
                 purchase_type='tariff_switch',
             )
         except Exception as e:
@@ -3763,7 +3763,7 @@ async def confirm_daily_tariff_switch(
                 None,
                 1,  # 1 день
                 was_trial_conversion=False,
-                amount_kopeks=catalog_price_in_toman(final_daily_price),
+                amount_kopeks=final_daily_price,
                 purchase_type='tariff_switch',
             )
         except Exception as e:
@@ -4601,7 +4601,7 @@ async def confirm_instant_switch(
                     None,
                     remaining_days,
                     was_trial_conversion=False,
-                    amount_kopeks=catalog_price_in_toman(upgrade_cost),
+                    amount_kopeks=upgrade_cost,
                     purchase_type='tariff_switch',
                 )
             except Exception as e:
