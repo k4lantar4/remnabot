@@ -31,7 +31,7 @@ def append_payment_button(
         [
             InlineKeyboardButton(
                 text=texts.t('PAYMENT_C2C', display_name),
-                callback_data=build_callback('c2c'),
+                callback_data='topup_c2c',
             )
         ]
     )
