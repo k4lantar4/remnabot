@@ -4318,6 +4318,7 @@ def register_handlers(dp: Dispatcher):
     from app.handlers.subscription.my_subscriptions import show_my_subscriptions, show_subscription_detail
 
     dp.callback_query.register(show_my_subscriptions, F.data == 'my_subscriptions')
+    dp.callback_query.register(show_my_subscriptions, F.data.startswith('my_subs_page_'))
     dp.callback_query.register(show_subscription_detail, F.data.startswith('sm:'))
 
     # Multi-tariff delegation handlers from subscription detail view

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 
 from app.database.crud.subscription import create_subscription_no_commit
 from app.database.crud.user import create_user_no_commit, get_user_by_telegram_id
-from app.database.models import PartnerStatus, SubscriptionStatus, User
+from app.database.models import PartnerStatus, SubscriptionStatus, Tariff, User
 
 from tools.migration.config import BATCH_SIZE
 from tools.migration.models import CampaignUser, MigrationSubscription, Seller
@@ -24,6 +24,65 @@ logger = structlog.get_logger(__name__)
 
 def _count_partners(telegram_ids: set[int], seller_by_tg: dict[int, Seller]) -> int:
     return sum(1 for tg in telegram_ids if tg in seller_by_tg)
+
+
+async def ensure_migration_tariffs(db, squad_uuids: dict[str, str]) -> None:
+    """Ensure tariff rows 2 (premium) and 3 (basic) exist for FK + squad routing."""
+    existing = set(
+        (await db.execute(select(Tariff.id).where(Tariff.id.in_([2, 3])))).scalars().all()
+    )
+    if existing >= {2, 3}:
+        return
+
+    template = (await db.execute(select(Tariff).order_by(Tariff.id).limit(1))).scalar_one_or_none()
+    if template is None:
+        raise RuntimeError('No tariff template in DB — create at least one tariff before migration load')
+
+    specs = [
+        (2, 'Premium', squad_uuids.get('premium')),
+        (3, 'Basic', squad_uuids.get('basic')),
+    ]
+    for tariff_id, name, squad_uuid in specs:
+        if tariff_id in existing:
+            continue
+        squads = [squad_uuid] if squad_uuid else list(template.allowed_squads or [])
+        db.add(
+            Tariff(
+                id=tariff_id,
+                name=name,
+                description=f'Migration placeholder {name}',
+                display_order=tariff_id,
+                is_active=True,
+                traffic_limit_gb=template.traffic_limit_gb,
+                device_limit=template.device_limit,
+                device_price_kopeks=template.device_price_kopeks,
+                max_device_limit=template.max_device_limit,
+                allowed_squads=squads,
+                server_traffic_limits=dict(template.server_traffic_limits or {}),
+                period_prices=dict(template.period_prices or {}),
+                tier_level=template.tier_level,
+                is_trial_available=False,
+                allow_traffic_topup=template.allow_traffic_topup,
+                traffic_topup_enabled=template.traffic_topup_enabled,
+                traffic_topup_packages=dict(template.traffic_topup_packages or {}),
+                max_topup_traffic_gb=template.max_topup_traffic_gb,
+                is_daily=template.is_daily,
+                daily_price_kopeks=template.daily_price_kopeks,
+                custom_days_enabled=template.custom_days_enabled,
+                price_per_day_kopeks=template.price_per_day_kopeks,
+                min_days=template.min_days,
+                max_days=template.max_days,
+                custom_traffic_enabled=template.custom_traffic_enabled,
+                traffic_price_per_gb_kopeks=template.traffic_price_per_gb_kopeks,
+                min_traffic_gb=template.min_traffic_gb,
+                max_traffic_gb=template.max_traffic_gb,
+                show_in_gift=False,
+                traffic_reset_mode=template.traffic_reset_mode,
+                external_squad_uuid=template.external_squad_uuid,
+            )
+        )
+    await db.flush()
+    logger.info('Ensured migration tariffs', created=sorted({2, 3} - existing))
 
 
 async def load_migration_data(
@@ -55,6 +114,8 @@ async def load_migration_data(
         stats['campaign_users'] = len(campaign_users)
         stats['partners'] = _count_partners(sub_tg | camp_tg, seller_by_tg)
         return stats
+
+    await ensure_migration_tariffs(db, squad_uuids)
 
     async def apply_partner(user, telegram_id: int) -> None:
         seller = seller_by_tg.get(telegram_id)

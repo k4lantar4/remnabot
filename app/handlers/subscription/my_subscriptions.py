@@ -20,6 +20,7 @@ from app.database.crud.subscription import (
 )
 from app.database.models import Subscription, SubscriptionStatus, User
 from app.localization.texts import get_texts
+from app.keyboards.inline import get_pagination_keyboard
 from app.services.subscription_service import SubscriptionService
 from app.utils.formatting import format_traffic
 
@@ -27,6 +28,20 @@ from app.utils.formatting import format_traffic
 logger = structlog.get_logger(__name__)
 
 router = Router()
+
+MY_SUBS_PER_PAGE = 6
+
+
+def _parse_list_page(callback_data: str | None) -> int:
+    data = callback_data or ''
+    if data == 'my_subscriptions':
+        return 1
+    if data.startswith('my_subs_page_'):
+        try:
+            return max(1, int(data.rsplit('_', 1)[-1]))
+        except ValueError:
+            return 1
+    return 1
 
 
 def _status_emoji(sub) -> str:
@@ -89,20 +104,34 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     return '\n'.join(parts)
 
 
-def _build_subscriptions_keyboard(subscriptions: list, language: str) -> types.InlineKeyboardMarkup:
-    """Build inline keyboard with per-subscription management buttons."""
+def _build_subscriptions_keyboard(
+    subscriptions: list,
+    language: str,
+    *,
+    page: int,
+    total_pages: int,
+) -> types.InlineKeyboardMarkup:
+    """Build inline keyboard with per-subscription management buttons (2 per row)."""
     texts = get_texts(language)
-    buttons = []
-    for idx, sub in enumerate(subscriptions, 1):
+    buttons: list[list[types.InlineKeyboardButton]] = []
+    row: list[types.InlineKeyboardButton] = []
+
+    for sub in subscriptions:
         tariff_name = _account_display_name(sub, texts)
-        buttons.append(
-            [
-                types.InlineKeyboardButton(
-                    text=f'⚙️ {tariff_name}',
-                    callback_data=f'sm:{sub.id}',
-                )
-            ]
+        row.append(
+            types.InlineKeyboardButton(
+                text=f'⚙️ {tariff_name}',
+                callback_data=f'sm:{sub.id}',
+            )
         )
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+
+    if row:
+        buttons.append(row)
+
+    buttons.extend(get_pagination_keyboard(page, total_pages, 'my_subs', language))
 
     buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
     buttons.append(
@@ -203,6 +232,12 @@ async def show_my_subscriptions(
 
     subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
     texts = get_texts(db_user.language)
+    page = _parse_list_page(callback.data)
+    total_count = len(subscriptions)
+    total_pages = max(1, (total_count + MY_SUBS_PER_PAGE - 1) // MY_SUBS_PER_PAGE)
+    page = min(page, total_pages)
+    start = (page - 1) * MY_SUBS_PER_PAGE
+    page_subs = subscriptions[start : start + MY_SUBS_PER_PAGE]
 
     if not subscriptions:
         text = texts.t('MY_SUB_LIST_EMPTY', '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.')
@@ -224,11 +259,23 @@ async def show_my_subscriptions(
         )
     else:
         lines = [texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n']
-        for idx, sub in enumerate(subscriptions, 1):
+        if total_pages > 1:
+            lines.append(
+                texts.t(
+                    'MY_SUB_LIST_PAGE',
+                    '📄 Страница {page}/{pages} · всего {total}\n',
+                ).format(page=page, pages=total_pages, total=total_count)
+            )
+        for idx, sub in enumerate(page_subs, start + 1):
             lines.append(_format_subscription_line(sub, idx, texts, db_user.language))
-            lines.append('')  # empty line between subscriptions
-        text = '\n'.join(lines)
-        keyboard = _build_subscriptions_keyboard(subscriptions, db_user.language)
+            lines.append('')
+        text = '\n'.join(lines).rstrip()
+        keyboard = _build_subscriptions_keyboard(
+            page_subs,
+            db_user.language,
+            page=page,
+            total_pages=total_pages,
+        )
 
     if callback.message:
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')

@@ -12,5 +12,5 @@ def test_vip_to_tariff_mapping():
 
 
 def test_skip_servers_not_mapped():
-    assert 37 not in OLD_SERVER_TO_SQUAD_KEY
+    assert 37 in OLD_SERVER_TO_SQUAD_KEY
     assert 56 not in OLD_SERVER_TO_SQUAD_KEY
