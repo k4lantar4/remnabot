@@ -85,19 +85,28 @@ Branch `chore/merge-cabinet-1.57` from bot merge tip (`4161455f` → `3f6c8d23` 
 
 **Not merged to `main`** — awaiting user smoke + explicit approval.
 
+## Done (P1.5b — Jun 8 2026)
+
+Branch `i18n/p1-remainder-b` from `main` at `3e61737c` (**3 commits**).
+
+- [x] **simple_subscription.py 5a:** `44c57c75` — wrap YooKassa keyboard button texts (`SIMPLE_SUB_YOOKASSA_SBP_BTN`, `SIMPLE_SUB_YOOKASSA_CARD_BTN`)
+- [x] **simple_subscription.py 5b:** `e273d747` — wrap YooKassa payment-flow buttons (`SIMPLE_SUB_YOOKASSA_PAY_LINK_BTN`, `SIMPLE_SUB_YOOKASSA_BANK_APP_BTN`)
+- [x] **balance/main.py:** `5d83cf8b` — reuse `USER_RESTRICTION_DEFAULT_REASON` for restriction fallback
+- [x] **menu.py / start.py:** no code changes — all 63 `texts.t()` keys already in fa.json with Persian values
+- [x] fa.json: **+4 new keys** (total 4047); disabled-provider strings (CryptoBot, Heleket, WATA, Stars) skipped per `.env`
+
+**P1.5b scope closed** — `i18n/p1-remainder-b` pushed to `remnabot`; awaiting user smoke + PR approval.
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
 
-### P1.5b deferred (from original P1.5 list)
+### Post-P1.5b
 
-| Priority | File | Notes |
+| Priority | Item | Notes |
 |----------|------|-------|
-| 1 | `app/handlers/simple_subscription.py` | ~143 Cyrillic lines |
-| 2 | `app/handlers/menu.py`, `start.py`, `balance/main.py` | partial remainder |
+| 1 | PR `i18n/p1-remainder-b` → `dev-local` → `main` | **Awaiting user smoke + approval** |
 | — | `app/cabinet/routes/withdrawal.py` | optional language-parity follow-up |
-
-Branch: new `i18n/p1-remainder-b` (or continue `i18n/p1-remainder`) from `main` after P1.5 merge.
 
 ### P2 admin (separate)
 
