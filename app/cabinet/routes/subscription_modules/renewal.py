@@ -22,6 +22,7 @@ from app.services.subscription_renewal_service import (
     SubscriptionRenewalService,
 )
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -203,9 +204,9 @@ async def renew_subscription(
 
     tariff = subscription.tariff if subscription.tariff_id else None
 
-    # Check balance (skip for 100% discount)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-        missing = price_kopeks - user.balance_kopeks
+    # Check balance (skip for 100% discount; balance stored as Toman, price as catalog kopeks)
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+        missing = max(0, catalog_price_in_toman(price_kopeks) - user.balance_kopeks)
 
         # Get tariff info for cart
         tariff_id = subscription.tariff_id
@@ -262,7 +263,7 @@ async def renew_subscription(
                     user,
                     'CABINET_INSUFFICIENT_FUNDS_MISSING',
                     'Недостаточно средств. Не хватает {missing}',
-                    missing=settings.format_price(missing, round_kopeks=False),
+                    missing=settings.format_balance(missing, round_kopeks=False),
                 ),
                 'missing_amount': missing,
                 'cart_saved': True,

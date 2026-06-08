@@ -21,6 +21,7 @@ from app.database.crud.subscription import (
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.models import PaymentMethod, Subscription, Transaction, TransactionType, User
+from app.utils.price_display import catalog_price_in_toman
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.pricing_engine import RenewalPricing
 from app.services.remnawave_service import RemnaWaveConfigurationError
@@ -368,8 +369,10 @@ class SubscriptionRenewalService:
         period_days = int(pricing.period_days)
         charge_from_balance = charge_balance_amount
         if charge_from_balance is None:
-            charge_from_balance = final_total
-        charge_from_balance = max(0, min(charge_from_balance, final_total))
+            charge_from_balance = catalog_price_in_toman(final_total)
+        else:
+            charge_from_balance = catalog_price_in_toman(charge_from_balance)
+        charge_from_balance = max(0, min(charge_from_balance, catalog_price_in_toman(final_total)))
 
         # Support both SubscriptionRenewalPricing and RenewalPricing
         if isinstance(pricing, SubscriptionRenewalPricing):
@@ -592,9 +595,9 @@ class SubscriptionRenewalService:
         )
 
 
-def calculate_missing_amount(balance_kopeks: int, total_kopeks: int) -> int:
-    if total_kopeks <= 0:
+def calculate_missing_amount(balance_toman: int, price_kopeks: int) -> int:
+    """Missing Toman to cover a catalog-scale renewal price."""
+    price_toman = catalog_price_in_toman(price_kopeks)
+    if price_toman <= 0:
         return 0
-    if balance_kopeks <= 0:
-        return total_kopeks
-    return max(0, total_kopeks - min(balance_kopeks, total_kopeks))
+    return max(0, price_toman - balance_toman)
