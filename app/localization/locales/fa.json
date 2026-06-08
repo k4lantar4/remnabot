@@ -3101,6 +3101,7 @@
   "MY_SUB_DEVICES_COUNT_SHORT": "{count} دستگاه",
   "MY_SUB_UNTIL_LINE": "   📅 تا: {end_date}",
   "MY_SUB_LIST_TITLE": "📋 <b>اشتراک‌های من</b>",
+  "MY_SUB_LIST_PAGE": "📄 صفحه {page}/{pages} · مجموع {total}\n",
   "MY_SUB_LIST_EMPTY": "📋 <b>اشتراک‌های من</b>\n\nاشتراکی ندارید.",
   "MY_SUB_BTN_BACK": "◀️ بازگشت",
   "MY_SUB_BTN_CONNECT_LINK": "🔗 لینک اتصال",
