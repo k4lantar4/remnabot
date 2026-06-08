@@ -38,7 +38,7 @@ from app.utils.promo_offer import (
     build_promo_offer_hint,
     build_test_access_hint,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 
 
 logger = structlog.get_logger(__name__)
@@ -1084,7 +1084,11 @@ def _get_subscription_status(user: User, texts, is_daily_tariff: bool = False) -
     current_time = datetime.now(UTC)
     actual_status = (subscription.actual_status or '').lower()
     end_date = getattr(subscription, 'end_date', None)
-    end_date_text = format_local_datetime(end_date, '%d.%m.%Y') if end_date else None
+    end_date_text = (
+        format_user_datetime(end_date, language=texts.language, fmt='%d.%m.%Y')
+        if end_date
+        else None
+    )
     days_left = 0
 
     if subscription.end_date > current_time:
@@ -1206,7 +1210,9 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_LIMITED', ' — лимит трафика')
         elif sub.end_date and sub.end_date > current_time:
             days_left = (sub.end_date - current_time).days
-            end_str = format_local_datetime(sub.end_date, '%d.%m.%Y')
+            end_str = format_user_datetime(
+                sub.end_date, language=texts.language, fmt='%d.%m.%Y'
+            )
             status_suffix = texts.t(
                 'MY_SUB_STATUS_SUFFIX_UNTIL',
                 ' — до {end_date} ({days} дн.)',
