@@ -97,9 +97,21 @@ Branch `i18n/p1-remainder-b` from `main` at `3e61737c` (**3 commits**).
 
 **P1.5b scope closed** — `i18n/p1-remainder-b` pushed to `remnabot`; awaiting user smoke + PR approval.
 
+## Done (fa Jalali dates — Jun 9 2026)
+
+Branch `i18n/fa-jalali-dates` — P1 user-surface Jalali calendar.
+
+- [x] **Helper:** `app/utils/jalali_datetime.py` (`format_user_datetime`, `jdatetime` in pyproject/uv.lock)
+- [x] **Bot:** `menu.py`, `start.py`, `my_subscriptions.py`, `purchase.py`, `simple_subscription.py`
+- [x] **API:** `cabinet/routes/subscription_modules/purchase.py`, `webapi/routes/miniapp.py`
+- [x] **Cabinet UI:** `formatDate.ts` + subscription pages + 8 user pages (Balance, Profile, Support, Referral, Gift, Merge, Wheel, SuccessModal)
+- [x] **Tests:** `tests/utils/test_jalali_datetime.py` (anchor: 2026-07-09 → 18.04.1405 for fa)
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
+
+**fa Jalali P1 complete** on branch `i18n/fa-jalali-dates` — pending user smoke before PR → `dev-local` → `main`.
 
 ### Post-P1.5b
 
