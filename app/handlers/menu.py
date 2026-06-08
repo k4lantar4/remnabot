@@ -173,6 +173,15 @@ async def show_main_menu(
         logger.error('Ошибка проверки сохраненной корзины для пользователя', db_user_id=db_user.id, error=e)
         has_saved_cart = False
 
+    saved_cart_resume_label = None
+    if has_saved_cart:
+        try:
+            cart = await user_cart_service.get_user_cart(db_user.id)
+            if cart and cart.get('cart_mode') == 'extend':
+                saved_cart_resume_label = texts.t('RETURN_TO_SAVED_CART_RENEW', '⬅️ Вернуться к продлению')
+        except Exception:
+            pass
+
     is_admin = settings.is_admin(db_user.telegram_id)
     is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
 
@@ -199,6 +208,7 @@ async def show_main_menu(
         show_resume_checkout=show_resume_checkout,
         has_saved_cart=has_saved_cart,
         custom_buttons=custom_buttons,
+        saved_cart_resume_label=saved_cart_resume_label,
     )
 
     await edit_or_answer_photo(
@@ -1019,6 +1029,15 @@ async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, 
         logger.error('Ошибка проверки сохраненной корзины для пользователя', db_user_id=db_user.id, error=e)
         has_saved_cart = False
 
+    saved_cart_resume_label = None
+    if has_saved_cart:
+        try:
+            cart = await user_cart_service.get_user_cart(db_user.id)
+            if cart and cart.get('cart_mode') == 'extend':
+                saved_cart_resume_label = texts.t('RETURN_TO_SAVED_CART_RENEW', '⬅️ Вернуться к продлению')
+        except Exception:
+            pass
+
     is_admin = settings.is_admin(db_user.telegram_id)
     is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
 
@@ -1045,6 +1064,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, 
         show_resume_checkout=show_resume_checkout,
         has_saved_cart=has_saved_cart,
         custom_buttons=custom_buttons,
+        saved_cart_resume_label=saved_cart_resume_label,
     )
 
     await edit_or_answer_photo(

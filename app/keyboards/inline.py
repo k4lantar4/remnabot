@@ -36,6 +36,7 @@ async def get_main_menu_keyboard_async(
     subscription=None,
     show_resume_checkout: bool = False,
     has_saved_cart: bool = False,
+    saved_cart_resume_label: str | None = None,
     *,
     is_moderator: bool = False,
     custom_buttons: list[InlineKeyboardButton] | None = None,
@@ -152,6 +153,7 @@ async def get_main_menu_keyboard_async(
         has_saved_cart=has_saved_cart,
         is_moderator=is_moderator,
         custom_buttons=custom_buttons,
+        saved_cart_resume_label=saved_cart_resume_label,
     )
 
 
@@ -580,6 +582,7 @@ def get_main_menu_keyboard(
     subscription=None,
     show_resume_checkout: bool = False,
     has_saved_cart: bool = False,  # Новый параметр для отображения уведомления о сохраненной корзине
+    saved_cart_resume_label: str | None = None,
     *,
     is_moderator: bool = False,
     custom_buttons: list[InlineKeyboardButton] | None = None,
@@ -729,12 +732,18 @@ def get_main_menu_keyboard(
     if simple_purchase_button:
         paired_buttons.append(simple_purchase_button)
 
-    if show_resume_checkout or has_saved_cart:
-        resume_callback = 'return_to_saved_cart' if has_saved_cart else 'subscription_resume_checkout'
+    if has_saved_cart:
+        paired_buttons.append(
+            InlineKeyboardButton(
+                text=saved_cart_resume_label or texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
+                callback_data='return_to_saved_cart',
+            )
+        )
+    elif show_resume_checkout:
         paired_buttons.append(
             InlineKeyboardButton(
                 text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                callback_data=resume_callback,
+                callback_data='subscription_resume_checkout',
             )
         )
 
