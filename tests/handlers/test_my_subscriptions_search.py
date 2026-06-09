@@ -87,3 +87,41 @@ def test_empty_query_returns_all_subscriptions() -> None:
     ]
     result = _filter_subscriptions_by_query(subs, '', _texts())
     assert [s.id for s in result] == [1, 2]
+
+
+def test_keyboard_shows_search_when_no_active_query() -> None:
+    subs = [
+        SimpleNamespace(id=1, panel_username='Alpha', tariff=None, account_sequence=1),
+        SimpleNamespace(id=2, panel_username='Beta', tariff=None, account_sequence=1),
+    ]
+    keyboard = _build_subscriptions_keyboard(
+        subs,
+        'ru',
+        page=1,
+        total_pages=1,
+        search_query='',
+        show_search=True,
+    )
+    callbacks = _callbacks(keyboard)
+    assert 'my_subs_search' in callbacks
+    assert 'my_subs_search_reset' not in callbacks
+    search_idx = callbacks.index('my_subs_search')
+    back_idx = callbacks.index('back_to_menu')
+    assert search_idx < back_idx
+
+
+def test_keyboard_shows_reset_when_query_active() -> None:
+    subs = [
+        SimpleNamespace(id=1, panel_username='Alpha', tariff=None, account_sequence=1),
+    ]
+    keyboard = _build_subscriptions_keyboard(
+        subs,
+        'ru',
+        page=1,
+        total_pages=1,
+        search_query='alpha',
+        show_search=True,
+    )
+    callbacks = _callbacks(keyboard)
+    assert 'my_subs_search_reset' in callbacks
+    assert 'my_subs_search' not in callbacks

@@ -137,6 +137,8 @@ def _build_subscriptions_keyboard(
     *,
     page: int,
     total_pages: int,
+    search_query: str = '',
+    show_search: bool = False,
 ) -> types.InlineKeyboardMarkup:
     """Build inline keyboard with per-subscription management buttons (2 per row)."""
     texts = get_texts(language)
@@ -159,6 +161,26 @@ def _build_subscriptions_keyboard(
         buttons.append(row)
 
     buttons.extend(get_pagination_keyboard(page, total_pages, 'my_subs', language))
+
+    if show_search:
+        if search_query:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_SEARCH_RESET', '❌ Сбросить поиск'),
+                        callback_data='my_subs_search_reset',
+                    )
+                ]
+            )
+        else:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_BTN_SEARCH', '🔍 Поиск'),
+                        callback_data='my_subs_search',
+                    )
+                ]
+            )
 
     buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
     buttons.append(
