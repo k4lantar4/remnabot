@@ -874,10 +874,11 @@ async def purchase_tariff(
                 ' (промо -{percent}%)',
                 percent=promo_offer_discount_percent,
             )
+        charge_toman = catalog_price_in_toman(price_kopeks)
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            charge_toman,
             description,
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -956,7 +957,7 @@ async def purchase_tariff(
                 await add_user_balance(
                     db,
                     user,
-                    price_kopeks,
+                    charge_toman,
                     _t(
                         user,
                         'TARIFF_REFUND_ALREADY_ACTIVE',
