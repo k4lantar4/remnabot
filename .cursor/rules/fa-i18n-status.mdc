@@ -107,6 +107,10 @@ Branch `i18n/fa-jalali-dates` — P1 user-surface Jalali calendar.
 - [x] **Cabinet UI:** `formatDate.ts` + subscription pages + 8 user pages (Balance, Profile, Support, Referral, Gift, Merge, Wheel, SuccessModal)
 - [x] **Tests:** `tests/utils/test_jalali_datetime.py` (anchor: 2026-07-09 → 18.04.1405 for fa)
 
+## Done (emergency — Jun 9 2026)
+
+- [x] **fix/remnawave-username-upstream-revert:** revert panel username to upstream create-only path — remove `build_multi_tariff_remnawave_username`, stop sending username on `update_user`, production `.env` → `user_{telegram_id}`
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).

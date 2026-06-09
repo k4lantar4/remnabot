@@ -271,25 +271,3 @@ def test_skeleton_detector_uses_user_id_when_template_references_it(
     # And the rendered result must NOT be the user_<identifier> fallback shape,
     # which would have wiped the template's own structure.
     assert name.startswith('u_42')
-
-
-def test_build_multi_tariff_username_uses_telegram_id_not_unknown(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Multi-tariff path must not render user_unknown when telegram_id is set."""
-    monkeypatch.setattr(settings, 'REMNAWAVE_USER_USERNAME_TEMPLATE', '{telegram_id}_{full_name}', raising=False)
-    monkeypatch.setattr(settings, 'REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE', 'a{account_sequence}', raising=False)
-
-    final = settings.build_multi_tariff_remnawave_username(
-        telegram_id=987654321,
-        username='ali_user',
-        email=None,
-        user_id=12,
-        account_sequence=2,
-        remnawave_short_id='fa9d01',
-    )
-
-    assert 'unknown' not in final
-    assert final.startswith('987654321_a2')
-    assert final.endswith('_fa9d01')
-    assert len(final) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH

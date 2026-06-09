@@ -5739,24 +5739,19 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                     # subscription_service, cabinet admin sync, bulk sync) — иначе
                     # подписки, созданные через админский extend, имеют другой
                     # формат username'а и не уникальны per-subscription.
-                    if settings.is_multi_tariff_enabled():
-                        username = settings.build_multi_tariff_remnawave_username(
-                            telegram_id=target_user.telegram_id,
-                            username=target_user.username,
-                            email=target_user.email,
-                            user_id=target_user.id,
-                            account_sequence=subscription.account_sequence,
-                            remnawave_short_id=getattr(subscription, 'remnawave_short_id', None),
-                        )
-                    else:
-                        username = settings.build_remnawave_subscription_username(
-                            full_name=target_user.full_name,
-                            username=target_user.username,
-                            telegram_id=target_user.telegram_id,
-                            email=target_user.email,
-                            user_id=target_user.id,
-                            suffix='',
-                        )
+                    username_suffix = (
+                        f'_{subscription.remnawave_short_id}'
+                        if (settings.is_multi_tariff_enabled() and subscription.remnawave_short_id)
+                        else ''
+                    )
+                    username = settings.build_remnawave_subscription_username(
+                        full_name=target_user.full_name,
+                        username=target_user.username,
+                        telegram_id=target_user.telegram_id,
+                        email=target_user.email,
+                        user_id=target_user.id,
+                        suffix=username_suffix,
+                    )
                     async with remnawave_service.get_api_client() as api:
                         create_kwargs = dict(
                             username=username,

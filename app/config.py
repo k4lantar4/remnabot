@@ -142,7 +142,6 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = 'api_key'  # api_key, basic, bearer, cookies, caddy
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = 'Bot user: {full_name} {username}'
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = 'user_{telegram_id}'
-    REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE: str = 'a{account_sequence}'
     REMNAWAVE_USER_DELETE_MODE: str = 'delete'  # "delete" или "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = '03:00'
@@ -1574,36 +1573,6 @@ class Settings(BaseSettings):
             # Final clamp на случай, когда suffix всё-таки превышает лимит.
             result = result[: self.REMNAWAVE_USERNAME_MAX_LENGTH]
         return result
-
-    def build_multi_tariff_remnawave_username(
-        self,
-        *,
-        telegram_id: int | None,
-        username: str | None,
-        email: str | None,
-        user_id: int | None,
-        account_sequence: int,
-        remnawave_short_id: str | None,
-    ) -> str:
-        """Panel username for one subscription in multi-tariff mode.
-
-        Uses REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE for the per-account label
-        (e.g. ``a1``) and appends ``_<remnawave_short_id>`` for uniqueness.
-        Real user identifiers (telegram_id / email / user_id) feed the base template
-        so we never render ``user_unknown``.
-        """
-        account_label = (self.REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE or 'a{account_sequence}').format(
-            account_sequence=account_sequence or 1,
-        )
-        suffix = f'_{remnawave_short_id}' if remnawave_short_id else ''
-        return self.build_remnawave_subscription_username(
-            full_name=account_label,
-            username=username,
-            telegram_id=telegram_id,
-            email=email,
-            user_id=user_id,
-            suffix=suffix,
-        )
 
     @staticmethod
     def parse_daily_time_list(raw_value: str | None) -> list[time]:
