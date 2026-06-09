@@ -562,6 +562,7 @@
       "codeFound": "找到代码"
     },
     "allTariffsPurchased": "所有套餐已购买",
+    "allTariffsPurchasedDesc": "您已购买所有可用套餐。请在套餐页面续订。",
     "autopay": "自动续订",
     "backToList": "返回订阅列表",
     "confirmDelete": "删除订阅？",

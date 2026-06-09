@@ -653,6 +653,7 @@
       "codeFound": "Code found"
     },
     "allTariffsPurchased": "All tariffs already purchased",
+    "allTariffsPurchasedDesc": "You have purchased all available tariffs. Renew from the tariff page.",
     "autopay": "Auto-renew",
     "backToList": "Back to subscriptions",
     "confirmDelete": "Delete subscription?",
