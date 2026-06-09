@@ -31,6 +31,16 @@ def test_subscription_account_label_falls_back_to_tariff_seq() -> None:
     assert label == 'Germany #2'
 
 
+def test_subscription_account_label_user_unknown_falls_back() -> None:
+    sub = SimpleNamespace(
+        panel_username='user_unknown_abc123',
+        account_sequence=3,
+        tariff=SimpleNamespace(name='Germany'),
+    )
+    label = subscription_account_label(sub, _Texts())
+    assert label == 'Germany #3'
+
+
 def test_subscription_account_label_empty_panel_username_falls_back() -> None:
     sub = SimpleNamespace(
         panel_username='',
