@@ -23,6 +23,7 @@ from app.localization.texts import get_texts
 from app.keyboards.inline import get_pagination_keyboard
 from app.services.subscription_service import SubscriptionService
 from app.utils.formatting import format_traffic
+from app.utils.subscription_display import subscription_account_label
 from app.utils.jalali_datetime import format_user_datetime
 
 
@@ -68,9 +69,7 @@ def _status_label(sub, texts) -> str:
 
 
 def _account_display_name(sub, texts) -> str:
-    tariff_name = sub.tariff.name if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
-    seq = getattr(sub, 'account_sequence', 1) or 1
-    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
+    return subscription_account_label(sub, texts)
 
 
 def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
