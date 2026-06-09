@@ -5,6 +5,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from aiogram.exceptions import TelegramBadRequest
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -12,6 +16,8 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.handlers.subscription.my_subscriptions import (
     _build_subscriptions_keyboard,
+    _edit_bot_message_content,
+    _edit_message_content,
     _filter_subscriptions_by_query,
     _subscription_matches_search,
 )
@@ -108,6 +114,37 @@ def test_keyboard_shows_search_when_no_active_query() -> None:
     search_idx = callbacks.index('my_subs_search')
     back_idx = callbacks.index('back_to_menu')
     assert search_idx < back_idx
+
+
+@pytest.mark.asyncio
+async def test_edit_message_content_uses_caption_on_photo() -> None:
+    message = MagicMock()
+    message.photo = [MagicMock()]
+    message.caption = 'old'
+    message.edit_text = AsyncMock(
+        side_effect=TelegramBadRequest(
+            method='editMessageText',
+            message='Bad Request: there is no text in the message to edit',
+        ),
+    )
+    message.edit_caption = AsyncMock()
+    result = await _edit_message_content(message, 'new text', MagicMock())
+    message.edit_caption.assert_awaited_once()
+    assert result is message
+
+
+@pytest.mark.asyncio
+async def test_edit_bot_message_content_caption_fallback() -> None:
+    bot = MagicMock()
+    bot.edit_message_text = AsyncMock(
+        side_effect=TelegramBadRequest(
+            method='editMessageText',
+            message='Bad Request: there is no text in the message to edit',
+        ),
+    )
+    bot.edit_message_caption = AsyncMock()
+    assert await _edit_bot_message_content(bot, 1, 2, 'text', MagicMock()) is True
+    bot.edit_message_caption.assert_awaited_once()
 
 
 def test_keyboard_shows_reset_when_query_active() -> None:

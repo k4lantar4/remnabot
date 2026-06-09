@@ -10,7 +10,9 @@ from __future__ import annotations
 import html
 import structlog
 from aiogram import Router, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
+from aiogram.types import InaccessibleMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -374,6 +376,96 @@ async def _build_my_subscriptions_view(
     return text, keyboard
 
 
+async def _edit_message_content(
+    message: types.Message,
+    text: str,
+    reply_markup: types.InlineKeyboardMarkup,
+    parse_mode: str = 'HTML',
+) -> types.Message:
+    """Edit text or photo caption (logo mode); re-send if the message cannot be edited."""
+    if isinstance(message, InaccessibleMessage):
+        return await message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+
+    try:
+        await message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return message
+    except TelegramBadRequest as error:
+        error_message = str(error).lower()
+        if 'message is not modified' in error_message:
+            return message
+        if 'there is no text in the message to edit' in error_message:
+            try:
+                await message.edit_caption(
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                )
+                return message
+            except TelegramBadRequest as caption_error:
+                if 'message is not modified' in str(caption_error).lower():
+                    return message
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+    return await message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+
+
+async def _edit_bot_message_content(
+    bot: types.Bot,
+    chat_id: int,
+    message_id: int,
+    text: str,
+    reply_markup: types.InlineKeyboardMarkup,
+    parse_mode: str = 'HTML',
+    *,
+    fallback_message: types.Message | None = None,
+) -> bool:
+    """Edit by chat/message id; caption fallback for photo messages from logo mode."""
+    try:
+        await bot.edit_message_text(
+            text=text,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=reply_markup,
+            parse_mode=parse_mode,
+        )
+        return True
+    except TelegramBadRequest as error:
+        error_message = str(error).lower()
+        if 'message is not modified' in error_message:
+            return True
+        if 'there is no text in the message to edit' in error_message:
+            try:
+                await bot.edit_message_caption(
+                    caption=text,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                )
+                return True
+            except TelegramBadRequest as caption_error:
+                if 'message is not modified' in str(caption_error).lower():
+                    return True
+                logger.warning(
+                    'my_subscriptions caption edit failed',
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    error=str(caption_error),
+                )
+
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception:
+        pass
+    if fallback_message is not None:
+        await fallback_message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
+    return False
+
+
 async def _present_my_subscriptions_list(
     message: types.Message,
     db_user: User,
@@ -384,7 +476,7 @@ async def _present_my_subscriptions_list(
     callback: types.CallbackQuery | None = None,
 ) -> None:
     text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=page)
-    await message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+    await _edit_message_content(message, text, keyboard)
     if callback is not None:
         await callback.answer()
 
@@ -419,11 +511,6 @@ async def start_my_subscriptions_search(
         return
     texts = get_texts(db_user.language)
     await callback.answer()
-    await state.set_state(SubscriptionStates.searching_my_subscriptions)
-    await state.update_data(
-        my_subs_search_prompt_chat_id=callback.message.chat.id,
-        my_subs_search_prompt_message_id=callback.message.message_id,
-    )
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -434,19 +521,25 @@ async def start_my_subscriptions_search(
             ]
         ]
     )
-    await callback.message.edit_text(
-        texts.t(
-            'MY_SUB_SEARCH_PROMPT',
-            (
-                '🔍 <b>Поиск подписки</b>\n\n'
-                'Введите имя на кнопке (например Germany(2)-134500), '
-                'название тарифа или ID подписки.\n'
-                'Отмена — кнопка ниже или /cancel'
-            ),
+    prompt_text = texts.t(
+        'MY_SUB_SEARCH_PROMPT',
+        (
+            '🔍 <b>Поиск подписки</b>\n\n'
+            'Введите имя на кнопке (например Germany(2)-134500), '
+            'название тарифа или ID подписки.\n'
+            'Отмена — кнопка ниже или /cancel'
         ),
-        reply_markup=keyboard,
-        parse_mode='HTML',
     )
+    prompt_message = await _edit_message_content(
+        callback.message,
+        prompt_text,
+        keyboard,
+    )
+    await state.update_data(
+        my_subs_search_prompt_chat_id=prompt_message.chat.id,
+        my_subs_search_prompt_message_id=prompt_message.message_id,
+    )
+    await state.set_state(SubscriptionStates.searching_my_subscriptions)
 
 
 async def cancel_my_subscriptions_search(
@@ -455,6 +548,7 @@ async def cancel_my_subscriptions_search(
     db: AsyncSession,
     state: FSMContext,
 ) -> None:
+    await state.update_data(my_subs_search_query=None)
     await state.set_state(None)
     if not callback.message:
         await callback.answer()
@@ -491,16 +585,18 @@ async def process_my_subscriptions_search(
     data = await state.get_data()
     chat_id = data.get('my_subs_search_prompt_chat_id')
     msg_id = data.get('my_subs_search_prompt_message_id')
+    cancel_texts = {'/cancel', 'cancel', 'отмена', 'لغو'}
 
-    if raw.lower() in {'/cancel', 'cancel', 'отмена'}:
-        await state.set_state(None)
+    if raw.lower() in cancel_texts:
+        await state.update_data(my_subs_search_query=None)
         await message.answer(texts.t('MY_SUB_SEARCH_CANCELLED', '✖️ Поиск отменён'))
     elif not raw:
         await message.answer(texts.t('MY_SUB_SEARCH_EMPTY_QUERY', '❌ Введите текст для поиска'))
         return
     else:
         await state.update_data(my_subs_search_query=raw)
-        await state.set_state(None)
+
+    await state.set_state(None)
 
     if not chat_id or not msg_id:
         await message.answer(
@@ -512,13 +608,23 @@ async def process_my_subscriptions_search(
         return
 
     text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=1)
-    await message.bot.edit_message_text(
-        text=text,
-        chat_id=chat_id,
-        message_id=msg_id,
-        reply_markup=keyboard,
-        parse_mode='HTML',
+    edited = await _edit_bot_message_content(
+        message.bot,
+        int(chat_id),
+        int(msg_id),
+        text,
+        keyboard,
+        fallback_message=message,
     )
+    if not edited:
+        await message.answer(
+            texts.t(
+                'MY_SUB_SEARCH_STATE_LOST',
+                '❌ Сессия истекла. Откройте список подписок снова.',
+            )
+        )
+        return
+
     try:
         await message.delete()
     except Exception:
