@@ -7,6 +7,7 @@ Only active when MULTI_TARIFF_ENABLED=True.
 
 from __future__ import annotations
 
+import html
 import structlog
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
@@ -25,6 +26,7 @@ from app.services.subscription_service import SubscriptionService
 from app.utils.formatting import format_traffic
 from app.utils.subscription_display import subscription_account_label
 from app.utils.jalali_datetime import format_user_datetime
+from app.states import SubscriptionStates
 
 
 logger = structlog.get_logger(__name__)
@@ -72,6 +74,29 @@ def _account_display_name(sub, texts) -> str:
     return subscription_account_label(sub, texts)
 
 
+def _subscription_matches_search(sub, query: str, texts) -> bool:
+    q = (query or '').strip().lower()
+    if not q:
+        return True
+    # Same label as list buttons (legacy panel_username or tariff#seq; hides user_unknown_*)
+    if q in _account_display_name(sub, texts).lower():
+        return True
+    if q in str(getattr(sub, 'id', '')):
+        return True
+    tariff = getattr(sub, 'tariff', None)
+    tariff_name = (getattr(tariff, 'name', None) or '').strip().lower()
+    if tariff_name and q in tariff_name:
+        return True
+    return False
+
+
+def _filter_subscriptions_by_query(subscriptions: list, query: str, texts) -> list:
+    q = (query or '').strip()
+    if not q:
+        return list(subscriptions)
+    return [s for s in subscriptions if _subscription_matches_search(s, q, texts)]
+
+
 def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     """Format a single subscription for the list view."""
     tariff_name = _account_display_name(sub, texts)
@@ -114,6 +139,8 @@ def _build_subscriptions_keyboard(
     *,
     page: int,
     total_pages: int,
+    search_query: str = '',
+    show_search: bool = False,
 ) -> types.InlineKeyboardMarkup:
     """Build inline keyboard with per-subscription management buttons (2 per row)."""
     texts = get_texts(language)
@@ -136,6 +163,26 @@ def _build_subscriptions_keyboard(
         buttons.append(row)
 
     buttons.extend(get_pagination_keyboard(page, total_pages, 'my_subs', language))
+
+    if show_search:
+        if search_query:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_SEARCH_RESET', '❌ Сбросить поиск'),
+                        callback_data='my_subs_search_reset',
+                    )
+                ]
+            )
+        else:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_BTN_SEARCH', '🔍 Поиск'),
+                        callback_data='my_subs_search',
+                    )
+                ]
+            )
 
     buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
     buttons.append(
@@ -223,27 +270,38 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-async def show_my_subscriptions(
-    callback: types.CallbackQuery,
+async def _build_my_subscriptions_view(
     db_user: User,
     db: AsyncSession,
-    state: FSMContext | None = None,
-) -> None:
-    """Show list of all user subscriptions."""
+    state: FSMContext | None,
+    *,
+    page: int = 1,
+) -> tuple[str, types.InlineKeyboardMarkup]:
     if not settings.is_multi_tariff_enabled():
-        # Fallback to legacy single subscription view
-        return
+        raise RuntimeError('multi-tariff only')
 
-    subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+    all_subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
     texts = get_texts(db_user.language)
-    page = _parse_list_page(callback.data)
+
+    search_query = ''
+    if state is not None:
+        data = await state.get_data()
+        search_query = (data.get('my_subs_search_query') or '').strip()
+
+    subscriptions = (
+        _filter_subscriptions_by_query(all_subscriptions, search_query, texts)
+        if search_query
+        else all_subscriptions
+    )
+
+    total_unfiltered = len(all_subscriptions)
     total_count = len(subscriptions)
     total_pages = max(1, (total_count + MY_SUBS_PER_PAGE - 1) // MY_SUBS_PER_PAGE)
-    page = min(page, total_pages)
+    page = min(max(1, page), total_pages)
     start = (page - 1) * MY_SUBS_PER_PAGE
     page_subs = subscriptions[start : start + MY_SUBS_PER_PAGE]
 
-    if not subscriptions:
+    if not all_subscriptions:
         text = texts.t('MY_SUB_LIST_EMPTY', '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.')
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -261,8 +319,38 @@ async def show_my_subscriptions(
                 ],
             ]
         )
+    elif search_query and not subscriptions:
+        safe_query = html.escape(search_query)
+        text = (
+            texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n'
+            + texts.t(
+                'MY_SUB_SEARCH_ACTIVE',
+                '🔍 Поиск: <b>{query}</b>\n',
+            ).format(query=safe_query)
+            + '\n'
+            + texts.t(
+                'MY_SUB_SEARCH_NO_RESULTS',
+                '🔍 По запросу «{query}» подписки не найдены.',
+            ).format(query=safe_query)
+        )
+        keyboard = _build_subscriptions_keyboard(
+            [],
+            db_user.language,
+            page=1,
+            total_pages=1,
+            search_query=search_query,
+            show_search=total_unfiltered >= 2,
+        )
     else:
         lines = [texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n']
+        if search_query:
+            safe_query = html.escape(search_query)
+            lines.append(
+                texts.t(
+                    'MY_SUB_SEARCH_ACTIVE',
+                    '🔍 Поиск: <b>{query}</b>\n',
+                ).format(query=safe_query)
+            )
         if total_pages > 1:
             lines.append(
                 texts.t(
@@ -279,11 +367,162 @@ async def show_my_subscriptions(
             db_user.language,
             page=page,
             total_pages=total_pages,
+            search_query=search_query,
+            show_search=total_unfiltered >= 2,
         )
 
-    if callback.message:
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+    return text, keyboard
+
+
+async def _present_my_subscriptions_list(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None,
+    *,
+    page: int = 1,
+    callback: types.CallbackQuery | None = None,
+) -> None:
+    text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=page)
+    await message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+    if callback is not None:
+        await callback.answer()
+
+
+async def show_my_subscriptions(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None = None,
+    *,
+    page: int | None = None,
+) -> None:
+    """Show list of all user subscriptions."""
+    if not settings.is_multi_tariff_enabled():
+        return
+    if not callback.message:
+        await callback.answer()
+        return
+    page_num = page if page is not None else _parse_list_page(callback.data)
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=page_num, callback=callback,
+    )
+
+
+async def start_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+) -> None:
+    if not settings.is_multi_tariff_enabled() or not callback.message:
+        await callback.answer()
+        return
+    texts = get_texts(db_user.language)
     await callback.answer()
+    await state.set_state(SubscriptionStates.searching_my_subscriptions)
+    await state.update_data(
+        my_subs_search_prompt_chat_id=callback.message.chat.id,
+        my_subs_search_prompt_message_id=callback.message.message_id,
+    )
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_SEARCH_CANCEL', '✖️ Отмена'),
+                    callback_data='my_subs_search_cancel',
+                )
+            ]
+        ]
+    )
+    await callback.message.edit_text(
+        texts.t(
+            'MY_SUB_SEARCH_PROMPT',
+            (
+                '🔍 <b>Поиск подписки</b>\n\n'
+                'Введите имя на кнопке (например Germany(2)-134500), '
+                'название тарифа или ID подписки.\n'
+                'Отмена — кнопка ниже или /cancel'
+            ),
+        ),
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+
+
+async def cancel_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    await state.set_state(None)
+    if not callback.message:
+        await callback.answer()
+        return
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=1, callback=callback,
+    )
+
+
+async def reset_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    await state.update_data(my_subs_search_query=None)
+    await state.set_state(None)
+    if not callback.message:
+        await callback.answer()
+        return
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=1, callback=callback,
+    )
+
+
+async def process_my_subscriptions_search(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    raw = (message.text or '').strip()
+    data = await state.get_data()
+    chat_id = data.get('my_subs_search_prompt_chat_id')
+    msg_id = data.get('my_subs_search_prompt_message_id')
+
+    if raw.lower() in {'/cancel', 'cancel', 'отмена'}:
+        await state.set_state(None)
+        await message.answer(texts.t('MY_SUB_SEARCH_CANCELLED', '✖️ Поиск отменён'))
+    elif not raw:
+        await message.answer(texts.t('MY_SUB_SEARCH_EMPTY_QUERY', '❌ Введите текст для поиска'))
+        return
+    else:
+        await state.update_data(my_subs_search_query=raw)
+        await state.set_state(None)
+
+    if not chat_id or not msg_id:
+        await message.answer(
+            texts.t(
+                'MY_SUB_SEARCH_STATE_LOST',
+                '❌ Сессия истекла. Откройте список подписок снова.',
+            )
+        )
+        return
+
+    text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=1)
+    await message.bot.edit_message_text(
+        text=text,
+        chat_id=chat_id,
+        message_id=msg_id,
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 async def show_subscription_detail(
