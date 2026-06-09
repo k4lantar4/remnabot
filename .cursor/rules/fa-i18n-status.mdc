@@ -111,6 +111,17 @@ Branch `i18n/fa-jalali-dates` — P1 user-surface Jalali calendar.
 
 - [x] **fix/remnawave-username-upstream-revert:** revert panel username to upstream create-only path — remove `build_multi_tariff_remnawave_username`, stop sending username on `update_user`, production `.env` → `user_{telegram_id}`
 
+## Done (fix/toman-balance-units — Jun 9 2026)
+
+Branch `fix/toman-balance-units` from `main` — three cabinet balance unit fixes (Phase B parity).
+
+- [x] **purchase.py:** IntegrityError refund uses `charge_toman` (same as subtract) — no 100× over-credit
+- [x] **admin_bulk_actions.py:** `_do_add_balance` resolves `amount_display` via `_require_amount_kopeks`
+- [x] **referral.py:** info + earnings `*_rubles` use `display_balance_from_storage`; `/terms` unchanged
+- [x] **Tests:** `test_purchase_integrity_refund`, `test_bulk_add_balance_display`, `test_referral_display_units` — 5 passed
+
+**Awaiting user smoke** before PR → `dev-local` → `main`. Follow-up: `withdrawal.py` `/100` display (out of scope).
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
