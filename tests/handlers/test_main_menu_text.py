@@ -45,7 +45,7 @@ class _TextsStub:
 
 @pytest.mark.asyncio
 async def test_multi_tariff_status_caps_preview_at_three() -> None:
-    from app.handlers.menu import _get_multi_tariff_status
+    from app.handlers.menu import MAIN_MENU_MULTI_PREVIEW_MAX, _get_multi_tariff_status
 
     subscriptions = [_make_subscription(i, f'Tariff {i}') for i in range(5)]
     user = SimpleNamespace(id=1, full_name='Test User')
@@ -60,7 +60,7 @@ async def test_multi_tariff_status_caps_preview_at_three() -> None:
         status_text, _tariff_block = await _get_multi_tariff_status(user, texts, db)
 
     preview_lines = [line for line in status_text.split('\n') if '<b>' in line]
-    assert len(preview_lines) == 3
+    assert len(preview_lines) == MAIN_MENU_MULTI_PREVIEW_MAX
     assert '… and 2 more' in status_text
 
 

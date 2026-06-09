@@ -43,6 +43,8 @@ from app.utils.jalali_datetime import format_user_datetime
 
 logger = structlog.get_logger(__name__)
 
+MAIN_MENU_MULTI_PREVIEW_MAX = 3
+
 
 def _collect_period_discounts(group: PromoGroup) -> dict[int, int]:
     discounts: dict[int, int] = {}
@@ -1200,7 +1202,10 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
 
     current_time = datetime.now(UTC)
     lines: list[str] = []
-    for sub in subscriptions:
+    preview_subs = subscriptions[:MAIN_MENU_MULTI_PREVIEW_MAX]
+    overflow_count = len(subscriptions) - MAIN_MENU_MULTI_PREVIEW_MAX
+
+    for sub in preview_subs:
         tariff_name = html.escape(sub.tariff.name) if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
         actual = sub.actual_status
 
@@ -1230,6 +1235,14 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             status_suffix = ''
 
         lines.append(f'{emoji} <b>{tariff_name}</b>{status_suffix}')
+
+    if overflow_count > 0:
+        lines.append(
+            texts.t(
+                'MAIN_MENU_MULTI_MORE',
+                '… and {count} more',
+            ).format(count=overflow_count)
+        )
 
     status_text = '\n<blockquote>' + '\n'.join(lines) + '</blockquote>'
     return status_text, ''
