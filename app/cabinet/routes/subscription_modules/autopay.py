@@ -39,9 +39,15 @@ async def update_autopay(
         )
 
     if request.enabled:
-        # Classic subscriptions cannot use autopay when tariff mode is enabled
         from app.config import settings
 
+        if not settings.ENABLE_AUTOPAY:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Autopay is globally disabled',
+            )
+
+        # Classic subscriptions cannot use autopay when tariff mode is enabled
         if settings.is_tariffs_mode() and not subscription.tariff_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -72,8 +78,10 @@ async def update_autopay(
 
     await db.commit()
 
+    from app.utils.autopay_utils import effective_autopay_enabled
+
     return {
         'message': 'Autopay settings updated',
-        'autopay_enabled': subscription.autopay_enabled,
+        'autopay_enabled': effective_autopay_enabled(subscription),
         'autopay_days_before': subscription.autopay_days_before,
     }
