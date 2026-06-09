@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.localization.texts import get_texts
+from app.utils.trial_utils import is_trial_globally_available
 from app.database.crud.server_squad import get_server_squad_by_uuid
 from app.database.crud.subscription import (
     create_paid_subscription,
@@ -1192,6 +1193,18 @@ async def get_trial_info(
     """Get trial subscription info and availability."""
     await db.refresh(user, ['subscriptions'])
 
+    if not await is_trial_globally_available(db):
+        return TrialInfoResponse(
+            is_available=False,
+            duration_days=settings.TRIAL_DURATION_DAYS,
+            traffic_limit_gb=settings.TRIAL_TRAFFIC_LIMIT_GB,
+            device_limit=settings.TRIAL_DEVICE_LIMIT,
+            requires_payment=bool(settings.TRIAL_PAYMENT_ENABLED),
+            price_kopeks=0,
+            price_rubles=0,
+            reason_unavailable='Trial is disabled',
+        )
+
     # Проверяем, отключён ли триал для этого типа пользователя
     if settings.is_trial_disabled_for_user(getattr(user, 'auth_type', 'telegram')):
         return TrialInfoResponse(
@@ -1283,6 +1296,12 @@ async def activate_trial(
 ):
     """Activate trial subscription."""
     await db.refresh(user, ['subscriptions'])
+
+    if not await is_trial_globally_available(db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Trial is disabled',
+        )
 
     # Проверяем, отключён ли триал для этого типа пользователя
     if settings.is_trial_disabled_for_user(getattr(user, 'auth_type', 'telegram')):

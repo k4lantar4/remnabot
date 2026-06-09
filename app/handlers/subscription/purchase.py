@@ -18,6 +18,7 @@ from app.database.crud.subscription import (
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.trial_utils import is_trial_globally_available
 from app.database.models import PaymentMethod, Subscription, SubscriptionStatus, TransactionType, User
 from app.keyboards.inline import (
     get_back_keyboard,
@@ -645,6 +646,14 @@ async def show_trial_offer(callback: types.CallbackQuery, db_user: User, db: Asy
 
     texts = get_texts(db_user.language)
 
+    if not await is_trial_globally_available(db):
+        await callback.message.edit_text(
+            texts.t('TRIAL_DISABLED', '❌ Пробный период недоступен'),
+            reply_markup=get_back_keyboard(db_user.language),
+        )
+        await callback.answer()
+        return
+
     # Проверяем, отключён ли триал для этого типа пользователя
     if settings.is_trial_disabled_for_user(getattr(db_user, 'auth_type', 'telegram')):
         await callback.message.edit_text(
@@ -908,6 +917,14 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
                 'Если вы считаете это ошибкой, вы можете обжаловать решение.',
             ).format(reason=reason),
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
+        )
+        await callback.answer()
+        return
+
+    if not await is_trial_globally_available(db):
+        await callback.message.edit_text(
+            texts.t('TRIAL_DISABLED', '❌ Пробный период недоступен'),
+            reply_markup=get_back_keyboard(db_user.language),
         )
         await callback.answer()
         return

@@ -106,6 +106,7 @@ from app.utils.telegram_webapp import (
 )
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.autopay_utils import effective_autopay_enabled
+from app.utils.trial_utils import is_trial_globally_available
 from app.utils.user_utils import (
     get_detailed_referral_list,
     get_effective_referral_commission_percent,
@@ -3022,8 +3023,8 @@ async def _build_referral_info(
     )
 
 
-def _is_trial_available_for_user(user: User) -> bool:
-    if settings.TRIAL_DURATION_DAYS <= 0:
+async def _is_trial_available_for_user(user: User, db: AsyncSession) -> bool:
+    if not await is_trial_globally_available(db):
         return False
 
     if settings.is_trial_disabled_for_user(getattr(user, 'auth_type', 'telegram')):
@@ -3453,7 +3454,7 @@ async def get_subscription_details(
 
     referral_info = await _build_referral_info(db, user)
 
-    trial_available = _is_trial_available_for_user(user)
+    trial_available = await _is_trial_available_for_user(user, db)
     trial_duration_days = settings.TRIAL_DURATION_DAYS if settings.TRIAL_DURATION_DAYS > 0 else None
     trial_price_kopeks = settings.get_trial_activation_price()
     trial_payment_required = settings.is_trial_paid_activation_enabled() and trial_price_kopeks > 0
@@ -3787,11 +3788,11 @@ async def activate_subscription_trial_endpoint(
             },
         )
 
-    if not _is_trial_available_for_user(user):
+    if not await _is_trial_available_for_user(user, db):
         error_code = 'trial_unavailable'
         if getattr(user, 'has_had_paid_subscription', False):
             error_code = 'trial_expired'
-        elif settings.TRIAL_DURATION_DAYS <= 0:
+        elif not await is_trial_globally_available(db):
             error_code = 'trial_disabled'
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
