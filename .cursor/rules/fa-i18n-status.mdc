@@ -122,6 +122,19 @@ Branch `fix/toman-balance-units` from `main` — three cabinet balance unit fixe
 
 **Awaiting user smoke** before PR → `dev-local` → `main`. Follow-up: `withdrawal.py` `/100` display (out of scope).
 
+## Done (fa-remaining — Jun 9 2026)
+
+Branch `i18n/fa-remaining` from `main` (**9 commits**, `7b8d0155` → `e79e72e0`).
+
+- [x] **Task 1:** cabinet fa locale integrity guards (`7b8d0155`)
+- [x] **Task 2–4:** P1 cabinet user keys — subscription (75), gift/dashboard/notifications, resetPassword/balance/support (`1aed81fe`, `720a7ed3`, `93fb63d5`)
+- [x] **Task 5–7:** P3 copywriting — خرید سرویس, revoke/reissue labels, user-facing تعرفه → سرویس (`0e2e893d`, `bb52b41f`, `a2c91aea`)
+- [x] **Task 8:** P4 restriction fallback sweep via `USER_RESTRICTION_DEFAULT_REASON` (`071d4161`)
+- [x] **Task 11:** P2 admin نود → سرور terminology + `ADMIN_RW_NODE_NOT_FOUND` fix (`e79e72e0`)
+- [ ] **Deferred:** Task 9 `banSystem` (148 keys), Task 10 `admin.settings` (485 keys) — separate PR
+
+**Awaiting user smoke** before PR → `dev-local` → `main`.
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).

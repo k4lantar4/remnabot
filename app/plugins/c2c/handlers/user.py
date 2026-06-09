@@ -112,7 +112,7 @@ async def _check_restriction_topup(callback: types.CallbackQuery, db_user: User)
         return False
 
     texts = get_texts(db_user.language)
-    reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+    reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
     support_url = settings.get_support_contact_url()
     keyboard: list[list[types.InlineKeyboardButton]] = []
     if support_url:
@@ -181,7 +181,7 @@ async def process_c2c_payment_amount(
     texts = get_texts(db_user.language)
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
         support_url = settings.get_support_contact_url()
         keyboard: list[list[types.InlineKeyboardButton]] = []
         if support_url:

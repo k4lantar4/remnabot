@@ -62,8 +62,17 @@
     "noNotifications": "اعلانی وجود ندارد",
     "justNow": "همین الان",
     "minutesAgo": "{{count}} دقیقه پیش",
+    "minutesAgo_one": "{{count}} دقیقه پیش",
+    "minutesAgo_few": "{{count}} دقیقه پیش",
+    "minutesAgo_many": "{{count}} دقیقه پیش",
     "hoursAgo": "{{count}} ساعت پیش",
+    "hoursAgo_one": "{{count}} ساعت پیش",
+    "hoursAgo_few": "{{count}} ساعت پیش",
+    "hoursAgo_many": "{{count}} ساعت پیش",
     "daysAgo": "{{count}} روز پیش",
+    "daysAgo_one": "{{count}} روز پیش",
+    "daysAgo_few": "{{count}} روز پیش",
+    "daysAgo_many": "{{count}} روز پیش",
     "viewAll": "مشاهده همه تیکت‌ها",
     "newNotification": "اعلان جدید",
     "clickToView": "برای مشاهده کلیک کنید",
@@ -233,6 +242,15 @@
     "failed": "تایید ناموفق",
     "goToLogin": "رفتن به صفحه ورود"
   },
+  "resetPassword": {
+    "title": "رمز عبور جدید",
+    "enterNewPassword": "رمز عبور جدید را در زیر وارد کنید.",
+    "success": "رمز عبور تغییر کرد!",
+    "redirectingToLogin": "در حال انتقال به صفحه ورود…",
+    "setPassword": "تنظیم رمز عبور",
+    "invalidToken": "لینک نامعتبر است",
+    "tokenExpiredOrInvalid": "لینک بازیابی رمز عبور نامعتبر یا منقضی شده است."
+  },
   "dashboard": {
     "title": "داشبورد",
     "welcome": "خوش آمدید، {{name}}!",
@@ -248,6 +266,17 @@
     "devicesUsed": "دستگاه‌ها: {{used}} از {{total}}",
     "trafficUsed": "ترافیک: {{used}} از {{total}} گیگ",
     "unlimitedTraffic": "ترافیک نامحدود",
+    "zone": {
+      "normal": "عادی",
+      "warning": "متوسط",
+      "danger": "بالا",
+      "critical": "بحرانی"
+    },
+    "devicesConnected": "{{count}} متصل",
+    "devicesShort": "دستگاه",
+    "trafficUsage": "{{used}} / {{limit}} گیگ",
+    "usedTraffic": "{{amount}} مصرف شده",
+    "daysRemaining": "روز باقی‌مانده",
     "expired": {
       "title": "اشتراک منقضی شده",
       "trialTitle": "دوره آزمایشی منقضی شده",
@@ -263,6 +292,7 @@
       "traffic": "ترافیک",
       "devices": "دستگاه‌ها",
       "expiredDate": "منقضی شده",
+      "expiredDate_trial": "منقضی شد",
       "activeUntil": "منقضی شده — تا {{date}}"
     },
     "deviceLimitReached": "برای افزودن دستگاه جدید، دستگاه‌های فعلی را قطع کنید",
@@ -280,7 +310,9 @@
     "remaining": "باقی‌مانده",
     "stats": {
       "balance": "موجودی",
-      "referrals": "معرفی‌شده‌ها"
+      "subscription": "اشتراک",
+      "referrals": "معرفی‌شده‌ها",
+      "earnings": "درآمد"
     },
     "tariff": "تعرفه",
     "trafficUsageTitle": "مصرف ترافیک",
@@ -310,14 +342,26 @@
     "daysLeft": "روز باقی‌مانده",
     "devices": "دستگاه‌ها",
     "devices_other": "{{count}} دستگاه",
+    "devices_one": "{{count}} دستگاه",
+    "devices_few": "{{count}} دستگاه",
+    "devices_many": "{{count}} دستگاه",
     "extraDevices": "دستگاه‌های اضافی",
     "extraDevicesIncluded": "شامل {{count}} دستگاه اضافی",
     "extraDevicesIncluded_other": "شامل {{count}} دستگاه اضافی",
+    "extraDevicesIncluded_one": "شامل {{count}} دستگاه اضافی",
+    "extraDevicesIncluded_few": "شامل {{count}} دستگاه اضافی",
+    "extraDevicesIncluded_many": "شامل {{count}} دستگاه اضافی",
     "baseTariff": "تعرفه",
     "serversLabel": "سرورها",
     "servers_other": "{{count}} سرور",
+    "servers_one": "{{count}} سرور",
+    "servers_few": "{{count}} سرور",
+    "servers_many": "{{count}} سرور",
     "locationsLabel": "مکان‌ها",
     "locations_other": "{{count}} مکان",
+    "locations_one": "{{count}} مکان",
+    "locations_few": "{{count}} مکان",
+    "locations_many": "{{count}} مکان",
     "trafficReset": {
       "DAY": "بازنشانی روزانه",
       "WEEK": "بازنشانی هفتگی",
@@ -336,10 +380,19 @@
     "renewalOptions": "گزینه‌های تمدید",
     "days": "روز",
     "days_other": "{{count}} روز",
+    "days_one": "{{count}} روز",
+    "days_few": "{{count}} روز",
+    "days_many": "{{count}} روز",
     "hours": "ساعت",
     "hours_other": "{{count}} ساعت",
+    "hours_one": "{{count}} ساعت",
+    "hours_few": "{{count}} ساعت",
+    "hours_many": "{{count}} ساعت",
     "minutes": "دقیقه",
     "minutes_other": "{{count}} دقیقه",
+    "minutes_one": "{{count}} دقیقه",
+    "minutes_few": "{{count}} دقیقه",
+    "minutes_many": "{{count}} دقیقه",
     "price": "قیمت",
     "noSubscription": "اشتراک فعال ندارید",
     "getSubscription": "خرید اشتراک",
@@ -354,6 +407,9 @@
     "autoRenewal": "تمدید خودکار",
     "daysBeforeExpiry": "روز قبل از انقضا",
     "daysBeforeExpiry_other": "{{count}} روز قبل از انقضا",
+    "daysBeforeExpiry_one": "{{count}} روز تا پایان اشتراک",
+    "daysBeforeExpiry_few": "{{count}} روز تا پایان اشتراک",
+    "daysBeforeExpiry_many": "{{count}} روز تا پایان اشتراک",
     "selectPeriod": "انتخاب دوره",
     "noPeriodsAvailable": "دوره‌ای برای تمدید موجود نیست",
     "noPeriodsAvailableHint": "مدیر تنظیمات این طرح را تغییر داده است. لطفاً طرح دیگری را برای تمدید اشتراک خود انتخاب کنید.",
@@ -377,17 +433,29 @@
     "stepConfirm": "تایید",
     "trial": {
       "title": "دوره آزمایشی رایگان",
+      "titlePaid": "اشتراک آزمایشی",
       "description": "سرویس VPN ما را رایگان امتحان کنید!",
       "days": "روز",
       "days_other": "{{count}} روز",
+      "days_one": "{{count}} روز",
+      "days_few": "{{count}} روز",
+      "days_many": "{{count}} روز",
       "devices": "دستگاه",
       "devices_other": "{{count}} دستگاه",
+      "devices_one": "{{count}} دستگاه",
+      "devices_few": "{{count}} دستگاه",
+      "devices_many": "{{count}} دستگاه",
       "price": "هزینه فعال‌سازی",
       "activate": "فعال‌سازی دوره آزمایشی",
       "unavailable": "دوره آزمایشی در دسترس نیست",
       "insufficientBalance": "موجودی برای فعال‌سازی دوره آزمایشی کافی نیست",
       "payAndActivate": "پرداخت و فعال‌سازی",
       "topUpToActivate": "برای فعال‌سازی دوره آزمایشی موجودی را افزایش دهید"
+    },
+    "trialBanner": {
+      "title": "دوره آزمایشی فعال است",
+      "description": "{{days}} روز از دوره آزمایشی باقی مانده. برای ادامه استفاده، اشتراک تهیه کنید.",
+      "upgrade": "انتخاب سرویس"
     },
     "connection": {
       "title": "اتصال VPN",
@@ -405,6 +473,7 @@
       "copyLink": "کپی لینک اشتراک",
       "copied": "لینک کپی شد!",
       "openLink": "باز کردن لینک",
+      "instructions": "راهنمای اتصال",
       "changeApp": "تغییر برنامه",
       "selectPlatform": "انتخاب پلتفرم",
       "app": "برنامه",
@@ -422,7 +491,11 @@
     "additionalOptions": {
       "title": "گزینه‌های اضافی",
       "buyDevices": "خرید دستگاه بیشتر",
+      "alreadyAtMinDeviceLimit": "به حداقل مجاز دستگاه برای سرویس شما رسیده‌اید",
       "currentDeviceLimit_other": "محدودیت فعلی: {{count}} دستگاه",
+      "currentDeviceLimit_one": "محدودیت فعلی: {{count}} دستگاه",
+      "currentDeviceLimit_few": "محدودیت فعلی: {{count}} دستگاه",
+      "currentDeviceLimit_many": "محدودیت فعلی: {{count}} دستگاه",
       "maxDevices": "حداکثر {{count}}",
       "devicesUnavailable": "خرید دستگاه در دسترس نیست",
       "devicesUnit": "دستگاه",
@@ -438,12 +511,24 @@
       "manageServers": "مدیریت اسکوادها",
       "manageServersTitle": "مدیریت اسکوادها",
       "connectedDevices": "دستگاه‌های متصل",
+      "connectedDevices_one": "دستگاه متصل: {{count}}",
+      "connectedDevices_few": "دستگاه متصل: {{count}}",
+      "connectedDevices_many": "دستگاه متصل: {{count}}",
       "currentDeviceLimit": "محدودیت فعلی دستگاه",
       "decrementDevices": "کاهش تعداد دستگاه‌ها",
       "disconnectDevicesFirst": "ابتدا دستگاه‌های اضافی را قطع کنید",
+      "disconnectDevicesFirst_one": "ابتدا دستگاه‌ها را قطع کنید تا محدودیت کمتر از {{count}} دستگاه شود",
+      "disconnectDevicesFirst_few": "ابتدا دستگاه‌ها را قطع کنید تا محدودیت کمتر از {{count}} دستگاه شود",
+      "disconnectDevicesFirst_many": "ابتدا دستگاه‌ها را قطع کنید تا محدودیت کمتر از {{count}} دستگاه شود",
       "incrementDevices": "افزایش تعداد دستگاه‌ها",
       "minDeviceLimit": "حداقل محدودیت دستگاه",
+      "minDeviceLimit_one": "حداقل سرویس: {{count}} دستگاه",
+      "minDeviceLimit_few": "حداقل سرویس: {{count}} دستگاه",
+      "minDeviceLimit_many": "حداقل سرویس: {{count}} دستگاه",
       "newDeviceLimit": "محدودیت جدید دستگاه",
+      "newDeviceLimit_one": "محدودیت جدید: {{count}} دستگاه",
+      "newDeviceLimit_few": "محدودیت جدید: {{count}} دستگاه",
+      "newDeviceLimit_many": "محدودیت جدید: {{count}} دستگاه",
       "reduce": "کاهش",
       "reduceDevices": "کاهش تعداد دستگاه‌ها",
       "reduceDevicesDescription": "محدودیت دستگاه‌های خود را تنظیم کنید. در صورت لزوم ابتدا دستگاه‌های اضافه را قطع کنید",
@@ -465,28 +550,38 @@
       "noServersAvailable": "سرور قابل مدیریتی وجود ندارد"
     },
     "revoke": {
-      "title": "صدور مجدد اشتراک",
-      "button": "صدور مجدد اشتراک",
-      "description": "لینک جدید، بازنشانی دستگاه‌ها",
-      "warning": "این عمل لینک اتصال جدیدی تولید می‌کند، همه دستگاه‌های متصل را بازنشانی می‌کند و لینک قدیمی را نامعتبر می‌کند. ادامه؟",
-      "confirmBtn": "صدور مجدد",
-      "cooldown": "در {{minutes}} دقیقه {{seconds}} ثانیه دیگر"
+      "title": "صدور مجدد لینک اتصال",
+      "button": "صدور مجدد لینک",
+      "description": "لینک جدید صادر می‌شود و همه دستگاه‌ها قطع می‌شوند",
+      "warning": "لینک اتصال جدید صادر می‌شود، همه دستگاه‌های متصل قطع می‌شوند و لینک قبلی نامعتبر می‌شود. ادامه می‌دهید؟",
+      "confirmBtn": "تغییر لینک و قطع دستگاه‌ها",
+      "cooldown": "صدور مجدد لینک تا {{minutes}} دقیقه و {{seconds}} ثانیه دیگر"
     },
     "legacy": {
-      "selectTariffTitle": "یک تعرفه برای تمدید انتخاب کنید",
-      "selectTariffDescription": "اشتراک فعلی شما قبل از معرفی تعرفه‌ها ایجاد شده بود. برای تمدید، لطفاً یکی از تعرفه‌های موجود را انتخاب کنید.",
+      "selectTariffTitle": "یک سرویس برای تمدید انتخاب کنید",
+      "selectTariffDescription": "اشتراک فعلی شما قبل از معرفی سرویس‌ها ایجاد شده بود. برای تمدید، لطفاً یکی از سرویس‌های موجود را انتخاب کنید.",
       "currentSubContinues": "اشتراک فعلی شما تا پایان مدت فعال باقی خواهد ماند."
     },
     "switchTariff": {
       "dailyPayment": "پرداخت روزانه",
       "dailyChargeDescription": "روزانه از موجودی کسر می‌شود",
-      "currentTariff": "تعرفه فعلی",
+      "currentTariff": "سرویس فعلی",
       "free": "رایگان",
-      "newTariff": "تعرفه جدید",
+      "newTariff": "سرویس جدید",
       "remainingDays": "روزهای باقی‌مانده",
       "switch": "تغییر",
-      "title": "تغییر تعرفه",
-      "upgradeCost": "هزینه ارتقا"
+      "title": "تغییر سرویس",
+      "upgradeCost": "هزینه ارتقا",
+      "notEnoughBalance": "موجودی کافی نیست",
+      "preview": "پیش‌نمایش",
+      "switched": "سرویس تغییر کرد"
+    },
+    "switchTraffic": {
+      "title": "تغییر حجم ترافیک",
+      "currentPackage": "بسته فعلی",
+      "newPackage": "بسته جدید",
+      "switch": "تغییر",
+      "switched": "ترافیک تغییر کرد"
     },
     "promoGroup": {
       "yourGroup": "گروه شما: {{name}}",
@@ -508,10 +603,19 @@
     },
     "confirmDeleteAllDevices": "همه دستگاه‌ها حذف شوند؟",
     "confirmDeleteDevice": "این دستگاه حذف شود؟",
+    "allDevicesDeleted": "همه دستگاه‌ها حذف شدند",
+    "deviceDeleted": "دستگاه حذف شد",
+    "connectedAt": "زمان اتصال",
+    "model": "مدل",
+    "platform": "پلتفرم",
+    "insufficientBalance": "موجودی کافی نیست. {{missing}} تومان کم دارید",
     "currentTariff": "فعلی",
     "deleteAllDevices": "حذف همه",
     "deleteDevice": "حذف دستگاه",
     "devicesFree": "دستگاه رایگان",
+    "devicesFree_one": "{{count}} دستگاه رایگان",
+    "devicesFree_few": "{{count}} دستگاه رایگان",
+    "devicesFree_many": "{{count}} دستگاه رایگان",
     "from": "از",
     "month": "ماه",
     "myDevices": "دستگاه‌های من",
@@ -533,6 +637,12 @@
       "pausedOnLowBalance": "با کمبود موجودی اشتراک متوقف می‌شود"
     },
     "pause": {
+      "dailyOnly": "توقف فقط برای سرویس روزانه فعال است",
+      "days_one": "{{count}} روز",
+      "days_few": "{{count}} روز",
+      "days_many": "{{count}} روز",
+      "pausedMessage": "اشتراک متوقف شد",
+      "resumedMessage": "اشتراک از سر گرفته شد",
       "active": "فعال",
       "days": "روز",
       "hours": "ساعت",
@@ -596,7 +706,8 @@
     "trialInfo": {
       "description": "{{days}} روز سرویس ما را رایگان امتحان کنید",
       "remaining": "{{count}} روز باقی‌مانده",
-      "title": "دوره آزمایشی"
+      "title": "دوره آزمایشی",
+      "upgradeNow": "انتخاب سرویس"
     },
     "trialUpgrade": {
       "description": "برای دسترسی به همه امکانات و ادامه استفاده به اشتراک پرداختی ارتقا دهید",
@@ -647,6 +758,48 @@
       },
       "apple_iap": {
         "description": "پرداخت از طریق Apple In-App Purchase"
+      },
+      "aurapay": {
+        "description": "پرداخت از طریق AuraPay"
+      },
+      "cloudpayments": {
+        "description": "پرداخت با کارت بانکی از طریق CloudPayments"
+      },
+      "freekassa": {
+        "description": "پرداخت از طریق FreeKassa"
+      },
+      "freekassa_card": {
+        "description": "پرداخت با کارت"
+      },
+      "freekassa_sbp": {
+        "description": "پرداخت با QR"
+      },
+      "heleket": {
+        "description": "پرداخت رمزارز از طریق Heleket"
+      },
+      "kassa_ai": {
+        "description": "پرداخت از طریق Kassa AI"
+      },
+      "mulenpay": {
+        "description": "پرداخت از طریق MulenPay"
+      },
+      "pal24": {
+        "description": "پرداخت از طریق PAL24"
+      },
+      "paypear": {
+        "description": "پرداخت از طریق PayPear"
+      },
+      "platega": {
+        "description": "پرداخت از طریق Platega"
+      },
+      "riopay": {
+        "description": "پرداخت از طریق RioPay"
+      },
+      "rollypay": {
+        "description": "پرداخت از طریق RollyPay"
+      },
+      "wata": {
+        "description": "پرداخت از طریق Wata"
       }
     },
     "transactionHistory": "تاریخچه تراکنش‌ها",
@@ -688,6 +841,8 @@
     },
     "minAmountError": "حداقل مبلغ: {{amount}}",
     "maxAmountError": "حداکثر مبلغ: {{amount}}",
+    "paymentOption": "روش پرداخت",
+    "selectPaymentOption": "روش پرداخت را انتخاب کنید",
     "paymentReady": "لینک پرداخت آماده است",
     "clickToOpenPayment": "دکمه زیر را بزنید تا صفحه پرداخت در تب جدید باز شود",
     "openPaymentPage": "باز کردن صفحه پرداخت",
@@ -927,6 +1082,8 @@
     "contactUs": "تماس با پشتیبانی",
     "openSupport": "باز کردن پشتیبانی",
     "ticketsDisabled": "تیکت‌ها غیرفعال است",
+    "useProfile": "برای دریافت پشتیبانی به پروفایل ربات بروید",
+    "goToProfile": "رفتن به پروفایل",
     "useExternalLink": "لطفاً از لینک خارجی برای دریافت پشتیبانی استفاده کنید",
     "create_ticket": "ایجاد تیکت"
   },
@@ -1831,7 +1988,7 @@
         "subs_pricing": "قیمت‌گذاری",
         "subs_periods": "دوره‌ها",
         "subs_traffic": "ترافیک",
-        "subs_simple": "اشتراک ساده",
+        "subs_simple": "خرید سرویس",
         "subs_autopay": "پرداخت خودکار",
         "iface_general": "عمومی",
         "iface_connect": "دکمه اتصال",
@@ -4699,6 +4856,7 @@
       "telegram_unresolvable": "نام کاربری تلگرام قابل تأیید نبود. ممکن است گیرنده اعلان هدیه را دریافت نکند."
     },
     "activateButton": "فعال‌سازی",
+    "activating": "در حال فعال‌سازی…",
     "activateCodePlaceholder": "کد هدیه را وارد کنید",
     "activatedBy": "توسط {{name}} فعال شد",
     "activateDescription": "برای فعال‌سازی اشتراک، کد هدیه دریافتی را وارد کنید",
@@ -4714,22 +4872,37 @@
     "copyMessage": "کپی پیام",
     "daysShort": "روز",
     "deviceCount": "تعداد دستگاه‌ها",
+    "deviceCount_one": "{{count}} دستگاه",
+    "deviceCount_few": "{{count}} دستگاه",
+    "deviceCount_many": "{{count}} دستگاه",
     "devicesShort": "دستگاه",
+    "devicesShort_one": "دستگاه",
+    "devicesShort_few": "دستگاه",
+    "devicesShort_many": "دستگاه",
     "gbShort": "گیگابایت",
     "myGiftsEmpty": "هنوز هدیه‌ای ندارید",
     "myGiftsEmptyDesc": "هدایایی که ارسال یا دریافت می‌کنید اینجا نمایش داده می‌شوند",
     "pageTitle": "هدایا",
     "receivedGiftsTitle": "هدایای دریافت‌شده",
+    "sentGiftsTitle": "هدایای ارسالی",
     "selectPeriod": "دوره را انتخاب کنید",
     "selectTariff": "تعرفه را انتخاب کنید",
     "sentTo": "به {{name}} ارسال شد",
     "shareGift": "به اشتراک گذاشتن هدیه",
+    "sharePreview": "پیام برای ارسال",
+    "copyCode": "کپی کد",
+    "codeCopied": "کد کپی شد!",
     "shareModalActivateVia": "از طریق فعال‌سازی",
     "shareModalActivateViaCabinet": "از طریق کابین",
     "shareText": "برای شما هدیه‌ای از Bedolaga VPN دارم: {{code}}",
     "shareToastCopied": "لینک کپی شد",
     "statusActivated": "فعال شده",
     "statusAvailable": "قابل فعال‌سازی",
+    "statusPending": "در انتظار",
+    "statusDelivered": "تحویل شد",
+    "statusFailed": "ناموفق",
+    "statusExpired": "منقضی شد",
+    "statusPendingActivation": "در انتظار فعال‌سازی",
     "tabActivate": "فعال‌سازی",
     "tabBuy": "خرید",
     "tabMyGifts": "هدایای من",
