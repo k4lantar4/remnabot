@@ -16,11 +16,10 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.handlers.subscription.my_subscriptions import (
     _build_subscriptions_keyboard,
-    _edit_bot_message_content,
-    _edit_message_content,
     _filter_subscriptions_by_query,
     _subscription_matches_search,
 )
+from app.utils.message_edit import edit_bot_message_text_or_caption, edit_message_text_or_caption
 
 
 class _Texts:
@@ -128,7 +127,7 @@ async def test_edit_message_content_uses_caption_on_photo() -> None:
         ),
     )
     message.edit_caption = AsyncMock()
-    result = await _edit_message_content(message, 'new text', MagicMock())
+    result = await edit_message_text_or_caption(message, 'new text', MagicMock())
     message.edit_caption.assert_awaited_once()
     assert result is message
 
@@ -143,7 +142,7 @@ async def test_edit_bot_message_content_caption_fallback() -> None:
         ),
     )
     bot.edit_message_caption = AsyncMock()
-    assert await _edit_bot_message_content(bot, 1, 2, 'text', MagicMock()) is True
+    assert await edit_bot_message_text_or_caption(bot, 1, 2, 'text', MagicMock()) is True
     bot.edit_message_caption.assert_awaited_once()
 
 

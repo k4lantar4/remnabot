@@ -1488,46 +1488,9 @@ async def _edit_message_text_or_caption(
     parse_mode: str | None = 'HTML',
 ) -> None:
     """Edits message text when possible, falls back to caption or re-sends message."""
+    from app.utils.message_edit import edit_message_text_or_caption
 
-    # Если сообщение недоступно, отправляем новое
-    if isinstance(message, InaccessibleMessage):
-        await message.answer(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode,
-        )
-        return
-
-    try:
-        await message.edit_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode,
-        )
-    except TelegramBadRequest as error:
-        error_message = str(error).lower()
-
-        if 'message is not modified' in error_message:
-            return
-
-        if 'there is no text in the message to edit' in error_message:
-            if message.caption is not None:
-                await message.edit_caption(
-                    caption=text,
-                    reply_markup=reply_markup,
-                    parse_mode=parse_mode,
-                )
-                return
-
-            await message.delete()
-            await message.answer(
-                text,
-                reply_markup=reply_markup,
-                parse_mode=parse_mode,
-            )
-            return
-
-        raise
+    await edit_message_text_or_caption(message, text, reply_markup, parse_mode)
 
 
 async def save_cart_and_redirect_to_topup(
