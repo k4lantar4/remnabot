@@ -131,6 +131,19 @@ def _build_group_discount_lines(group: PromoGroup, texts, language: str) -> list
     return lines
 
 
+def calculate_user_subscription_flags(user: User) -> tuple[bool, bool]:
+    """Return (has_active_subscription, subscription_is_active) for menu keyboard."""
+    _subs = getattr(user, 'subscriptions', None) or []
+    if not _subs:
+        return False, False
+
+    has_active_subscription = any(
+        sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs
+    )
+    subscription_is_active = has_active_subscription
+    return has_active_subscription, subscription_is_active
+
+
 async def show_main_menu(
     callback: types.CallbackQuery,
     db_user: User,
@@ -155,11 +168,7 @@ async def show_main_menu(
     db_user.last_activity = datetime.now(UTC)
     await db.commit()
 
-    # Multi-tariff aware: check if user has ANY active subscription
-    # 'limited' (traffic exhausted) subscriptions are still active for UI purposes
-    _subs = getattr(db_user, 'subscriptions', None) or []
-    has_active_subscription = any(sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs)
-    subscription_is_active = has_active_subscription
+    has_active_subscription, subscription_is_active = calculate_user_subscription_flags(db_user)
 
     menu_text = await get_main_menu_text(db_user, texts, db)
 
@@ -1303,6 +1312,25 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
         extra_block = '\n\n'.join(section for section in info_sections if section)
         if extra_block:
             base_text = _insert_random_message(base_text, extra_block, action_prompt)
+
+    try:
+        random_message = await get_random_active_message(db)
+        if random_message:
+            return _insert_random_message(base_text, random_message, action_prompt)
+
+    except Exception as e:
+        logger.error('Ошибка получения случайного сообщения', error=e)
+
+    return base_text
+
+
+async def get_main_menu_text_simple(user_name, texts, db: AsyncSession):
+    base_text = texts.MAIN_MENU.format(
+        user_name=html.escape(user_name or ''),
+        subscription_status=texts.t('SUBSCRIPTION_NONE', 'Нет активной подписки'),
+    )
+
+    action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', 'Выберите действие:')
 
     try:
         random_message = await get_random_active_message(db)

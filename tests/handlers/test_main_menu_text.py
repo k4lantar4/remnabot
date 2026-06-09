@@ -68,3 +68,11 @@ def test_fa_main_menu_action_prompt_matches_template() -> None:
     texts = get_texts('fa')
     action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', '')
     assert action_prompt in texts.MAIN_MENU
+
+
+def test_start_imports_menu_get_main_menu_text() -> None:
+    import app.handlers.menu as menu_module
+    import app.handlers.start as start_module
+
+    assert start_module.get_main_menu_text is menu_module.get_main_menu_text
+    assert start_module.get_main_menu_text_simple is menu_module.get_main_menu_text_simple
