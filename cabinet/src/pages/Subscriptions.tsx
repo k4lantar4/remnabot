@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ClipboardIcon, PlusIcon } from '@/components/icons';
+import { ClipboardIcon, PlusIcon, SearchIcon, XIcon } from '@/components/icons';
 import { subscriptionApi } from '../api/subscription';
 import { balanceApi } from '../api/balance';
 import { useTheme } from '../hooks/useTheme';
@@ -10,6 +10,7 @@ import { getGlassColors } from '../utils/glassTheme';
 import { useAuthStore } from '../store/auth';
 import SubscriptionListCard from '../components/subscription/SubscriptionListCard';
 import TrialOfferCard from '../components/dashboard/TrialOfferCard';
+import { filterSubscriptionsByQuery } from '../utils/subscriptionDisplayLabel';
 
 function EmptyState({ onBuy }: { onBuy: () => void }) {
   const { t } = useTranslation();
@@ -51,6 +52,7 @@ export default function Subscriptions() {
   const queryClient = useQueryClient();
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [trialError, setTrialError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['subscriptions-list'],
@@ -68,6 +70,13 @@ export default function Subscriptions() {
   const hasActivePaid = subscriptions.some(
     (s) => !s.is_trial && (s.status === 'active' || s.status === 'limited'),
   );
+
+  const filteredSubscriptions = useMemo(
+    () => filterSubscriptionsByQuery(subscriptions, searchQuery, t, isMultiTariff),
+    [subscriptions, searchQuery, t, isMultiTariff],
+  );
+
+  const showSearch = subscriptions.length >= 2 && !isLoading;
 
   // Если у юзера нет подписок — проверяем доступность триала, иначе
   // (в multi-tariff) ему вообще негде увидеть оффер.
@@ -130,6 +139,51 @@ export default function Subscriptions() {
         )}
       </div>
 
+      {/* Search — visible when 2+ subscriptions (same as bot show_search) */}
+      {showSearch && (
+        <div className="space-y-2">
+          <div className="relative">
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5"
+              style={{ color: g.textSecondary }}
+            >
+              <SearchIcon className="h-4 w-4 opacity-60" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(
+                'subscriptions.searchPlaceholder',
+                'Поиск: имя на карточке, тариф или ID',
+              )}
+              className="w-full rounded-2xl border py-3 pl-10 pr-10 text-sm transition-colors focus:outline-none focus:ring-1"
+              style={{
+                background: g.cardBg,
+                borderColor: g.cardBorder,
+                color: g.text,
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 flex items-center pr-3.5 transition-opacity hover:opacity-80"
+                style={{ color: g.textSecondary }}
+                aria-label={t('subscriptions.searchClear', 'Очистить поиск')}
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {searchQuery.trim() && (
+            <p className="text-xs" style={{ color: g.textSecondary }}>
+              {t('subscriptions.searchActive', { query: searchQuery })}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Есть подписки, но платной активной нет (только триал/истёкшие) —
           даём ЯВНУЮ primary-кнопку покупки: мы продаём подписки. */}
       {!isLoading && subscriptions.length > 0 && !hasActivePaid && (
@@ -182,10 +236,34 @@ export default function Subscriptions() {
         <EmptyState onBuy={() => navigate('/subscription/purchase')} />
       )}
 
+      {/* No search results */}
+      {subscriptions.length > 0 && filteredSubscriptions.length === 0 && searchQuery.trim() && (
+        <div
+          className="rounded-2xl border p-8 text-center"
+          style={{ background: g.cardBg, borderColor: g.cardBorder }}
+        >
+          <p className="mb-4 text-sm" style={{ color: g.textSecondary }}>
+            {t('subscriptions.searchNoResults', 'Подписки по этому запросу не найдены')}
+          </p>
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="rounded-xl px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              background: g.innerBg,
+              color: g.text,
+              border: `1px solid ${g.cardBorder}`,
+            }}
+          >
+            {t('subscriptions.searchClear', 'Очистить поиск')}
+          </button>
+        </div>
+      )}
+
       {/* Subscription grid */}
-      {subscriptions.length > 0 && (
+      {filteredSubscriptions.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2">
-          {subscriptions.map((sub) => (
+          {filteredSubscriptions.map((sub) => (
             <SubscriptionListCard
               key={sub.id}
               subscription={sub}

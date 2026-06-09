@@ -5,6 +5,7 @@ import { useHaptic } from '../../platform';
 import { CalendarIcon, CheckIcon, ChevronRightIcon, DevicesIcon } from '@/components/icons';
 import type { SubscriptionListItem } from '../../types';
 import { formatUserDate } from '../../utils/formatDate';
+import { getSubscriptionDisplayLabel } from '../../utils/subscriptionDisplayLabel';
 
 function StatusBadge({
   status,
@@ -113,11 +114,7 @@ export default function SubscriptionListCard({
           : 'rgba(255,59,92,0.03)'
         : g.cardBg;
 
-  const displayName =
-    subscription.panel_username?.trim() ||
-    (isMultiTariff && subscription.account_sequence
-      ? `${subscription.tariff_name || t('subscription.defaultName', 'Подписка')} #${subscription.account_sequence}`
-      : subscription.tariff_name || t('subscription.defaultName', 'Подписка'));
+  const displayName = getSubscriptionDisplayLabel(subscription, t, isMultiTariff);
 
   return (
     <button
