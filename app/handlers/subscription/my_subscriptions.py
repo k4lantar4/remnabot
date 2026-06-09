@@ -72,6 +72,29 @@ def _account_display_name(sub, texts) -> str:
     return subscription_account_label(sub, texts)
 
 
+def _subscription_matches_search(sub, query: str, texts) -> bool:
+    q = (query or '').strip().lower()
+    if not q:
+        return True
+    # Same label as list buttons (legacy panel_username or tariff#seq; hides user_unknown_*)
+    if q in _account_display_name(sub, texts).lower():
+        return True
+    if q in str(getattr(sub, 'id', '')):
+        return True
+    tariff = getattr(sub, 'tariff', None)
+    tariff_name = (getattr(tariff, 'name', None) or '').strip().lower()
+    if tariff_name and q in tariff_name:
+        return True
+    return False
+
+
+def _filter_subscriptions_by_query(subscriptions: list, query: str, texts) -> list:
+    q = (query or '').strip()
+    if not q:
+        return list(subscriptions)
+    return [s for s in subscriptions if _subscription_matches_search(s, q, texts)]
+
+
 def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     """Format a single subscription for the list view."""
     tariff_name = _account_display_name(sub, texts)
