@@ -253,14 +253,6 @@ class SubscriptionService:
             email=user.email,
             user_id=user.id,
         )
-        panel_username = settings.build_multi_tariff_remnawave_username(
-            telegram_id=user.telegram_id,
-            username=user.username,
-            email=user.email,
-            user_id=user.id,
-            account_sequence=subscription.account_sequence,
-            remnawave_short_id=subscription.remnawave_short_id,
-        )
         common_kwargs = dict(
             status=UserStatus.ACTIVE,
             expire_at=subscription.end_date,
@@ -269,7 +261,6 @@ class SubscriptionService:
             telegram_id=user.telegram_id,
             email=user.email,
             description=description,
-            username=panel_username,
         )
         if subscription.connected_squads:
             common_kwargs['active_internal_squads'] = subscription.connected_squads
@@ -301,8 +292,16 @@ class SubscriptionService:
                     remnawave_uuid=subscription.remnawave_uuid,
                 )
 
-        # New subscription — create a NEW Remnawave user (username already in common_kwargs).
-        updated_user = await api.create_user(**common_kwargs)
+        # New subscription — create a NEW Remnawave user (username only on create).
+        username = settings.build_remnawave_subscription_username(
+            full_name=user.full_name,
+            username=user.username,
+            telegram_id=user.telegram_id,
+            email=user.email,
+            user_id=user.id,
+            suffix=f'_{subscription.remnawave_short_id}',
+        )
+        updated_user = await api.create_user(username=username, **common_kwargs)
         if reset_traffic:
             await self._reset_user_traffic(api, updated_user.uuid, user, reset_reason)
         return updated_user

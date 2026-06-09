@@ -2429,27 +2429,19 @@ class RemnaWaveService:
                                 ) and sub.end_date > datetime.now(UTC)
                                 status = UserStatus.ACTIVE if is_subscription_active else UserStatus.DISABLED
 
-                                # multi-tariff create-path в bulk-sync приклеивает
-                                # `_<remnawave_short_id>` — helper резервирует под него
-                                # место и гарантирует ≤ REMNAWAVE_USERNAME_MAX_LENGTH.
-                                if settings.is_multi_tariff_enabled():
-                                    username = settings.build_multi_tariff_remnawave_username(
-                                        telegram_id=user.telegram_id,
-                                        username=user.username,
-                                        email=user.email,
-                                        user_id=user.id,
-                                        account_sequence=sub.account_sequence,
-                                        remnawave_short_id=sub.remnawave_short_id,
-                                    )
-                                else:
-                                    username = settings.build_remnawave_subscription_username(
-                                        full_name=user.full_name,
-                                        username=user.username,
-                                        telegram_id=user.telegram_id,
-                                        email=user.email,
-                                        user_id=user.id,
-                                        suffix='',
-                                    )
+                                username_suffix = (
+                                    f'_{sub.remnawave_short_id}'
+                                    if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id)
+                                    else ''
+                                )
+                                username = settings.build_remnawave_subscription_username(
+                                    full_name=user.full_name,
+                                    username=user.username,
+                                    telegram_id=user.telegram_id,
+                                    email=user.email,
+                                    user_id=user.id,
+                                    suffix=username_suffix,
+                                )
 
                                 create_kwargs = dict(
                                     username=username,
