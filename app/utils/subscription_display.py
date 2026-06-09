@@ -10,6 +10,8 @@ def subscription_account_label(subscription: Any, texts: Any) -> str:
     New subs: fall back to {tariff} #{account_sequence}.
     """
     panel_username = (getattr(subscription, 'panel_username', None) or '').strip()
+    if panel_username.startswith('user_unknown_'):
+        panel_username = ''
     if panel_username:
         return panel_username
 
