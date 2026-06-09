@@ -100,7 +100,7 @@ async def start_platega_payment(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -208,7 +208,7 @@ async def start_platega_direct_method(
         return
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -253,7 +253,7 @@ async def process_platega_payment_amount(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
