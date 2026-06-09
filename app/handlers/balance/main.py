@@ -1,4 +1,5 @@
 import html
+from decimal import InvalidOperation
 
 import structlog
 from aiogram import Dispatcher, F, types
@@ -653,7 +654,7 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
                 reply_markup=get_back_keyboard(db_user.language),
             )
 
-    except ValueError:
+    except (ValueError, InvalidOperation):
         await message.answer(texts.INVALID_AMOUNT, reply_markup=get_back_keyboard(db_user.language))
 
 

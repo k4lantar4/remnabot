@@ -8,6 +8,7 @@ This module provides a centralized way to:
 - Convert between stored kopeks and user-facing display amounts (÷100 / ×100)
 """
 
+import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
@@ -73,13 +74,36 @@ def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
     return balance_toman >= catalog_price_in_toman(price_kopeks)
 
 
-def balance_from_display_amount(amount: float | Decimal) -> int:
+_PERSIAN_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
+_ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+_CURRENCY_SUFFIX_RE = re.compile(r'(?i)(تومان|toman|rial|₽)\s*$')
+
+
+def normalize_display_amount_text(raw: str) -> str:
+    """Normalize user-typed balance/top-up text (fa digits, separators, suffixes)."""
+    text = raw.strip().translate(_PERSIAN_DIGITS).translate(_ARABIC_DIGITS)
+    text = _CURRENCY_SUFFIX_RE.sub('', text).strip()
+    text = text.replace('\u066c', '').replace(' ', '').replace(',', '')
+    # European thousands: 10.000 → 10000 (single dot, exactly 3 fractional digits)
+    if re.fullmatch(r'-?\d+\.\d{3}', text):
+        text = text.replace('.', '')
+    return text
+
+
+def balance_from_display_amount(amount: float | Decimal | str) -> int:
     """
     Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).
 
     Preserves sign (e.g. -50 display → -50 stored).
     """
-    decimal_amount = Decimal(str(amount))
+    if isinstance(amount, str):
+        amount = normalize_display_amount_text(amount)
+        if not amount:
+            raise ValueError('Invalid display amount')
+    try:
+        decimal_amount = Decimal(str(amount))
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
     sign = -1 if decimal_amount < 0 else 1
     decimal_amount = abs(decimal_amount)
     try:
