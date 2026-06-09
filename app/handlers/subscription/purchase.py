@@ -184,12 +184,17 @@ from .traffic import (
 )
 
 
-async def show_subscription_info(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+async def show_subscription_info(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
     # Multi-tariff: redirect to "My subscriptions" list
     if settings.is_multi_tariff_enabled():
         from app.handlers.subscription.my_subscriptions import show_my_subscriptions
 
-        await show_my_subscriptions(callback, db_user, db)
+        await show_my_subscriptions(callback, db_user, db, state, page=1)
         return
 
     # Проверяем, доступно ли сообщение для редактирования
@@ -1830,7 +1835,7 @@ async def handle_extend_subscription(
         tariff = await get_tariff_by_id(db, subscription.tariff_id)
         if tariff and getattr(tariff, 'is_daily', False):
             # Суточный тариф: перенаправляем на страницу подписки (там кнопка «Возобновить»)
-            await show_subscription_info(callback, db_user, db)
+            await show_subscription_info(callback, db_user, db, state)
             return
 
         if tariff:
@@ -3197,7 +3202,12 @@ async def clear_saved_cart(callback: types.CallbackQuery, state: FSMContext, db_
 # ============== ХЕНДЛЕР ПАУЗЫ СУТОЧНОЙ ПОДПИСКИ ==============
 
 
-async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+async def handle_toggle_daily_subscription_pause(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
     """Переключает паузу суточной подписки."""
     from app.database.crud.subscription import toggle_daily_subscription_pause
     from app.database.crud.tariff import get_tariff_by_id
@@ -3398,7 +3408,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
     # Возвращаемся в меню подписки - вызываем show_subscription_info
     await db.refresh(db_user)
-    await show_subscription_info(callback, db_user, db)
+    await show_subscription_info(callback, db_user, db, state)
 
 
 # ============== ХЕНДЛЕРЫ ПЛАТНОГО ТРИАЛА ==============
@@ -4315,11 +4325,26 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(show_subscription_info, F.data == 'menu_subscription')
 
     # Multi-tariff: "My subscriptions" list and detail views
-    from app.handlers.subscription.my_subscriptions import show_my_subscriptions, show_subscription_detail
+    from app.handlers.subscription.my_subscriptions import (
+        cancel_my_subscriptions_search,
+        process_my_subscriptions_search,
+        reset_my_subscriptions_search,
+        show_my_subscriptions,
+        show_subscription_detail,
+        start_my_subscriptions_search,
+    )
 
     dp.callback_query.register(show_my_subscriptions, F.data == 'my_subscriptions')
     dp.callback_query.register(show_my_subscriptions, F.data.startswith('my_subs_page_'))
     dp.callback_query.register(show_subscription_detail, F.data.startswith('sm:'))
+    dp.callback_query.register(start_my_subscriptions_search, F.data == 'my_subs_search')
+    dp.callback_query.register(reset_my_subscriptions_search, F.data == 'my_subs_search_reset')
+    dp.callback_query.register(cancel_my_subscriptions_search, F.data == 'my_subs_search_cancel')
+    dp.message.register(
+        process_my_subscriptions_search,
+        SubscriptionStates.searching_my_subscriptions,
+        F.text,
+    )
 
     # Multi-tariff delegation handlers from subscription detail view
     from app.handlers.subscription.my_subscriptions import (
