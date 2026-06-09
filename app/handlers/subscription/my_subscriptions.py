@@ -26,6 +26,7 @@ from app.services.subscription_service import SubscriptionService
 from app.utils.formatting import format_traffic
 from app.utils.subscription_display import subscription_account_label
 from app.utils.jalali_datetime import format_user_datetime
+from app.states import SubscriptionStates
 
 
 logger = structlog.get_logger(__name__)
@@ -406,6 +407,122 @@ async def show_my_subscriptions(
     await _present_my_subscriptions_list(
         callback.message, db_user, db, state, page=page_num, callback=callback,
     )
+
+
+async def start_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+) -> None:
+    if not settings.is_multi_tariff_enabled() or not callback.message:
+        await callback.answer()
+        return
+    texts = get_texts(db_user.language)
+    await callback.answer()
+    await state.set_state(SubscriptionStates.searching_my_subscriptions)
+    await state.update_data(
+        my_subs_search_prompt_chat_id=callback.message.chat.id,
+        my_subs_search_prompt_message_id=callback.message.message_id,
+    )
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_SEARCH_CANCEL', '✖️ Отмена'),
+                    callback_data='my_subs_search_cancel',
+                )
+            ]
+        ]
+    )
+    await callback.message.edit_text(
+        texts.t(
+            'MY_SUB_SEARCH_PROMPT',
+            (
+                '🔍 <b>Поиск подписки</b>\n\n'
+                'Введите имя на кнопке (например Germany(2)-134500), '
+                'название тарифа или ID подписки.\n'
+                'Отмена — кнопка ниже или /cancel'
+            ),
+        ),
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+
+
+async def cancel_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    await state.set_state(None)
+    if not callback.message:
+        await callback.answer()
+        return
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=1, callback=callback,
+    )
+
+
+async def reset_my_subscriptions_search(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    await state.update_data(my_subs_search_query=None)
+    await state.set_state(None)
+    if not callback.message:
+        await callback.answer()
+        return
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=1, callback=callback,
+    )
+
+
+async def process_my_subscriptions_search(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    raw = (message.text or '').strip()
+    data = await state.get_data()
+    chat_id = data.get('my_subs_search_prompt_chat_id')
+    msg_id = data.get('my_subs_search_prompt_message_id')
+
+    if raw.lower() in {'/cancel', 'cancel', 'отмена'}:
+        await state.set_state(None)
+        await message.answer(texts.t('MY_SUB_SEARCH_CANCELLED', '✖️ Поиск отменён'))
+    elif not raw:
+        await message.answer(texts.t('MY_SUB_SEARCH_EMPTY_QUERY', '❌ Введите текст для поиска'))
+        return
+    else:
+        await state.update_data(my_subs_search_query=raw)
+        await state.set_state(None)
+
+    if not chat_id or not msg_id:
+        await message.answer(
+            texts.t(
+                'MY_SUB_SEARCH_STATE_LOST',
+                '❌ Сессия истекла. Откройте список подписок снова.',
+            )
+        )
+        return
+
+    text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=1)
+    await message.bot.edit_message_text(
+        text=text,
+        chat_id=chat_id,
+        message_id=msg_id,
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 async def show_subscription_detail(
