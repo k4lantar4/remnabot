@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.utils.price_display import display_balance_from_storage
 from app.database.models import (
     AdvertisingCampaign,
     ReferralEarning,
@@ -102,10 +103,10 @@ async def get_referral_info(
         total_referrals=total_referrals,
         active_referrals=active_referrals,
         total_earnings_kopeks=total_earnings,
-        total_earnings_rubles=total_earnings / 100,
+        total_earnings_rubles=display_balance_from_storage(total_earnings),
         commission_percent=commission_percent,
         available_balance_kopeks=available_balance,
-        available_balance_rubles=float(available_balance),
+        available_balance_rubles=display_balance_from_storage(available_balance),
         withdrawn_kopeks=withdrawn,
     )
 
@@ -214,7 +215,7 @@ async def get_referral_earnings(
             ReferralEarningResponse(
                 id=e.id,
                 amount_kopeks=e.amount_kopeks,
-                amount_rubles=e.amount_kopeks / 100,
+                amount_rubles=display_balance_from_storage(e.amount_kopeks),
                 reason=e.reason or 'Referral commission',
                 referral_username=referral_user.username if referral_user else None,
                 referral_first_name=referral_user.first_name if referral_user else None,
@@ -229,7 +230,7 @@ async def get_referral_earnings(
         items=items,
         total=total,
         total_amount_kopeks=total_amount,
-        total_amount_rubles=total_amount / 100,
+        total_amount_rubles=display_balance_from_storage(total_amount),
         page=page,
         per_page=per_page,
         pages=pages,
