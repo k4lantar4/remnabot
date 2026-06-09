@@ -7,6 +7,7 @@ Only active when MULTI_TARIFF_ENABLED=True.
 
 from __future__ import annotations
 
+import html
 import structlog
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
@@ -268,27 +269,38 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-async def show_my_subscriptions(
-    callback: types.CallbackQuery,
+async def _build_my_subscriptions_view(
     db_user: User,
     db: AsyncSession,
-    state: FSMContext | None = None,
-) -> None:
-    """Show list of all user subscriptions."""
+    state: FSMContext | None,
+    *,
+    page: int = 1,
+) -> tuple[str, types.InlineKeyboardMarkup]:
     if not settings.is_multi_tariff_enabled():
-        # Fallback to legacy single subscription view
-        return
+        raise RuntimeError('multi-tariff only')
 
-    subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
+    all_subscriptions = await get_all_subscriptions_by_user_id(db, db_user.id)
     texts = get_texts(db_user.language)
-    page = _parse_list_page(callback.data)
+
+    search_query = ''
+    if state is not None:
+        data = await state.get_data()
+        search_query = (data.get('my_subs_search_query') or '').strip()
+
+    subscriptions = (
+        _filter_subscriptions_by_query(all_subscriptions, search_query, texts)
+        if search_query
+        else all_subscriptions
+    )
+
+    total_unfiltered = len(all_subscriptions)
     total_count = len(subscriptions)
     total_pages = max(1, (total_count + MY_SUBS_PER_PAGE - 1) // MY_SUBS_PER_PAGE)
-    page = min(page, total_pages)
+    page = min(max(1, page), total_pages)
     start = (page - 1) * MY_SUBS_PER_PAGE
     page_subs = subscriptions[start : start + MY_SUBS_PER_PAGE]
 
-    if not subscriptions:
+    if not all_subscriptions:
         text = texts.t('MY_SUB_LIST_EMPTY', '📋 <b>Мои подписки</b>\n\nУ вас нет подписок.')
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -306,8 +318,38 @@ async def show_my_subscriptions(
                 ],
             ]
         )
+    elif search_query and not subscriptions:
+        safe_query = html.escape(search_query)
+        text = (
+            texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n'
+            + texts.t(
+                'MY_SUB_SEARCH_ACTIVE',
+                '🔍 Поиск: <b>{query}</b>\n',
+            ).format(query=safe_query)
+            + '\n'
+            + texts.t(
+                'MY_SUB_SEARCH_NO_RESULTS',
+                '🔍 По запросу «{query}» подписки не найдены.',
+            ).format(query=safe_query)
+        )
+        keyboard = _build_subscriptions_keyboard(
+            [],
+            db_user.language,
+            page=1,
+            total_pages=1,
+            search_query=search_query,
+            show_search=total_unfiltered >= 2,
+        )
     else:
         lines = [texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n']
+        if search_query:
+            safe_query = html.escape(search_query)
+            lines.append(
+                texts.t(
+                    'MY_SUB_SEARCH_ACTIVE',
+                    '🔍 Поиск: <b>{query}</b>\n',
+                ).format(query=safe_query)
+            )
         if total_pages > 1:
             lines.append(
                 texts.t(
@@ -324,11 +366,46 @@ async def show_my_subscriptions(
             db_user.language,
             page=page,
             total_pages=total_pages,
+            search_query=search_query,
+            show_search=total_unfiltered >= 2,
         )
 
-    if callback.message:
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
-    await callback.answer()
+    return text, keyboard
+
+
+async def _present_my_subscriptions_list(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None,
+    *,
+    page: int = 1,
+    callback: types.CallbackQuery | None = None,
+) -> None:
+    text, keyboard = await _build_my_subscriptions_view(db_user, db, state, page=page)
+    await message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+    if callback is not None:
+        await callback.answer()
+
+
+async def show_my_subscriptions(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None = None,
+    *,
+    page: int | None = None,
+) -> None:
+    """Show list of all user subscriptions."""
+    if not settings.is_multi_tariff_enabled():
+        return
+    if not callback.message:
+        await callback.answer()
+        return
+    page_num = page if page is not None else _parse_list_page(callback.data)
+    await _present_my_subscriptions_list(
+        callback.message, db_user, db, state, page=page_num, callback=callback,
+    )
 
 
 async def show_subscription_detail(
