@@ -114,9 +114,10 @@ export default function SubscriptionListCard({
         : g.cardBg;
 
   const displayName =
-    isMultiTariff && subscription.account_sequence
+    subscription.panel_username?.trim() ||
+    (isMultiTariff && subscription.account_sequence
       ? `${subscription.tariff_name || t('subscription.defaultName', 'Подписка')} #${subscription.account_sequence}`
-      : subscription.tariff_name || t('subscription.defaultName', 'Подписка');
+      : subscription.tariff_name || t('subscription.defaultName', 'Подписка'));
 
   return (
     <button
