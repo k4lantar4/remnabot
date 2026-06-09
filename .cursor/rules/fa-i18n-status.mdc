@@ -110,6 +110,7 @@ Branch `i18n/fa-jalali-dates` — P1 user-surface Jalali calendar.
 ## Done (emergency — Jun 9 2026)
 
 - [x] **fix/remnawave-username-upstream-revert:** revert panel username to upstream create-only path — remove `build_multi_tariff_remnawave_username`, stop sending username on `update_user`, production `.env` → `user_{telegram_id}`
+- [x] **chore/user-unknown-remediation:** regression test (`3734f5cf`), report CLI (`704898b2`), agent smoke — **scope closed** (Jun 9 2026 user approval). x-ui dry-run 0/44 match (post-bug multi-tariff subs, not migration legacy); 44 rows keep `{tariff} #{seq}` in UI via `2fcf103e`
 
 ## Done (fix/toman-balance-units — Jun 9 2026)
 
@@ -140,6 +141,17 @@ Branch `i18n/fa-remaining` from `main` (**9 commits**, `7b8d0155` → `e79e72e0`
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
 
 **fa Jalali P1 complete** on branch `i18n/fa-jalali-dates` — pending user smoke before PR → `dev-local` → `main`.
+
+### user_unknown remediation — CLOSED (do not reopen)
+
+| Out of scope (explicit) | Reason |
+|-------------------------|--------|
+| RemnaWave panel rename (`user_unknown_*` → `user_{telegram_id}_{short_id}`) | Triggers `user.modified` per user; cosmetic panel label only |
+| `build_multi_tariff_remnawave_username` / `username` on `update_user` | Caused Jun 9 `#modified` flood; reverted in PR #49 |
+| x-ui `--execute` for 44 `user_unknown_*` rows | 0/44 matcher hits — not migration legacy; wrong tool |
+| Separate tracks | `i18n/fa-remaining` Task 9/10, `fix/toman-balance-units`, other open PRs |
+
+**Operator inventory:** `docker compose run --rm bot python tools/report_user_unknown_subscriptions.py`
 
 ### Post-P1.5b
 
