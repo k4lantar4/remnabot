@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.models import User
 from app.utils.formatting import format_traffic
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.pricing_utils import (
     format_period_description,
 )
@@ -376,7 +377,7 @@ async def get_subscription_info_text(subscription, texts, db_user, db: AsyncSess
         countries_count=len(subscription.connected_squads or []),
         devices_used=devices_used,
         devices_limit=subscription.device_limit,
-        autopay_status='✅ Включен' if subscription.autopay_enabled else '⌛ Выключен',
+        autopay_status='✅ Включен' if effective_autopay_enabled(subscription) else '⌛ Выключен',
     )
 
     if subscription_cost > 0:

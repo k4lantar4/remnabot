@@ -264,7 +264,7 @@ class MonitoringService:
 
                 # ВАЖНО: autopay ПЕРЕД check_expired — иначе подписки с автоплатой
                 # экспайрятся до того, как autopay успеет их продлить
-                # Продление с баланса работает всегда, если у подписки autopay_enabled=True
+                # Продление с баланса требует ENABLE_AUTOPAY и autopay_enabled=True на подписке
                 await self._process_autopayments(db)
                 # Рекуррентные автоплатежи с карты: требуют ENABLE_AUTOPAY + YOOKASSA_RECURRENT_ENABLED
                 if settings.ENABLE_AUTOPAY and settings.YOOKASSA_RECURRENT_ENABLED:
@@ -1216,6 +1216,9 @@ class MonitoringService:
         return subscriptions
 
     async def _process_autopayments(self, db: AsyncSession):
+        if not settings.ENABLE_AUTOPAY:
+            return
+
         try:
             current_time = datetime.now(UTC)
 

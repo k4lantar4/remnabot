@@ -11,6 +11,7 @@ from app.database.models import User
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_texts
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.price_display import PriceInfo, format_price_button
 from app.utils.pricing_utils import (
     apply_percentage_discount,
@@ -83,7 +84,7 @@ async def get_main_menu_keyboard_async(
 
             # Автоплатеж
             if hasattr(subscription, 'autopay_enabled'):
-                has_autopay = subscription.autopay_enabled
+                has_autopay = effective_autopay_enabled(subscription)
 
         # Получаем данные пользователя
         if user:

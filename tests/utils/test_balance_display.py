@@ -7,6 +7,7 @@ from app.utils.price_display import (
     display_balance_from_storage,
     display_transaction_amount_from_storage,
     is_balance_scale_transaction,
+    normalize_display_amount_text,
 )
 
 
@@ -41,6 +42,37 @@ def test_balance_from_display_amount(amount: float, expected_toman: int) -> None
 
 def test_balance_from_display_amount_decimal() -> None:
     assert balance_from_display_amount(Decimal('100')) == 100
+
+
+@pytest.mark.parametrize(
+    ('raw', 'expected_toman'),
+    [
+        ('10000', 10000),
+        ('10,000', 10000),
+        ('10.000', 10000),
+        ('۱۰٬۰۰۰', 10000),
+        ('50 تومان', 50),
+        ('  120 152  ', 120152),
+    ],
+)
+def test_balance_from_display_amount_user_text(raw: str, expected_toman: int) -> None:
+    assert balance_from_display_amount(raw) == expected_toman
+
+
+def test_balance_from_display_amount_invalid_text_raises() -> None:
+    with pytest.raises(ValueError):
+        balance_from_display_amount('abc')
+
+
+@pytest.mark.parametrize(
+    ('raw', 'expected'),
+    [
+        ('۱۰٬۰۰۰ تومان', '10000'),
+        ('10,000', '10000'),
+    ],
+)
+def test_normalize_display_amount_text(raw: str, expected: str) -> None:
+    assert normalize_display_amount_text(raw) == expected
 
 
 def test_format_balance_fa_grouping(monkeypatch) -> None:

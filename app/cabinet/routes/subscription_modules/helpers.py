@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from app.config import settings
+from app.utils.autopay_utils import effective_autopay_enabled
 
 
 if TYPE_CHECKING:
@@ -216,7 +217,7 @@ def _subscription_to_response(
         device_limit=subscription.device_limit or 0,
         connected_squads=subscription.connected_squads or [],
         servers=servers or [],
-        autopay_enabled=subscription.autopay_enabled or False,
+        autopay_enabled=effective_autopay_enabled(subscription),
         autopay_days_before=subscription.autopay_days_before or 3,
         subscription_url=subscription.subscription_url,
         hide_subscription_link=hide_link,

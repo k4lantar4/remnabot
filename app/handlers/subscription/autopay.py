@@ -23,6 +23,7 @@ from app.keyboards.inline import (
     get_traffic_packages_keyboard,
 )
 from app.localization.texts import get_texts
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.services.subscription_checkout_service import (
     clear_subscription_checkout_draft,
 )
@@ -72,7 +73,7 @@ async def handle_autopay_menu(callback: types.CallbackQuery, db_user: User, db: 
 
     status = (
         texts.t('AUTOPAY_STATUS_ENABLED', 'включен')
-        if subscription.autopay_enabled
+        if effective_autopay_enabled(subscription)
         else texts.t('AUTOPAY_STATUS_DISABLED', 'выключен')
     )
     days = subscription.autopay_days_before
@@ -109,6 +110,17 @@ async def toggle_autopay(callback: types.CallbackQuery, db_user: User, db: Async
     enable = callback.data.startswith('autopay_enable')
 
     if enable:
+        texts = get_texts(db_user.language)
+        if not settings.ENABLE_AUTOPAY:
+            await callback.answer(
+                texts.t(
+                    'AUTOPAY_GLOBALLY_DISABLED',
+                    'Автоплатеж отключён администратором.',
+                ),
+                show_alert=True,
+            )
+            return
+
         # Trial subscriptions cannot use autopay
         if subscription.is_trial or subscription.is_trial is None:
             texts = get_texts(db_user.language)

@@ -1686,8 +1686,14 @@ class Settings(BaseSettings):
         except (ValueError, AttributeError):
             return [3, 1]
 
+    def is_autopay_globally_enabled(self) -> bool:
+        return bool(self.ENABLE_AUTOPAY)
+
     def is_autopay_enabled_by_default(self) -> bool:
-        value = getattr(self, 'DEFAULT_AUTOPAY_ENABLED', True)
+        if not self.is_autopay_globally_enabled():
+            return False
+
+        value = getattr(self, 'DEFAULT_AUTOPAY_ENABLED', False)
 
         if isinstance(value, str):
             normalized = value.strip().lower()

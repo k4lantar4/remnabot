@@ -1,7 +1,7 @@
 import asyncio
 
 import structlog
-from aiogram import types
+from aiogram import Bot, types
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError
 from aiogram.types import InaccessibleMessage, InputMediaPhoto
 
@@ -73,6 +73,44 @@ async def _answer_text(
     await callback.message.answer(
         caption,
         **kwargs,
+    )
+
+
+async def send_main_menu_to_chat(
+    bot: Bot,
+    chat_id: int,
+    caption: str,
+    keyboard: types.InlineKeyboardMarkup,
+    parse_mode: str = 'HTML',
+) -> None:
+    """Send main menu as logo photo (when enabled) or plain text — same as back_to_menu."""
+    resolved_parse_mode = parse_mode or 'HTML'
+
+    if (
+        settings.ENABLE_LOGO_MODE
+        and LOGO_PATH.exists()
+        and not caption_exceeds_telegram_limit(caption)
+    ):
+        logo_media = get_logo_media()
+        if logo_media is not None:
+            try:
+                result = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=logo_media,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode=resolved_parse_mode,
+                )
+                _cache_logo_file_id(result)
+                return
+            except (TelegramBadRequest, TelegramForbiddenError) as error:
+                logger.debug('send_main_menu_to_chat photo failed, fallback to text', error=error)
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=caption,
+        reply_markup=keyboard,
+        parse_mode=resolved_parse_mode,
     )
 
 
