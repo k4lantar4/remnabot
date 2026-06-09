@@ -558,19 +558,19 @@
       "cooldown": "صدور مجدد لینک تا {{minutes}} دقیقه و {{seconds}} ثانیه دیگر"
     },
     "legacy": {
-      "selectTariffTitle": "یک تعرفه برای تمدید انتخاب کنید",
-      "selectTariffDescription": "اشتراک فعلی شما قبل از معرفی تعرفه‌ها ایجاد شده بود. برای تمدید، لطفاً یکی از تعرفه‌های موجود را انتخاب کنید.",
+      "selectTariffTitle": "یک سرویس برای تمدید انتخاب کنید",
+      "selectTariffDescription": "اشتراک فعلی شما قبل از معرفی سرویس‌ها ایجاد شده بود. برای تمدید، لطفاً یکی از سرویس‌های موجود را انتخاب کنید.",
       "currentSubContinues": "اشتراک فعلی شما تا پایان مدت فعال باقی خواهد ماند."
     },
     "switchTariff": {
       "dailyPayment": "پرداخت روزانه",
       "dailyChargeDescription": "روزانه از موجودی کسر می‌شود",
-      "currentTariff": "تعرفه فعلی",
+      "currentTariff": "سرویس فعلی",
       "free": "رایگان",
-      "newTariff": "تعرفه جدید",
+      "newTariff": "سرویس جدید",
       "remainingDays": "روزهای باقی‌مانده",
       "switch": "تغییر",
-      "title": "تغییر تعرفه",
+      "title": "تغییر سرویس",
       "upgradeCost": "هزینه ارتقا",
       "notEnoughBalance": "موجودی کافی نیست",
       "preview": "پیش‌نمایش",
