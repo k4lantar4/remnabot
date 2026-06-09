@@ -116,7 +116,7 @@ from app.utils.subscription_utils import (
     get_display_subscription_link,
     resolve_simple_subscription_device_limit,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 
 from .autopay import (
     handle_autopay_menu,
@@ -184,12 +184,17 @@ from .traffic import (
 )
 
 
-async def show_subscription_info(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+async def show_subscription_info(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
     # Multi-tariff: redirect to "My subscriptions" list
     if settings.is_multi_tariff_enabled():
         from app.handlers.subscription.my_subscriptions import show_my_subscriptions
 
-        await show_my_subscriptions(callback, db_user, db)
+        await show_my_subscriptions(callback, db_user, db, state, page=1)
         return
 
     # Проверяем, доступно ли сообщение для редактирования
@@ -513,7 +518,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
         warning=warning_text,
         tariff_info_block=tariff_info_block,
         subscription_type=subscription_type,
-        end_date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M'),
+        end_date=format_user_datetime(subscription.end_date, language=texts.language, fmt='%d.%m.%Y %H:%M'),
         time_left=time_left_text,
         traffic=traffic_used_display,
         servers=servers_display,
@@ -575,7 +580,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                 bar = '▰' * filled + '▱' * (bar_length - filled)
 
                 # Форматируем дату истечения
-                expire_date = purchase.expires_at.strftime('%d.%m.%Y')
+                expire_date = format_user_datetime(purchase.expires_at, language=texts.language, fmt='%d.%m.%Y')
 
                 # Формируем текст о времени
                 if days_remaining == 0:
@@ -1483,46 +1488,9 @@ async def _edit_message_text_or_caption(
     parse_mode: str | None = 'HTML',
 ) -> None:
     """Edits message text when possible, falls back to caption or re-sends message."""
+    from app.utils.message_edit import edit_message_text_or_caption
 
-    # Если сообщение недоступно, отправляем новое
-    if isinstance(message, InaccessibleMessage):
-        await message.answer(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode,
-        )
-        return
-
-    try:
-        await message.edit_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode,
-        )
-    except TelegramBadRequest as error:
-        error_message = str(error).lower()
-
-        if 'message is not modified' in error_message:
-            return
-
-        if 'there is no text in the message to edit' in error_message:
-            if message.caption is not None:
-                await message.edit_caption(
-                    caption=text,
-                    reply_markup=reply_markup,
-                    parse_mode=parse_mode,
-                )
-                return
-
-            await message.delete()
-            await message.answer(
-                text,
-                reply_markup=reply_markup,
-                parse_mode=parse_mode,
-            )
-            return
-
-        raise
+    await edit_message_text_or_caption(message, text, reply_markup, parse_mode)
 
 
 async def save_cart_and_redirect_to_topup(
@@ -1830,7 +1798,7 @@ async def handle_extend_subscription(
         tariff = await get_tariff_by_id(db, subscription.tariff_id)
         if tariff and getattr(tariff, 'is_daily', False):
             # Суточный тариф: перенаправляем на страницу подписки (там кнопка «Возобновить»)
-            await show_subscription_info(callback, db_user, db)
+            await show_subscription_info(callback, db_user, db, state)
             return
 
         if tariff:
@@ -2178,7 +2146,7 @@ async def confirm_extend_subscription(
         texts.t('SUBSCRIPTION_RENEWAL_SUCCESS', '✅ Подписка успешно продлена!\n\n')
         + texts.t('SUBSCRIPTION_RENEWAL_ADDED_DAYS', '⏰ Добавлено: {days} дней\n').format(days=days)
         + texts.t('SUBSCRIPTION_RENEWAL_VALID_UNTIL', 'Действует до: {date}\n\n').format(
-            date=format_local_datetime(refreshed_end_date, '%d.%m.%Y %H:%M')
+            date=format_user_datetime(refreshed_end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
         )
         + texts.t('SUBSCRIPTION_RENEWAL_CHARGED', '💰 Списано: {price}').format(price=texts.format_price(price))
     )
@@ -3197,7 +3165,12 @@ async def clear_saved_cart(callback: types.CallbackQuery, state: FSMContext, db_
 # ============== ХЕНДЛЕР ПАУЗЫ СУТОЧНОЙ ПОДПИСКИ ==============
 
 
-async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+async def handle_toggle_daily_subscription_pause(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
     """Переключает паузу суточной подписки."""
     from app.database.crud.subscription import toggle_daily_subscription_pause
     from app.database.crud.tariff import get_tariff_by_id
@@ -3398,7 +3371,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
     # Возвращаемся в меню подписки - вызываем show_subscription_info
     await db.refresh(db_user)
-    await show_subscription_info(callback, db_user, db)
+    await show_subscription_info(callback, db_user, db, state)
 
 
 # ============== ХЕНДЛЕРЫ ПЛАТНОГО ТРИАЛА ==============
@@ -4315,11 +4288,26 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(show_subscription_info, F.data == 'menu_subscription')
 
     # Multi-tariff: "My subscriptions" list and detail views
-    from app.handlers.subscription.my_subscriptions import show_my_subscriptions, show_subscription_detail
+    from app.handlers.subscription.my_subscriptions import (
+        cancel_my_subscriptions_search,
+        process_my_subscriptions_search,
+        reset_my_subscriptions_search,
+        show_my_subscriptions,
+        show_subscription_detail,
+        start_my_subscriptions_search,
+    )
 
     dp.callback_query.register(show_my_subscriptions, F.data == 'my_subscriptions')
     dp.callback_query.register(show_my_subscriptions, F.data.startswith('my_subs_page_'))
     dp.callback_query.register(show_subscription_detail, F.data.startswith('sm:'))
+    dp.callback_query.register(start_my_subscriptions_search, F.data == 'my_subs_search')
+    dp.callback_query.register(reset_my_subscriptions_search, F.data == 'my_subs_search_reset')
+    dp.callback_query.register(cancel_my_subscriptions_search, F.data == 'my_subs_search_cancel')
+    dp.message.register(
+        process_my_subscriptions_search,
+        SubscriptionStates.searching_my_subscriptions,
+        F.text,
+    )
 
     # Multi-tariff delegation handlers from subscription detail view
     from app.handlers.subscription.my_subscriptions import (
@@ -4919,7 +4907,7 @@ async def _extend_existing_subscription(
         texts.t('SUBSCRIPTION_RENEWAL_SUCCESS', '✅ Подписка успешно продлена!\n\n')
         + texts.t('SUBSCRIPTION_RENEWAL_ADDED_DAYS', '⏰ Добавлено: {days} дней\n').format(days=period_days)
         + texts.t('SUBSCRIPTION_RENEWAL_VALID_UNTIL', 'Действует до: {date}\n\n').format(
-            date=format_local_datetime(new_end_date, '%d.%m.%Y %H:%M')
+            date=format_user_datetime(new_end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
         )
         + texts.t('SUBSCRIPTION_RENEWAL_CHARGED', '💰 Списано: {price}').format(price=texts.format_price(price_kopeks))
     )

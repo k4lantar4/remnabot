@@ -79,7 +79,7 @@ async def open_c2c_topup_from_message(
     texts = get_texts(db_user.language)
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or 'Действие ограничено администратором')
+        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
         support_url = settings.get_support_contact_url()
         keyboard: list[list[types.InlineKeyboardButton]] = []
         if support_url:

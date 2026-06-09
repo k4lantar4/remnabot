@@ -33,6 +33,7 @@ class SubscriptionStates(StatesGroup):
     # Локальное переименование HWID-устройства (alias). hwid и page/sub_id
     # передаются через state data, чтобы вернуться к ровно тому же списку.
     renaming_device = State()
+    searching_my_subscriptions = State()
 
 
 class BalanceStates(StatesGroup):

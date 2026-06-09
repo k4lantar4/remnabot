@@ -12,6 +12,7 @@ import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { cn } from '@/lib/utils';
 import ProviderIcon from '../components/ProviderIcon';
 import type { MergeAccountPreview } from '../types';
+import { formatUserDate } from '../utils/formatDate';
 
 // -- Icons --
 
@@ -85,17 +86,13 @@ function formatCountdown(seconds: number): string {
   return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
 }
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null, lang?: string): string {
   if (!dateStr) return '-';
-  try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatUserDate(dateStr, lang, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function formatBalance(kopeks: number): string {
@@ -128,7 +125,7 @@ interface AccountCardProps {
 }
 
 function AccountCard({ account, label, isSelected, onSelect, showRadio }: AccountCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <Card className={cn('transition-colors', isSelected && 'border-accent-500/50')}>
@@ -161,7 +158,7 @@ function AccountCard({ account, label, isSelected, onSelect, showRadio }: Accoun
             </p>
             {account.subscription.end_date && (
               <p className="text-sm text-dark-400">
-                {t('merge.until', { date: formatDate(account.subscription.end_date) })}
+                {t('merge.until', { date: formatDate(account.subscription.end_date, i18n.language) })}
               </p>
             )}
             <p className="text-sm text-dark-400">

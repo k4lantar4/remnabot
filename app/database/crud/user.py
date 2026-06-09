@@ -595,7 +595,6 @@ async def lock_user_for_pricing(db: AsyncSession, user_id: int) -> User:
         .options(
             selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
             selectinload(User.promo_group),
-            selectinload(User.subscriptions).selectinload(Subscription.tariff),
         )
         .with_for_update()
         .execution_options(populate_existing=True)

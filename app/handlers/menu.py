@@ -38,10 +38,12 @@ from app.utils.promo_offer import (
     build_promo_offer_hint,
     build_test_access_hint,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 
 
 logger = structlog.get_logger(__name__)
+
+MAIN_MENU_MULTI_PREVIEW_MAX = 3
 
 
 def _collect_period_discounts(group: PromoGroup) -> dict[int, int]:
@@ -131,6 +133,19 @@ def _build_group_discount_lines(group: PromoGroup, texts, language: str) -> list
     return lines
 
 
+def calculate_user_subscription_flags(user: User) -> tuple[bool, bool]:
+    """Return (has_active_subscription, subscription_is_active) for menu keyboard."""
+    _subs = getattr(user, 'subscriptions', None) or []
+    if not _subs:
+        return False, False
+
+    has_active_subscription = any(
+        sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs
+    )
+    subscription_is_active = has_active_subscription
+    return has_active_subscription, subscription_is_active
+
+
 async def show_main_menu(
     callback: types.CallbackQuery,
     db_user: User,
@@ -155,11 +170,7 @@ async def show_main_menu(
     db_user.last_activity = datetime.now(UTC)
     await db.commit()
 
-    # Multi-tariff aware: check if user has ANY active subscription
-    # 'limited' (traffic exhausted) subscriptions are still active for UI purposes
-    _subs = getattr(db_user, 'subscriptions', None) or []
-    has_active_subscription = any(sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs)
-    subscription_is_active = has_active_subscription
+    has_active_subscription, subscription_is_active = calculate_user_subscription_flags(db_user)
 
     menu_text = await get_main_menu_text(db_user, texts, db)
 
@@ -995,85 +1006,8 @@ async def process_language_change(
 
 
 async def handle_back_to_menu(callback: types.CallbackQuery, state: FSMContext, db_user: User, db: AsyncSession):
-    if db_user is None:
-        # Пользователь не найден, используем язык по умолчанию
-        texts = get_texts(settings.DEFAULT_LANGUAGE)
-        await callback.answer(
-            texts.t(
-                'USER_NOT_FOUND_ERROR',
-                'Ошибка: пользователь не найден.',
-            ),
-            show_alert=True,
-        )
-        return
-
     await state.clear()
-
-    texts = get_texts(db_user.language)
-
-    # Multi-tariff aware: check if user has ANY active subscription
-    # 'limited' (traffic exhausted) subscriptions are still active for UI purposes
-    _subs = getattr(db_user, 'subscriptions', None) or []
-    has_active_subscription = any(sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs)
-    subscription_is_active = has_active_subscription
-
-    menu_text = await get_main_menu_text(db_user, texts, db)
-
-    draft_exists = await has_subscription_checkout_draft(db_user.id)
-    show_resume_checkout = should_offer_checkout_resume(db_user, draft_exists)
-
-    # Проверяем наличие сохраненной корзины в Redis
-    try:
-        has_saved_cart = await user_cart_service.has_user_cart(db_user.id)
-    except Exception as e:
-        logger.error('Ошибка проверки сохраненной корзины для пользователя', db_user_id=db_user.id, error=e)
-        has_saved_cart = False
-
-    saved_cart_resume_label = None
-    if has_saved_cart:
-        try:
-            cart = await user_cart_service.get_user_cart(db_user.id)
-            if cart and cart.get('cart_mode') == 'extend':
-                saved_cart_resume_label = texts.t('RETURN_TO_SAVED_CART_RENEW', '⬅️ Вернуться к продлению')
-        except Exception:
-            pass
-
-    is_admin = settings.is_admin(db_user.telegram_id)
-    is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
-
-    custom_buttons = []
-    if not settings.is_text_main_menu_mode():
-        custom_buttons = await MainMenuButtonService.get_buttons_for_user(
-            db,
-            is_admin=is_admin,
-            has_active_subscription=has_active_subscription,
-            subscription_is_active=subscription_is_active,
-        )
-
-    keyboard = await get_main_menu_keyboard_async(
-        db=db,
-        user=db_user,
-        language=db_user.language,
-        is_admin=is_admin,
-        is_moderator=is_moderator,
-        has_had_paid_subscription=db_user.has_had_paid_subscription,
-        has_active_subscription=has_active_subscription,
-        subscription_is_active=subscription_is_active,
-        balance_kopeks=db_user.balance_kopeks,
-        subscription=db_user.subscription,  # Uses primary subscription (multi-tariff compatible via property)
-        show_resume_checkout=show_resume_checkout,
-        has_saved_cart=has_saved_cart,
-        custom_buttons=custom_buttons,
-        saved_cart_resume_label=saved_cart_resume_label,
-    )
-
-    await edit_or_answer_photo(
-        callback=callback,
-        caption=menu_text,
-        keyboard=keyboard,
-        parse_mode='HTML',
-    )
-    await callback.answer()
+    await show_main_menu(callback, db_user, db)
 
 
 def _get_subscription_status(user: User, texts, is_daily_tariff: bool = False) -> str:
@@ -1084,7 +1018,11 @@ def _get_subscription_status(user: User, texts, is_daily_tariff: bool = False) -
     current_time = datetime.now(UTC)
     actual_status = (subscription.actual_status or '').lower()
     end_date = getattr(subscription, 'end_date', None)
-    end_date_text = format_local_datetime(end_date, '%d.%m.%Y') if end_date else None
+    end_date_text = (
+        format_user_datetime(end_date, language=texts.language, fmt='%d.%m.%Y')
+        if end_date
+        else None
+    )
     days_left = 0
 
     if subscription.end_date > current_time:
@@ -1187,7 +1125,10 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
 
     current_time = datetime.now(UTC)
     lines: list[str] = []
-    for sub in subscriptions:
+    preview_subs = subscriptions[:MAIN_MENU_MULTI_PREVIEW_MAX]
+    overflow_count = len(subscriptions) - MAIN_MENU_MULTI_PREVIEW_MAX
+
+    for sub in preview_subs:
         tariff_name = html.escape(sub.tariff.name) if sub.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
         actual = sub.actual_status
 
@@ -1206,7 +1147,9 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_LIMITED', ' — лимит трафика')
         elif sub.end_date and sub.end_date > current_time:
             days_left = (sub.end_date - current_time).days
-            end_str = format_local_datetime(sub.end_date, '%d.%m.%Y')
+            end_str = format_user_datetime(
+                sub.end_date, language=texts.language, fmt='%d.%m.%Y'
+            )
             status_suffix = texts.t(
                 'MY_SUB_STATUS_SUFFIX_UNTIL',
                 ' — до {end_date} ({days} дн.)',
@@ -1215,6 +1158,14 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             status_suffix = ''
 
         lines.append(f'{emoji} <b>{tariff_name}</b>{status_suffix}')
+
+    if overflow_count > 0:
+        lines.append(
+            texts.t(
+                'MAIN_MENU_MULTI_MORE',
+                '… and {count} more',
+            ).format(count=overflow_count)
+        )
 
     status_text = '\n<blockquote>' + '\n'.join(lines) + '</blockquote>'
     return status_text, ''
@@ -1297,6 +1248,25 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
         extra_block = '\n\n'.join(section for section in info_sections if section)
         if extra_block:
             base_text = _insert_random_message(base_text, extra_block, action_prompt)
+
+    try:
+        random_message = await get_random_active_message(db)
+        if random_message:
+            return _insert_random_message(base_text, random_message, action_prompt)
+
+    except Exception as e:
+        logger.error('Ошибка получения случайного сообщения', error=e)
+
+    return base_text
+
+
+async def get_main_menu_text_simple(user_name, texts, db: AsyncSession):
+    base_text = texts.MAIN_MENU.format(
+        user_name=html.escape(user_name or ''),
+        subscription_status=texts.t('SUBSCRIPTION_NONE', 'Нет активной подписки'),
+    )
+
+    action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', 'Выберите действие:')
 
     try:
         random_message = await get_random_active_message(db)

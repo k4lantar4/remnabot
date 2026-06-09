@@ -5741,7 +5741,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                     # формат username'а и не уникальны per-subscription.
                     username_suffix = (
                         f'_{subscription.remnawave_short_id}'
-                        if (settings.is_multi_tariff_enabled() and getattr(subscription, 'remnawave_short_id', None))
+                        if (settings.is_multi_tariff_enabled() and subscription.remnawave_short_id)
                         else ''
                     )
                     username = settings.build_remnawave_subscription_username(

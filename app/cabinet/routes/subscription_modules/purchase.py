@@ -32,6 +32,7 @@ from app.database.crud.subscription import (
 from app.database.crud.tariff import get_tariff_by_id, get_tariffs_for_user
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import PaymentMethod, Subscription, Tariff, TransactionType, User
 from app.services.notification_delivery_service import (
@@ -494,7 +495,11 @@ async def submit_purchase(
                     if is_new_subscription
                     else NotificationType.SUBSCRIPTION_RENEWED
                 )
-                end_date_str = subscription.end_date.strftime('%d.%m.%Y') if subscription.end_date else ''
+                end_date_str = (
+                    format_user_datetime(subscription.end_date, language=user.language, fmt='%d.%m.%Y')
+                    if subscription.end_date
+                    else ''
+                )
                 await notification_delivery_service.send_notification(
                     user=user,
                     notification_type=notification_type,
@@ -869,10 +874,11 @@ async def purchase_tariff(
                 ' (промо -{percent}%)',
                 percent=promo_offer_discount_percent,
             )
+        charge_toman = catalog_price_in_toman(price_kopeks)
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            charge_toman,
             description,
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -951,7 +957,7 @@ async def purchase_tariff(
                 await add_user_balance(
                     db,
                     user,
-                    price_kopeks,
+                    charge_toman,
                     _t(
                         user,
                         'TARIFF_REFUND_ALREADY_ACTIVE',
@@ -1114,7 +1120,11 @@ async def purchase_tariff(
                     if was_new_subscription
                     else NotificationType.SUBSCRIPTION_RENEWED
                 )
-                end_date_str = subscription.end_date.strftime('%d.%m.%Y') if subscription.end_date else ''
+                end_date_str = (
+                    format_user_datetime(subscription.end_date, language=user.language, fmt='%d.%m.%Y')
+                    if subscription.end_date
+                    else ''
+                )
                 await notification_delivery_service.send_notification(
                     user=user,
                     notification_type=notification_type,

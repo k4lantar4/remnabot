@@ -12,6 +12,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useTelegramSDK } from '../hooks/useTelegramSDK';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useHaptic } from '@/platform';
+import { formatUserDate } from '../utils/formatDate';
 import {
   CheckCircleIcon,
   CloseIcon,
@@ -22,7 +23,7 @@ import {
 } from '@/components/icons';
 
 export default function SuccessNotificationModal() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const isOpen = useSuccessNotification((state) => state.isOpen);
   const data = useSuccessNotification((state) => state.data);
@@ -95,7 +96,7 @@ export default function SuccessNotificationModal() {
 
   // Format expiry date
   const formattedExpiry = data.expiresAt
-    ? new Date(data.expiresAt).toLocaleDateString(undefined, {
+    ? formatUserDate(data.expiresAt, i18n.language, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

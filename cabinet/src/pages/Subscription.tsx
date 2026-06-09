@@ -10,6 +10,7 @@ import TrafficProgressBar from '../components/dashboard/TrafficProgressBar';
 import { HoverBorderGradient } from '../components/ui/hover-border-gradient';
 import { useTrafficZone } from '../hooks/useTrafficZone';
 import { formatTraffic } from '../utils/formatTraffic';
+import { formatUserDate } from '../utils/formatDate';
 import { getGlassColors } from '../utils/glassTheme';
 import { copyToClipboard } from '../utils/clipboard';
 import { useTheme } from '../hooks/useTheme';
@@ -51,7 +52,7 @@ const CountdownTimer = memo(function CountdownTimer({
   isActive: boolean;
   glassColors: ReturnType<typeof getGlassColors>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
@@ -73,11 +74,7 @@ const CountdownTimer = memo(function CountdownTimer({
   const isExpired = !isActive;
   const isUrgent = countdown.days <= 3;
 
-  const formattedDate = new Date(endDate).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const formattedDate = formatUserDate(endDate, i18n.language);
 
   return (
     <div
@@ -184,7 +181,7 @@ const CountdownTimer = memo(function CountdownTimer({
 });
 
 export default function Subscription() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { formatAmount, currencySymbol } = useCurrency();
   const navigate = useNavigate();
@@ -997,11 +994,7 @@ export default function Subscription() {
                             </div>
                             <div className="mt-0.5 font-mono text-[9px] text-dark-50/20">
                               {t('subscription.trafficResetAt')}:{' '}
-                              {new Date(purchase.expires_at).toLocaleDateString(undefined, {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })}
+                              {formatUserDate(purchase.expires_at, i18n.language)}
                             </div>
                           </div>
                         </div>
@@ -1017,8 +1010,8 @@ export default function Subscription() {
                           />
                         </div>
                         <div className="mt-1 flex justify-between font-mono text-[9px] text-dark-50/20">
-                          <span>{new Date(purchase.created_at).toLocaleDateString()}</span>
-                          <span>{new Date(purchase.expires_at).toLocaleDateString()}</span>
+                          <span>{formatUserDate(purchase.created_at, i18n.language)}</span>
+                          <span>{formatUserDate(purchase.expires_at, i18n.language)}</span>
                         </div>
                       </div>
                     ))}
@@ -1203,7 +1196,7 @@ export default function Subscription() {
                   </div>
                   <div className="mt-1 text-[12px] text-dark-50/35">
                     {t('subscription.pause.pausedDescription')}{' '}
-                    {new Date(subscription.end_date).toLocaleDateString()} (
+                    {formatUserDate(subscription.end_date, i18n.language)} (
                     {t('subscription.pause.days', { count: subscription.days_left })})
                   </div>
                 </div>

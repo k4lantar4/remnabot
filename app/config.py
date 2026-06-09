@@ -142,7 +142,6 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = 'api_key'  # api_key, basic, bearer, cookies, caddy
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = 'Bot user: {full_name} {username}'
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = 'user_{telegram_id}'
-    REMNAWAVE_MULTI_ACCOUNT_USERNAME_TEMPLATE: str = 'a{account_sequence}'
     REMNAWAVE_USER_DELETE_MODE: str = 'delete'  # "delete" или "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = '03:00'
@@ -255,6 +254,8 @@ class Settings(BaseSettings):
     # Multi-tariff mode: allows users to purchase multiple tariffs simultaneously
     # Only works when SALES_MODE='tariffs'
     MULTI_TARIFF_ENABLED: bool = False
+    # Скрыть цены в меню покупки тарифа (список + выбор периода); расчёт при оплате не меняется
+    TARIFF_PURCHASE_HIDE_PRICES: bool = False
     MAX_ACTIVE_SUBSCRIPTIONS: int = 10
 
     # ID тарифа для триала в режиме тарифов (0 = использовать стандартные настройки триала)

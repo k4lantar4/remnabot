@@ -567,10 +567,17 @@ class PricingEngine:
         Device cost is monthly × months_in_period.
         """
         months = calculate_months_from_days(period_days)
+        use_custom_traffic = (
+            custom_traffic_gb is not None
+            and hasattr(tariff, 'can_purchase_custom_traffic')
+            and tariff.can_purchase_custom_traffic()
+        )
 
         # --- Base price ---
         is_daily = getattr(tariff, 'is_daily', False)
-        if is_daily and period_days <= 1:
+        if use_custom_traffic:
+            base_price = 0
+        elif is_daily and period_days <= 1:
             base_price = int(getattr(tariff, 'daily_price_kopeks', 0) or 0)
         else:
             period_prices: dict = tariff.period_prices or {}
@@ -592,12 +599,12 @@ class PricingEngine:
         else:
             devices_price = extra_devices * device_price_per_unit * months
 
-        # --- Custom traffic (tariff add-on, uses addon discount path) ---
+        # --- Custom traffic (per GB × months; uses addon discount path) ---
         traffic_price = 0
-        if custom_traffic_gb is not None and hasattr(tariff, 'get_price_for_custom_traffic'):
-            raw_traffic = tariff.get_price_for_custom_traffic(custom_traffic_gb)
-            if raw_traffic and raw_traffic > 0:
-                traffic_price = int(raw_traffic)
+        if use_custom_traffic and custom_traffic_gb is not None:
+            per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
+            if per_gb > 0:
+                traffic_price = per_gb * custom_traffic_gb * months
 
         # --- Per-category group discounts ---
         period_pct = 0

@@ -403,7 +403,7 @@ async def _do_add_balance(
     params: BulkActionParams,
     dry_run: bool,
 ) -> BulkUserResult:
-    amount_kopeks = params.amount_kopeks  # already validated
+    amount_kopeks = _require_amount_kopeks(params)
 
     if dry_run:
         return BulkUserResult(

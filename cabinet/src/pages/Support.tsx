@@ -15,6 +15,7 @@ import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import { ChatIcon, CloseIcon, ImageIcon, PlusIcon, SendIcon } from '@/components/icons';
 import { usePlatform } from '@/platform';
 import { linkifyText } from '../utils/linkify';
+import { formatUserDate, formatUserDateTime } from '../utils/formatDate';
 
 const log = logger.createLogger('Support');
 
@@ -31,7 +32,7 @@ interface MediaAttachment {
 export default function Support() {
   log.debug('Component loaded');
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isAdmin = useAuthStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const { openTelegramLink, openLink } = usePlatform();
@@ -408,7 +409,7 @@ export default function Support() {
                     </span>
                   </div>
                   <div className="text-xs text-dark-500">
-                    {new Date(ticket.updated_at).toLocaleDateString()}
+                    {formatUserDate(ticket.updated_at, i18n.language)}
                   </div>
                 </button>
               ))}
@@ -555,7 +556,7 @@ export default function Support() {
                     </span>
                     <span className="text-xs text-dark-500">
                       {t('support.created')}{' '}
-                      {new Date(selectedTicket.created_at).toLocaleDateString()}
+                      {formatUserDate(selectedTicket.created_at, i18n.language)}
                     </span>
                   </div>
                 </div>
@@ -584,7 +585,7 @@ export default function Support() {
                           {msg.is_from_admin ? t('support.supportTeam') : t('support.you')}
                         </span>
                         <span className="text-xs text-dark-500">
-                          {new Date(msg.created_at).toLocaleString()}
+                          {formatUserDateTime(msg.created_at, i18n.language)}
                         </span>
                       </div>
                       {msg.message_text && (

@@ -4,19 +4,8 @@ import { getGlassColors } from '../../utils/glassTheme';
 import { useHaptic } from '../../platform';
 import { CalendarIcon, CheckIcon, ChevronRightIcon, DevicesIcon } from '@/components/icons';
 import type { SubscriptionListItem } from '../../types';
-
-function formatDate(iso: string | null, locale?: string): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString(locale ?? undefined, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-}
+import { formatUserDate } from '../../utils/formatDate';
+import { getSubscriptionDisplayLabel } from '../../utils/subscriptionDisplayLabel';
 
 function StatusBadge({
   status,
@@ -125,10 +114,7 @@ export default function SubscriptionListCard({
           : 'rgba(255,59,92,0.03)'
         : g.cardBg;
 
-  const displayName =
-    isMultiTariff && subscription.account_sequence
-      ? `${subscription.tariff_name || t('subscription.defaultName', 'Подписка')} #${subscription.account_sequence}`
-      : subscription.tariff_name || t('subscription.defaultName', 'Подписка');
+  const displayName = getSubscriptionDisplayLabel(subscription, t, isMultiTariff);
 
   return (
     <button
@@ -182,7 +168,7 @@ export default function SubscriptionListCard({
         </span>
         <span className="flex items-center gap-1">
           <CalendarIcon className="h-3.5 w-3.5 opacity-50" />
-          {formatDate(subscription.end_date, i18n.language)}
+          {formatUserDate(subscription.end_date, i18n.language)}
         </span>
         {!isTrial &&
           (() => {
