@@ -2927,7 +2927,7 @@
   "LOW_BALANCE_ALERT": "⚠️ <b>موجودی کم</b>\n\nموجودی شما: {balance} ₽\nآستانه اطلاع‌رسانی: {threshold} ₽\n\nموجودی خود را شارژ کنید تا تمدید خودکار اشتراک با موفقیت انجام شود.",
   "MAINTENANCE_MODE_ACTIVE": "\n🔧 تعمیرات فنی!\n\nسرویس موقتاً در دسترس نیست. در حال بهبود کیفیت خدمات هستیم.\n\n⏰ زمان تقریبی اتمام: نامشخص\n🔄 بعداً تلاش کنید\n\nبابت ناراحتی عذرخواهی می‌کنیم.\n",
   "MAINTENANCE_MODE_API_ERROR": "\n🔧 تعمیرات فنی!\n\nسرویس به دلیل مشکل اتصال به سرورها موقتاً در دسترس نیست.\n\n⏰ در حال رفع مشکل هستیم. چند دقیقه بعد تلاش کنید.\n\n🔄 آخرین بررسی: {last_check}\n",
-  "MAIN_MENU": "👤 <b>{user_name}</b>\n    \n📱 <b>اشتراک:</b> {subscription_status}\n\nعملیات:\n",
+  "MAIN_MENU": "👤 <b>{user_name}</b>\n    \n📱 <b>اشتراک:</b> {subscription_status}\n\nعملیات را انتخاب کنید:\n",
   "MAIN_MENU_ACTION_PROMPT": "عملیات را انتخاب کنید:",
   "MAIN_MENU_BUTTON": "🏠 منوی اصلی",
   "MAIN_MENU_TARIFF_LINE": "\n📦 تعرفه: {name}",
