@@ -214,6 +214,8 @@ class SubscriptionService:
                 subscription.subscription_url = updated_user.subscription_url
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 subscription.remnawave_uuid = updated_user.uuid
+                if updated_user.username:
+                    subscription.panel_username = updated_user.username.strip()[:64]
                 # Legacy field — keep in sync for single-mode backward compat
                 if not settings.is_multi_tariff_enabled():
                     user.remnawave_uuid = updated_user.uuid
@@ -302,6 +304,8 @@ class SubscriptionService:
             suffix=f'_{subscription.remnawave_short_id}',
         )
         updated_user = await api.create_user(username=username, **common_kwargs)
+        if updated_user and updated_user.username:
+            subscription.panel_username = updated_user.username.strip()[:64]
         if reset_traffic:
             await self._reset_user_traffic(api, updated_user.uuid, user, reset_reason)
         return updated_user
@@ -388,6 +392,8 @@ class SubscriptionService:
             user_id=user.id,
         )
         updated_user = await api.create_user(username=username, **common_kwargs)
+        if updated_user and updated_user.username:
+            subscription.panel_username = updated_user.username.strip()[:64]
         if reset_traffic:
             await self._reset_user_traffic(api, updated_user.uuid, user, reset_reason)
         return updated_user
