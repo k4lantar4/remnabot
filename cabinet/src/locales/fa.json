@@ -242,6 +242,15 @@
     "failed": "تایید ناموفق",
     "goToLogin": "رفتن به صفحه ورود"
   },
+  "resetPassword": {
+    "title": "رمز عبور جدید",
+    "enterNewPassword": "رمز عبور جدید را در زیر وارد کنید.",
+    "success": "رمز عبور تغییر کرد!",
+    "redirectingToLogin": "در حال انتقال به صفحه ورود…",
+    "setPassword": "تنظیم رمز عبور",
+    "invalidToken": "لینک نامعتبر است",
+    "tokenExpiredOrInvalid": "لینک بازیابی رمز عبور نامعتبر یا منقضی شده است."
+  },
   "dashboard": {
     "title": "داشبورد",
     "welcome": "خوش آمدید، {{name}}!",
@@ -749,6 +758,48 @@
       },
       "apple_iap": {
         "description": "پرداخت از طریق Apple In-App Purchase"
+      },
+      "aurapay": {
+        "description": "پرداخت از طریق AuraPay"
+      },
+      "cloudpayments": {
+        "description": "پرداخت با کارت بانکی از طریق CloudPayments"
+      },
+      "freekassa": {
+        "description": "پرداخت از طریق FreeKassa"
+      },
+      "freekassa_card": {
+        "description": "پرداخت با کارت"
+      },
+      "freekassa_sbp": {
+        "description": "پرداخت با QR"
+      },
+      "heleket": {
+        "description": "پرداخت رمزارز از طریق Heleket"
+      },
+      "kassa_ai": {
+        "description": "پرداخت از طریق Kassa AI"
+      },
+      "mulenpay": {
+        "description": "پرداخت از طریق MulenPay"
+      },
+      "pal24": {
+        "description": "پرداخت از طریق PAL24"
+      },
+      "paypear": {
+        "description": "پرداخت از طریق PayPear"
+      },
+      "platega": {
+        "description": "پرداخت از طریق Platega"
+      },
+      "riopay": {
+        "description": "پرداخت از طریق RioPay"
+      },
+      "rollypay": {
+        "description": "پرداخت از طریق RollyPay"
+      },
+      "wata": {
+        "description": "پرداخت از طریق Wata"
       }
     },
     "transactionHistory": "تاریخچه تراکنش‌ها",
@@ -790,6 +841,8 @@
     },
     "minAmountError": "حداقل مبلغ: {{amount}}",
     "maxAmountError": "حداکثر مبلغ: {{amount}}",
+    "paymentOption": "روش پرداخت",
+    "selectPaymentOption": "روش پرداخت را انتخاب کنید",
     "paymentReady": "لینک پرداخت آماده است",
     "clickToOpenPayment": "دکمه زیر را بزنید تا صفحه پرداخت در تب جدید باز شود",
     "openPaymentPage": "باز کردن صفحه پرداخت",
@@ -1029,6 +1082,8 @@
     "contactUs": "تماس با پشتیبانی",
     "openSupport": "باز کردن پشتیبانی",
     "ticketsDisabled": "تیکت‌ها غیرفعال است",
+    "useProfile": "برای دریافت پشتیبانی به پروفایل ربات بروید",
+    "goToProfile": "رفتن به پروفایل",
     "useExternalLink": "لطفاً از لینک خارجی برای دریافت پشتیبانی استفاده کنید",
     "create_ticket": "ایجاد تیکت"
   },
