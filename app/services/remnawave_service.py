@@ -45,6 +45,17 @@ from app.utils.timezone import get_local_timezone
 logger = structlog.get_logger(__name__)
 
 
+def _panel_username_from_payload(panel_user: dict) -> str | None:
+    raw = (panel_user.get('username') or '').strip()
+    return raw[:64] if raw else None
+
+
+def _maybe_set_panel_username(subscription, panel_user: dict) -> None:
+    name = _panel_username_from_payload(panel_user)
+    if name and not (getattr(subscription, 'panel_username', None) or '').strip():
+        subscription.panel_username = name
+
+
 def _get_user_traffic_bytes(panel_user: dict[str, Any]) -> int:
     """Извлекает usedTrafficBytes из панельного пользователя (совместимо с новым и старым API)"""
     # Новый формат: userTraffic.usedTrafficBytes
@@ -2072,6 +2083,7 @@ class RemnaWaveService:
                             tariff_id=_matched_tariff_id,
                             account_sequence=await get_next_account_sequence(db, _bot_user.id),
                         )
+                        new_sub.panel_username = _panel_username_from_payload(panel_user)
                         db.add(new_sub)
                         subs_by_uuid[panel_uuid] = new_sub
                         # Keep in-memory state consistent for subsequent iterations
@@ -2186,6 +2198,8 @@ class RemnaWaveService:
                 'traffic_used_gb': traffic_used_gb,
                 'device_limit': coerce_panel_device_limit(panel_user.get('hwidDeviceLimit')),
                 'connected_squads': squad_uuids,
+                'remnawave_uuid': panel_user.get('uuid'),
+                'panel_username': _panel_username_from_payload(panel_user),
                 'remnawave_short_uuid': panel_user.get('shortUuid'),
                 'subscription_url': panel_user.get('subscriptionUrl', ''),
                 'subscription_crypto_link': (
@@ -2212,6 +2226,8 @@ class RemnaWaveService:
                     traffic_used_gb=0.0,
                     device_limit=1,
                     connected_squads=[],
+                    remnawave_uuid=panel_user.get('uuid'),
+                    panel_username=_panel_username_from_payload(panel_user),
                     remnawave_short_uuid=panel_user.get('shortUuid'),
                     subscription_url=panel_user.get('subscriptionUrl', ''),
                     subscription_crypto_link=(
@@ -2240,6 +2256,8 @@ class RemnaWaveService:
             if not subscription:
                 await self._create_subscription_from_panel_data(db, user, panel_user)
                 return
+
+            _maybe_set_panel_username(subscription, panel_user)
 
             # Skip if recently updated by webhook (prevent stale data overwrite)
             if is_recently_updated_by_webhook(subscription):

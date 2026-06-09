@@ -2167,6 +2167,7 @@ class Subscription(Base):
         String(16), nullable=False, unique=True, server_default=''
     )  # Permanent short ID for username suffix
     account_sequence = Column(Integer, nullable=False, default=1)
+    panel_username = Column(String(64), nullable=True)  # Display cache from RemnaWave panel; never pushed on update
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)
