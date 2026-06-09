@@ -30,6 +30,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
+from app.utils.subscription_display import subscription_account_label
 from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 
@@ -4708,9 +4709,7 @@ async def confirm_instant_switch(
 
 
 def _saved_cart_account_label(subscription, texts) -> str:
-    tariff_name = subscription.tariff.name if subscription.tariff else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
-    seq = getattr(subscription, 'account_sequence', 1) or 1
-    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
+    return subscription_account_label(subscription, texts)
 
 
 async def return_to_saved_tariff_cart(
