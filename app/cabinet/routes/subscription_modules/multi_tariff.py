@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.database.crud.subscription import (
     decrement_subscription_server_counts,
     get_all_subscriptions_by_user_id,
@@ -73,7 +74,7 @@ def _subscription_to_list_item(sub) -> SubscriptionListItem:
         is_trial=sub.is_trial or False,
         is_daily=bool(sub.tariff and getattr(sub.tariff, 'is_daily', False)),
         is_daily_paused=bool(getattr(sub, 'is_daily_paused', False)),
-        autopay_enabled=sub.autopay_enabled or False,
+        autopay_enabled=effective_autopay_enabled(sub),
         connected_squads=sub.connected_squads,
     )
 

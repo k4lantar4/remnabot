@@ -105,6 +105,7 @@ from app.utils.telegram_webapp import (
     parse_webapp_init_data,
 )
 from app.utils.jalali_datetime import format_user_datetime
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.user_utils import (
     get_detailed_referral_list,
     get_effective_referral_commission_percent,
@@ -294,7 +295,7 @@ def _build_autopay_payload(
     if subscription is None:
         return None
 
-    enabled = bool(getattr(subscription, 'autopay_enabled', False))
+    enabled = effective_autopay_enabled(subscription)
     days_before = _normalize_autopay_days(getattr(subscription, 'autopay_days_before', None))
     options = _get_autopay_day_options(subscription)
 
@@ -3370,7 +3371,7 @@ async def get_subscription_details(
         ss_conf_links = links_payload.get('ss_conf_links') or {}
         remnawave_short_uuid = subscription.remnawave_short_uuid
         device_limit_value = subscription.device_limit
-        autopay_enabled = bool(subscription.autopay_enabled)
+        autopay_enabled = effective_autopay_enabled(subscription)
 
     autopay_payload = _build_autopay_payload(subscription)
     autopay_days_before = getattr(autopay_payload, 'autopay_days_before', None) if autopay_payload else None
@@ -5204,7 +5205,7 @@ async def get_subscription_renewal_options_endpoint(
         list(getattr(renewal_autopay_payload, 'autopay_days_options', []) or []) if renewal_autopay_payload else []
     )
     renewal_autopay_extras = _autopay_response_extras(
-        bool(subscription.autopay_enabled),
+        effective_autopay_enabled(subscription),
         renewal_autopay_days_before,
         renewal_autopay_days_options,
         renewal_autopay_payload,
@@ -5221,7 +5222,7 @@ async def get_subscription_renewal_options_endpoint(
         default_period_id=default_period_id,
         missing_amount_kopeks=missing_amount,
         status_message=_build_renewal_status_message(user),
-        autopay_enabled=bool(subscription.autopay_enabled),
+        autopay_enabled=effective_autopay_enabled(subscription),
         autopay_days_before=renewal_autopay_days_before,
         autopay_days_options=renewal_autopay_days_options,
         autopay=renewal_autopay_payload,
