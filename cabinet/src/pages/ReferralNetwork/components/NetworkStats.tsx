@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { NetworkGraphData } from '@/types/referralNetwork';
-import { formatKopeksToRubles } from '../utils';
+import { useCatalogKopeksDisplay } from '../useCatalogKopeksDisplay';
 
 interface NetworkStatsProps {
   data: NetworkGraphData;
@@ -9,6 +9,7 @@ interface NetworkStatsProps {
 
 export function NetworkStats({ data, className }: NetworkStatsProps) {
   const { t } = useTranslation();
+  const { formatCatalogKopeks } = useCatalogKopeksDisplay();
 
   return (
     <div
@@ -44,7 +45,7 @@ export function NetworkStats({ data, className }: NetworkStatsProps) {
             {t('admin.referralNetwork.stats.subscriptionRevenue')}
           </p>
           <p className="font-mono text-sm font-semibold text-accent-400">
-            {formatKopeksToRubles(data.total_subscription_revenue_kopeks)} ₽
+            {formatCatalogKopeks(data.total_subscription_revenue_kopeks)}
           </p>
         </div>
         <div className="col-span-2 border-t border-dark-700/30 pt-1.5">
@@ -52,7 +53,7 @@ export function NetworkStats({ data, className }: NetworkStatsProps) {
             {t('admin.referralNetwork.stats.totalEarnings')}
           </p>
           <p className="font-mono text-sm font-semibold text-dark-100">
-            {formatKopeksToRubles(data.total_earnings_kopeks)} ₽
+            {formatCatalogKopeks(data.total_earnings_kopeks)}
           </p>
         </div>
       </div>
