@@ -1296,6 +1296,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     from app.database.models import PaymentMethod, TransactionType
     from app.services.subscription_renewal_service import SubscriptionRenewalService
     from app.services.subscription_service import SubscriptionService
+    from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
     if settings.is_multi_tariff_enabled():
         from app.database.crud.subscription import get_active_subscriptions_by_user_id
@@ -1370,7 +1371,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
                     user=db_user,
                 )
                 price = new_pricing.final_total
-            if price <= balance:
+            if user_can_afford(balance, price):
                 best_period = period
                 best_price = price
                 best_pricing = pricing_result if subscription else None
@@ -1392,10 +1393,8 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
                     user=db_user,
                 )
                 min_price = min_new_pricing.final_total
-            missing = min_price - balance
-            # texts.format_price(..., round_kopeks=False) показывает копейки, чтобы юзер видел
-            # «не хватает 0.40 ₽» вместо обрезанного «0 ₽» от integer division.
-            missing_label = texts.format_price(missing, round_kopeks=False)
+            missing_toman = max(0, catalog_price_in_toman(min_price) - balance)
+            missing_label = texts.format_balance(missing_toman, round_kopeks=False)
             await callback.answer(
                 texts.t(
                     'INSUFFICIENT_FUNDS_DETAILED',
@@ -1441,7 +1440,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             success = await subtract_user_balance(
                 db,
                 db_user,
-                best_price,
+                catalog_price_in_toman(best_price),
                 f'Активация подписки на {best_period} дней',
                 mark_as_paid_subscription=True,
                 consume_promo_offer=consume_promo,
