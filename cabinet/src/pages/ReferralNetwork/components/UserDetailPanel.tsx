@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { referralNetworkApi } from '@/api/referralNetwork';
 import { CloseIcon } from '@/components/icons';
 import { useReferralNetworkStore } from '@/store/referralNetwork';
-import { formatKopeksToRubles, getSubscriptionStatusColor } from '../utils';
+import { getSubscriptionStatusColor } from '../utils';
+import { useCatalogKopeksDisplay } from '../useCatalogKopeksDisplay';
 
 interface UserDetailPanelProps {
   userId: number;
@@ -12,6 +13,7 @@ interface UserDetailPanelProps {
 
 export function UserDetailPanel({ userId, className }: UserDetailPanelProps) {
   const { t } = useTranslation();
+  const { formatCatalogKopeks } = useCatalogKopeksDisplay();
   const setSelectedNode = useReferralNetworkStore((s) => s.setSelectedNode);
 
   const {
@@ -138,7 +140,7 @@ export function UserDetailPanel({ userId, className }: UserDetailPanelProps) {
                     {t('admin.referralNetwork.user.totalSpent')}
                   </span>
                   <span className="font-mono text-dark-100">
-                    {formatKopeksToRubles(user.personal_spent_kopeks)} ₽
+                    {formatCatalogKopeks(user.personal_spent_kopeks)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -146,7 +148,7 @@ export function UserDetailPanel({ userId, className }: UserDetailPanelProps) {
                     {t('admin.referralNetwork.user.referralEarnings')}
                   </span>
                   <span className="font-mono text-accent-400">
-                    {formatKopeksToRubles(user.personal_revenue_kopeks)} ₽
+                    {formatCatalogKopeks(user.personal_revenue_kopeks)}
                   </span>
                 </div>
               </div>
@@ -175,7 +177,7 @@ export function UserDetailPanel({ userId, className }: UserDetailPanelProps) {
                     {t('admin.referralNetwork.user.branchRevenue')}
                   </span>
                   <span className="font-mono text-dark-100">
-                    {formatKopeksToRubles(user.branch_revenue_kopeks)} ₽
+                    {formatCatalogKopeks(user.branch_revenue_kopeks)}
                   </span>
                 </div>
               </div>
