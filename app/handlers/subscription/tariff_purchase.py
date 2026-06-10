@@ -2220,6 +2220,7 @@ def get_tariff_extend_keyboard(
     language: str,
     db_user: User | None = None,
     subscription_device_limit: int | None = None,
+    sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру выбора периода для продления по тарифу с учетом скидок по периодам."""
     from app.services.pricing_engine import PricingEngine
@@ -2261,7 +2262,8 @@ def get_tariff_extend_keyboard(
         button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_extend:{tariff.id}:{period}')])
 
-    buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')])
+    back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
+    buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -2270,9 +2272,11 @@ def get_tariff_extend_confirm_keyboard(
     tariff_id: int,
     period: int,
     language: str,
+    sub_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру подтверждения продления по тарифу."""
     texts = get_texts(language)
+    back_cb = f'se:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'subscription_extend'
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -2281,7 +2285,7 @@ def get_tariff_extend_confirm_keyboard(
                     callback_data=f'tariff_ext_confirm:{tariff_id}:{period}',
                 )
             ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='subscription_extend')],
+            [InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)],
         ]
     )
 
@@ -2435,7 +2439,11 @@ async def show_tariff_extend(
             devices=actual_device_limit,
         ),
         reply_markup=get_tariff_extend_keyboard(
-            tariff, db_user.language, db_user=db_user, subscription_device_limit=actual_device_limit
+            tariff,
+            db_user.language,
+            db_user=db_user,
+            subscription_device_limit=actual_device_limit,
+            sub_id=subscription.id,
         ),
         parse_mode='HTML',
     )
@@ -2513,7 +2521,12 @@ async def select_tariff_extend_period(
                 balance=ctx['balance_label'],
                 after=ctx['after_label'],
             ),
-            reply_markup=get_tariff_extend_confirm_keyboard(tariff_id, period, db_user.language),
+            reply_markup=get_tariff_extend_confirm_keyboard(
+                tariff_id,
+                period,
+                db_user.language,
+                sub_id=subscription.id if subscription else None,
+            ),
             parse_mode='HTML',
         )
     else:
