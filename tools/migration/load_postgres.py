@@ -39,10 +39,10 @@ async def ensure_migration_tariffs(db, squad_uuids: dict[str, str]) -> None:
         raise RuntimeError('No tariff template in DB — create at least one tariff before migration load')
 
     specs = [
-        (2, 'Premium', squad_uuids.get('premium')),
-        (3, 'Basic', squad_uuids.get('basic')),
+        (2, 'Premium', 'سرویس پریمیوم VPN — سرعت و پایداری بالاتر، ۱۰ گیگ حجم، ۳ دستگاه', squad_uuids.get('premium')),
+        (3, 'Basic', 'سرویس پایه VPN — مناسب استفاده روزانه، ۱۰ گیگ حجم، ۵ دستگاه', squad_uuids.get('basic')),
     ]
-    for tariff_id, name, squad_uuid in specs:
+    for tariff_id, name, description, squad_uuid in specs:
         if tariff_id in existing:
             continue
         squads = [squad_uuid] if squad_uuid else list(template.allowed_squads or [])
@@ -50,7 +50,7 @@ async def ensure_migration_tariffs(db, squad_uuids: dict[str, str]) -> None:
             Tariff(
                 id=tariff_id,
                 name=name,
-                description=f'Migration placeholder {name}',
+                description=description,
                 display_order=tariff_id,
                 is_active=True,
                 traffic_limit_gb=template.traffic_limit_gb,
