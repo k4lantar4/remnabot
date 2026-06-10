@@ -997,3 +997,34 @@ class TestOriginalPriceIdentity:
         with patch('app.services.pricing_engine.get_user_active_promo_discount_percent', return_value=5):
             result = await engine.calculate_renewal_price(db, sub, 30, user=user)
         assert result.original_total == 20000  # undiscounted subtotal
+
+
+class TestRenewalCustomTrafficTariff:
+    @pytest.mark.asyncio
+    async def test_renewal_uses_subscription_traffic_for_custom_traffic_tariff(self):
+        engine = PricingEngine()
+        db = AsyncMock()
+        tariff = MagicMock()
+        tariff.id = 1
+        tariff.period_prices = {'30': 0, '90': 0}
+        tariff.device_price_kopeks = 0
+        tariff.device_limit = 1
+        tariff.traffic_price_per_gb_kopeks = 10000
+        tariff.can_purchase_custom_traffic.return_value = True
+        tariff.is_daily = False
+        tariff.can_purchase_custom_days.return_value = False
+        tariff.is_available_for_promo_group.return_value = True
+
+        sub = MagicMock()
+        sub.tariff_id = 1
+        sub.tariff = tariff
+        sub.device_limit = 1
+        sub.traffic_limit_gb = 50
+
+        result_30 = await engine.calculate_renewal_price(db, sub, 30, user=None)
+        assert result_30.traffic_price == 500000
+        assert result_30.final_total == 500000
+
+        result_90 = await engine.calculate_renewal_price(db, sub, 90, user=None)
+        assert result_90.traffic_price == 1500000
+        assert result_90.final_total == 1500000

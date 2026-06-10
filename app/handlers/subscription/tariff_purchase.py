@@ -2203,55 +2203,37 @@ async def confirm_daily_tariff_purchase(
 # ==================== Продление по тарифу ====================
 
 
-def _calc_extra_devices_cost(tariff: Tariff, subscription_device_limit: int, period_days: int) -> int:
-    """Рассчитывает стоимость дополнительных устройств сверх тарифа для периода."""
-    additional = max(0, subscription_device_limit - (tariff.device_limit or 1))
-    if additional <= 0:
-        return 0
-    device_price = getattr(tariff, 'device_price_kopeks', None) or 0
-    if device_price <= 0:
-        return 0
-    months = max(1, round(period_days / 30))
-    return additional * device_price * months
-
-
-def get_tariff_extend_keyboard(
+async def get_tariff_extend_keyboard(
     tariff: Tariff,
     language: str,
     db_user: User | None = None,
     subscription_device_limit: int | None = None,
     sub_id: int | None = None,
+    custom_traffic_gb: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру выбора периода для продления по тарифу с учетом скидок по периодам."""
-    from app.services.pricing_engine import PricingEngine
+    from app.services.pricing_engine import pricing_engine
 
     texts = get_texts(language)
     buttons = []
 
-    promo_group = PricingEngine.resolve_promo_group(db_user) if db_user else None
+    effective_device_limit = (
+        subscription_device_limit if subscription_device_limit is not None else (tariff.device_limit or 0)
+    )
+    effective_custom_traffic = custom_traffic_gb if tariff.can_purchase_custom_traffic() else None
 
     prices = tariff.period_prices or {}
     for period_str in sorted(prices.keys(), key=int):
         period = int(period_str)
-        base_price = prices[period_str]
-
-        # Стоимость дополнительных устройств
-        devices_cost = 0
-        if subscription_device_limit is not None:
-            devices_cost = _calc_extra_devices_cost(tariff, subscription_device_limit, period)
-
-        # Per-category group discounts (period + devices separately, like PricingEngine)
-        period_pct = promo_group.get_discount_percent('period', period) if promo_group else 0
-        devices_pct = promo_group.get_discount_percent('devices', period) if promo_group else 0
-        offer_pct = get_user_active_promo_discount_percent(db_user) if db_user else 0
-
-        discounted_base = PricingEngine.apply_discount(base_price, period_pct)
-        discounted_devices = PricingEngine.apply_discount(devices_cost, devices_pct)
-        subtotal = discounted_base + discounted_devices
-        price = PricingEngine.apply_discount(subtotal, offer_pct)
-
-        # Combined display discount
-        total_original = base_price + devices_cost
+        result = await pricing_engine.calculate_tariff_purchase_price(
+            tariff,
+            period,
+            device_limit=effective_device_limit,
+            custom_traffic_gb=effective_custom_traffic,
+            user=db_user,
+        )
+        price = result.final_total
+        total_original = result.original_total
         has_discount = price < total_original and total_original > 0
         if has_discount:
             combined_pct = round((1 - price / total_original) * 100)
@@ -2412,7 +2394,11 @@ async def show_tariff_extend(
         await callback.answer()
         return
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    from app.services.pricing_engine import PricingEngine
+
+    custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
+    traffic_gb = subscription.traffic_limit_gb if custom_traffic_gb else tariff.traffic_limit_gb
+    traffic = format_traffic(traffic_gb)
 
     # Проверяем есть ли у пользователя скидки по периодам
     promo_group = db_user.get_primary_promo_group() if hasattr(db_user, 'get_primary_promo_group') else None
@@ -2448,12 +2434,13 @@ async def show_tariff_extend(
             traffic=traffic,
             devices=actual_device_limit,
         ),
-        reply_markup=get_tariff_extend_keyboard(
+        reply_markup=await get_tariff_extend_keyboard(
             tariff,
             db_user.language,
             db_user=db_user,
             subscription_device_limit=actual_device_limit,
             sub_id=subscription.id,
+            custom_traffic_gb=custom_traffic_gb,
         ),
         parse_mode='HTML',
     )
@@ -2487,13 +2474,17 @@ async def select_tariff_extend_period(
     subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
     actual_device_limit = (subscription.device_limit if subscription else None) or tariff.device_limit
 
-    # Calculate price via PricingEngine (per-category discounts: period + devices)
-    from app.services.pricing_engine import pricing_engine
+    # Calculate price via PricingEngine (per-category discounts: period + devices + traffic)
+    from app.services.pricing_engine import PricingEngine, pricing_engine
 
+    custom_traffic_gb = (
+        PricingEngine.renewal_custom_traffic_gb(tariff, subscription) if subscription else None
+    )
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period,
         device_limit=actual_device_limit,
+        custom_traffic_gb=custom_traffic_gb,
         user=db_user,
     )
     final_price = result.final_total
@@ -2506,7 +2497,8 @@ async def select_tariff_extend_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic_gb = subscription.traffic_limit_gb if custom_traffic_gb and subscription else tariff.traffic_limit_gb
+    traffic = format_traffic(traffic_gb)
 
     ctx = _affordance_context(texts, user_balance, final_price)
     if ctx['can_afford']:
@@ -2557,7 +2549,7 @@ async def select_tariff_extend_period(
                 'TARIFF_RENEW_CART_DESC',
                 'Продление тарифа {name} на {days} дней',
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': tariff.traffic_limit_gb,
+            'traffic_limit_gb': traffic_gb,
             'device_limit': actual_device_limit,
             'allowed_squads': tariff.allowed_squads or [],
             'discount_percent': discount_percent,
@@ -2648,13 +2640,15 @@ async def confirm_tariff_extend(
 
     db_user = await lock_user_for_pricing(db, db_user.id)
 
-    # Calculate price via PricingEngine (handles per-category discounts: period + devices)
-    from app.services.pricing_engine import pricing_engine
+    # Calculate price via PricingEngine (handles per-category discounts: period + devices + traffic)
+    from app.services.pricing_engine import PricingEngine, pricing_engine
 
+    custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period,
         device_limit=actual_device_limit,
+        custom_traffic_gb=custom_traffic_gb,
         user=db_user,
     )
     final_price = result.final_total
