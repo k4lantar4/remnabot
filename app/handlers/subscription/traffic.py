@@ -28,6 +28,7 @@ from app.services.pricing_engine import PricingEngine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.states import SubscriptionStates
 from app.utils.pricing_utils import (
     calculate_prorated_price,
@@ -308,8 +309,8 @@ async def handle_reset_traffic(
         ).format(base=texts.format_traffic(base_traffic_gb), purchased=texts.format_traffic(purchased_gb))
 
     # Проверяем достаточно ли средств
-    has_enough_balance = db_user.balance_kopeks >= reset_price
-    missing_kopeks = max(0, reset_price - db_user.balance_kopeks)
+    has_enough_balance = user_can_afford(db_user.balance_kopeks, reset_price)
+    missing_toman = max(0, catalog_price_in_toman(reset_price) - db_user.balance_kopeks)
 
     # Формируем текст о балансе
     balance_info = texts.t('TRAFFIC_RESET_BALANCE_LINE', '\n\n💰 На балансе: {balance}').format(
@@ -317,7 +318,7 @@ async def handle_reset_traffic(
     )
     if not has_enough_balance:
         balance_info += texts.t('TRAFFIC_RESET_MISSING_LINE', '\n⚠️ Не хватает: {missing}').format(
-            missing=texts.format_price(missing_kopeks)
+            missing=texts.format_balance(missing_toman)
         )
 
     await callback.message.edit_text(
@@ -339,7 +340,7 @@ async def handle_reset_traffic(
             reset_price,
             db_user.language,
             has_enough_balance=has_enough_balance,
-            missing_kopeks=missing_kopeks,
+            missing_kopeks=missing_toman,
         ),
     )
 
@@ -383,8 +384,8 @@ async def confirm_reset_traffic(
 
     reset_price = _calculate_traffic_reset_price(subscription)
 
-    if reset_price > 0 and db_user.balance_kopeks < reset_price:
-        missing_kopeks = reset_price - db_user.balance_kopeks
+    if reset_price > 0 and not user_can_afford(db_user.balance_kopeks, reset_price):
+        missing_toman = max(0, catalog_price_in_toman(reset_price) - db_user.balance_kopeks)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -397,14 +398,14 @@ async def confirm_reset_traffic(
         ).format(
             required=texts.format_price(reset_price, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
             ),
             parse_mode='HTML',
         )
@@ -412,10 +413,11 @@ async def confirm_reset_traffic(
         return
 
     try:
+        charge_toman = catalog_price_in_toman(reset_price)
         success = await subtract_user_balance(
             db,
             db_user,
-            reset_price,
+            charge_toman,
             texts.t('TRAFFIC_RESET_LEDGER_DESC', 'Сброс трафика'),
         )
 
@@ -645,8 +647,8 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
 
     total_discount_value = int(discount_per_month * charged_days / 30)
 
-    if price > 0 and db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+        missing_toman = max(0, catalog_price_in_toman(price) - db_user.balance_kopeks)
 
         # Save cart for auto-purchase after balance top-up
         cart_data = {
@@ -679,14 +681,14 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         ).format(
             required=texts.format_price(price, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
             ),
             parse_mode='HTML',
         )
@@ -697,10 +699,11 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
     old_traffic_limit = subscription.traffic_limit_gb
 
     try:
+        charge_toman = catalog_price_in_toman(price)
         success = await subtract_user_balance(
             db,
             db_user,
-            price,
+            charge_toman,
             texts.t('TRAFFIC_TOPUP_LEDGER_DESC', 'Добавление {gb} ГБ трафика').format(gb=traffic_gb),
         )
 
@@ -943,8 +946,8 @@ async def confirm_switch_traffic(
         total_price_difference = int(price_difference_per_month * days_remaining / 30)
         total_price_difference = max(100, total_price_difference)
 
-        if total_price_difference > 0 and db_user.balance_kopeks < total_price_difference:
-            missing_kopeks = total_price_difference - db_user.balance_kopeks
+        if total_price_difference > 0 and not user_can_afford(db_user.balance_kopeks, total_price_difference):
+            missing_toman = max(0, catalog_price_in_toman(total_price_difference) - db_user.balance_kopeks)
             period_suffix = (
                 texts.t('TRAFFIC_TOPUP_PERIOD_ONE_DAY', ' (за 1 день)')
                 if days_remaining == 1
@@ -962,14 +965,14 @@ async def confirm_switch_traffic(
             ).format(
                 required=f'{texts.format_price(total_price_difference)}{period_suffix}',
                 balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-                missing=texts.format_price(missing_kopeks, round_kopeks=False),
+                missing=texts.format_balance(missing_toman, round_kopeks=False),
             )
 
             await callback.message.edit_text(
                 message_text,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_kopeks,
+                    amount_kopeks=missing_toman,
                 ),
                 parse_mode='HTML',
             )
@@ -1069,10 +1072,11 @@ async def execute_switch_traffic(
 
     try:
         if price_difference > 0:
+            charge_toman = catalog_price_in_toman(price_difference)
             success = await subtract_user_balance(
                 db,
                 db_user,
-                price_difference,
+                charge_toman,
                 texts.t(
                     'TRAFFIC_SWITCH_LEDGER_DESC',
                     'Переключение трафика с {old}GB на {new}GB',
