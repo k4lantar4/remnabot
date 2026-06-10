@@ -423,6 +423,19 @@ def format_traffic_step_preview(
     )
 
 
+def append_custom_traffic_period_price_hint(message: str, texts, *, flow: str = 'purchase') -> str:
+    """Hint that period button price is traffic + period combined (custom-traffic tariffs)."""
+    if flow == 'extend':
+        return message + texts.t(
+            'TARIFF_RENEW_PERIOD_PRICE_INCLUDES_HINT',
+            '\n\n💡 <i>مبلغ هر دکمه = حجم انتخابی + دوره تمدید (جمع کل)</i>',
+        )
+    return message + texts.t(
+        'TARIFF_PERIOD_PRICE_INCLUDES_HINT',
+        '\n\n💡 <i>مبلغ هر دکمه = حجم انتخابی + دوره (جمع کل)</i>',
+    )
+
+
 async def show_traffic_first_step(
     callback: types.CallbackQuery,
     db_user: User,
@@ -1160,18 +1173,20 @@ async def handle_tariff_traffic_next(
             return
         actual_device_limit = subscription.device_limit or tariff.device_limit
         traffic = format_traffic(traffic_gb, db_user.language)
+        period_message = texts.t(
+            'TARIFF_RENEW_PERIOD',
+            '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
+            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
+            'Выберите период продления:',
+        ).format(
+            discount_hint='',
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=actual_device_limit,
+        )
+        period_message = append_custom_traffic_period_price_hint(period_message, texts, flow='extend')
         await callback.message.edit_text(
-            texts.t(
-                'TARIFF_RENEW_PERIOD',
-                '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
-                'Выберите период продления:',
-            ).format(
-                discount_hint='',
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=actual_device_limit,
-            ),
+            period_message,
             reply_markup=await get_tariff_extend_keyboard(
                 tariff,
                 db_user.language,
@@ -1184,15 +1199,17 @@ async def handle_tariff_traffic_next(
         )
     else:
         traffic = format_traffic(traffic_gb, db_user.language)
+        period_message = texts.t(
+            'TARIFF_PERIOD_AFTER_TRAFFIC',
+            '📦 <b>{name}</b>\n\n📊 حجم انتخابی: {traffic}\n📱 دستگاه: {devices}\n\nانتخاب دوره:',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=tariff.device_limit,
+        )
+        period_message = append_custom_traffic_period_price_hint(period_message, texts)
         await callback.message.edit_text(
-            texts.t(
-                'TARIFF_PERIOD_AFTER_TRAFFIC',
-                '📦 <b>{name}</b>\n\n📊 حجم انتخابی: {traffic}\n📱 دستگاه: {devices}\n\nانتخاب دوره:',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-            ),
+            period_message,
             reply_markup=await get_tariff_periods_keyboard_for_traffic(
                 tariff, db_user.language, traffic_gb, db_user=db_user
             ),
@@ -2874,18 +2891,20 @@ async def select_tariff_extend_period(
             traffic_gb = state_data.get('custom_traffic_gb', subscription.traffic_limit_gb or tariff.min_traffic_gb)
             actual_device_limit = subscription.device_limit or tariff.device_limit
             traffic = format_traffic(traffic_gb, db_user.language)
+            period_message = texts.t(
+                'TARIFF_RENEW_PERIOD',
+                '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
+                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
+                'Выберите период продления:',
+            ).format(
+                discount_hint='',
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=actual_device_limit,
+            )
+            period_message = append_custom_traffic_period_price_hint(period_message, texts, flow='extend')
             await callback.message.edit_text(
-                texts.t(
-                    'TARIFF_RENEW_PERIOD',
-                    '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
-                    '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
-                    'Выберите период продления:',
-                ).format(
-                    discount_hint='',
-                    name=html.escape(tariff.name),
-                    traffic=traffic,
-                    devices=actual_device_limit,
-                ),
+                period_message,
                 reply_markup=await get_tariff_extend_keyboard(
                     tariff,
                     db_user.language,
