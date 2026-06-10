@@ -38,6 +38,11 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 logger = structlog.get_logger(__name__)
 
 
+def _is_migration_placeholder_description(desc: str | None) -> bool:
+    """Return True if description is a migration seed placeholder, not user-facing copy."""
+    return bool(desc and desc.startswith('Migration placeholder'))
+
+
 def _affordance_context(texts, user_balance: int, final_price_kopeks: int) -> dict:
     """Balance lines for tariff purchase/renew messages (Toman balance vs catalog kopeks)."""
     price_toman = catalog_price_in_toman(final_price_kopeks)
@@ -380,7 +385,7 @@ def format_tariff_info_for_user(
 
     text = texts.t('TARIFF_INFO_HEADER', '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}').format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
 
-    if tariff.description and not tariff.description.startswith('Migration placeholder'):
+    if tariff.description and not _is_migration_placeholder_description(tariff.description):
         text += f'\n📝 {html.escape(tariff.description)}\n'
 
     if discount_percent > 0:
@@ -2873,7 +2878,7 @@ def format_tariff_switch_list_text(
 
         lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {price_text}')
 
-        if tariff.description:
+        if tariff.description and not _is_migration_placeholder_description(tariff.description):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -3186,7 +3191,7 @@ async def select_tariff_switch(
             '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}',
         ).format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
 
-        if tariff.description:
+        if tariff.description and not _is_migration_placeholder_description(tariff.description):
             info_text += f'\n📝 {html.escape(tariff.description)}\n'
 
         info_text += '\n' + texts.t('TARIFF_SWITCH_FULL_PRICE', '⚠️ Оплачивается полная стоимость.')
