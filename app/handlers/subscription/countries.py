@@ -29,6 +29,7 @@ from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
 )
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from .common import _get_period_hint_from_subscription, logger
 from .summary import present_subscription_summary
@@ -331,8 +332,8 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             total_discount=total_discount / 100,
         )
 
-    if total_cost > 0 and db_user.balance_kopeks < total_cost:
-        missing_kopeks = total_cost - db_user.balance_kopeks
+    if total_cost > 0 and not user_can_afford(db_user.balance_kopeks, total_cost):
+        missing_toman = max(0, catalog_price_in_toman(total_cost) - db_user.balance_kopeks)
         period_suffix = (
             texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
             if charged_days <= 1
@@ -351,7 +352,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
         ).format(
             required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         await callback.message.answer(
@@ -359,7 +360,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
             ),
             parse_mode='HTML',
         )
@@ -383,7 +384,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             success = await subtract_user_balance(
                 db,
                 db_user,
-                total_cost,
+                catalog_price_in_toman(total_cost),
                 texts.t(
                     'COUNTRIES_ADD_BALANCE_LEDGER_DESC_DAYS',
                     'Добавление стран: {countries} за {days} дн.',
@@ -915,8 +916,8 @@ async def confirm_add_countries_to_subscription(
         if country['uuid'] in removed_countries:
             removed_countries_names.append(html.escape(country['name']))
 
-    if new_countries and total_price > 0 and db_user.balance_kopeks < total_price:
-        missing_kopeks = total_price - db_user.balance_kopeks
+    if new_countries and total_price > 0 and not user_can_afford(db_user.balance_kopeks, total_price):
+        missing_toman = max(0, catalog_price_in_toman(total_price) - db_user.balance_kopeks)
         period_suffix = (
             texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
             if charged_days <= 1
@@ -935,14 +936,14 @@ async def confirm_add_countries_to_subscription(
         ).format(
             required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
             ),
             parse_mode='HTML',
         )
@@ -967,7 +968,7 @@ async def confirm_add_countries_to_subscription(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                total_price,
+                catalog_price_in_toman(total_price),
                 texts.t(
                     'COUNTRIES_ADD_LEDGER_DESC',
                     'Добавление стран к подписке: {countries}',
