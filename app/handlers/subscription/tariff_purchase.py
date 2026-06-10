@@ -2310,38 +2310,48 @@ async def show_tariff_extend(
         if sub_id:
             subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
         else:
-            active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
-            if len(active_subs) > 1:
-                # Show subscription picker for extending
-                keyboard = []
-                for sub in sorted(active_subs, key=lambda s: s.id):
-                    tariff_name = ''
-                    if sub.tariff_id:
-                        _t = await get_tariff_by_id(db, sub.tariff_id)
-                        tariff_name = _t.name if _t else f'#{sub.id}'
-                    else:
-                        tariff_name = texts.t('TARIFF_RENEW_SUB_FALLBACK', 'Подписка #{id}').format(id=sub.id)
-                    days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
-                    keyboard.append(
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
-                                callback_data=f'se:{sub.id}',
-                            )
-                        ]
+            subscription = None
+            if state is not None:
+                try:
+                    data = await state.get_data()
+                    fsm_sub_id = data.get('active_subscription_id') or data.get('target_subscription_id')
+                    if fsm_sub_id:
+                        subscription = await get_subscription_by_id_for_user(db, int(fsm_sub_id), db_user.id)
+                except Exception:
+                    pass
+            if subscription is None:
+                active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
+                if len(active_subs) > 1:
+                    # Show subscription picker for extending
+                    keyboard = []
+                    for sub in sorted(active_subs, key=lambda s: s.id):
+                        tariff_name = ''
+                        if sub.tariff_id:
+                            _t = await get_tariff_by_id(db, sub.tariff_id)
+                            tariff_name = _t.name if _t else f'#{sub.id}'
+                        else:
+                            tariff_name = texts.t('TARIFF_RENEW_SUB_FALLBACK', 'Подписка #{id}').format(id=sub.id)
+                        days_left = max(0, (sub.end_date - datetime.now(UTC)).days) if sub.end_date else 0
+                        keyboard.append(
+                            [
+                                InlineKeyboardButton(
+                                    text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
+                                    callback_data=f'se:{sub.id}',
+                                )
+                            ]
+                        )
+                    keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
+                    await callback.message.edit_text(
+                        texts.t('TARIFF_RENEW_SELECT_SUB', '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:'),
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+                        parse_mode='HTML',
                     )
-                keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
-                await callback.message.edit_text(
-                    texts.t('TARIFF_RENEW_SELECT_SUB', '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:'),
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-                    parse_mode='HTML',
-                )
-                await callback.answer()
-                return
-            if active_subs:
-                subscription = active_subs[0]
-            else:
-                subscription = None
+                    await callback.answer()
+                    return
+                if active_subs:
+                    subscription = active_subs[0]
+                else:
+                    subscription = None
     else:
         subscription = await get_subscription_by_user_id(db, db_user.id)
     if not subscription:
@@ -2574,7 +2584,16 @@ async def select_tariff_extend_period(
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data='subscription_extend')],
+                    [
+                        InlineKeyboardButton(
+                            text=texts.BACK,
+                            callback_data=(
+                                f'se:{subscription.id}'
+                                if subscription and settings.is_multi_tariff_enabled()
+                                else 'subscription_extend'
+                            ),
+                        )
+                    ],
                 ]
             ),
             parse_mode='HTML',
