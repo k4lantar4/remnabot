@@ -380,7 +380,7 @@ def format_tariff_info_for_user(
 
     text = texts.t('TARIFF_INFO_HEADER', '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}').format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
 
-    if tariff.description:
+    if tariff.description and not tariff.description.startswith('Migration placeholder'):
         text += f'\n📝 {html.escape(tariff.description)}\n'
 
     if discount_percent > 0:
