@@ -4,10 +4,12 @@ from decimal import Decimal
 from app.config import settings
 from app.utils.price_display import (
     balance_from_display_amount,
+    catalog_price_in_toman,
     display_balance_from_storage,
     display_transaction_amount_from_storage,
     is_balance_scale_transaction,
     normalize_display_amount_text,
+    user_can_afford,
 )
 
 
@@ -111,3 +113,12 @@ def test_display_transaction_amount_from_storage(
     amount_kopeks: int, tx_type: str, expected: float
 ) -> None:
     assert display_transaction_amount_from_storage(amount_kopeks, tx_type) == expected
+
+
+def test_calculate_missing_amount_uses_toman_not_catalog_diff() -> None:
+    """Regression: mixed-scale diff must not drive C2C prefill amounts."""
+    from app.services.subscription_renewal_service import calculate_missing_amount
+
+    assert calculate_missing_amount(9_450, 1_000_000) == 550
+    assert user_can_afford(945_000, 1_000_000) is True
+    assert catalog_price_in_toman(500_000) == 5_000

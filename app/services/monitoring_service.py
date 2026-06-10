@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.crud.discount_offer import (
     deactivate_expired_offers,
     upsert_discount_offer,
@@ -1398,11 +1399,11 @@ class MonitoringService:
                     if autopay_key in self._notified_users:
                         continue
 
-                    if user.balance_kopeks >= charge_amount:
+                    if user_can_afford(user.balance_kopeks, charge_amount):
                         success = await subtract_user_balance(
                             db,
                             user,
-                            charge_amount,
+                            catalog_price_in_toman(charge_amount),
                             'Автопродление подписки',
                             consume_promo_offer=promo_discount_percent > 0,
                             mark_as_paid_subscription=True,

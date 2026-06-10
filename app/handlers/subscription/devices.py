@@ -42,6 +42,7 @@ from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
 )
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.subscription_utils import (
     get_display_subscription_link,
 )
@@ -385,8 +386,8 @@ async def confirm_change_devices(
             else texts.t('ADDON_PERIOD_DAYS', '{days} дн.').format(days=charged_days)
         )
 
-        if price > 0 and db_user.balance_kopeks < price:
-            missing_kopeks = price - db_user.balance_kopeks
+        if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+            missing_toman = max(0, catalog_price_in_toman(price) - db_user.balance_kopeks)
             period_suffix = (
                 texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
                 if charged_days <= 1
@@ -405,7 +406,7 @@ async def confirm_change_devices(
             ).format(
                 required=required_text,
                 balance=texts.format_balance(db_user.balance_kopeks),
-                missing=texts.format_price(missing_kopeks),
+                missing=texts.format_balance(missing_toman),
             )
 
             # Сохраняем корзину для автопокупки после пополнения баланса
@@ -428,7 +429,7 @@ async def confirm_change_devices(
                 message_text,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_kopeks,
+                    amount_kopeks=missing_toman,
                     has_saved_cart=True,
                 ),
                 parse_mode='HTML',
@@ -615,12 +616,14 @@ async def execute_change_devices(
     else:
         price = 0
 
+    charge_toman = catalog_price_in_toman(price) if price > 0 else 0
+
     try:
         if price > 0:
             success = await subtract_user_balance(
                 db,
                 db_user,
-                price,
+                charge_toman,
                 texts.t(
                     'DEVICES_CHANGE_LEDGER_DESC',
                     'Изменение количества устройств с {old} до {new}',
@@ -670,7 +673,7 @@ async def execute_change_devices(
                         .execution_options(populate_existing=True)
                     )
                     refund_user = user_refund.scalar_one()
-                    refund_user.balance_kopeks += price
+                    refund_user.balance_kopeks += charge_toman
                     await db.commit()
                 await callback.answer(
                     texts.t(
@@ -689,7 +692,7 @@ async def execute_change_devices(
                     .execution_options(populate_existing=True)
                 )
                 refund_user = user_refund.scalar_one()
-                refund_user.balance_kopeks += price
+                refund_user.balance_kopeks += charge_toman
                 await db.commit()
                 await callback.answer(
                     texts.t(
@@ -1605,8 +1608,8 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         total_discount=total_discount / 100,
     )
 
-    if price > 0 and db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+        missing_toman = max(0, catalog_price_in_toman(price) - db_user.balance_kopeks)
         period_suffix = (
             texts.t('ADDON_PERIOD_FOR_ONE_DAY', ' (за 1 день)')
             if charged_days <= 1
@@ -1625,7 +1628,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         ).format(
             required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            missing=texts.format_balance(missing_toman),
         )
 
         # Сохраняем корзину для автопокупки после пополнения баланса
@@ -1649,7 +1652,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -1658,10 +1661,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         return
 
     try:
+        charge_toman = catalog_price_in_toman(price)
         success = await subtract_user_balance(
             db,
             db_user,
-            price,
+            charge_toman,
             texts.t(
                 'DEVICES_ADD_LEDGER_DESC',
                 'Добавление {count} устройств на {period}',
@@ -1695,7 +1699,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
                 select(User).where(User.id == db_user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price
+            refund_user.balance_kopeks += charge_toman
             await db.commit()
             await callback.answer(
                 texts.t(

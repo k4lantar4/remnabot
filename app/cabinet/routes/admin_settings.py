@@ -20,6 +20,20 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix='/admin/settings', tags=['Admin Settings'])
 
+_SENSITIVE_SETTING_KEY_MARKERS = (
+    'BOT_TOKEN',
+    'SECRET',
+    'PASSWORD',
+    'API_KEY',
+    'APIKEY',
+    'PRIVATE_KEY',
+)
+
+
+def _is_sensitive_setting_key(key: str) -> bool:
+    upper = key.upper()
+    return any(marker in upper for marker in _SENSITIVE_SETTING_KEY_MARKERS)
+
 
 # ============ Schemas ============
 
@@ -248,7 +262,10 @@ async def update_setting(
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(error)) from error
     await db.commit()
 
-    logger.info('Admin updated setting to', telegram_id=admin.telegram_id, key=key, value=value)
+    if _is_sensitive_setting_key(key):
+        logger.info('Admin updated setting', telegram_id=admin.telegram_id, key=key, value='[redacted]')
+    else:
+        logger.info('Admin updated setting', telegram_id=admin.telegram_id, key=key, value=value)
     return _serialize_definition(definition)
 
 

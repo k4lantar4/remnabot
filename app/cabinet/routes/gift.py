@@ -28,6 +28,7 @@ from app.services.guest_purchase_service import (
     create_purchase,
     notify_gift_claim_available,
 )
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.payment_method_config_service import get_enabled_methods_for_user
 from app.utils.cache import RateLimitCache
 from app.utils.promo_offer import get_user_active_promo_discount_percent
@@ -438,7 +439,7 @@ async def create_gift_purchase(
         )
 
     # Balance mode (skip for 100% discount)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Insufficient balance',
@@ -484,7 +485,7 @@ async def create_gift_purchase(
     balance_ok = await subtract_user_balance(
         db,
         user,
-        price_kopeks,
+        catalog_price_in_toman(price_kopeks),
         description=f'Gift: {tariff.name} ({body.period_days}d)',
         create_transaction=False,
         consume_promo_offer=consume_promo,
