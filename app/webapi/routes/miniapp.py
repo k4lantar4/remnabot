@@ -83,6 +83,7 @@ from app.services.subscription_renewal_service import (
     with_admin_notification_service,
 )
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.trial_activation_service import (
     TrialPaymentChargeFailed,
     TrialPaymentInsufficientFunds,
@@ -4456,12 +4457,12 @@ def _format_daily_price_label(price_kopeks: int, user: User | None) -> str | Non
     return settings.format_price(price_kopeks) + _t(user, 'MINIAPP_DAILY_PRICE_SUFFIX', '/день')
 
 
-def _insufficient_funds_message(user: User, missing: int) -> str:
+def _insufficient_funds_message(user: User, missing_toman: int) -> str:
     return _t(
         user,
         'CABINET_INSUFFICIENT_FUNDS_MISSING',
         'Недостаточно средств. Не хватает {missing}',
-        missing=settings.format_price(missing, round_kopeks=False),
+        missing=settings.format_balance(missing_toman, round_kopeks=False),
     )
 
 
@@ -5195,8 +5196,8 @@ async def get_subscription_renewal_options_endpoint(
     if default_period_id and default_period_id in pricing_map:
         selected_pricing = pricing_map[default_period_id]
         final_total = selected_pricing.get('final_total')
-        if isinstance(final_total, int) and balance_kopeks < final_total:
-            missing_amount = final_total - balance_kopeks
+        if isinstance(final_total, int) and not user_can_afford(balance_kopeks, final_total):
+            missing_amount = calculate_missing_amount(balance_kopeks, final_total)
 
     renewal_autopay_payload = _build_autopay_payload(subscription)
     renewal_autopay_days_before = (
@@ -5382,8 +5383,8 @@ async def submit_subscription_renewal_endpoint(
         )
 
     if not method:
-        if final_total > 0 and balance_kopeks < final_total:
-            missing = final_total - balance_kopeks
+        if final_total > 0 and not user_can_afford(balance_kopeks, final_total):
+            missing = calculate_missing_amount(balance_kopeks, final_total)
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -5812,8 +5813,8 @@ async def update_subscription_servers_endpoint(
         if catalog[uuid].get('server_id') is not None
     ]
 
-    if total_cost > 0 and getattr(user, 'balance_kopeks', 0) < total_cost:
-        missing = total_cost - getattr(user, 'balance_kopeks', 0)
+    if total_cost > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), total_cost):
+        missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), total_cost)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -5829,11 +5830,12 @@ async def update_subscription_servers_endpoint(
             if added_names
             else 'Изменение списка серверов'
         )
+        charge_toman = catalog_price_in_toman(total_cost)
 
         success = await subtract_user_balance(
             db,
             user,
-            total_cost,
+            charge_toman,
             description,
         )
         if not success:
@@ -6001,8 +6003,8 @@ async def update_subscription_traffic_endpoint(
 
     if price_difference_per_month > 0:
         total_price_difference = max(100, int(price_difference_per_month * days_remaining / 30))
-        if getattr(user, 'balance_kopeks', 0) < total_price_difference:
-            missing = total_price_difference - getattr(user, 'balance_kopeks', 0)
+        if total_price_difference > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), total_price_difference):
+            missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), total_price_difference)
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -6012,11 +6014,12 @@ async def update_subscription_traffic_endpoint(
             )
 
         description = f'Переключение трафика с {subscription.traffic_limit_gb}GB на {new_traffic}GB'
+        charge_toman = catalog_price_in_toman(total_price_difference)
 
         success = await subtract_user_balance(
             db,
             user,
-            total_price_difference,
+            charge_toman,
             description,
         )
         if not success:
@@ -6183,8 +6186,8 @@ async def update_subscription_devices_endpoint(
             subscription.end_date,
         )
 
-    if price_to_charge > 0 and getattr(user, 'balance_kopeks', 0) < price_to_charge:
-        missing = price_to_charge - getattr(user, 'balance_kopeks', 0)
+    if price_to_charge > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), price_to_charge):
+        missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), price_to_charge)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -6193,12 +6196,14 @@ async def update_subscription_devices_endpoint(
             },
         )
 
+    charge_toman = catalog_price_in_toman(price_to_charge) if price_to_charge > 0 else 0
+
     if price_to_charge > 0:
         description = f'Изменение количества устройств с {current_devices} до {new_devices}'
         success = await subtract_user_balance(
             db,
             user,
-            price_to_charge,
+            charge_toman,
             description,
         )
         if not success:
@@ -6238,7 +6243,7 @@ async def update_subscription_devices_endpoint(
                 select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price_to_charge
+            refund_user.balance_kopeks += charge_toman
             await db.commit()
             if actual_delta <= 0:
                 raise HTTPException(
@@ -6629,8 +6634,8 @@ async def purchase_tariff_endpoint(
     discount_percent = group_pcts.get('period', 0)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-        missing = price_kopeks - user.balance_kopeks
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+        missing = calculate_missing_amount(user.balance_kopeks, price_kopeks)
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -6641,6 +6646,7 @@ async def purchase_tariff_endpoint(
         )
 
     # Списываем баланс
+    charge_toman = catalog_price_in_toman(price_kopeks)
     if is_daily_tariff:
         description = f"Активация суточного тарифа '{tariff.name}' (первый день)"
     elif discount_percent > 0:
@@ -6650,7 +6656,7 @@ async def purchase_tariff_endpoint(
     success = await subtract_user_balance(
         db,
         user,
-        price_kopeks,
+        charge_toman,
         description,
         consume_promo_offer=consume_promo_offer,
         mark_as_paid_subscription=True,
@@ -7010,8 +7016,8 @@ async def switch_tariff_endpoint(
 
     # Списываем доплату если апгрейд
     if upgrade_cost > 0:
-        if user.balance_kopeks < upgrade_cost:
-            missing = upgrade_cost - user.balance_kopeks
+        if not user_can_afford(user.balance_kopeks, upgrade_cost):
+            missing = calculate_missing_amount(user.balance_kopeks, upgrade_cost)
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -7021,6 +7027,7 @@ async def switch_tariff_endpoint(
                 },
             )
 
+        charge_toman = catalog_price_in_toman(upgrade_cost)
         if switching_from_daily:
             description = f"Переход с суточного на тариф '{new_tariff.name}' ({new_period_days} дней)"
         else:
@@ -7028,7 +7035,7 @@ async def switch_tariff_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            upgrade_cost,
+            charge_toman,
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,
@@ -7309,7 +7316,8 @@ async def purchase_traffic_topup_endpoint(
     )
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
+        missing = calculate_missing_amount(user.balance_kopeks, final_price)
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -7317,15 +7325,17 @@ async def purchase_traffic_topup_endpoint(
                 'message': 'Insufficient balance',
                 'required': final_price,
                 'balance': user.balance_kopeks,
+                'missing_amount': missing,
             },
         )
 
     # Списываем баланс
+    charge_toman = catalog_price_in_toman(final_price)
     if traffic_discount_percent > 0:
         traffic_description = f'Докупка {payload.gb} ГБ трафика (скидка {traffic_discount_percent}%)'
     else:
         traffic_description = f'Докупка {payload.gb} ГБ трафика'
-    success = await subtract_user_balance(db, user, final_price, traffic_description)
+    success = await subtract_user_balance(db, user, charge_toman, traffic_description)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -7475,7 +7485,8 @@ async def toggle_daily_subscription_pause_endpoint(
 
     # Если снимаем с паузы, проверяем баланс и списываем оплату
     if not new_paused_state:
-        if daily_price > 0 and user.balance_kopeks < daily_price:
+        if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
+            missing = calculate_missing_amount(user.balance_kopeks, daily_price)
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -7483,6 +7494,7 @@ async def toggle_daily_subscription_pause_endpoint(
                     'message': 'Insufficient balance to resume daily subscription',
                     'required': daily_price,
                     'balance': user.balance_kopeks,
+                    'missing_amount': missing,
                 },
             )
 
@@ -7491,10 +7503,11 @@ async def toggle_daily_subscription_pause_endpoint(
             if daily_price > 0:
                 from app.database.crud.user import subtract_user_balance
 
+                charge_toman = catalog_price_in_toman(daily_price)
                 deducted = await subtract_user_balance(
                     db,
                     user,
-                    daily_price,
+                    charge_toman,
                     f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                     mark_as_paid_subscription=True,
                     commit=False,
