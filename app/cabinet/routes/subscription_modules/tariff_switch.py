@@ -23,6 +23,7 @@ from app.database.models import PaymentMethod, Subscription, TransactionType, Us
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import TariffPurchaseRequest
@@ -344,8 +345,8 @@ async def switch_tariff(
     # Charge if upgrade
     switch_transaction = None
     if upgrade_cost > 0:
-        if user.balance_kopeks < upgrade_cost:
-            missing = upgrade_cost - user.balance_kopeks
+        if not user_can_afford(user.balance_kopeks, upgrade_cost):
+            missing = max(0, catalog_price_in_toman(upgrade_cost) - user.balance_kopeks)
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -354,7 +355,7 @@ async def switch_tariff(
                         user,
                         'CABINET_INSUFFICIENT_FUNDS_MISSING',
                         'Недостаточно средств. Не хватает {missing}',
-                        missing=settings.format_price(missing, round_kopeks=False),
+                        missing=settings.format_balance(missing, round_kopeks=False),
                     ),
                     'missing_amount': missing,
                 },
@@ -396,7 +397,7 @@ async def switch_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            upgrade_cost,
+            catalog_price_in_toman(upgrade_cost),
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,
