@@ -2771,6 +2771,13 @@ async def show_tariff_extend(
         await callback.answer()
         return
 
+    if tariff.can_purchase_custom_traffic():
+        await show_traffic_first_step(
+            callback, db_user, db, state, tariff, flow='extend', subscription=subscription
+        )
+        await callback.answer()
+        return
+
     from app.services.pricing_engine import PricingEngine
 
     custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
@@ -2836,17 +2843,51 @@ async def select_tariff_extend_period(
     parts = callback.data.split(':')
     tariff_id = int(parts[1])
 
-    # Кнопка «Назад» шлёт tariff_extend:{id} без периода — показываем экран выбора периода
-    if len(parts) < 3:
-        await show_tariff_extend(callback, db_user, db, state)
-        return
-
-    period = int(parts[2])
-
     tariff = await get_tariff_by_id(db, tariff_id)
     if not tariff or not tariff.is_active:
         await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
+
+    state_data = await state.get_data()
+
+    # Кнопка «Назад» шлёт tariff_extend:{id} без периода
+    if len(parts) < 3:
+        if state_data.get('traffic_first_mode') and tariff.can_purchase_custom_traffic():
+            subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
+            if not subscription:
+                await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+                return
+            traffic_gb = state_data.get('custom_traffic_gb', subscription.traffic_limit_gb or tariff.min_traffic_gb)
+            actual_device_limit = subscription.device_limit or tariff.device_limit
+            traffic = format_traffic(traffic_gb, db_user.language)
+            await callback.message.edit_text(
+                texts.t(
+                    'TARIFF_RENEW_PERIOD',
+                    '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
+                    '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
+                    'Выберите период продления:',
+                ).format(
+                    discount_hint='',
+                    name=html.escape(tariff.name),
+                    traffic=traffic,
+                    devices=actual_device_limit,
+                ),
+                reply_markup=await get_tariff_extend_keyboard(
+                    tariff,
+                    db_user.language,
+                    db_user=db_user,
+                    subscription_device_limit=actual_device_limit,
+                    sub_id=subscription.id,
+                    custom_traffic_gb=traffic_gb,
+                ),
+                parse_mode='HTML',
+            )
+            await callback.answer()
+            return
+        await show_tariff_extend(callback, db_user, db, state)
+        return
+
+    period = int(parts[2])
 
     subscription, _sub_id = await _resolve_subscription(callback, db_user, db, state)
     actual_device_limit = (subscription.device_limit if subscription else None) or tariff.device_limit
@@ -2854,9 +2895,12 @@ async def select_tariff_extend_period(
     # Calculate price via PricingEngine (per-category discounts: period + devices + traffic)
     from app.services.pricing_engine import PricingEngine, pricing_engine
 
-    custom_traffic_gb = (
-        PricingEngine.renewal_custom_traffic_gb(tariff, subscription) if subscription else None
-    )
+    if state_data.get('traffic_first_mode') and tariff.can_purchase_custom_traffic():
+        custom_traffic_gb = state_data.get('custom_traffic_gb', tariff.min_traffic_gb)
+    else:
+        custom_traffic_gb = (
+            PricingEngine.renewal_custom_traffic_gb(tariff, subscription) if subscription else None
+        )
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period,
@@ -2874,8 +2918,10 @@ async def select_tariff_extend_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic_gb = subscription.traffic_limit_gb if custom_traffic_gb and subscription else tariff.traffic_limit_gb
-    traffic = format_traffic(traffic_gb)
+    traffic_gb = custom_traffic_gb if custom_traffic_gb else (
+        subscription.traffic_limit_gb if subscription else tariff.traffic_limit_gb
+    )
+    traffic = format_traffic(traffic_gb, db_user.language)
 
     ctx = _affordance_context(texts, user_balance, final_price)
     if ctx['can_afford']:
@@ -2972,6 +3018,7 @@ async def select_tariff_extend_period(
         extend_tariff_id=tariff_id,
         extend_period=period,
         extend_discount_percent=discount_percent,
+        custom_traffic_gb=traffic_gb if tariff.can_purchase_custom_traffic() else None,
         target_subscription_id=subscription.id if subscription else None,
         active_subscription_id=subscription.id if subscription else None,
     )
@@ -3020,7 +3067,10 @@ async def confirm_tariff_extend(
     # Calculate price via PricingEngine (handles per-category discounts: period + devices + traffic)
     from app.services.pricing_engine import PricingEngine, pricing_engine
 
-    custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
+    if _state.get('traffic_first_mode') and tariff.can_purchase_custom_traffic():
+        custom_traffic_gb = _state.get('custom_traffic_gb', tariff.min_traffic_gb)
+    else:
+        custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period,
@@ -3069,13 +3119,19 @@ async def confirm_tariff_extend(
         # Запоминаем, был ли триал ДО продления
         was_trial = subscription.is_trial
 
+        renewal_traffic_gb = None
+        if tariff.can_purchase_custom_traffic() and custom_traffic_gb:
+            renewal_traffic_gb = int(custom_traffic_gb)
+        elif was_trial:
+            renewal_traffic_gb = tariff.traffic_limit_gb
+
         # Продлеваем подписку; для триала передаём tariff_id чтобы сбросить is_trial
         subscription = await extend_subscription(
             db,
             subscription,
             days=period,
             tariff_id=tariff.id if was_trial else None,
-            traffic_limit_gb=tariff.traffic_limit_gb if was_trial else None,
+            traffic_limit_gb=renewal_traffic_gb,
             device_limit=actual_device_limit if was_trial else None,
         )
 
@@ -3152,7 +3208,7 @@ async def confirm_tariff_extend(
 
         await state.clear()
 
-        traffic = format_traffic(tariff.traffic_limit_gb)
+        traffic = format_traffic(subscription.traffic_limit_gb or tariff.traffic_limit_gb, db_user.language)
 
         await callback.message.edit_text(
             texts.t(
