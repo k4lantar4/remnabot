@@ -176,7 +176,7 @@ def _instant_switch_button_label(
     return f'{tariff.name} ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
 
 
-def format_tariffs_list_text(
+async def format_tariffs_list_text(
     tariffs: list[Tariff],
     language: str,
     db_user: User | None = None,
@@ -184,6 +184,8 @@ def format_tariffs_list_text(
     purchased_tariff_ids: set[int] | None = None,
 ) -> str:
     """Форматирует текст со списком тарифов для отображения."""
+    from app.services.pricing_engine import pricing_engine
+
     texts = get_texts(language)
     lines = [texts.t('TARIFF_SELECT_TITLE', '📦 <b>Выберите тариф</b>')]
     if purchased_tariff_ids is None:
@@ -219,14 +221,26 @@ def format_tariffs_list_text(
             # Для периодных тарифов показываем минимальную цену
             prices = tariff.period_prices or {}
             if prices:
-                min_period = min(prices.keys(), key=int)
-                min_price = prices[min_period]
-                group_pct, offer_pct, discount_percent = 0, 0, 0
-                if db_user:
-                    group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, int(min_period))
-                if discount_percent > 0:
-                    min_price = _apply_promo_discount(min_price, group_pct, offer_pct)
-                    discount_icon = '🔥'
+                min_period = int(min(prices.keys(), key=int))
+                if tariff.can_purchase_custom_traffic():
+                    result = await pricing_engine.calculate_tariff_purchase_price(
+                        tariff,
+                        min_period,
+                        device_limit=tariff.device_limit,
+                        custom_traffic_gb=tariff.min_traffic_gb,
+                        user=db_user,
+                    )
+                    min_price = result.final_total
+                    if result.final_total < result.original_total and result.original_total > 0:
+                        discount_icon = '🔥'
+                else:
+                    min_price = prices.get(str(min_period), prices.get(min_period, 0))
+                    group_pct, offer_pct, discount_percent = 0, 0, 0
+                    if db_user:
+                        group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, min_period)
+                    if discount_percent > 0:
+                        min_price = _apply_promo_discount(min_price, group_pct, offer_pct)
+                        discount_icon = '🔥'
                 price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(price=format_price_kopeks(min_price, compact=True), icon=discount_icon)
 
         # Компактный формат: Название — 250 ГБ / 10 📱 от 179₽🔥
@@ -794,7 +808,7 @@ async def show_tariffs_list(
             has_period_discounts = True
 
     # Формируем текст со списком тарифов и их характеристиками
-    tariffs_text = format_tariffs_list_text(tariffs, db_user.language, db_user, has_period_discounts, purchased_tariff_ids)
+    tariffs_text = await format_tariffs_list_text(tariffs, db_user.language, db_user, has_period_discounts, purchased_tariff_ids)
 
     await callback.message.edit_text(
         tariffs_text,
@@ -5280,14 +5294,19 @@ async def return_to_saved_tariff_cart(
     if cart_mode in ('tariff_purchase', 'extend'):
         _period_for_pin = cart_data.get('period_days', 30)
         _cart_sub_id = cart_data.get('subscription_id')
-        await state.update_data(
-            selected_tariff_id=tariff_id,
-            selected_period=_period_for_pin,
-            final_price=total_price,
-            tariff_discount_percent=discount_percent,
-            target_subscription_id=_cart_sub_id,
-            active_subscription_id=_cart_sub_id,
-        )
+        _state_pin: dict = {
+            'selected_tariff_id': tariff_id,
+            'selected_period': _period_for_pin,
+            'final_price': total_price,
+            'tariff_discount_percent': discount_percent,
+            'target_subscription_id': _cart_sub_id,
+            'active_subscription_id': _cart_sub_id,
+        }
+        if cart_mode == 'tariff_purchase':
+            _cart_traffic = cart_data.get('custom_traffic_gb')
+            if _cart_traffic is not None:
+                _state_pin['custom_traffic_gb'] = _cart_traffic
+        await state.update_data(**_state_pin)
 
     if cart_mode == 'daily_tariff_purchase':
         daily_price = cart_data.get('daily_price_kopeks', total_price)
