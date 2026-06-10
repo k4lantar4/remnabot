@@ -135,6 +135,16 @@ class PricingEngine:
         return getattr(user, 'promo_group', None)
 
     @staticmethod
+    def renewal_custom_traffic_gb(tariff: Tariff, subscription: Subscription) -> int | None:
+        """GB to bill on renewal when tariff uses custom-traffic pricing."""
+        if not hasattr(tariff, 'can_purchase_custom_traffic') or not tariff.can_purchase_custom_traffic():
+            return None
+        traffic_gb = getattr(subscription, 'traffic_limit_gb', None)
+        if traffic_gb is None or traffic_gb <= 0:
+            return None
+        return int(traffic_gb)
+
+    @staticmethod
     def get_addon_discount_percent(
         user: User | None,
         category: str,
@@ -542,10 +552,12 @@ class PricingEngine:
         """Price calculation when subscription is linked to a Tariff."""
         tariff = subscription.tariff
         device_limit = subscription.device_limit or 0
+        custom_traffic_gb = self.renewal_custom_traffic_gb(tariff, subscription)
         return await self._calculate_tariff_core(
             tariff,
             period_days,
             device_limit,
+            custom_traffic_gb=custom_traffic_gb,
             user=user,
         )
 
