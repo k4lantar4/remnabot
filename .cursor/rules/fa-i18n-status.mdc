@@ -136,6 +136,14 @@ Branch `i18n/fa-remaining` from `main` (**9 commits**, `7b8d0155` → `e79e72e0`
 
 **Awaiting user smoke** before PR → `dev-local` → `main`.
 
+## Done (cyrillic-user-strings — Jun 11 2026)
+
+Branch `i18n/fa-json-value-fixes` (includes `i18n/fix-subscription-status-display`).
+
+- [x] **Slice 1:** `my_subscriptions.py` — `_subscription_status_display()` via `SUBSCRIPTION_STATUS_*` (fixes «وضعیت: 🟢 Активна») (`2a2f4adc`)
+- [x] **Slice 2:** `fa.json` — `YuMoney`, withdrawal تومان + Iranian card example (`5020c8ec`)
+- [ ] **Optional follow-up:** `formatters.py` — `fa` in `use_russian_fallback` for `format_subscription_status` / `format_traffic_usage` (not user hot path today; tests only)
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
