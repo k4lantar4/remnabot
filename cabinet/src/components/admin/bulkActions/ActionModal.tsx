@@ -280,7 +280,7 @@ export function ActionModal({
         params.traffic_gb = trafficGb;
         break;
       case 'add_balance':
-        params.amount_kopeks = Math.round(balanceRub * 100);
+        params.amount_display = Math.round(balanceRub);
         break;
       case 'assign_promo_group':
         params.promo_group_id = promoGroupId;

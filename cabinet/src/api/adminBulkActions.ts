@@ -28,6 +28,7 @@ export interface BulkActionParams {
   tariff_id?: number;
   traffic_gb?: number;
   amount_kopeks?: number;
+  amount_display?: number;
   balance_description?: string;
   promo_group_id?: number | null;
   device_limit?: number;

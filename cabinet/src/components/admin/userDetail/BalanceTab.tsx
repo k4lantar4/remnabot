@@ -62,9 +62,9 @@ export function BalanceTab({
     if (balanceAmount === '') return;
     setActionLoading(true);
     try {
-      const amount = Math.abs(toNumber(balanceAmount) * 100);
+      const amount = Math.abs(toNumber(balanceAmount));
       await adminUsersApi.updateBalance(userId, {
-        amount_kopeks: isAdd ? amount : -amount,
+        amount_display: isAdd ? amount : -amount,
         description:
           balanceDescription ||
           (isAdd

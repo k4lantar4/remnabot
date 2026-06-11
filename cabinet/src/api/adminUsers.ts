@@ -306,7 +306,8 @@ export interface PanelSyncStatusResponse {
 
 // Update types
 export interface UpdateBalanceRequest {
-  amount_kopeks: number;
+  amount_kopeks?: number;
+  amount_display?: number;
   description?: string;
   create_transaction?: boolean;
 }
