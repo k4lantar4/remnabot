@@ -72,6 +72,21 @@ def _status_label(sub, texts) -> str:
     return ''
 
 
+def _subscription_status_display(sub, texts) -> str:
+    actual = sub.actual_status
+    if actual == 'limited':
+        return texts.t('SUBSCRIPTION_STATUS_LIMITED', 'Трафик исчерпан')
+    if actual == 'disabled':
+        return texts.t('SUBSCRIPTION_STATUS_DISABLED', 'Приостановлена')
+    if actual == 'expired':
+        return texts.t('SUBSCRIPTION_STATUS_EXPIRED', 'Истекла')
+    if actual in ('active', 'trial'):
+        if sub.is_trial:
+            return texts.t('SUBSCRIPTION_STATUS_TRIAL', 'Тестовая')
+        return texts.t('SUBSCRIPTION_STATUS_ACTIVE', 'Активна')
+    return texts.t('SUBSCRIPTION_STATUS_UNKNOWN', 'Неизвестно')
+
+
 def _account_display_name(sub, texts) -> str:
     return subscription_account_label(sub, texts)
 
@@ -580,7 +595,7 @@ async def show_subscription_detail(
         if subscription.end_date
         else '—'
     )
-    status = subscription.status_display
+    status = _subscription_status_display(subscription, texts)
 
     text = (
         f'📋 {texts.t("MY_SUB_DETAIL_HEADER", "<b>{label}</b>").format(label=display_name)}\n\n'
