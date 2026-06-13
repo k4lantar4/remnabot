@@ -72,6 +72,11 @@ async def get_promo_group_by_id(db: AsyncSession, group_id: int) -> PromoGroup |
     return await db.get(PromoGroup, group_id)
 
 
+async def get_promo_group_by_name(db: AsyncSession, name: str) -> PromoGroup | None:
+    result = await db.execute(select(PromoGroup).where(PromoGroup.name == name))
+    return result.scalar_one_or_none()
+
+
 async def count_promo_groups(db: AsyncSession) -> int:
     result = await db.execute(select(func.count(PromoGroup.id)))
     return int(result.scalar_one())

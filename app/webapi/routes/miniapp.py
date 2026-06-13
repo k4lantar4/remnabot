@@ -6492,11 +6492,8 @@ async def get_tariffs_endpoint(
     # Получаем промогруппу пользователя (с приоритетом)
     from app.services.pricing_engine import PricingEngine
 
-    promo_group = PricingEngine.resolve_promo_group(user)
-    promo_group_id = promo_group.id if promo_group else None
-
     # Получаем тарифы, доступные пользователю
-    tariffs = await get_tariffs_for_user(db, promo_group_id)
+    tariffs = await get_tariffs_for_user(db, user=user)
 
     # Текущий тариф пользователя
     subs = getattr(user, 'subscriptions', None) or []

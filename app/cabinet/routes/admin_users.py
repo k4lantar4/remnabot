@@ -1717,7 +1717,9 @@ async def get_user_available_tariffs(
     tariff_items = []
     for tariff in tariffs:
         # Check if available for user's promo group
-        is_available = tariff.is_available_for_promo_group(user.promo_group_id)
+        promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
+        promo_group_id = promo_group.id if promo_group else user.promo_group_id
+        is_available = tariff.is_available_for_promo_group(promo_group_id)
         requires_promo_group = bool(tariff.allowed_promo_groups)
 
         # Build period prices

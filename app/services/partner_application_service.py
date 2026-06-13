@@ -99,6 +99,19 @@ class PartnerApplicationService:
         user.partner_status = PartnerStatus.APPROVED.value
         user.referral_commission_percent = commission_percent
 
+        from app.database.crud.promo_group import get_promo_group_by_name
+        from app.database.crud.user_promo_group import add_user_to_promo_group
+
+        partner_group = await get_promo_group_by_name(db, 'شرکا')
+        if partner_group:
+            await add_user_to_promo_group(
+                db,
+                user.id,
+                partner_group.id,
+                assigned_by='partner_approve',
+                commit=False,
+            )
+
         application.status = PartnerStatus.APPROVED.value
         application.approved_commission_percent = commission_percent
         application.admin_comment = comment

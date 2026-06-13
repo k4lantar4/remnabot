@@ -315,14 +315,7 @@ async def get_purchase_options(
 
         # Tariffs mode - return list of tariffs
         if settings.is_tariffs_mode():
-            # Use get_primary_promo_group() for correct promo group resolution
-            # (handles both legacy promo_group FK and new user_promo_groups M2M)
-            promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
-            if promo_group is None:
-                # Fallback to legacy promo_group attribute
-                promo_group = getattr(user, 'promo_group', None)
-            promo_group_id = promo_group.id if promo_group else None
-            tariffs = await get_tariffs_for_user(db, promo_group_id)
+            tariffs = await get_tariffs_for_user(db, user=user)
 
             if settings.is_multi_tariff_enabled():
                 from app.database.crud.subscription import get_active_subscriptions_by_user_id
