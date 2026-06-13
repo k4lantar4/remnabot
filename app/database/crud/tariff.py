@@ -128,14 +128,29 @@ async def get_all_active_tariffs(db: AsyncSession) -> list[Tariff]:
     return list(result.scalars().all())
 
 
+def resolve_user_promo_group_id(user) -> int | None:
+    """Resolve promo group id from M2M primary group, then legacy FK."""
+    if user is None:
+        return None
+    if hasattr(user, 'get_primary_promo_group'):
+        pg = user.get_primary_promo_group()
+        if pg is not None:
+            return pg.id
+    return getattr(user, 'promo_group_id', None)
+
+
 async def get_tariffs_for_user(
     db: AsyncSession,
     promo_group_id: int | None = None,
+    *,
+    user=None,
 ) -> list[Tariff]:
     """
     Получает тарифы, доступные для пользователя с учетом его промогруппы.
     Если у тарифа нет ограничений по промогруппам - он доступен всем.
     """
+    if user is not None and promo_group_id is None:
+        promo_group_id = resolve_user_promo_group_id(user)
     query = (
         select(Tariff)
         .options(selectinload(Tariff.allowed_promo_groups))
@@ -156,7 +171,7 @@ async def get_tariffs_for_user(
             # Проверяем, есть ли промогруппа пользователя в списке разрешенных
             if any(pg.id == promo_group_id for pg in tariff.allowed_promo_groups):
                 available_tariffs.append(tariff)
-        # else: пользователь без промогруппы, а у тарифа есть ограничения - пропускаем
+        # Restricted tariff: require matching promo group (aligned with is_available_for_promo_group)
 
     return available_tariffs
 

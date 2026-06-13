@@ -5889,7 +5889,7 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
     # Получаем доступные тарифы
     from app.database.crud.tariff import get_tariffs_for_user
 
-    tariffs = await get_tariffs_for_user(db, target_user)
+    tariffs = await get_tariffs_for_user(db, user=target_user)
 
     if not tariffs:
         await callback.message.edit_text(

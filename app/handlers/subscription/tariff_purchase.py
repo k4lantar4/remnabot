@@ -789,8 +789,7 @@ async def show_tariffs_list(
     await state.clear()
 
     # Получаем доступные тарифы
-    promo_group_id = getattr(db_user, 'promo_group_id', None)
-    tariffs = await get_tariffs_for_user(db, promo_group_id)
+    tariffs = await get_tariffs_for_user(db, user=db_user)
 
     if not tariffs:
         await callback.message.edit_text(
@@ -2750,8 +2749,7 @@ async def show_tariff_extend(
 
     if not subscription.tariff_id:
         # Legacy user without tariff — show tariff selection for upgrade
-        promo_group_id = getattr(db_user, 'promo_group_id', None)
-        tariffs = await get_tariffs_for_user(db, promo_group_id)
+        tariffs = await get_tariffs_for_user(db, user=db_user)
         if not tariffs:
             await callback.answer(texts.t('CB_NO_TARIFFS_AVAILABLE', 'Нет доступных тарифов'), show_alert=True)
             return
@@ -2782,8 +2780,7 @@ async def show_tariff_extend(
     # Скрытый/неактивный тариф (например, триальный после промокода) —
     # показываем список доступных тарифов вместо продления скрытого
     if not tariff.is_active:
-        promo_group_id = getattr(db_user, 'promo_group_id', None)
-        tariffs = await get_tariffs_for_user(db, promo_group_id)
+        tariffs = await get_tariffs_for_user(db, user=db_user)
         active_tariffs = [t for t in tariffs if not t.is_daily]
         if not active_tariffs:
             await callback.answer(texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True)
@@ -3466,8 +3463,7 @@ async def show_tariff_switch_list(
         return
 
     # Получаем доступные тарифы
-    promo_group_id = getattr(db_user, 'promo_group_id', None)
-    tariffs = await get_tariffs_for_user(db, promo_group_id)
+    tariffs = await get_tariffs_for_user(db, user=db_user)
 
     # Filter out ALL tariffs user already has active subscriptions for
     if settings.is_multi_tariff_enabled():
@@ -4578,8 +4574,7 @@ async def show_instant_switch_list(
         return
 
     # Получаем доступные тарифы
-    promo_group_id = getattr(db_user, 'promo_group_id', None)
-    tariffs = await get_tariffs_for_user(db, promo_group_id)
+    tariffs = await get_tariffs_for_user(db, user=db_user)
 
     # Filter out ALL tariffs user already has active subscriptions for
     if settings.is_multi_tariff_enabled():
