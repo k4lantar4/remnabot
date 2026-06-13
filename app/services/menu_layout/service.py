@@ -702,6 +702,15 @@ class MenuLayoutService:
     # --- Проверка условий ---
 
     @classmethod
+    def _should_skip_simple_subscription_button(cls, context: MenuContext) -> bool:
+        show_buy = not (context.has_active_subscription and context.subscription_is_active)
+        return (
+            show_buy
+            and settings.is_multi_tariff_enabled()
+            and settings.SIMPLE_SUBSCRIPTION_ENABLED
+        )
+
+    @classmethod
     def _evaluate_conditions(
         cls,
         conditions: dict[str, Any] | None,
@@ -1005,6 +1014,8 @@ class MenuLayoutService:
         effective_button_id = button_id or button_config.get('builtin_id', '')
         text_config = button_config.get('text', {})
         action = button_config.get('action', '')
+        if effective_button_id == 'simple_subscription' and settings.is_multi_tariff_enabled():
+            action = 'menu_buy'
         open_mode = button_config.get('open_mode', 'callback')
         webapp_url = button_config.get('webapp_url')
         icon = button_config.get('icon', '')
@@ -1142,6 +1153,9 @@ class MenuLayoutService:
                 if not cls._evaluate_conditions(button_conditions, context):
                     continue
 
+                if button_id == 'simple_subscription' and cls._should_skip_simple_subscription_button(context):
+                    continue
+
                 # Строим кнопку (передаём button_id для кастомных кнопок)
                 button = cls._build_button(button_cfg, context, texts, button_id=button_id)
                 if button:
@@ -1191,6 +1205,9 @@ class MenuLayoutService:
 
                 button_conditions = button_cfg.get('conditions')
                 if not cls._evaluate_conditions(button_conditions, context):
+                    continue
+
+                if button_id == 'simple_subscription' and cls._should_skip_simple_subscription_button(context):
                     continue
 
                 text_config = button_cfg.get('text', {})

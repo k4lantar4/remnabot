@@ -731,7 +731,9 @@ def get_main_menu_keyboard(
     if subscription_buttons:
         paired_buttons.extend(subscription_buttons)
     if simple_purchase_button:
-        paired_buttons.append(simple_purchase_button)
+        redundant_with_buy = show_buy and settings.is_multi_tariff_enabled()
+        if not redundant_with_buy:
+            paired_buttons.append(simple_purchase_button)
 
     if has_saved_cart:
         paired_buttons.append(

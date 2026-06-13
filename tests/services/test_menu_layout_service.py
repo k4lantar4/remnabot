@@ -137,3 +137,59 @@ async def test_build_button_connect_direct_mode_fallback_to_callback():
         assert isinstance(button, InlineKeyboardButton)
         # Должен fallback на callback_data, так как URL не найден
         assert button.callback_data == 'subscription_connect'
+
+
+def test_should_skip_simple_subscription_button_for_new_user_multi_tariff():
+    context = MenuContext(
+        language='fa',
+        has_active_subscription=False,
+        subscription_is_active=False,
+    )
+
+    with patch('app.services.menu_layout.service.settings') as mock_settings:
+        mock_settings.is_multi_tariff_enabled.return_value = True
+        mock_settings.SIMPLE_SUBSCRIPTION_ENABLED = True
+
+        assert MenuLayoutService._should_skip_simple_subscription_button(context) is True
+
+
+def test_should_not_skip_simple_subscription_button_with_active_trial_multi_tariff():
+    context = MenuContext(
+        language='fa',
+        has_active_subscription=True,
+        subscription_is_active=True,
+    )
+
+    with patch('app.services.menu_layout.service.settings') as mock_settings:
+        mock_settings.is_multi_tariff_enabled.return_value = True
+        mock_settings.SIMPLE_SUBSCRIPTION_ENABLED = True
+
+        assert MenuLayoutService._should_skip_simple_subscription_button(context) is False
+
+
+@pytest.mark.anyio
+async def test_build_button_simple_subscription_uses_menu_buy_in_multi_tariff():
+    button_config = {
+        'type': 'builtin',
+        'builtin_id': 'simple_subscription',
+        'text': {'fa': '⚡ خرید سرویس'},
+        'action': 'simple_subscription_purchase',
+        'open_mode': 'callback',
+    }
+
+    context = MenuContext(
+        language='fa',
+        has_active_subscription=True,
+        subscription_is_active=True,
+    )
+
+    texts = MagicMock()
+    texts.t = lambda key, default: default
+
+    with patch('app.services.menu_layout.service.settings') as mock_settings:
+        mock_settings.is_multi_tariff_enabled.return_value = True
+
+        button = MenuLayoutService._build_button(button_config, context, texts, button_id='simple_subscription')
+
+    assert button is not None
+    assert button.callback_data == 'menu_buy'
