@@ -388,7 +388,7 @@
       "expiredHint": "Выберите тариф и оплатите",
       "trialHint": "Больше трафика и устройств",
       "activeHint": "Продление и смена тарифа",
-      "renewHint": "Подписка истекла — продлите, чтобы продолжить пользоваться"
+      "renewHint": "Нажмите, чтобы продлить подписку"
     },
     "connectionInfo": "Данные для подключения",
     "copyLink": "Копировать ссылку",
@@ -898,7 +898,8 @@
       "totalReferrals": "Всего рефералов",
       "activeReferrals": "Активных",
       "totalEarnings": "Общий заработок",
-      "commissionRate": "Комиссия"
+      "commissionRate": "Комиссия",
+      "wholesaleRate": "Оптовая скидка"
     },
     "terms": {
       "title": "Условия программы",
@@ -940,6 +941,7 @@
       "partnerStatus": "Партнер",
       "active": "Активен",
       "commissionInfo": "Ваша партнерская комиссия составляет {{percent}}%",
+      "wholesaleInfo": "Ваша оптовая скидка на покупки составляет {{percent}}%",
       "rejected": "Заявка отклонена",
       "reapplyButton": "Подать заново",
       "applying": "Отправка...",
@@ -3264,6 +3266,9 @@
       },
       "noPartners": "Партнёров пока нет",
       "noApplications": "Нет заявок на рассмотрении",
+      "search": "Поиск по ID, имени, username...",
+      "inlineCommission": "Комиссия (%)",
+      "inlineWholesale": "Опт (%)",
       "commission": "{{percent}}% комиссия",
       "referrals": "{{count}} рефералов",
       "actions": {

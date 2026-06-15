@@ -369,7 +369,7 @@
       "expiredHint": "Choose a plan and pay",
       "trialHint": "More traffic and devices",
       "activeHint": "Renewal and plan change",
-      "renewHint": "Subscription expired — renew to continue using"
+      "renewHint": "Tap to extend your subscription period"
     },
     "connectionInfo": "Connection Info",
     "copyLink": "Copy Link",
@@ -869,7 +869,8 @@
       "totalReferrals": "Total Referrals",
       "activeReferrals": "Active",
       "totalEarnings": "Total Earnings",
-      "commissionRate": "Commission Rate"
+      "commissionRate": "Commission Rate",
+      "wholesaleRate": "Wholesale Discount"
     },
     "terms": {
       "title": "Program Terms",
@@ -911,6 +912,7 @@
       "partnerStatus": "Partner",
       "active": "Active",
       "commissionInfo": "Your partner commission rate is {{percent}}%",
+      "wholesaleInfo": "Your wholesale purchase discount is {{percent}}%",
       "rejected": "Application Rejected",
       "reapplyButton": "Reapply",
       "applying": "Submitting...",
@@ -2862,6 +2864,9 @@
       },
       "noPartners": "No partners yet",
       "noApplications": "No pending applications",
+      "search": "Search by ID, name, username...",
+      "inlineCommission": "Commission (%)",
+      "inlineWholesale": "Wholesale (%)",
       "commission": "{{percent}}% commission",
       "referrals": "{{count}} referrals",
       "actions": {

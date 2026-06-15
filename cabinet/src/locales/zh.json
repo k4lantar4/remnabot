@@ -567,7 +567,7 @@
     "backToList": "返回订阅列表",
     "confirmDelete": "删除订阅？",
     "cta": {
-      "renewHint": "订阅已过期 — 续订以继续使用",
+      "renewHint": "点击续订当前订阅周期",
       "activeHint": "订阅有效 — 您可以连接设备并使用 VPN",
       "expiredHint": "订阅已过期 — 续订以继续使用",
       "trialHint": "您正在试用中 — 升级到付费套餐以解锁所有功能"

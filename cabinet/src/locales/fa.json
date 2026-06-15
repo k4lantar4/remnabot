@@ -678,7 +678,7 @@
     "backToList": "بازگشت به فهرست اشتراک‌ها",
     "confirmDelete": "اشتراک حذف شود؟",
     "cta": {
-      "renewHint": "اشتراک منقضی شده — برای ادامه استفاده تمدید کنید",
+      "renewHint": "برای تمدید دوره اشتراک فعال، اینجا بزنید",
       "activeHint": "اشتراک فعال است — می‌توانید دستگاه‌ها را متصل کرده و از VPN استفاده کنید",
       "expiredHint": "اشتراک منقضی شده — برای ادامه استفاده تمدید کنید",
       "trialHint": "شما در دوره آزمایشی هستید — برای دسترسی به همه امکانات به تعرفه پرداختی ارتقا دهید"
@@ -915,7 +915,8 @@
       "totalReferrals": "کل معرفی‌ها",
       "activeReferrals": "فعال",
       "totalEarnings": "کل درآمد",
-      "commissionRate": "نرخ کمیسیون"
+      "commissionRate": "نرخ کمیسیون",
+      "wholesaleRate": "تخفیف عمده‌فروشی"
     },
     "terms": {
       "title": "شرایط برنامه",
@@ -957,6 +958,7 @@
       "partnerStatus": "شریک",
       "active": "فعال",
       "commissionInfo": "نرخ کمیسیون شراکت شما {{percent}}% است",
+      "wholesaleInfo": "تخفیف خرید عمده شما {{percent}}% است",
       "rejected": "درخواست رد شد",
       "reapplyButton": "درخواست مجدد",
       "applying": "در حال ارسال...",
@@ -2642,6 +2644,9 @@
       },
       "noPartners": "هنوز شریکی وجود ندارد",
       "noApplications": "درخواست در انتظاری وجود ندارد",
+      "search": "جستجو بر اساس شناسه، نام، نام کاربری...",
+      "inlineCommission": "کمیسیون (%)",
+      "inlineWholesale": "تخفیف (%)",
       "commission": "{{percent}}% کمیسیون",
       "referrals": "{{count}} معرفی",
       "actions": {
