@@ -30,6 +30,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
+from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.subscription_display import subscription_account_label
 from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
@@ -634,26 +635,28 @@ def get_custom_tariff_keyboard(
         if days_row:
             buttons.append(days_row)
 
-    # Кнопки изменения трафика (mobile-friendly: display + separate dec/inc rows)
+    # Кнопки изменения трафика (column-aligned: magnitude on row A, ±1 on row B)
     if can_custom_traffic:
         gb_label = texts.t('TARIFF_TRAFFIC_VOLUME_BTN', '📊 حجم: {gb} گیگ').format(gb=traffic_gb)
         buttons.append([InlineKeyboardButton(text=gb_label, callback_data='noop')])
 
-        decrease_row = []
+        dec_10 = dec_1 = inc_1 = inc_10 = None
         if traffic_gb > min_traffic:
             if traffic_gb - 10 >= min_traffic:
-                decrease_row.append(InlineKeyboardButton(text='-10', callback_data=f'custom_traffic:{tariff_id}:-10'))
-            decrease_row.append(InlineKeyboardButton(text='-1', callback_data=f'custom_traffic:{tariff_id}:-1'))
-        if decrease_row:
-            buttons.append(decrease_row)
-
-        increase_row = []
+                dec_10 = InlineKeyboardButton(text='-10', callback_data=f'custom_traffic:{tariff_id}:-10')
+            dec_1 = InlineKeyboardButton(text='-1', callback_data=f'custom_traffic:{tariff_id}:-1')
         if traffic_gb < max_traffic:
-            increase_row.append(InlineKeyboardButton(text='+1', callback_data=f'custom_traffic:{tariff_id}:1'))
+            inc_1 = InlineKeyboardButton(text='+1', callback_data=f'custom_traffic:{tariff_id}:1')
             if traffic_gb + 10 <= max_traffic:
-                increase_row.append(InlineKeyboardButton(text='+10', callback_data=f'custom_traffic:{tariff_id}:10'))
-        if increase_row:
-            buttons.append(increase_row)
+                inc_10 = InlineKeyboardButton(text='+10', callback_data=f'custom_traffic:{tariff_id}:10')
+
+        row_a = [btn for btn in (dec_10, inc_10) if btn is not None]
+        if row_a:
+            buttons.append(row_a)
+
+        row_b = [btn for btn in (dec_1, inc_1) if btn is not None]
+        if row_b:
+            buttons.append(row_b)
 
     # Кнопка подтверждения или переход к выбору периода
     if traffic_first_mode:
@@ -1294,12 +1297,6 @@ async def select_tariff_period_custom_traffic(
         user=db_user,
     )
     final_price = result.final_total
-    original_price = result.original_total
-    total_discount = result.promo_group_discount + result.promo_offer_discount
-    discount_percent = (
-        round((1 - final_price / original_price) * 100) if original_price > 0 and total_discount > 0 else 0
-    )
-
     user_balance = db_user.balance_kopeks or 0
     traffic = format_traffic(traffic_gb, db_user.language)
     ctx = _affordance_context(texts, user_balance, final_price)
@@ -1307,27 +1304,15 @@ async def select_tariff_period_custom_traffic(
     await state.update_data(custom_days=period, custom_traffic_gb=traffic_gb)
 
     if ctx['can_afford']:
-        discount_text = ''
-        if discount_percent > 0:
-            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
-                percent=discount_percent, amount=format_price_kopeks(total_discount)
-            )
         await callback.message.edit_text(
-            texts.t(
-                'TARIFF_PURCHASE_CONFIRM',
-                '✅ <b>Подтверждение покупки</b>\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                '📅 Период: {period}\n{discount}💰 <b>Итого: {total}</b>\n\n'
-                '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-                period=format_period(period, db_user.language),
-                discount=discount_text,
-                total=format_price_kopeks(final_price),
-                balance=ctx['balance_label'],
-                after=ctx['after_label'],
+            format_tariff_purchase_confirm_text(
+                texts,
+                tariff=tariff,
+                traffic_gb=traffic_gb,
+                period_days=period,
+                result=result,
+                balance_kopeks=user_balance,
+                language=db_user.language,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -1792,42 +1777,32 @@ async def select_tariff_period(
         await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
-    # Получаем скидку для выбранного периода
-    group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
+    from app.services.pricing_engine import PricingEngine, pricing_engine
 
-    # Получаем цену
-    prices = tariff.period_prices or {}
-    base_price = prices.get(str(period), 0)
-    final_price = _apply_promo_discount(base_price, group_pct, offer_pct, user=db_user)
+    result = await pricing_engine.calculate_tariff_purchase_price(
+        tariff,
+        period,
+        device_limit=tariff.device_limit,
+        custom_traffic_gb=tariff.traffic_limit_gb,
+        user=db_user,
+    )
+    final_price = result.final_total
+    discount_percent = PricingEngine.checkout_display_discount_percent(result.original_total, result.final_total)
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb, db_user.language)
-
     ctx = _affordance_context(texts, user_balance, final_price)
     if ctx['can_afford']:
-        # Показываем подтверждение
-        discount_text = ''
-        if discount_percent > 0:
-            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(percent=discount_percent, amount=format_price_kopeks(base_price - final_price))
-
         await callback.message.edit_text(
-            texts.t(
-                'TARIFF_PURCHASE_CONFIRM',
-                '✅ <b>Подтверждение покупки</b>\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                '📅 Период: {period}\n{discount}💰 <b>Итого: {total}</b>\n\n'
-                '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-                period=format_period(period, db_user.language),
-                discount=discount_text,
-                total=format_price_kopeks(final_price),
-                balance=ctx['balance_label'],
-                after=ctx['after_label'],
+            format_tariff_purchase_confirm_text(
+                texts,
+                tariff=tariff,
+                traffic_gb=tariff.traffic_limit_gb,
+                period_days=period,
+                result=result,
+                balance_kopeks=user_balance,
+                language=db_user.language,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -5425,32 +5400,27 @@ async def return_to_saved_tariff_cart(
         )
     else:  # tariff_purchase
         period = cart_data.get('period_days', 30)
-        ctx = _affordance_context(texts, user_balance, total_price)
+        traffic_gb = cart_data.get('custom_traffic_gb') or cart_data.get('traffic_limit_gb') or tariff.traffic_limit_gb
 
-        discount_text = ''
-        if discount_percent > 0:
-            original_price = int(total_price / (1 - discount_percent / 100))
-            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
-                percent=discount_percent,
-                amount=format_price_kopeks(original_price - total_price),
-            )
+        from app.services.pricing_engine import pricing_engine
+
+        result = await pricing_engine.calculate_tariff_purchase_price(
+            tariff,
+            period,
+            device_limit=tariff.device_limit,
+            custom_traffic_gb=traffic_gb,
+            user=db_user,
+        )
 
         await callback.message.edit_text(
-            texts.t(
-                'TARIFF_PURCHASE_CONFIRM',
-                '✅ <b>Подтверждение покупки</b>\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                '📅 Период: {period}\n{discount}💰 <b>Итого: {total}</b>\n\n'
-                '💳 Ваш баланс: {balance}\nПосле оплаты: {after}',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-                period=format_period(period, db_user.language),
-                discount=discount_text,
-                total=format_price_kopeks(total_price),
-                balance=ctx['balance_label'],
-                after=ctx['after_label'],
+            format_tariff_purchase_confirm_text(
+                texts,
+                tariff=tariff,
+                traffic_gb=traffic_gb,
+                period_days=period,
+                result=result,
+                balance_kopeks=user_balance,
+                language=db_user.language,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',

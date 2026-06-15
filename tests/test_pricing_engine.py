@@ -1044,3 +1044,73 @@ class TestRenewalCustomTrafficTariff:
         result_90 = await engine.calculate_renewal_price(db, sub, 90, user=None)
         assert result_90.traffic_price == 1500000
         assert result_90.final_total == 1500000
+
+
+class TestTrafficFirstPurchasePricing:
+    @pytest.mark.asyncio
+    async def test_purchase_defaults_to_min_traffic_gb_for_traffic_first_tariff(self):
+        engine = PricingEngine()
+        tariff = MagicMock()
+        tariff.id = 1
+        tariff.period_prices = {'30': 0}
+        tariff.device_price_kopeks = 0
+        tariff.device_limit = 1
+        tariff.traffic_price_per_gb_kopeks = 10000
+        tariff.min_traffic_gb = 1
+        tariff.custom_traffic_enabled = True
+        tariff.can_purchase_custom_traffic.return_value = True
+        tariff.is_daily = False
+        tariff.can_purchase_custom_days.return_value = False
+        tariff.is_available_for_promo_group.return_value = True
+
+        result = await engine.calculate_tariff_purchase_price(
+            tariff,
+            30,
+            custom_traffic_gb=tariff.min_traffic_gb,
+            user=None,
+        )
+        assert result.traffic_price == 10000
+        assert result.final_total == 10000
+
+        result_no_traffic = await engine.calculate_tariff_purchase_price(
+            tariff,
+            30,
+            custom_traffic_gb=None,
+            user=None,
+        )
+        assert result_no_traffic.final_total == 0
+
+    @pytest.mark.asyncio
+    async def test_traffic_first_charges_full_gb_not_min_gb_delta(self):
+        """10 GB × 1 month must charge 10×per_gb, not (10−min_gb)×per_gb."""
+        engine = PricingEngine()
+        tariff = MagicMock()
+        tariff.id = 1
+        tariff.period_prices = {'30': 0}
+        tariff.device_price_kopeks = 0
+        tariff.device_limit = 1
+        tariff.traffic_price_per_gb_kopeks = 10000
+        tariff.min_traffic_gb = 1
+        tariff.custom_traffic_enabled = True
+        tariff.can_purchase_custom_traffic.return_value = True
+        tariff.is_daily = False
+        tariff.can_purchase_custom_days.return_value = False
+        tariff.is_available_for_promo_group.return_value = True
+
+        result_10gb = await engine.calculate_tariff_purchase_price(
+            tariff,
+            30,
+            custom_traffic_gb=10,
+            user=None,
+        )
+        assert result_10gb.traffic_price == 100000
+        assert result_10gb.final_total == 100000
+
+        result_9gb = await engine.calculate_tariff_purchase_price(
+            tariff,
+            30,
+            custom_traffic_gb=9,
+            user=None,
+        )
+        assert result_9gb.traffic_price == 90000
+        assert result_10gb.traffic_price != result_9gb.traffic_price
