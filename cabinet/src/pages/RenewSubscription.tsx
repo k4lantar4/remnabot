@@ -9,7 +9,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useHaptic } from '../platform';
 import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { WebBackButton } from '../components/WebBackButton';
-import { canAffordCatalog, missingCatalogToman } from '../utils/priceUnits';
+import { canAffordCatalog, catalogKopeksToToman, missingCatalogToman } from '../utils/priceUnits';
 
 export default function RenewSubscription() {
   const { subscriptionId } = useParams<{ subscriptionId: string }>();
@@ -99,6 +99,17 @@ export default function RenewSubscription() {
   const insufficientMatch = error?.match(/^insufficient:(\d+)$/);
   const missingAmount = insufficientMatch ? Number(insufficientMatch[1]) : null;
 
+  const formatCatalogPrice = (priceKopeks: number) =>
+    formatAmount(
+      i18n.language === 'fa' ? catalogKopeksToToman(priceKopeks) : priceKopeks / 100,
+      0,
+    );
+
+  const selectedOption = options?.find((o) => o.period_days === selectedPeriod);
+  const canAffordSelected = selectedOption
+    ? canAffordCatalog(balanceKopeks, selectedOption.price_kopeks)
+    : false;
+
   return (
     <div className="space-y-5">
       {/* Title */}
@@ -146,7 +157,7 @@ export default function RenewSubscription() {
             const isSelected = selectedPeriod === option.period_days;
             const canAfford = canAffordCatalog(balanceKopeks, option.price_kopeks);
             const months = Math.max(1, Math.round(option.period_days / 30));
-            const perMonth = option.price_kopeks / months;
+            const perMonthKopeks = option.price_kopeks / months;
 
             return (
               <button
@@ -181,30 +192,29 @@ export default function RenewSubscription() {
                     <div className="text-base font-semibold" style={{ color: g.text }}>
                       {option.price_kopeks === 0
                         ? t('subscription.free', 'Бесплатно')
-                        : `${formatAmount(option.price_kopeks / 100)} ${currencySymbol}`}
+                        : `${formatCatalogPrice(option.price_kopeks)} ${currencySymbol}`}
                     </div>
                     {months > 1 && (
                       <div className="text-[11px]" style={{ color: g.textSecondary }}>
-                        {formatAmount(perMonth / 100)} {currencySymbol}/
+                        {formatCatalogPrice(perMonthKopeks)} {currencySymbol}/
                         {t('common.units.mo', 'мес')}
                       </div>
                     )}
                     {option.original_price_kopeks && (
                       <div className="text-[11px] line-through" style={{ color: g.textSecondary }}>
-                        {formatAmount(option.original_price_kopeks / 100)} {currencySymbol}
+                        {formatCatalogPrice(option.original_price_kopeks)} {currencySymbol}
                       </div>
                     )}
                   </div>
                 </div>
                 {!canAfford && (
-                  <div className="mt-1 text-[11px] text-error-400">
-                    {t(
-                      'subscription.insufficientBalanceAmount',
-                      'Недостаточно средств. Не хватает {{missing}}',
-                      {
-                        missing: `${formatAmount(missingCatalogToman(balanceKopeks, option.price_kopeks))} ${currencySymbol}`,
-                      },
-                    )}
+                  <div className="mt-2 text-[11px] text-error-400">
+                    {t('subscription.insufficientBalance', {
+                      missing: formatAmount(
+                        missingCatalogToman(balanceKopeks, option.price_kopeks),
+                        0,
+                      ),
+                    })}
                   </div>
                 )}
               </button>
@@ -233,8 +243,8 @@ export default function RenewSubscription() {
       {selectedPeriod && (
         <button
           onClick={() => handleRenew(selectedPeriod)}
-          disabled={renewMutation.isPending}
-          className="w-full rounded-2xl bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
+          disabled={renewMutation.isPending || !canAffordSelected}
+          className="w-full rounded-2xl bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {renewMutation.isPending
             ? t('common.processing', 'Обработка...')

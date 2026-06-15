@@ -11,6 +11,7 @@ import { API } from '../config/constants';
 import type { PaginatedResponse, Transaction } from '../types';
 
 import { Card } from '@/components/data-display/Card';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/primitives/Button';
 import { ChevronDownIcon, ChevronRightIcon, CreditCardIcon, WalletIcon } from '@/components/icons';
 import { staggerContainer, staggerItem } from '@/components/motion/transitions';
@@ -317,11 +318,28 @@ export default function Balance() {
                   defaultValue: '',
                 });
 
+                const isC2c = method.id === 'c2c';
+
                 return (
                   <Card
                     key={method.id}
                     interactive={method.is_available}
-                    className={!method.is_available ? 'cursor-not-allowed opacity-50' : ''}
+                    glow={isC2c && method.is_available}
+                    className={cn(
+                      !method.is_available && 'cursor-not-allowed opacity-50',
+                      isC2c &&
+                        method.is_available &&
+                        '!border-accent-500/40 !bg-accent-500/10 hover:!border-accent-500/55 hover:!bg-accent-500/15',
+                    )}
+                    style={
+                      isC2c && method.is_available
+                        ? {
+                            background:
+                              'linear-gradient(135deg, rgba(var(--color-accent-400), 0.14), rgba(var(--color-accent-400), 0.06))',
+                            borderColor: 'rgba(var(--color-accent-400), 0.35)',
+                          }
+                        : undefined
+                    }
                     onClick={() => {
                       if (!method.is_available) return;
                       if (method.bot_deeplink) {
@@ -335,15 +353,30 @@ export default function Balance() {
                       navigate(`/balance/top-up/${method.id}`);
                     }}
                   >
-                    <div className="font-semibold text-dark-100">
+                    <div
+                      className={cn(
+                        'font-semibold',
+                        isC2c ? 'text-accent-500' : 'text-dark-100',
+                      )}
+                    >
                       {translatedName || method.name}
                     </div>
                     {(translatedDesc || method.description) && (
-                      <div className="mt-1 text-sm text-dark-500">
+                      <div
+                        className={cn(
+                          'mt-1 text-sm',
+                          isC2c ? 'text-dark-50/75' : 'text-dark-500',
+                        )}
+                      >
                         {translatedDesc || method.description}
                       </div>
                     )}
-                    <div className="mt-3 text-xs text-dark-600">
+                    <div
+                      className={cn(
+                        'mt-3 text-xs',
+                        isC2c ? 'font-medium text-accent-400' : 'text-dark-600',
+                      )}
+                    >
                       {formatAmount(
                         method.id === 'c2c'
                           ? method.min_amount_kopeks
