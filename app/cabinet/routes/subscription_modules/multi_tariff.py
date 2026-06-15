@@ -7,7 +7,7 @@ GET /subscriptions/{id} — get specific subscription details
 from __future__ import annotations
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +51,21 @@ class SubscriptionListItem(BaseModel):
 class SubscriptionsListResponse(BaseModel):
     subscriptions: list[SubscriptionListItem]
     multi_tariff_enabled: bool
+    total: int = 0
+
+
+def _subscription_matches_search(sub, search: str) -> bool:
+    """Match panel_username, tariff name, or subscription id."""
+    q = search.strip().lower()
+    if not q:
+        return True
+    if q.isdigit() and sub.id == int(q):
+        return True
+    panel_username = (getattr(sub, 'panel_username', None) or '').lower()
+    if q in panel_username:
+        return True
+    tariff_name = (sub.tariff.name if sub.tariff else '').lower()
+    return q in tariff_name
 
 
 def _subscription_to_list_item(sub) -> SubscriptionListItem:
@@ -81,15 +96,23 @@ def _subscription_to_list_item(sub) -> SubscriptionListItem:
 
 @router.get('', response_model=SubscriptionsListResponse)
 async def list_subscriptions(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
     user: User = Depends(get_current_cabinet_user),
     db: AsyncSession = Depends(get_cabinet_db),
 ) -> SubscriptionsListResponse:
-    """List all user subscriptions. Returns all subscriptions regardless of multi-tariff mode."""
+    """List user subscriptions with optional search and pagination."""
     subscriptions = await get_all_subscriptions_by_user_id(db, user.id)
-    items = [_subscription_to_list_item(sub) for sub in subscriptions]
+    if search and search.strip():
+        subscriptions = [s for s in subscriptions if _subscription_matches_search(s, search)]
+    total = len(subscriptions)
+    page = subscriptions[offset : offset + limit]
+    items = [_subscription_to_list_item(sub) for sub in page]
     return SubscriptionsListResponse(
         subscriptions=items,
         multi_tariff_enabled=settings.is_multi_tariff_enabled(),
+        total=total,
     )
 
 

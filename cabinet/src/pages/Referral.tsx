@@ -255,6 +255,14 @@ export default function Referral() {
           <div className="text-sm text-dark-400">{t('referral.stats.commissionRate')}</div>
           <div className="stat-value mt-1 text-accent-400">{info?.commission_percent || 0}%</div>
         </div>
+        {isPartner && (partnerStatus?.wholesale_discount_bps ?? 0) > 0 && (
+          <div className="bento-card-hover">
+            <div className="text-sm text-dark-400">{t('referral.stats.wholesaleRate')}</div>
+            <div className="stat-value mt-1 text-success-400">
+              {Math.round((partnerStatus?.wholesale_discount_bps ?? 0) / 100)}%
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Referral Links */}
@@ -473,6 +481,13 @@ export default function Referral() {
                   percent: partnerStatus?.commission_percent ?? 0,
                 })}
               </p>
+              {(partnerStatus?.wholesale_discount_bps ?? 0) > 0 && (
+                <p className="mt-1 text-sm text-dark-400">
+                  {t('referral.partner.wholesaleInfo', {
+                    percent: Math.round((partnerStatus?.wholesale_discount_bps ?? 0) / 100),
+                  })}
+                </p>
+              )}
             </div>
             <a href="#withdrawal-section" className="btn-secondary hidden px-4 sm:flex">
               {t('referral.withdrawal.goToWithdrawal')}

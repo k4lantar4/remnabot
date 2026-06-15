@@ -1,10 +1,18 @@
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { partnerApi } from '../api/partners';
 import { AdminBackButton } from '../components/admin';
 import { useCurrency } from '../hooks/useCurrency';
-import { XIcon } from '@/components/icons';
+import { CheckIcon, XIcon } from '@/components/icons';
+
+function parsePercentInput(value: string): number | null {
+  if (value.trim() === '') return null;
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return null;
+  return parsed;
+}
 
 // Status badge config — keys must match backend PartnerStatus enum values
 const statusConfig: Record<string, { labelKey: string; color: string; bgColor: string }> = {
@@ -60,6 +68,52 @@ export default function AdminPartnerDetail() {
     queryFn: () => partnerApi.getPartnerDetail(Number(userId)),
     enabled: !!userId,
   });
+
+  const commissionInitial = String(partner?.commission_percent ?? 0);
+  const wholesaleInitial = String(Math.round((partner?.wholesale_discount_bps ?? 0) / 100));
+
+  const [commissionInput, setCommissionInput] = useState(commissionInitial);
+  const [wholesaleInput, setWholesaleInput] = useState(wholesaleInitial);
+
+  useEffect(() => {
+    setCommissionInput(commissionInitial);
+    setWholesaleInput(wholesaleInitial);
+  }, [commissionInitial, wholesaleInitial]);
+
+  const commissionMutation = useMutation({
+    mutationFn: (percent: number) => partnerApi.updateCommission(Number(userId), percent),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-partner-detail', userId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-partners'] });
+    },
+  });
+
+  const wholesaleMutation = useMutation({
+    mutationFn: (bps: number) => partnerApi.patchPartnerWholesale(Number(userId), bps),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-partner-detail', userId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-partners'] });
+    },
+  });
+
+  const parsedCommission = parsePercentInput(commissionInput);
+  const parsedWholesale = parsePercentInput(wholesaleInput);
+
+  const commissionDirty =
+    parsedCommission !== null && parsedCommission !== (partner?.commission_percent ?? 0);
+  const wholesaleDirty =
+    parsedWholesale !== null &&
+    parsedWholesale !== Math.round((partner?.wholesale_discount_bps ?? 0) / 100);
+
+  const handleSaveCommission = () => {
+    if (parsedCommission === null || !commissionDirty) return;
+    commissionMutation.mutate(parsedCommission);
+  };
+
+  const handleSaveWholesale = () => {
+    if (parsedWholesale === null || !wholesaleDirty) return;
+    wholesaleMutation.mutate(parsedWholesale * 100);
+  };
 
   if (isLoading) {
     return (
@@ -179,55 +233,64 @@ export default function AdminPartnerDetail() {
           </div>
         </div>
 
-        {/* Commission */}
+        {/* Commission + wholesale discounts */}
         <div className="rounded-xl border border-dark-700 bg-dark-800 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-dark-200">
-                {t('admin.partnerDetail.commission.title')}
-              </h3>
-              <div className="mt-1 text-2xl font-bold text-accent-400">
-                {partner.commission_percent ?? 0}%
-              </div>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex items-end gap-1.5">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-dark-200">
+                  {t('admin.partnerDetail.commission.title')} (%)
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={commissionInput}
+                  onChange={(e) =>
+                    setCommissionInput(e.target.value.replace(/\D/g, '').slice(0, 3))
+                  }
+                  className="w-20 rounded-md border border-dark-600 bg-dark-800 px-2 py-1.5 text-center text-sm text-dark-100 focus:border-accent-500 focus:outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                title={t('common.save')}
+                disabled={!commissionDirty || commissionMutation.isPending}
+                onClick={handleSaveCommission}
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-500/20 text-accent-400 transition-colors hover:bg-accent-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <CheckIcon className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              onClick={() =>
-                navigate(`/admin/partners/${userId}/commission`, {
-                  state: { currentCommission: partner.commission_percent ?? 0 },
-                })
-              }
-              className="rounded-lg bg-dark-700 px-4 py-2 text-sm text-dark-300 transition-colors hover:bg-dark-600 hover:text-dark-100"
-            >
-              {t('admin.partnerDetail.commission.update')}
-            </button>
-          </div>
-        </div>
 
-        {/* Wholesale purchase discount */}
-        <div className="rounded-xl border border-dark-700 bg-dark-800 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-dark-200">
-                {t('admin.partnerDetail.wholesale.title')}
-              </h3>
-              <div className="mt-1 text-2xl font-bold text-accent-400">
-                {partner.wholesale_discount_bps / 100}%
-              </div>
-              <p className="mt-1 text-xs text-dark-500">
-                {t('admin.partnerDetail.wholesale.hint')}
-              </p>
+            <div className="flex items-end gap-1.5">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-dark-200">
+                  {t('admin.partnerDetail.wholesale.title')} (%)
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={wholesaleInput}
+                  onChange={(e) =>
+                    setWholesaleInput(e.target.value.replace(/\D/g, '').slice(0, 3))
+                  }
+                  className="w-20 rounded-md border border-dark-600 bg-dark-800 px-2 py-1.5 text-center text-sm text-dark-100 focus:border-success-500 focus:outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                title={t('common.save')}
+                disabled={!wholesaleDirty || wholesaleMutation.isPending}
+                onClick={handleSaveWholesale}
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-success-500/20 text-success-400 transition-colors hover:bg-success-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <CheckIcon className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              onClick={() =>
-                navigate(`/admin/partners/${userId}/wholesale`, {
-                  state: { currentWholesaleBps: partner.wholesale_discount_bps },
-                })
-              }
-              className="rounded-lg bg-dark-700 px-4 py-2 text-sm text-dark-300 transition-colors hover:bg-dark-600 hover:text-dark-100"
-            >
-              {t('admin.partnerDetail.wholesale.update')}
-            </button>
           </div>
+          <p className="mt-3 text-xs text-dark-500">{t('admin.partnerDetail.wholesale.hint')}</p>
         </div>
 
         {/* Campaigns */}

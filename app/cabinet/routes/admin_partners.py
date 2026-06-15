@@ -40,6 +40,31 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix='/admin/partners', tags=['Cabinet Admin Partners'])
 
+_PARTNER_APPROVED = User.partner_status == PartnerStatus.APPROVED.value
+
+
+def _partner_search_conditions(search: str) -> list:
+    """Build OR conditions for partner list search (mirrors admin users list)."""
+    search_term = f'%{search}%'
+    conditions = [
+        User.first_name.ilike(search_term),
+        User.last_name.ilike(search_term),
+        User.username.ilike(search_term),
+    ]
+    if search.isdigit():
+        try:
+            conditions.append(User.telegram_id == int(search))
+        except ValueError:
+            pass
+    return conditions
+
+
+def _partner_list_filters(search: str | None) -> list:
+    filters = [_PARTNER_APPROVED]
+    if search:
+        filters.append(or_(*_partner_search_conditions(search)))
+    return filters
+
 
 # ==================== Settings ====================
 
@@ -358,20 +383,20 @@ async def get_partner_stats(
 @router.get('', response_model=AdminPartnerListResponse)
 async def list_partners(
     offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=200),
+    search: str | None = Query(None, max_length=255),
     admin: User = Depends(require_permission('partners:read')),
     db: AsyncSession = Depends(get_cabinet_db),
 ):
     """List approved partners."""
-    count_result = await db.execute(
-        select(func.count()).select_from(User).where(User.partner_status == PartnerStatus.APPROVED.value)
-    )
+    list_filters = _partner_list_filters(search)
+    count_result = await db.execute(select(func.count()).select_from(User).where(*list_filters))
     total = count_result.scalar() or 0
 
     result = await db.execute(
         select(User)
-        .where(User.partner_status == PartnerStatus.APPROVED.value)
-        .order_by(desc(User.created_at))
+        .where(*list_filters)
+        .order_by(desc(User.created_at), desc(User.id))
         .offset(offset)
         .limit(limit)
     )

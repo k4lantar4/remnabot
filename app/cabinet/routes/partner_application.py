@@ -97,6 +97,7 @@ async def get_partner_status(
     return PartnerStatusResponse(
         partner_status=user.partner_status,
         commission_percent=commission,
+        wholesale_discount_bps=user.effective_wholesale_discount_bps,
         latest_application=app_info,
         campaigns=campaigns,
     )

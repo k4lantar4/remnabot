@@ -36,6 +36,7 @@ export interface PartnerCampaignInfo {
 export interface PartnerStatusResponse {
   partner_status: string;
   commission_percent: number | null;
+  wholesale_discount_bps: number;
   latest_application: PartnerApplicationInfo | null;
   campaigns: PartnerCampaignInfo[];
 }
@@ -255,6 +256,7 @@ export const partnerApi = {
   getPartners: async (params?: {
     offset?: number;
     limit?: number;
+    search?: string;
   }): Promise<AdminPartnerListResponse> => {
     const response = await apiClient.get<AdminPartnerListResponse>('/cabinet/admin/partners', {
       params,
