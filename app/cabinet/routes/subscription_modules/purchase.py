@@ -4,6 +4,7 @@ GET /subscription/purchase-options
 POST /subscription/purchase-preview
 POST /subscription/purchase
 POST /subscription/purchase-tariff
+POST /subscription/tariff-purchase-quote
 GET /subscription/trial
 POST /subscription/trial
 """
@@ -54,6 +55,7 @@ from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
     PurchasePreviewRequest,
     SubscriptionResponse,
+    TariffPurchaseQuoteRequest,
     TariffPurchaseRequest,
     TrialActivateRequest,
     TrialInfoResponse,
@@ -125,6 +127,10 @@ async def _build_tariff_response(
 
     periods = []
     if tariff.period_prices:
+        from app.services.pricing_engine import PricingEngine
+        from app.utils.promo_offer import get_user_active_promo_discount_percent
+
+        uses_wholesale = PricingEngine.uses_wholesale_pricing(user)
         for period_str, price_kopeks in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
             if int(price_kopeks) < 0:
                 continue  # Skip disabled periods (negative price)
@@ -137,17 +143,35 @@ async def _build_tariff_response(
             # Стоимость доп. устройств за этот период
             extra_devices_cost = extra_devices_count * extra_device_price_per_month * months
 
-            # Apply per-category promo group discounts
-            original_price = base_tariff_price + extra_devices_cost
+            # Traffic-first: include default min traffic when base period price is zero
+            default_traffic_cost = 0
+            if (
+                tariff.custom_traffic_enabled
+                and base_tariff_price == 0
+                and hasattr(tariff, 'can_purchase_custom_traffic')
+                and tariff.can_purchase_custom_traffic()
+            ):
+                per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
+                min_gb = int(tariff.min_traffic_gb or 0)
+                if per_gb > 0 and min_gb > 0:
+                    default_traffic_cost = per_gb * min_gb * months
+
+            original_price = base_tariff_price + extra_devices_cost + default_traffic_cost
             discount_amount = 0
 
-            if promo_group:
+            if uses_wholesale:
+                final_price, _, _ = PricingEngine.apply_checkout_discount(original_price, user)
+                discount_amount = original_price - final_price
+                discount_percent = PricingEngine.checkout_display_discount_percent(
+                    original_price, final_price
+                )
+            elif promo_group:
                 period_pct = promo_group.get_discount_percent('period', period_days)
                 devices_pct = promo_group.get_discount_percent('devices', period_days)
                 discounted_base = (
-                    pricing_engine.apply_discount(base_tariff_price, period_pct)
+                    pricing_engine.apply_discount(base_tariff_price + default_traffic_cost, period_pct)
                     if period_pct > 0
-                    else base_tariff_price
+                    else base_tariff_price + default_traffic_cost
                 )
                 discounted_devices = (
                     pricing_engine.apply_discount(extra_devices_cost, devices_pct)
@@ -611,6 +635,146 @@ async def submit_purchase(
 # ============ Tariff Purchase (for tariffs mode) ============
 
 
+@router.post('/tariff-purchase-quote')
+async def tariff_purchase_quote(
+    request: TariffPurchaseQuoteRequest,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> dict[str, Any]:
+    """Quote tariff purchase pricing via PricingEngine (single source of truth)."""
+    if not settings.is_tariffs_mode():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Tariffs mode is not enabled',
+        )
+
+    tariff = await get_tariff_by_id(db, request.tariff_id)
+    if not tariff or not tariff.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Tariff not found or inactive',
+        )
+
+    from app.database.crud.user import lock_user_for_pricing
+    from app.services.pricing_engine import PricingEngine
+    from app.utils.pricing_utils import calculate_months_from_days
+
+    user = await lock_user_for_pricing(db, user.id)
+
+    promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
+    promo_group_id = promo_group.id if promo_group else None
+    if not tariff.is_available_for_promo_group(promo_group_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='This tariff is not available for your promo group',
+        )
+
+    is_daily_tariff = getattr(tariff, 'is_daily', False)
+    period_days = 1 if is_daily_tariff else request.period_days
+
+    if not is_daily_tariff:
+        if tariff.period_prices:
+            available_periods = [int(p) for p in tariff.period_prices.keys()]
+        else:
+            available_periods = []
+
+        custom_days_allowed = (
+            hasattr(tariff, 'can_purchase_custom_days')
+            and tariff.can_purchase_custom_days()
+            and hasattr(tariff, 'get_price_for_custom_days')
+            and tariff.get_price_for_custom_days(period_days) is not None
+        )
+
+        if period_days not in available_periods and not custom_days_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Selected period is not available for this tariff',
+            )
+
+    custom_traffic_gb = None
+    if tariff.can_purchase_custom_traffic():
+        custom_traffic_gb = (
+            request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
+        )
+
+    existing_subscription = None
+    if settings.is_multi_tariff_enabled():
+        if request.subscription_id is not None:
+            existing_subscription = await get_subscription_by_id_for_user(
+                db, request.subscription_id, user.id
+            )
+            if existing_subscription and existing_subscription.tariff_id != tariff.id:
+                existing_subscription = None
+    else:
+        existing_subscription = await get_subscription_by_user_id(db, user.id)
+
+    device_limit = None
+    if existing_subscription and existing_subscription.tariff_id == tariff.id:
+        device_limit = existing_subscription.device_limit
+
+    result = await pricing_engine.calculate_tariff_purchase_price(
+        tariff,
+        period_days,
+        device_limit=device_limit,
+        custom_traffic_gb=custom_traffic_gb,
+        user=user,
+    )
+
+    months = result.breakdown.get('months_in_period') or calculate_months_from_days(period_days)
+    use_custom_traffic = (
+        custom_traffic_gb is not None
+        and hasattr(tariff, 'can_purchase_custom_traffic')
+        and tariff.can_purchase_custom_traffic()
+    )
+
+    if use_custom_traffic:
+        base_kopeks = 0
+    elif is_daily_tariff and period_days <= 1:
+        base_kopeks = int(getattr(tariff, 'daily_price_kopeks', 0) or 0)
+    else:
+        period_prices: dict = tariff.period_prices or {}
+        base_kopeks = int(period_prices.get(str(period_days), 0) or 0)
+        if base_kopeks == 0 and hasattr(tariff, 'get_price_for_custom_days'):
+            if hasattr(tariff, 'can_purchase_custom_days') and tariff.can_purchase_custom_days():
+                custom_price = tariff.get_price_for_custom_days(period_days)
+                if custom_price is not None:
+                    base_kopeks = int(custom_price)
+
+    device_price_per_unit = (
+        tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
+    )
+    tariff_device_limit = tariff.device_limit or 0
+    effective_device_limit = device_limit if device_limit is not None else (tariff.device_limit or 0)
+    extra_devices = max(0, (effective_device_limit or 0) - tariff_device_limit)
+    if is_daily_tariff and period_days <= 1:
+        devices_kopeks = extra_devices * device_price_per_unit
+    else:
+        devices_kopeks = extra_devices * device_price_per_unit * months
+
+    traffic_kopeks = 0
+    if use_custom_traffic and custom_traffic_gb is not None:
+        per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
+        if per_gb > 0:
+            traffic_kopeks = per_gb * custom_traffic_gb * months
+
+    discount_kopeks = result.promo_group_discount + result.promo_offer_discount
+    discount_percent = PricingEngine.checkout_display_discount_percent(
+        result.original_total,
+        result.final_total,
+    )
+
+    return {
+        'base_kopeks': base_kopeks,
+        'traffic_kopeks': traffic_kopeks,
+        'devices_kopeks': devices_kopeks,
+        'original_total': result.original_total,
+        'final_total': result.final_total,
+        'discount_percent': discount_percent,
+        'discount_kopeks': discount_kopeks,
+        'breakdown': result.breakdown,
+    }
+
+
 @router.post('/purchase-tariff')
 async def purchase_tariff(
     request: TariffPurchaseRequest,
@@ -684,9 +848,11 @@ async def purchase_tariff(
         # Determine traffic limit (custom traffic support)
         traffic_limit_gb = tariff.traffic_limit_gb
         custom_traffic_gb = None
-        if request.traffic_gb is not None and tariff.can_purchase_custom_traffic():
-            custom_traffic_gb = request.traffic_gb
-            traffic_limit_gb = request.traffic_gb
+        if tariff.can_purchase_custom_traffic():
+            custom_traffic_gb = (
+                request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
+            )
+            traffic_limit_gb = custom_traffic_gb
 
         # Determine device_limit for renewal pricing.
         #
@@ -744,9 +910,7 @@ async def purchase_tariff(
         price_before_promo_offer = price_kopeks + promo_offer_discount_value
 
         # Safety guard: reject zero-price purchases for non-daily tariffs (defense in depth).
-        # Use original_total (pre-discount price) — base_price is already discounted,
-        # so a 100% group discount legitimately makes it 0.
-        if price_kopeks <= 0 and result.original_total <= 0 and not is_daily_tariff:
+        if price_kopeks <= 0 and not is_daily_tariff:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='Invalid tariff period or pricing configuration',

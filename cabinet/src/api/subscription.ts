@@ -37,8 +37,18 @@ const bodyWithSubId = (
 export const subscriptionApi = {
   // ── Multi-tariff endpoints ──────────────────────────────────────────
 
-  getSubscriptions: async (): Promise<SubscriptionsListResponse> => {
-    const response = await apiClient.get<SubscriptionsListResponse>('/cabinet/subscriptions');
+  getSubscriptions: async (params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<SubscriptionsListResponse> => {
+    const response = await apiClient.get<SubscriptionsListResponse>('/cabinet/subscriptions', {
+      params: {
+        offset: params?.offset ?? 0,
+        limit: params?.limit ?? 20,
+        ...(params?.search ? { search: params.search } : {}),
+      },
+    });
     return response.data;
   },
 
@@ -427,6 +437,30 @@ export const subscriptionApi = {
       traffic_gb: trafficGb,
       subscription_id: subscriptionId,
       yandex_cid: getYandexCid() || undefined,
+    });
+    return response.data;
+  },
+
+  getTariffPurchaseQuote: async (
+    tariffId: number,
+    periodDays: number,
+    trafficGb?: number,
+    subscriptionId?: number,
+  ): Promise<{
+    base_kopeks: number;
+    traffic_kopeks: number;
+    devices_kopeks: number;
+    original_total: number;
+    final_total: number;
+    discount_percent: number;
+    discount_kopeks: number;
+    breakdown: Record<string, unknown>;
+  }> => {
+    const response = await apiClient.post('/cabinet/subscription/tariff-purchase-quote', {
+      tariff_id: tariffId,
+      period_days: periodDays,
+      traffic_gb: trafficGb,
+      subscription_id: subscriptionId,
     });
     return response.data;
   },

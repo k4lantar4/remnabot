@@ -1259,6 +1259,35 @@ input[type='range'] {
   }
 }
 
+.purchase-range::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: 6px;
+  background: rgb(var(--color-dark-600));
+}
+
+.light .purchase-range::-webkit-slider-runnable-track {
+  background: rgb(var(--color-dark-300));
+}
+
+.purchase-range::-moz-range-track {
+  height: 12px;
+  border-radius: 6px;
+  background: rgb(var(--color-dark-600));
+  border: none;
+}
+
+.light .purchase-range::-moz-range-track {
+  background: rgb(var(--color-dark-300));
+}
+
+@media (min-width: 640px) {
+  .purchase-range::-webkit-slider-runnable-track,
+  .purchase-range::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+  }
+}
+
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;

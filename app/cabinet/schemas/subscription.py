@@ -211,6 +211,21 @@ class PurchasePreviewRequest(BaseModel):
 # ============ Tariff Purchase Schemas ============
 
 
+class TariffPurchaseQuoteRequest(BaseModel):
+    """Request to quote tariff purchase pricing."""
+
+    tariff_id: int = Field(..., description='Tariff ID to quote')
+    period_days: int = Field(..., ge=1, le=3650, description='Period in days')
+    traffic_gb: int | None = Field(
+        None, ge=0, le=100_000, description='Custom traffic in GB (for custom_traffic_enabled tariffs)'
+    )
+    subscription_id: int | None = Field(
+        None,
+        ge=1,
+        description='Existing subscription_id when renewing (multi-tariff). Used for extra-device pricing.',
+    )
+
+
 class TariffPurchaseRequest(BaseModel):
     """Request to purchase a tariff."""
 

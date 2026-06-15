@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
 import { getErrorMessage, getInsufficientBalanceError } from '../../../utils/subscriptionHelpers';
 import {
@@ -58,25 +58,48 @@ export function TariffPurchaseForm({
 
   // Form-internal state — seeded from the tariff prop. Resets via
   // `key={tariff.id}` on the parent's render.
+  const isTrafficFirst =
+    tariff.custom_traffic_enabled && (tariff.traffic_price_per_gb_kopeks ?? 0) > 0;
   const [selectedTariffPeriod, setSelectedTariffPeriod] = useState<TariffPeriod | null>(
     tariff.periods[0] || null,
   );
   const [customDays, setCustomDays] = useState<number>(30);
-  const [customTrafficGb, setCustomTrafficGb] = useState<number>(50);
+  const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 50);
   const [useCustomDays, setUseCustomDays] = useState(false);
-  const [useCustomTraffic, setUseCustomTraffic] = useState(false);
+  const [useCustomTraffic, setUseCustomTraffic] = useState(tariff.custom_traffic_enabled ?? false);
+
+  const isDailyTariff =
+    tariff.is_daily || (tariff.daily_price_kopeks && tariff.daily_price_kopeks > 0);
+  const periodDays = isDailyTariff
+    ? 1
+    : useCustomDays
+      ? customDays
+      : selectedTariffPeriod?.days;
+  const quoteTrafficGb =
+    tariff.custom_traffic_enabled && (isTrafficFirst || useCustomTraffic)
+      ? useCustomTraffic
+        ? customTrafficGb
+        : tariff.min_traffic_gb
+      : undefined;
+  const quoteEnabled =
+    !isDailyTariff && periodDays != null && (selectedTariffPeriod != null || useCustomDays);
+
+  const { data: quote } = useQuery({
+    queryKey: ['tariff-purchase-quote', tariff.id, periodDays, quoteTrafficGb, subscriptionId],
+    queryFn: () =>
+      subscriptionApi.getTariffPurchaseQuote(
+        tariff.id,
+        periodDays!,
+        quoteTrafficGb ?? undefined,
+        subscriptionId ?? undefined,
+      ),
+    enabled: quoteEnabled,
+  });
 
   const purchaseMutation = useMutation({
     mutationFn: () => {
-      const isDailyTariff =
-        tariff.is_daily || (tariff.daily_price_kopeks && tariff.daily_price_kopeks > 0);
-      const days = isDailyTariff
-        ? 1
-        : useCustomDays
-          ? customDays
-          : selectedTariffPeriod?.days || 30;
-      const trafficGb =
-        useCustomTraffic && tariff.custom_traffic_enabled ? customTrafficGb : undefined;
+      const days = periodDays ?? 30;
+      const trafficGb = quoteTrafficGb ?? undefined;
       // Forward the subscription_id when the user landed here via the
       // "Renew this subscription" flow (?subscriptionId=N). The backend
       // uses it to resolve the exact target row by ID, avoiding the
@@ -334,7 +357,7 @@ export function TariffPurchaseForm({
                         max={tariff.max_days ?? 365}
                         value={customDays}
                         onChange={(e) => setCustomDays(parseInt(e.target.value))}
-                        className="flex-1 accent-accent-500"
+                        className="purchase-range w-full flex-1 accent-accent-500"
                       />
                       <input
                         type="number"
@@ -444,7 +467,7 @@ export function TariffPurchaseForm({
                         max={tariff.max_traffic_gb ?? 1000}
                         value={customTrafficGb}
                         onChange={(e) => setCustomTrafficGb(parseInt(e.target.value))}
-                        className="flex-1 accent-accent-500"
+                        className="purchase-range w-full flex-1 accent-accent-500"
                       />
                       <div className="flex items-center gap-2">
                         <input
@@ -475,7 +498,7 @@ export function TariffPurchaseForm({
                         {t('common.units.gb')}
                       </span>
                       <span className="font-medium text-accent-400">
-                        +{formatPrice(customTrafficGb * (tariff.traffic_price_per_gb_kopeks ?? 0))}
+                        +{formatPrice(quote?.traffic_kopeks ?? 0)}
                       </span>
                     </div>
                   </div>
@@ -487,144 +510,100 @@ export function TariffPurchaseForm({
           {/* Summary & Purchase */}
           {(selectedTariffPeriod || useCustomDays) && (
             <div className="rounded-xl bg-dark-800/50 p-5">
-              {(() => {
-                const basePeriodPrice = useCustomDays
-                  ? customDays * (tariff.price_per_day_kopeks ?? 0)
-                  : selectedTariffPeriod?.price_kopeks || 0;
-                const existingPeriodOriginal = useCustomDays
-                  ? tariff.original_price_per_day_kopeks &&
-                    tariff.original_price_per_day_kopeks > (tariff.price_per_day_kopeks ?? 0)
-                    ? customDays * tariff.original_price_per_day_kopeks
-                    : undefined
-                  : selectedTariffPeriod?.original_price_kopeks &&
-                      selectedTariffPeriod.original_price_kopeks > selectedTariffPeriod.price_kopeks
-                    ? selectedTariffPeriod.original_price_kopeks
-                    : undefined;
-                const promoPeriod = applyPromoDiscount(basePeriodPrice, existingPeriodOriginal);
-
-                const trafficPrice =
-                  useCustomTraffic && tariff.custom_traffic_enabled
-                    ? customTrafficGb * (tariff.traffic_price_per_gb_kopeks ?? 0)
-                    : 0;
-
-                const totalPrice = promoPeriod.price + trafficPrice;
-                const originalTotal = promoPeriod.original
-                  ? promoPeriod.original + trafficPrice
-                  : null;
-
-                return (
-                  <>
-                    <div className="mb-4 space-y-2">
-                      {useCustomDays ? (
-                        <div className="flex justify-between text-sm text-dark-300">
-                          <span>
-                            {t('subscription.stepPeriod')}:{' '}
-                            {t('subscription.days', { count: customDays })}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span>{formatPrice(promoPeriod.price)}</span>
-                            {promoPeriod.original && promoPeriod.original > promoPeriod.price && (
-                              <span className="text-xs text-dark-500 line-through">
-                                {formatPrice(promoPeriod.original)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        selectedTariffPeriod && (
-                          <>
-                            {(selectedTariffPeriod.extra_devices_count ?? 0) > 0 &&
-                            selectedTariffPeriod.base_tariff_price_kopeks ? (
-                              <>
-                                <div className="flex justify-between text-sm text-dark-300">
-                                  <span>
-                                    {t('subscription.baseTariff')}: {selectedTariffPeriod.label}
-                                  </span>
-                                  <span>
-                                    {formatPrice(selectedTariffPeriod.base_tariff_price_kopeks)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-sm text-dark-300">
-                                  <span>
-                                    {t('subscription.extraDevices')} (
-                                    {selectedTariffPeriod.extra_devices_count})
-                                  </span>
-                                  <span>
-                                    +
-                                    {formatPrice(
-                                      selectedTariffPeriod.extra_devices_cost_kopeks ?? 0,
-                                    )}
-                                  </span>
-                                </div>
-                              </>
-                            ) : (
+              {quote && (
+                <>
+                  <div className="mb-4 space-y-2">
+                    {useCustomDays ? (
+                      <div className="flex justify-between text-sm text-dark-300">
+                        <span>
+                          {t('subscription.stepPeriod')}:{' '}
+                          {t('subscription.days', { count: customDays })}
+                        </span>
+                        <span>{formatPrice(quote.base_kopeks + quote.devices_kopeks)}</span>
+                      </div>
+                    ) : (
+                      selectedTariffPeriod && (
+                        <>
+                          {quote.devices_kopeks > 0 ? (
+                            <>
                               <div className="flex justify-between text-sm text-dark-300">
                                 <span>
-                                  {t('subscription.summary.period', {
-                                    label: selectedTariffPeriod.label,
-                                  })}
+                                  {t('subscription.baseTariff')}: {selectedTariffPeriod.label}
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <span>{formatPrice(promoPeriod.price)}</span>
-                                  {promoPeriod.original &&
-                                    promoPeriod.original > promoPeriod.price && (
-                                      <span className="text-xs text-dark-500 line-through">
-                                        {formatPrice(promoPeriod.original)}
-                                      </span>
-                                    )}
-                                </div>
+                                <span>{formatPrice(quote.base_kopeks)}</span>
                               </div>
-                            )}
-                          </>
-                        )
-                      )}
-                      {useCustomTraffic && tariff.custom_traffic_enabled && (
-                        <div className="flex justify-between text-sm text-dark-300">
-                          <span>{t('subscription.summary.traffic', { gb: customTrafficGb })}</span>
-                          <span>+{formatPrice(trafficPrice)}</span>
+                              <div className="flex justify-between text-sm text-dark-300">
+                                <span>
+                                  {t('subscription.extraDevices')} (
+                                  {selectedTariffPeriod.extra_devices_count ??
+                                    Math.max(0, quote.devices_kopeks)})
+                                </span>
+                                <span>+{formatPrice(quote.devices_kopeks)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex justify-between text-sm text-dark-300">
+                              <span>
+                                {t('subscription.summary.period', {
+                                  label: selectedTariffPeriod.label,
+                                })}
+                              </span>
+                              <span>{formatPrice(quote.base_kopeks + quote.devices_kopeks)}</span>
+                            </div>
+                          )}
+                        </>
+                      )
+                    )}
+                    {quote.traffic_kopeks > 0 && (
+                      <div className="flex justify-between text-sm text-dark-300">
+                        <span>
+                          {t('subscription.summary.traffic', {
+                            gb: quoteTrafficGb ?? customTrafficGb,
+                          })}
+                        </span>
+                        <span>+{formatPrice(quote.traffic_kopeks)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {quote.discount_percent > 0 && (
+                    <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
+                      <span className="text-sm font-medium text-warning-400">
+                        {t('promo.discountApplied')} -{quote.discount_percent}%
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mb-4 flex items-center justify-between border-t border-dark-700/50 pt-2">
+                    <span className="font-medium text-dark-100">{t('subscription.total')}</span>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-accent-400">
+                        {formatPrice(quote.final_total)}
+                      </span>
+                      {quote.discount_kopeks > 0 && (
+                        <div className="text-sm text-dark-500 line-through">
+                          {formatPrice(quote.original_total)}
                         </div>
                       )}
                     </div>
+                  </div>
 
-                    {promoPeriod.percent && (
-                      <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
-                        <span className="text-sm font-medium text-warning-400">
-                          {t('promo.discountApplied')} -{promoPeriod.percent}%
-                        </span>
-                      </div>
+                  <button
+                    onClick={() => purchaseMutation.mutate()}
+                    disabled={purchaseMutation.isPending}
+                    className="btn-primary w-full py-3"
+                  >
+                    {purchaseMutation.isPending ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        {t('common.loading')}
+                      </span>
+                    ) : (
+                      t('subscription.purchase')
                     )}
-
-                    <div className="mb-4 flex items-center justify-between border-t border-dark-700/50 pt-2">
-                      <span className="font-medium text-dark-100">{t('subscription.total')}</span>
-                      <div className="text-right">
-                        <span className="text-2xl font-bold text-accent-400">
-                          {formatPrice(totalPrice)}
-                        </span>
-                        {originalTotal && (
-                          <div className="text-sm text-dark-500 line-through">
-                            {formatPrice(originalTotal)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => purchaseMutation.mutate()}
-                      disabled={purchaseMutation.isPending}
-                      className="btn-primary w-full py-3"
-                    >
-                      {purchaseMutation.isPending ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                          {t('common.loading')}
-                        </span>
-                      ) : (
-                        t('subscription.purchase')
-                      )}
-                    </button>
-                  </>
-                );
-              })()}
+                  </button>
+                </>
+              )}
 
               {purchaseMutation.isError && !getInsufficientBalanceError(purchaseMutation.error) && (
                 <div className="mt-3 text-center text-sm text-error-400">
