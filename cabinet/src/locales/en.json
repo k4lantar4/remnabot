@@ -2938,6 +2938,11 @@
         "title": "Commission",
         "update": "Update"
       },
+      "wholesale": {
+        "title": "Wholesale discount",
+        "update": "Update",
+        "hint": "Partner purchase discount (separate from referral commission)"
+      },
       "campaigns": {
         "title": "Assigned Campaigns",
         "noCampaigns": "No campaigns assigned",
@@ -2964,6 +2969,11 @@
         "title": "Update Commission",
         "description": "Set a new commission percentage for this partner.",
         "label": "Commission (%)"
+      },
+      "wholesaleDialog": {
+        "title": "Update Wholesale Discount",
+        "description": "Set the partner's purchase discount. Enter 25 for 25% off subscription prices.",
+        "label": "Wholesale discount (%)"
       },
       "revokeDialog": {
         "title": "Revoke Partner Status?",

@@ -114,21 +114,33 @@ async def _resolve_subscription(callback, db_user, db, state=None):
     return await resolve_subscription_from_context(callback, db_user, db, state)
 
 
-def _apply_promo_discount(price: int, group_pct: int, offer_pct: int = 0) -> int:
-    """Применяет стекинг скидок к цене (sequential floor division, как PricingEngine)."""
+def _apply_promo_discount(
+    price: int,
+    group_pct: int,
+    offer_pct: int = 0,
+    *,
+    user: User | None = None,
+) -> int:
+    """Apply checkout discount (wholesale OR retail stack) for display parity."""
     from app.services.pricing_engine import PricingEngine
 
-    final, _, _ = PricingEngine.apply_stacked_discounts(price, group_pct, offer_pct)
+    final, _, _ = PricingEngine.apply_checkout_discount(price, user, group_pct=group_pct, offer_pct=offer_pct)
     return final
 
 
 def _get_user_period_discount(db_user: User, period_days: int) -> tuple[int, int, int]:
-    """Получает скидку пользователя на период из промогруппы + промо-оффер.
+    """Return period discount percents for UI; wholesale BPS when partner pricing applies.
 
     Returns:
-        (group_pct, offer_pct, display_combined_pct) — отдельные проценты для
-        корректного расчёта цены и комбинированный процент для отображения в UI.
+        (group_pct, offer_pct, display_combined_pct)
     """
+    from app.services.pricing_engine import PricingEngine
+
+    if PricingEngine.uses_wholesale_pricing(db_user):
+        bps = PricingEngine.get_wholesale_discount_bps(db_user)
+        display_pct = bps // 100
+        return 0, 0, display_pct
+
     promo_group = db_user.get_primary_promo_group()
     group_discount = promo_group.get_discount_percent('period', period_days) if promo_group else 0
     personal_discount = get_user_active_promo_discount_percent(db_user)
@@ -214,7 +226,7 @@ async def format_tariffs_list_text(
             if db_user:
                 group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
                 if daily_discount > 0:
-                    daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct)
+                    daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
             price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(price=format_price_kopeks(daily_price, compact=True), icon=discount_icon)
         elif not hide_prices:
@@ -239,7 +251,7 @@ async def format_tariffs_list_text(
                     if db_user:
                         group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, min_period)
                     if discount_percent > 0:
-                        min_price = _apply_promo_discount(min_price, group_pct, offer_pct)
+                        min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
                         discount_icon = '🔥'
                 price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(price=format_price_kopeks(min_price, compact=True), icon=discount_icon)
 
@@ -305,7 +317,7 @@ def get_tariff_periods_keyboard(
                 group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
 
             if discount_percent > 0:
-                price = _apply_promo_discount(price, group_pct, offer_pct)
+                price = _apply_promo_discount(price, group_pct, offer_pct, user=db_user)
                 price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
             else:
                 price_text = format_price_kopeks(price)
@@ -342,7 +354,7 @@ def get_tariff_periods_keyboard_with_traffic(
                 group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
 
             if discount_percent > 0:
-                price = _apply_promo_discount(price, group_pct, offer_pct)
+                price = _apply_promo_discount(price, group_pct, offer_pct, user=db_user)
                 price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
             else:
                 price_text = format_price_kopeks(price)
@@ -740,7 +752,7 @@ async def format_custom_tariff_preview(
         period_price, traffic_price, total_price = _calculate_custom_tariff_price(tariff, days, traffic_gb)
         has_discount = discount_percent > 0
         if has_discount:
-            total_price = _apply_promo_discount(total_price, group_pct, offer_pct)
+            total_price = _apply_promo_discount(total_price, group_pct, offer_pct, user=db_user)
 
     texts = get_texts(language)
     traffic_display = texts.t('TARIFF_GB_LABEL', '📊 {gb} GB').format(gb=traffic_gb) if traffic_gb > 0 else format_traffic(tariff.traffic_limit_gb)
@@ -854,7 +866,7 @@ async def select_tariff(
         raw_daily_price = getattr(tariff, 'daily_price_kopeks', 0)
         group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
         daily_price = (
-            _apply_promo_discount(raw_daily_price, group_pct, offer_pct) if daily_discount > 0 else raw_daily_price
+            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user) if daily_discount > 0 else raw_daily_price
         )
         discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
         user_balance = db_user.balance_kopeks or 0
@@ -1786,7 +1798,7 @@ async def select_tariff_period(
     # Получаем цену
     prices = tariff.period_prices or {}
     base_price = prices.get(str(period), 0)
-    final_price = _apply_promo_discount(base_price, group_pct, offer_pct)
+    final_price = _apply_promo_discount(base_price, group_pct, offer_pct, user=db_user)
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
@@ -3318,7 +3330,7 @@ def format_tariff_switch_list_text(
             if db_user:
                 group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
                 if daily_discount > 0:
-                    daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct)
+                    daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
             price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(price=format_price_kopeks(daily_price, compact=True), icon=discount_icon)
         else:
@@ -3330,7 +3342,7 @@ def format_tariff_switch_list_text(
                 if db_user:
                     group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, int(min_period))
                 if discount_percent > 0:
-                    min_price = _apply_promo_discount(min_price, group_pct, offer_pct)
+                    min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
                 price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(price=format_price_kopeks(min_price, compact=True), icon=discount_icon)
 
@@ -3384,7 +3396,7 @@ def get_tariff_switch_periods_keyboard(
             group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
 
         if discount_percent > 0:
-            price = _apply_promo_discount(price, group_pct, offer_pct)
+            price = _apply_promo_discount(price, group_pct, offer_pct, user=db_user)
             price_text = f'{format_price_kopeks(price)} 🔥−{discount_percent}%'
         else:
             price_text = format_price_kopeks(price)
@@ -3571,7 +3583,7 @@ async def select_tariff_switch(
         raw_daily_price = getattr(tariff, 'daily_price_kopeks', 0)
         group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
         daily_price = (
-            _apply_promo_discount(raw_daily_price, group_pct, offer_pct) if daily_discount > 0 else raw_daily_price
+            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user) if daily_discount > 0 else raw_daily_price
         )
         discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
         user_balance = db_user.balance_kopeks or 0
@@ -4689,7 +4701,7 @@ async def preview_instant_switch(
         # Применяем групповую скидку + promo-offer для отображения
         daily_group_pct, daily_offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
         daily_price = (
-            _apply_promo_discount(raw_daily_price, daily_group_pct, daily_offer_pct)
+            _apply_promo_discount(raw_daily_price, daily_group_pct, daily_offer_pct, user=db_user)
             if daily_discount > 0
             else raw_daily_price
         )

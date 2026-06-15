@@ -176,13 +176,31 @@ def calculate_user_price(user: User | None, base_price: int, period_days: int, c
     if not base_price or base_price <= 0:
         return PriceInfo(base_price=base_price or 0, final_price=base_price or 0, discount_percent=0)
 
-    # Step 1: Get promo group discount
+    # Step 1: Wholesale partners bypass retail promo stack
+    from app.services.pricing_engine import PricingEngine
+
+    if user and PricingEngine.uses_wholesale_pricing(user):
+        final_price, discount_value = PricingEngine.apply_wholesale_discount(base_price, user)
+        discount_percent = PricingEngine.checkout_display_discount_percent(base_price, final_price)
+        logger.debug(
+            'calculate_user_price',
+            telegram_id=user.telegram_id,
+            base_price=base_price,
+            final_price=final_price,
+            wholesale_discount_bps=PricingEngine.get_wholesale_discount_bps(user),
+            discount_percent=discount_percent,
+            category=category,
+            period_days=period_days,
+        )
+        return PriceInfo(base_price=base_price, final_price=final_price, discount_percent=discount_percent)
+
+    # Step 2: Get promo group discount
     if user:
         group_discount = user.get_promo_discount(category, period_days)
     else:
         group_discount = settings.get_base_promo_group_period_discount(period_days)
 
-    # Step 2: Get promo offer discount (stacking)
+    # Step 3: Get promo offer discount (stacking)
     promo_offer_discount = 0
     if user:
         from app.utils.promo_offer import get_user_active_promo_discount_percent
@@ -190,8 +208,6 @@ def calculate_user_price(user: User | None, base_price: int, period_days: int, c
         promo_offer_discount = get_user_active_promo_discount_percent(user)
 
     # Apply both discounts sequentially via PricingEngine
-    from app.services.pricing_engine import PricingEngine
-
     final_price, _, _ = PricingEngine.apply_stacked_discounts(base_price, group_discount, promo_offer_discount)
 
     # Effective combined discount percent

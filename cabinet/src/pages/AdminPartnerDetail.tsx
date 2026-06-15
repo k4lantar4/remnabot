@@ -203,6 +203,33 @@ export default function AdminPartnerDetail() {
           </div>
         </div>
 
+        {/* Wholesale purchase discount */}
+        <div className="rounded-xl border border-dark-700 bg-dark-800 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-dark-200">
+                {t('admin.partnerDetail.wholesale.title')}
+              </h3>
+              <div className="mt-1 text-2xl font-bold text-accent-400">
+                {partner.wholesale_discount_bps / 100}%
+              </div>
+              <p className="mt-1 text-xs text-dark-500">
+                {t('admin.partnerDetail.wholesale.hint')}
+              </p>
+            </div>
+            <button
+              onClick={() =>
+                navigate(`/admin/partners/${userId}/wholesale`, {
+                  state: { currentWholesaleBps: partner.wholesale_discount_bps },
+                })
+              }
+              className="rounded-lg bg-dark-700 px-4 py-2 text-sm text-dark-300 transition-colors hover:bg-dark-600 hover:text-dark-100"
+            >
+              {t('admin.partnerDetail.wholesale.update')}
+            </button>
+          </div>
+        </div>
+
         {/* Campaigns */}
         <div className="rounded-xl border border-dark-700 bg-dark-800 p-4">
           <div className="mb-4 flex items-center justify-between">

@@ -8,6 +8,7 @@ import structlog
 
 from app.config import CLASSIC_PERIOD_PRICES, PERIOD_PRICES, settings
 from app.database.crud.server_squad import get_server_squads_by_uuids
+from app.database.models import PartnerStatus
 from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 
@@ -124,6 +125,77 @@ class PricingEngine:
         return after_offer, group_discount_value, offer_discount_value
 
     @staticmethod
+    def _safe_wholesale_bps(user: User | None) -> int:
+        """Return wholesale BPS for approved partners; 0 for missing/invalid values."""
+        if user is None:
+            return 0
+        if getattr(user, 'partner_status', PartnerStatus.NONE.value) != PartnerStatus.APPROVED.value:
+            return 0
+        raw_bps = getattr(user, 'wholesale_discount_bps', 0)
+        try:
+            bps = int(raw_bps or 0)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, min(10000, bps))
+
+    @staticmethod
+    def uses_wholesale_pricing(user: User | None) -> bool:
+        """True when approved partner has a non-zero wholesale BPS rate."""
+        return PricingEngine._safe_wholesale_bps(user) > 0
+
+    @staticmethod
+    def get_wholesale_discount_bps(user: User | None) -> int:
+        """Return clamped wholesale BPS for an approved partner, else 0."""
+        if not PricingEngine.uses_wholesale_pricing(user):
+            return 0
+        return PricingEngine._safe_wholesale_bps(user)
+
+    @staticmethod
+    def apply_wholesale_discount(subtotal: int, user: User | None) -> tuple[int, int]:
+        """Apply partner wholesale discount (integer BPS, floor division).
+
+        Equivalent to ``int(subtotal * (1.0 - bps / 10000.0))`` without float math.
+        Returns (final_total, discount_value_kopeks).
+        """
+        if subtotal <= 0:
+            return subtotal, 0
+        bps = PricingEngine.get_wholesale_discount_bps(user)
+        if bps <= 0:
+            return subtotal, 0
+        final_total = subtotal * (10000 - bps) // 10000
+        return final_total, subtotal - final_total
+
+    @staticmethod
+    def apply_checkout_discount(
+        subtotal: int,
+        user: User | None,
+        *,
+        group_pct: int = 0,
+        offer_pct: int | None = None,
+    ) -> tuple[int, int, int]:
+        """Apply wholesale OR retail stacked discounts for checkout/display parity.
+
+        Returns (final_amount, primary_discount_value, secondary_discount_value).
+        Wholesale path: (final, wholesale_discount, 0).
+        Retail path: stacked promo-group then promo-offer.
+        """
+        if subtotal <= 0:
+            return subtotal, 0, 0
+        if PricingEngine.uses_wholesale_pricing(user):
+            final, discount = PricingEngine.apply_wholesale_discount(subtotal, user)
+            return final, discount, 0
+        if offer_pct is None:
+            offer_pct = get_user_active_promo_discount_percent(user) if user else 0
+        return PricingEngine.apply_stacked_discounts(subtotal, group_pct, offer_pct)
+
+    @staticmethod
+    def checkout_display_discount_percent(subtotal: int, final: int) -> int:
+        """Effective discount percent for UI labels after checkout discount."""
+        if subtotal <= 0 or final >= subtotal:
+            return 0
+        return round((subtotal - final) * 100 / subtotal)
+
+    @staticmethod
     def resolve_promo_group(user: User | None):
         """Resolve primary promo group: get_primary_promo_group() first, fallback to user.promo_group."""
         if not user:
@@ -137,12 +209,15 @@ class PricingEngine:
     @staticmethod
     def renewal_custom_traffic_gb(tariff: Tariff, subscription: Subscription) -> int | None:
         """GB to bill on renewal when tariff uses custom-traffic pricing."""
-        if not hasattr(tariff, 'can_purchase_custom_traffic') or not tariff.can_purchase_custom_traffic():
+        can_custom_fn = getattr(tariff, 'can_purchase_custom_traffic', None)
+        if not callable(can_custom_fn) or can_custom_fn() is not True:
             return None
         traffic_gb = getattr(subscription, 'traffic_limit_gb', None)
-        if traffic_gb is None or traffic_gb <= 0:
+        if not isinstance(traffic_gb, int):
             return None
-        return int(traffic_gb)
+        if traffic_gb <= 0:
+            return None
+        return traffic_gb
 
     @staticmethod
     def get_addon_discount_percent(
@@ -199,6 +274,11 @@ class PricingEngine:
         """
         if not user or base_price <= 0:
             return base_price, 0, 0
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            final, discount_value = PricingEngine.apply_wholesale_discount(base_price, user)
+            bps = PricingEngine.get_wholesale_discount_bps(user)
+            return final, discount_value, bps // 100
 
         pct = PricingEngine.get_addon_discount_percent(user, 'traffic', period_days_hint)
         if pct <= 0:
@@ -302,23 +382,28 @@ class PricingEngine:
             )
 
         # Resolve discounts via resolve_promo_group (get_primary_promo_group first)
-        group_pct = 0
-        offer_pct = 0
-        if user:
-            promo_group = self.resolve_promo_group(user)
-            if promo_group is not None:
-                best_period = min(
-                    current_tariff.get_available_periods() or [30],
-                    key=lambda p: abs(p - remaining_days),
-                )
-                group_pct = promo_group.get_discount_percent('period', best_period)
-            offer_pct = get_user_active_promo_discount_percent(user)
-
-        # Применяем stacked скидки к итоговой сумме напрямую (без float round-trip)
-        if group_pct > 0 or offer_pct > 0:
-            upgrade_cost, _, _ = self.apply_stacked_discounts(raw_cost, group_pct, offer_pct)
+        if PricingEngine.uses_wholesale_pricing(user):
+            upgrade_cost, _ = PricingEngine.apply_wholesale_discount(raw_cost, user)
+            group_pct = 0
+            offer_pct = 0
         else:
-            upgrade_cost = raw_cost
+            group_pct = 0
+            offer_pct = 0
+            if user:
+                promo_group = self.resolve_promo_group(user)
+                if promo_group is not None:
+                    best_period = min(
+                        current_tariff.get_available_periods() or [30],
+                        key=lambda p: abs(p - remaining_days),
+                    )
+                    group_pct = promo_group.get_discount_percent('period', best_period)
+                offer_pct = get_user_active_promo_discount_percent(user)
+
+            # Применяем stacked скидки к итоговой сумме напрямую (без float round-trip)
+            if group_pct > 0 or offer_pct > 0:
+                upgrade_cost, _, _ = self.apply_stacked_discounts(raw_cost, group_pct, offer_pct)
+            else:
+                upgrade_cost = raw_cost
 
         return TariffSwitchResult(
             upgrade_cost=upgrade_cost,
@@ -350,17 +435,20 @@ class PricingEngine:
 
         group_pct = 0
         offer_pct = 0
-        if user:
-            promo_group = self.resolve_promo_group(user)
-            if promo_group:
-                period_hint = remaining_days if remaining_days > 0 else 30
-                group_pct = promo_group.get_discount_percent('period', period_hint)
-            offer_pct = get_user_active_promo_discount_percent(user)
-
-        if group_pct > 0 or offer_pct > 0:
-            upgrade_cost, _, _ = self.apply_stacked_discounts(daily_price, group_pct, offer_pct)
+        if PricingEngine.uses_wholesale_pricing(user):
+            upgrade_cost, _ = PricingEngine.apply_wholesale_discount(daily_price, user)
         else:
-            upgrade_cost = daily_price
+            if user:
+                promo_group = self.resolve_promo_group(user)
+                if promo_group:
+                    period_hint = remaining_days if remaining_days > 0 else 30
+                    group_pct = promo_group.get_discount_percent('period', period_hint)
+                offer_pct = get_user_active_promo_discount_percent(user)
+
+            if group_pct > 0 or offer_pct > 0:
+                upgrade_cost, _, _ = self.apply_stacked_discounts(daily_price, group_pct, offer_pct)
+            else:
+                upgrade_cost = daily_price
 
         return TariffSwitchResult(
             upgrade_cost=upgrade_cost,
@@ -397,16 +485,19 @@ class PricingEngine:
 
         group_pct = 0
         offer_pct = 0
-        if user:
-            promo_group = self.resolve_promo_group(user)
-            if promo_group:
-                group_pct = promo_group.get_discount_percent('period', min_period_days)
-            offer_pct = get_user_active_promo_discount_percent(user)
-
-        if group_pct > 0 or offer_pct > 0:
-            upgrade_cost, _, _ = self.apply_stacked_discounts(min_period_price, group_pct, offer_pct)
+        if PricingEngine.uses_wholesale_pricing(user):
+            upgrade_cost, _ = PricingEngine.apply_wholesale_discount(min_period_price, user)
         else:
-            upgrade_cost = min_period_price
+            if user:
+                promo_group = self.resolve_promo_group(user)
+                if promo_group:
+                    group_pct = promo_group.get_discount_percent('period', min_period_days)
+                offer_pct = get_user_active_promo_discount_percent(user)
+
+            if group_pct > 0 or offer_pct > 0:
+                upgrade_cost, _, _ = self.apply_stacked_discounts(min_period_price, group_pct, offer_pct)
+            else:
+                upgrade_cost = min_period_price
 
         return TariffSwitchResult(
             upgrade_cost=upgrade_cost,
@@ -618,6 +709,35 @@ class PricingEngine:
             if per_gb > 0:
                 traffic_price = per_gb * custom_traffic_gb * months
 
+        undiscounted_subtotal = base_price + devices_price + traffic_price
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            final_total, wholesale_discount = PricingEngine.apply_wholesale_discount(undiscounted_subtotal, user)
+            bps = PricingEngine.get_wholesale_discount_bps(user)
+            breakdown = dataclasses.asdict(
+                TariffBreakdown(
+                    tariff_id=tariff.id,
+                    extra_devices=extra_devices,
+                    group_discount_pct={'period': 0, 'devices': 0},
+                    offer_discount_pct=0,
+                    months_in_period=months,
+                )
+            )
+            breakdown['wholesale_applied'] = True
+            breakdown['wholesale_discount_bps'] = bps
+            return RenewalPricing(
+                base_price=base_price,
+                servers_price=0,
+                traffic_price=traffic_price,
+                devices_price=devices_price,
+                promo_group_discount=wholesale_discount,
+                promo_offer_discount=0,
+                final_total=max(0, final_total),
+                period_days=period_days,
+                is_tariff_mode=True,
+                breakdown=breakdown,
+            )
+
         # --- Per-category group discounts ---
         period_pct = 0
         devices_pct = 0
@@ -743,6 +863,66 @@ class PricingEngine:
                     fallback_price_kopeks=base_price_original,
                 )
 
+        promo_group_id = getattr(user, 'promo_group_id', None) if user else None
+        servers_price_per_month, server_details = await self._calculate_servers_price(
+            connected_squads,
+            db,
+            promo_group_id=promo_group_id,
+        )
+
+        if settings.is_traffic_fixed():
+            traffic_limit_gb = settings.get_fixed_traffic_limit()
+            purchased_traffic_gb = 0
+        traffic_price_per_month = self._calculate_traffic_price(traffic_limit_gb, purchased_traffic_gb)
+
+        default_device_limit = settings.DEFAULT_DEVICE_LIMIT
+        device_price_per_unit = settings.PRICE_PER_DEVICE
+        extra_devices = max(0, (device_limit or 0) - default_device_limit)
+        devices_price_per_month = extra_devices * device_price_per_unit
+
+        undiscounted_subtotal = (
+            base_price_original
+            + servers_price_per_month * months
+            + traffic_price_per_month * months
+            + devices_price_per_month * months
+        )
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            final_total, wholesale_discount = PricingEngine.apply_wholesale_discount(undiscounted_subtotal, user)
+            bps = PricingEngine.get_wholesale_discount_bps(user)
+            valid_servers = [d for d in server_details if d.get('id') is not None]
+            breakdown = dataclasses.asdict(
+                ClassicBreakdown(
+                    months_in_period=months,
+                    servers=server_details,
+                    servers_individual_prices=[d['price'] * months for d in valid_servers],
+                    server_ids=[d['id'] for d in valid_servers],
+                    base_traffic_gb=max(0, traffic_limit_gb - purchased_traffic_gb),
+                    purchased_traffic_gb=purchased_traffic_gb,
+                    extra_devices=extra_devices,
+                    group_discount_pct={'period': 0, 'servers': 0, 'traffic': 0, 'devices': 0},
+                    offer_discount_pct=0,
+                    base_price_original=base_price_original,
+                    traffic_price_per_month=traffic_price_per_month,
+                    servers_price_per_month=servers_price_per_month,
+                    devices_price_per_month=devices_price_per_month,
+                )
+            )
+            breakdown['wholesale_applied'] = True
+            breakdown['wholesale_discount_bps'] = bps
+            return RenewalPricing(
+                base_price=base_price_original,
+                servers_price=servers_price_per_month * months,
+                traffic_price=traffic_price_per_month * months,
+                devices_price=devices_price_per_month * months,
+                promo_group_discount=wholesale_discount,
+                promo_offer_discount=0,
+                final_total=max(0, final_total),
+                period_days=period_days,
+                is_tariff_mode=False,
+                breakdown=breakdown,
+            )
+
         # --- Per-category discount percents (resolve_promo_group: get_primary_promo_group first) ---
         period_pct = 0
         servers_pct = 0
@@ -761,28 +941,14 @@ class PricingEngine:
         base_price = self.apply_discount(base_price_original, period_pct)
 
         # --- Servers (monthly × months, with servers discount) ---
-        promo_group_id = getattr(user, 'promo_group_id', None) if user else None
-        servers_price_per_month, server_details = await self._calculate_servers_price(
-            connected_squads,
-            db,
-            promo_group_id=promo_group_id,
-        )
         discounted_servers_per_month = self.apply_discount(servers_price_per_month, servers_pct)
         servers_price = discounted_servers_per_month * months
 
         # --- Traffic (monthly × months, with traffic discount) ---
-        if settings.is_traffic_fixed():
-            traffic_limit_gb = settings.get_fixed_traffic_limit()
-            purchased_traffic_gb = 0
-        traffic_price_per_month = self._calculate_traffic_price(traffic_limit_gb, purchased_traffic_gb)
         discounted_traffic_per_month = self.apply_discount(traffic_price_per_month, traffic_pct)
         traffic_price = discounted_traffic_per_month * months
 
         # --- Devices (monthly × months, with devices discount) ---
-        default_device_limit = settings.DEFAULT_DEVICE_LIMIT
-        device_price_per_unit = settings.PRICE_PER_DEVICE
-        extra_devices = max(0, (device_limit or 0) - default_device_limit)
-        devices_price_per_month = extra_devices * device_price_per_unit
         discounted_devices_per_month = self.apply_discount(devices_price_per_month, devices_pct)
         devices_price = discounted_devices_per_month * months
 

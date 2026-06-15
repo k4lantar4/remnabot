@@ -178,9 +178,9 @@ def _subscription_to_response(
             _promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
             _group_pct = _promo_group.get_discount_percent('period', 1) if _promo_group else 0
             _offer_pct = get_user_active_promo_discount_percent(user)
-            if _group_pct > 0 or _offer_pct > 0:
-                daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                    daily_price_kopeks, _group_pct, _offer_pct
+            if PricingEngine.uses_wholesale_pricing(user) or _group_pct > 0 or _offer_pct > 0:
+                daily_price_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                    daily_price_kopeks, user, group_pct=_group_pct, offer_pct=_offer_pct
                 )
         if not tariff_name:  # Only set if not passed as parameter
             tariff_name = getattr(subscription.tariff, 'name', None)

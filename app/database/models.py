@@ -2036,11 +2036,21 @@ class User(Base):
 
     # Партнёрская система
     partner_status = Column(String(20), default=PartnerStatus.NONE.value, nullable=False, index=True)
+    business_role = Column(String(20), default='customer', nullable=False, index=True)
+    wholesale_discount_bps = Column(Integer, default=0, nullable=False)
 
     @property
     def is_partner(self) -> bool:
-        """Проверить, является ли пользователь одобренным партнёром."""
+        """True when user has approved partner status."""
         return self.partner_status == PartnerStatus.APPROVED.value
+
+    @property
+    def effective_wholesale_discount_bps(self) -> int:
+        """Partner wholesale BPS (0–10000) when approved; otherwise 0."""
+        if not self.is_partner:
+            return 0
+        bps = int(self.wholesale_discount_bps or 0)
+        return max(0, min(10000, bps))
 
     @property
     def has_restrictions(self) -> bool:

@@ -19,6 +19,7 @@ from app.database.models import (
 )
 from app.services.partner_application_service import partner_application_service
 from app.services.partner_stats_service import PartnerStatsService
+from app.services.permission_service import PermissionService
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.partners import (
@@ -30,6 +31,7 @@ from ..schemas.partners import (
     AdminPartnerListResponse,
     AdminRejectRequest,
     AdminUpdateCommissionRequest,
+    AdminUpdateWholesaleRequest,
     CampaignSummary,
 )
 
@@ -404,6 +406,7 @@ async def list_partners(
                 first_name=user.first_name,
                 telegram_id=user.telegram_id,
                 commission_percent=user.referral_commission_percent,
+                wholesale_discount_bps=user.effective_wholesale_discount_bps,
                 total_referrals=referral_count_map.get(user.id, 0),
                 total_earnings_kopeks=earnings_map.get(user.id, 0),
                 balance_kopeks=user.balance_kopeks,
@@ -465,6 +468,7 @@ async def get_partner_detail(
         first_name=user.first_name,
         telegram_id=user.telegram_id,
         commission_percent=user.referral_commission_percent,
+        wholesale_discount_bps=user.effective_wholesale_discount_bps,
         partner_status=user.partner_status,
         balance_kopeks=user.balance_kopeks,
         total_referrals=summary['total_referrals'],
@@ -514,6 +518,55 @@ async def update_commission(
     )
 
     return {'success': True, 'commission_percent': request.commission_percent}
+
+
+@router.patch('/{user_id}/wholesale')
+async def update_wholesale_discount(
+    user_id: int,
+    request: AdminUpdateWholesaleRequest,
+    admin: User = Depends(require_permission('partners:edit')),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """Update partner wholesale purchase discount (basis points, not referral commission)."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Пользователь не найден',
+        )
+
+    if user.partner_status != PartnerStatus.APPROVED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Пользователь не является партнёром',
+        )
+
+    old_bps = int(user.wholesale_discount_bps or 0)
+    user.wholesale_discount_bps = request.wholesale_discount_bps
+    if request.wholesale_discount_bps > 0:
+        user.business_role = 'partner'
+    await PermissionService.log_action(
+        db,
+        user_id=admin.id,
+        action='update_partner_wholesale',
+        resource_type='user',
+        resource_id=str(user_id),
+        details={
+            'old_wholesale_discount_bps': old_bps,
+            'new_wholesale_discount_bps': request.wholesale_discount_bps,
+        },
+    )
+    await db.commit()
+
+    logger.info(
+        'Partner wholesale discount updated',
+        user_id=user_id,
+        old_wholesale_discount_bps=old_bps,
+        new_wholesale_discount_bps=request.wholesale_discount_bps,
+        admin_id=admin.id,
+    )
+
+    return {'success': True, 'wholesale_discount_bps': request.wholesale_discount_bps}
 
 
 @router.post('/{user_id}/revoke')

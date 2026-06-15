@@ -1153,8 +1153,8 @@ async def _auto_purchase_daily_tariff(
     group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
     offer_pct = get_user_active_promo_discount_percent(user)
 
-    final_price, _, _ = PricingEngine.apply_stacked_discounts(daily_price, group_pct, offer_pct)
-    consume_promo = offer_pct > 0
+    final_price, _, _ = PricingEngine.apply_checkout_discount(daily_price, user, group_pct=group_pct, offer_pct=offer_pct)
+    consume_promo = offer_pct > 0 and not PricingEngine.uses_wholesale_pricing(user)
 
     if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         logger.info(

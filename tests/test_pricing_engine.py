@@ -74,6 +74,22 @@ class TestStackedDiscounts:
         assert od == 0  # offer discount on 0 is 0
 
 
+class TestApplyCheckoutDiscount:
+    def test_wholesale_overrides_retail_stack(self):
+        from unittest.mock import MagicMock
+
+        from app.database.models import PartnerStatus
+
+        user = MagicMock()
+        user.partner_status = PartnerStatus.APPROVED.value
+        user.is_partner = True
+        user.wholesale_discount_bps = 2500
+        final, primary, secondary = PricingEngine.apply_checkout_discount(10000, user, group_pct=50, offer_pct=10)
+        assert final == 7500
+        assert primary == 2500
+        assert secondary == 0
+
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 

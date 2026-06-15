@@ -105,6 +105,7 @@ const AdminPartnerSettings = lazyWithRetry(() => import('./pages/AdminPartnerSet
 const AdminPartnerDetail = lazyWithRetry(() => import('./pages/AdminPartnerDetail'));
 const AdminApplicationReview = lazyWithRetry(() => import('./pages/AdminApplicationReview'));
 const AdminPartnerCommission = lazyWithRetry(() => import('./pages/AdminPartnerCommission'));
+const AdminPartnerWholesale = lazyWithRetry(() => import('./pages/AdminPartnerWholesale'));
 const AdminPartnerRevoke = lazyWithRetry(() => import('./pages/AdminPartnerRevoke'));
 const AdminPartnerCampaignAssign = lazyWithRetry(
   () => import('./pages/AdminPartnerCampaignAssign'),
@@ -926,6 +927,16 @@ function App() {
             <PermissionRoute permission="partners:read">
               <LazyPage>
                 <AdminPartnerCommission />
+              </LazyPage>
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="/admin/partners/:userId/wholesale"
+          element={
+            <PermissionRoute permission="partners:read">
+              <LazyPage>
+                <AdminPartnerWholesale />
               </LazyPage>
             </PermissionRoute>
           }

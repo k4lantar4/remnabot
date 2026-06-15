@@ -3407,9 +3407,9 @@ async def get_subscription_details(
                 _promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
                 _group_pct = _promo_group.get_discount_percent('period', 1) if _promo_group else 0
                 _offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-                if _group_pct > 0 or _offer_pct > 0:
-                    daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                        daily_price_kopeks, _group_pct, _offer_pct
+                if PricingEngine.uses_wholesale_pricing(user) or _group_pct > 0 or _offer_pct > 0:
+                    daily_price_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                        daily_price_kopeks, user, group_pct=_group_pct, offer_pct=_offer_pct
                     )
             daily_price_label = _format_daily_price_label(daily_price_kopeks, user)
             # Оставшееся время подписки (показываем даже при паузе)
@@ -6342,11 +6342,11 @@ async def _build_tariff_model(
             # Применяем скидку промогруппы + promo-offer (stacked)
             group_pct = promo_group.get_discount_percent('period', period_days) if promo_group else 0
             offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-            if group_pct > 0 or offer_pct > 0:
-                price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(original_price_kopeks, group_pct, offer_pct)
-                # Комбинированный процент для отображения
-                remaining = (100 - group_pct) * (100 - offer_pct)
-                discount_percent = 100 - remaining // 100
+            if PricingEngine.uses_wholesale_pricing(user) or group_pct > 0 or offer_pct > 0:
+                price_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                    original_price_kopeks, user, group_pct=group_pct, offer_pct=offer_pct
+                )
+                discount_percent = PricingEngine.checkout_display_discount_percent(original_price_kopeks, price_kopeks)
             else:
                 price_kopeks = original_price_kopeks
                 discount_percent = 0
@@ -6396,9 +6396,9 @@ async def _build_tariff_model(
             else 0
         )
         daily_offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-        if daily_group_pct > 0 or daily_offer_pct > 0:
-            daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                raw_daily_price_kopeks, daily_group_pct, daily_offer_pct
+        if PricingEngine.uses_wholesale_pricing(user) or daily_group_pct > 0 or daily_offer_pct > 0:
+            daily_price_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                raw_daily_price_kopeks, user, group_pct=daily_group_pct, offer_pct=daily_offer_pct
             )
 
     daily_price_label = _format_daily_price_label(daily_price_kopeks, user) if is_daily else None
@@ -6435,8 +6435,10 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
     # Применяем скидку промогруппы + promo-offer для 30-дневного периода
     group_pct = promo_group.get_discount_percent('period', 30) if promo_group else 0
     offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-    if group_pct > 0 or offer_pct > 0:
-        monthly_price, _, _ = PricingEngine.apply_stacked_discounts(monthly_price, group_pct, offer_pct)
+    if PricingEngine.uses_wholesale_pricing(user) or group_pct > 0 or offer_pct > 0:
+        monthly_price, _, _ = PricingEngine.apply_checkout_discount(
+            monthly_price, user, group_pct=group_pct, offer_pct=offer_pct
+        )
 
     # Суточный тариф
     is_daily = getattr(tariff, 'is_daily', False)
@@ -6447,9 +6449,9 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
     if is_daily and daily_price_kopeks > 0:
         daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
         daily_offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-        if daily_group_pct > 0 or daily_offer_pct > 0:
-            daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                raw_daily_price_kopeks, daily_group_pct, daily_offer_pct
+        if PricingEngine.uses_wholesale_pricing(user) or daily_group_pct > 0 or daily_offer_pct > 0:
+            daily_price_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                raw_daily_price_kopeks, user, group_pct=daily_group_pct, offer_pct=daily_offer_pct
             )
 
     daily_price_label = _format_daily_price_label(daily_price_kopeks, user) if is_daily else None

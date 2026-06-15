@@ -234,6 +234,10 @@ class UserDetailResponse(BaseModel):
     campaign_name: str | None = None
     campaign_id: int | None = None
 
+    # Partner wholesale (purchase discount — separate from referral commission)
+    partner_status: str | None = None
+    wholesale_discount_bps: int = 0
+
     # Recent transactions
     recent_transactions: list[UserTransactionItem] = []
 

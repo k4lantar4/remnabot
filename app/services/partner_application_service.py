@@ -97,6 +97,7 @@ class PartnerApplicationService:
             user.referral_code = await generate_unique_referral_code(db, user.telegram_id or 0)
 
         user.partner_status = PartnerStatus.APPROVED.value
+        user.business_role = 'partner'
         user.referral_commission_percent = commission_percent
 
         from app.database.crud.promo_group import get_promo_group_by_name
@@ -184,7 +185,9 @@ class PartnerApplicationService:
             return False, 'Пользователь не является партнёром'
 
         user.partner_status = PartnerStatus.NONE.value
+        user.business_role = 'customer'
         user.referral_commission_percent = None
+        user.wholesale_discount_bps = 0
 
         # Отвязываем все кампании от бывшего партнёра
         await db.execute(

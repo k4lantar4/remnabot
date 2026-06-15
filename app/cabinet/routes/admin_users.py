@@ -810,6 +810,8 @@ async def get_user_detail(
         lifetime_used_traffic_bytes=user.lifetime_used_traffic_bytes or 0,
         campaign_name=campaign_name,
         campaign_id=campaign_id,
+        partner_status=user.partner_status,
+        wholesale_discount_bps=user.effective_wholesale_discount_bps,
         restriction_topup=user.restriction_topup,
         restriction_subscription=user.restriction_subscription,
         restriction_reason=user.restriction_reason,

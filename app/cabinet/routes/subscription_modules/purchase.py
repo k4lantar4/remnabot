@@ -214,11 +214,16 @@ async def _build_tariff_response(
 
         daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
         daily_offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-        if daily_group_pct > 0 or daily_offer_pct > 0:
-            daily_price, _, _ = PricingEngine.apply_stacked_discounts(daily_price, daily_group_pct, daily_offer_pct)
-            # Комбинированный процент для отображения
+        if PricingEngine.uses_wholesale_pricing(user) or daily_group_pct > 0 or daily_offer_pct > 0:
+            daily_price, _, _ = PricingEngine.apply_checkout_discount(
+                daily_price, user, group_pct=daily_group_pct, offer_pct=daily_offer_pct
+            )
             remaining = (100 - daily_group_pct) * (100 - daily_offer_pct)
-            daily_discount_percent = 100 - remaining // 100
+            daily_discount_percent = (
+                PricingEngine.checkout_display_discount_percent(original_daily_price, daily_price)
+                if PricingEngine.uses_wholesale_pricing(user)
+                else 100 - remaining // 100
+            )
 
     # Apply discount to custom price_per_day if applicable
     price_per_day = tariff.price_per_day_kopeks

@@ -132,6 +132,7 @@ export interface AdminPartnerItem {
   first_name: string | null;
   telegram_id: number | null;
   commission_percent: number | null;
+  wholesale_discount_bps: number;
   total_referrals: number;
   total_earnings_kopeks: number;
   balance_kopeks: number;
@@ -150,6 +151,7 @@ export interface AdminPartnerDetailResponse {
   first_name: string | null;
   telegram_id: number | null;
   commission_percent: number | null;
+  wholesale_discount_bps: number;
   partner_status: string;
   balance_kopeks: number;
   total_referrals: number;
@@ -270,6 +272,12 @@ export const partnerApi = {
   updateCommission: async (userId: number, commissionPercent: number): Promise<void> => {
     await apiClient.patch(`/cabinet/admin/partners/${userId}/commission`, {
       commission_percent: commissionPercent,
+    });
+  },
+
+  patchPartnerWholesale: async (userId: number, wholesaleDiscountBps: number): Promise<void> => {
+    await apiClient.patch(`/cabinet/admin/partners/${userId}/wholesale`, {
+      wholesale_discount_bps: wholesaleDiscountBps,
     });
   },
 

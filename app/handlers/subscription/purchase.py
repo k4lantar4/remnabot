@@ -391,9 +391,9 @@ async def show_subscription_info(
                     from app.utils.promo_offer import get_user_active_promo_discount_percent
 
                     daily_offer_pct = get_user_active_promo_discount_percent(db_user)
-                    if daily_group_pct > 0 or daily_offer_pct > 0:
-                        daily_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                            raw_daily_kopeks, daily_group_pct, daily_offer_pct
+                    if PricingEngine.uses_wholesale_pricing(db_user) or daily_group_pct > 0 or daily_offer_pct > 0:
+                        daily_kopeks, _, _ = PricingEngine.apply_checkout_discount(
+                            raw_daily_kopeks, db_user, group_pct=daily_group_pct, offer_pct=daily_offer_pct
                         )
                     else:
                         daily_kopeks = raw_daily_kopeks

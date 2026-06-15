@@ -186,6 +186,7 @@ class AdminPartnerItem(BaseModel):
     first_name: str | None = None
     telegram_id: int | None = None
     commission_percent: int | None = None
+    wholesale_discount_bps: int = 0
     total_referrals: int = 0
     total_earnings_kopeks: int = 0
     balance_kopeks: int = 0
@@ -220,6 +221,7 @@ class AdminPartnerDetailResponse(BaseModel):
     first_name: str | None = None
     telegram_id: int | None = None
     commission_percent: int | None = None
+    wholesale_discount_bps: int = 0
     partner_status: str
     balance_kopeks: int = 0
     total_referrals: int = 0
@@ -238,3 +240,9 @@ class AdminUpdateCommissionRequest(BaseModel):
     """Request to update partner commission."""
 
     commission_percent: int = Field(..., ge=1, le=100)
+
+
+class AdminUpdateWholesaleRequest(BaseModel):
+    """Request to update partner wholesale purchase discount (basis points)."""
+
+    wholesale_discount_bps: int = Field(..., ge=0, le=10000)
