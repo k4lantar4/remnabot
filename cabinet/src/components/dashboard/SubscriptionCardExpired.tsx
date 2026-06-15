@@ -105,19 +105,18 @@ export default function SubscriptionCardExpired({
   // Color scheme: amber for limited, red for expired/disabled
   const accent = isLimited
     ? {
-        r: 255,
-        g: 184,
-        b: 0,
+        colorVar: '--color-urgent-400',
         hex: 'rgb(var(--color-urgent-400))',
-        gradient: 'linear-gradient(135deg, #FFB800, #FF8C00)',
+        gradient:
+          'linear-gradient(135deg, rgb(var(--color-urgent-400)), rgba(var(--color-urgent-400), 0.75))',
       }
     : {
-        r: 255,
-        g: 59,
-        b: 92,
+        colorVar: '--color-critical-500',
         hex: 'rgb(var(--color-critical-500))',
-        gradient: 'linear-gradient(135deg, #FF3B5C, #FF6B35)',
+        gradient:
+          'linear-gradient(135deg, rgb(var(--color-critical-500)), rgba(var(--color-critical-500), 0.75))',
       };
+  const accentAlpha = (opacity: number) => `rgba(var(${accent.colorVar}), ${opacity})`;
 
   return (
     <div
@@ -125,11 +124,11 @@ export default function SubscriptionCardExpired({
       style={{
         background: g.cardBg,
         border: isDark
-          ? `1px solid rgba(${accent.r},${accent.g},${accent.b},0.12)`
-          : `1px solid rgba(${accent.r},${accent.g},${accent.b},0.2)`,
+          ? `1px solid ${accentAlpha(0.12)}`
+          : `1px solid ${accentAlpha(0.2)}`,
         boxShadow: isDark
           ? g.shadow
-          : `0 2px 16px rgba(${accent.r},${accent.g},${accent.b},0.1), 0 0 0 1px rgba(${accent.r},${accent.g},${accent.b},0.06)`,
+          : `0 2px 16px ${accentAlpha(0.1)}, 0 0 0 1px ${accentAlpha(0.06)}`,
         padding: '28px 28px 24px',
       }}
     >
@@ -142,7 +141,7 @@ export default function SubscriptionCardExpired({
           width: 200,
           height: 200,
           borderRadius: '50%',
-          background: `radial-gradient(circle, rgba(${accent.r},${accent.g},${accent.b},0.08) 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${accentAlpha(0.08)} 0%, transparent 70%)`,
         }}
         aria-hidden="true"
       />
@@ -166,8 +165,8 @@ export default function SubscriptionCardExpired({
         <div
           className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[14px]"
           style={{
-            background: `rgba(${accent.r},${accent.g},${accent.b},0.1)`,
-            border: `1px solid rgba(${accent.r},${accent.g},${accent.b},0.15)`,
+            background: accentAlpha(0.1),
+            border: `1px solid ${accentAlpha(0.15)}`,
             color: accent.hex,
           }}
         >
@@ -199,8 +198,8 @@ export default function SubscriptionCardExpired({
       <div
         className="mb-5 flex items-center justify-between rounded-[14px]"
         style={{
-          background: `rgba(${accent.r},${accent.g},${accent.b},0.04)`,
-          border: `1px solid rgba(${accent.r},${accent.g},${accent.b},0.08)`,
+          background: accentAlpha(0.04),
+          border: `1px solid ${accentAlpha(0.08)}`,
           padding: '14px 18px',
         }}
       >
@@ -246,7 +245,7 @@ export default function SubscriptionCardExpired({
             className="flex flex-1 items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold tracking-tight text-white transition-all duration-300"
             style={{
               background: accent.gradient,
-              boxShadow: `0 4px 20px rgba(${accent.r},${accent.g},${accent.b},0.2)`,
+              boxShadow: `0 4px 20px ${accentAlpha(0.2)}`,
             }}
           >
             <PlusIcon className="h-4 w-4" />
@@ -265,7 +264,7 @@ export default function SubscriptionCardExpired({
                     className="flex flex-1 items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold tracking-tight text-white transition-all duration-300 disabled:opacity-50"
                     style={{
                       background: accent.gradient,
-                      boxShadow: `0 4px 20px rgba(${accent.r},${accent.g},${accent.b},0.2)`,
+                      boxShadow: `0 4px 20px ${accentAlpha(0.2)}`,
                     }}
                   >
                     {isRenewing ? (
@@ -289,7 +288,7 @@ export default function SubscriptionCardExpired({
                     className="flex flex-1 items-center justify-center gap-2 rounded-[14px] py-3.5 text-[15px] font-semibold tracking-tight text-white transition-all duration-300"
                     style={{
                       background: accent.gradient,
-                      boxShadow: `0 4px 20px rgba(${accent.r},${accent.g},${accent.b},0.2)`,
+                      boxShadow: `0 4px 20px ${accentAlpha(0.2)}`,
                     }}
                   >
                     <PlusIcon className="h-4 w-4" />
@@ -309,7 +308,7 @@ export default function SubscriptionCardExpired({
                 subscription.is_trial
                   ? {
                       background: accent.gradient,
-                      boxShadow: `0 4px 20px rgba(${accent.r},${accent.g},${accent.b},0.2)`,
+                      boxShadow: `0 4px 20px ${accentAlpha(0.2)}`,
                     }
                   : {
                       background: g.innerBg,

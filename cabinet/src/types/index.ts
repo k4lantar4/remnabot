@@ -135,6 +135,7 @@ export interface SubscriptionListItem {
 export interface SubscriptionsListResponse {
   subscriptions: SubscriptionListItem[];
   multi_tariff_enabled: boolean;
+  total: number;
 }
 
 // Device types

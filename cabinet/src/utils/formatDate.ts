@@ -2,7 +2,7 @@ const LOCALE_MAP: Record<string, string> = {
   ru: 'ru-RU',
   en: 'en-US',
   zh: 'zh-CN',
-  fa: 'fa-IR',
+  fa: 'fa-IR-u-nu-latn',
 };
 
 function resolveLocale(lang?: string): string | undefined {

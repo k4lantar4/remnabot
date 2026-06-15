@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ClipboardIcon, PlusIcon, SearchIcon, XIcon } from '@/components/icons';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClipboardIcon,
+  PlusIcon,
+  SearchIcon,
+  XIcon,
+} from '@/components/icons';
 import { subscriptionApi } from '../api/subscription';
 import { balanceApi } from '../api/balance';
 import { useTheme } from '../hooks/useTheme';
@@ -10,7 +17,8 @@ import { getGlassColors } from '../utils/glassTheme';
 import { useAuthStore } from '../store/auth';
 import SubscriptionListCard from '../components/subscription/SubscriptionListCard';
 import TrialOfferCard from '../components/dashboard/TrialOfferCard';
-import { filterSubscriptionsByQuery } from '../utils/subscriptionDisplayLabel';
+
+const PAGE_LIMIT = 10;
 
 function EmptyState({ onBuy }: { onBuy: () => void }) {
   const { t } = useTranslation();
@@ -53,33 +61,49 @@ export default function Subscriptions() {
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [trialError, setTrialError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data: summaryData } = useQuery({
+    queryKey: ['subscriptions-list-summary'],
+    queryFn: () => subscriptionApi.getSubscriptions({ limit: 100 }),
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['subscriptions-list'],
-    queryFn: () => subscriptionApi.getSubscriptions(),
+    queryKey: ['subscriptions-list', offset, PAGE_LIMIT, debouncedSearch],
+    queryFn: () =>
+      subscriptionApi.getSubscriptions({
+        offset,
+        limit: PAGE_LIMIT,
+        search: debouncedSearch.trim() || undefined,
+      }),
     staleTime: 30_000,
     refetchOnMount: 'always',
   });
 
   const subscriptions = data?.subscriptions ?? [];
-  const isMultiTariff = data?.multi_tariff_enabled ?? false;
-  const hasNoSubscriptions = !isLoading && subscriptions.length === 0;
-  // Есть ли хотя бы одна НАСТОЯЩАЯ (платная, не триал) живая подписка. От этого
-  // зависит CTA: «+ Купить ещё» — только если уже есть платная; иначе показываем
-  // явную «Посмотреть тарифы и купить подписку» (триал/истёкшие — это ещё не покупка).
-  const hasActivePaid = subscriptions.some(
+  const total = data?.total ?? 0;
+  const isMultiTariff = data?.multi_tariff_enabled ?? summaryData?.multi_tariff_enabled ?? false;
+  const accountTotal = summaryData?.total ?? 0;
+  const hasNoSubscriptions = accountTotal === 0;
+  const hasActivePaid = (summaryData?.subscriptions ?? []).some(
     (s) => !s.is_trial && (s.status === 'active' || s.status === 'limited'),
   );
 
-  const filteredSubscriptions = useMemo(
-    () => filterSubscriptionsByQuery(subscriptions, searchQuery, t, isMultiTariff),
-    [subscriptions, searchQuery, t, isMultiTariff],
-  );
+  const showSearch = accountTotal >= 2 && !isLoading;
+  const totalPages = Math.ceil(total / PAGE_LIMIT) || 1;
+  const currentPage = Math.floor(offset / PAGE_LIMIT) + 1;
 
-  const showSearch = subscriptions.length >= 2 && !isLoading;
-
-  // Если у юзера нет подписок — проверяем доступность триала, иначе
-  // (в multi-tariff) ему вообще негде увидеть оффер.
   const { data: trialInfo, isLoading: trialLoading } = useQuery({
     queryKey: ['trial-info'],
     queryFn: () => subscriptionApi.getTrialInfo(),
@@ -100,6 +124,7 @@ export default function Subscriptions() {
       setTrialError(null);
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions-list-summary'] });
       queryClient.invalidateQueries({ queryKey: ['trial-info'] });
       queryClient.invalidateQueries({ queryKey: ['balance'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-options'] });
@@ -110,19 +135,21 @@ export default function Subscriptions() {
     },
   });
 
-  // Single-tariff mode with one subscription: skip list, go directly to detail
-  if (data && !isMultiTariff && subscriptions.length === 1) {
-    return <Navigate to={`/subscriptions/${subscriptions[0].id}`} replace />;
+  if (
+    summaryData &&
+    !summaryData.multi_tariff_enabled &&
+    summaryData.total === 1 &&
+    summaryData.subscriptions[0]
+  ) {
+    return <Navigate to={`/subscriptions/${summaryData.subscriptions[0].id}`} replace />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold" style={{ color: g.text }}>
           {t('subscriptions.title', 'Мои подписки')}
         </h1>
-        {/* «+ Купить ещё» — только если уже есть платная активная подписка */}
         {!isLoading && hasActivePaid && (
           <button
             onClick={() => navigate('/subscription/purchase')}
@@ -139,7 +166,6 @@ export default function Subscriptions() {
         )}
       </div>
 
-      {/* Search — visible when 2+ subscriptions (same as bot show_search) */}
       {showSearch && (
         <div className="space-y-2">
           <div className="relative">
@@ -184,9 +210,7 @@ export default function Subscriptions() {
         </div>
       )}
 
-      {/* Есть подписки, но платной активной нет (только триал/истёкшие) —
-          даём ЯВНУЮ primary-кнопку покупки: мы продаём подписки. */}
-      {!isLoading && subscriptions.length > 0 && !hasActivePaid && (
+      {!isLoading && accountTotal > 0 && !hasActivePaid && (
         <button
           onClick={() => navigate('/subscription/purchase')}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 p-3.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
@@ -196,7 +220,6 @@ export default function Subscriptions() {
         </button>
       )}
 
-      {/* Loading */}
       {isLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[1, 2].map((i) => (
@@ -209,7 +232,6 @@ export default function Subscriptions() {
         </div>
       )}
 
-      {/* Empty state: показываем триал, если доступен; иначе — обычный empty */}
       {hasNoSubscriptions && !trialLoading && trialInfo?.is_available && (
         <div className="space-y-4">
           <TrialOfferCard
@@ -219,10 +241,6 @@ export default function Subscriptions() {
             activateTrialMutation={activateTrialMutation}
             trialError={trialError}
           />
-          {/* Новый пользователь не обязан активировать триал, чтобы попасть
-              в витрину — даём явный путь к покупке подписки. Раньше при
-              доступном триале это был единственный экран без кнопки «Купить»
-              (Telegram-баг #605056/#605063). */}
           <button
             onClick={() => navigate('/subscription/purchase')}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
@@ -236,8 +254,7 @@ export default function Subscriptions() {
         <EmptyState onBuy={() => navigate('/subscription/purchase')} />
       )}
 
-      {/* No search results */}
-      {subscriptions.length > 0 && filteredSubscriptions.length === 0 && searchQuery.trim() && (
+      {accountTotal > 0 && subscriptions.length === 0 && debouncedSearch.trim() && !isLoading && (
         <div
           className="rounded-2xl border p-8 text-center"
           style={{ background: g.cardBg, borderColor: g.cardBorder }}
@@ -260,10 +277,9 @@ export default function Subscriptions() {
         </div>
       )}
 
-      {/* Subscription grid */}
-      {filteredSubscriptions.length > 0 && (
+      {subscriptions.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2">
-          {filteredSubscriptions.map((sub) => (
+          {subscriptions.map((sub) => (
             <SubscriptionListCard
               key={sub.id}
               subscription={sub}
@@ -271,6 +287,43 @@ export default function Subscriptions() {
               onClick={() => navigate(`/subscriptions/${sub.id}`)}
             />
           ))}
+        </div>
+      )}
+
+      {total > PAGE_LIMIT && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm" style={{ color: g.textSecondary }}>
+            {t('admin.users.pagination.showing', {
+              from: total === 0 ? 0 : offset + 1,
+              to: Math.min(offset + PAGE_LIMIT, total),
+              total,
+            })}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}
+                disabled={offset === 0}
+                className="rounded-lg border p-2 transition-colors disabled:opacity-50"
+                style={{ borderColor: g.cardBorder, background: g.cardBg }}
+              >
+                <ChevronLeftIcon />
+              </button>
+              <span className="px-3 py-2 text-sm" style={{ color: g.text }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOffset(offset + PAGE_LIMIT)}
+                disabled={offset + PAGE_LIMIT >= total}
+                className="rounded-lg border p-2 transition-colors disabled:opacity-50"
+                style={{ borderColor: g.cardBorder, background: g.cardBg }}
+              >
+                <ChevronRightIcon />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

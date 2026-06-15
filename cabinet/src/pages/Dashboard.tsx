@@ -49,8 +49,13 @@ export default function Dashboard() {
 
   // Multi-tariff: check if user has multiple subscriptions
   const { data: multiSubData } = useQuery({
-    queryKey: ['subscriptions-list'],
-    queryFn: () => subscriptionApi.getSubscriptions(),
+    queryKey: ['subscriptions-list', 0, 3, ''],
+    queryFn: () => subscriptionApi.getSubscriptions({ offset: 0, limit: 3 }),
+    staleTime: 60_000,
+  });
+  const { data: multiSubSummary } = useQuery({
+    queryKey: ['subscriptions-list-summary'],
+    queryFn: () => subscriptionApi.getSubscriptions({ limit: 100 }),
     staleTime: 60_000,
   });
   const isMultiTariff = multiSubData?.multi_tariff_enabled ?? false;
@@ -195,12 +200,12 @@ export default function Dashboard() {
   // Используем список из /cabinet/subscriptions/list — пустой массив означает «нет подписок»,
   // и тогда показываем TrialOfferCard. Без этой ветки multi-tariff юзер никогда не видел триал.
   const hasNoSubscription = isMultiTariff
-    ? multiSubData !== undefined && (multiSubData.subscriptions?.length ?? 0) === 0
+    ? multiSubData !== undefined && (multiSubData.total ?? 0) === 0
     : subscriptionResponse?.has_subscription === false && !subLoading;
 
   // Есть ли НАСТОЯЩАЯ (платная, не триал) живая подписка — от этого зависит CTA:
   // «+ Купить ещё» только при наличии платной; иначе явная «Посмотреть тарифы».
-  const hasActivePaid = (multiSubData?.subscriptions ?? []).some(
+  const hasActivePaid = (multiSubSummary?.subscriptions ?? multiSubData?.subscriptions ?? []).some(
     (s) => !s.is_trial && (s.status === 'active' || s.status === 'limited'),
   );
 
@@ -299,12 +304,12 @@ export default function Dashboard() {
               onClick={() => navigate(`/subscriptions/${sub.id}`)}
             />
           ))}
-          {multiSubData.subscriptions.length > 3 && (
+          {(multiSubData.total ?? 0) > 3 && (
             <Link
               to="/subscriptions"
               className="flex w-full items-center justify-center rounded-2xl border border-dashed border-white/15 p-3 text-xs opacity-50 transition-opacity hover:opacity-80"
             >
-              {t('dashboard.showAll', 'Показать все')} ({multiSubData.subscriptions.length})
+              {t('dashboard.showAll', 'Показать все')} ({multiSubData.total})
             </Link>
           )}
           {hasActivePaid ? (

@@ -39,12 +39,12 @@ export default function TrialOfferCard({
           ? `1px solid ${g.cardBorder}`
           : isFree
             ? '1px solid rgba(var(--color-accent-400), 0.2)'
-            : '1px solid rgba(255,184,0,0.2)',
+            : '1px solid rgba(var(--color-urgent-400), 0.2)',
         boxShadow: isDark
           ? g.shadow
           : isFree
             ? '0 2px 16px rgba(var(--color-accent-400), 0.12), 0 0 0 1px rgba(var(--color-accent-400), 0.06)'
-            : '0 2px 16px rgba(255,184,0,0.12), 0 0 0 1px rgba(255,184,0,0.06)',
+            : '0 2px 16px rgba(var(--color-urgent-400), 0.12), 0 0 0 1px rgba(var(--color-urgent-400), 0.06)',
         padding: '32px 28px 28px',
       }}
     >
@@ -58,7 +58,7 @@ export default function TrialOfferCard({
           borderRadius: '50%',
           background: isFree
             ? 'radial-gradient(circle, rgba(var(--color-accent-400), 0.08) 0%, transparent 70%)'
-            : 'radial-gradient(circle, rgba(255,184,0,0.07) 0%, transparent 70%)',
+            : 'radial-gradient(circle, rgba(var(--color-urgent-400), 0.07) 0%, transparent 70%)',
           transition: 'background 0.5s ease',
         }}
         aria-hidden="true"
@@ -85,13 +85,13 @@ export default function TrialOfferCard({
           background: isDark
             ? isFree
               ? 'linear-gradient(135deg, rgba(var(--color-accent-900), 0.5), rgba(var(--color-accent-950), 0.6))'
-              : 'linear-gradient(135deg, #3a3020, #282418)'
+              : 'linear-gradient(135deg, rgba(var(--color-urgent-400), 0.35), rgba(var(--color-urgent-400), 0.15))'
             : isFree
               ? 'linear-gradient(135deg, rgba(var(--color-accent-400), 0.15), rgba(var(--color-accent-400), 0.08))'
-              : 'linear-gradient(135deg, rgba(255,184,0,0.15), rgba(255,184,0,0.08))',
+              : 'linear-gradient(135deg, rgba(var(--color-urgent-400), 0.15), rgba(var(--color-urgent-400), 0.08))',
           border: isFree
             ? '1px solid rgba(var(--color-accent-400), 0.25)'
-            : '1px solid rgba(255,184,0,0.25)',
+            : '1px solid rgba(var(--color-urgent-400), 0.25)',
           transition: 'all 0.5s ease',
         }}
       >
@@ -118,7 +118,7 @@ export default function TrialOfferCard({
           style={{
             boxShadow: isFree
               ? '0 0 20px rgba(var(--color-accent-400), 0.15)'
-              : '0 0 20px rgba(255,184,0,0.12)',
+              : '0 0 20px rgba(var(--color-urgent-400), 0.12)',
           }}
           aria-hidden="true"
         />
@@ -137,8 +137,8 @@ export default function TrialOfferCard({
         <div
           className="mb-5 inline-flex items-baseline gap-1 rounded-xl px-5 py-2"
           style={{
-            background: 'rgba(255,184,0,0.08)',
-            border: '1px solid rgba(255,184,0,0.15)',
+            background: 'rgba(var(--color-urgent-400), 0.08)',
+            border: '1px solid rgba(var(--color-urgent-400), 0.15)',
           }}
         >
           <span
@@ -215,9 +215,10 @@ export default function TrialOfferCard({
             disabled={activateTrialMutation.isPending}
             className="w-full rounded-[14px] py-4 text-base font-bold tracking-tight transition-all duration-300 disabled:opacity-50"
             style={{
-              background: 'linear-gradient(135deg, #FFB800, #FF8C42)',
-              color: '#1a1200',
-              boxShadow: '0 4px 20px rgba(255,184,0,0.2)',
+              background:
+                'linear-gradient(135deg, rgb(var(--color-urgent-400)), rgba(var(--color-urgent-400), 0.8))',
+              color: 'rgb(var(--color-dark-50))',
+              boxShadow: '0 4px 20px rgba(var(--color-urgent-400), 0.2)',
             }}
           >
             {activateTrialMutation.isPending
@@ -229,9 +230,10 @@ export default function TrialOfferCard({
             to="/balance"
             className="block w-full rounded-[14px] py-4 text-center text-base font-bold tracking-tight transition-all duration-300"
             style={{
-              background: 'linear-gradient(135deg, #FFB800, #FF8C42)',
-              color: '#1a1200',
-              boxShadow: '0 4px 20px rgba(255,184,0,0.2)',
+              background:
+                'linear-gradient(135deg, rgb(var(--color-urgent-400)), rgba(var(--color-urgent-400), 0.8))',
+              color: 'rgb(var(--color-dark-50))',
+              boxShadow: '0 4px 20px rgba(var(--color-urgent-400), 0.2)',
             }}
           >
             {t('subscription.trial.topUpToActivate')}

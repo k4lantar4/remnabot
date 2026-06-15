@@ -19,7 +19,7 @@ const LANG_CURRENCY_MAP: Record<
   ru: { currency: 'RUB', locale: 'ru-RU', symbol: '₽' },
   en: { currency: 'USD', locale: 'en-US', symbol: '$', key: 'USD' },
   zh: { currency: 'CNY', locale: 'zh-CN', symbol: '¥', key: 'CNY' },
-  fa: { currency: 'IRR', locale: 'fa-IR', symbol: '﷼', key: 'IRR' },
+  fa: { currency: 'IRR', locale: 'fa-IR-u-nu-latn', symbol: '﷼', key: 'IRR' },
 };
 
 const DEFAULT_CURRENCY = { currency: 'RUB', locale: 'ru-RU', symbol: '₽' };

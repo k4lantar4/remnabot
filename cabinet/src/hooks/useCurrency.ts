@@ -57,7 +57,7 @@ export function useCurrency() {
     (rubAmount: number, decimals: number = 2): string => {
       if (skipFxConversion) {
         if (currentLanguage === 'fa') {
-          return Math.round(rubAmount).toLocaleString('fa-IR');
+          return Math.round(rubAmount).toLocaleString('fa-IR-u-nu-latn');
         }
         return rubAmount.toFixed(decimals);
       }
@@ -71,7 +71,7 @@ export function useCurrency() {
 
       // For IRR (Iranian Toman), use no decimals as amounts are large
       if (targetCurrency === 'IRR') {
-        return Math.round(convertedAmount).toLocaleString('fa-IR');
+        return Math.round(convertedAmount).toLocaleString('fa-IR-u-nu-latn');
       }
 
       return convertedAmount.toFixed(decimals);
