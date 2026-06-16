@@ -57,6 +57,7 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_traffic
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 from app.utils.trial_utils import is_trial_globally_available
 
 
@@ -1517,16 +1518,15 @@ async def save_cart_and_redirect_to_topup(
     data = await state.get_data()
 
     # Сохраняем данные корзины в Redis
-    cart_data = {
+    cart_data = build_cart_topup_metadata(
+        missing_toman=missing_amount,
         **data,
-        'saved_cart': True,
-        'missing_amount': missing_amount,
-        'return_to_cart': True,
-        'user_id': db_user.id,
-    }
+        user_id=db_user.id,
+    )
 
     await user_cart_service.save_user_cart(db_user.id, cart_data)
 
+    suggested = suggest_topup_amount_toman(missing_amount)
     await callback.message.edit_text(
         texts.t(
             'SUBSCRIPTION_CHECKOUT_CART_INSUFFICIENT',
@@ -1539,10 +1539,12 @@ async def save_cart_and_redirect_to_topup(
         ).format(
             required=texts.format_price(missing_amount, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-        ),
+        )
+        + '\n\n'
+        + format_topup_suggestion_line(texts, missing_amount),
         reply_markup=get_payment_methods_keyboard_with_cart(
             db_user.language,
-            missing_amount,
+            suggested,
         ),
         parse_mode='HTML',
     )
@@ -1649,7 +1651,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
         missing_amount = max(0, catalog_price_in_toman(total_price) - db_user.balance_kopeks)
         insufficient_keyboard = get_insufficient_balance_keyboard_with_cart(
             db_user.language,
-            missing_amount,
+            suggest_topup_amount_toman(missing_amount),
         )
         insufficient_text = texts.t(
             'SUBSCRIPTION_CART_STILL_INSUFFICIENT',
@@ -2098,31 +2100,29 @@ async def confirm_extend_subscription(
         )
 
         # Подготовим данные для сохранения в корзину
-        cart_data = {
-            'cart_mode': 'extend',
-            'subscription_id': subscription.id,
-            'period_days': days,
-            'total_price': price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing_toman,
-            'return_to_cart': True,
-            'description': f'Продление подписки на {days} дней',
-            'consume_promo_offer': bool(promo_offer_discount > 0),
-            'device_limit': device_limit,
-            'devices': device_limit,
-            'traffic_limit_gb': renewal_traffic_gb,
-            'traffic_gb': renewal_traffic_gb,
-            'countries': list(subscription.connected_squads or []),
-        }
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing_toman,
+            cart_mode='extend',
+            subscription_id=subscription.id,
+            period_days=days,
+            total_price=price,
+            user_id=db_user.id,
+            description=f'Продление подписки на {days} дней',
+            consume_promo_offer=bool(promo_offer_discount > 0),
+            device_limit=device_limit,
+            devices=device_limit,
+            traffic_limit_gb=renewal_traffic_gb,
+            traffic_gb=renewal_traffic_gb,
+            countries=list(subscription.connected_squads or []),
+        )
 
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -2543,22 +2543,20 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         )
 
         # Сохраняем данные корзины в Redis перед переходом к пополнению
-        cart_data = {
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing_toman,
             **data,
-            'saved_cart': True,
-            'missing_amount': missing_toman,
-            'return_to_cart': True,
-            'user_id': db_user.id,
-        }
+            user_id=db_user.id,
+        )
 
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -2567,6 +2565,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         return
 
     purchase_completed = False
+    subscription = None
 
     try:
         success = await subtract_user_balance(
@@ -2596,11 +2595,12 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             )
 
             await callback.message.edit_text(
-                message_text,
+                message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
                     resume_callback=resume_callback,
-                    amount_kopeks=missing_toman,
+                    amount_kopeks=suggest_topup_amount_toman(missing_toman),
+                    has_saved_cart=True,
                 ),
                 parse_mode='HTML',
             )
@@ -3009,6 +3009,14 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
 
     if purchase_completed:
         await clear_subscription_checkout_draft(db_user.id)
+        try:
+            cart_sub_id = data.get('subscription_id') or getattr(subscription, 'id', None)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=cart_sub_id,
+            )
+        except Exception as cart_error:
+            logger.error('Ошибка очистки корзины после покупки', error=cart_error)
 
     await state.clear()
     await callback.answer()
@@ -4795,31 +4803,31 @@ async def _extend_existing_subscription(
         # Подготовим данные для сохранения в корзину
         from app.services.user_cart_service import user_cart_service
 
-        cart_data = {
-            'cart_mode': 'extend',
-            'subscription_id': current_subscription.id,
-            'period_days': period_days,
-            'total_price': price_kopeks,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing_toman,
-            'return_to_cart': True,
-            'description': f'Продление подписки на {period_days} дней',
-            'device_limit': device_limit,
-            'devices': device_limit,
-            'traffic_limit_gb': traffic_limit_gb,
-            'traffic_gb': traffic_limit_gb,
-            'squad_uuid': squad_uuid,
-            'countries': [squad_uuid] if squad_uuid else [],
-            'consume_promo_offer': consume_promo,
-        }
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing_toman,
+            cart_mode='extend',
+            subscription_id=current_subscription.id,
+            period_days=period_days,
+            total_price=price_kopeks,
+            user_id=db_user.id,
+            description=f'Продление подписки на {period_days} дней',
+            device_limit=device_limit,
+            devices=device_limit,
+            traffic_limit_gb=traffic_limit_gb,
+            traffic_gb=traffic_limit_gb,
+            squad_uuid=squad_uuid,
+            countries=[squad_uuid] if squad_uuid else [],
+            consume_promo_offer=consume_promo,
+        )
 
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
-                db_user.language, amount_kopeks=missing_toman, has_saved_cart=True
+                db_user.language,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )

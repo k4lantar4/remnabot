@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../hooks/useCurrency';
 import { InfoIcon, WalletIcon, PlusIcon } from '@/components/icons';
+import { suggestTopUpAmount } from '../utils/topUpSuggestion';
 
 interface InsufficientBalancePromptProps {
   /** Amount missing in kopeks (legacy catalog scale) */
@@ -51,7 +52,7 @@ export default function InsufficientBalancePrompt({
       }
     }
     const params = new URLSearchParams();
-    params.set('amount', String(Math.ceil(missingDisplay)));
+    params.set('amount', String(suggestTopUpAmount(missingDisplay)));
     params.set('returnTo', location.pathname);
     navigate(`/balance/top-up?${params.toString()}`);
   };

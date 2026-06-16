@@ -145,28 +145,11 @@ def _safe_int(value: object | None, default: int = 0) -> int:
 
 
 async def _delete_cart_for_subscription(user_id: int, cart_data: dict) -> None:
-    """Delete the correct cart key(s) for a processed cart entry.
-
-    When ``subscription_id`` is present:
-      - deletes the per-subscription key (``user_cart:{uid}:sub:{sid}``)
-      - deletes the global key ONLY if it still references the same
-        subscription_id (avoids nuking another subscription's global cart)
-
-    When ``subscription_id`` is absent:
-      - deletes the global key via ``delete_user_cart`` (which also cascades
-        to any associated per-subscription key).
-    """
-    sub_id = _safe_int(cart_data.get('subscription_id'))
-    if sub_id:
-        await user_cart_service.delete_subscription_cart(user_id, sub_id)
-        # Clean up the global key only when it still holds THIS subscription's data.
-        # We read the global cart to compare, avoiding deletion of a newer cart
-        # that belongs to a different subscription.
-        global_cart = await user_cart_service.get_user_cart(user_id)
-        if global_cart and _safe_int(global_cart.get('subscription_id')) == sub_id:
-            await user_cart_service.delete_global_cart_only(user_id)
-    else:
-        await user_cart_service.delete_user_cart(user_id)
+    """Delete the correct cart key(s) for a processed cart entry."""
+    await user_cart_service.clear_cart_after_purchase(
+        user_id,
+        subscription_id=_safe_int(cart_data.get('subscription_id')) or None,
+    )
 
 
 async def _prepare_auto_extend_context(

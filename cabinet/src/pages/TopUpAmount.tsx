@@ -13,6 +13,7 @@ import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import type { PaymentMethod, PaymentMethodOption } from '../types';
 import BentoCard from '../components/ui/BentoCard';
 import { saveTopUpPendingInfo } from '../utils/topUpStorage';
+import { suggestTopUpAmount } from '../utils/topUpSuggestion';
 import { getSafeRedirectPath } from '../utils/safeRedirect';
 import { copyToClipboard } from '@/utils/clipboard';
 import {
@@ -123,9 +124,13 @@ export default function TopUpAmount() {
   const getInitialAmount = (): string => {
     if (!initialAmountRubles || initialAmountRubles <= 0) return '';
     const converted = convertAmount(initialAmountRubles);
+    const rounded =
+      targetCurrency === 'IRR' || targetCurrency === 'RUB'
+        ? suggestTopUpAmount(Math.ceil(converted))
+        : converted;
     return targetCurrency === 'IRR' || targetCurrency === 'RUB'
-      ? Math.ceil(converted).toString()
-      : converted.toFixed(2);
+      ? String(rounded)
+      : rounded.toFixed(2);
   };
 
   const initialDisplayAmount = getInitialAmount();
@@ -281,11 +286,17 @@ export default function TopUpAmount() {
   }
 
   if (method.bot_deeplink) {
+    const amountParam = searchParams.get('amount');
+    const deeplink =
+      amountParam && method.id === 'c2c'
+        ? `${method.bot_deeplink}_${amountParam}`
+        : method.bot_deeplink;
+
     const handleOpenBot = () => {
-      if (method.bot_deeplink?.includes('t.me/')) {
-        openTelegramLink(method.bot_deeplink);
-      } else if (method.bot_deeplink) {
-        window.open(method.bot_deeplink, '_blank', 'noopener,noreferrer');
+      if (deeplink?.includes('t.me/')) {
+        openTelegramLink(deeplink);
+      } else if (deeplink) {
+        window.open(deeplink, '_blank', 'noopener,noreferrer');
       }
     };
 
@@ -299,6 +310,14 @@ export default function TopUpAmount() {
         <motion.div variants={staggerItem}>
           <BentoCard className="space-y-4 p-5">
             <p className="text-sm text-dark-300">{t('balance.useBot')}</p>
+            {amountParam && (
+              <p className="text-sm text-dark-400">
+                {t('balance.missing')}:{' '}
+                <span className="font-semibold text-dark-100">
+                  {formatAmount(parseFloat(amountParam))} {currencySymbol}
+                </span>
+              </p>
+            )}
             <button
               type="button"
               onClick={handleOpenBot}

@@ -381,12 +381,11 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
     amount_kopeks = 0
     try:
         from app.services.user_cart_service import user_cart_service
+        from app.utils.topup_suggestion import resolve_suggested_topup_from_cart
 
         cart_data = await user_cart_service.get_user_cart(db_user.id)
         if cart_data and cart_data.get('saved_cart'):
-            missing = cart_data.get('missing_amount', 0)
-            if missing > 0:
-                amount_kopeks = missing
+            amount_kopeks = resolve_suggested_topup_from_cart(cart_data)
     except Exception:
         pass
 
@@ -713,6 +712,59 @@ async def handle_sbp_payment(callback: types.CallbackQuery, db_user: User, db: A
         )
 
 
+async def execute_topup_payment_with_amount(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+    *,
+    method: str,
+    amount_kopeks: int,
+) -> bool:
+    """Route a confirmed top-up amount to the payment provider. Returns True on success."""
+    texts = get_texts(db_user.language)
+
+    if method.startswith('platega_m'):
+        from app.database.database import AsyncSessionLocal
+
+        from .platega import process_platega_payment_amount
+
+        platega_method_code = int(method[len('platega_m') :])
+        await state.update_data(payment_method='platega', platega_method=platega_method_code)
+        await state.set_state(BalanceStates.waiting_for_amount)
+        async with AsyncSessionLocal() as db:
+            await process_platega_payment_amount(callback.message, db_user, db, amount_kopeks, state)
+    elif method == 'platega':
+        from app.database.database import AsyncSessionLocal
+
+        from .platega import process_platega_payment_amount, start_platega_payment
+
+        data = await state.get_data()
+        method_code = int(data.get('platega_method', 0)) if data else 0
+
+        if method_code > 0:
+            await state.set_state(BalanceStates.waiting_for_amount)
+            async with AsyncSessionLocal() as db:
+                await process_platega_payment_amount(callback.message, db_user, db, amount_kopeks, state)
+        else:
+            await state.update_data(platega_pending_amount=amount_kopeks)
+            await start_platega_payment(callback, db_user, state)
+    elif method == 'tribute':
+        from .tribute import start_tribute_payment
+
+        await start_tribute_payment(callback, db_user)
+        return True
+    else:
+        await state.update_data(payment_method=method)
+        await state.set_state(BalanceStates.waiting_for_amount)
+        if not await route_payment_by_method(callback.message, db_user, amount_kopeks, state, method):
+            await callback.answer(
+                texts.t('CB_UNKNOWN_PAYMENT_METHOD', '❌ Неизвестный способ оплаты'),
+                show_alert=True,
+            )
+            return False
+    return True
+
+
 @error_handler
 async def handle_topup_amount_callback(
     callback: types.CallbackQuery,
@@ -734,53 +786,85 @@ async def handle_topup_amount_callback(
         await callback.answer(texts.INVALID_AMOUNT, show_alert=True)
         return
 
+    from .topup_prompt import show_cart_topup_amount_prompt
+
     try:
-        # Особые случаи, требующие специальной логики
-        if method.startswith('platega_m'):
-            from app.database.database import AsyncSessionLocal
-
-            from .platega import process_platega_payment_amount
-
-            platega_method_code = int(method[len('platega_m') :])
-            await state.update_data(payment_method='platega', platega_method=platega_method_code)
-            await state.set_state(BalanceStates.waiting_for_amount)
-            async with AsyncSessionLocal() as db:
-                await process_platega_payment_amount(callback.message, db_user, db, amount_kopeks, state)
-        elif method == 'platega':
-            from app.database.database import AsyncSessionLocal
-
-            from .platega import process_platega_payment_amount, start_platega_payment
-
-            data = await state.get_data()
-            method_code = int(data.get('platega_method', 0)) if data else 0
-
-            if method_code > 0:
-                await state.set_state(BalanceStates.waiting_for_amount)
-                async with AsyncSessionLocal() as db:
-                    await process_platega_payment_amount(callback.message, db_user, db, amount_kopeks, state)
-            else:
-                await state.update_data(platega_pending_amount=amount_kopeks)
-                await start_platega_payment(callback, db_user, state)
-        elif method == 'tribute':
-            from .tribute import start_tribute_payment
-
-            await start_tribute_payment(callback, db_user)
-            return
-        # Стандартные методы через роутер
-        else:
-            await state.update_data(payment_method=method)
-            await state.set_state(BalanceStates.waiting_for_amount)
-            if not await route_payment_by_method(callback.message, db_user, amount_kopeks, state, method):
-                await callback.answer(
-                    texts.t('CB_UNKNOWN_PAYMENT_METHOD', '❌ Неизвестный способ оплаты'),
-                    show_alert=True,
-                )
-                return
-
-        await callback.answer()
-
+        await show_cart_topup_amount_prompt(
+            callback,
+            db_user,
+            method=method,
+            suggested_amount=amount_kopeks,
+        )
     except Exception as error:
-        logger.error('Ошибка быстрого пополнения', error=error)
+        logger.error('Ошибка показа экрана суммы пополнения', error=error)
+        await callback.answer(
+            texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
+            show_alert=True,
+        )
+
+
+@error_handler
+async def handle_topup_confirm_callback(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+):
+    texts = get_texts(db_user.language)
+    try:
+        _, method, amount_str = callback.data.split('|', 2)
+        amount_kopeks = int(amount_str)
+    except ValueError:
+        await callback.answer(
+            texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'),
+            show_alert=True,
+        )
+        return
+
+    if amount_kopeks <= 0:
+        await callback.answer(texts.INVALID_AMOUNT, show_alert=True)
+        return
+
+    try:
+        await callback.answer()
+        success = await execute_topup_payment_with_amount(
+            callback,
+            db_user,
+            state,
+            method=method,
+            amount_kopeks=amount_kopeks,
+        )
+        if not success:
+            return
+    except Exception as error:
+        logger.error('Ошибка подтверждения пополнения', error=error)
+        await callback.answer(
+            texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
+            show_alert=True,
+        )
+
+
+@error_handler
+async def handle_topup_custom_callback(
+    callback: types.CallbackQuery,
+    db_user: User,
+    state: FSMContext,
+):
+    texts = get_texts(db_user.language)
+    try:
+        _, method = callback.data.split('|', 1)
+    except ValueError:
+        await callback.answer(
+            texts.t('CB_INVALID_REQUEST', '❌ Некорректный запрос'),
+            show_alert=True,
+        )
+        return
+
+    from .topup_prompt import prompt_custom_topup_amount
+
+    try:
+        await prompt_custom_topup_amount(callback, db_user, state, method=method)
+    except Exception as error:
+        logger.error('Ошибка перехода к вводу суммы пополнения', error=error)
         await callback.answer(
             texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
             show_alert=True,
@@ -979,6 +1063,8 @@ def register_balance_handlers(dp: Dispatcher):
     dp.callback_query.register(handle_payment_methods_unavailable, F.data == 'payment_methods_unavailable')
 
     dp.callback_query.register(handle_topup_amount_callback, F.data.startswith('topup_amount|'))
+    dp.callback_query.register(handle_topup_confirm_callback, F.data.startswith('topup_confirm|'))
+    dp.callback_query.register(handle_topup_custom_callback, F.data.startswith('topup_custom|'))
 
     dp.callback_query.register(handle_saved_cards_list, F.data == 'saved_cards_list')
     dp.callback_query.register(handle_unlink_card, F.data.startswith('unlink_card_'))

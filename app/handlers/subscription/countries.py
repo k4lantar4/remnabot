@@ -30,6 +30,8 @@ from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
 )
+from app.services.user_cart_service import user_cart_service
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 
 from .common import _get_period_hint_from_subscription, logger
 from .summary import present_subscription_summary
@@ -355,12 +357,24 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
+        await user_cart_service.save_user_cart(
+            db_user.id,
+            build_cart_topup_metadata(
+                missing_toman=missing_toman,
+                cart_mode='countries_change',
+                subscription_id=subscription.id,
+                countries=selected_countries,
+                price_kopeks=total_cost,
+            ),
+        )
+
         await callback.message.answer(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )
@@ -939,11 +953,23 @@ async def confirm_add_countries_to_subscription(
             missing=texts.format_balance(missing_toman, round_kopeks=False),
         )
 
+        await user_cart_service.save_user_cart(
+            db_user.id,
+            build_cart_topup_metadata(
+                missing_toman=missing_toman,
+                cart_mode='countries_change',
+                subscription_id=subscription.id,
+                countries=selected_countries,
+                price_kopeks=total_price,
+            ),
+        )
+
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )

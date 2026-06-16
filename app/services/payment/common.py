@@ -377,7 +377,7 @@ async def send_cart_notification_after_topup(
         # оно дублировало «Пополнение успешно!», а его клавиатура не учитывала
         # MAIN_MENU_MODE=cabinet и уводила из миниаппа в полное меню бота.
         try:
-            await auto_purchase_saved_cart_after_topup(db, user, bot=bot)
+            auto_succeeded = await auto_purchase_saved_cart_after_topup(db, user, bot=bot)
         except Exception as auto_error:
             logger.error(
                 'Ошибка автоматической покупки подписки для пользователя',
@@ -385,6 +385,13 @@ async def send_cart_notification_after_topup(
                 auto_error=auto_error,
                 exc_info=True,
             )
+            auto_succeeded = False
+
+        if auto_succeeded:
+            return False
+
+        # return_to_saved_cart is already on build_topup_success_keyboard in the
+        # primary «Пополнение успешно!» message — no second nudge here.
         return False
 
     # Try to auto-extend expired subscription only when there is no saved cart.

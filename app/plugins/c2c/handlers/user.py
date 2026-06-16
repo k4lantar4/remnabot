@@ -164,6 +164,18 @@ async def start_c2c_payment(
         )
         return
 
+    from app.handlers.balance.topup_prompt import get_cart_suggested_topup_amount, show_cart_topup_amount_prompt
+
+    cart_suggested = await get_cart_suggested_topup_amount(db_user.id)
+    if cart_suggested >= settings.C2C_MIN_AMOUNT_KOPEKS:
+        await show_cart_topup_amount_prompt(
+            callback,
+            db_user,
+            method='c2c',
+            suggested_amount=cart_suggested,
+        )
+        return
+
     message_text, keyboard = build_c2c_topup_prompt(db_user)
     await callback.message.edit_text(message_text, reply_markup=keyboard, parse_mode='HTML')
     await activate_c2c_topup_fsm(state)
@@ -344,6 +356,9 @@ async def process_c2c_receipt(
         ).format(id=receipt.id),
         reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
     )
+    from app.services.user_cart_service import user_cart_service
+
+    await user_cart_service.refresh_topup_intent(db_user.id)
     await state.clear()
 
 

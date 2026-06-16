@@ -31,7 +31,7 @@ def append_payment_button(
         [
             InlineKeyboardButton(
                 text=texts.t('PAYMENT_C2C', display_name),
-                callback_data='topup_c2c',
+                callback_data=build_callback('c2c'),
             )
         ]
     )
@@ -74,12 +74,18 @@ async def open_c2c_topup_from_message(
     message: types.Message,
     db_user: User,
     state: FSMContext,
+    *,
+    db: AsyncSession | None = None,
+    amount_kopeks: int | None = None,
 ) -> bool:
     """Shared entry: /start topup_c2c and cabinet deeplink. Returns True if prompt shown."""
     texts = get_texts(db_user.language)
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard: list[list[types.InlineKeyboardButton]] = []
         if support_url:
@@ -114,6 +120,32 @@ async def open_c2c_topup_from_message(
             texts.t('CB_C2C_ADMIN_NOT_CONFIGURED', '❌ Card-to-card payment is not configured'),
         )
         return False
+
+    if (
+        amount_kopeks is not None
+        and settings.C2C_MIN_AMOUNT_KOPEKS <= amount_kopeks <= settings.C2C_MAX_AMOUNT_KOPEKS
+    ):
+        from app.handlers.balance.topup_prompt import send_cart_topup_amount_prompt_message
+
+        await send_cart_topup_amount_prompt_message(
+            message,
+            db_user,
+            method='c2c',
+            suggested_amount=amount_kopeks,
+        )
+        return True
+
+    from app.handlers.balance.topup_prompt import get_cart_suggested_topup_amount, send_cart_topup_amount_prompt_message
+
+    cart_suggested = await get_cart_suggested_topup_amount(db_user.id)
+    if cart_suggested >= settings.C2C_MIN_AMOUNT_KOPEKS:
+        await send_cart_topup_amount_prompt_message(
+            message,
+            db_user,
+            method='c2c',
+            suggested_amount=cart_suggested,
+        )
+        return True
 
     message_text, keyboard = build_c2c_topup_prompt(db_user)
     await message.answer(message_text, reply_markup=keyboard, parse_mode='HTML')

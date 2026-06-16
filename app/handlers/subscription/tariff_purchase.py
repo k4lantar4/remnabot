@@ -27,7 +27,9 @@ from app.localization.texts import get_texts
 from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.subscription_service import SubscriptionService
+from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.user_cart_service import user_cart_service
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
@@ -517,7 +519,7 @@ def _tariff_insufficient_balance_keyboard(
 ) -> InlineKeyboardMarkup:
     return get_insufficient_balance_keyboard(
         language,
-        amount_kopeks=missing,
+        amount_kopeks=suggest_topup_amount_toman(missing),
         has_saved_cart=has_saved_cart,
         resume_callback=resume_callback,
     )
@@ -947,25 +949,23 @@ async def select_tariff(
                 _daily_existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
             # Сохраняем данные корзины для автопокупки суточного тарифа
-            cart_data = {
-                'cart_mode': 'daily_tariff_purchase',
-                'tariff_id': tariff_id,
-                'is_daily': True,
-                'daily_price_kopeks': daily_price,
-                'total_price': daily_price,
-                'user_id': db_user.id,
-                'saved_cart': True,
-                'missing_amount': missing,
-                'return_to_cart': True,
-                'description': texts.t(
+            cart_data = build_cart_topup_metadata(
+                missing_toman=missing,
+                cart_mode='daily_tariff_purchase',
+                tariff_id=tariff_id,
+                is_daily=True,
+                daily_price_kopeks=daily_price,
+                total_price=daily_price,
+                user_id=db_user.id,
+                description=texts.t(
                     'TARIFF_DAILY_PURCHASE_CART_DESC',
                     'Покупка суточного тарифа {name}',
                 ).format(name=tariff.name),
-                'traffic_limit_gb': tariff.traffic_limit_gb,
-                'device_limit': tariff.device_limit,
-                'allowed_squads': tariff.allowed_squads or [],
-                'subscription_id': _daily_existing_sub.id if _daily_existing_sub else None,
-            }
+                traffic_limit_gb=tariff.traffic_limit_gb,
+                device_limit=tariff.device_limit,
+                allowed_squads=tariff.allowed_squads or [],
+                subscription_id=_daily_existing_sub.id if _daily_existing_sub else None,
+            )
             await user_cart_service.save_user_cart(db_user.id, cart_data)
 
             await callback.message.edit_text(
@@ -986,7 +986,11 @@ async def select_tariff(
                         '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                     ),
                 ),
-                reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'daily_tariff_confirm:{tariff_id}',
+                ),
                 parse_mode='HTML',
             )
     else:
@@ -1357,24 +1361,22 @@ async def select_tariff_period_custom_traffic(
         )
     else:
         missing = ctx['missing_toman']
-        cart_data = {
-            'cart_mode': 'tariff_purchase',
-            'tariff_id': tariff_id,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='tariff_purchase',
+            tariff_id=tariff_id,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_PURCHASE_CART_DESC',
                 "Покупка тарифа '{name}' на {days} дней",
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': traffic_gb,
-            'device_limit': tariff.device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'custom_traffic_gb': traffic_gb,
-        }
+            traffic_limit_gb=traffic_gb,
+            device_limit=tariff.device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            custom_traffic_gb=traffic_gb,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
         await callback.message.edit_text(
             texts.t(
@@ -1394,7 +1396,11 @@ async def select_tariff_period_custom_traffic(
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                 ),
             ),
-            reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -1686,11 +1692,10 @@ async def handle_custom_confirm(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
 
@@ -1864,25 +1869,23 @@ async def select_tariff_period(
             _cart_sub_id = _legacy_sub.id if _legacy_sub else None
 
         # Сохраняем данные корзины для автопокупки после пополнения
-        cart_data = {
-            'cart_mode': 'tariff_purchase',
-            'tariff_id': tariff_id,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='tariff_purchase',
+            tariff_id=tariff_id,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_PURCHASE_CART_DESC',
                 'Покупка тарифа {name} на {days} дней',
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': tariff.traffic_limit_gb,
-            'device_limit': tariff.device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'discount_percent': discount_percent,
-            'subscription_id': _cart_sub_id,
-        }
+            traffic_limit_gb=tariff.traffic_limit_gb,
+            device_limit=tariff.device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            discount_percent=discount_percent,
+            subscription_id=_cart_sub_id,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
@@ -1902,7 +1905,11 @@ async def select_tariff_period(
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                 ),
             ),
-            reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -2297,11 +2304,10 @@ async def confirm_tariff_purchase(
 
     # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
     try:
-        _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=getattr(subscription, 'id', None) if subscription else None,
+        )
         logger.info('Корзина очищена после покупки тарифа для пользователя', telegram_id=db_user.telegram_id)
     except Exception as e:
         logger.error('Ошибка очистки корзины', error=e)
@@ -2603,11 +2609,10 @@ async def confirm_daily_tariff_purchase(
 
     # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
     try:
-        _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=getattr(subscription, 'id', None) if subscription else None,
+        )
         logger.info('Корзина очищена после покупки суточного тарифа для пользователя', telegram_id=db_user.telegram_id)
     except Exception as e:
         logger.error('Ошибка очистки корзины', error=e)
@@ -3042,25 +3047,23 @@ async def select_tariff_extend_period(
         missing = ctx['missing_toman']
 
         # Сохраняем данные корзины для автопокупки после пополнения
-        cart_data = {
-            'cart_mode': 'extend',
-            'tariff_id': tariff_id,
-            'subscription_id': subscription.id if subscription else None,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='extend',
+            tariff_id=tariff_id,
+            subscription_id=subscription.id if subscription else None,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_RENEW_CART_DESC',
                 'Продление тарифа {name} на {days} дней',
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': traffic_gb,
-            'device_limit': actual_device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'discount_percent': discount_percent,
-        }
+            traffic_limit_gb=traffic_gb,
+            device_limit=actual_device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            discount_percent=discount_percent,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
@@ -3285,11 +3288,10 @@ async def confirm_tariff_extend(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
             logger.info('Корзина очищена после продления тарифа для пользователя', telegram_id=db_user.telegram_id)
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
@@ -3476,21 +3478,6 @@ def get_tariff_switch_confirm_keyboard(
                     callback_data=f'tariff_sw_confirm:{tariff_id}:{period}',
                 )
             ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_sw_select:{tariff_id}')],
-        ]
-    )
-
-
-def get_tariff_switch_insufficient_balance_keyboard(
-    tariff_id: int,
-    period: int,
-    language: str,
-) -> InlineKeyboardMarkup:
-    """Создает клавиатуру при недостаточном балансе для переключения."""
-    texts = get_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
             [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_sw_select:{tariff_id}')],
         ]
     )
@@ -3840,6 +3827,7 @@ async def select_tariff_switch_period(
             parse_mode='HTML',
         )
     else:
+        missing = ctx['missing_toman']
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_SWITCH_INSUFFICIENT',
@@ -3854,7 +3842,12 @@ async def select_tariff_switch_period(
                 missing=ctx['missing_label'],
                 extra='',
             ),
-            reply_markup=get_tariff_switch_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                has_saved_cart=False,
+                resume_callback=f'tariff_sw_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -4080,11 +4073,10 @@ async def confirm_tariff_switch(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
             logger.info('Корзина очищена после смены тарифа для пользователя', telegram_id=db_user.telegram_id)
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
@@ -5348,11 +5340,10 @@ async def return_to_saved_tariff_cart(
     if not tariff or not tariff.is_active:
         await callback.answer(texts.t('CB_TARIFF_NO_LONGER_AVAILABLE', '❌ Тариф больше недоступен'), show_alert=True)
         # Очищаем корзину (per-subscription в multi-tariff)
-        _cart_sub_id = cart_data.get('subscription_id')
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=cart_data.get('subscription_id'),
+        )
         return
 
     total_price = cart_data.get('total_price', 0)
@@ -5362,6 +5353,7 @@ async def return_to_saved_tariff_cart(
     # Проверяем баланс (при 100% скидке — пропускаем)
     if total_price > 0 and not user_can_afford(user_balance, total_price):
         ctx = _affordance_context(texts, user_balance, total_price)
+        missing = ctx['missing_toman']
 
         if cart_mode == 'daily_tariff_purchase':
             await callback.message.edit_text(
@@ -5377,7 +5369,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'daily_tariff_confirm:{tariff_id}',
+                ),
                 parse_mode='HTML',
             )
         elif cart_mode == 'extend':
@@ -5398,7 +5394,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'tariff_ext_confirm:{tariff_id}:{period}',
+                ),
                 parse_mode='HTML',
             )
         else:  # tariff_purchase
@@ -5419,7 +5419,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
                 parse_mode='HTML',
             )
         await callback.answer()

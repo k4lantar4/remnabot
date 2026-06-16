@@ -446,17 +446,11 @@ async def handle_subscription_cancel(callback: types.CallbackQuery, state: FSMCo
             pass
 
     if cart_sub_id is not None:
-        await user_cart_service.delete_subscription_cart(db_user.id, cart_sub_id)
-        # Clean up global key only if it still references this subscription
-        global_cart = await user_cart_service.get_user_cart(db_user.id)
-        if global_cart and global_cart.get('subscription_id') is not None:
-            try:
-                if int(global_cart['subscription_id']) == cart_sub_id:
-                    await user_cart_service.delete_global_cart_only(db_user.id)
-            except (TypeError, ValueError):
-                pass
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=cart_sub_id,
+        )
     else:
-        # No subscription_id in cart -- safe to delete the global cart
         await user_cart_service.delete_user_cart(db_user.id)
 
     from app.handlers.menu import show_main_menu

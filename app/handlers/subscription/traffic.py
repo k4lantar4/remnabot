@@ -28,8 +28,9 @@ from app.services.pricing_engine import PricingEngine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
-from app.states import SubscriptionStates
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
+from app.states import SubscriptionStates
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
@@ -403,10 +404,10 @@ async def confirm_reset_traffic(
         )
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
             ),
             parse_mode='HTML',
         )
@@ -650,16 +651,17 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         missing_toman = max(0, catalog_price_in_toman(price) - db_user.balance_kopeks)
 
         # Save cart for auto-purchase after balance top-up
-        cart_data = {
-            'cart_mode': 'add_traffic',
-            'subscription_id': subscription.id,
-            'traffic_gb': traffic_gb,
-            'price_kopeks': price,
-            'base_price_kopeks': discounted_per_month,
-            'discount_percent': traffic_discount_pct,
-            'source': 'bot',
-            'description': texts.t('TRAFFIC_TOPUP_CART_DESC', 'Докупка {gb} ГБ трафика').format(gb=traffic_gb),
-        }
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing_toman,
+            cart_mode='add_traffic',
+            subscription_id=subscription.id,
+            traffic_gb=traffic_gb,
+            price_kopeks=price,
+            base_price_kopeks=discounted_per_month,
+            discount_percent=traffic_discount_pct,
+            source='bot',
+            description=texts.t('TRAFFIC_TOPUP_CART_DESC', 'Докупка {gb} ГБ трафика').format(gb=traffic_gb),
+        )
         try:
             await user_cart_service.save_user_cart(db_user.id, cart_data)
             logger.info(
@@ -684,10 +686,11 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         )
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
+                has_saved_cart=True,
             ),
             parse_mode='HTML',
         )
@@ -968,10 +971,10 @@ async def confirm_switch_traffic(
             )
 
             await callback.message.edit_text(
-                message_text,
+                message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_toman,
+                    amount_kopeks=suggest_topup_amount_toman(missing_toman),
                 ),
                 parse_mode='HTML',
             )
