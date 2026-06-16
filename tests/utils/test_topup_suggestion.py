@@ -1,6 +1,7 @@
 from app.utils.topup_suggestion import (
     TOPUP_SUGGESTION_STEP_TOMAN,
     build_cart_topup_metadata,
+    resolve_suggested_topup_from_cart,
     suggest_topup_amount_toman,
 )
 
@@ -25,3 +26,9 @@ def test_build_cart_topup_metadata_includes_suggested_amount() -> None:
 def test_suggest_topup_respects_custom_step() -> None:
     assert suggest_topup_amount_toman(550, step=500) == 1000
     assert TOPUP_SUGGESTION_STEP_TOMAN == 1000
+
+
+def test_resolve_suggested_topup_from_cart() -> None:
+    assert resolve_suggested_topup_from_cart(None) == 0
+    assert resolve_suggested_topup_from_cart({'suggested_topup_amount': 3000}) == 3000
+    assert resolve_suggested_topup_from_cart({'missing_amount': 1550}) == 2000
