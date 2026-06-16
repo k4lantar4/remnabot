@@ -13,6 +13,7 @@ import { staggerContainer, staggerItem } from '@/components/motion/transitions';
 import type { PaymentMethod, PaymentMethodOption } from '../types';
 import BentoCard from '../components/ui/BentoCard';
 import { saveTopUpPendingInfo } from '../utils/topUpStorage';
+import { suggestTopUpAmount } from '../utils/topUpSuggestion';
 import { getSafeRedirectPath } from '../utils/safeRedirect';
 import { copyToClipboard } from '@/utils/clipboard';
 import {
@@ -123,9 +124,13 @@ export default function TopUpAmount() {
   const getInitialAmount = (): string => {
     if (!initialAmountRubles || initialAmountRubles <= 0) return '';
     const converted = convertAmount(initialAmountRubles);
+    const rounded =
+      targetCurrency === 'IRR' || targetCurrency === 'RUB'
+        ? suggestTopUpAmount(Math.ceil(converted))
+        : converted;
     return targetCurrency === 'IRR' || targetCurrency === 'RUB'
-      ? Math.ceil(converted).toString()
-      : converted.toFixed(2);
+      ? String(rounded)
+      : rounded.toFixed(2);
   };
 
   const initialDisplayAmount = getInitialAmount();
