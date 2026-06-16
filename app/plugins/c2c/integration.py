@@ -74,6 +74,9 @@ async def open_c2c_topup_from_message(
     message: types.Message,
     db_user: User,
     state: FSMContext,
+    *,
+    db: AsyncSession | None = None,
+    amount_kopeks: int | None = None,
 ) -> bool:
     """Shared entry: /start topup_c2c and cabinet deeplink. Returns True if prompt shown."""
     texts = get_texts(db_user.language)
@@ -117,6 +120,16 @@ async def open_c2c_topup_from_message(
             texts.t('CB_C2C_ADMIN_NOT_CONFIGURED', '❌ Card-to-card payment is not configured'),
         )
         return False
+
+    if (
+        amount_kopeks is not None
+        and db is not None
+        and settings.C2C_MIN_AMOUNT_KOPEKS <= amount_kopeks <= settings.C2C_MAX_AMOUNT_KOPEKS
+    ):
+        from app.plugins.c2c.handlers.user import process_c2c_payment_amount
+
+        await process_c2c_payment_amount(message, db_user, db, amount_kopeks, state)
+        return True
 
     message_text, keyboard = build_c2c_topup_prompt(db_user)
     await message.answer(message_text, reply_markup=keyboard, parse_mode='HTML')
