@@ -144,6 +144,19 @@ Branch `i18n/fa-json-value-fixes` (includes `i18n/fix-subscription-status-displa
 - [x] **Slice 2:** `fa.json` — `YuMoney`, withdrawal تومان + Iranian card example (`5020c8ec`)
 - [ ] **Optional follow-up:** `formatters.py` — `fa` in `use_russian_fallback` for `format_subscription_status` / `format_traffic_usage` (not user hot path today; tests only)
 
+## Done (monitoring notifications — Jun 16 2026)
+
+Branch `i18n/monitoring-notifications` from `main` (**6 commits**).
+
+- [x] **Task 1:** `format_days_declension` fa branch (`N روز`) + test flip — fixes mixed «3 дня» in `SUBSCRIPTION_EXPIRING_PAID`
+- [x] **Task 2:** `fa.json` — `SUBSCRIPTION_EXPIRED_NOTIFY`, `NOTIFY_TARIFF_LINE`, `NOTIFY_DAILY_DEBIT`, `NOTIFY_DAILY_INSUFFICIENT_FUNDS`
+- [x] **Task 3:** `monitoring_service.py` — expired, trial (`TRIAL_ENDING_SOON` + `NOTIFY_TARIFF_LINE`), autopay-fail tariff/keyboard
+- [x] **Task 4:** `daily_subscription_service.py` — daily debit + insufficient funds via `texts.format_price`/`format_balance`
+- [x] **Task 5:** `tests/test_monitoring_notification_i18n.py` static guard
+- [ ] **Awaiting user smoke** before PR → `dev-local` → `main`
+
+Plan: `docs/superpowers/plans/2026-06-16-fa-monitoring-notifications.md`
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
