@@ -344,6 +344,9 @@ async def process_c2c_receipt(
         ).format(id=receipt.id),
         reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
     )
+    from app.services.user_cart_service import user_cart_service
+
+    await user_cart_service.refresh_topup_intent(db_user.id)
     await state.clear()
 
 
