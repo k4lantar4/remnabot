@@ -1633,21 +1633,31 @@ class MonitoringService:
                     tariff_label = f' «{tariff_name}»'
                 elif hasattr(subscription, 'tariff') and subscription.tariff:
                     tariff_label = f' «{subscription.tariff.name}»'
-            message = f"""
-⛔ <b>Подписка{tariff_label} истекла</b>
-
-Ваша подписка истекла. Для восстановления доступа продлите подписку.
-
-🔧 Доступ к серверам заблокирован до продления.
-"""
+            texts = get_texts(user.language)
+            message = texts.t(
+                'SUBSCRIPTION_EXPIRED_NOTIFY',
+                '⛔ <b>Подписка{tariff_label} истекла</b>\n\n'
+                'Ваша подписка истекла. Для восстановления доступа продлите подписку.\n\n'
+                '🔧 Доступ к серверам заблокирован до продления.',
+            ).format(tariff_label=tariff_label)
 
             from aiogram.types import InlineKeyboardMarkup
 
             extend_callback = f'se:{subscription.id}' if settings.is_multi_tariff_enabled() else 'subscription_extend'
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💎 Продлить подписку', callback_data=extend_callback)],
-                    [build_miniapp_or_callback_button(text='💳 Пополнить баланс', callback_data='balance_topup')],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
+                            callback_data=extend_callback,
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'),
+                            callback_data='balance_topup',
+                        )
+                    ],
                 ]
             )
 
@@ -1792,28 +1802,42 @@ class MonitoringService:
 
     async def _send_trial_ending_notification(self, user: User, subscription: Subscription) -> bool:
         try:
-            get_texts(user.language)
-
-            tariff_label = ''
+            texts = get_texts(user.language)
+            price = settings.format_price(settings.PRICE_30_DAYS)
+            message = texts.t(
+                'TRIAL_ENDING_SOON',
+                '\n🎁 <b>Тестовая подписка скоро закончится!</b>\n\n'
+                'Ваша тестовая подписка истекает через несколько часов.\n\n'
+                '💎 <b>Не хотите остаться без VPN?</b>\n'
+                'Переходите на полную подписку!\n\n'
+                '🔥 <b>Специальное предложение:</b>\n'
+                '• 30 дней всего за {price}\n'
+                '• Безлимитный трафик  \n'
+                '• Все серверы доступны\n'
+                '• Скорость до 1ГБит/сек\n\n'
+                '⚡️ Успейте оформить до окончания тестового периода!\n',
+            ).format(price=price)
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-                tariff_label = f' «{subscription.tariff.name}»'
-            message = f"""
-🎁 <b>Тестовая подписка{tariff_label} скоро закончится!</b>
-
-Ваша тестовая подписка истекает через 2 часа.
-
-💎 <b>Не хотите остаться без VPN?</b>
-Переходите на полную подписку!
-
-⚡️ Успейте оформить до окончания тестового периода!
-"""
+                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
+                    name=subscription.tariff.name
+                )
 
             from aiogram.types import InlineKeyboardMarkup
 
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💎 Купить подписку', callback_data='menu_buy')],
-                    [build_miniapp_or_callback_button(text='💰 Пополнить баланс', callback_data='balance_topup')],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t('MENU_BUY_SUBSCRIPTION', '💎 Купить подписку'),
+                            callback_data='menu_buy',
+                        )
+                    ],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t('BALANCE_TOPUP', '💰 Пополнить баланс'),
+                            callback_data='balance_topup',
+                        )
+                    ],
                 ]
             )
 
@@ -2158,14 +2182,25 @@ class MonitoringService:
                 and hasattr(subscription, 'tariff')
                 and subscription.tariff
             ):
-                message += f'\n📦 Тариф: «{subscription.tariff.name}»'
+                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
+                    name=subscription.tariff.name
+                )
 
             from aiogram.types import InlineKeyboardMarkup
 
+            sub_btn_text = texts.t(
+                'BTN_MY_SUBSCRIPTIONS' if settings.is_multi_tariff_enabled() else 'BTN_MY_SUBSCRIPTION',
+                '📱 Мои подписки' if settings.is_multi_tariff_enabled() else '📱 Моя подписка',
+            )
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💳 Пополнить баланс', callback_data='balance_topup')],
-                    [build_miniapp_or_callback_button(text='📱 Моя подписка', callback_data='menu_subscription')],
+                    [
+                        build_miniapp_or_callback_button(
+                            text=texts.t('BTN_TOPUP_BALANCE', '💳 Пополнить баланс'),
+                            callback_data='balance_topup',
+                        )
+                    ],
+                    [build_miniapp_or_callback_button(text=sub_btn_text, callback_data='menu_subscription')],
                 ]
             )
 
