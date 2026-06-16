@@ -705,7 +705,13 @@ async def tariff_purchase_quote(
     )
 
     period_kopeks = int(result.breakdown.get('period_kopeks', result.base_price) or 0)
-    traffic_kopeks = int(result.breakdown.get('traffic_kopeks', result.traffic_price) or 0)
+    raw_traffic_kopeks = int(result.breakdown.get('traffic_kopeks', result.traffic_price) or 0)
+    if raw_traffic_kopeks > 0:
+        traffic_kopeks, _, _ = PricingEngine.calculate_traffic_discount(
+            raw_traffic_kopeks, user, period_days
+        )
+    else:
+        traffic_kopeks = int(result.traffic_price or 0)
     devices_kopeks = int(result.devices_price or 0)
 
     discount_kopeks = result.promo_group_discount + result.promo_offer_discount
@@ -713,6 +719,20 @@ async def tariff_purchase_quote(
         result.original_total,
         result.final_total,
     )
+
+    traffic_packages_payload: list[dict[str, Any]] = []
+    if hasattr(tariff, 'get_traffic_topup_packages'):
+        for gb, price in sorted(tariff.get_traffic_topup_packages().items()):
+            final_price, _, pkg_discount_pct = PricingEngine.calculate_traffic_discount(price, user)
+            traffic_packages_payload.append(
+                {
+                    'gb': gb,
+                    'price_kopeks': final_price,
+                    'original_price_kopeks': price,
+                    'discount_percent': pkg_discount_pct,
+                    'label': f'{gb} GB',
+                }
+            )
 
     return {
         'base_kopeks': period_kopeks,
@@ -726,12 +746,7 @@ async def tariff_purchase_quote(
         'discount_kopeks': discount_kopeks,
         'period_price_source': result.breakdown.get('period_price_source'),
         'traffic_source': result.breakdown.get('traffic_source'),
-        'traffic_packages': [
-            {'gb': gb, 'price_kopeks': price, 'label': f'{gb} GB'}
-            for gb, price in sorted(tariff.get_traffic_topup_packages().items())
-        ]
-        if hasattr(tariff, 'get_traffic_topup_packages')
-        else [],
+        'traffic_packages': traffic_packages_payload,
         'breakdown': result.breakdown,
     }
 

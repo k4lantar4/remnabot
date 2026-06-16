@@ -76,9 +76,9 @@ def test_confirm_amounts_use_format_price_kopeks():
         language='fa',
     )
 
-    subtotal_label = format_price_kopeks(original_total)
-    discount_label = format_price_kopeks(discount_kopeks)
-    total_label = format_price_kopeks(final_total)
+    subtotal_label = format_price_kopeks(original_total, language='fa')
+    discount_label = format_price_kopeks(discount_kopeks, language='fa')
+    total_label = format_price_kopeks(final_total, language='fa')
 
     assert subtotal_label in message
     assert discount_label in message
@@ -116,5 +116,48 @@ def test_confirm_includes_period_and_traffic_lines_from_breakdown():
         language='fa',
     )
 
-    assert f'📅 Период: {format_price_kopeks(8_000_000)}' in message
-    assert f'📊 Трафик: {format_price_kopeks(4_000_000)}' in message
+    assert f'📅 Период: {format_price_kopeks(8_000_000, language="fa")}' in message
+    assert f'📊 Трафик: {format_price_kopeks(3_000_000, language="fa")}' in message
+
+
+def test_confirm_fa_price_lines_use_thousand_grouping(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, 'PRICE_DISPLAY_SUFFIX', ' تومان', raising=False)
+
+    texts = MagicMock()
+    texts.t.side_effect = lambda key, fallback, **kwargs: fallback
+    texts.format_balance.side_effect = lambda amount, **kwargs: settings.format_balance(
+        amount, language='fa', round_kopeks=False
+    )
+
+    result = RenewalPricing(
+        base_price=60_000,
+        servers_price=0,
+        traffic_price=100_000_000,
+        devices_price=0,
+        promo_group_discount=10_006_000,
+        promo_offer_discount=0,
+        final_total=90_054_000,
+        period_days=90,
+        is_tariff_mode=True,
+        breakdown={'period_kopeks': 60_000, 'traffic_kopeks': 100_000_000},
+    )
+
+    message = format_tariff_purchase_confirm_text(
+        texts,
+        tariff=_make_tariff(),
+        traffic_gb=100,
+        period_days=90,
+        result=result,
+        balance_kopeks=10_008_540,
+        language='fa',
+    )
+
+    fa_sep = '\u066c'
+    assert f'1{fa_sep}000{fa_sep}600' in message
+    assert f'1{fa_sep}000{fa_sep}000' in message
+    assert f'900{fa_sep}540' in message
+    assert '1000000' not in message
+    assert '1000600' not in message
+    assert '900540' not in message

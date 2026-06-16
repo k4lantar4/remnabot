@@ -458,7 +458,13 @@ export const subscriptionApi = {
     discount_kopeks: number;
     period_price_source?: string;
     traffic_source?: string;
-    traffic_packages?: Array<{ gb: number; price_kopeks: number; label: string }>;
+    traffic_packages?: Array<{
+      gb: number;
+      price_kopeks: number;
+      original_price_kopeks?: number;
+      discount_percent?: number;
+      label: string;
+    }>;
     breakdown: Record<string, unknown>;
   }> => {
     const response = await apiClient.post('/cabinet/subscription/tariff-purchase-quote', {

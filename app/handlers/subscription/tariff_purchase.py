@@ -424,6 +424,38 @@ def _resolve_selected_traffic_price(tariff: Tariff, traffic_gb: int) -> int:
     return int(resolved[0])
 
 
+def _discounted_traffic_display(
+    base_kopeks: int,
+    db_user: User | None,
+    *,
+    period_days: int = 30,
+) -> tuple[int, int]:
+    """Return (final_kopeks, display_discount_pct) for traffic purchase UI."""
+    from app.services.pricing_engine import PricingEngine
+
+    if not db_user or base_kopeks <= 0:
+        return base_kopeks, 0
+    final, _, pct = PricingEngine.calculate_traffic_discount(base_kopeks, db_user, period_days)
+    return final, pct
+
+
+def _format_traffic_package_button_label(
+    gb: int,
+    price_kopeks: int,
+    texts,
+    language: str,
+    db_user: User | None,
+) -> str:
+    """Inline keyboard label — same structure as period buttons (RTL-safe in Telegram)."""
+    final_price, discount_pct = _discounted_traffic_display(price_kopeks, db_user)
+    volume_label = format_traffic(gb, language)
+    if discount_pct > 0:
+        price_text = f'{format_price_kopeks(final_price)} 🔥−{discount_pct}%'
+    else:
+        price_text = format_price_kopeks(final_price)
+    return f'{volume_label} — {price_text}'
+
+
 async def show_traffic_first_step(
     callback: types.CallbackQuery,
     db_user: User,
@@ -477,6 +509,7 @@ async def show_traffic_first_step(
             traffic_first_mode=True,
             back_callback=back_cb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+            db_user=db_user,
         ),
         parse_mode='HTML',
     )
@@ -507,12 +540,12 @@ def get_tariff_confirm_keyboard(
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
+                InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}'),
                 InlineKeyboardButton(
                     text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
                     callback_data=f'tariff_confirm:{tariff_id}:{period}',
-                )
+                ),
             ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}')],
         ]
     )
 
@@ -583,6 +616,7 @@ def get_custom_tariff_keyboard(
     traffic_first_mode: bool = False,
     back_callback: str | None = None,
     traffic_packages: dict[int, int] | None = None,
+    db_user: User | None = None,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру для настройки кастомных дней и трафика."""
     texts = get_texts(language)
@@ -619,30 +653,24 @@ def get_custom_tariff_keyboard(
 
     # Кнопки выбора трафика
     if can_custom_traffic:
-        selected_label = texts.t('TARIFF_TRAFFIC_SELECTED_LABEL', '📊 حجم انتخابی: {gb} GB').format(gb=traffic_gb)
-        buttons.append([InlineKeyboardButton(text=selected_label, callback_data='noop')])
+        if not traffic_first_mode:
+            selected_label = texts.t('TARIFF_TRAFFIC_SELECTED_LABEL', '📊 حجم انتخابی: {gb} GB').format(gb=traffic_gb)
+            buttons.append([InlineKeyboardButton(text=selected_label, callback_data='noop')])
 
-        package_buttons: list[InlineKeyboardButton] = []
         for gb, price in sorted((traffic_packages or {}).items()):
-            package_buttons.append(
-                InlineKeyboardButton(
-                    text=texts.t('TARIFF_TRAFFIC_PACKAGE_BTN', '{gb} GB — {price}').format(
-                        gb=gb,
-                        price=format_price_kopeks(int(price)),
-                    ),
-                    callback_data=f'custom_traffic_pkg:{tariff_id}:{gb}',
-                )
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=_format_traffic_package_button_label(gb, int(price), texts, language, db_user),
+                        callback_data=f'custom_traffic_pkg:{tariff_id}:{gb}',
+                    )
+                ]
             )
-            if len(package_buttons) == 2:
-                buttons.append(package_buttons)
-                package_buttons = []
-        if package_buttons:
-            buttons.append(package_buttons)
 
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=texts.t('TARIFF_TRAFFIC_CUSTOM_VOLUME_BTN', 'حجم دلخواه'),
+                    text=texts.t('TARIFF_TRAFFIC_CUSTOM_VOLUME_BTN', '📊  حجم دلخواه'),
                     callback_data=f'custom_traffic_prompt:{tariff_id}',
                 )
             ]
@@ -650,15 +678,7 @@ def get_custom_tariff_keyboard(
 
     # Кнопка подтверждения или переход к выбору периода
     if traffic_first_mode:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('TARIFF_CHOOSE_PERIOD_BTN', '➡️ ادامه'),
-                    callback_data=f'tariff_traffic_next:{tariff_id}',
-                ),
-                InlineKeyboardButton(text=texts.BACK, callback_data=back_callback or 'tariff_list'),
-            ]
-        )
+        buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_callback or 'tariff_list')])
     else:
         buttons.append(
             [
@@ -668,9 +688,6 @@ def get_custom_tariff_keyboard(
                 )
             ]
         )
-
-    # Кнопка назад
-    if not traffic_first_mode:
         buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_callback or 'tariff_list')])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -754,11 +771,11 @@ async def format_custom_tariff_preview(
     if tariff.can_purchase_custom_days():
         text += texts.t(
             'TARIFF_CUSTOM_DAYS', '📅 Дней: <b>{days}</b> (от {min_days} до {max_days})\n   💰 {price}\n'
-        ).format(days=days, min_days=tariff.min_days, max_days=tariff.max_days, price=format_price_kopeks(period_price))
+        ).format(days=days, min_days=tariff.min_days, max_days=tariff.max_days, price=format_price_kopeks(period_price, language=language))
     else:
         # Фиксированный период - показываем без возможности изменения
         text += texts.t('TARIFF_CUSTOM_PERIOD', '📅 Период: <b>{period}</b>\n   💰 {price}\n').format(
-            period=format_period(days, language), price=format_price_kopeks(period_price)
+            period=format_period(days, language), price=format_price_kopeks(period_price, language=language)
         )
 
     if tariff.can_purchase_custom_traffic():
@@ -768,7 +785,7 @@ async def format_custom_tariff_preview(
             traffic=traffic_gb,
             min=tariff.min_traffic_gb,
             max=tariff.max_traffic_gb,
-            price=format_price_kopeks(traffic_price),
+            price=format_price_kopeks(traffic_price, language=language),
         )
     else:
         text += texts.t('TARIFF_CUSTOM_TRAFFIC_FIXED', '📊 Трафик: {traffic}\n').format(traffic=traffic_display)
@@ -780,13 +797,14 @@ async def format_custom_tariff_preview(
 
     charge_toman = catalog_price_in_toman(total_price)
     text += texts.t('TARIFF_CUSTOM_TOTAL', '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}').format(
-        total=format_price_kopeks(total_price), balance=settings.format_balance(user_balance)
+        total=format_price_kopeks(total_price, language=language),
+        balance=settings.format_balance(user_balance, language=language),
     )
 
     if not user_can_afford(user_balance, total_price):
         missing = max(0, charge_toman - user_balance)
         text += texts.t('TARIFF_CUSTOM_MISSING', '\n⚠️ <b>Не хватает: {missing}</b>').format(
-            missing=settings.format_balance(missing)
+            missing=settings.format_balance(missing, language=language),
         )
     else:
         text += texts.t('TARIFF_CUSTOM_AFTER', '\nПосле оплаты: {after}').format(
@@ -1015,6 +1033,7 @@ async def select_tariff(
                     min_traffic=tariff.min_traffic_gb,
                     max_traffic=tariff.max_traffic_gb,
                     traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+                    db_user=db_user,
                 ),
                 parse_mode='HTML',
             )
@@ -1094,6 +1113,7 @@ async def handle_custom_days_change(
             min_traffic=tariff.min_traffic_gb,
             max_traffic=tariff.max_traffic_gb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+            db_user=db_user,
         ),
         parse_mode='HTML',
     )
@@ -1151,6 +1171,7 @@ async def handle_custom_traffic_change(
             traffic_first_mode=True,
             back_callback=back_cb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+            db_user=db_user,
         )
     else:
         user_balance = db_user.balance_kopeks or 0
@@ -1175,6 +1196,7 @@ async def handle_custom_traffic_change(
             min_traffic=tariff.min_traffic_gb,
             max_traffic=tariff.max_traffic_gb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+            db_user=db_user,
         )
 
     await callback.message.edit_text(preview_text, reply_markup=keyboard, parse_mode='HTML')
@@ -1208,56 +1230,46 @@ async def handle_custom_traffic_package_select(
 
     await state.update_data(custom_traffic_gb=selected_traffic, awaiting_custom_traffic_input=False)
     state_data = await state.get_data()
-    current_days = state_data.get('custom_days', tariff.min_days)
-    discount_percent = state_data.get('period_discount_percent', 0)
     traffic_first_mode = state_data.get('traffic_first_mode', False)
-    extend_flow = state_data.get('extend_flow', False)
 
     if traffic_first_mode:
-        flow = 'extend' if extend_flow else 'purchase'
-        preview_text = format_traffic_step_preview(tariff, db_user.language, selected_traffic, flow=flow)
-        if extend_flow:
-            sub_id = state_data.get('target_subscription_id')
-            back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
-        else:
-            back_cb = 'tariff_list'
-        keyboard = get_custom_tariff_keyboard(
-            tariff_id=tariff_id,
-            language=db_user.language,
-            days=0,
-            traffic_gb=selected_traffic,
-            can_custom_days=False,
-            can_custom_traffic=True,
-            min_traffic=tariff.min_traffic_gb,
-            max_traffic=tariff.max_traffic_gb,
-            traffic_first_mode=True,
-            back_callback=back_cb,
-            traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
-        )
-    else:
-        user_balance = db_user.balance_kopeks or 0
-        preview_text = await format_custom_tariff_preview(
+        await callback.answer()
+        await show_period_step_after_traffic(
+            callback.message,
             tariff=tariff,
-            language=db_user.language,
-            days=current_days,
             traffic_gb=selected_traffic,
-            user_balance=user_balance,
             db_user=db_user,
-            discount_percent=discount_percent,
+            db=db,
+            state=state,
         )
-        keyboard = get_custom_tariff_keyboard(
-            tariff_id=tariff_id,
-            language=db_user.language,
-            days=current_days,
-            traffic_gb=selected_traffic,
-            can_custom_days=tariff.can_purchase_custom_days(),
-            can_custom_traffic=tariff.can_purchase_custom_traffic(),
-            min_days=tariff.min_days,
-            max_days=tariff.max_days,
-            min_traffic=tariff.min_traffic_gb,
-            max_traffic=tariff.max_traffic_gb,
-            traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
-        )
+        return
+
+    current_days = state_data.get('custom_days', tariff.min_days)
+    discount_percent = state_data.get('period_discount_percent', 0)
+    user_balance = db_user.balance_kopeks or 0
+    preview_text = await format_custom_tariff_preview(
+        tariff=tariff,
+        language=db_user.language,
+        days=current_days,
+        traffic_gb=selected_traffic,
+        user_balance=user_balance,
+        db_user=db_user,
+        discount_percent=discount_percent,
+    )
+    keyboard = get_custom_tariff_keyboard(
+        tariff_id=tariff_id,
+        language=db_user.language,
+        days=current_days,
+        traffic_gb=selected_traffic,
+        can_custom_days=tariff.can_purchase_custom_days(),
+        can_custom_traffic=tariff.can_purchase_custom_traffic(),
+        min_days=tariff.min_days,
+        max_days=tariff.max_days,
+        min_traffic=tariff.min_traffic_gb,
+        max_traffic=tariff.max_traffic_gb,
+        traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+        db_user=db_user,
+    )
 
     await callback.message.edit_text(preview_text, reply_markup=keyboard, parse_mode='HTML')
     await callback.answer()
@@ -1327,83 +1339,88 @@ async def handle_custom_traffic_input_message(
 
     await state.update_data(custom_traffic_gb=selected_traffic, awaiting_custom_traffic_input=False)
 
+    state_data = await state.get_data()
     traffic_first_mode = state_data.get('traffic_first_mode', False)
-    extend_flow = state_data.get('extend_flow', False)
     if traffic_first_mode:
-        flow = 'extend' if extend_flow else 'purchase'
-        preview_text = format_traffic_step_preview(tariff, db_user.language, selected_traffic, flow=flow)
-        if extend_flow:
-            sub_id = state_data.get('target_subscription_id')
-            back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
-        else:
-            back_cb = 'tariff_list'
-        keyboard = get_custom_tariff_keyboard(
-            tariff_id=tariff.id,
-            language=db_user.language,
-            days=0,
-            traffic_gb=selected_traffic,
-            can_custom_days=False,
-            can_custom_traffic=True,
-            min_traffic=tariff.min_traffic_gb,
-            max_traffic=tariff.max_traffic_gb,
-            traffic_first_mode=True,
-            back_callback=back_cb,
-            traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
-        )
-    else:
-        current_days = state_data.get('custom_days', tariff.min_days)
-        discount_percent = state_data.get('period_discount_percent', 0)
-        user_balance = db_user.balance_kopeks or 0
-        preview_text = await format_custom_tariff_preview(
+        await show_period_step_after_traffic(
+            message,
             tariff=tariff,
-            language=db_user.language,
-            days=current_days,
             traffic_gb=selected_traffic,
-            user_balance=user_balance,
             db_user=db_user,
-            discount_percent=discount_percent,
+            db=db,
+            state=state,
+            edit=False,
         )
-        keyboard = get_custom_tariff_keyboard(
-            tariff_id=tariff.id,
-            language=db_user.language,
-            days=current_days,
-            traffic_gb=selected_traffic,
-            can_custom_days=tariff.can_purchase_custom_days(),
-            can_custom_traffic=tariff.can_purchase_custom_traffic(),
-            min_days=tariff.min_days,
-            max_days=tariff.max_days,
-            min_traffic=tariff.min_traffic_gb,
-            max_traffic=tariff.max_traffic_gb,
-            traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
-        )
+        return
+
+    current_days = state_data.get('custom_days', tariff.min_days)
+    discount_percent = state_data.get('period_discount_percent', 0)
+    user_balance = db_user.balance_kopeks or 0
+    preview_text = await format_custom_tariff_preview(
+        tariff=tariff,
+        language=db_user.language,
+        days=current_days,
+        traffic_gb=selected_traffic,
+        user_balance=user_balance,
+        db_user=db_user,
+        discount_percent=discount_percent,
+    )
+    keyboard = get_custom_tariff_keyboard(
+        tariff_id=tariff.id,
+        language=db_user.language,
+        days=current_days,
+        traffic_gb=selected_traffic,
+        can_custom_days=tariff.can_purchase_custom_days(),
+        can_custom_traffic=tariff.can_purchase_custom_traffic(),
+        min_days=tariff.min_days,
+        max_days=tariff.max_days,
+        min_traffic=tariff.min_traffic_gb,
+        max_traffic=tariff.max_traffic_gb,
+        traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
+        db_user=db_user,
+    )
 
     await message.answer(preview_text, reply_markup=keyboard, parse_mode='HTML')
 
 
-@error_handler
-async def handle_tariff_traffic_next(
-    callback: types.CallbackQuery,
+async def show_period_step_after_traffic(
+    message: types.Message,
+    *,
+    tariff: Tariff,
+    traffic_gb: int,
     db_user: User,
     db: AsyncSession,
     state: FSMContext,
-):
-    """Переход от выбора трафика к выбору периода."""
+    extend_flow: bool | None = None,
+    subscription=None,
+    edit: bool = True,
+) -> None:
+    """Переход от выбора трафика к выбору периода (purchase или extend)."""
     texts = get_texts(db_user.language)
-    tariff_id = int(callback.data.split(':')[1])
-    tariff = await get_tariff_by_id(db, tariff_id)
-    if not tariff or not tariff.is_active:
-        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
-        return
-
     state_data = await state.get_data()
-    traffic_gb = state_data.get('custom_traffic_gb', tariff.min_traffic_gb)
-    extend_flow = state_data.get('extend_flow', False)
-    traffic_price = _resolve_selected_traffic_price(tariff, traffic_gb)
+    if extend_flow is None:
+        extend_flow = state_data.get('extend_flow', False)
+
+    traffic_base = _resolve_selected_traffic_price(tariff, traffic_gb)
+    traffic_final, traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
+    traffic_price_text = format_price_kopeks(traffic_final, language=db_user.language)
+    if traffic_discount_pct > 0:
+        traffic_price_text = f'{traffic_price_text} 🔥−{traffic_discount_pct}%'
+    hint = texts.t(
+        'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
+        '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
+    ).format(traffic_price=traffic_price_text)
 
     if extend_flow:
-        subscription, _ = await _resolve_subscription(callback, db_user, db, state)
+        if subscription is None:
+            sub_id = state_data.get('target_subscription_id')
+            if sub_id:
+                subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
         if not subscription:
-            await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+            if edit:
+                await message.edit_text(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'))
+            else:
+                await message.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'))
             return
         actual_device_limit = subscription.device_limit or tariff.device_limit
         traffic = format_traffic(traffic_gb, db_user.language)
@@ -1418,21 +1435,14 @@ async def handle_tariff_traffic_next(
             traffic=traffic,
             devices=actual_device_limit,
         )
-        period_message += '\n\n' + texts.t(
-            'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
-            '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
-        ).format(traffic_price=format_price_kopeks(traffic_price))
-        await callback.message.edit_text(
-            period_message,
-            reply_markup=await get_tariff_extend_keyboard(
-                tariff,
-                db_user.language,
-                db_user=db_user,
-                subscription_device_limit=actual_device_limit,
-                sub_id=subscription.id,
-                custom_traffic_gb=traffic_gb,
-            ),
-            parse_mode='HTML',
+        period_message += '\n\n' + hint
+        reply_markup = await get_tariff_extend_keyboard(
+            tariff,
+            db_user.language,
+            db_user=db_user,
+            subscription_device_limit=actual_device_limit,
+            sub_id=subscription.id,
+            custom_traffic_gb=traffic_gb,
         )
     else:
         traffic = format_traffic(traffic_gb, db_user.language)
@@ -1444,19 +1454,53 @@ async def handle_tariff_traffic_next(
             traffic=traffic,
             devices=tariff.device_limit,
         )
-        period_message += '\n\n' + texts.t(
-            'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
-            '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
-        ).format(traffic_price=format_price_kopeks(traffic_price))
-        await callback.message.edit_text(
-            period_message,
-            reply_markup=await get_tariff_periods_keyboard_for_traffic(
-                tariff, db_user.language, traffic_gb, db_user=db_user
-            ),
-            parse_mode='HTML',
+        period_message += '\n\n' + hint
+        reply_markup = await get_tariff_periods_keyboard_for_traffic(
+            tariff, db_user.language, traffic_gb, db_user=db_user
         )
 
+    if edit:
+        await message.edit_text(period_message, reply_markup=reply_markup, parse_mode='HTML')
+    else:
+        await message.answer(period_message, reply_markup=reply_markup, parse_mode='HTML')
+
+
+@error_handler
+async def handle_tariff_traffic_next(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+):
+    """Переход от выбора трафика к выбору периода (stale «ادامه» callbacks)."""
+    texts = get_texts(db_user.language)
+    tariff_id = int(callback.data.split(':')[1])
+    tariff = await get_tariff_by_id(db, tariff_id)
+    if not tariff or not tariff.is_active:
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
+        return
+
+    state_data = await state.get_data()
+    traffic_gb = state_data.get('custom_traffic_gb', tariff.min_traffic_gb)
+    extend_flow = state_data.get('extend_flow', False)
+    subscription = None
+    if extend_flow:
+        subscription, _ = await _resolve_subscription(callback, db_user, db, state)
+        if not subscription:
+            await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+            return
+
     await callback.answer()
+    await show_period_step_after_traffic(
+        callback.message,
+        tariff=tariff,
+        traffic_gb=traffic_gb,
+        db_user=db_user,
+        db=db,
+        state=state,
+        extend_flow=extend_flow,
+        subscription=subscription,
+    )
 
 
 @error_handler
@@ -1539,6 +1583,7 @@ async def select_tariff_period_custom_traffic(
                 result=result,
                 balance_kopeks=user_balance,
                 language=db_user.language,
+                user=db_user,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -1572,7 +1617,7 @@ async def select_tariff_period_custom_traffic(
                 name=html.escape(tariff.name),
                 traffic=traffic,
                 period=format_period(period, db_user.language),
-                cost=format_price_kopeks(final_price),
+                cost=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 missing=ctx['missing_label'],
                 cart_note=texts.t(
@@ -1969,6 +2014,7 @@ async def select_tariff_period(
                 result=result,
                 balance_kopeks=user_balance,
                 language=db_user.language,
+                user=db_user,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -2012,7 +2058,7 @@ async def select_tariff_period(
             ).format(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
-                cost=format_price_kopeks(final_price),
+                cost=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 missing=ctx['missing_label'],
                 cart_note=texts.t(
@@ -2777,37 +2823,27 @@ async def get_tariff_extend_keyboard(
     sub_id: int | None = None,
     custom_traffic_gb: int | None = None,
 ) -> InlineKeyboardMarkup:
-    """Создает клавиатуру выбора периода для продления по тарифу с учетом скидок по периодам."""
-    from app.services.pricing_engine import pricing_engine
-
+    """Создает клавиатуру выбора периода для продления (кнопки — только цена периода)."""
     texts = get_texts(language)
     buttons = []
+    hide_prices = _hide_tariff_purchase_prices()
 
-    effective_device_limit = (
-        subscription_device_limit if subscription_device_limit is not None else (tariff.device_limit or 0)
-    )
-    effective_custom_traffic = custom_traffic_gb if tariff.can_purchase_custom_traffic() else None
-
-    prices = tariff.period_prices or {}
-    for period_str in sorted(prices.keys(), key=int):
+    for period_str in sorted((tariff.period_prices or {}).keys(), key=int):
         period = int(period_str)
-        result = await pricing_engine.calculate_tariff_purchase_price(
-            tariff,
-            period,
-            device_limit=effective_device_limit,
-            custom_traffic_gb=effective_custom_traffic,
-            user=db_user,
-        )
-        price = result.final_total
-        total_original = result.original_total
-        has_discount = price < total_original and total_original > 0
-        if has_discount:
-            combined_pct = round((1 - price / total_original) * 100)
-            price_text = f'{format_price_kopeks(price)} 🔥−{combined_pct}%'
+        if hide_prices:
+            button_text = format_period(period, language)
         else:
-            price_text = format_price_kopeks(price)
-
-        button_text = f'{format_period(period, language)} — {price_text}'
+            period_price, _ = resolve_period_price(tariff, period)
+            if db_user:
+                group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, period)
+                if discount_percent > 0:
+                    period_price = _apply_promo_discount(period_price, group_pct, offer_pct, user=db_user)
+                    price_text = f'{format_price_kopeks(period_price)} 🔥−{discount_percent}%'
+                else:
+                    price_text = format_price_kopeks(period_price)
+            else:
+                price_text = format_price_kopeks(period_price)
+            button_text = f'{format_period(period, language)} — {price_text}'
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_extend:{tariff.id}:{period}')])
 
     back_cb = f'sm:{sub_id}' if sub_id and settings.is_multi_tariff_enabled() else 'menu_subscription'
@@ -2828,12 +2864,12 @@ def get_tariff_extend_confirm_keyboard(
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
+                InlineKeyboardButton(text=texts.BACK, callback_data=back_cb),
                 InlineKeyboardButton(
                     text=texts.t('TARIFF_CONFIRM_RENEW_BTN', '✅ Подтвердить продление'),
                     callback_data=f'tariff_ext_confirm:{tariff_id}:{period}',
-                )
+                ),
             ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)],
         ]
     )
 
@@ -3071,7 +3107,15 @@ async def select_tariff_extend_period(
                 traffic=traffic,
                 devices=actual_device_limit,
             )
-            period_message = append_custom_traffic_period_price_hint(period_message, texts, flow='extend')
+            traffic_base = _resolve_selected_traffic_price(tariff, traffic_gb)
+            traffic_final, traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
+            traffic_price_label = format_price_kopeks(traffic_final, language=db_user.language)
+            if traffic_discount_pct > 0:
+                traffic_price_label = f'{traffic_price_label} 🔥−{traffic_discount_pct}%'
+            period_message += '\n\n' + texts.t(
+                'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
+                '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
+            ).format(traffic_price=traffic_price_label)
             await callback.message.edit_text(
                 period_message,
                 reply_markup=await get_tariff_extend_keyboard(
@@ -3130,7 +3174,7 @@ async def select_tariff_extend_period(
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
-                percent=discount_percent, amount=format_price_kopeks(total_discount)
+                percent=discount_percent, amount=format_price_kopeks(total_discount, language=db_user.language)
             )
 
         await callback.message.edit_text(
@@ -3146,7 +3190,7 @@ async def select_tariff_extend_period(
                 devices=actual_device_limit,
                 period=format_period(period, db_user.language),
                 discount=discount_text,
-                total=format_price_kopeks(final_price),
+                total=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 after=ctx['after_label'],
             ),
@@ -3190,7 +3234,7 @@ async def select_tariff_extend_period(
             ).format(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
-                cost=format_price_kopeks(final_price),
+                cost=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 missing=ctx['missing_label'],
                 cart_note=texts.t(
@@ -3917,7 +3961,7 @@ async def select_tariff_switch_period(
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
-                percent=discount_percent, amount=format_price_kopeks(total_discount)
+                percent=discount_percent, amount=format_price_kopeks(total_discount, language=db_user.language)
             )
 
         await callback.message.edit_text(
@@ -3934,7 +3978,7 @@ async def select_tariff_switch_period(
                 devices=tariff.device_limit,
                 time_info=time_info,
                 discount=discount_text,
-                total=format_price_kopeks(final_price),
+                total=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 after=ctx['after_label'],
             ),
@@ -3952,7 +3996,7 @@ async def select_tariff_switch_period(
             ).format(
                 name=html.escape(tariff.name),
                 period=format_period(period, db_user.language),
-                cost=format_price_kopeks(final_price),
+                cost=format_price_kopeks(final_price, language=db_user.language),
                 balance=ctx['balance_label'],
                 missing=ctx['missing_label'],
                 extra='',
@@ -5682,6 +5726,7 @@ async def return_to_saved_tariff_cart(
                 result=result,
                 balance_kopeks=user_balance,
                 language=db_user.language,
+                user=db_user,
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',

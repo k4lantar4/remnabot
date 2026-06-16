@@ -55,7 +55,7 @@ class TestResolvePeriodPrice:
     @patch('app.utils.pricing_utils.settings')
     def test_prefers_tariff_period_price(self, mock_settings: MagicMock) -> None:
         tariff = MagicMock()
-        tariff.get_price_for_period.return_value = 12345
+        tariff.period_prices = {'30': 12345}
         price, source = resolve_period_price(tariff, 30)
         assert price == 12345
         assert source == 'tariff.period_prices'
@@ -63,7 +63,7 @@ class TestResolvePeriodPrice:
     @patch('app.utils.pricing_utils.settings')
     def test_uses_env_when_tariff_price_zero(self, mock_settings: MagicMock) -> None:
         tariff = MagicMock()
-        tariff.get_price_for_period.return_value = 0
+        tariff.period_prices = {'90': 0}
         mock_settings.PRICE_90_DAYS = 55000
         price, source = resolve_period_price(tariff, 90)
         assert price == 55000
@@ -72,7 +72,7 @@ class TestResolvePeriodPrice:
     @patch('app.utils.pricing_utils.settings')
     def test_uses_ladder_when_tariff_and_env_zero(self, mock_settings: MagicMock) -> None:
         tariff = MagicMock()
-        tariff.get_price_for_period.return_value = 0
+        tariff.period_prices = {'60': 0}
         mock_settings.PRICE_60_DAYS = 0
         price, source = resolve_period_price(tariff, 60)
         assert price == 38000
@@ -81,7 +81,7 @@ class TestResolvePeriodPrice:
     @patch('app.utils.pricing_utils.settings')
     def test_uses_monthly_fallback_for_non_standard_period(self, mock_settings: MagicMock) -> None:
         tariff = MagicMock()
-        tariff.get_price_for_period.return_value = 0
+        tariff.period_prices = {}
         mock_settings.DEFAULT_PERIOD_PRICE_PER_MONTH = 20000
         price, source = resolve_period_price(tariff, 120)
         assert price == 80000
@@ -90,7 +90,7 @@ class TestResolvePeriodPrice:
     @patch('app.utils.pricing_utils.settings')
     def test_preserves_negative_price_as_disabled(self, mock_settings: MagicMock) -> None:
         tariff = MagicMock()
-        tariff.get_price_for_period.return_value = -1
+        tariff.period_prices = {'30': -1}
         price, source = resolve_period_price(tariff, 30)
         assert price == -1
         assert source == 'tariff.period_prices'

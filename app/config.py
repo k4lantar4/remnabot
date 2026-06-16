@@ -1762,7 +1762,12 @@ class Settings(BaseSettings):
         compact = spaced.lstrip()
         return text.replace(' ₽', spaced).replace('₽', compact)
 
-    def format_price(self, price_kopeks: int, round_kopeks: bool | None = None) -> str:
+    def format_price(
+        self,
+        price_kopeks: int,
+        round_kopeks: bool | None = None,
+        language: str | None = None,
+    ) -> str:
         """
         Форматирует цену в копейках для отображения пользователю.
 
@@ -1770,6 +1775,7 @@ class Settings(BaseSettings):
             price_kopeks: Сумма в копейках
             round_kopeks: Если True, округляет копейки (≤50 вниз, >50 вверх).
                          Если None, использует настройку PRICE_ROUNDING_ENABLED.
+            language: Язык для группировки тысяч (fa/ru/en); None — без группировки.
 
         Returns:
             Отформатированная строка цены (например, "150 تومان")
@@ -1786,14 +1792,15 @@ class Settings(BaseSettings):
             # Округление: ≤50 коп вниз, >50 коп вверх
             if kopeks > 50:
                 rubles += 1
-            return f'{sign}{rubles}{suffix}'
+            kopeks = 0
 
-        # Без округления - показываем точное значение
+        grouped_rubles = self._group_balance_digits(rubles, language) if language else str(rubles)
+
         if kopeks:
-            value = f'{sign}{rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
+            value = f'{sign}{grouped_rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
             return f'{value}{suffix}'
 
-        return f'{sign}{rubles}{suffix}'
+        return f'{sign}{grouped_rubles}{suffix}'
 
     def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
         lang = (language or 'fa').split('-')[0].lower()

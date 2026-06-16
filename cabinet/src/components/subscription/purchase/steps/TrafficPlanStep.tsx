@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export interface TrafficPackageOption {
   gb: number;
   price_kopeks: number;
+  original_price_kopeks?: number;
+  discount_percent?: number;
   label?: string;
 }
 
@@ -13,7 +15,49 @@ interface TrafficPlanStepProps {
   maxTrafficGb: number;
   packages: TrafficPackageOption[];
   onSelectTrafficGb: (gb: number) => void;
+  onComplete?: () => void;
   formatPrice: (kopeks: number) => string;
+}
+
+function PackageButton({
+  pkg,
+  selectedTrafficGb,
+  onSelectTrafficGb,
+  formatPrice,
+}: {
+  pkg: TrafficPackageOption;
+  selectedTrafficGb: number;
+  onSelectTrafficGb: (gb: number) => void;
+  formatPrice: (kopeks: number) => string;
+}) {
+  const hasDiscount =
+    (pkg.discount_percent ?? 0) > 0 &&
+    pkg.original_price_kopeks != null &&
+    pkg.original_price_kopeks > pkg.price_kopeks;
+
+  return (
+    <button
+      onClick={() => onSelectTrafficGb(pkg.gb)}
+      className={`rounded-xl border p-4 text-left transition-all ${
+        selectedTrafficGb === pkg.gb
+          ? 'border-accent-500 bg-accent-500/10'
+          : 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600'
+      }`}
+    >
+      <div className="text-base font-semibold text-dark-100">{pkg.gb} GB</div>
+      <div className="mt-1 text-sm text-accent-400">
+        {hasDiscount && (
+          <span className="mr-2 text-xs text-dark-500 line-through">
+            {formatPrice(pkg.original_price_kopeks!)}
+          </span>
+        )}
+        {formatPrice(pkg.price_kopeks)}
+        {hasDiscount && (
+          <span className="ml-1 text-xs text-orange-400">−{pkg.discount_percent}%</span>
+        )}
+      </div>
+    </button>
+  );
 }
 
 export function TrafficPlanStep({
@@ -22,16 +66,15 @@ export function TrafficPlanStep({
   maxTrafficGb,
   packages,
   onSelectTrafficGb,
+  onComplete,
   formatPrice,
 }: TrafficPlanStepProps) {
   const { t } = useTranslation();
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState(String(selectedTrafficGb));
 
-  const hasSelectedPackage = useMemo(
-    () => packages.some((pkg) => pkg.gb === selectedTrafficGb),
-    [packages, selectedTrafficGb],
-  );
+  const sortedPackages = [...packages].sort((a, b) => a.gb - b.gb);
+  const hasSelectedPackage = sortedPackages.some((pkg) => pkg.gb === selectedTrafficGb);
 
   const applyCustomTraffic = () => {
     const parsed = Number.parseInt(customValue, 10);
@@ -42,6 +85,7 @@ export function TrafficPlanStep({
     onSelectTrafficGb(bounded);
     setCustomValue(String(bounded));
     setCustomOpen(false);
+    onComplete?.();
   };
 
   return (
@@ -55,28 +99,25 @@ export function TrafficPlanStep({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {packages.map((pkg) => (
-          <button
-            key={pkg.gb}
-            onClick={() => onSelectTrafficGb(pkg.gb)}
-            className={`rounded-xl border p-4 text-left transition-all ${
-              selectedTrafficGb === pkg.gb
-                ? 'border-accent-500 bg-accent-500/10'
-                : 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600'
-            }`}
-          >
-            <div className="text-base font-semibold text-dark-100">{pkg.gb} GB</div>
-            <div className="mt-1 text-sm text-accent-400">{formatPrice(pkg.price_kopeks)}</div>
-          </button>
-        ))}
-      </div>
+      {sortedPackages.length > 0 && (
+        <div className="grid grid-cols-1 gap-3">
+          {sortedPackages.map((pkg) => (
+            <PackageButton
+              key={pkg.gb}
+              pkg={pkg}
+              selectedTrafficGb={selectedTrafficGb}
+              onSelectTrafficGb={onSelectTrafficGb}
+              formatPrice={formatPrice}
+            />
+          ))}
+        </div>
+      )}
 
       <button
         onClick={() => setCustomOpen(true)}
         className={`btn-secondary w-full ${hasSelectedPackage ? '' : 'border-accent-500/40 text-accent-400'}`}
       >
-        {t('subscription.customTraffic.customVolume', 'حجم دلخواه')}
+        {t('subscription.customTraffic.customVolume', '📊  حجم دلخواه')}
       </button>
 
       {customOpen && (

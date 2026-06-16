@@ -76,6 +76,8 @@ export function TariffPurchaseWizard({
     return (baseQuote?.traffic_packages ?? []).map((pkg) => ({
       gb: pkg.gb,
       price_kopeks: pkg.price_kopeks,
+      original_price_kopeks: pkg.original_price_kopeks,
+      discount_percent: pkg.discount_percent,
       label: pkg.label,
     }));
   }, [baseQuote]);
@@ -83,6 +85,11 @@ export function TariffPurchaseWizard({
   const selectedPeriodLabel =
     tariff.periods.find((period) => period.days === selectedPeriodDays)?.label ??
     t('subscription.days', { count: selectedPeriodDays ?? 0 });
+
+  const handleSelectTrafficGb = (gb: number) => {
+    setSelectedTrafficGb(gb);
+    setStep('period');
+  };
 
   return (
     <div className="space-y-5">
@@ -103,7 +110,8 @@ export function TariffPurchaseWizard({
           minTrafficGb={tariff.min_traffic_gb ?? 1}
           maxTrafficGb={tariff.max_traffic_gb ?? 1000}
           packages={trafficPackages}
-          onSelectTrafficGb={setSelectedTrafficGb}
+          onSelectTrafficGb={handleSelectTrafficGb}
+          onComplete={() => setStep('period')}
           formatPrice={formatPrice}
         />
       )}
@@ -158,30 +166,30 @@ export function TariffPurchaseWizard({
         />
       )}
 
-      <div className="flex gap-2 border-t border-dark-700/50 pt-4">
-        {step !== 'traffic' && (
+      {step !== 'traffic' && (
+        <div className="flex gap-2 border-t border-dark-700/50 pt-4">
           <button
             onClick={() => setStep(step === 'confirm' ? 'period' : 'traffic')}
             className="btn-secondary flex-1"
           >
             {t('common.back')}
           </button>
-        )}
 
-        {step !== 'confirm' ? (
-          <button
-            onClick={() => setStep(step === 'traffic' ? 'period' : 'confirm')}
-            disabled={step === 'period' && selectedPeriodDays == null}
-            className="btn-primary flex-1"
-          >
-            {t('common.next')}
-          </button>
-        ) : (
-          <button onClick={() => purchaseMutation.mutate()} disabled={purchaseMutation.isPending} className="btn-primary flex-1">
-            {purchaseMutation.isPending ? t('common.loading') : t('subscription.purchase')}
-          </button>
-        )}
-      </div>
+          {step === 'period' ? (
+            <button
+              onClick={() => setStep('confirm')}
+              disabled={selectedPeriodDays == null}
+              className="btn-primary flex-1"
+            >
+              {t('common.next')}
+            </button>
+          ) : (
+            <button onClick={() => purchaseMutation.mutate()} disabled={purchaseMutation.isPending} className="btn-primary flex-1">
+              {purchaseMutation.isPending ? t('common.loading') : t('subscription.purchase')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

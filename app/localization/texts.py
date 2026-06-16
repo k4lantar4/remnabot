@@ -205,9 +205,8 @@ class Texts:
             _logger.warning('Missing localization key', item=item, language=self.language)
         raise KeyError(item)
 
-    @staticmethod
-    def format_price(kopeks: int, round_kopeks: bool | None = None) -> str:
-        return settings.format_price(kopeks, round_kopeks=round_kopeks)
+    def format_price(self, kopeks: int, round_kopeks: bool | None = None) -> str:
+        return settings.format_price(kopeks, round_kopeks=round_kopeks, language=self.language)
 
     def format_balance(self, amount_toman: int, *, round_kopeks: bool | None = None) -> str:
         # round_kopeks accepted for parity with format_price call sites; balance is integer Toman
