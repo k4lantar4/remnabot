@@ -390,35 +390,8 @@ async def send_cart_notification_after_topup(
         if auto_succeeded:
             return False
 
-        cart_still = await user_cart_service.get_user_cart(user.id)
-        if not cart_still or not bot or not user.telegram_id:
-            return False
-
-        from app.utils.price_display import user_can_afford
-
-        cart_total = cart_still.get('total_price') or 0
-        user_balance = user.balance_kopeks or 0
-        if cart_total and user_can_afford(user_balance, cart_total):
-            texts = get_texts(user.language)
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        build_miniapp_or_callback_button(
-                            text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                            callback_data='return_to_saved_cart',
-                        )
-                    ]
-                ]
-            )
-            await bot.send_message(
-                user.telegram_id,
-                texts.t(
-                    'TOPUP_CART_READY',
-                    '✅ Balance topped up. Tap below to complete your purchase.',
-                ),
-                reply_markup=keyboard,
-                parse_mode='HTML',
-            )
+        # return_to_saved_cart is already on build_topup_success_keyboard in the
+        # primary «Пополнение успешно!» message — no second nudge here.
         return False
 
     # Try to auto-extend expired subscription only when there is no saved cart.

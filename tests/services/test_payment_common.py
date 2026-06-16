@@ -99,7 +99,9 @@ async def test_send_payment_success_notification_recovers_missing_greenlet(monke
 
 
 @pytest.mark.anyio
-async def test_send_cart_notification_after_topup_sends_fallback_nudge(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_send_cart_notification_after_topup_skips_duplicate_cart_nudge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     bot = _FakeBot()
     user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
     cart = {'total_price': 40000, 'return_to_cart': True}
@@ -128,5 +130,4 @@ async def test_send_cart_notification_after_topup_sends_fallback_nudge(monkeypat
     result = await send_cart_notification_after_topup(user, 10000, db, bot)
 
     assert result is False
-    assert len(bot.messages) == 1
-    assert bot.messages[0]['reply_markup'] is not None
+    assert bot.messages == []
