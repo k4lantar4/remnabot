@@ -143,20 +143,7 @@ async def _build_tariff_response(
             # Стоимость доп. устройств за этот период
             extra_devices_cost = extra_devices_count * extra_device_price_per_month * months
 
-            # Traffic-first: include default min traffic when base period price is zero
-            default_traffic_cost = 0
-            if (
-                tariff.custom_traffic_enabled
-                and base_tariff_price == 0
-                and hasattr(tariff, 'can_purchase_custom_traffic')
-                and tariff.can_purchase_custom_traffic()
-            ):
-                per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
-                min_gb = int(tariff.min_traffic_gb or 0)
-                if per_gb > 0 and min_gb > 0:
-                    default_traffic_cost = per_gb * min_gb * months
-
-            original_price = base_tariff_price + extra_devices_cost + default_traffic_cost
+            original_price = base_tariff_price + extra_devices_cost
             discount_amount = 0
 
             if uses_wholesale:
@@ -167,9 +154,9 @@ async def _build_tariff_response(
                 period_pct = promo_group.get_discount_percent('period', period_days)
                 devices_pct = promo_group.get_discount_percent('devices', period_days)
                 discounted_base = (
-                    pricing_engine.apply_discount(base_tariff_price + default_traffic_cost, period_pct)
+                    pricing_engine.apply_discount(base_tariff_price, period_pct)
                     if period_pct > 0
-                    else base_tariff_price + default_traffic_cost
+                    else base_tariff_price
                 )
                 discounted_devices = (
                     pricing_engine.apply_discount(extra_devices_cost, devices_pct)
@@ -655,7 +642,6 @@ async def tariff_purchase_quote(
 
     from app.database.crud.user import lock_user_for_pricing
     from app.services.pricing_engine import PricingEngine
-    from app.utils.pricing_utils import calculate_months_from_days
 
     user = await lock_user_for_pricing(db, user.id)
 
@@ -668,13 +654,15 @@ async def tariff_purchase_quote(
         )
 
     is_daily_tariff = getattr(tariff, 'is_daily', False)
-    period_days = 1 if is_daily_tariff else request.period_days
+    period_days: int
 
     if not is_daily_tariff:
         if tariff.period_prices:
             available_periods = [int(p) for p in tariff.period_prices.keys()]
         else:
             available_periods = []
+
+        period_days = request.period_days or (min(available_periods) if available_periods else 30)
 
         custom_days_allowed = (
             hasattr(tariff, 'can_purchase_custom_days')
@@ -683,11 +671,13 @@ async def tariff_purchase_quote(
             and tariff.get_price_for_custom_days(period_days) is not None
         )
 
-        if period_days not in available_periods and not custom_days_allowed:
+        if request.period_days is not None and period_days not in available_periods and not custom_days_allowed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='Selected period is not available for this tariff',
             )
+    else:
+        period_days = 1
 
     custom_traffic_gb = None
     if tariff.can_purchase_custom_traffic():
@@ -714,42 +704,9 @@ async def tariff_purchase_quote(
         user=user,
     )
 
-    months = result.breakdown.get('months_in_period') or calculate_months_from_days(period_days)
-    use_custom_traffic = (
-        custom_traffic_gb is not None
-        and hasattr(tariff, 'can_purchase_custom_traffic')
-        and tariff.can_purchase_custom_traffic()
-    )
-
-    if use_custom_traffic:
-        base_kopeks = 0
-    elif is_daily_tariff and period_days <= 1:
-        base_kopeks = int(getattr(tariff, 'daily_price_kopeks', 0) or 0)
-    else:
-        period_prices: dict = tariff.period_prices or {}
-        base_kopeks = int(period_prices.get(str(period_days), 0) or 0)
-        if base_kopeks == 0 and hasattr(tariff, 'get_price_for_custom_days'):
-            if hasattr(tariff, 'can_purchase_custom_days') and tariff.can_purchase_custom_days():
-                custom_price = tariff.get_price_for_custom_days(period_days)
-                if custom_price is not None:
-                    base_kopeks = int(custom_price)
-
-    device_price_per_unit = (
-        tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
-    )
-    tariff_device_limit = tariff.device_limit or 0
-    effective_device_limit = device_limit if device_limit is not None else (tariff.device_limit or 0)
-    extra_devices = max(0, (effective_device_limit or 0) - tariff_device_limit)
-    if is_daily_tariff and period_days <= 1:
-        devices_kopeks = extra_devices * device_price_per_unit
-    else:
-        devices_kopeks = extra_devices * device_price_per_unit * months
-
-    traffic_kopeks = 0
-    if use_custom_traffic and custom_traffic_gb is not None:
-        per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
-        if per_gb > 0:
-            traffic_kopeks = per_gb * custom_traffic_gb * months
+    period_kopeks = int(result.breakdown.get('period_kopeks', result.base_price) or 0)
+    traffic_kopeks = int(result.breakdown.get('traffic_kopeks', result.traffic_price) or 0)
+    devices_kopeks = int(result.devices_price or 0)
 
     discount_kopeks = result.promo_group_discount + result.promo_offer_discount
     discount_percent = PricingEngine.checkout_display_discount_percent(
@@ -758,13 +715,23 @@ async def tariff_purchase_quote(
     )
 
     return {
-        'base_kopeks': base_kopeks,
+        'base_kopeks': period_kopeks,
+        'period_kopeks': period_kopeks,
+        'period_days': period_days,
         'traffic_kopeks': traffic_kopeks,
         'devices_kopeks': devices_kopeks,
         'original_total': result.original_total,
         'final_total': result.final_total,
         'discount_percent': discount_percent,
         'discount_kopeks': discount_kopeks,
+        'period_price_source': result.breakdown.get('period_price_source'),
+        'traffic_source': result.breakdown.get('traffic_source'),
+        'traffic_packages': [
+            {'gb': gb, 'price_kopeks': price, 'label': f'{gb} GB'}
+            for gb, price in sorted(tariff.get_traffic_topup_packages().items())
+        ]
+        if hasattr(tariff, 'get_traffic_topup_packages')
+        else [],
         'breakdown': result.breakdown,
     }
 

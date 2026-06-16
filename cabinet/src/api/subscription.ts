@@ -443,17 +443,22 @@ export const subscriptionApi = {
 
   getTariffPurchaseQuote: async (
     tariffId: number,
-    periodDays: number,
+    periodDays?: number,
     trafficGb?: number,
     subscriptionId?: number,
   ): Promise<{
     base_kopeks: number;
+    period_kopeks: number;
+    period_days: number;
     traffic_kopeks: number;
     devices_kopeks: number;
     original_total: number;
     final_total: number;
     discount_percent: number;
     discount_kopeks: number;
+    period_price_source?: string;
+    traffic_source?: string;
+    traffic_packages?: Array<{ gb: number; price_kopeks: number; label: string }>;
     breakdown: Record<string, unknown>;
   }> => {
     const response = await apiClient.post('/cabinet/subscription/tariff-purchase-quote', {
