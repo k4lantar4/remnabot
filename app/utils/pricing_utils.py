@@ -53,20 +53,11 @@ def resolve_period_price(tariff: Any, days: int) -> tuple[int, str]:
     if not isinstance(days, int) or days <= 0:
         return 0, 'invalid_period'
 
-    tariff_price = None
-    if tariff is not None and hasattr(tariff, 'get_price_for_period'):
-        try:
-            tariff_price = tariff.get_price_for_period(days)
-        except Exception:  # pragma: no cover - defensive model guard
-            tariff_price = None
-    elif tariff is not None:
-        period_prices = getattr(tariff, 'period_prices', {}) or {}
-        tariff_price = period_prices.get(str(days))
-
-    if tariff_price is not None:
-        resolved_tariff_price = int(tariff_price)
-        if resolved_tariff_price != 0:
-            return resolved_tariff_price, 'tariff.period_prices'
+    period_prices = getattr(tariff, 'period_prices', {}) if tariff is not None else {}
+    tariff_price = (period_prices or {}).get(str(days))
+    if isinstance(tariff_price, int):
+        if tariff_price != 0:
+            return tariff_price, 'tariff.period_prices'
 
     env_field = _PERIOD_PRICE_ENV_FIELDS.get(days)
     if env_field:

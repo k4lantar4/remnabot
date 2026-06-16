@@ -384,7 +384,7 @@ class TestCalculateRenewalPriceTariffMode:
         assert result.final_total == 17100
 
     @pytest.mark.asyncio
-    async def test_tariff_missing_period_returns_zero_base(self):
+    async def test_tariff_missing_period_uses_fallback_base(self):
         engine = PricingEngine()
         db = AsyncMock()
         subscription = MagicMock()
@@ -406,8 +406,9 @@ class TestCalculateRenewalPriceTariffMode:
         ):
             ms.PRICE_PER_DEVICE = 5000
             result = await engine.calculate_renewal_price(db, subscription, 60, user=user)
-        assert result.base_price == 0
-        assert result.final_total == 0
+        assert result.base_price > 0
+        assert result.breakdown.get('period_price_source') in {'settings.PRICE_60_DAYS', 'fallback.ladder', 'fallback.monthly'}
+        assert result.final_total == result.base_price
 
     @pytest.mark.asyncio
     async def test_tariff_device_limit_below_tariff_included(self):
@@ -1030,6 +1031,7 @@ class TestRenewalCustomTrafficTariff:
         tariff.is_daily = False
         tariff.can_purchase_custom_days.return_value = False
         tariff.is_available_for_promo_group.return_value = True
+        tariff.resolve_purchase_traffic_price.side_effect = lambda gb: (gb * 10000, 'custom_per_gb')
 
         sub = MagicMock()
         sub.tariff_id = 1
@@ -1039,11 +1041,11 @@ class TestRenewalCustomTrafficTariff:
 
         result_30 = await engine.calculate_renewal_price(db, sub, 30, user=None)
         assert result_30.traffic_price == 500000
-        assert result_30.final_total == 500000
+        assert result_30.final_total == 500000 + result_30.base_price
 
         result_90 = await engine.calculate_renewal_price(db, sub, 90, user=None)
-        assert result_90.traffic_price == 1500000
-        assert result_90.final_total == 1500000
+        assert result_90.traffic_price == 500000
+        assert result_90.final_total == 500000 + result_90.base_price
 
 
 class TestTrafficFirstPurchasePricing:
@@ -1062,6 +1064,7 @@ class TestTrafficFirstPurchasePricing:
         tariff.is_daily = False
         tariff.can_purchase_custom_days.return_value = False
         tariff.is_available_for_promo_group.return_value = True
+        tariff.resolve_purchase_traffic_price.side_effect = lambda gb: (gb * 10000, 'custom_per_gb')
 
         result = await engine.calculate_tariff_purchase_price(
             tariff,
@@ -1070,7 +1073,7 @@ class TestTrafficFirstPurchasePricing:
             user=None,
         )
         assert result.traffic_price == 10000
-        assert result.final_total == 10000
+        assert result.final_total == 10000 + result.base_price
 
         result_no_traffic = await engine.calculate_tariff_purchase_price(
             tariff,
@@ -1078,7 +1081,7 @@ class TestTrafficFirstPurchasePricing:
             custom_traffic_gb=None,
             user=None,
         )
-        assert result_no_traffic.final_total == 0
+        assert result_no_traffic.final_total == result_no_traffic.base_price
 
     @pytest.mark.asyncio
     async def test_traffic_first_charges_full_gb_not_min_gb_delta(self):
@@ -1096,6 +1099,7 @@ class TestTrafficFirstPurchasePricing:
         tariff.is_daily = False
         tariff.can_purchase_custom_days.return_value = False
         tariff.is_available_for_promo_group.return_value = True
+        tariff.resolve_purchase_traffic_price.side_effect = lambda gb: (gb * 10000, 'custom_per_gb')
 
         result_10gb = await engine.calculate_tariff_purchase_price(
             tariff,
@@ -1104,7 +1108,7 @@ class TestTrafficFirstPurchasePricing:
             user=None,
         )
         assert result_10gb.traffic_price == 100000
-        assert result_10gb.final_total == 100000
+        assert result_10gb.final_total == 100000 + result_10gb.base_price
 
         result_9gb = await engine.calculate_tariff_purchase_price(
             tariff,

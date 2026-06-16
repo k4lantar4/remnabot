@@ -48,7 +48,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
-from app.utils.pricing_utils import format_period_description
+from app.utils.pricing_utils import calculate_months_from_days, format_period_description
 from app.utils.trial_utils import is_trial_globally_available
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -135,7 +135,7 @@ async def _build_tariff_response(
             if int(price_kopeks) < 0:
                 continue  # Skip disabled periods (negative price)
             period_days = int(period_str)
-            months = max(1, period_days // 30)
+            months = calculate_months_from_days(period_days)
 
             # Базовая цена тарифа
             base_tariff_price = int(price_kopeks)

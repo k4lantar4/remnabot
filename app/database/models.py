@@ -1900,6 +1900,22 @@ class Tariff(Base):
             return None
         return self.traffic_price_per_gb_kopeks * gb
 
+    def resolve_purchase_traffic_price(self, gb: int) -> tuple[int, str] | None:
+        """Resolve traffic purchase price using package-first strategy."""
+        if gb <= 0:
+            return 0, 'none'
+
+        packages = self.get_traffic_topup_packages()
+        package_price = packages.get(gb)
+        if package_price is not None:
+            return int(package_price), 'traffic_topup_packages'
+
+        custom_price = self.get_price_for_custom_traffic(gb)
+        if custom_price is not None:
+            return int(custom_price), 'custom_per_gb'
+
+        return None
+
     def can_purchase_custom_days(self) -> bool:
         """Проверяет, можно ли купить произвольное количество дней."""
         return self.custom_days_enabled and self.price_per_day_kopeks > 0

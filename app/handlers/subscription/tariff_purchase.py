@@ -33,7 +33,7 @@ from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_s
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
-from app.utils.pricing_utils import calculate_months_from_days
+from app.utils.pricing_utils import resolve_period_price
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.subscription_display import subscription_account_label
@@ -702,27 +702,18 @@ def _calculate_custom_tariff_price(
     Рассчитывает цену для кастомного тарифа.
 
     Логика (как в PricingEngine / веб-кабинете):
-    1. custom_traffic: traffic_gb × per_gb × months; period_prices пропускаются
-    2. Иначе: period_prices / custom_days + трафик без умножения на месяцы
+    1. Период всегда берется из resolve_period_price()
+    2. Трафик берется через tariff.resolve_purchase_traffic_price()
 
     Returns:
         tuple: (period_price, traffic_price, total_price)
     """
-    period_price = 0
+    period_price, _ = resolve_period_price(tariff, days)
     traffic_price = 0
-    months = calculate_months_from_days(days)
-
-    if tariff.can_purchase_custom_traffic():
-        per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
-        if per_gb > 0:
-            traffic_price = per_gb * traffic_gb * months
-    else:
-        if tariff.can_purchase_custom_days():
-            period_price = tariff.get_price_for_custom_days(days) or 0
-        else:
-            period_price = tariff.get_price_for_period(days) or 0
-        if hasattr(tariff, 'get_price_for_custom_traffic'):
-            traffic_price = tariff.get_price_for_custom_traffic(traffic_gb) or 0
+    if traffic_gb > 0 and hasattr(tariff, 'resolve_purchase_traffic_price'):
+        resolved_traffic = tariff.resolve_purchase_traffic_price(traffic_gb)
+        if resolved_traffic is not None:
+            traffic_price, _ = resolved_traffic
 
     total_price = period_price + traffic_price
     return period_price, traffic_price, total_price
