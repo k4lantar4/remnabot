@@ -24,6 +24,17 @@ async def _load_missing_toman(user_id: int, fallback: int) -> int:
     return fallback
 
 
+async def get_cart_suggested_topup_amount(user_id: int) -> int:
+    """Suggested top-up from saved cart, or 0 when no cart context."""
+    from app.utils.topup_suggestion import resolve_suggested_topup_from_cart
+
+    try:
+        cart = await user_cart_service.get_user_cart(user_id)
+        return resolve_suggested_topup_from_cart(cart)
+    except Exception:
+        return 0
+
+
 def _build_amount_prompt_keyboard(
     texts,
     *,
