@@ -31,6 +31,25 @@ def format_price_kopeks(kopeks: int, compact: bool = False, language: str | None
     return text.replace(' ', '', 1) if compact else text
 
 
+def format_traffic_package_keyboard_label(
+    gb: int,
+    language: str | None,
+    final_price_kopeks: int,
+    discount_pct: int = 0,
+    *,
+    prefix_plus: bool = False,
+) -> str:
+    """RTL-safe traffic package button label (purchase + top-up)."""
+    volume_label = format_traffic(gb, language)
+    if prefix_plus:
+        volume_label = f'+{volume_label}'
+    if discount_pct > 0:
+        price_text = f'{format_price_kopeks(final_price_kopeks)} 🔥−{discount_pct}%'
+    else:
+        price_text = format_price_kopeks(final_price_kopeks)
+    return f'{volume_label} — {price_text}'
+
+
 def format_period(days: int, language: str | None = None) -> str:
     """Форматирует период с учетом языка."""
     lang = (language or 'ru').split('-')[0].lower()

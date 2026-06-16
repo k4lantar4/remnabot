@@ -13,6 +13,7 @@ from app.localization.texts import get_texts
 from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.price_display import PriceInfo, format_price_button
+from app.utils.formatting import format_traffic_package_keyboard_label
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     format_period_description,
@@ -2490,6 +2491,7 @@ def get_add_traffic_keyboard(
     subscription_end_date: datetime = None,
     discount_percent: int = 0,
     sub_id: int | None = None,
+    db_user: User | None = None,
 ) -> InlineKeyboardMarkup:
     from app.config import settings
 
@@ -2528,16 +2530,25 @@ def get_add_traffic_keyboard(
 
     buttons = []
 
+    from app.services.pricing_engine import PricingEngine
+
     for package in enabled_packages:
         gb = package['gb']
         price_per_month = package['price']
-        discounted_per_month, discount_per_month = apply_percentage_discount(
-            price_per_month,
-            discount_percent,
-        )
+        if db_user:
+            discounted_per_month, _, display_pct = PricingEngine.calculate_traffic_discount(
+                price_per_month,
+                db_user,
+                30,
+            )
+        else:
+            discounted_per_month, discount_per_month = apply_percentage_discount(
+                price_per_month,
+                discount_percent,
+            )
+            display_pct = discount_percent if discount_per_month > 0 else 0
         total_price = int(discounted_per_month * price_multiplier)
         total_price = max(100, total_price) if total_price > 0 else 0
-        total_discount = int(discount_per_month * price_multiplier)
 
         if gb == 0:
             text = texts.t(
@@ -2545,16 +2556,13 @@ def get_add_traffic_keyboard(
                 '♾️ Безлимитный трафик - {price}{period}',
             ).format(price=texts.format_price(total_price), period=period_text)
         else:
-            text = texts.t(
-                'TRAFFIC_TOPUP_BTN_GB',
-                '📊 +{gb} ГБ трафика - {price}{period}',
-            ).format(gb=gb, price=texts.format_price(total_price), period=period_text)
-
-        if discount_percent > 0 and total_discount > 0:
-            text += texts.t(
-                'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
-                ' (скидка {percent}%: -{amount})',
-            ).format(percent=discount_percent, amount=texts.format_price(total_discount))
+            text = format_traffic_package_keyboard_label(
+                gb,
+                language,
+                total_price,
+                display_pct,
+                prefix_plus=True,
+            )
 
         buttons.append([InlineKeyboardButton(text=text, callback_data=f'add_traffic_{gb}')])
 
@@ -2569,6 +2577,7 @@ def get_add_traffic_keyboard_from_tariff(
     subscription_end_date: datetime = None,
     discount_percent: int = 0,
     sub_id: int | None = None,
+    db_user: User | None = None,
 ) -> InlineKeyboardMarkup:
     """
     Клавиатура для докупки трафика из настроек тарифа.
@@ -2601,30 +2610,31 @@ def get_add_traffic_keyboard_from_tariff(
     # Сортируем пакеты по размеру, исключаем пакеты с нулевой ценой
     sorted_packages = sorted(((gb, p) for gb, p in packages.items() if p > 0), key=lambda x: x[0])
 
+    from app.services.pricing_engine import PricingEngine
+
     # Пакеты трафика на тарифах покупаются на 1 месяц (30 дней),
     # цена в тарифе уже месячная — не умножаем на оставшиеся месяцы подписки
     for gb, price_per_month in sorted_packages:
-        discounted_price, discount_value = apply_percentage_discount(
-            price_per_month,
-            discount_percent,
+        if db_user:
+            final_price, _, display_pct = PricingEngine.calculate_traffic_discount(
+                price_per_month,
+                db_user,
+                30,
+            )
+        else:
+            final_price, discount_value = apply_percentage_discount(
+                price_per_month,
+                discount_percent,
+            )
+            display_pct = discount_percent if discount_value > 0 else 0
+
+        text = format_traffic_package_keyboard_label(
+            gb,
+            language,
+            final_price,
+            display_pct,
+            prefix_plus=True,
         )
-
-        period_text = texts.t('TRAFFIC_TOPUP_PERIOD_MONTH', ' /mo')
-        text = texts.t(
-            'TRAFFIC_TOPUP_BTN_GB',
-            '📊 +{gb} ГБ трафика - {price}{period}',
-        ).format(
-            gb=gb,
-            price=texts.format_price(discounted_price),
-            period=period_text,
-        )
-
-        if discount_percent > 0 and discount_value > 0:
-            text += texts.t(
-                'TRAFFIC_TOPUP_DISCOUNT_SUFFIX',
-                ' (скидка {percent}%: -{amount})',
-            ).format(percent=discount_percent, amount=texts.format_price(discount_value))
-
         buttons.append([InlineKeyboardButton(text=text, callback_data=f'add_traffic_{gb}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)])

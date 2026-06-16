@@ -168,6 +168,7 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
                 subscription.end_date,
                 traffic_discount_percent,
                 sub_id=sub_id,
+                db_user=db_user,
             ),
             parse_mode='HTML',
         )
@@ -216,6 +217,7 @@ async def handle_add_traffic(callback: types.CallbackQuery, db_user: User, db: A
             subscription.end_date,
             traffic_discount_percent,
             sub_id=sub_id,
+            db_user=db_user,
         ),
         parse_mode='HTML',
     )

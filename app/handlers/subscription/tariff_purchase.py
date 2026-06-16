@@ -448,12 +448,9 @@ def _format_traffic_package_button_label(
 ) -> str:
     """Inline keyboard label — same structure as period buttons (RTL-safe in Telegram)."""
     final_price, discount_pct = _discounted_traffic_display(price_kopeks, db_user)
-    volume_label = format_traffic(gb, language)
-    if discount_pct > 0:
-        price_text = f'{format_price_kopeks(final_price)} 🔥−{discount_pct}%'
-    else:
-        price_text = format_price_kopeks(final_price)
-    return f'{volume_label} — {price_text}'
+    from app.utils.formatting import format_traffic_package_keyboard_label
+
+    return format_traffic_package_keyboard_label(gb, language, final_price, discount_pct)
 
 
 async def show_traffic_first_step(
