@@ -66,7 +66,7 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
-from app.utils.timezone import format_local_datetime
+from app.utils.jalali_datetime import format_user_datetime
 
 
 def resolve_autopay_period_candidate(candidate, tariff) -> int | None:
@@ -1727,7 +1727,11 @@ class MonitoringService:
                         '💡 Продлите подписку вручную',
                     )
 
-            end_date = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M')
+            end_date = format_user_datetime(
+                subscription.end_date,
+                language=user.language,
+                fmt='%d.%m.%Y %H:%M',
+            )
             # Add tariff name for multi-subscription clarity
             tariff_label = ''
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
@@ -1976,7 +1980,11 @@ class MonitoringService:
                 ),
             )
             message = template.format(
-                end_date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M'),
+                end_date=format_user_datetime(
+                    subscription.end_date,
+                    language=user.language,
+                    fmt='%d.%m.%Y %H:%M',
+                ),
                 price=settings.format_price(renewal_price_kopeks),
                 tariff_label=tariff_label,
             )
@@ -2073,7 +2081,11 @@ class MonitoringService:
 
             message = template.format(
                 percent=percent,
-                expires_at=format_local_datetime(expires_at, '%d.%m.%Y %H:%M'),
+                expires_at=format_user_datetime(
+                    expires_at,
+                    language=user.language,
+                    fmt='%d.%m.%Y %H:%M',
+                ),
                 trigger_days=trigger_days or '',
                 tariff_label=tariff_label,
             )
