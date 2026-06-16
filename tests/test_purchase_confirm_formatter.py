@@ -86,3 +86,35 @@ def test_confirm_amounts_use_format_price_kopeks():
     assert str(original_total) not in message
     assert str(discount_kopeks) not in message
     assert str(final_total) not in message
+
+
+def test_confirm_includes_period_and_traffic_lines_from_breakdown():
+    texts = MagicMock()
+    texts.t.side_effect = lambda key, fallback, **kwargs: fallback
+    texts.format_balance.side_effect = lambda amount, **kwargs: f'{amount:,} تومان'
+
+    result = RenewalPricing(
+        base_price=9_000_000,
+        servers_price=0,
+        traffic_price=3_000_000,
+        devices_price=0,
+        promo_group_discount=0,
+        promo_offer_discount=0,
+        final_total=12_000_000,
+        period_days=30,
+        is_tariff_mode=True,
+        breakdown={'period_kopeks': 8_000_000, 'traffic_kopeks': 4_000_000},
+    )
+
+    message = format_tariff_purchase_confirm_text(
+        texts,
+        tariff=_make_tariff(),
+        traffic_gb=25,
+        period_days=30,
+        result=result,
+        balance_kopeks=2_000_000,
+        language='fa',
+    )
+
+    assert f'📅 Период: {format_price_kopeks(8_000_000)}' in message
+    assert f'📊 Трафик: {format_price_kopeks(4_000_000)}' in message

@@ -41,6 +41,18 @@ def format_tariff_purchase_confirm_text(
             amount=format_price_kopeks(result.original_total),
         ),
     ]
+    period_kopeks = int(result.breakdown.get('period_kopeks', result.base_price) or 0)
+    traffic_kopeks = int(result.breakdown.get('traffic_kopeks', result.traffic_price) or 0)
+    parts.append(
+        texts.t('TARIFF_PURCHASE_CONFIRM_PERIOD_LINE', '📅 Период: {amount}').format(
+            amount=format_price_kopeks(period_kopeks),
+        )
+    )
+    parts.append(
+        texts.t('TARIFF_PURCHASE_CONFIRM_TRAFFIC_LINE', '📊 Трафик: {amount}').format(
+            amount=format_price_kopeks(traffic_kopeks),
+        )
+    )
 
     total_discount = result.promo_group_discount + result.promo_offer_discount
     if total_discount > 0 and result.original_total > 0:
