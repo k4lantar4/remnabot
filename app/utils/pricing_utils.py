@@ -15,9 +15,74 @@ if TYPE_CHECKING:  # pragma: no cover
 
 logger = structlog.get_logger(__name__)
 
+_PERIOD_PRICE_ENV_FIELDS: dict[int, str] = {
+    14: 'PRICE_14_DAYS',
+    30: 'PRICE_30_DAYS',
+    60: 'PRICE_60_DAYS',
+    90: 'PRICE_90_DAYS',
+    180: 'PRICE_180_DAYS',
+    360: 'PRICE_360_DAYS',
+}
+
+_PERIOD_PRICE_FALLBACK_LADDER: dict[int, int] = {
+    14: 10_000,
+    30: 20_000,
+    60: 38_000,
+    90: 55_000,
+    180: 105_000,
+    360: 200_000,
+}
+
 
 def calculate_months_from_days(days: int) -> int:
     return max(1, round(days / 30))
+
+
+def resolve_period_price(tariff: Any, days: int) -> tuple[int, str]:
+    """Resolve purchasable period price with tariff/env/fallback chain.
+
+    Resolution order:
+    1) Tariff period_prices for the requested days.
+    2) Settings PRICE_*_DAYS env value for the requested days.
+    3) Fixed fallback ladder for standard periods.
+    4) DEFAULT_PERIOD_PRICE_PER_MONTH × months for non-standard periods.
+
+    Returns:
+        (price_kopeks, source)
+    """
+    if not isinstance(days, int) or days <= 0:
+        return 0, 'invalid_period'
+
+    tariff_price = None
+    if tariff is not None and hasattr(tariff, 'get_price_for_period'):
+        try:
+            tariff_price = tariff.get_price_for_period(days)
+        except Exception:  # pragma: no cover - defensive model guard
+            tariff_price = None
+    elif tariff is not None:
+        period_prices = getattr(tariff, 'period_prices', {}) or {}
+        tariff_price = period_prices.get(str(days))
+
+    if tariff_price is not None:
+        resolved_tariff_price = int(tariff_price)
+        if resolved_tariff_price != 0:
+            return resolved_tariff_price, 'tariff.period_prices'
+
+    env_field = _PERIOD_PRICE_ENV_FIELDS.get(days)
+    if env_field:
+        env_price = int(getattr(settings, env_field, 0) or 0)
+        if env_price != 0:
+            return env_price, f'settings.{env_field}'
+
+    ladder_price = _PERIOD_PRICE_FALLBACK_LADDER.get(days)
+    if ladder_price is not None:
+        return ladder_price, 'fallback.ladder'
+
+    months = calculate_months_from_days(days)
+    monthly_price = int(getattr(settings, 'DEFAULT_PERIOD_PRICE_PER_MONTH', 0) or 0)
+    if monthly_price <= 0:
+        monthly_price = 1
+    return monthly_price * months, 'fallback.monthly'
 
 
 def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_days: int = 1) -> tuple[int, int]:
