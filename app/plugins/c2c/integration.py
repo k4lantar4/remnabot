@@ -123,12 +123,16 @@ async def open_c2c_topup_from_message(
 
     if (
         amount_kopeks is not None
-        and db is not None
         and settings.C2C_MIN_AMOUNT_KOPEKS <= amount_kopeks <= settings.C2C_MAX_AMOUNT_KOPEKS
     ):
-        from app.plugins.c2c.handlers.user import process_c2c_payment_amount
+        from app.handlers.balance.topup_prompt import send_cart_topup_amount_prompt_message
 
-        await process_c2c_payment_amount(message, db_user, db, amount_kopeks, state)
+        await send_cart_topup_amount_prompt_message(
+            message,
+            db_user,
+            method='c2c',
+            suggested_amount=amount_kopeks,
+        )
         return True
 
     message_text, keyboard = build_c2c_topup_prompt(db_user)
