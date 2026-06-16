@@ -314,6 +314,32 @@ async def _build_tariff_response(
         response['original_price_per_day_kopeks'] = original_price_per_day
         response['custom_days_discount_percent'] = custom_days_discount_percent
 
+    min_period_price = periods[0]['price_kopeks'] if periods else 0
+    min_period_original = periods[0].get('original_price_kopeks') if periods else None
+    traffic_price_per_gb = tariff.traffic_price_per_gb_kopeks or 0
+    from_price_kopeks = 0
+    from_original_price_kopeks: int | None = None
+
+    if tariff.can_purchase_custom_traffic() and traffic_price_per_gb > 0:
+        min_gb = tariff.min_traffic_gb or 1
+        traffic_min_kopeks = min_gb * traffic_price_per_gb
+        if periods:
+            from_price_kopeks = min_period_price + traffic_min_kopeks
+            if min_period_original is not None:
+                from_original_price_kopeks = min_period_original + traffic_min_kopeks
+        else:
+            from_price_kopeks = traffic_min_kopeks
+    elif periods:
+        from_price_kopeks = min_period_price
+        from_original_price_kopeks = min_period_original
+
+    if from_price_kopeks > 0:
+        response['from_price_kopeks'] = from_price_kopeks
+        response['from_price_label'] = settings.format_price(from_price_kopeks)
+        if from_original_price_kopeks and from_original_price_kopeks > from_price_kopeks:
+            response['from_original_price_kopeks'] = from_original_price_kopeks
+            response['from_original_price_label'] = settings.format_price(from_original_price_kopeks)
+
     return response
 
 
@@ -679,9 +705,7 @@ async def tariff_purchase_quote(
     else:
         period_days = 1
 
-    custom_traffic_gb = None
-    if tariff.can_purchase_custom_traffic():
-        custom_traffic_gb = request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
+    custom_traffic_gb = request.traffic_gb if tariff.can_purchase_custom_traffic() else None
 
     existing_subscription = None
     if settings.is_multi_tariff_enabled():
@@ -824,8 +848,8 @@ async def purchase_tariff(
         # Determine traffic limit (custom traffic support)
         traffic_limit_gb = tariff.traffic_limit_gb
         custom_traffic_gb = None
-        if tariff.can_purchase_custom_traffic():
-            custom_traffic_gb = request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
+        if tariff.can_purchase_custom_traffic() and request.traffic_gb is not None:
+            custom_traffic_gb = request.traffic_gb
             traffic_limit_gb = custom_traffic_gb
 
         # Determine device_limit for renewal pricing.

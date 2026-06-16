@@ -354,6 +354,11 @@ export interface Tariff {
   custom_days_discount_percent?: number;
   // Traffic reset
   traffic_reset_mode?: string;
+  // Lowest purchasable price (period min + traffic min when applicable)
+  from_price_kopeks?: number;
+  from_price_label?: string;
+  from_original_price_kopeks?: number;
+  from_original_price_label?: string;
   // Multi-tariff: already purchased by user
   is_purchased?: boolean;
 }

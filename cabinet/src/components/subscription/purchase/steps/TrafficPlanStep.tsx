@@ -19,7 +19,7 @@ interface TrafficPlanStepProps {
   formatPrice: (kopeks: number) => string;
 }
 
-function PackageButton({
+export function PackageButton({
   pkg,
   selectedTrafficGb,
   onSelectTrafficGb,
