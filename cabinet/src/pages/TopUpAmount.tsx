@@ -281,11 +281,17 @@ export default function TopUpAmount() {
   }
 
   if (method.bot_deeplink) {
+    const amountParam = searchParams.get('amount');
+    const deeplink =
+      amountParam && method.id === 'c2c'
+        ? `${method.bot_deeplink}_${amountParam}`
+        : method.bot_deeplink;
+
     const handleOpenBot = () => {
-      if (method.bot_deeplink?.includes('t.me/')) {
-        openTelegramLink(method.bot_deeplink);
-      } else if (method.bot_deeplink) {
-        window.open(method.bot_deeplink, '_blank', 'noopener,noreferrer');
+      if (deeplink?.includes('t.me/')) {
+        openTelegramLink(deeplink);
+      } else if (deeplink) {
+        window.open(deeplink, '_blank', 'noopener,noreferrer');
       }
     };
 
@@ -299,6 +305,14 @@ export default function TopUpAmount() {
         <motion.div variants={staggerItem}>
           <BentoCard className="space-y-4 p-5">
             <p className="text-sm text-dark-300">{t('balance.useBot')}</p>
+            {amountParam && (
+              <p className="text-sm text-dark-400">
+                {t('balance.missing')}:{' '}
+                <span className="font-semibold text-dark-100">
+                  {formatAmount(parseFloat(amountParam))} {currencySymbol}
+                </span>
+              </p>
+            )}
             <button
               type="button"
               onClick={handleOpenBot}
