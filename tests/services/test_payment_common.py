@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app.services.payment.common import PaymentCommonMixin
+from app.services.payment.common import PaymentCommonMixin, send_cart_notification_after_topup
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ class _FakeBot:
     def __init__(self) -> None:
         self.messages: list[dict] = []
 
-    async def send_message(self, **kwargs):  # type: ignore[no-untyped-def]
-        self.messages.append(kwargs)
+    async def send_message(self, chat_id, text, **kwargs):  # type: ignore[no-untyped-def]
+        self.messages.append({'chat_id': chat_id, 'text': text, **kwargs})
 
 
 class _LazyUser:
@@ -96,3 +96,37 @@ async def test_send_payment_success_notification_recovers_missing_greenlet(monke
     assert 'Тестовый метод' in message['text']
     assert service.keyboard_user is not None
     assert isinstance(service.keyboard_user, SimpleNamespace)
+
+
+@pytest.mark.anyio
+async def test_send_cart_notification_after_topup_sends_fallback_nudge(monkeypatch: pytest.MonkeyPatch) -> None:
+    bot = _FakeBot()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    cart = {'total_price': 40000, 'return_to_cart': True}
+    db = object()
+
+    async def fake_get_cart(user_id: int):
+        assert user_id == user.id
+        return cart
+
+    async def fake_daily(*_a, **_k):
+        return False
+
+    async def fake_auto_purchase(*_args, **_kwargs):
+        return False
+
+    monkeypatch.setattr('app.services.payment.common.user_cart_service.get_user_cart', fake_get_cart)
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.try_resume_disabled_daily_after_topup',
+        fake_daily,
+    )
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.auto_purchase_saved_cart_after_topup',
+        fake_auto_purchase,
+    )
+
+    result = await send_cart_notification_after_topup(user, 10000, db, bot)
+
+    assert result is False
+    assert len(bot.messages) == 1
+    assert bot.messages[0]['reply_markup'] is not None

@@ -3939,6 +3939,7 @@
   "TOPUP_AMOUNT_MAX": "حداکثر مبلغ شارژ: {amount}",
   "TOPUP_AMOUNT_MIN": "حداقل مبلغ شارژ: {amount}",
   "TOPUP_BALANCE_BUTTON": "💳 شارژ موجودی",
+  "TOPUP_CART_READY": "✅ موجودی شارژ شد. برای تکمیل خرید روی دکمه زیر بزنید.",
   "TOP_UP_AMOUNT": "💳 مبلغ شارژ را وارد کنید:",
   "TOP_UP_METHODS": "\n💳 <b>روش پرداخت را انتخاب کنید</b>\n\nمبلغ: {amount}\n",
   "TOP_UP_STARS": "⭐ Telegram Stars",
