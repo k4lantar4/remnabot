@@ -91,6 +91,9 @@ def format_days_declension(days: int, language: str = 'ru') -> str:
     if language_code not in {'ru', 'fa'}:
         return f'{days} day{"s" if days != 1 else ""}'
 
+    if language_code == 'fa':
+        return f'{days} روز'
+
     if days % 10 == 1 and days % 100 != 11:
         return f'{days} день'
     if days % 10 in [2, 3, 4] and days % 100 not in [12, 13, 14]:

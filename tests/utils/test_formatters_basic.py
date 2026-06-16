@@ -31,10 +31,11 @@ def test_format_days_declension_handles_russian_rules() -> None:
     assert formatters.format_days_declension(10) == '10 дней'
 
 
-def test_format_days_declension_uses_russian_fallback_for_fa() -> None:
-    """Для fa используем fallback на русские формы до полной локализации."""
-    assert formatters.format_days_declension(1, language='fa') == '1 день'
-    assert formatters.format_days_declension(3, language='fa') == '3 дня'
+def test_format_days_declension_uses_persian_for_fa() -> None:
+    """Persian has no Russian-style declension — always N روز."""
+    assert formatters.format_days_declension(1, language='fa') == '1 روز'
+    assert formatters.format_days_declension(3, language='fa') == '3 روز'
+    assert formatters.format_days_declension(10, language='fa') == '10 روز'
 
 
 def test_format_duration_switches_units() -> None:
