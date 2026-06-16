@@ -1692,11 +1692,10 @@ async def handle_custom_confirm(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
 
@@ -2305,11 +2304,10 @@ async def confirm_tariff_purchase(
 
     # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
     try:
-        _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=getattr(subscription, 'id', None) if subscription else None,
+        )
         logger.info('Корзина очищена после покупки тарифа для пользователя', telegram_id=db_user.telegram_id)
     except Exception as e:
         logger.error('Ошибка очистки корзины', error=e)
@@ -2611,11 +2609,10 @@ async def confirm_daily_tariff_purchase(
 
     # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
     try:
-        _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=getattr(subscription, 'id', None) if subscription else None,
+        )
         logger.info('Корзина очищена после покупки суточного тарифа для пользователя', telegram_id=db_user.telegram_id)
     except Exception as e:
         logger.error('Ошибка очистки корзины', error=e)
@@ -3291,11 +3288,10 @@ async def confirm_tariff_extend(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
             logger.info('Корзина очищена после продления тарифа для пользователя', telegram_id=db_user.telegram_id)
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
@@ -4077,11 +4073,10 @@ async def confirm_tariff_switch(
 
         # Очищаем корзину после успешной покупки (per-subscription в multi-tariff)
         try:
-            _cart_sub_id = getattr(subscription, 'id', None) if subscription else None
-            if _cart_sub_id and settings.is_multi_tariff_enabled():
-                await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-            else:
-                await user_cart_service.delete_user_cart(db_user.id)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=getattr(subscription, 'id', None) if subscription else None,
+            )
             logger.info('Корзина очищена после смены тарифа для пользователя', telegram_id=db_user.telegram_id)
         except Exception as e:
             logger.error('Ошибка очистки корзины', error=e)
@@ -5345,11 +5340,10 @@ async def return_to_saved_tariff_cart(
     if not tariff or not tariff.is_active:
         await callback.answer(texts.t('CB_TARIFF_NO_LONGER_AVAILABLE', '❌ Тариф больше недоступен'), show_alert=True)
         # Очищаем корзину (per-subscription в multi-tariff)
-        _cart_sub_id = cart_data.get('subscription_id')
-        if _cart_sub_id and settings.is_multi_tariff_enabled():
-            await user_cart_service.delete_subscription_cart(db_user.id, _cart_sub_id)
-        else:
-            await user_cart_service.delete_user_cart(db_user.id)
+        await user_cart_service.clear_cart_after_purchase(
+            db_user.id,
+            subscription_id=cart_data.get('subscription_id'),
+        )
         return
 
     total_price = cart_data.get('total_price', 0)

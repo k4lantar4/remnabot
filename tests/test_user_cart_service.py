@@ -221,3 +221,37 @@ async def test_refresh_topup_intent_extends_ttl(user_cart_service, mock_redis, m
 
     assert mock_redis.ttl[_intent_key(user_id)] == expected_ttl
     assert mock_redis.ttl[f'user_cart:{user_id}'] == expected_ttl
+
+
+async def test_clear_cart_after_purchase_removes_global_and_per_sub_keys(
+    user_cart_service,
+    mock_redis,
+    monkeypatch,
+):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, 'MULTI_TARIFF_ENABLED', True)
+    monkeypatch.setattr(settings, 'SALES_MODE', 'tariffs')
+
+    user_id = 42
+    subscription_id = 7
+    cart_data = {
+        'total_price': 100000,
+        'return_to_cart': True,
+        'subscription_id': subscription_id,
+        'cart_mode': 'tariff_purchase',
+    }
+    await user_cart_service.save_user_cart(user_id, cart_data)
+
+    global_key = f'user_cart:{user_id}'
+    sub_key = f'user_cart:{user_id}:sub:{subscription_id}'
+    assert global_key in mock_redis.storage
+    assert sub_key in mock_redis.storage
+    assert _intent_key(user_id) in mock_redis.storage
+
+    await user_cart_service.clear_cart_after_purchase(user_id, subscription_id=subscription_id)
+
+    assert global_key not in mock_redis.storage
+    assert sub_key not in mock_redis.storage
+    assert _intent_key(user_id) not in mock_redis.storage
+    assert await user_cart_service.has_user_cart(user_id) is False

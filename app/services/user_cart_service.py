@@ -411,6 +411,38 @@ class UserCartService:
             )
             return False
 
+    async def clear_cart_after_purchase(
+        self,
+        user_id: int,
+        *,
+        subscription_id: int | None = None,
+    ) -> None:
+        """Remove saved-cart keys after a successful purchase.
+
+        Dual-write saves both ``user_cart:{user_id}`` and per-subscription keys.
+        Multi-tariff cleanup must drop both when they reference the same subscription.
+        """
+        sub_id: int | None = None
+        if subscription_id is not None:
+            try:
+                sub_id = int(subscription_id)
+            except (TypeError, ValueError):
+                sub_id = None
+
+        if sub_id is not None and settings.is_multi_tariff_enabled():
+            await self.delete_subscription_cart(user_id, sub_id)
+            global_cart = await self.get_user_cart(user_id)
+            if global_cart:
+                try:
+                    if int(global_cart.get('subscription_id')) == sub_id:
+                        await self.delete_global_cart_only(user_id)
+                except (TypeError, ValueError):
+                    pass
+            await self.clear_topup_intent(user_id)
+            return
+
+        await self.delete_user_cart(user_id)
+
     async def get_all_subscription_carts(self, user_id: int) -> list[dict[str, Any]]:
         """Return all per-subscription carts for a given user.
 

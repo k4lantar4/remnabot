@@ -2565,6 +2565,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         return
 
     purchase_completed = False
+    subscription = None
 
     try:
         success = await subtract_user_balance(
@@ -3008,6 +3009,14 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
 
     if purchase_completed:
         await clear_subscription_checkout_draft(db_user.id)
+        try:
+            cart_sub_id = data.get('subscription_id') or getattr(subscription, 'id', None)
+            await user_cart_service.clear_cart_after_purchase(
+                db_user.id,
+                subscription_id=cart_sub_id,
+            )
+        except Exception as cart_error:
+            logger.error('Ошибка очистки корзины после покупки', error=cart_error)
 
     await state.clear()
     await callback.answer()
