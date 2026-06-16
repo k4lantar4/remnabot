@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.crud.user import get_user_by_id
-from app.localization.texts import get_texts
 from app.database.database import AsyncSessionLocal
 from app.database.models import User, UserStatus
+from app.localization.texts import get_texts
 from app.services.blacklist_service import blacklist_service
 from app.services.maintenance_service import maintenance_service
 from app.services.user_revival_service import NotDeletedError, revive_deleted_user
@@ -143,8 +143,7 @@ async def get_current_cabinet_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     'code': 'blacklisted',
-                    'message': blacklist_reason
-                    or texts.t('CABINET_ACCESS_DENIED', 'Доступ запрещен'),
+                    'message': blacklist_reason or texts.t('CABINET_ACCESS_DENIED', 'Доступ запрещен'),
                 },
             )
 

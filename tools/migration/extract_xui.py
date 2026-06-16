@@ -13,6 +13,7 @@ from tools.migration.config import (
 )
 from tools.migration.models import XuiClient
 
+
 SERVER_ID_RE = re.compile(r'server(\d+)-')
 
 
@@ -45,7 +46,7 @@ def extract_clients_from_db(db_path: Path, server_id: int, vip: int) -> list[Xui
                 select_cols.append('expiry_time')
             if 'total' in cols:
                 select_cols.append('total')
-            query = f"SELECT {', '.join(select_cols)} FROM client_traffics"
+            query = f'SELECT {", ".join(select_cols)} FROM client_traffics'
             for row in conn.execute(query):
                 traffic[row['email']] = row
 
@@ -70,7 +71,13 @@ def extract_clients_from_db(db_path: Path, server_id: int, vip: int) -> list[Xui
                     enable = bool(tr['enable'])
                 expiry_ms = int(raw.get('expiryTime') or 0)
                 if tr is not None:
-                    tr_exp = tr['expiryTime'] if 'expiryTime' in tr.keys() else tr['expiry_time'] if 'expiry_time' in tr.keys() else 0
+                    tr_exp = (
+                        tr['expiryTime']
+                        if 'expiryTime' in tr.keys()
+                        else tr['expiry_time']
+                        if 'expiry_time' in tr.keys()
+                        else 0
+                    )
                     if tr_exp:
                         expiry_ms = int(tr_exp)
                         if expiry_ms < 10_000_000_000:

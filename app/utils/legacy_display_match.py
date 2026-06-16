@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from tools.migration.models import MigrationSubscription
 
+
 SECONDS_PER_DAY = 86400
 
 

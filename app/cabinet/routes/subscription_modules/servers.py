@@ -14,9 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query as QueryParam, stat
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import User
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from .helpers import resolve_subscription
@@ -208,7 +208,9 @@ async def update_countries(
 
     # Deduct balance and update subscription
     if added and total_cost > 0:
-        success = await subtract_user_balance(db, user, catalog_price_in_toman(total_cost), f'Adding countries: {", ".join(added_names)}')
+        success = await subtract_user_balance(
+            db, user, catalog_price_in_toman(total_cost), f'Adding countries: {", ".join(added_names)}'
+        )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

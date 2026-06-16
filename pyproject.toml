@@ -237,6 +237,13 @@ ignore = [
     'TRY003',
     'INP001',
 ]
+'tools/**/*.py' = [
+    'EXE001',
+    'PLC0415',
+    'S603',
+    'S607',
+    'S108',
+]
 '**/migrations/**/*.py' = [
     'ALL',
 ]

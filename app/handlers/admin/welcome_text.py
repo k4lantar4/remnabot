@@ -152,8 +152,10 @@ def get_telegram_formatting_info(texts) -> str:
 
 
 def _status_text(texts, is_enabled: bool) -> str:
-    return texts.t('ADMIN_WELCOME_STATUS_ENABLED', 'включено') if is_enabled else texts.t(
-        'ADMIN_WELCOME_STATUS_DISABLED', 'отключено'
+    return (
+        texts.t('ADMIN_WELCOME_STATUS_ENABLED', 'включено')
+        if is_enabled
+        else texts.t('ADMIN_WELCOME_STATUS_DISABLED', 'отключено')
     )
 
 
@@ -190,8 +192,10 @@ async def toggle_welcome_text(callback: types.CallbackQuery, db_user: User, db: 
     texts = get_texts(db_user.language)
     new_status = await toggle_welcome_text_status(db, db_user.id)
 
-    action_text = texts.t('ADMIN_WELCOME_ACTION_ENABLED', 'включены') if new_status else texts.t(
-        'ADMIN_WELCOME_ACTION_DISABLED', 'отключены'
+    action_text = (
+        texts.t('ADMIN_WELCOME_ACTION_ENABLED', 'включены')
+        if new_status
+        else texts.t('ADMIN_WELCOME_ACTION_DISABLED', 'отключены')
     )
     extra = texts.t(
         'ADMIN_WELCOME_TOGGLED',

@@ -29,7 +29,6 @@ from app.database.crud.user import (
 )
 from app.database.models import PaymentMethod, PromoGroup, Subscription, User, UserStatus
 from app.services.subscription_service import SubscriptionService
-
 from app.utils.price_display import balance_from_display_amount
 
 from ..dependencies import get_db_session, require_api_token

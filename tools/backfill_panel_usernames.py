@@ -5,6 +5,7 @@ Usage:
   docker compose run --rm bot python tools/backfill_panel_usernames.py --dry-run
   docker compose run --rm bot python tools/backfill_panel_usernames.py --limit 100
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,6 +17,7 @@ from sqlalchemy import select
 from app.database.database import AsyncSessionLocal
 from app.database.models import Subscription
 from app.services.remnawave_service import RemnaWaveService
+
 
 logger = structlog.get_logger(__name__)
 

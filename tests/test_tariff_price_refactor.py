@@ -1,4 +1,5 @@
 """Tests for tools/tariff_price_refactor.py and custom-traffic pricing."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -98,10 +99,12 @@ def test_partner_50pct_traffic_discount():
                 apply_discounts_to_addons=True,
                 get_discount_percent=MagicMock(return_value=50),
             ),
-            get_primary_promo_group=MagicMock(return_value=MagicMock(
-                apply_discounts_to_addons=True,
-                get_discount_percent=MagicMock(return_value=50),
-            )),
+            get_primary_promo_group=MagicMock(
+                return_value=MagicMock(
+                    apply_discounts_to_addons=True,
+                    get_discount_percent=MagicMock(return_value=50),
+                )
+            ),
         ),
     )
     assert pct == 50

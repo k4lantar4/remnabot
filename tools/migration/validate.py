@@ -40,11 +40,15 @@ async def validate_migration(
             .join(User, User.id == Subscription.user_id)
             .where(Subscription.remnawave_uuid.is_(None))
             .where(User.telegram_id.is_not(None))
-            .where(Subscription.status.in_([
-                SubscriptionStatus.ACTIVE.value,
-                SubscriptionStatus.TRIAL.value,
-                SubscriptionStatus.LIMITED.value,
-            ]))
+            .where(
+                Subscription.status.in_(
+                    [
+                        SubscriptionStatus.ACTIVE.value,
+                        SubscriptionStatus.TRIAL.value,
+                        SubscriptionStatus.LIMITED.value,
+                    ]
+                )
+            )
         )
     ).scalar_one()
     partners = (
@@ -52,11 +56,7 @@ async def validate_migration(
     ).scalar_one()
 
     subs_with_used = (
-        await db.execute(
-            select(func.count())
-            .select_from(Subscription)
-            .where(Subscription.traffic_used_gb != 0.0)
-        )
+        await db.execute(select(func.count()).select_from(Subscription).where(Subscription.traffic_used_gb != 0.0))
     ).scalar_one()
 
     expired_subs = (
@@ -64,11 +64,15 @@ async def validate_migration(
             select(func.count())
             .select_from(Subscription)
             .where(Subscription.end_date <= migration_run)
-            .where(Subscription.status.in_([
-                SubscriptionStatus.ACTIVE.value,
-                SubscriptionStatus.TRIAL.value,
-                SubscriptionStatus.LIMITED.value,
-            ]))
+            .where(
+                Subscription.status.in_(
+                    [
+                        SubscriptionStatus.ACTIVE.value,
+                        SubscriptionStatus.TRIAL.value,
+                        SubscriptionStatus.LIMITED.value,
+                    ]
+                )
+            )
         )
     ).scalar_one()
 

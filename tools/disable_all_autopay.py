@@ -28,9 +28,7 @@ async def disable_all_autopay(*, execute: bool) -> int:
         count = await count_enabled_autopay_rows(db)
         if execute and count > 0:
             await db.execute(
-                update(Subscription)
-                .where(Subscription.autopay_enabled.is_(True))
-                .values(autopay_enabled=False)
+                update(Subscription).where(Subscription.autopay_enabled.is_(True)).values(autopay_enabled=False)
             )
             await db.commit()
         return count

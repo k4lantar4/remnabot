@@ -29,7 +29,10 @@ async def start_wata_payment(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -45,7 +48,9 @@ async def start_wata_payment(
         return
 
     if not settings.is_wata_enabled():
-        await callback.answer(texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_WATA_PAYMENT_UNAVAILABLE', '❌ Оплата через WATA временно недоступна'), show_alert=True
+        )
         return
 
     message_text = texts.t(
@@ -89,7 +94,10 @@ async def process_wata_payment_amount(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -261,7 +269,9 @@ async def check_wata_payment_status(
     try:
         local_payment_id = int(callback.data.split('_')[-1])
     except (ValueError, IndexError):
-        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True
+        )
         return
 
     payment_service = PaymentService(callback.bot)

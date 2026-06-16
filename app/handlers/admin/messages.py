@@ -358,7 +358,9 @@ async def toggle_pinned_message_position(
     texts = get_texts(db_user.language)
     pinned_message = await get_active_pinned_message(db)
     if not pinned_message:
-        await callback.answer(texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True
+        )
         return
 
     pinned_message.send_before_menu = not pinned_message.send_before_menu
@@ -379,7 +381,9 @@ async def toggle_pinned_message_start_mode(
     texts = get_texts(db_user.language)
     pinned_message = await get_active_pinned_message(db)
     if not pinned_message:
-        await callback.answer(texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_MSG_PINNED_SET_FIRST', 'Сначала задайте закрепленное сообщение'), show_alert=True
+        )
         return
 
     pinned_message.send_on_every_start = not pinned_message.send_on_every_start

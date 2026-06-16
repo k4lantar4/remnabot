@@ -13,12 +13,14 @@ Usage:
     python -m tools.tariff_price_refactor              # dry-run report
     python -m tools.tariff_price_refactor --execute --i-understand
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import sys
 from typing import Any
+
 
 PRICE_PER_GB_TOMAN = 10000
 KOPEKS_PER_TOMAN = 100
@@ -46,7 +48,7 @@ def recalc_traffic_topup_packages(packages: dict[str, int] | None) -> dict[str, 
     if not packages:
         return {}
     updated: dict[str, int] = {}
-    for gb_str, _old_price in packages.items():
+    for gb_str in packages.keys():
         gb = int(gb_str)
         if gb <= 0:
             continue
@@ -178,12 +180,20 @@ async def _ensure_partner_promo_group(db, execute: bool) -> dict[str, Any]:
             'name': existing.name,
             'traffic_discount_percent': existing.traffic_discount_percent,
         }
-        print(f"  ✅ Partner promo group already exists: id={existing.id} ({existing.name}), traffic -{existing.traffic_discount_percent}%")
+        print(
+            f'  ✅ Partner promo group already exists: id={existing.id} ({existing.name}), traffic -{existing.traffic_discount_percent}%'
+        )
         return info
 
     if not execute:
-        print(f"  ➕ Would create partner promo group «{PARTNER_PROMO_GROUP_NAME}» (traffic -{PARTNER_TRAFFIC_DISCOUNT_PERCENT}%)")
-        return {'action': 'would_create', 'name': PARTNER_PROMO_GROUP_NAME, 'traffic_discount_percent': PARTNER_TRAFFIC_DISCOUNT_PERCENT}
+        print(
+            f'  ➕ Would create partner promo group «{PARTNER_PROMO_GROUP_NAME}» (traffic -{PARTNER_TRAFFIC_DISCOUNT_PERCENT}%)'
+        )
+        return {
+            'action': 'would_create',
+            'name': PARTNER_PROMO_GROUP_NAME,
+            'traffic_discount_percent': PARTNER_TRAFFIC_DISCOUNT_PERCENT,
+        }
 
     group = PromoGroup(
         name=PARTNER_PROMO_GROUP_NAME,
@@ -193,8 +203,13 @@ async def _ensure_partner_promo_group(db, execute: bool) -> dict[str, Any]:
     )
     db.add(group)
     await db.flush()
-    print(f"  ✏️  Created partner promo group id={group.id} ({group.name}), traffic -{group.traffic_discount_percent}%")
-    return {'action': 'created', 'id': group.id, 'name': group.name, 'traffic_discount_percent': group.traffic_discount_percent}
+    print(f'  ✏️  Created partner promo group id={group.id} ({group.name}), traffic -{group.traffic_discount_percent}%')
+    return {
+        'action': 'created',
+        'id': group.id,
+        'name': group.name,
+        'traffic_discount_percent': group.traffic_discount_percent,
+    }
 
 
 async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
@@ -204,13 +219,13 @@ async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
 
     for patch in patches:
         if not patch['changed']:
-            print(f"  ✅ id={patch['id']} ({patch['name']}) — already at target scale")
+            print(f'  ✅ id={patch["id"]} ({patch["name"]}) — already at target scale')
             continue
 
         result = await db.execute(select(Tariff).where(Tariff.id == patch['id']))
         tariff = result.scalar_one_or_none()
         if tariff is None:
-            print(f"  ❌ SKIP id={patch['id']}: not found")
+            print(f'  ❌ SKIP id={patch["id"]}: not found')
             continue
 
         tariff.period_prices = patch['new_period_prices']
@@ -219,9 +234,9 @@ async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
         tariff.custom_traffic_enabled = patch['new_custom_traffic_enabled']
         tariff.min_traffic_gb = patch['new_min_traffic_gb']
         print(
-            f"  ✏️  id={patch['id']} ({patch['name']}): "
-            f"custom_traffic=true, per_gb={display_toman(patch['new_traffic_price_per_gb_kopeks']):,} تومان/GB, "
-            f"period_prices→0"
+            f'  ✏️  id={patch["id"]} ({patch["name"]}): '
+            f'custom_traffic=true, per_gb={display_toman(patch["new_traffic_price_per_gb_kopeks"]):,} تومان/GB, '
+            f'period_prices→0'
         )
 
     await db.commit()
@@ -230,40 +245,46 @@ async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
 def _print_report(patches: list[dict[str, Any]], partner_info: dict[str, Any]) -> None:
     print('\n=== TARIFF PRICE REFACTOR (10000 Toman/GB) — DRY RUN ===\n')
     for p in patches:
-        print(f"Tariff {p['id']}: {p['name']} — custom_traffic model")
-        print(f"  custom_traffic_enabled: {p['old_custom_traffic_enabled']} → {p['new_custom_traffic_enabled']}")
-        print(f"  traffic_price_per_gb: {display_toman(p['old_traffic_price_per_gb_kopeks']):,} → {display_toman(p['new_traffic_price_per_gb_kopeks']):,} تومان")
-        print(f"  min_traffic_gb: {p['old_min_traffic_gb']} → {p['new_min_traffic_gb']}")
+        print(f'Tariff {p["id"]}: {p["name"]} — custom_traffic model')
+        print(f'  custom_traffic_enabled: {p["old_custom_traffic_enabled"]} → {p["new_custom_traffic_enabled"]}')
+        print(
+            f'  traffic_price_per_gb: {display_toman(p["old_traffic_price_per_gb_kopeks"]):,} → {display_toman(p["new_traffic_price_per_gb_kopeks"]):,} تومان'
+        )
+        print(f'  min_traffic_gb: {p["old_min_traffic_gb"]} → {p["new_min_traffic_gb"]}')
         for days in sorted(p['old_period_prices'], key=int):
             old_k = int(p['old_period_prices'][days])
             new_k = int(p['new_period_prices'][days])
-            print(f"  period {days}d: {display_toman(old_k):,} → {display_toman(new_k):,} تومان ({old_k} → {new_k} kopeks)")
+            print(
+                f'  period {days}d: {display_toman(old_k):,} → {display_toman(new_k):,} تومان ({old_k} → {new_k} kopeks)'
+            )
         if p['old_traffic_topup_packages']:
             print('  traffic top-up:')
             for gb, old_k in sorted(p['old_traffic_topup_packages'].items(), key=lambda x: int(x[0])):
                 new_k = p['new_traffic_topup_packages'].get(gb, 0)
-                print(f"    {gb} GB: {display_toman(old_k):,} → {display_toman(new_k):,} تومان")
+                print(f'    {gb} GB: {display_toman(old_k):,} → {display_toman(new_k):,} تومان')
         print()
 
     print('=== Partner promo group ===')
     if partner_info.get('action') == 'exists':
-        print(f"  Already exists: id={partner_info['id']} ({partner_info['name']}), traffic -{partner_info['traffic_discount_percent']}%")
+        print(
+            f'  Already exists: id={partner_info["id"]} ({partner_info["name"]}), traffic -{partner_info["traffic_discount_percent"]}%'
+        )
     else:
-        print(f"  Would create: «{PARTNER_PROMO_GROUP_NAME}», traffic -{PARTNER_TRAFFIC_DISCOUNT_PERCENT}%")
+        print(f'  Would create: «{PARTNER_PROMO_GROUP_NAME}», traffic -{PARTNER_TRAFFIC_DISCOUNT_PERCENT}%')
     print()
 
     ref = patches[0]['new_period_prices'] if patches else {}
     env = build_env_recommendations(ref)
     print('=== Recommended .env updates (classic fallback / sync) ===')
     for key, val in env['PRICE_*_DAYS'].items():
-        print(f"  {key}={val}")
-    print(f"  BASE_SUBSCRIPTION_PRICE={env['BASE_SUBSCRIPTION_PRICE']}")
-    print(f"  TRAFFIC_PACKAGES_CONFIG=\"{env['TRAFFIC_PACKAGES_CONFIG']}\"")
-    print(f"  PRICE_TRAFFIC_UNLIMITED={env['PRICE_TRAFFIC_UNLIMITED']}")
+        print(f'  {key}={val}')
+    print(f'  BASE_SUBSCRIPTION_PRICE={env["BASE_SUBSCRIPTION_PRICE"]}')
+    print(f'  TRAFFIC_PACKAGES_CONFIG="{env["TRAFFIC_PACKAGES_CONFIG"]}"')
+    print(f'  PRICE_TRAFFIC_UNLIMITED={env["PRICE_TRAFFIC_UNLIMITED"]}')
     print()
 
     changed = [p for p in patches if p['changed']]
-    print(f"{len(changed)}/{len(patches)} tariff(s) need updating.")
+    print(f'{len(changed)}/{len(patches)} tariff(s) need updating.')
     if changed or partner_info.get('action') != 'exists':
         print('Re-run with --execute --i-understand to apply.\n')
     else:

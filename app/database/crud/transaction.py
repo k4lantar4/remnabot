@@ -245,9 +245,7 @@ async def get_user_transactions(
     query = select(Transaction).where(Transaction.user_id == user_id)
     if created_after is not None:
         query = query.where(Transaction.created_at >= created_after)
-    result = await db.execute(
-        query.order_by(Transaction.created_at.desc()).offset(offset).limit(limit)
-    )
+    result = await db.execute(query.order_by(Transaction.created_at.desc()).offset(offset).limit(limit))
     return result.scalars().all()
 
 

@@ -394,11 +394,7 @@ async def list_partners(
     total = count_result.scalar() or 0
 
     result = await db.execute(
-        select(User)
-        .where(*list_filters)
-        .order_by(desc(User.created_at), desc(User.id))
-        .offset(offset)
-        .limit(limit)
+        select(User).where(*list_filters).order_by(desc(User.created_at), desc(User.id)).offset(offset).limit(limit)
     )
     partners = result.scalars().all()
 

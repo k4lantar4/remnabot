@@ -44,11 +44,7 @@ async def start_bulk_ban_process(callback: types.CallbackQuery, db_user: User, s
         parse_mode='HTML',
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_users'
-                    )
-                ]
+                [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_users')]
             ]
         ),
     )
@@ -70,13 +66,18 @@ async def process_bulk_ban_list(message: types.Message, db_user: User, state: FS
     )
 
     if not message.text:
-        await message.answer(texts.t('ADMIN_BULK_BAN_NEED_TEXT', '❌ Отправьте текстовое сообщение со списком Telegram ID'), reply_markup=back_kb)
+        await message.answer(
+            texts.t('ADMIN_BULK_BAN_NEED_TEXT', '❌ Отправьте текстовое сообщение со списком Telegram ID'),
+            reply_markup=back_kb,
+        )
         return
 
     input_text = message.text.strip()
 
     if not input_text:
-        await message.answer(texts.t('ADMIN_BULK_BAN_INVALID_LIST', '❌ Введите корректный список Telegram ID'), reply_markup=back_kb)
+        await message.answer(
+            texts.t('ADMIN_BULK_BAN_INVALID_LIST', '❌ Введите корректный список Telegram ID'), reply_markup=back_kb
+        )
         return
 
     # Парсим ID из текста

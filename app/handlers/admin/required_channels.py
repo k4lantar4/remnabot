@@ -48,11 +48,7 @@ def _channels_keyboard(channels: list, texts) -> InlineKeyboardMarkup:
             ]
         )
     buttons.append(
-        [
-            InlineKeyboardButton(
-                text=texts.t('ADMIN_REQCH_ADD', '➕ Добавить канал'), callback_data='reqch:add'
-            )
-        ]
+        [InlineKeyboardButton(text=texts.t('ADMIN_REQCH_ADD', '➕ Добавить канал'), callback_data='reqch:add')]
     )
     buttons.append(
         [
@@ -67,9 +63,7 @@ def _channels_keyboard(channels: list, texts) -> InlineKeyboardMarkup:
 
 def _channel_detail_keyboard(channel_id: int, is_active: bool, texts) -> InlineKeyboardMarkup:
     toggle_text = (
-        texts.t('ADMIN_REQCH_DISABLE', '❌ Отключить')
-        if is_active
-        else texts.t('ADMIN_REQCH_ENABLE', '✅ Включить')
+        texts.t('ADMIN_REQCH_DISABLE', '❌ Отключить') if is_active else texts.t('ADMIN_REQCH_ENABLE', '✅ Включить')
     )
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -79,11 +73,7 @@ def _channel_detail_keyboard(channel_id: int, is_active: bool, texts) -> InlineK
                     text=texts.t('ADMIN_REQCH_DELETE', '🗑 Удалить'), callback_data=f'reqch:delete:{channel_id}'
                 )
             ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('ADMIN_REQCH_BACK_LIST', '◀️ К списку'), callback_data='reqch:list'
-                )
-            ],
+            [InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK_LIST', '◀️ К списку'), callback_data='reqch:list')],
         ]
     )
 
@@ -129,9 +119,7 @@ async def view_channel(callback: CallbackQuery, **kwargs) -> None:
         return
 
     status = (
-        texts.t('ADMIN_REQCH_ACTIVE', '✅ Активен')
-        if ch.is_active
-        else texts.t('ADMIN_REQCH_INACTIVE', '❌ Отключён')
+        texts.t('ADMIN_REQCH_ACTIVE', '✅ Активен') if ch.is_active else texts.t('ADMIN_REQCH_INACTIVE', '❌ Отключён')
     )
     text = texts.t(
         'ADMIN_REQCH_DETAIL',
@@ -170,9 +158,7 @@ async def toggle_channel_handler(callback: CallbackQuery, **kwargs) -> None:
             if ch.is_active
             else texts.t('ADMIN_REQCH_TOGGLED_OFF', 'отключён')
         )
-        await callback.answer(
-            texts.t('ADMIN_REQCH_TOGGLED', 'Канал {status}').format(status=status), show_alert=True
-        )
+        await callback.answer(texts.t('ADMIN_REQCH_TOGGLED', 'Канал {status}').format(status=status), show_alert=True)
 
     # Refresh list
     async with AsyncSessionLocal() as db:
@@ -273,7 +259,9 @@ async def process_channel_link(message: Message, state: FSMContext, **kwargs) ->
         # Validate and normalize channel link
         if not link.startswith(('https://t.me/', 'http://t.me/', '@')):
             await message.answer(
-                texts.t('ADMIN_REQCH_LINK_INVALID', 'Ссылка должна быть URL вида t.me или @username. Попробуйте ещё раз:')
+                texts.t(
+                    'ADMIN_REQCH_LINK_INVALID', 'Ссылка должна быть URL вида t.me или @username. Попробуйте ещё раз:'
+                )
             )
             return
         if link.startswith('@'):

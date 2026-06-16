@@ -271,11 +271,7 @@ async def handle_ticket_message_input(message: types.Message, state: FSMContext,
                 created=format_local_datetime(ticket.created_at, '%d.%m.%Y %H:%M')
             )
             + '\n'
-            + (
-                texts.t('TICKET_ATTACHMENT_PHOTO', '📎 Вложение: фото') + '\n'
-                if media_type == 'photo'
-                else ''
-            )
+            + (texts.t('TICKET_ATTACHMENT_PHOTO', '📎 Вложение: фото') + '\n' if media_type == 'photo' else '')
         )
 
         data_prompt = await state.get_data()

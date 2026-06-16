@@ -10,7 +10,6 @@ from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.utils.price_display import balance_from_display_amount
 from app.database.crud.subscription import (
     add_subscription_traffic,
     create_paid_subscription,
@@ -33,6 +32,7 @@ from app.database.models import (
     User,
     UserPromoGroup,
 )
+from app.utils.price_display import balance_from_display_amount
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.bulk_actions import (

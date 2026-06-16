@@ -27,7 +27,10 @@ async def start_mulenpay_payment(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -94,7 +97,10 @@ async def process_mulenpay_payment_amount(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -322,7 +328,9 @@ async def check_mulenpay_payment_status(callback: types.CallbackQuery, db_user: 
 
         if len(message_text) > 190:
             await callback.message.answer(message_text)
-            await callback.answer(texts.t('CB_PAYMENT_STATUS_SENT_TO_CHAT', 'ℹ️ Статус платежа отправлен в чат'), show_alert=True)
+            await callback.answer(
+                texts.t('CB_PAYMENT_STATUS_SENT_TO_CHAT', 'ℹ️ Статус платежа отправлен в чат'), show_alert=True
+            )
         else:
             await callback.answer(message_text, show_alert=True)
 

@@ -100,7 +100,10 @@ async def start_platega_payment(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -185,7 +188,9 @@ async def handle_platega_method_selection(
         return
 
     if method_code not in _get_active_methods():
-        await callback.answer(texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True
+        )
         return
 
     await _prompt_amount(callback.message, db_user, state, method_code)
@@ -208,7 +213,10 @@ async def start_platega_direct_method(
         return
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -234,7 +242,9 @@ async def start_platega_direct_method(
         return
 
     if method_code not in _get_active_methods():
-        await callback.answer(texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAYMENT_METHOD_UNAVAILABLE', '⚠️ Этот способ сейчас недоступен'), show_alert=True
+        )
         return
 
     await _prompt_amount(callback.message, db_user, state, method_code)
@@ -253,7 +263,10 @@ async def process_platega_payment_amount(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -439,7 +452,9 @@ async def check_platega_payment_status(
     try:
         local_payment_id = int(callback.data.split('_')[-1])
     except ValueError:
-        await callback.answer(texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_INVALID_PAYMENT_ID', '❌ Некорректный идентификатор платежа'), show_alert=True
+        )
         return
 
     payment_service = PaymentService(callback.bot)

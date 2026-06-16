@@ -128,9 +128,9 @@ class AdminNotificationService:
                 )
 
             if referrer.username:
-                return notify_texts.t(
-                    'ADMIN_NOTIFY_REFERRER_USERNAME', '@{username} (ID: {id})'
-                ).format(username=html.escape(referrer.username), id=referred_by_id)
+                return notify_texts.t('ADMIN_NOTIFY_REFERRER_USERNAME', '@{username} (ID: {id})').format(
+                    username=html.escape(referrer.username), id=referred_by_id
+                )
             if referrer.telegram_id:
                 return notify_texts.t('ADMIN_NOTIFY_REFERRER_TELEGRAM_ID', 'ID {telegram_id}').format(
                     telegram_id=referrer.telegram_id
@@ -310,9 +310,7 @@ class AdminNotificationService:
             )
 
         if promo_group.apply_discounts_to_addons:
-            discount_lines.append(
-                notify_texts.t('ADMIN_NOTIFY_PROMO_ADDONS_YES', '• Доп. услуги: ✅ скидка действует')
-            )
+            discount_lines.append(notify_texts.t('ADMIN_NOTIFY_PROMO_ADDONS_YES', '• Доп. услуги: ✅ скидка действует'))
         else:
             discount_lines.append(notify_texts.t('ADMIN_NOTIFY_PROMO_ADDONS_NO', '• Доп. услуги: ❌ без скидки'))
 
@@ -350,18 +348,14 @@ class AdminNotificationService:
     def _get_promocode_type_display(self, promo_type: str | None) -> str:
         notify_texts = _admin_notify_texts()
         mapping = {
-            PromoCodeType.BALANCE.value: notify_texts.t(
-                'ADMIN_NOTIFY_PROMOCODE_TYPE_BALANCE', '💰 Бонус на баланс'
-            ),
+            PromoCodeType.BALANCE.value: notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_BALANCE', '💰 Бонус на баланс'),
             PromoCodeType.SUBSCRIPTION_DAYS.value: notify_texts.t(
                 'ADMIN_NOTIFY_PROMOCODE_TYPE_DAYS', '⏰ Доп. дни подписки'
             ),
             PromoCodeType.TRIAL_SUBSCRIPTION.value: notify_texts.t(
                 'ADMIN_NOTIFY_PROMOCODE_TYPE_TRIAL', '🎁 Триал подписка'
             ),
-            PromoCodeType.PROMO_GROUP.value: notify_texts.t(
-                'ADMIN_NOTIFY_PROMOCODE_TYPE_GROUP', '👥 Промогруппа'
-            ),
+            PromoCodeType.PROMO_GROUP.value: notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_GROUP', '👥 Промогруппа'),
             PromoCodeType.DISCOUNT.value: notify_texts.t('ADMIN_NOTIFY_PROMOCODE_TYPE_DISCOUNT', '💸 Скидка'),
         }
 
@@ -496,7 +490,9 @@ class AdminNotificationService:
                     label=user_id_label, user_id=user_id_display
                 ),
                 notify_texts.t('ADMIN_NOTIFY_TRIAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
-                    username=html.escape(getattr(user, 'username', None) or notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует'))
+                    username=html.escape(
+                        getattr(user, 'username', None) or notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
+                    )
                 ),
                 notify_texts.t('ADMIN_NOTIFY_TRIAL_STATUS', '👥 <b>Статус:</b> {status}').format(status=user_status),
                 '',
@@ -536,7 +532,9 @@ class AdminNotificationService:
             message_lines.extend(
                 [
                     notify_texts.t('ADMIN_NOTIFY_TRIAL_PARAMS', '⏰ <b>Параметры триала:</b>'),
-                    notify_texts.t('ADMIN_NOTIFY_TRIAL_PERIOD', '📅 Период: {days} дней').format(days=trial_duration_days),
+                    notify_texts.t('ADMIN_NOTIFY_TRIAL_PERIOD', '📅 Период: {days} дней').format(
+                        days=trial_duration_days
+                    ),
                     notify_texts.t('ADMIN_NOTIFY_TRIAL_TRAFFIC', '📊 Трафик: {traffic}').format(
                         traffic=self._format_traffic(trial_traffic_gb)
                     ),
@@ -1225,11 +1223,13 @@ class AdminNotificationService:
                     notify_texts.t('ADMIN_NOTIFY_RENEWAL_DEVICES', '📱 Устройства: {devices}').format(
                         devices=subscription.device_limit
                     ),
-                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_SERVERS', '🌐 Серверы: {servers}').format(servers=servers_info),
-                    '',
-                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_BALANCE_AFTER', '💰 <b>Баланс после операции:</b> {balance}').format(
-                        balance=settings.format_balance(current_balance)
+                    notify_texts.t('ADMIN_NOTIFY_RENEWAL_SERVERS', '🌐 Серверы: {servers}').format(
+                        servers=servers_info
                     ),
+                    '',
+                    notify_texts.t(
+                        'ADMIN_NOTIFY_RENEWAL_BALANCE_AFTER', '💰 <b>Баланс после операции:</b> {balance}'
+                    ).format(balance=settings.format_balance(current_balance)),
                     '',
                     f'<i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
                 ]
@@ -1331,9 +1331,9 @@ class AdminNotificationService:
                 )
                 if subscription_days:
                     message_lines.append(
-                        notify_texts.t('ADMIN_NOTIFY_PROMOCODE_DISCOUNT_HOURS', '⏳ Срок действия скидки: {hours} ч.').format(
-                            hours=subscription_days
-                        )
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_PROMOCODE_DISCOUNT_HOURS', '⏳ Срок действия скидки: {hours} ч.'
+                        ).format(hours=subscription_days)
                     )
                 else:
                     message_lines.append(
@@ -1722,7 +1722,9 @@ class AdminNotificationService:
                 message_lines.extend(
                     [
                         '',
-                        notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_REASON', '📝 Причина: {reason}').format(reason=reason),
+                        notify_texts.t('ADMIN_NOTIFY_PROMO_CHANGE_REASON', '📝 Причина: {reason}').format(
+                            reason=reason
+                        ),
                     ]
                 )
 
@@ -1921,9 +1923,9 @@ class AdminNotificationService:
                     )
                 else:
                     message_lines.append(
-                        notify_texts.t('ADMIN_NOTIFY_GUEST_BUYER_ICON', '{icon} Покупатель: <code>{contact}</code>').format(
-                            icon=contact_icon, contact=contact_display
-                        )
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_GUEST_BUYER_ICON', '{icon} Покупатель: <code>{contact}</code>'
+                        ).format(icon=contact_icon, contact=contact_display)
                     )
             else:
                 # Landing: show page slug and buyer contact
@@ -1959,9 +1961,7 @@ class AdminNotificationService:
                     )
                 else:
                     message_lines.append(
-                        notify_texts.t(
-                            'ADMIN_NOTIFY_GUEST_RECIPIENT_CODE', '🔗 Получатель: <i>по коду активации</i>'
-                        )
+                        notify_texts.t('ADMIN_NOTIFY_GUEST_RECIPIENT_CODE', '🔗 Получатель: <i>по коду активации</i>')
                     )
                 if purchase.gift_message:
                     raw_msg = purchase.gift_message[:100]
@@ -2212,9 +2212,9 @@ class AdminNotificationService:
                 if status == 'online':
                     if details.get('response_time'):
                         message_parts.append(
-                            notify_texts.t('ADMIN_NOTIFY_MAINT_RESPONSE_TIME', '⚡ <b>Время отклика:</b> {sec} сек').format(
-                                sec=details['response_time']
-                            )
+                            notify_texts.t(
+                                'ADMIN_NOTIFY_MAINT_RESPONSE_TIME', '⚡ <b>Время отклика:</b> {sec} сек'
+                            ).format(sec=details['response_time'])
                         )
 
                     if details.get('consecutive_failures', 0) > 0:
@@ -2225,7 +2225,9 @@ class AdminNotificationService:
                         )
 
                     message_parts.append('')
-                    message_parts.append(notify_texts.t('ADMIN_NOTIFY_MAINT_API_BACK', 'API снова отвечает на запросы.'))
+                    message_parts.append(
+                        notify_texts.t('ADMIN_NOTIFY_MAINT_API_BACK', 'API снова отвечает на запросы.')
+                    )
 
                 else:
                     if details.get('consecutive_failures'):
@@ -2238,7 +2240,9 @@ class AdminNotificationService:
                     if details.get('error'):
                         error_msg = str(details['error'])[:100]
                         message_parts.append(
-                            notify_texts.t('ADMIN_NOTIFY_MAINT_ERROR', '❌ <b>Ошибка:</b> {error}').format(error=error_msg)
+                            notify_texts.t('ADMIN_NOTIFY_MAINT_ERROR', '❌ <b>Ошибка:</b> {error}').format(
+                                error=error_msg
+                            )
                         )
 
                     message_parts.append('')
@@ -2262,9 +2266,9 @@ class AdminNotificationService:
                             else notify_texts.t('ADMIN_NOTIFY_DISABLED', 'Отключено')
                         )
                         message_parts.append(
-                            notify_texts.t('ADMIN_NOTIFY_MAINT_AUTO_ENABLE_CFG', '🤖 <b>Автовключение:</b> {value}').format(
-                                value=auto_enable
-                            )
+                            notify_texts.t(
+                                'ADMIN_NOTIFY_MAINT_AUTO_ENABLE_CFG', '🤖 <b>Автовключение:</b> {value}'
+                            ).format(value=auto_enable)
                         )
 
                     if details.get('max_failures'):
@@ -2276,12 +2280,16 @@ class AdminNotificationService:
 
                     message_parts.append('')
                     message_parts.append(
-                        notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_ACTIVE', 'Система будет следить за доступностью API.')
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_MAINT_MONITOR_ACTIVE', 'Система будет следить за доступностью API.'
+                        )
                     )
 
                 else:
                     message_parts.append(
-                        notify_texts.t('ADMIN_NOTIFY_MAINT_MONITOR_STOPPED_MSG', 'Автоматический мониторинг API остановлен.')
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_MAINT_MONITOR_STOPPED_MSG', 'Автоматический мониторинг API остановлен.'
+                        )
                     )
 
             message_parts.append('')
@@ -2358,9 +2366,9 @@ class AdminNotificationService:
 
                 if details.get('users_online'):
                     message_parts.append(
-                        notify_texts.t('ADMIN_NOTIFY_PANEL_USERS_ONLINE', '👥 <b>Пользователей онлайн:</b> {count}').format(
-                            count=details['users_online']
-                        )
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_PANEL_USERS_ONLINE', '👥 <b>Пользователей онлайн:</b> {count}'
+                        ).format(count=details['users_online'])
                     )
 
                 message_parts.append('')
@@ -2399,12 +2407,16 @@ class AdminNotificationService:
                             message_parts.append(f'   • {issue}')
                     else:
                         message_parts.append(
-                            notify_texts.t('ADMIN_NOTIFY_PANEL_ISSUE', '⚠️ <b>Проблема:</b> {issue}').format(issue=issues)
+                            notify_texts.t('ADMIN_NOTIFY_PANEL_ISSUE', '⚠️ <b>Проблема:</b> {issue}').format(
+                                issue=issues
+                            )
                         )
 
                 message_parts.append('')
                 message_parts.append(
-                    notify_texts.t('ADMIN_NOTIFY_PANEL_DEGRADED_HINT', 'Панель работает, но возможны задержки или сбои.')
+                    notify_texts.t(
+                        'ADMIN_NOTIFY_PANEL_DEGRADED_HINT', 'Панель работает, но возможны задержки или сбои.'
+                    )
                 )
 
             elif status == 'maintenance':
@@ -2417,9 +2429,9 @@ class AdminNotificationService:
 
                 if details.get('estimated_duration'):
                     message_parts.append(
-                        notify_texts.t('ADMIN_NOTIFY_PANEL_MAINT_DURATION', '⏰ <b>Ожидаемая длительность:</b> {duration}').format(
-                            duration=details['estimated_duration']
-                        )
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_PANEL_MAINT_DURATION', '⏰ <b>Ожидаемая длительность:</b> {duration}'
+                        ).format(duration=details['estimated_duration'])
                     )
 
                 message_parts.append('')
@@ -2573,15 +2585,11 @@ class AdminNotificationService:
                 return notify_texts.t('ADMIN_NOTIFY_SERVERS_DETAILED', '{count} серверов ({names})').format(
                     count=len(server_uuids), names=servers_names
                 )
-            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
-                count=len(server_uuids)
-            )
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(count=len(server_uuids))
 
         except Exception as e:
             logger.warning('Ошибка получения названий серверов для уведомления', error=e)
-            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
-                count=len(server_uuids)
-            )
+            return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(count=len(server_uuids))
 
     def _format_update_value(self, value: Any, update_type: str) -> str:
         notify_texts = _admin_notify_texts()
@@ -2593,9 +2601,7 @@ class AdminNotificationService:
             return notify_texts.t('ADMIN_NOTIFY_DEVICES_COUNT', '{count} устройств').format(count=value)
         if update_type == 'servers':
             if isinstance(value, list):
-                return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(
-                    count=len(value)
-                )
+                return notify_texts.t('ADMIN_NOTIFY_SERVERS_COUNT_ONLY', '{count} серверов').format(count=len(value))
             return str(value)
         return str(value)
 

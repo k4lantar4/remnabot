@@ -704,11 +704,7 @@ class MenuLayoutService:
     @classmethod
     def _should_skip_simple_subscription_button(cls, context: MenuContext) -> bool:
         show_buy = not (context.has_active_subscription and context.subscription_is_active)
-        return (
-            show_buy
-            and settings.is_multi_tariff_enabled()
-            and settings.SIMPLE_SUBSCRIPTION_ENABLED
-        )
+        return show_buy and settings.is_multi_tariff_enabled() and settings.SIMPLE_SUBSCRIPTION_ENABLED
 
     @classmethod
     def _evaluate_conditions(

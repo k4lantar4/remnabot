@@ -60,9 +60,7 @@ def _format_campaign_summary(campaign, texts) -> str:
             device_limit = settings.DEFAULT_DEVICE_LIMIT
         bonus_info = texts.t(
             'ADMIN_CAMPAIGN_BONUS_SUB_LINE',
-            '📱 Пробная подписка: <b>{days} д.</b>\n'
-            '🌐 Трафик: <b>{traffic}</b>\n'
-            '📱 Устройства: <b>{devices}</b>',
+            '📱 Пробная подписка: <b>{days} д.</b>\n🌐 Трафик: <b>{traffic}</b>\n📱 Устройства: <b>{devices}</b>',
         ).format(days=campaign.subscription_duration_days or 0, traffic=traffic_text, devices=device_limit)
     elif campaign.is_tariff_bonus:
         tariff_name = texts.t('ADMIN_CAMPAIGN_TARIFF_NONE', 'Не выбран')
@@ -79,10 +77,7 @@ def _format_campaign_summary(campaign, texts) -> str:
 
     return texts.t(
         'ADMIN_CAMPAIGN_SUMMARY',
-        '<b>{name}</b>\n'
-        'Стартовый параметр: <code>{param}</code>\n'
-        'Статус: {status}\n'
-        '{bonus}\n',
+        '<b>{name}</b>\nСтартовый параметр: <code>{param}</code>\nСтатус: {status}\n{bonus}\n',
     ).format(
         name=html.escape(campaign.name),
         param=html.escape(campaign.start_parameter),
@@ -218,16 +213,40 @@ async def show_campaigns_overall_stats(
     overview = await get_campaigns_overview(db)
 
     text = [texts.t('ADMIN_CAMPAIGNS_STATS_TITLE', '📊 <b>Общая статистика кампаний</b>\n')]
-    text.append(texts.t('ADMIN_CAMPAIGNS_STATS_TOTAL', 'Всего кампаний: <b>{total}</b>').format(total=overview['total']))
-    text.append(texts.t('ADMIN_CAMPAIGNS_STATS_ACTIVE', 'Активны: <b>{active}</b>, выключены: <b>{inactive}</b>').format(active=overview['active'], inactive=overview['inactive']))
-    text.append(texts.t('ADMIN_CAMPAIGNS_STATS_REGS', 'Всего регистраций: <b>{count}</b>').format(count=overview['registrations']))
-    text.append(texts.t('ADMIN_CAMPAIGNS_STATS_BALANCE', 'Суммарно выдано баланса: <b>{amount}</b>').format(amount=texts.format_price(overview['balance_total'])))
-    text.append(texts.t('ADMIN_CAMPAIGNS_STATS_SUBS', 'Выдано подписок: <b>{count}</b>').format(count=overview['subscription_total']))
+    text.append(
+        texts.t('ADMIN_CAMPAIGNS_STATS_TOTAL', 'Всего кампаний: <b>{total}</b>').format(total=overview['total'])
+    )
+    text.append(
+        texts.t('ADMIN_CAMPAIGNS_STATS_ACTIVE', 'Активны: <b>{active}</b>, выключены: <b>{inactive}</b>').format(
+            active=overview['active'], inactive=overview['inactive']
+        )
+    )
+    text.append(
+        texts.t('ADMIN_CAMPAIGNS_STATS_REGS', 'Всего регистраций: <b>{count}</b>').format(
+            count=overview['registrations']
+        )
+    )
+    text.append(
+        texts.t('ADMIN_CAMPAIGNS_STATS_BALANCE', 'Суммарно выдано баланса: <b>{amount}</b>').format(
+            amount=texts.format_price(overview['balance_total'])
+        )
+    )
+    text.append(
+        texts.t('ADMIN_CAMPAIGNS_STATS_SUBS', 'Выдано подписок: <b>{count}</b>').format(
+            count=overview['subscription_total']
+        )
+    )
 
     await callback.message.edit_text(
         '\n'.join(text),
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                    )
+                ]
+            ]
         ),
     )
     await callback.answer()
@@ -263,8 +282,16 @@ async def show_campaigns_list(
             texts.t('ADMIN_CAMPAIGNS_EMPTY', '❌ Рекламные кампании не найдены.'),
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [types.InlineKeyboardButton(text=texts.t('ADMIN_CAMPAIGNS_CREATE', '➕ Создать'), callback_data='admin_campaigns_create')],
-                    [types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_CAMPAIGNS_CREATE', '➕ Создать'), callback_data='admin_campaigns_create'
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                        )
+                    ],
                 ]
             ),
         )
@@ -1269,7 +1296,13 @@ async def start_campaign_creation(
     await callback.message.edit_text(
         '🆕 <b>Создание рекламной кампании</b>\n\nВведите название кампании:',
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                    )
+                ]
+            ]
         ),
     )
     await state.set_state(AdminStates.creating_campaign_name)
@@ -1349,7 +1382,13 @@ async def select_campaign_bonus_type(
         await callback.message.edit_text(
             '💰 Введите сумму бонуса на баланс (в рублях):',
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                        )
+                    ]
+                ]
             ),
         )
     elif bonus_type == 'subscription':
@@ -1357,7 +1396,13 @@ async def select_campaign_bonus_type(
         await callback.message.edit_text(
             '📅 Введите длительность пробной подписки в днях (1-730):',
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]]
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                        )
+                    ]
+                ]
             ),
         )
     elif bonus_type == 'tariff':
@@ -1380,7 +1425,9 @@ async def select_campaign_bonus_type(
                     )
                 ]
             )
-        keyboard.append([types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')])
+        keyboard.append(
+            [types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]
+        )
 
         await state.set_state(AdminStates.creating_campaign_tariff_select)
         await callback.message.edit_text(
@@ -1631,7 +1678,13 @@ async def select_campaign_tariff(
     await callback.message.edit_text(
         f'🎁 Выбран тариф: <b>{html.escape(tariff.name)}</b>\n\n📅 Введите длительность тарифа в днях (1-730):',
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns')]]
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_REQCH_BACK', '⬅️ Назад'), callback_data='admin_campaigns'
+                    )
+                ]
+            ]
         ),
     )
     await callback.answer()

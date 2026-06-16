@@ -10,8 +10,8 @@ from sqlalchemy import select
 
 from app.database.models import Subscription, User
 from app.services.subscription_service import SubscriptionService
-
 from tools.migration.config import MIGRATION_OUTPUT_DIR, REMNAWAVE_CONCURRENCY
+
 
 logger = structlog.get_logger(__name__)
 
@@ -57,7 +57,7 @@ async def sync_subscription_to_panel(
     original = service._gb_to_bytes
 
     if remaining_bytes is not None and remaining_bytes > 0:
-        service._gb_to_bytes = lambda _gb: remaining_bytes  # noqa: ARG005
+        service._gb_to_bytes = lambda _gb: remaining_bytes
 
     try:
         rw_user = await service.create_remnawave_user(db, subscription, reset_traffic=False)
@@ -84,7 +84,7 @@ async def sync_all(
 ) -> dict[str, int]:
     remaining_map = _load_remaining_bytes_map(manifest_path)
     remaining_queues = _load_remaining_bytes_queues(manifest_path)
-    sem = asyncio.Semaphore(REMNAWAVE_CONCURRENCY)
+    asyncio.Semaphore(REMNAWAVE_CONCURRENCY)
     stats = {'ok': 0, 'fail': 0, 'dry_run': int(dry_run)}
 
     result = await db.execute(

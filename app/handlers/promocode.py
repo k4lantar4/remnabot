@@ -180,9 +180,7 @@ async def process_promocode(message: types.Message, db_user: User, state: FSMCon
                     )
                 ]
             )
-        buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('CANCEL', '❌ Отмена'), callback_data='back_to_menu')]
-        )
+        buttons.append([types.InlineKeyboardButton(text=texts.t('CANCEL', '❌ Отмена'), callback_data='back_to_menu')])
         await message.answer(
             texts.t(
                 'PROMOCODE_SELECT_SUBSCRIPTION',

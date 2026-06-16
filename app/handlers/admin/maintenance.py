@@ -450,9 +450,7 @@ async def process_notification_message(message: types.Message, db_user: User, db
 
     except Exception as e:
         logger.error('Ошибка отправки ручного уведомления', error=e)
-        await message.answer(
-            texts.t('ADMIN_MAINTENANCE_NOTIFY_ERROR', '❌ Ошибка: {error}').format(error=e)
-        )
+        await message.answer(texts.t('ADMIN_MAINTENANCE_NOTIFY_ERROR', '❌ Ошибка: {error}').format(error=e))
 
     await state.clear()
 

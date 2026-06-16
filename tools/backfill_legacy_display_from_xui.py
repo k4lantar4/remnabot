@@ -7,6 +7,7 @@ Usage:
   python tools/backfill_legacy_display_from_xui.py --execute
   python tools/backfill_legacy_display_from_xui.py --dry-run --telegram-id 1713374557
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,6 +30,7 @@ from app.utils.legacy_display_match import (
 from tools.migration.extract_rookari import parse_rookari_tables
 from tools.migration.extract_xui import extract_all_xui_clients
 from tools.migration.join_filter import build_migration_cohorts
+
 
 logger = structlog.get_logger(__name__)
 
@@ -135,8 +137,8 @@ async def backfill(
 
     async with AsyncSessionLocal() as db:
         subs = (
-            await db.execute(select(Subscription).where(Subscription.id.in_(assignment_by_id.keys())))
-        ).scalars().all()
+            (await db.execute(select(Subscription).where(Subscription.id.in_(assignment_by_id.keys())))).scalars().all()
+        )
         for sub in subs:
             source_email = assignment_by_id[sub.id]
             new_name = format_panel_username(source_email)

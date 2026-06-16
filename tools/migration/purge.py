@@ -5,6 +5,7 @@ from sqlalchemy import func, select, text
 
 from app.database.models import Subscription, User
 
+
 logger = structlog.get_logger(__name__)
 
 

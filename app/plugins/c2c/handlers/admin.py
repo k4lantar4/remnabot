@@ -53,7 +53,9 @@ async def execute_c2c_approve(
         logger.warning('C2C approve failed', receipt_id=receipt_id, message=message)
         return
 
-    admin_label = callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    admin_label = (
+        callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    )
     new_text = f'✅ <b>Approved</b> — receipt #{receipt_id} by @{admin_label}'
     if receipt and receipt.status == C2cReceiptStatus.APPROVED.value and callback.message:
         try:
@@ -86,7 +88,9 @@ async def execute_c2c_reject(
         logger.warning('C2C reject failed', receipt_id=receipt_id, message=message)
         return
 
-    admin_label = callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    admin_label = (
+        callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+    )
     new_text = f'❌ <b>Rejected</b> — receipt #{receipt_id} by @{admin_label}'
     if receipt and receipt.status == C2cReceiptStatus.REJECTED.value and callback.message:
         try:

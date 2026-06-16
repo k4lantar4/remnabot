@@ -86,11 +86,7 @@ async def send_main_menu_to_chat(
     """Send main menu as logo photo (when enabled) or plain text — same as back_to_menu."""
     resolved_parse_mode = parse_mode or 'HTML'
 
-    if (
-        settings.ENABLE_LOGO_MODE
-        and LOGO_PATH.exists()
-        and not caption_exceeds_telegram_limit(caption)
-    ):
+    if settings.ENABLE_LOGO_MODE and LOGO_PATH.exists() and not caption_exceeds_telegram_limit(caption):
         logo_media = get_logo_media()
         if logo_media is not None:
             try:

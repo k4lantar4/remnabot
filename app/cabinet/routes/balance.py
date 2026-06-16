@@ -17,6 +17,7 @@ from app.database.crud.saved_payment_method import (
 )
 from app.database.crud.user import get_user_by_id
 from app.database.models import PaymentMethod, Transaction, User
+from app.localization.texts import get_texts
 from app.services.payment_method_config_service import get_enabled_methods_for_user
 from app.services.payment_service import PaymentService
 from app.services.payment_verification_service import (
@@ -27,7 +28,6 @@ from app.services.payment_verification_service import (
     method_display_name,
     run_manual_check,
 )
-from app.localization.texts import get_texts
 from app.utils.currency_converter import currency_converter
 from app.utils.price_display import display_balance_from_storage, display_transaction_amount_from_storage
 
@@ -91,7 +91,9 @@ async def get_transactions(
 
     # Get total count
     count_query = (
-        select(func.count()).select_from(Transaction).where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
+        select(func.count())
+        .select_from(Transaction)
+        .where(Transaction.user_id == user.id, Transaction.created_at >= cutoff)
     )
     if type:
         count_query = count_query.where(Transaction.type == type)

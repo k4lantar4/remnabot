@@ -8,6 +8,7 @@ Only active when MULTI_TARIFF_ENABLED=True.
 from __future__ import annotations
 
 import html
+
 import structlog
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
@@ -20,15 +21,15 @@ from app.database.crud.subscription import (
     get_subscription_by_id_for_user,
 )
 from app.database.models import Subscription, SubscriptionStatus, User
-from app.localization.texts import get_texts
 from app.keyboards.inline import get_pagination_keyboard
+from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
+from app.states import SubscriptionStates
 from app.utils.formatting import format_traffic
-from app.utils.subscription_display import subscription_account_label
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.message_edit import edit_bot_message_text_or_caption
 from app.utils.photo_message import edit_or_answer_photo
-from app.states import SubscriptionStates
+from app.utils.subscription_display import subscription_account_label
 
 
 logger = structlog.get_logger(__name__)
@@ -135,11 +136,7 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     )
 
     # End date
-    end_date = (
-        format_user_datetime(sub.end_date, language=texts.language, fmt='%d.%m.%Y')
-        if sub.end_date
-        else '—'
-    )
+    end_date = format_user_datetime(sub.end_date, language=texts.language, fmt='%d.%m.%Y') if sub.end_date else '—'
 
     parts = [f'{emoji} <b>{idx}. {tariff_name}</b>{label}']
     parts.append(texts.t('MY_SUB_TRAFFIC_LINE', '   📊 Трафик: {traffic}').format(traffic=traffic))
@@ -246,13 +243,21 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
 
     if not is_inactive:
         buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'), callback_data='subscription_autopay')]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'), callback_data='subscription_autopay'
+                )
+            ]
         )
         buttons.append(
             [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_TRAFFIC', '📊 Трафик'), callback_data=f'st:{sub_id}')]
         )
         buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'), callback_data=f'sd:{sub_id}')]
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'), callback_data=f'sd:{sub_id}'
+                )
+            ]
         )
 
     if is_inactive:
@@ -306,9 +311,7 @@ async def _build_my_subscriptions_view(
         search_query = (data.get('my_subs_search_query') or '').strip()
 
     subscriptions = (
-        _filter_subscriptions_by_query(all_subscriptions, search_query, texts)
-        if search_query
-        else all_subscriptions
+        _filter_subscriptions_by_query(all_subscriptions, search_query, texts) if search_query else all_subscriptions
     )
 
     total_unfiltered = len(all_subscriptions)
@@ -339,7 +342,8 @@ async def _build_my_subscriptions_view(
     elif search_query and not subscriptions:
         safe_query = html.escape(search_query)
         text = (
-            texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>') + '\n'
+            texts.t('MY_SUB_LIST_TITLE', '📋 <b>Мои подписки</b>')
+            + '\n'
             + texts.t(
                 'MY_SUB_SEARCH_ACTIVE',
                 '🔍 Поиск: <b>{query}</b>\n',

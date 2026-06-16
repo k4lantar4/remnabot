@@ -1153,8 +1153,7 @@ async def update_user_balance(
         old_balance_kopeks=old_balance,
         new_balance_kopeks=user.balance_kopeks,
         message=(
-            f'Balance updated: {settings.format_balance(old_balance)} -> '
-            f'{settings.format_balance(user.balance_kopeks)}'
+            f'Balance updated: {settings.format_balance(old_balance)} -> {settings.format_balance(user.balance_kopeks)}'
         ),
     )
 
@@ -3448,9 +3447,7 @@ async def sync_user_to_panel(
             expire_at = datetime.now(UTC) + timedelta(minutes=1)
 
         username_suffix = (
-            f'_{sub.remnawave_short_id}'
-            if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id)
-            else ''
+            f'_{sub.remnawave_short_id}' if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id) else ''
         )
         username = settings.build_remnawave_subscription_username(
             full_name=user.full_name,

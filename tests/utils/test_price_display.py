@@ -1,5 +1,6 @@
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from app.utils.price_display import (
     catalog_price_in_toman,

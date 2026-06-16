@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.models import User
-from app.utils.formatting import format_traffic
 from app.utils.autopay_utils import effective_autopay_enabled
+from app.utils.formatting import format_traffic
 from app.utils.pricing_utils import (
     format_period_description,
 )

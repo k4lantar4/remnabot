@@ -8,10 +8,10 @@ from app.utils.legacy_display_match import (
     candidates_match,
     format_panel_username,
     is_unknown_panel_username,
+    legacy_candidates_from_cohorts,
     match_legacy_display_assignments,
 )
 from tools.migration.models import MigrationSubscription
-from app.utils.legacy_display_match import legacy_candidates_from_cohorts
 
 
 def _dt(days: int = 0) -> datetime:

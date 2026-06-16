@@ -75,9 +75,7 @@ async def test_multi_tariff_update_does_not_pass_username() -> None:
     with patch('app.services.subscription_service.settings') as mock_settings:
         mock_settings.is_multi_tariff_enabled.return_value = True
         mock_settings.format_remnawave_user_description.return_value = 'Bot user: Test'
-        mock_settings.build_remnawave_subscription_username = MagicMock(
-            return_value='user_1713374557_41103d'
-        )
+        mock_settings.build_remnawave_subscription_username = MagicMock(return_value='user_1713374557_41103d')
 
         await service._create_or_update_remnawave_user_multi(
             api,

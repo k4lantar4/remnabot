@@ -7,6 +7,7 @@ Usage:
 Pure function ``build_tariff_audit_report(rows)`` is tested independently
 and accepts a list of dicts so it can be unit-tested without a DB connection.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,17 +41,9 @@ def build_tariff_audit_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     t1_missing_premium = PREMIUM not in t1_squads
     t1_missing_basic = BASIC not in t1_squads
 
-    placeholder_ids = [
-        r['id'] for r in rows
-        if (r.get('name') or '').strip().lower() in PLACEHOLDER_NAMES
-    ]
+    placeholder_ids = [r['id'] for r in rows if (r.get('name') or '').strip().lower() in PLACEHOLDER_NAMES]
 
-    all_ok = (
-        not missing_ids
-        and not t1_missing_premium
-        and not t1_missing_basic
-        and not placeholder_ids
-    )
+    all_ok = not missing_ids and not t1_missing_premium and not t1_missing_basic and not placeholder_ids
 
     return {
         'tariff_count': len(rows),
@@ -118,10 +111,10 @@ async def _run(as_json: bool) -> dict[str, Any]:
 def _print_report(report: dict[str, Any]) -> None:
     status = '✅ ALL OK' if report['all_ok'] else '❌ ISSUES FOUND'
     print(f'\n=== Tariff Audit Report === {status}')
-    print(f"Tariffs in DB: {report['tariff_count']}  (ids: {report['found_ids']})")
+    print(f'Tariffs in DB: {report["tariff_count"]}  (ids: {report["found_ids"]})')
 
     if report['missing_tariff_ids']:
-        print(f"  ⚠️  Missing tariff ids: {report['missing_tariff_ids']}")
+        print(f'  ⚠️  Missing tariff ids: {report["missing_tariff_ids"]}')
 
     if report['tariff_1_missing_premium_squad']:
         print(f'  ⚠️  Tariff #1 missing PREMIUM squad ({PREMIUM})')
@@ -130,20 +123,19 @@ def _print_report(report: dict[str, Any]) -> None:
         print(f'  ⚠️  Tariff #1 missing BASIC squad ({BASIC})')
 
     if report['placeholder_name_ids']:
-        print(f"  ⚠️  Placeholder names on tariff ids: {report['placeholder_name_ids']}")
+        print(f'  ⚠️  Placeholder names on tariff ids: {report["placeholder_name_ids"]}')
 
     print()
-    header = f"{'ID':>4}  {'Name':<20}  {'Active':<6}  {'SiG':<4}  {'Tier':<4}  Squads"
+    header = f'{"ID":>4}  {"Name":<20}  {"Active":<6}  {"SiG":<4}  {"Tier":<4}  Squads'
     print(header)
     print('-' * 80)
     for t in report['tariffs']:
         squads_short = ', '.join(
-            ('BASIC' if s == BASIC else 'PREMIUM' if s == PREMIUM else s[:8])
-            for s in t['allowed_squads']
+            ('BASIC' if s == BASIC else 'PREMIUM' if s == PREMIUM else s[:8]) for s in t['allowed_squads']
         )
         print(
-            f"{t['id']:>4}  {(t['name'] or ''):<20}  {str(t['is_active']):<6}  "
-            f"{str(t['show_in_gift']):<4}  {str(t['tier_level']):<4}  {squads_short}"
+            f'{t["id"]:>4}  {(t["name"] or ""):<20}  {t["is_active"]!s:<6}  '
+            f'{t["show_in_gift"]!s:<4}  {t["tier_level"]!s:<4}  {squads_short}'
         )
     print()
 

@@ -11,6 +11,7 @@ Target DB state:
     id=2  پریمیوم    premium only  show_in_gift=False tier=2  order=2
     id=3  پایه       basic only    show_in_gift=False tier=1  order=1
 """
+
 from __future__ import annotations
 
 import argparse
@@ -103,16 +104,16 @@ async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
 
     for patch in patches:
         if patch.get('error'):
-            print(f"  ❌ SKIP id={patch['id']}: {patch['error']}")
+            print(f'  ❌ SKIP id={patch["id"]}: {patch["error"]}')
             continue
         if not patch['changed']:
-            print(f"  ✅ id={patch['id']} already correct — skip")
+            print(f'  ✅ id={patch["id"]} already correct — skip')
             continue
 
         result = await db.execute(select(Tariff).where(Tariff.id == patch['id']))
         tariff = result.scalar_one_or_none()
         if tariff is None:
-            print(f"  ❌ SKIP id={patch['id']}: not found during apply")
+            print(f'  ❌ SKIP id={patch["id"]}: not found during apply')
             continue
 
         tariff.name = patch['name']
@@ -120,7 +121,9 @@ async def _apply_patches(db, patches: list[dict[str, Any]]) -> None:
         tariff.show_in_gift = patch['show_in_gift']
         tariff.display_order = patch['display_order']
         tariff.tier_level = patch['tier_level']
-        print(f"  ✏️  id={patch['id']} → name={patch['name']!r}, squads={[_squad_label(s) for s in patch['allowed_squads']]}, show_in_gift={patch['show_in_gift']}, tier={patch['tier_level']}")
+        print(
+            f'  ✏️  id={patch["id"]} → name={patch["name"]!r}, squads={[_squad_label(s) for s in patch["allowed_squads"]]}, show_in_gift={patch["show_in_gift"]}, tier={patch["tier_level"]}'
+        )
 
     await db.commit()
 
@@ -139,17 +142,17 @@ def _print_dry_run(patches: list[dict[str, Any]]) -> None:
         marker = '✏️ ' if p['changed'] else '✅'
         squads_label = [_squad_label(s) for s in p['allowed_squads']]
         print(
-            f"  {marker} id={p['id']}: name={p['name']!r}  squads={squads_label}"
-            f"  show_in_gift={p['show_in_gift']}  tier={p['tier_level']}  order={p['display_order']}"
-            + (f"  [NO CHANGE]" if not p['changed'] else f"  [WILL UPDATE]")
-            + (f"  ⚠️  {p['error']}" if p.get('error') else '')
+            f'  {marker} id={p["id"]}: name={p["name"]!r}  squads={squads_label}'
+            f'  show_in_gift={p["show_in_gift"]}  tier={p["tier_level"]}  order={p["display_order"]}'
+            + ('  [NO CHANGE]' if not p['changed'] else '  [WILL UPDATE]')
+            + (f'  ⚠️  {p["error"]}' if p.get('error') else '')
         )
     changed = [p for p in patches if p['changed']]
-    print(f"\n{len(changed)}/{len(patches)} tariff(s) need updating.")
+    print(f'\n{len(changed)}/{len(patches)} tariff(s) need updating.')
     if changed:
-        print("Re-run with --execute --i-understand to apply.\n")
+        print('Re-run with --execute --i-understand to apply.\n')
     else:
-        print("Nothing to do.\n")
+        print('Nothing to do.\n')
 
 
 async def _run(execute: bool) -> bool:

@@ -27,7 +27,6 @@ from app.database.models import GuestPurchase, GuestPurchaseStatus, PinnedMessag
 from app.handlers.menu import (
     calculate_user_subscription_flags,
     get_main_menu_text,
-    get_main_menu_text_simple,
 )
 from app.keyboards.inline import (
     get_back_keyboard,
@@ -519,8 +518,7 @@ async def _apply_campaign_bonus_if_needed(
             'CAMPAIGN_BONUS_TARIFF',
             "🎁 Вам выдан тариф '{tariff_name}' на {days} дней!\n📊 Трафик: {traffic}\n📱 Устройств: {devices}",
         ).format(
-            tariff_name=result.tariff_name
-            or texts.t('GIFT_DEFAULT_TARIFF_NAME', 'Подарочный'),
+            tariff_name=result.tariff_name or texts.t('GIFT_DEFAULT_TARIFF_NAME', 'Подарочный'),
             days=result.tariff_duration_days,
             traffic=traffic_text,
             devices=result.subscription_device_limit,
@@ -1757,9 +1755,7 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
             )
             if pinned_message and pinned_message.send_before_menu:
                 await _send_pinned_message(callback.bot, db, existing_user, pinned_message)
-            await send_main_menu_to_chat(
-                callback.bot, callback.message.chat.id, menu_text, keyboard
-            )
+            await send_main_menu_to_chat(callback.bot, callback.message.chat.id, menu_text, keyboard)
             if pinned_message and not pinned_message.send_before_menu:
                 await _send_pinned_message(callback.bot, db, existing_user, pinned_message)
         except Exception as e:
@@ -2007,9 +2003,7 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
             )
             if pinned_message and pinned_message.send_before_menu:
                 await _send_pinned_message(callback.bot, db, user, pinned_message)
-            await send_main_menu_to_chat(
-                callback.bot, callback.message.chat.id, menu_text, keyboard
-            )
+            await send_main_menu_to_chat(callback.bot, callback.message.chat.id, menu_text, keyboard)
             if pinned_message and not pinned_message.send_before_menu:
                 await _send_pinned_message(callback.bot, db, user, pinned_message)
             logger.info('✅ Главное меню показано пользователю', telegram_id=user.telegram_id)

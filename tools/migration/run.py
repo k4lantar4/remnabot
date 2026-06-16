@@ -11,7 +11,6 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-
 from tools.migration.audit_manifest import write_manifest
 from tools.migration.backup import create_backup, require_backup_gate
 from tools.migration.config import MIGRATION_OUTPUT_DIR, load_squad_uuids

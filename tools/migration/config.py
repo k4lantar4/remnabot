@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+
 ROOKARI_DB_PATH = Path('/opt/rookari_db.json')
 XUI_BACKUP_DIR_PRIMARY = Path('/opt/old_bot/bcp/2026-02-28_19-00')
 XUI_BACKUP_DIR_FALLBACK = Path('/opt/old_bot/bcp/2026-02-28_08-00')
@@ -88,6 +89,7 @@ def get_migration_backup_dir() -> Path | None:
 
 def backup_anchor_iso() -> str:
     from tools.migration.proration import BACKUP_ANCHOR
+
     return BACKUP_ANCHOR.isoformat().replace('+00:00', 'Z')
 
 

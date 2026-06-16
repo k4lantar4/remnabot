@@ -7,6 +7,7 @@ Usage:
     docker compose run --rm bot python tools/backfill_partner_promo_group.py
     docker compose run --rm bot python tools/backfill_partner_promo_group.py --execute
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,6 +18,7 @@ from sqlalchemy import func, select
 from app.database.crud.user_promo_group import add_user_to_promo_group
 from app.database.database import AsyncSessionLocal
 from app.database.models import PartnerStatus, PromoGroup, User, UserPromoGroup
+
 
 PARTNER_PROMO_GROUP_NAME = 'شرکا'
 

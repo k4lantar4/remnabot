@@ -9,6 +9,7 @@ Usage:
     docker compose run --rm bot python tools/fix_tariff_retail_visibility.py
     docker compose run --rm bot python tools/fix_tariff_retail_visibility.py --execute
 """
+
 from __future__ import annotations
 
 import argparse

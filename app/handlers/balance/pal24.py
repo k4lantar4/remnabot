@@ -262,7 +262,10 @@ async def start_pal24_payment(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:
@@ -278,7 +281,9 @@ async def start_pal24_payment(
         return
 
     if not settings.is_pal24_enabled():
-        await callback.answer(texts.t('CB_PAL24_PAYMENT_UNAVAILABLE', '❌ Оплата через PayPalych временно недоступна'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_PAL24_PAYMENT_UNAVAILABLE', '❌ Оплата через PayPalych временно недоступна'), show_alert=True
+        )
         return
 
     # Формируем текст сообщения в зависимости от доступных способов оплаты
@@ -330,7 +335,10 @@ async def process_pal24_payment_amount(
 
     # Проверка ограничения на пополнение
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard = []
         if support_url:

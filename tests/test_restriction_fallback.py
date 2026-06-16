@@ -3,12 +3,9 @@
 import re
 from pathlib import Path
 
-import pytest
 
 APP = Path(__file__).resolve().parents[1] / 'app'
-BARE = re.compile(
-    r"getattr\(db_user,\s*'restriction_reason',\s*None\)\s*or\s*'Действие ограничено администратором'"
-)
+BARE = re.compile(r"getattr\(db_user,\s*'restriction_reason',\s*None\)\s*or\s*'Действие ограничено администратором'")
 # texts.t(..., 'Действие...') as second arg is OK
 ALLOWED = re.compile(r"texts\.t\(\s*'USER_RESTRICTION_DEFAULT_REASON'")
 

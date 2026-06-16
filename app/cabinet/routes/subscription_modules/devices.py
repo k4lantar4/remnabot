@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cabinet.utils.device_ownership import verify_hwid_belongs_to_user
 from app.config import settings
 from app.database.crud.tariff import get_tariff_by_id
-from app.localization.texts import get_texts
 from app.database.crud.user_device_alias import (
     delete_alias,
     get_aliases_for_user,
@@ -34,9 +33,10 @@ from app.database.crud.user_device_alias import (
     set_alias,
 )
 from app.database.models import Subscription, TransactionType, User
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import DevicePurchaseRequest
@@ -104,7 +104,11 @@ async def purchase_devices_legacy(
     if getattr(user, 'restriction_subscription', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_t(user, 'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED', 'Subscription purchases are restricted for this account'),
+            detail=_t(
+                user,
+                'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED',
+                'Subscription purchases are restricted for this account',
+            ),
         )
 
     # Resolve subscription (ownership validated), then lock the row for concurrent safety
@@ -255,9 +259,7 @@ async def purchase_devices_legacy(
     from app.database.crud.user import subtract_user_balance
     from app.database.models import PaymentMethod
 
-    description = _device_purchase_description(
-        user, request.devices, days_left, devices_discount_percent
-    )
+    description = _device_purchase_description(user, request.devices, days_left, devices_discount_percent)
 
     success = await subtract_user_balance(
         db=db,
@@ -382,7 +384,11 @@ async def purchase_devices(
     if getattr(user, 'restriction_subscription', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_t(user, 'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED', 'Subscription purchases are restricted for this account'),
+            detail=_t(
+                user,
+                'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED',
+                'Subscription purchases are restricted for this account',
+            ),
         )
 
     try:
@@ -545,9 +551,7 @@ async def purchase_devices(
         from app.database.crud.user import subtract_user_balance
         from app.database.models import PaymentMethod
 
-        description = _device_purchase_description(
-            user, request.devices, days_left, devices_discount_percent
-        )
+        description = _device_purchase_description(user, request.devices, days_left, devices_discount_percent)
 
         success = await subtract_user_balance(
             db=db,

@@ -20,7 +20,6 @@ from app.database.models import (
     User,
     UserStatus,
 )
-
 from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_db_session, require_api_token

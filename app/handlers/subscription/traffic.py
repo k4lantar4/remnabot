@@ -28,11 +28,12 @@ from app.services.pricing_engine import PricingEngine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.states import SubscriptionStates
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
+
 
 logger = structlog.get_logger(__name__)
 
@@ -455,9 +456,7 @@ async def confirm_reset_traffic(
         await callback.message.edit_text(
             texts.t(
                 'TRAFFIC_RESET_SUCCESS',
-                '✅ Трафик успешно сброшен!\n\n'
-                '🔄 Использованный трафик обнулен\n'
-                '📊 Лимит: {limit}',
+                '✅ Трафик успешно сброшен!\n\n🔄 Использованный трафик обнулен\n📊 Лимит: {limit}',
             ).format(limit=texts.format_traffic(subscription.traffic_limit_gb)),
             reply_markup=get_back_keyboard(db_user.language),
         )

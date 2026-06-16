@@ -21,19 +21,20 @@ from app.database.crud.subscription import (
 from app.database.crud.tariff import get_tariff_by_id, get_tariffs_for_user
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
 from app.localization.texts import get_texts
+from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
-from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
-from app.utils.subscription_display import subscription_account_label
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
+from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
+from app.utils.subscription_display import subscription_account_label
 
 
 logger = structlog.get_logger(__name__)
@@ -229,7 +230,9 @@ async def format_tariffs_list_text(
                 if daily_discount > 0:
                     daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
-            price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(price=format_price_kopeks(daily_price, compact=True), icon=discount_icon)
+            price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(
+                price=format_price_kopeks(daily_price, compact=True), icon=discount_icon
+            )
         elif not hide_prices:
             # Для периодных тарифов показываем минимальную цену
             prices = tariff.period_prices or {}
@@ -254,7 +257,9 @@ async def format_tariffs_list_text(
                     if discount_percent > 0:
                         min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
                         discount_icon = '🔥'
-                price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(price=format_price_kopeks(min_price, compact=True), icon=discount_icon)
+                price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(
+                    price=format_price_kopeks(min_price, compact=True), icon=discount_icon
+                )
 
         # Компактный формат: Название — 250 ГБ / 10 📱 от 179₽🔥
         purchased_mark = ' ✅' if tariff.id in purchased_tariff_ids else ''
@@ -404,9 +409,7 @@ async def get_tariff_periods_keyboard_for_traffic(
             else:
                 price_text = format_price_kopeks(price)
             button_text = f'{format_period(period, language)} — {price_text}'
-        buttons.append(
-            [InlineKeyboardButton(text=button_text, callback_data=f'tariff_period_ct:{tariff.id}:{period}')]
-        )
+        buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'tariff_period_ct:{tariff.id}:{period}')])
 
     buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_traffic_back:{tariff.id}')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -505,6 +508,21 @@ async def show_traffic_first_step(
     )
 
 
+def _tariff_insufficient_balance_keyboard(
+    language: str,
+    *,
+    missing: int,
+    resume_callback: str | None = None,
+    has_saved_cart: bool = True,
+) -> InlineKeyboardMarkup:
+    return get_insufficient_balance_keyboard(
+        language,
+        amount_kopeks=missing,
+        has_saved_cart=has_saved_cart,
+        resume_callback=resume_callback,
+    )
+
+
 def get_tariff_confirm_keyboard(
     tariff_id: int,
     period: int,
@@ -514,22 +532,12 @@ def get_tariff_confirm_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'), callback_data=f'tariff_confirm:{tariff_id}:{period}')],
-            [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}')],
-        ]
-    )
-
-
-def get_tariff_insufficient_balance_keyboard(
-    tariff_id: int,
-    period: int,
-    language: str,
-) -> InlineKeyboardMarkup:
-    """Создает клавиатуру при недостаточном балансе."""
-    texts = get_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
+                    callback_data=f'tariff_confirm:{tariff_id}:{period}',
+                )
+            ],
             [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}')],
         ]
     )
@@ -545,13 +553,17 @@ def format_tariff_info_for_user(
 
     traffic = format_traffic(tariff.traffic_limit_gb)
 
-    text = texts.t('TARIFF_INFO_HEADER', '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}').format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
+    text = texts.t(
+        'TARIFF_INFO_HEADER', '📦 <b>{name}</b>\n\n<b>Параметры:</b>\n• Трафик: {traffic}\n• Устройств: {devices}'
+    ).format(name=html.escape(tariff.name), traffic=traffic, devices=tariff.device_limit)
 
     if tariff.description and not _is_migration_placeholder_description(tariff.description):
         text += f'\n📝 {html.escape(tariff.description)}\n'
 
     if discount_percent > 0:
-        text += texts.t('TARIFF_INFO_DISCOUNT', '\n🎁 <b>Ваша скидка: {percent}%</b>\n').format(percent=discount_percent)
+        text += texts.t('TARIFF_INFO_DISCOUNT', '\n🎁 <b>Ваша скидка: {percent}%</b>\n').format(
+            percent=discount_percent
+        )
 
     # Для суточных тарифов не показываем выбор периода
     is_daily = getattr(tariff, 'is_daily', False)
@@ -569,21 +581,12 @@ def get_daily_tariff_confirm_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'), callback_data=f'daily_tariff_confirm:{tariff_id}')],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='tariff_list')],
-        ]
-    )
-
-
-def get_daily_tariff_insufficient_balance_keyboard(
-    tariff_id: int,
-    language: str,
-) -> InlineKeyboardMarkup:
-    """Создает клавиатуру при недостаточном балансе для суточного тарифа."""
-    texts = get_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
+                    callback_data=f'daily_tariff_confirm:{tariff_id}',
+                )
+            ],
             [InlineKeyboardButton(text=texts.BACK, callback_data='tariff_list')],
         ]
     )
@@ -622,7 +625,11 @@ def get_custom_tariff_keyboard(
             days_row.append(InlineKeyboardButton(text='-1', callback_data=f'custom_days:{tariff_id}:-1'))
 
         # Текущее значение
-        days_row.append(InlineKeyboardButton(text=texts.t('TARIFF_DAYS_LABEL', '📅 {days} дн.').format(days=days), callback_data='noop'))
+        days_row.append(
+            InlineKeyboardButton(
+                text=texts.t('TARIFF_DAYS_LABEL', '📅 {days} дн.').format(days=days), callback_data='noop'
+            )
+        )
 
         # +1 / +7 / +30
         if days < max_days:
@@ -758,12 +765,20 @@ async def format_custom_tariff_preview(
             total_price = _apply_promo_discount(total_price, group_pct, offer_pct, user=db_user)
 
     texts = get_texts(language)
-    traffic_display = texts.t('TARIFF_GB_LABEL', '📊 {gb} GB').format(gb=traffic_gb) if traffic_gb > 0 else format_traffic(tariff.traffic_limit_gb)
+    traffic_display = (
+        texts.t('TARIFF_GB_LABEL', '📊 {gb} GB').format(gb=traffic_gb)
+        if traffic_gb > 0
+        else format_traffic(tariff.traffic_limit_gb)
+    )
 
-    text = texts.t('TARIFF_CUSTOM_PREVIEW_HEADER', '📦 <b>{name}</b>\n\n<b>Настройте параметры:</b>\n').format(name=html.escape(tariff.name))
+    text = texts.t('TARIFF_CUSTOM_PREVIEW_HEADER', '📦 <b>{name}</b>\n\n<b>Настройте параметры:</b>\n').format(
+        name=html.escape(tariff.name)
+    )
 
     if tariff.can_purchase_custom_days():
-        text += texts.t('TARIFF_CUSTOM_DAYS', '📅 Дней: <b>{days}</b> (от {min_days} до {max_days})\n   💰 {price}\n').format(days=days, min_days=tariff.min_days, max_days=tariff.max_days, price=format_price_kopeks(period_price))
+        text += texts.t(
+            'TARIFF_CUSTOM_DAYS', '📅 Дней: <b>{days}</b> (от {min_days} до {max_days})\n   💰 {price}\n'
+        ).format(days=days, min_days=tariff.min_days, max_days=tariff.max_days, price=format_price_kopeks(period_price))
     else:
         # Фиксированный период - показываем без возможности изменения
         text += texts.t('TARIFF_CUSTOM_PERIOD', '📅 Период: <b>{period}</b>\n   💰 {price}\n').format(
@@ -771,7 +786,14 @@ async def format_custom_tariff_preview(
         )
 
     if tariff.can_purchase_custom_traffic():
-        text += texts.t('TARIFF_CUSTOM_TRAFFIC', '📊 Трафик: <b>{traffic} GB</b> (от {min} до {max})\n   💰 +{price}\n').format(traffic=traffic_gb, min=tariff.min_traffic_gb, max=tariff.max_traffic_gb, price=format_price_kopeks(traffic_price))
+        text += texts.t(
+            'TARIFF_CUSTOM_TRAFFIC', '📊 Трафик: <b>{traffic} GB</b> (от {min} до {max})\n   💰 +{price}\n'
+        ).format(
+            traffic=traffic_gb,
+            min=tariff.min_traffic_gb,
+            max=tariff.max_traffic_gb,
+            price=format_price_kopeks(traffic_price),
+        )
     else:
         text += texts.t('TARIFF_CUSTOM_TRAFFIC_FIXED', '📊 Трафик: {traffic}\n').format(traffic=traffic_display)
 
@@ -781,13 +803,19 @@ async def format_custom_tariff_preview(
         text += texts.t('TARIFF_CUSTOM_DISCOUNT', '\n🎁 <b>Скидка: {percent}%</b>\n').format(percent=discount_percent)
 
     charge_toman = catalog_price_in_toman(total_price)
-    text += texts.t('TARIFF_CUSTOM_TOTAL', '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}').format(total=format_price_kopeks(total_price), balance=settings.format_balance(user_balance))
+    text += texts.t('TARIFF_CUSTOM_TOTAL', '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}').format(
+        total=format_price_kopeks(total_price), balance=settings.format_balance(user_balance)
+    )
 
     if not user_can_afford(user_balance, total_price):
         missing = max(0, charge_toman - user_balance)
-        text += texts.t('TARIFF_CUSTOM_MISSING', '\n⚠️ <b>Не хватает: {missing}</b>').format(missing=settings.format_balance(missing))
+        text += texts.t('TARIFF_CUSTOM_MISSING', '\n⚠️ <b>Не хватает: {missing}</b>').format(
+            missing=settings.format_balance(missing)
+        )
     else:
-        text += texts.t('TARIFF_CUSTOM_AFTER', '\nПосле оплаты: {after}').format(after=settings.format_balance(user_balance - charge_toman))
+        text += texts.t('TARIFF_CUSTOM_AFTER', '\nПосле оплаты: {after}').format(
+            after=settings.format_balance(user_balance - charge_toman)
+        )
 
     return text
 
@@ -808,7 +836,9 @@ async def show_tariffs_list(
 
     if not tariffs:
         await callback.message.edit_text(
-            texts.t('TARIFF_NO_AVAILABLE', '😔 <b>Нет доступных тарифов</b>\n\nК сожалению, сейчас нет тарифов для покупки.'),
+            texts.t(
+                'TARIFF_NO_AVAILABLE', '😔 <b>Нет доступных тарифов</b>\n\nК сожалению, сейчас нет тарифов для покупки.'
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')]]
             ),
@@ -835,7 +865,9 @@ async def show_tariffs_list(
             has_period_discounts = True
 
     # Формируем текст со списком тарифов и их характеристиками
-    tariffs_text = await format_tariffs_list_text(tariffs, db_user.language, db_user, has_period_discounts, purchased_tariff_ids)
+    tariffs_text = await format_tariffs_list_text(
+        tariffs, db_user.language, db_user, has_period_discounts, purchased_tariff_ids
+    )
 
     await callback.message.edit_text(
         tariffs_text,
@@ -869,9 +901,15 @@ async def select_tariff(
         raw_daily_price = getattr(tariff, 'daily_price_kopeks', 0)
         group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
         daily_price = (
-            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user) if daily_discount > 0 else raw_daily_price
+            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user)
+            if daily_discount > 0
+            else raw_daily_price
         )
-        discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
+        discount_text = (
+            texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount)
+            if daily_discount > 0
+            else ''
+        )
         user_balance = db_user.balance_kopeks or 0
         traffic = format_traffic(tariff.traffic_limit_gb)
 
@@ -1402,7 +1440,9 @@ async def handle_custom_confirm(
 
     # Проверяем, что цена за период валидна (original_total — цена до скидок)
     if result.original_total == 0 and not tariff.can_purchase_custom_days():
-        await callback.answer(texts.t('CB_TARIFF_PERIOD_UNAVAILABLE', 'Выбранный период недоступен для этого тарифа'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_TARIFF_PERIOD_UNAVAILABLE', 'Выбранный период недоступен для этого тарифа'), show_alert=True
+        )
         return
 
     # Проверяем баланс (при 100% скидке — пропускаем)
@@ -1575,7 +1615,9 @@ async def handle_custom_confirm(
                 refund_error=refund_error,
             )
         try:
-            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
+            await callback.message.edit_text(
+                texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки')
+            )
         except Exception:
             pass
         return
@@ -1687,7 +1729,9 @@ async def handle_custom_confirm(
     except Exception as e:
         logger.error('Ошибка при покупке тарифа с кастомными параметрами', error=e, exc_info=True)
         try:
-            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
+            await callback.message.edit_text(
+                texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки')
+            )
         except Exception:
             pass
 
@@ -1711,7 +1755,9 @@ async def select_tariff_period_with_traffic(
         return
 
     if not tariff.can_purchase_custom_traffic():
-        await callback.answer(texts.t('CB_CUSTOM_TRAFFIC_UNAVAILABLE', 'Кастомный трафик недоступен для этого тарифа'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_CUSTOM_TRAFFIC_UNAVAILABLE', 'Кастомный трафик недоступен для этого тарифа'), show_alert=True
+        )
         return
 
     user_balance = db_user.balance_kopeks or 0
@@ -2126,7 +2172,9 @@ async def confirm_tariff_purchase(
                 error=refund_error,
             )
         try:
-            await callback.message.edit_text(texts.t('MSG_ALREADY_ACTIVE_TARIFF', '❌ У вас уже есть активная подписка на этот тариф'))
+            await callback.message.edit_text(
+                texts.t('MSG_ALREADY_ACTIVE_TARIFF', '❌ У вас уже есть активная подписка на этот тариф')
+            )
         except Exception:
             pass
         return
@@ -2173,7 +2221,9 @@ async def confirm_tariff_purchase(
                 error=refund_error,
             )
         try:
-            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
+            await callback.message.edit_text(
+                texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки')
+            )
         except Exception:
             pass
         return
@@ -2483,7 +2533,9 @@ async def confirm_daily_tariff_purchase(
                 refund_error=refund_error,
             )
         try:
-            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки'))
+            await callback.message.edit_text(
+                texts.t('MSG_SUBSCRIPTION_CHECKOUT_ERROR', '❌ Произошла ошибка при оформлении подписки')
+            )
         except Exception:
             pass
         return
@@ -2711,14 +2763,19 @@ async def show_tariff_extend(
                         keyboard.append(
                             [
                                 InlineKeyboardButton(
-                                    text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(name=tariff_name, days=days_left),
+                                    text=texts.t('TARIFF_RENEW_SUB_BTN', '🔄 {name} ({days} д.)').format(
+                                        name=tariff_name, days=days_left
+                                    ),
                                     callback_data=f'se:{sub.id}',
                                 )
                             ]
                         )
                     keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
                     await callback.message.edit_text(
-                        texts.t('TARIFF_RENEW_SELECT_SUB', '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:'),
+                        texts.t(
+                            'TARIFF_RENEW_SELECT_SUB',
+                            '🔄 <b>Продление подписки</b>\n\nВыберите подписку для продления:',
+                        ),
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
                         parse_mode='HTML',
                     )
@@ -2747,12 +2804,17 @@ async def show_tariff_extend(
                 continue
             keyboard.append([InlineKeyboardButton(text=f'📦 {t.name}', callback_data=f'tariff_select:{t.id}')])
         if not keyboard:
-            await callback.answer(texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True)
+            await callback.answer(
+                texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True
+            )
             return
         keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
         await callback.message.edit_text(
-            texts.t('TARIFF_RENEW_SELECT_TARIFF', '🔄 <b>Выберите тариф для продления</b>\n\nДля продления подписки необходимо выбрать тариф.\nПодписка будет обновлена с параметрами выбранного тарифа.'),
+            texts.t(
+                'TARIFF_RENEW_SELECT_TARIFF',
+                '🔄 <b>Выберите тариф для продления</b>\n\nДля продления подписки необходимо выбрать тариф.\nПодписка будет обновлена с параметрами выбранного тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
             parse_mode='HTML',
         )
@@ -2770,7 +2832,9 @@ async def show_tariff_extend(
         tariffs = await get_tariffs_for_user(db, user=db_user)
         active_tariffs = [t for t in tariffs if not t.is_daily]
         if not active_tariffs:
-            await callback.answer(texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True)
+            await callback.answer(
+                texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True
+            )
             return
 
         keyboard = []
@@ -2779,7 +2843,10 @@ async def show_tariff_extend(
         keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
         await callback.message.edit_text(
-            texts.t('TARIFF_RENEW_SELECT_TARIFF', '🔄 <b>Выберите тариф для продления</b>\n\nДля продления подписки необходимо выбрать тариф.\nПодписка будет обновлена с параметрами выбранного тарифа.'),
+            texts.t(
+                'TARIFF_RENEW_SELECT_TARIFF',
+                '🔄 <b>Выберите тариф для продления</b>\n\nДля продления подписки необходимо выбрать тариф.\nПодписка будет обновлена с параметрами выбранного тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
             parse_mode='HTML',
         )
@@ -2787,9 +2854,7 @@ async def show_tariff_extend(
         return
 
     if tariff.can_purchase_custom_traffic():
-        await show_traffic_first_step(
-            callback, db_user, db, state, tariff, flow='extend', subscription=subscription
-        )
+        await show_traffic_first_step(callback, db_user, db, state, tariff, flow='extend', subscription=subscription)
         await callback.answer()
         return
 
@@ -2915,9 +2980,7 @@ async def select_tariff_extend_period(
     if state_data.get('traffic_first_mode') and tariff.can_purchase_custom_traffic():
         custom_traffic_gb = state_data.get('custom_traffic_gb', tariff.min_traffic_gb)
     else:
-        custom_traffic_gb = (
-            PricingEngine.renewal_custom_traffic_gb(tariff, subscription) if subscription else None
-        )
+        custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription) if subscription else None
     result = await pricing_engine.calculate_tariff_purchase_price(
         tariff,
         period,
@@ -2935,8 +2998,10 @@ async def select_tariff_extend_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic_gb = custom_traffic_gb if custom_traffic_gb else (
-        subscription.traffic_limit_gb if subscription else tariff.traffic_limit_gb
+    traffic_gb = (
+        custom_traffic_gb
+        if custom_traffic_gb
+        else (subscription.traffic_limit_gb if subscription else tariff.traffic_limit_gb)
     )
     traffic = format_traffic(traffic_gb, db_user.language)
 
@@ -2944,7 +3009,9 @@ async def select_tariff_extend_period(
     if ctx['can_afford']:
         discount_text = ''
         if discount_percent > 0:
-            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(percent=discount_percent, amount=format_price_kopeks(total_discount))
+            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
+                percent=discount_percent, amount=format_price_kopeks(total_discount)
+            )
 
         await callback.message.edit_text(
             texts.t(
@@ -3015,7 +3082,11 @@ async def select_tariff_extend_period(
             ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+                    [
+                        InlineKeyboardButton(
+                            text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup'
+                        )
+                    ],
                     [
                         InlineKeyboardButton(
                             text=texts.BACK,
@@ -3258,7 +3329,9 @@ async def confirm_tariff_extend(
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text(texts.t('MSG_SUBSCRIPTION_RENEWAL_ERROR', '❌ Произошла ошибка при продлении подписки'))
+            await callback.message.edit_text(
+                texts.t('MSG_SUBSCRIPTION_RENEWAL_ERROR', '❌ Произошла ошибка при продлении подписки')
+            )
         except Exception:
             pass
 
@@ -3307,7 +3380,9 @@ def format_tariff_switch_list_text(
                 if daily_discount > 0:
                     daily_price = _apply_promo_discount(daily_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
-            price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(price=format_price_kopeks(daily_price, compact=True), icon=discount_icon)
+            price_text = texts.t('TARIFF_DAILY_PRICE', '🔄 {price}/день{icon}').format(
+                price=format_price_kopeks(daily_price, compact=True), icon=discount_icon
+            )
         else:
             prices = tariff.period_prices or {}
             if prices:
@@ -3319,7 +3394,9 @@ def format_tariff_switch_list_text(
                 if discount_percent > 0:
                     min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
                     discount_icon = '🔥'
-                price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(price=format_price_kopeks(min_price, compact=True), icon=discount_icon)
+                price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(
+                    price=format_price_kopeks(min_price, compact=True), icon=discount_icon
+                )
 
         lines.append(f'<b>{html.escape(tariff.name)}</b> — {traffic} / {tariff.device_limit} 📱 {price_text}')
 
@@ -3440,7 +3517,10 @@ async def show_tariff_switch_list(
     # Проверяем, разрешена ли смена тарифа хотя бы в одном направлении
     if not settings.TARIFF_SWITCH_UPGRADE_ENABLED and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
         await callback.message.edit_text(
-            texts.t('TARIFF_SWITCH_DISABLED', '🚫 <b>Смена тарифа недоступна</b>\n\nАдминистратор отключил возможность смены тарифа.'),
+            texts.t(
+                'TARIFF_SWITCH_DISABLED',
+                '🚫 <b>Смена тарифа недоступна</b>\n\nАдминистратор отключил возможность смены тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -3470,7 +3550,10 @@ async def show_tariff_switch_list(
 
     if not available_tariffs:
         await callback.message.edit_text(
-            texts.t('TARIFF_SWITCH_NO_AVAILABLE', '😔 <b>Нет доступных тарифов для переключения</b>\n\nВы уже используете единственный доступный тариф.'),
+            texts.t(
+                'TARIFF_SWITCH_NO_AVAILABLE',
+                '😔 <b>Нет доступных тарифов для переключения</b>\n\nВы уже используете единственный доступный тариф.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -3542,10 +3625,14 @@ async def select_tariff_switch(
             )
             _, is_up = _calculate_instant_switch_cost(cur_tariff_sw, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True
+                )
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True
+                )
                 return
 
     traffic = format_traffic(tariff.traffic_limit_gb)
@@ -3558,9 +3645,15 @@ async def select_tariff_switch(
         raw_daily_price = getattr(tariff, 'daily_price_kopeks', 0)
         group_pct, offer_pct, daily_discount = _get_user_period_discount(db_user, 1)
         daily_price = (
-            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user) if daily_discount > 0 else raw_daily_price
+            _apply_promo_discount(raw_daily_price, group_pct, offer_pct, user=db_user)
+            if daily_discount > 0
+            else raw_daily_price
         )
-        discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
+        discount_text = (
+            texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount)
+            if daily_discount > 0
+            else ''
+        )
         user_balance = db_user.balance_kopeks or 0
 
         # Проверяем текущую подписку на оставшиеся дни (switched FROM, not TO)
@@ -3570,7 +3663,10 @@ async def select_tariff_switch(
             remaining = current_subscription.end_date - datetime.now(UTC)
             remaining_days = max(0, remaining.days)
             if remaining_days > 1:
-                days_warning = texts.t('TARIFF_DAILY_SWITCH_WARNING', '\n\n⚠️ <b>Внимание!</b> У вас осталось {days} дн. подписки.\nПри смене на суточный тариф они будут утеряны!').format(days=remaining_days)
+                days_warning = texts.t(
+                    'TARIFF_DAILY_SWITCH_WARNING',
+                    '\n\n⚠️ <b>Внимание!</b> У вас осталось {days} дн. подписки.\nПри смене на суточный тариф они будут утеряны!',
+                ).format(days=remaining_days)
 
         ctx = _affordance_context(texts, user_balance, daily_price)
         if ctx['can_afford']:
@@ -3596,7 +3692,8 @@ async def select_tariff_switch(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
-                                text=texts.t('TARIFF_CONFIRM_SWITCH_CHANGE_BTN', '✅ Подтвердить смену'), callback_data=f'daily_tariff_switch_confirm:{tariff_id}'
+                                text=texts.t('TARIFF_CONFIRM_SWITCH_CHANGE_BTN', '✅ Подтвердить смену'),
+                                callback_data=f'daily_tariff_switch_confirm:{tariff_id}',
                             )
                         ],
                         [InlineKeyboardButton(text=get_texts(db_user.language).BACK, callback_data='tariff_switch')],
@@ -3622,7 +3719,11 @@ async def select_tariff_switch(
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
-                        [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
+                        [
+                            InlineKeyboardButton(
+                                text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup'
+                            )
+                        ],
                         [InlineKeyboardButton(text=get_texts(db_user.language).BACK, callback_data='tariff_switch')],
                     ]
                 ),
@@ -3713,7 +3814,9 @@ async def select_tariff_switch_period(
     if ctx['can_afford']:
         discount_text = ''
         if discount_percent > 0:
-            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(percent=discount_percent, amount=format_price_kopeks(total_discount))
+            discount_text = texts.t('TARIFF_PROMO_DISCOUNT_LINE', '\n🎁 Скидка: {percent}% (-{amount})').format(
+                percent=discount_percent, amount=format_price_kopeks(total_discount)
+            )
 
         await callback.message.edit_text(
             texts.t(
@@ -3803,10 +3906,14 @@ async def confirm_tariff_switch(
             rem_days = max(0, (subscription.end_date - datetime.now(UTC)).days) if subscription.end_date else 0
             _, is_up = _calculate_instant_switch_cost(cur_tariff_obj, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True
+                )
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True
+                )
                 return
 
     # Calculate price via PricingEngine (handles per-category discounts + extra devices)
@@ -3987,7 +4094,9 @@ async def confirm_tariff_switch(
         traffic = format_traffic(tariff.traffic_limit_gb)
 
         # При смене тарифа устанавливается оплаченный период
-        time_info = texts.t('TARIFF_SWITCH_SUCCESS_PERIOD', '📅 Период: {period} дней').format(period=days_for_new_tariff)
+        time_info = texts.t('TARIFF_SWITCH_SUCCESS_PERIOD', '📅 Период: {period} дней').format(
+            period=days_for_new_tariff
+        )
 
         await callback.message.edit_text(
             texts.t(
@@ -4025,7 +4134,9 @@ async def confirm_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при переключении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text(texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа'))
+            await callback.message.edit_text(
+                texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
+            )
         except Exception:
             pass
 
@@ -4096,10 +4207,14 @@ async def confirm_daily_tariff_switch(
             rem_days = max(0, (subscription.end_date - datetime.now(UTC)).days) if subscription.end_date else 0
             _, is_up = _calculate_instant_switch_cost(cur_tariff_daily, tariff, rem_days, db_user)
             if is_up and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True
+                )
                 return
             if not is_up and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-                await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
+                await callback.answer(
+                    texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True
+                )
                 return
 
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
@@ -4396,7 +4511,9 @@ def format_instant_switch_list_text(
     texts = get_texts(db_user.language if db_user else 'ru')
     lines = [
         texts.t('TARIFF_INSTANT_LIST_TITLE', '📦 <b>Мгновенная смена тарифа</b>'),
-        texts.t('TARIFF_SWITCH_LIST_CURRENT', '📌 Текущий: <b>{name}</b>').format(name=html.escape(current_tariff.name)),
+        texts.t('TARIFF_SWITCH_LIST_CURRENT', '📌 Текущий: <b>{name}</b>').format(
+            name=html.escape(current_tariff.name)
+        ),
         texts.t('TARIFF_INSTANT_LIST_REMAINING', '⏰ Осталось: <b>{days} дн.</b>').format(days=remaining_days),
         '',
         texts.t('TARIFF_INSTANT_LIST_HINT', '💡 При переключении остаток дней сохраняется.'),
@@ -4478,7 +4595,12 @@ def get_instant_switch_confirm_keyboard(
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_SWITCH_BTN', '✅ Подтвердить переключение'), callback_data=f'instant_sw_confirm:{tariff_id}')],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_CONFIRM_SWITCH_BTN', '✅ Подтвердить переключение'),
+                    callback_data=f'instant_sw_confirm:{tariff_id}',
+                )
+            ],
             [InlineKeyboardButton(text=texts.BACK, callback_data='instant_switch')],
         ]
     )
@@ -4551,7 +4673,10 @@ async def show_instant_switch_list(
     # Проверяем, разрешена ли смена тарифа хотя бы в одном направлении
     if not settings.TARIFF_SWITCH_UPGRADE_ENABLED and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
         await callback.message.edit_text(
-            texts.t('TARIFF_SWITCH_DISABLED', '🚫 <b>Смена тарифа недоступна</b>\n\nАдминистратор отключил возможность смены тарифа.'),
+            texts.t(
+                'TARIFF_SWITCH_DISABLED',
+                '🚫 <b>Смена тарифа недоступна</b>\n\nАдминистратор отключил возможность смены тарифа.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -4576,7 +4701,10 @@ async def show_instant_switch_list(
 
     if not available_tariffs:
         await callback.message.edit_text(
-            texts.t('TARIFF_SWITCH_NO_AVAILABLE', '😔 <b>Нет доступных тарифов для переключения</b>\n\nВы уже используете единственный доступный тариф.'),
+            texts.t(
+                'TARIFF_SWITCH_NO_AVAILABLE',
+                '😔 <b>Нет доступных тарифов для переключения</b>\n\nВы уже используете единственный доступный тариф.',
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=texts.BACK, callback_data='menu_subscription')]]
             ),
@@ -4649,7 +4777,9 @@ async def preview_instant_switch(
         await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
         return
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True
+        )
         return
 
     # Проверяем баланс
@@ -4680,7 +4810,11 @@ async def preview_instant_switch(
             if daily_discount > 0
             else raw_daily_price
         )
-        discount_text = texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount) if daily_discount > 0 else ''
+        discount_text = (
+            texts.t('TARIFF_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(percent=daily_discount)
+            if daily_discount > 0
+            else ''
+        )
         user_balance = db_user.balance_kopeks or 0
 
         ctx = _affordance_context(texts, user_balance, daily_price)
@@ -4864,7 +4998,9 @@ async def confirm_instant_switch(
         await callback.answer(texts.t('CB_TARIFF_UPGRADE_UNAVAILABLE', 'Повышение тарифа недоступно'), show_alert=True)
         return
     if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        await callback.answer(texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True)
+        await callback.answer(
+            texts.t('CB_TARIFF_DOWNGRADE_UNAVAILABLE', 'Понижение тарифа недоступно'), show_alert=True
+        )
         return
 
     # Проверяем баланс если это upgrade (use locked user's fresh balance)
@@ -4899,7 +5035,9 @@ async def confirm_instant_switch(
             )
             if not success:
                 try:
-                    await callback.message.edit_text(texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса'))
+                    await callback.message.edit_text(
+                        texts.t('MSG_BALANCE_DEDUCTION_ERROR', '❌ Ошибка списания баланса')
+                    )
                 except Exception:
                     pass
                 return
@@ -4972,7 +5110,9 @@ async def confirm_instant_switch(
                     )
                     if not success:
                         try:
-                            await callback.message.edit_text(texts.t('MSG_INSUFFICIENT_FUNDS', '❌ Недостаточно средств'))
+                            await callback.message.edit_text(
+                                texts.t('MSG_INSUFFICIENT_FUNDS', '❌ Недостаточно средств')
+                            )
                         except Exception:
                             pass
                         return
@@ -5177,7 +5317,9 @@ async def confirm_instant_switch(
     except Exception as e:
         logger.error('Ошибка при мгновенном переключении тарифа', error=e, exc_info=True)
         try:
-            await callback.message.edit_text(texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа'))
+            await callback.message.edit_text(
+                texts.t('MSG_TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
+            )
         except Exception:
             pass
 

@@ -107,7 +107,7 @@ def balance_from_display_amount(amount: float | Decimal | str) -> int:
     sign = -1 if decimal_amount < 0 else 1
     decimal_amount = abs(decimal_amount)
     try:
-        decimal_amount = decimal_amount.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        decimal_amount = decimal_amount.quantize(Decimal(1), rounding=ROUND_HALF_UP)
     except InvalidOperation as exc:
         raise ValueError('Invalid display amount') from exc
     toman = int(decimal_amount.to_integral_value(rounding=ROUND_HALF_UP))

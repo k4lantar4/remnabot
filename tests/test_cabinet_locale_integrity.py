@@ -6,12 +6,23 @@ from pathlib import Path
 
 import pytest
 
+
 CABINET_LOCALES = Path(__file__).resolve().parents[1] / 'cabinet' / 'src' / 'locales'
 CYRILLIC_RE = re.compile(r'[А-Яа-яЁё]')
 # User-visible namespaces — admin.* excluded from Cyrillic scan
 USER_PREFIXES = (
-    'subscription.', 'gift.', 'dashboard.', 'notifications.', 'resetPassword.',
-    'balance.', 'support.', 'landing.', 'wheel.', 'promo.', 'news.', 'banSystem.',
+    'subscription.',
+    'gift.',
+    'dashboard.',
+    'notifications.',
+    'resetPassword.',
+    'balance.',
+    'support.',
+    'landing.',
+    'wheel.',
+    'promo.',
+    'news.',
+    'banSystem.',
 )
 
 
@@ -38,8 +49,7 @@ def test_cabinet_fa_has_all_ru_keys(cabinet_locales):
     fa_keys = set(cabinet_locales['fa'])
     missing = sorted(ru_keys - fa_keys)
     assert not missing, (
-        f'fa.json missing {len(missing)} keys vs ru (UI falls back to Russian). '
-        f'First 20: {missing[:20]}'
+        f'fa.json missing {len(missing)} keys vs ru (UI falls back to Russian). First 20: {missing[:20]}'
     )
 
 

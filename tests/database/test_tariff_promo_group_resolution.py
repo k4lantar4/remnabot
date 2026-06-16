@@ -1,8 +1,8 @@
 """Unit tests for unified promo group resolution in tariff CRUD."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 from app.database.crud.tariff import resolve_user_promo_group_id
 from app.database.models import PromoGroup, Tariff

@@ -21,7 +21,6 @@ from app.cabinet.schemas.wheel import (
     WheelPrizeDisplay,
 )
 from app.config import settings
-from app.localization.texts import get_texts
 from app.database.crud.wheel import (
     get_or_create_wheel_config,
     get_user_spin_history,
@@ -29,6 +28,7 @@ from app.database.crud.wheel import (
     get_wheel_prizes,
 )
 from app.database.models import User
+from app.localization.texts import get_texts
 from app.services.wheel_service import wheel_service
 
 

@@ -78,7 +78,7 @@ def build_migration_cohorts(
         anchor = BACKUP_ANCHOR
 
     users_by_tg = {u.telegram_id: u for u in bot_users}
-    seller_by_tg = {s.telegram_id: s for s in sellers}
+    {s.telegram_id: s for s in sellers}
 
     stats_by_remark: dict[str, list[dict]] = defaultdict(list)
     for row in config_stats:
@@ -100,9 +100,7 @@ def build_migration_cohorts(
         if not stat_rows:
             continue
         tg_ids = {
-            int(str(r['userid']).strip())
-            for r in stat_rows
-            if r.get('userid') and str(r['userid']).strip().isdigit()
+            int(str(r['userid']).strip()) for r in stat_rows if r.get('userid') and str(r['userid']).strip().isdigit()
         }
         for tg_id in tg_ids:
             user = users_by_tg.get(tg_id)

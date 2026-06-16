@@ -1,5 +1,6 @@
 import html
 from datetime import UTC, datetime
+
 import structlog
 from aiogram import Dispatcher, F, types
 from aiogram.filters import StateFilter
@@ -32,13 +33,13 @@ from app.services.subscription_checkout_service import (
 )
 from app.services.support_settings_service import SupportSettingsService
 from app.services.user_cart_service import user_cart_service
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.photo_message import edit_or_answer_photo
 from app.utils.pricing_utils import format_period_description
 from app.utils.promo_offer import (
     build_promo_offer_hint,
     build_test_access_hint,
 )
-from app.utils.jalali_datetime import format_user_datetime
 
 
 logger = structlog.get_logger(__name__)
@@ -139,9 +140,7 @@ def calculate_user_subscription_flags(user: User) -> tuple[bool, bool]:
     if not _subs:
         return False, False
 
-    has_active_subscription = any(
-        sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs
-    )
+    has_active_subscription = any(sub.is_active or getattr(sub, 'actual_status', None) == 'limited' for sub in _subs)
     subscription_is_active = has_active_subscription
     return has_active_subscription, subscription_is_active
 
@@ -1018,11 +1017,7 @@ def _get_subscription_status(user: User, texts, is_daily_tariff: bool = False) -
     current_time = datetime.now(UTC)
     actual_status = (subscription.actual_status or '').lower()
     end_date = getattr(subscription, 'end_date', None)
-    end_date_text = (
-        format_user_datetime(end_date, language=texts.language, fmt='%d.%m.%Y')
-        if end_date
-        else None
-    )
+    end_date_text = format_user_datetime(end_date, language=texts.language, fmt='%d.%m.%Y') if end_date else None
     days_left = 0
 
     if subscription.end_date > current_time:
@@ -1147,9 +1142,7 @@ async def _get_multi_tariff_status(user, texts, db: AsyncSession) -> tuple[str, 
             status_suffix = texts.t('MY_SUB_STATUS_SUFFIX_LIMITED', ' — лимит трафика')
         elif sub.end_date and sub.end_date > current_time:
             days_left = (sub.end_date - current_time).days
-            end_str = format_user_datetime(
-                sub.end_date, language=texts.language, fmt='%d.%m.%Y'
-            )
+            end_str = format_user_datetime(sub.end_date, language=texts.language, fmt='%d.%m.%Y')
             status_suffix = texts.t(
                 'MY_SUB_STATUS_SUFFIX_UNTIL',
                 ' — до {end_date} ({days} дн.)',

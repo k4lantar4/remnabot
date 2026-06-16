@@ -19,16 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.crud.tariff import get_tariff_by_id
-from app.localization.texts import get_texts
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import TransactionType, User
+from app.localization.texts import get_texts
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.cache import RateLimitCache, cache, cache_key
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -156,7 +156,11 @@ async def purchase_traffic(
     if getattr(user, 'restriction_subscription', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_t(user, 'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED', 'Subscription purchases are restricted for this account'),
+            detail=_t(
+                user,
+                'CABINET_SUBSCRIPTION_PURCHASES_RESTRICTED',
+                'Subscription purchases are restricted for this account',
+            ),
         )
 
     from app.database.crud.subscription import add_subscription_traffic

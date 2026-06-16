@@ -7,6 +7,7 @@ Usage:
   docker compose run --rm bot python tools/report_user_unknown_subscriptions.py --json /tmp/user_unknown.json
   docker compose run --rm bot python tools/report_user_unknown_subscriptions.py --telegram-id 1713374557
 """
+
 from __future__ import annotations
 
 import argparse
@@ -70,9 +71,7 @@ async def collect_user_unknown_rows(
 async def count_user_unknown_rows() -> int:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(func.count())
-            .select_from(Subscription)
-            .where(Subscription.panel_username.like('user_unknown_%'))
+            select(func.count()).select_from(Subscription).where(Subscription.panel_username.like('user_unknown_%'))
         )
         return int(result.scalar_one())
 

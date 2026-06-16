@@ -7,7 +7,12 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tools.migration.config import MIGRATION_BACKUPS_ROOT, ROOKARI_DB_PATH, XUI_BACKUP_DIR_FALLBACK, XUI_BACKUP_DIR_PRIMARY
+from tools.migration.config import (
+    MIGRATION_BACKUPS_ROOT,
+    ROOKARI_DB_PATH,
+    XUI_BACKUP_DIR_FALLBACK,
+    XUI_BACKUP_DIR_PRIMARY,
+)
 
 
 class BackupGateError(RuntimeError):
@@ -61,8 +66,7 @@ def create_backup(
                 result = subprocess.run(
                     ['pg_dump', db_url.replace('+asyncpg', '')],
                     check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                 )
                 (dest / 'pg_remnawave_bot.sql.gz').write_bytes(result.stdout)
             except (FileNotFoundError, subprocess.CalledProcessError):

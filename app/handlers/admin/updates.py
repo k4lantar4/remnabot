@@ -108,7 +108,9 @@ async def show_updates_menu(callback: types.CallbackQuery, db_user: User, db: As
             await callback.answer()
             return
         logger.error('Ошибка показа меню обновлений', error=e)
-        await callback.answer(texts.t('ADMIN_UPDATES_MENU_ERROR', '❌ Ошибка загрузки меню обновлений'), show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_UPDATES_MENU_ERROR', '❌ Ошибка загрузки меню обновлений'), show_alert=True
+        )
 
 
 @admin_required
@@ -221,7 +223,9 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
             current_info += texts.t('ADMIN_UPDATES_INFO_TAG', '🏷️ <b>Версия:</b> <code>{tag}</code>\n').format(
                 tag=current_version
             )
-            current_info += texts.t('ADMIN_UPDATES_INFO_UNAVAILABLE', 'ℹ️ <b>Статус:</b> Информация о релизе недоступна\n')
+            current_info += texts.t(
+                'ADMIN_UPDATES_INFO_UNAVAILABLE', 'ℹ️ <b>Статус:</b> Информация о релизе недоступна\n'
+            )
 
         message_parts = [current_info]
 
@@ -244,7 +248,9 @@ async def show_version_info(callback: types.CallbackQuery, db_user: User, db: As
             message_parts.append(updates_info.rstrip())
 
         system_info = texts.t('ADMIN_UPDATES_INFO_SYSTEM', '\n🔧 <b>СИСТЕМА ОБНОВЛЕНИЙ</b>\n\n')
-        system_info += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}\n').format(repo=version_service.repo)
+        system_info += texts.t('ADMIN_UPDATES_REPO', '🔗 <b>Репозиторий:</b> {repo}\n').format(
+            repo=version_service.repo
+        )
         system_info += texts.t(
             'ADMIN_UPDATES_AUTO',
             '⚡ <b>Автопроверка:</b> {status}\n',

@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.utils.price_display import display_balance_from_storage
 from app.database.models import (
     AdvertisingCampaign,
     ReferralEarning,
@@ -19,6 +18,7 @@ from app.database.models import (
     WithdrawalRequest,
     WithdrawalRequestStatus,
 )
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.referral import (

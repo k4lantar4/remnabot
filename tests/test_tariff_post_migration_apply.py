@@ -1,7 +1,9 @@
 """Tests for tools/tariff_post_migration_apply.py — pure-function unit tests."""
+
 from __future__ import annotations
 
 from tools.tariff_post_migration_apply import build_tariff_updates
+
 
 BASIC = '66edb525-13d4-45f0-b7a6-c62578f4021c'
 PREMIUM = '825696b5-348b-4e84-b71e-d91f21c399a2'
@@ -9,9 +11,30 @@ PREMIUM = '825696b5-348b-4e84-b71e-d91f21c399a2'
 
 def _make_rows():
     return [
-        {'id': 1, 'name': 'Стандартный', 'allowed_squads': [BASIC], 'show_in_gift': False, 'tier_level': 1, 'display_order': 0},
-        {'id': 2, 'name': 'Premium', 'allowed_squads': [PREMIUM], 'show_in_gift': False, 'tier_level': 1, 'display_order': 2},
-        {'id': 3, 'name': 'Basic', 'allowed_squads': [BASIC], 'show_in_gift': False, 'tier_level': 1, 'display_order': 3},
+        {
+            'id': 1,
+            'name': 'Стандартный',
+            'allowed_squads': [BASIC],
+            'show_in_gift': False,
+            'tier_level': 1,
+            'display_order': 0,
+        },
+        {
+            'id': 2,
+            'name': 'Premium',
+            'allowed_squads': [PREMIUM],
+            'show_in_gift': False,
+            'tier_level': 1,
+            'display_order': 2,
+        },
+        {
+            'id': 3,
+            'name': 'Basic',
+            'allowed_squads': [BASIC],
+            'show_in_gift': False,
+            'tier_level': 1,
+            'display_order': 3,
+        },
     ]
 
 
@@ -62,9 +85,30 @@ def test_tariff_1_show_in_gift_true():
 def test_no_patch_if_already_correct():
     """Rows that already match target produce empty diff fields (still included for idempotency)."""
     already_correct = [
-        {'id': 1, 'name': 'استاندارد', 'allowed_squads': [BASIC, PREMIUM], 'show_in_gift': True, 'tier_level': 1, 'display_order': 0},
-        {'id': 2, 'name': 'پریمیوم', 'allowed_squads': [PREMIUM], 'show_in_gift': False, 'tier_level': 2, 'display_order': 2},
-        {'id': 3, 'name': 'پایه', 'allowed_squads': [BASIC], 'show_in_gift': False, 'tier_level': 1, 'display_order': 1},
+        {
+            'id': 1,
+            'name': 'استاندارد',
+            'allowed_squads': [BASIC, PREMIUM],
+            'show_in_gift': True,
+            'tier_level': 1,
+            'display_order': 0,
+        },
+        {
+            'id': 2,
+            'name': 'پریمیوم',
+            'allowed_squads': [PREMIUM],
+            'show_in_gift': False,
+            'tier_level': 2,
+            'display_order': 2,
+        },
+        {
+            'id': 3,
+            'name': 'پایه',
+            'allowed_squads': [BASIC],
+            'show_in_gift': False,
+            'tier_level': 1,
+            'display_order': 1,
+        },
     ]
     patches = build_tariff_updates(already_correct)
     for p in patches:

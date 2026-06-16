@@ -17,7 +17,6 @@ from app.config import settings
 from app.database.crud.subscription import extend_subscription
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
@@ -34,6 +33,7 @@ from app.services.subscription_purchase_service import (
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
@@ -1153,7 +1153,9 @@ async def _auto_purchase_daily_tariff(
     group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
     offer_pct = get_user_active_promo_discount_percent(user)
 
-    final_price, _, _ = PricingEngine.apply_checkout_discount(daily_price, user, group_pct=group_pct, offer_pct=offer_pct)
+    final_price, _, _ = PricingEngine.apply_checkout_discount(
+        daily_price, user, group_pct=group_pct, offer_pct=offer_pct
+    )
     consume_promo = offer_pct > 0 and not PricingEngine.uses_wholesale_pricing(user)
 
     if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+
 BACKUP_ANCHOR = datetime(2026, 2, 28, 19, 0, 0, tzinfo=UTC)
 
 

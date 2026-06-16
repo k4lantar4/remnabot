@@ -1,5 +1,6 @@
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from app.config import settings
 from app.utils.price_display import (
@@ -43,7 +44,7 @@ def test_balance_from_display_amount(amount: float, expected_toman: int) -> None
 
 
 def test_balance_from_display_amount_decimal() -> None:
-    assert balance_from_display_amount(Decimal('100')) == 100
+    assert balance_from_display_amount(Decimal(100)) == 100
 
 
 @pytest.mark.parametrize(
@@ -109,9 +110,7 @@ def test_is_balance_scale_transaction(tx_type: str, expected: bool) -> None:
         (-300_000, 'gift_payment', -3_000.0),
     ],
 )
-def test_display_transaction_amount_from_storage(
-    amount_kopeks: int, tx_type: str, expected: float
-) -> None:
+def test_display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str, expected: float) -> None:
     assert display_transaction_amount_from_storage(amount_kopeks, tx_type) == expected
 
 

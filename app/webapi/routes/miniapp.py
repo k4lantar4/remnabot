@@ -18,7 +18,6 @@ from sqlalchemy.orm import selectinload
 
 from app.bot_factory import create_bot
 from app.config import settings
-from app.localization.texts import get_texts
 from app.database.crud.discount_offer import (
     get_latest_claimed_offer_for_user,
     get_offer_by_id,
@@ -56,6 +55,7 @@ from app.database.models import (
     TransactionType,
     User,
 )
+from app.localization.texts import get_texts
 from app.services.faq_service import FaqService
 from app.services.maintenance_service import maintenance_service
 from app.services.payment_service import PaymentService, get_wata_payment_by_link_id
@@ -83,7 +83,6 @@ from app.services.subscription_renewal_service import (
     with_admin_notification_service,
 )
 from app.services.subscription_service import SubscriptionService
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.trial_activation_service import (
     TrialPaymentChargeFailed,
     TrialPaymentInsufficientFunds,
@@ -93,7 +92,10 @@ from app.services.trial_activation_service import (
     rollback_trial_subscription_activation,
 )
 from app.services.tribute_service import TributeService
+from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.currency_converter import currency_converter
+from app.utils.jalali_datetime import format_user_datetime
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
@@ -105,8 +107,6 @@ from app.utils.telegram_webapp import (
     TelegramWebAppAuthError,
     parse_webapp_init_data,
 )
-from app.utils.jalali_datetime import format_user_datetime
-from app.utils.autopay_utils import effective_autopay_enabled
 from app.utils.trial_utils import is_trial_globally_available
 from app.utils.user_utils import (
     get_detailed_referral_list,
@@ -4027,14 +4027,11 @@ async def activate_subscription_trial_endpoint(
         message = _t(user, 'MINIAPP_TRIAL_ACTIVATED', 'Триал активирован. Приятного пользования!')
 
     if charged_amount_label:
-        message = (
-            f'{message}\n\n'
-            + _t(
-                user,
-                'MINIAPP_TRIAL_CHARGED',
-                '💳 С вашего баланса списано {amount}.',
-                amount=charged_amount_label,
-            )
+        message = f'{message}\n\n' + _t(
+            user,
+            'MINIAPP_TRIAL_CHARGED',
+            '💳 С вашего баланса списано {amount}.',
+            amount=charged_amount_label,
         )
 
     await with_admin_notification_service(
@@ -6003,7 +6000,9 @@ async def update_subscription_traffic_endpoint(
 
     if price_difference_per_month > 0:
         total_price_difference = max(100, int(price_difference_per_month * days_remaining / 30))
-        if total_price_difference > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), total_price_difference):
+        if total_price_difference > 0 and not user_can_afford(
+            getattr(user, 'balance_kopeks', 0), total_price_difference
+        ):
             missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), total_price_difference)
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
@@ -6492,7 +6491,6 @@ async def get_tariffs_endpoint(
         )
 
     # Получаем промогруппу пользователя (с приоритетом)
-    from app.services.pricing_engine import PricingEngine
 
     # Получаем тарифы, доступные пользователю
     tariffs = await get_tariffs_for_user(db, user=user)

@@ -15,11 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.localization.texts import get_texts
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.models import PaymentMethod, Subscription, TransactionType, User
+from app.localization.texts import get_texts
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
@@ -604,7 +604,7 @@ async def switch_tariff(
         'message': _t(
             user,
             'CABINET_TARIFF_SWITCH_SUCCESS',
-            "Переход с «{old}» на «{new}»{devices_reset}",
+            'Переход с «{old}» на «{new}»{devices_reset}',
             old=old_tariff_name,
             new=new_tariff.name,
             devices_reset=_t(user, 'CABINET_TARIFF_SWITCH_DEVICES_RESET', ' (устройства сброшены)')

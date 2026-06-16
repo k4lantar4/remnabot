@@ -6,14 +6,13 @@ from sqlalchemy import func, select
 from app.database.crud.subscription import create_subscription_no_commit
 from app.database.crud.user import create_user_no_commit, get_user_by_telegram_id
 from app.database.models import PartnerStatus, SubscriptionStatus, Tariff, User
-
 from tools.migration.config import BATCH_SIZE
 from tools.migration.models import CampaignUser, MigrationSubscription, Seller
 
 
 def _resolve_connected_squads(sub: MigrationSubscription, squad_uuids: dict[str, str]) -> list[str]:
     by_tariff = {2: squad_uuids.get('premium'), 3: squad_uuids.get('basic')}
-    if sub.tariff_id in by_tariff and by_tariff[sub.tariff_id]:
+    if by_tariff.get(sub.tariff_id):
         return [by_tariff[sub.tariff_id]]
     connected = list(dict.fromkeys(squad_uuids[k] for k in sub.squad_keys if k in squad_uuids))
     return connected
@@ -28,9 +27,7 @@ def _count_partners(telegram_ids: set[int], seller_by_tg: dict[int, Seller]) -> 
 
 async def ensure_migration_tariffs(db, squad_uuids: dict[str, str]) -> None:
     """Ensure tariff rows 2 (premium) and 3 (basic) exist for FK + squad routing."""
-    existing = set(
-        (await db.execute(select(Tariff.id).where(Tariff.id.in_([2, 3])))).scalars().all()
-    )
+    existing = set((await db.execute(select(Tariff.id).where(Tariff.id.in_([2, 3])))).scalars().all())
     if existing >= {2, 3}:
         return
 
@@ -199,7 +196,9 @@ async def load_migration_data(
             logger.info('migration campaign batch committed', count=j + 1)
 
     stats['partners'] = (
-        await db.execute(select(func.count()).select_from(User).where(User.partner_status == PartnerStatus.APPROVED.value))
+        await db.execute(
+            select(func.count()).select_from(User).where(User.partner_status == PartnerStatus.APPROVED.value)
+        )
     ).scalar_one()
     await db.commit()
     return stats

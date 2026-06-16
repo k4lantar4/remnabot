@@ -27,10 +27,18 @@ logger = structlog.get_logger(__name__)
 
 TRAFFIC_PRICES = get_traffic_prices()
 
-_SUB_ID_CALLBACK_PREFIXES = frozenset({
-    'st', 'sl', 'sd', 'sm', 'se', 'sr', 'sub_del',
-    'subscription_connect',
-})
+_SUB_ID_CALLBACK_PREFIXES = frozenset(
+    {
+        'st',
+        'sl',
+        'sd',
+        'sm',
+        'se',
+        'sr',
+        'sub_del',
+        'subscription_connect',
+    }
+)
 
 
 async def resolve_subscription_from_context(
@@ -617,7 +625,7 @@ def get_traffic_switch_keyboard(
         # Сравниваем с базовым трафиком (без докупленного)
         if gb == base_traffic_gb:
             emoji = '✅'
-            action_text = f" ({texts.t('TRAFFIC_SWITCH_CURRENT', 'текущий')})"
+            action_text = f' ({texts.t("TRAFFIC_SWITCH_CURRENT", "текущий")})'
             price_text = ''
         elif total_price_diff > 0:
             emoji = '⬆️'
@@ -633,11 +641,11 @@ def get_traffic_switch_keyboard(
         elif total_price_diff < 0:
             emoji = '⬇️'
             action_text = ''
-            price_text = f" ({texts.t('TRAFFIC_SWITCH_NO_REFUND', 'без возврата')})"
+            price_text = f' ({texts.t("TRAFFIC_SWITCH_NO_REFUND", "без возврата")})'
         else:
             emoji = '🔄'
             action_text = ''
-            price_text = f" ({texts.t('DEVICE_CHANGE_FREE', 'бесплатно')})"
+            price_text = f' ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
 
         traffic_text = format_traffic(gb, language)
 

@@ -20,8 +20,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.localization.texts import get_texts
-from app.utils.trial_utils import is_trial_globally_available
 from app.database.crud.server_squad import get_server_squad_by_uuid
 from app.database.crud.subscription import (
     create_paid_subscription,
@@ -34,9 +32,8 @@ from app.database.crud.subscription import (
 from app.database.crud.tariff import get_tariff_by_id, get_tariffs_for_user
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
-from app.utils.jalali_datetime import format_user_datetime
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.models import PaymentMethod, Subscription, Tariff, TransactionType, User
+from app.localization.texts import get_texts
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -49,7 +46,10 @@ from app.services.subscription_purchase_service import (
 )
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
+from app.utils.jalali_datetime import format_user_datetime
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
+from app.utils.trial_utils import is_trial_globally_available
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -162,9 +162,7 @@ async def _build_tariff_response(
             if uses_wholesale:
                 final_price, _, _ = PricingEngine.apply_checkout_discount(original_price, user)
                 discount_amount = original_price - final_price
-                discount_percent = PricingEngine.checkout_display_discount_percent(
-                    original_price, final_price
-                )
+                discount_percent = PricingEngine.checkout_display_discount_percent(original_price, final_price)
             elif promo_group:
                 period_pct = promo_group.get_discount_percent('period', period_days)
                 devices_pct = promo_group.get_discount_percent('devices', period_days)
@@ -693,16 +691,12 @@ async def tariff_purchase_quote(
 
     custom_traffic_gb = None
     if tariff.can_purchase_custom_traffic():
-        custom_traffic_gb = (
-            request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
-        )
+        custom_traffic_gb = request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
 
     existing_subscription = None
     if settings.is_multi_tariff_enabled():
         if request.subscription_id is not None:
-            existing_subscription = await get_subscription_by_id_for_user(
-                db, request.subscription_id, user.id
-            )
+            existing_subscription = await get_subscription_by_id_for_user(db, request.subscription_id, user.id)
             if existing_subscription and existing_subscription.tariff_id != tariff.id:
                 existing_subscription = None
     else:
@@ -849,9 +843,7 @@ async def purchase_tariff(
         traffic_limit_gb = tariff.traffic_limit_gb
         custom_traffic_gb = None
         if tariff.can_purchase_custom_traffic():
-            custom_traffic_gb = (
-                request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
-            )
+            custom_traffic_gb = request.traffic_gb if request.traffic_gb is not None else tariff.min_traffic_gb
             traffic_limit_gb = custom_traffic_gb
 
         # Determine device_limit for renewal pricing.

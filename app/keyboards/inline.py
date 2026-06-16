@@ -10,8 +10,8 @@ from app.config import PERIOD_PRICES, settings
 from app.database.models import User
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_texts
-from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.autopay_utils import effective_autopay_enabled
+from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.price_display import PriceInfo, format_price_button
 from app.utils.pricing_utils import (
     apply_percentage_discount,
@@ -568,7 +568,13 @@ def _build_cabinet_main_menu_keyboard(
 
     # -- Moderator panel (only when not admin — admin row handled above) --
     if is_moderator and not is_admin:
-        keyboard_rows.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel'
+                )
+            ]
+        )
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
@@ -690,9 +696,9 @@ def get_main_menu_keyboard(
         if not settings.is_multi_tariff_enabled():
             show_traffic_topup = False
             if subscription and not subscription.is_trial and (subscription.traffic_limit_gb or 0) > 0:
-                if settings.is_tariffs_mode() and getattr(subscription, 'tariff_id', None):
-                    show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
-                elif settings.is_traffic_topup_enabled() and not settings.is_traffic_topup_blocked():
+                if (settings.is_tariffs_mode() and getattr(subscription, 'tariff_id', None)) or (
+                    settings.is_traffic_topup_enabled() and not settings.is_traffic_topup_blocked()
+                ):
                     show_traffic_topup = settings.BUY_TRAFFIC_BUTTON_VISIBLE
 
             if show_traffic_topup:
@@ -807,7 +813,13 @@ def get_main_menu_keyboard(
         logger.debug('DEBUG KEYBOARD: Админ кнопка НЕ добавлена')
     # Moderator access (limited support panel)
     if (not is_admin) and is_moderator:
-        keyboard.append([InlineKeyboardButton(text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel')])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MODERATOR_PANEL_BUTTON', '🧑‍⚖️ Модерация'), callback_data='moderator_panel'
+                )
+            ]
+        )
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -1275,7 +1287,12 @@ def get_payment_methods_keyboard_with_cart(
 
     # Добавляем кнопку "Очистить корзину"
     keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text=texts.t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'), callback_data='clear_saved_cart')]
+        [
+            InlineKeyboardButton(
+                text=texts.t('CLEAR_CART_AND_RETURN', '🗑️ Очистить корзину и вернуться'),
+                callback_data='clear_saved_cart',
+            )
+        ]
     )
 
     # Добавляем кнопку возврата к оформлению подписки
@@ -1293,8 +1310,17 @@ def get_subscription_confirm_keyboard_with_cart(language: str = 'ru') -> InlineK
     texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'), callback_data='subscription_confirm')],
-            [InlineKeyboardButton(text=texts.t('CLEAR_CART_BUTTON', '🗑️ Очистить корзину'), callback_data='clear_saved_cart')],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
+                    callback_data='subscription_confirm',
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CLEAR_CART_BUTTON', '🗑️ Очистить корзину'), callback_data='clear_saved_cart'
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=texts.BACK,
@@ -1513,9 +1539,7 @@ def get_devices_keyboard(current: int, language: str = DEFAULT_LANGUAGE) -> Inli
 
     for devices in range(start_devices, end_devices):
         price = max(0, devices - settings.DEFAULT_DEVICE_LIMIT) * settings.PRICE_PER_DEVICE
-        price_text = (
-            f' (+{texts.format_price(price)})' if price > 0 else texts.t('DEVICES_PRICE_INCLUDED', ' (вкл.)')
-        )
+        price_text = f' (+{texts.format_price(price)})' if price > 0 else texts.t('DEVICES_PRICE_INCLUDED', ' (вкл.)')
         emoji = '✅' if devices == current else '⚪'
 
         button_text = f'{emoji} {devices}{price_text}'
@@ -2690,12 +2714,12 @@ def get_change_devices_keyboard(
                     ).format(percent=discount_percent, amount=texts.format_price(total_discount))
                 suffix = ''
             else:
-                price_text = f" ({texts.t('DEVICE_CHANGE_FREE', 'бесплатно')})"
+                price_text = f' ({texts.t("DEVICE_CHANGE_FREE", "бесплатно")})'
                 suffix = ''
         else:
             emoji = '➖'
             suffix = ''
-            price_text = f" ({texts.t('DEVICE_CHANGE_NO_REFUND', 'без возврата')})"
+            price_text = f' ({texts.t("DEVICE_CHANGE_NO_REFUND", "без возврата")})'
 
         button_text = texts.t(
             'DEVICE_CHANGE_COUNT_BTN',

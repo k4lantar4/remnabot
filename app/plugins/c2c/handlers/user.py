@@ -85,10 +85,7 @@ async def _send_c2c_card_instructions(
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
         ).format(card_info=card_text)
     else:
-        card_info = (
-            f'💳 Pending transfer #{receipt.id}\n'
-            f'💰 {settings.format_balance(receipt.amount_kopeks)}'
-        )
+        card_info = f'💳 Pending transfer #{receipt.id}\n💰 {settings.format_balance(receipt.amount_kopeks)}'
         body = texts.t(
             'C2C_SEND_RECEIPT',
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
@@ -112,7 +109,10 @@ async def _check_restriction_topup(callback: types.CallbackQuery, db_user: User)
         return False
 
     texts = get_texts(db_user.language)
-    reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+    reason = html.escape(
+        getattr(db_user, 'restriction_reason', None)
+        or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+    )
     support_url = settings.get_support_contact_url()
     keyboard: list[list[types.InlineKeyboardButton]] = []
     if support_url:
@@ -181,7 +181,10 @@ async def process_c2c_payment_amount(
     texts = get_texts(db_user.language)
 
     if getattr(db_user, 'restriction_topup', False):
-        reason = html.escape(getattr(db_user, 'restriction_reason', None) or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором'))
+        reason = html.escape(
+            getattr(db_user, 'restriction_reason', None)
+            or texts.t('USER_RESTRICTION_DEFAULT_REASON', 'Действие ограничено администратором')
+        )
         support_url = settings.get_support_contact_url()
         keyboard: list[list[types.InlineKeyboardButton]] = []
         if support_url:
@@ -330,9 +333,7 @@ async def process_c2c_receipt(
 
     if not success:
         await message.answer(
-            texts.t('C2C_RECEIPT_SUBMIT_FAILED', '❌ Failed to submit receipt: {reason}').format(
-                reason=error_message
-            ),
+            texts.t('C2C_RECEIPT_SUBMIT_FAILED', '❌ Failed to submit receipt: {reason}').format(reason=error_message),
         )
         return
 

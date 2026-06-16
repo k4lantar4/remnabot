@@ -23,12 +23,12 @@ from app.keyboards.inline import (
     get_traffic_packages_keyboard,
 )
 from app.localization.texts import get_texts
-from app.utils.autopay_utils import effective_autopay_enabled
 from app.services.subscription_checkout_service import (
     clear_subscription_checkout_draft,
 )
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
+from app.utils.autopay_utils import effective_autopay_enabled
 
 from .countries import (
     _build_countries_selection_text,

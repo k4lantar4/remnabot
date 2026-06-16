@@ -2,6 +2,7 @@
 
 from app.database.models import C2cReceiptStatus
 
+
 C2C_CALLBACK_APPROVE_PREFIX = 'c2c:a:'
 C2C_CALLBACK_REJECT_PREFIX = 'c2c:r:'
 C2C_CARD_ROTATION_REDIS_KEY = 'c2c:card_rotation_index'

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
 from app.utils.price_display import catalog_price_in_toman
 
+
 if TYPE_CHECKING:
     from app.database.models import Tariff
     from app.localization.texts import Texts
