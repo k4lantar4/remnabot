@@ -43,6 +43,7 @@ from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
 )
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 from app.utils.subscription_utils import (
     get_display_subscription_link,
 )
@@ -412,11 +413,13 @@ async def confirm_change_devices(
             # Сохраняем корзину для автопокупки после пополнения баланса
             await user_cart_service.save_user_cart(
                 user_id=db_user.id,
-                cart_data={
-                    'cart_mode': 'add_devices',
-                    'devices_to_add': devices_difference,
-                    'price_kopeks': price,
-                },
+                cart_data=build_cart_topup_metadata(
+                    missing_toman=missing_toman,
+                    cart_mode='add_devices',
+                    subscription_id=subscription.id,
+                    devices_to_add=devices_difference,
+                    price_kopeks=price,
+                ),
             )
             logger.info(
                 'Сохранена корзина add_devices для пользователя : + устройств, цена коп.',
@@ -426,10 +429,10 @@ async def confirm_change_devices(
             )
 
             await callback.message.answer(
-                message_text,
+                message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_toman,
+                    amount_kopeks=suggest_topup_amount_toman(missing_toman),
                     has_saved_cart=True,
                 ),
                 parse_mode='HTML',
@@ -1634,11 +1637,13 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Сохраняем корзину для автопокупки после пополнения баланса
         await user_cart_service.save_user_cart(
             user_id=db_user.id,
-            cart_data={
-                'cart_mode': 'add_devices',
-                'devices_to_add': devices_count,
-                'price_kopeks': price,
-            },
+            cart_data=build_cart_topup_metadata(
+                missing_toman=missing_toman,
+                cart_mode='add_devices',
+                subscription_id=subscription.id,
+                devices_to_add=devices_count,
+                price_kopeks=price,
+            ),
         )
         logger.info(
             'Сохранена корзина add_devices для пользователя : + устройств, цена коп.',
@@ -1648,11 +1653,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         )
 
         await callback.message.edit_text(
-            message_text,
+            message_text + '\n\n' + format_topup_suggestion_line(texts, missing_toman),
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_toman,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman),
                 has_saved_cart=True,
             ),
             parse_mode='HTML',

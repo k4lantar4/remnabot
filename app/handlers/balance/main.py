@@ -381,12 +381,11 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
     amount_kopeks = 0
     try:
         from app.services.user_cart_service import user_cart_service
+        from app.utils.topup_suggestion import resolve_suggested_topup_from_cart
 
         cart_data = await user_cart_service.get_user_cart(db_user.id)
         if cart_data and cart_data.get('saved_cart'):
-            missing = cart_data.get('missing_amount', 0)
-            if missing > 0:
-                amount_kopeks = missing
+            amount_kopeks = resolve_suggested_topup_from_cart(cart_data)
     except Exception:
         pass
 

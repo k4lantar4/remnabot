@@ -27,7 +27,9 @@ from app.localization.texts import get_texts
 from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.subscription_service import SubscriptionService
+from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.user_cart_service import user_cart_service
+from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
@@ -517,7 +519,7 @@ def _tariff_insufficient_balance_keyboard(
 ) -> InlineKeyboardMarkup:
     return get_insufficient_balance_keyboard(
         language,
-        amount_kopeks=missing,
+        amount_kopeks=suggest_topup_amount_toman(missing),
         has_saved_cart=has_saved_cart,
         resume_callback=resume_callback,
     )
@@ -947,25 +949,23 @@ async def select_tariff(
                 _daily_existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
             # Сохраняем данные корзины для автопокупки суточного тарифа
-            cart_data = {
-                'cart_mode': 'daily_tariff_purchase',
-                'tariff_id': tariff_id,
-                'is_daily': True,
-                'daily_price_kopeks': daily_price,
-                'total_price': daily_price,
-                'user_id': db_user.id,
-                'saved_cart': True,
-                'missing_amount': missing,
-                'return_to_cart': True,
-                'description': texts.t(
+            cart_data = build_cart_topup_metadata(
+                missing_toman=missing,
+                cart_mode='daily_tariff_purchase',
+                tariff_id=tariff_id,
+                is_daily=True,
+                daily_price_kopeks=daily_price,
+                total_price=daily_price,
+                user_id=db_user.id,
+                description=texts.t(
                     'TARIFF_DAILY_PURCHASE_CART_DESC',
                     'Покупка суточного тарифа {name}',
                 ).format(name=tariff.name),
-                'traffic_limit_gb': tariff.traffic_limit_gb,
-                'device_limit': tariff.device_limit,
-                'allowed_squads': tariff.allowed_squads or [],
-                'subscription_id': _daily_existing_sub.id if _daily_existing_sub else None,
-            }
+                traffic_limit_gb=tariff.traffic_limit_gb,
+                device_limit=tariff.device_limit,
+                allowed_squads=tariff.allowed_squads or [],
+                subscription_id=_daily_existing_sub.id if _daily_existing_sub else None,
+            )
             await user_cart_service.save_user_cart(db_user.id, cart_data)
 
             await callback.message.edit_text(
@@ -1361,24 +1361,22 @@ async def select_tariff_period_custom_traffic(
         )
     else:
         missing = ctx['missing_toman']
-        cart_data = {
-            'cart_mode': 'tariff_purchase',
-            'tariff_id': tariff_id,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='tariff_purchase',
+            tariff_id=tariff_id,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_PURCHASE_CART_DESC',
                 "Покупка тарифа '{name}' на {days} дней",
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': traffic_gb,
-            'device_limit': tariff.device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'custom_traffic_gb': traffic_gb,
-        }
+            traffic_limit_gb=traffic_gb,
+            device_limit=tariff.device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            custom_traffic_gb=traffic_gb,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
         await callback.message.edit_text(
             texts.t(
@@ -1872,25 +1870,23 @@ async def select_tariff_period(
             _cart_sub_id = _legacy_sub.id if _legacy_sub else None
 
         # Сохраняем данные корзины для автопокупки после пополнения
-        cart_data = {
-            'cart_mode': 'tariff_purchase',
-            'tariff_id': tariff_id,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='tariff_purchase',
+            tariff_id=tariff_id,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_PURCHASE_CART_DESC',
                 'Покупка тарифа {name} на {days} дней',
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': tariff.traffic_limit_gb,
-            'device_limit': tariff.device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'discount_percent': discount_percent,
-            'subscription_id': _cart_sub_id,
-        }
+            traffic_limit_gb=tariff.traffic_limit_gb,
+            device_limit=tariff.device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            discount_percent=discount_percent,
+            subscription_id=_cart_sub_id,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
@@ -3054,25 +3050,23 @@ async def select_tariff_extend_period(
         missing = ctx['missing_toman']
 
         # Сохраняем данные корзины для автопокупки после пополнения
-        cart_data = {
-            'cart_mode': 'extend',
-            'tariff_id': tariff_id,
-            'subscription_id': subscription.id if subscription else None,
-            'period_days': period,
-            'total_price': final_price,
-            'user_id': db_user.id,
-            'saved_cart': True,
-            'missing_amount': missing,
-            'return_to_cart': True,
-            'description': texts.t(
+        cart_data = build_cart_topup_metadata(
+            missing_toman=missing,
+            cart_mode='extend',
+            tariff_id=tariff_id,
+            subscription_id=subscription.id if subscription else None,
+            period_days=period,
+            total_price=final_price,
+            user_id=db_user.id,
+            description=texts.t(
                 'TARIFF_RENEW_CART_DESC',
                 'Продление тарифа {name} на {days} дней',
             ).format(name=tariff.name, days=period),
-            'traffic_limit_gb': traffic_gb,
-            'device_limit': actual_device_limit,
-            'allowed_squads': tariff.allowed_squads or [],
-            'discount_percent': discount_percent,
-        }
+            traffic_limit_gb=traffic_gb,
+            device_limit=actual_device_limit,
+            allowed_squads=tariff.allowed_squads or [],
+            discount_percent=discount_percent,
+        )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
         await callback.message.edit_text(
