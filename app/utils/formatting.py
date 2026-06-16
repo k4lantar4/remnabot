@@ -25,9 +25,9 @@ def format_traffic(gb: int, language: str | None = None) -> str:
     return get_texts(language).format_traffic(gb)
 
 
-def format_price_kopeks(kopeks: int, compact: bool = False) -> str:
+def format_price_kopeks(kopeks: int, compact: bool = False, language: str | None = None) -> str:
     """Форматирует цену для отображения (делегирует settings.format_price)."""
-    text = settings.format_price(kopeks, round_kopeks=compact)
+    text = settings.format_price(kopeks, round_kopeks=compact, language=language)
     return text.replace(' ', '', 1) if compact else text
 
 

@@ -98,6 +98,7 @@ from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
+    calculate_months_from_days,
     calculate_prorated_price,
     format_period_description,
 )
@@ -4654,7 +4655,7 @@ async def _prepare_subscription_renewal_options(
             int((original_price - pricing_result.final_total) * 100 / original_price) if has_discount else 0
         )
 
-        months = max(1, period_days // 30)
+        months = calculate_months_from_days(period_days)
         per_month = pricing_result.final_total // months if months > 0 else pricing_result.final_total
 
         label = format_period_description(
@@ -6350,7 +6351,7 @@ async def _build_tariff_model(
                 price_kopeks = original_price_kopeks
                 discount_percent = 0
 
-            months = max(1, period_days // 30)
+            months = calculate_months_from_days(period_days)
             per_month = price_kopeks // months if months > 0 else price_kopeks
 
             periods.append(

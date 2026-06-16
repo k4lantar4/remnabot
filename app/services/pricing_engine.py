@@ -9,7 +9,7 @@ import structlog
 from app.config import CLASSIC_PERIOD_PRICES, PERIOD_PRICES, settings
 from app.database.crud.server_squad import get_server_squads_by_uuids
 from app.database.models import PartnerStatus
-from app.utils.pricing_utils import calculate_months_from_days
+from app.utils.pricing_utils import calculate_months_from_days, resolve_period_price
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 
 
@@ -676,20 +676,13 @@ class PricingEngine:
             and tariff.can_purchase_custom_traffic()
         )
 
-        # --- Base price ---
+        # --- Base period price ---
         is_daily = getattr(tariff, 'is_daily', False)
-        if use_custom_traffic:
-            base_price = 0
-        elif is_daily and period_days <= 1:
+        if is_daily and period_days <= 1:
             base_price = int(getattr(tariff, 'daily_price_kopeks', 0) or 0)
+            period_price_source = 'tariff.daily_price'
         else:
-            period_prices: dict = tariff.period_prices or {}
-            base_price = int(period_prices.get(str(period_days), 0) or 0)
-            if base_price == 0 and hasattr(tariff, 'get_price_for_custom_days'):
-                if hasattr(tariff, 'can_purchase_custom_days') and tariff.can_purchase_custom_days():
-                    custom_price = tariff.get_price_for_custom_days(period_days)
-                    if custom_price is not None:
-                        base_price = int(custom_price)
+            base_price, period_price_source = resolve_period_price(tariff, period_days)
 
         # --- Extra devices (monthly × months) ---
         device_price_per_unit = (
@@ -702,12 +695,17 @@ class PricingEngine:
         else:
             devices_price = extra_devices * device_price_per_unit * months
 
-        # --- Custom traffic (per GB × months; uses addon discount path) ---
+        # --- Custom traffic (package first, then linear per-GB; no ×months) ---
         traffic_price = 0
+        traffic_source = 'none'
         if use_custom_traffic and custom_traffic_gb is not None:
-            per_gb = int(tariff.traffic_price_per_gb_kopeks or 0)
-            if per_gb > 0:
-                traffic_price = per_gb * custom_traffic_gb * months
+            resolved_traffic = tariff.resolve_purchase_traffic_price(custom_traffic_gb)
+            if (
+                isinstance(resolved_traffic, tuple)
+                and len(resolved_traffic) == 2
+                and isinstance(resolved_traffic[0], int)
+            ):
+                traffic_price, traffic_source = resolved_traffic
 
         undiscounted_subtotal = base_price + devices_price + traffic_price
 
@@ -718,11 +716,15 @@ class PricingEngine:
                 TariffBreakdown(
                     tariff_id=tariff.id,
                     extra_devices=extra_devices,
-                    group_discount_pct={'period': 0, 'devices': 0},
+                    group_discount_pct={'period': 0, 'traffic': 0, 'devices': 0},
                     offer_discount_pct=0,
                     months_in_period=months,
                 )
             )
+            breakdown['period_kopeks'] = base_price
+            breakdown['traffic_kopeks'] = traffic_price
+            breakdown['period_price_source'] = period_price_source
+            breakdown['traffic_source'] = traffic_source
             breakdown['wholesale_applied'] = True
             breakdown['wholesale_discount_bps'] = bps
             return RenewalPricing(
@@ -740,6 +742,7 @@ class PricingEngine:
 
         # --- Per-category group discounts ---
         period_pct = 0
+        traffic_pct = 0
         devices_pct = 0
         promo_group = self.resolve_promo_group(user)
         # Only apply promo group discount if the tariff is available for this group
@@ -756,8 +759,15 @@ class PricingEngine:
 
         # Traffic uses addon discount — but only if promo_group passed the tariff availability check
         discounted_traffic = traffic_price
-        if traffic_price > 0 and user and promo_group is not None:
-            discounted_traffic, _, _ = self.calculate_traffic_discount(traffic_price, user)
+        if traffic_price > 0 and promo_group is not None:
+            traffic_pct = self.get_addon_discount_percent(
+                user,
+                'traffic',
+                period_days,
+                promo_group=promo_group,
+            )
+            if traffic_pct > 0:
+                discounted_traffic = self.apply_discount(traffic_price, traffic_pct)
 
         base_group_disc = base_price - discounted_base
         devices_group_disc = devices_price - discounted_devices
@@ -773,11 +783,15 @@ class PricingEngine:
             TariffBreakdown(
                 tariff_id=tariff.id,
                 extra_devices=extra_devices,
-                group_discount_pct={'period': period_pct, 'devices': devices_pct},
+                group_discount_pct={'period': period_pct, 'traffic': traffic_pct, 'devices': devices_pct},
                 offer_discount_pct=offer_pct,
                 months_in_period=months,
             )
         )
+        breakdown['period_kopeks'] = base_price
+        breakdown['traffic_kopeks'] = traffic_price
+        breakdown['period_price_source'] = period_price_source
+        breakdown['traffic_source'] = traffic_source
 
         if final_total < 0:
             logger.warning(

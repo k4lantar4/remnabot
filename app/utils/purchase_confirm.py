@@ -24,6 +24,7 @@ def format_tariff_purchase_confirm_text(
     result: RenewalPricing,
     balance_kopeks: int,
     language: str,
+    user=None,
 ) -> str:
     """Build pre-invoice purchase confirmation with separate pricing lines."""
     parts = [
@@ -38,9 +39,29 @@ def format_tariff_purchase_confirm_text(
             period=format_period(period_days, language),
         ),
         texts.t('TARIFF_PURCHASE_CONFIRM_SUBTOTAL', '💵 Сумма: {amount}').format(
-            amount=format_price_kopeks(result.original_total),
+            amount=format_price_kopeks(result.original_total, language=language),
         ),
     ]
+    period_kopeks = int(result.breakdown.get('period_kopeks', result.base_price) or 0)
+    raw_traffic_kopeks = int(result.breakdown.get('traffic_kopeks', result.traffic_price) or 0)
+    if user is not None and raw_traffic_kopeks > 0:
+        from app.services.pricing_engine import PricingEngine
+
+        traffic_kopeks, _, _ = PricingEngine.calculate_traffic_discount(
+            raw_traffic_kopeks, user, period_days
+        )
+    else:
+        traffic_kopeks = int(result.traffic_price or raw_traffic_kopeks)
+    parts.append(
+        texts.t('TARIFF_PURCHASE_CONFIRM_PERIOD_LINE', '📅 Период: {amount}').format(
+            amount=format_price_kopeks(period_kopeks, language=language),
+        )
+    )
+    parts.append(
+        texts.t('TARIFF_PURCHASE_CONFIRM_TRAFFIC_LINE', '📊 Трафик: {amount}').format(
+            amount=format_price_kopeks(traffic_kopeks, language=language),
+        )
+    )
 
     total_discount = result.promo_group_discount + result.promo_offer_discount
     if total_discount > 0 and result.original_total > 0:
@@ -48,13 +69,13 @@ def format_tariff_purchase_confirm_text(
         parts.append(
             texts.t('TARIFF_PURCHASE_CONFIRM_DISCOUNT', '🎁 Скидка: {percent}% (−{amount})').format(
                 percent=discount_percent,
-                amount=format_price_kopeks(total_discount),
+                amount=format_price_kopeks(total_discount, language=language),
             )
         )
 
     parts.append(
         texts.t('TARIFF_PURCHASE_CONFIRM_TOTAL', '💰 <b>Итого: {amount}</b>').format(
-            amount=format_price_kopeks(result.final_total),
+            amount=format_price_kopeks(result.final_total, language=language),
         )
     )
 

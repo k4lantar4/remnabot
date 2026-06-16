@@ -42,7 +42,7 @@ def test_target_monthly_10gb():
 
 def test_zero_period_prices():
     old = {'14': 700000, '30': 1000000, '60': 2590000}
-    assert zero_period_prices(old) == {'14': 0, '30': 0, '60': 0}
+    assert zero_period_prices(old) == old
 
 
 def test_recalc_traffic_topup_linear_per_gb():
@@ -54,7 +54,7 @@ def test_build_patches_enables_custom_traffic():
     assert len(patches) == 1
     assert patches[0]['changed'] is True
     assert patches[0]['new_custom_traffic_enabled'] is True
-    assert patches[0]['new_period_prices']['30'] == 0
+    assert patches[0]['new_period_prices']['30'] == 1000000
     assert patches[0]['new_traffic_price_per_gb_kopeks'] == PRICE_PER_GB_KOPEKS
     assert patches[0]['new_min_traffic_gb'] == 1
 

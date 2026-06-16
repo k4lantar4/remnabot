@@ -4,31 +4,17 @@ import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
 import { getErrorMessage, getInsufficientBalanceError } from '../../../utils/subscriptionHelpers';
-import {
-  canAffordCatalog,
-  missingCatalogToman,
-} from '../../../utils/priceUnits';
+import { canAffordCatalog, missingCatalogToman } from '../../../utils/priceUnits';
 import { useCurrency } from '../../../hooks/useCurrency';
-import { usePromoDiscount } from '../../../hooks/usePromoDiscount';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import type { Tariff, TariffPeriod } from '../../../types';
+import { PackageButton } from './steps/TrafficPlanStep';
 
 // ──────────────────────────────────────────────────────────────────
 // TariffPurchaseForm
 //
-// The full per-tariff purchase form: period picker (or daily-tariff
-// activate), custom-days toggle + slider, custom-traffic toggle +
-// slider, summary, and the confirm CTA. Self-owns:
-//   - the purchaseTariff mutation
-//   - the auto-scroll-into-view ref + effect on mount
-//   - selectedTariffPeriod / customDays / customTrafficGb /
-//     useCustomDays / useCustomTraffic (form-internal state, reset
-//     by re-mount when the parent passes a new `tariff` via key=)
-//
-// The parent (SubscriptionPurchase) supplies the chosen tariff,
-// the current balance (for inline insufficient-balance prompts),
-// the subscription id (for the renew-this-subscription flow), and
-// onBack to clear its own selection state.
+// Single-page purchase form: period picker, custom-days toggle,
+// custom-traffic toggle + packages/slider, summary, and confirm CTA.
 // ──────────────────────────────────────────────────────────────────
 
 export interface TariffPurchaseFormProps {
@@ -48,7 +34,6 @@ export function TariffPurchaseForm({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { formatAmount, currencySymbol } = useCurrency();
-  const { applyPromoDiscount } = usePromoDiscount();
   const ref = useRef<HTMLDivElement>(null);
 
   const formatPrice = (kopeks: number) =>
@@ -56,17 +41,13 @@ export function TariffPurchaseForm({
       ? t('subscription.free', 'Бесплатно')
       : `${formatAmount(kopeks / 100)} ${currencySymbol}`;
 
-  // Form-internal state — seeded from the tariff prop. Resets via
-  // `key={tariff.id}` on the parent's render.
-  const isTrafficFirst =
-    tariff.custom_traffic_enabled && (tariff.traffic_price_per_gb_kopeks ?? 0) > 0;
   const [selectedTariffPeriod, setSelectedTariffPeriod] = useState<TariffPeriod | null>(
     tariff.periods[0] || null,
   );
   const [customDays, setCustomDays] = useState<number>(30);
-  const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 50);
+  const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 1);
   const [useCustomDays, setUseCustomDays] = useState(false);
-  const [useCustomTraffic, setUseCustomTraffic] = useState(tariff.custom_traffic_enabled ?? false);
+  const [useCustomTraffic, setUseCustomTraffic] = useState(false);
 
   const isDailyTariff =
     tariff.is_daily || (tariff.daily_price_kopeks && tariff.daily_price_kopeks > 0);
@@ -75,12 +56,7 @@ export function TariffPurchaseForm({
     : useCustomDays
       ? customDays
       : selectedTariffPeriod?.days;
-  const quoteTrafficGb =
-    tariff.custom_traffic_enabled && (isTrafficFirst || useCustomTraffic)
-      ? useCustomTraffic
-        ? customTrafficGb
-        : tariff.min_traffic_gb
-      : undefined;
+  const quoteTrafficGb = useCustomTraffic ? customTrafficGb : undefined;
   const quoteEnabled =
     !isDailyTariff && periodDays != null && (selectedTariffPeriod != null || useCustomDays);
 
@@ -96,15 +72,12 @@ export function TariffPurchaseForm({
     enabled: quoteEnabled,
   });
 
+  const trafficPackages = quote?.traffic_packages ?? [];
+
   const purchaseMutation = useMutation({
     mutationFn: () => {
       const days = periodDays ?? 30;
       const trafficGb = quoteTrafficGb ?? undefined;
-      // Forward the subscription_id when the user landed here via the
-      // "Renew this subscription" flow (?subscriptionId=N). The backend
-      // uses it to resolve the exact target row by ID, avoiding the
-      // race with concurrent panel webhooks that would otherwise hit
-      // the partial UNIQUE on uq_subscriptions_user_tariff_active.
       return subscriptionApi.purchaseTariff(
         tariff.id,
         days,
@@ -120,7 +93,6 @@ export function TariffPurchaseForm({
     },
   });
 
-  // Smooth scroll the form into view when first mounted.
   useEffect(() => {
     if (ref.current) {
       const timer = setTimeout(() => {
@@ -139,7 +111,6 @@ export function TariffPurchaseForm({
         </button>
       </div>
 
-      {/* Tariff Info */}
       <div className="rounded-xl bg-dark-800/50 p-4">
         <div className="flex flex-wrap gap-4 text-sm">
           <div>
@@ -160,8 +131,7 @@ export function TariffPurchaseForm({
         </div>
       </div>
 
-      {/* Daily Tariff Purchase */}
-      {tariff.is_daily || (tariff.daily_price_kopeks && tariff.daily_price_kopeks > 0) ? (
+      {isDailyTariff ? (
         <div className="rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
           <div className="mb-4 text-center">
             <div className="mb-2 text-sm text-dark-400">
@@ -246,24 +216,16 @@ export function TariffPurchaseForm({
         </div>
       ) : (
         <>
-          {/* Period Selection for non-daily tariffs */}
           <div>
             <div className="mb-3 text-sm text-dark-400">{t('subscription.selectPeriod')}</div>
 
             {tariff.periods.length > 0 && !useCustomDays && (
               <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {tariff.periods.map((period) => {
-                  const promoPeriod = applyPromoDiscount(
-                    period.price_kopeks,
-                    period.original_price_kopeks,
-                  );
-                  const displayDiscount = promoPeriod.percent;
-                  const displayOriginal = promoPeriod.original;
-                  const displayPrice = promoPeriod.price;
-                  const displayPerMonth =
-                    displayPrice !== period.price_kopeks
-                      ? Math.round(displayPrice / Math.max(1, period.days / 30))
-                      : period.price_per_month_kopeks;
+                  const displayPrice = period.price_kopeks;
+                  const displayOriginal = period.original_price_kopeks;
+                  const displayDiscount = period.discount_percent ?? 0;
+                  const displayPerMonth = period.price_per_month_kopeks;
 
                   return (
                     <button
@@ -278,12 +240,8 @@ export function TariffPurchaseForm({
                           : 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600'
                       }`}
                     >
-                      {displayDiscount && displayDiscount > 0 && (
-                        <div
-                          className={`absolute -right-2 -top-2 rounded-full px-2 py-0.5 text-xs font-medium text-white ${
-                            promoPeriod.isPromoGroup ? 'bg-success-500' : 'bg-warning-500'
-                          }`}
-                        >
+                      {displayDiscount > 0 && (
+                        <div className="absolute -right-2 -top-2 rounded-full bg-warning-500 px-2 py-0.5 text-xs font-medium text-white">
                           -{displayDiscount}%
                         </div>
                       )}
@@ -292,7 +250,7 @@ export function TariffPurchaseForm({
                         <span className="font-medium text-accent-400">
                           {formatPrice(displayPrice)}
                         </span>
-                        {displayOriginal && displayOriginal > displayPrice && (
+                        {displayOriginal != null && displayOriginal > displayPrice && (
                           <span className="text-sm text-dark-500 line-through">
                             {formatPrice(displayOriginal)}
                           </span>
@@ -307,7 +265,6 @@ export function TariffPurchaseForm({
               </div>
             )}
 
-            {/* No periods available fallback */}
             {tariff.periods.length === 0 &&
               !useCustomDays &&
               !(tariff.custom_days_enabled && (tariff.price_per_day_kopeks ?? 0) > 0) && (
@@ -324,7 +281,6 @@ export function TariffPurchaseForm({
                 </div>
               )}
 
-            {/* Custom days option */}
             {tariff.custom_days_enabled && (tariff.price_per_day_kopeks ?? 0) > 0 && (
               <div className="rounded-xl border border-dark-700/50 bg-dark-800/50 p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -378,52 +334,24 @@ export function TariffPurchaseForm({
                         className="w-20 rounded-lg border border-dark-600 bg-dark-700 px-3 py-2 text-center text-dark-100"
                       />
                     </div>
-                    {(() => {
-                      const basePrice = customDays * (tariff.price_per_day_kopeks ?? 0);
-                      const existingOriginal =
-                        tariff.original_price_per_day_kopeks &&
-                        tariff.original_price_per_day_kopeks > (tariff.price_per_day_kopeks ?? 0)
-                          ? customDays * tariff.original_price_per_day_kopeks
-                          : undefined;
-                      const promoCustom = applyPromoDiscount(basePrice, existingOriginal);
-                      return (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-dark-400">
-                            {t('subscription.days', { count: customDays })} ×{' '}
-                            {formatPrice(tariff.price_per_day_kopeks ?? 0)}/
-                            {t('subscription.customDays.perDay')}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-accent-400">
-                              {formatPrice(promoCustom.price)}
-                            </span>
-                            {promoCustom.original && promoCustom.original > promoCustom.price && (
-                              <>
-                                <span className="text-xs text-dark-500 line-through">
-                                  {formatPrice(promoCustom.original)}
-                                </span>
-                                <span
-                                  className={`rounded px-1.5 py-0.5 text-xs ${
-                                    promoCustom.isPromoGroup
-                                      ? 'bg-success-500/20 text-success-400'
-                                      : 'bg-warning-500/20 text-warning-400'
-                                  }`}
-                                >
-                                  -{promoCustom.percent}%
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-dark-400">
+                        {t('subscription.days', { count: customDays })} ×{' '}
+                        {formatPrice(tariff.price_per_day_kopeks ?? 0)}/
+                        {t('subscription.customDays.perDay')}
+                      </span>
+                      {quote && (
+                        <span className="font-medium text-accent-400">
+                          {formatPrice(quote.period_kopeks + quote.devices_kopeks)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Custom traffic option */}
           {tariff.custom_traffic_enabled && (tariff.traffic_price_per_gb_kopeks ?? 0) > 0 && (
             <div>
               <div className="mb-3 text-sm text-dark-400">
@@ -459,47 +387,62 @@ export function TariffPurchaseForm({
                   </div>
                 )}
                 {useCustomTraffic && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="range"
-                        min={tariff.min_traffic_gb ?? 1}
-                        max={tariff.max_traffic_gb ?? 1000}
-                        value={customTrafficGb}
-                        onChange={(e) => setCustomTrafficGb(parseInt(e.target.value))}
-                        className="purchase-range w-full flex-1 accent-accent-500"
-                      />
-                      <div className="flex items-center gap-2">
+                  <div className="space-y-4">
+                    {trafficPackages.length > 0 && (
+                      <div className="grid grid-cols-1 gap-3">
+                        {trafficPackages.map((pkg) => (
+                          <PackageButton
+                            key={pkg.gb}
+                            pkg={pkg}
+                            selectedTrafficGb={customTrafficGb}
+                            onSelectTrafficGb={setCustomTrafficGb}
+                            formatPrice={formatPrice}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-4">
                         <input
-                          type="number"
-                          value={customTrafficGb}
+                          type="range"
                           min={tariff.min_traffic_gb ?? 1}
                           max={tariff.max_traffic_gb ?? 1000}
-                          onChange={(e) =>
-                            setCustomTrafficGb(
-                              Math.max(
-                                tariff.min_traffic_gb ?? 1,
-                                Math.min(
-                                  tariff.max_traffic_gb ?? 1000,
-                                  parseInt(e.target.value) || (tariff.min_traffic_gb ?? 1),
-                                ),
-                              ),
-                            )
-                          }
-                          className="w-20 rounded-lg border border-dark-600 bg-dark-700 px-3 py-2 text-center text-dark-100"
+                          value={customTrafficGb}
+                          onChange={(e) => setCustomTrafficGb(parseInt(e.target.value))}
+                          className="purchase-range w-full flex-1 accent-accent-500"
                         />
-                        <span className="text-dark-400">{t('common.units.gb')}</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={customTrafficGb}
+                            min={tariff.min_traffic_gb ?? 1}
+                            max={tariff.max_traffic_gb ?? 1000}
+                            onChange={(e) =>
+                              setCustomTrafficGb(
+                                Math.max(
+                                  tariff.min_traffic_gb ?? 1,
+                                  Math.min(
+                                    tariff.max_traffic_gb ?? 1000,
+                                    parseInt(e.target.value) || (tariff.min_traffic_gb ?? 1),
+                                  ),
+                                ),
+                              )
+                            }
+                            className="w-20 rounded-lg border border-dark-600 bg-dark-700 px-3 py-2 text-center text-dark-100"
+                          />
+                          <span className="text-dark-400">{t('common.units.gb')}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-dark-400">
-                        {customTrafficGb} {t('common.units.gb')} ×{' '}
-                        {formatPrice(tariff.traffic_price_per_gb_kopeks ?? 0)}/
-                        {t('common.units.gb')}
-                      </span>
-                      <span className="font-medium text-accent-400">
-                        +{formatPrice(quote?.traffic_kopeks ?? 0)}
-                      </span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-dark-400">
+                          {customTrafficGb} {t('common.units.gb')} ×{' '}
+                          {formatPrice(tariff.traffic_price_per_gb_kopeks ?? 0)}/
+                          {t('common.units.gb')}
+                        </span>
+                        <span className="font-medium text-accent-400">
+                          +{formatPrice(quote?.traffic_kopeks ?? 0)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -507,7 +450,6 @@ export function TariffPurchaseForm({
             </div>
           )}
 
-          {/* Summary & Purchase */}
           {(selectedTariffPeriod || useCustomDays) && (
             <div className="rounded-xl bg-dark-800/50 p-5">
               {quote && (
@@ -519,7 +461,7 @@ export function TariffPurchaseForm({
                           {t('subscription.stepPeriod')}:{' '}
                           {t('subscription.days', { count: customDays })}
                         </span>
-                        <span>{formatPrice(quote.base_kopeks + quote.devices_kopeks)}</span>
+                        <span>{formatPrice(quote.period_kopeks + quote.devices_kopeks)}</span>
                       </div>
                     ) : (
                       selectedTariffPeriod && (
@@ -530,7 +472,7 @@ export function TariffPurchaseForm({
                                 <span>
                                   {t('subscription.baseTariff')}: {selectedTariffPeriod.label}
                                 </span>
-                                <span>{formatPrice(quote.base_kopeks)}</span>
+                                <span>{formatPrice(quote.period_kopeks)}</span>
                               </div>
                               <div className="flex justify-between text-sm text-dark-300">
                                 <span>
@@ -548,7 +490,9 @@ export function TariffPurchaseForm({
                                   label: selectedTariffPeriod.label,
                                 })}
                               </span>
-                              <span>{formatPrice(quote.base_kopeks + quote.devices_kopeks)}</span>
+                              <span>
+                                {formatPrice(quote.period_kopeks + quote.devices_kopeks)}
+                              </span>
                             </div>
                           )}
                         </>

@@ -215,7 +215,7 @@ class TariffPurchaseQuoteRequest(BaseModel):
     """Request to quote tariff purchase pricing."""
 
     tariff_id: int = Field(..., description='Tariff ID to quote')
-    period_days: int = Field(..., ge=1, le=3650, description='Period in days')
+    period_days: int | None = Field(None, ge=1, le=3650, description='Period in days')
     traffic_gb: int | None = Field(
         None, ge=0, le=100_000, description='Custom traffic in GB (for custom_traffic_enabled tariffs)'
     )

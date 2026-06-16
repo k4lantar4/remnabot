@@ -202,32 +202,40 @@ export function TariffPickerGrid({
                         </span>
                       );
                     }
-                    if (tariff.periods.length > 0) {
-                      const firstPeriod = tariff.periods[0];
-                      const promoPeriod = applyPromoDiscount(
-                        firstPeriod?.price_kopeks || 0,
-                        firstPeriod?.original_price_kopeks,
-                      );
+                    if (tariff.from_price_kopeks != null && tariff.from_price_kopeks > 0) {
+                      const fromOriginal = tariff.from_original_price_kopeks;
+                      const fromPrice = tariff.from_price_kopeks;
                       return (
                         <span className="flex flex-wrap items-center gap-2">
                           <span>{t('subscription.from')}</span>
                           <span className="font-medium text-accent-400">
-                            {formatPrice(promoPeriod.price)}
+                            {formatPrice(fromPrice)}
                           </span>
-                          {promoPeriod.original && promoPeriod.original > promoPeriod.price && (
+                          {fromOriginal != null && fromOriginal > fromPrice && (
                             <span className="text-xs text-dark-500 line-through">
-                              {formatPrice(promoPeriod.original)}
+                              {formatPrice(fromOriginal)}
                             </span>
                           )}
-                          {promoPeriod.percent && promoPeriod.percent > 0 && (
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-xs ${
-                                promoPeriod.isPromoGroup
-                                  ? 'bg-success-500/20 text-success-400'
-                                  : 'bg-warning-500/20 text-warning-400'
-                              }`}
-                            >
-                              -{promoPeriod.percent}%
+                        </span>
+                      );
+                    }
+                    if (tariff.periods.length > 0) {
+                      const firstPeriod = tariff.periods[0];
+                      return (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{t('subscription.from')}</span>
+                          <span className="font-medium text-accent-400">
+                            {formatPrice(firstPeriod?.price_kopeks || 0)}
+                          </span>
+                          {firstPeriod?.original_price_kopeks != null &&
+                            firstPeriod.original_price_kopeks > (firstPeriod?.price_kopeks || 0) && (
+                              <span className="text-xs text-dark-500 line-through">
+                                {formatPrice(firstPeriod.original_price_kopeks)}
+                              </span>
+                            )}
+                          {firstPeriod?.discount_percent != null && firstPeriod.discount_percent > 0 && (
+                            <span className="rounded bg-warning-500/20 px-1.5 py-0.5 text-xs text-warning-400">
+                              -{firstPeriod.discount_percent}%
                             </span>
                           )}
                         </span>

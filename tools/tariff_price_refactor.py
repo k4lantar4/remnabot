@@ -40,8 +40,8 @@ def target_monthly_kopeks(traffic_gb: int) -> int:
 
 
 def zero_period_prices(period_prices: dict[str, int]) -> dict[str, int]:
-    """Set all period prices to 0 for custom-traffic-only pricing."""
-    return {str(days): 0 for days in period_prices}
+    """Legacy helper kept for compatibility: preserves existing period prices."""
+    return {str(days): int(price) for days, price in period_prices.items()}
 
 
 def recalc_traffic_topup_packages(packages: dict[str, int] | None) -> dict[str, int]:
