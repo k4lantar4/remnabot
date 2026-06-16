@@ -23,7 +23,7 @@ def build_packages() -> dict[str, int]:
     return {str(gb): gb * KOPEKS_PER_GB for gb in PACKAGE_GBS}
 
 
-async def _run(execute: bool, tariff_id: int | None) -> None:
+async def _run(execute: bool, tariff_id: int | None, sync_min_max: bool) -> None:
     from sqlalchemy import select
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -61,13 +61,18 @@ async def _run(execute: bool, tariff_id: int | None) -> None:
                 print(f'\n[tariff {tariff.id}] {tariff.name}')
                 print(f'  old packages: {old}')
                 print(f'  new packages: {packages}')
-                print(f'  min_traffic_gb: {tariff.min_traffic_gb} -> {min_gb}')
-                print(f'  max_traffic_gb: {tariff.max_traffic_gb} -> {max_gb}')
+                if sync_min_max:
+                    print(f'  min_traffic_gb: {tariff.min_traffic_gb} -> {min_gb}')
+                    print(f'  max_traffic_gb: {tariff.max_traffic_gb} -> {max_gb}')
+                else:
+                    print(f'  min_traffic_gb: {tariff.min_traffic_gb} (unchanged)')
+                    print(f'  max_traffic_gb: {tariff.max_traffic_gb} (unchanged)')
 
                 if execute:
                     tariff.traffic_topup_packages = packages
-                    tariff.min_traffic_gb = min_gb
-                    tariff.max_traffic_gb = max_gb
+                    if sync_min_max:
+                        tariff.min_traffic_gb = min_gb
+                        tariff.max_traffic_gb = max_gb
                     if not tariff.traffic_price_per_gb_kopeks:
                         tariff.traffic_price_per_gb_kopeks = KOPEKS_PER_GB
 
@@ -85,12 +90,17 @@ def main() -> None:
     parser.add_argument('--execute', action='store_true', help='Write changes to DB')
     parser.add_argument('--i-understand', action='store_true', help='Required with --execute')
     parser.add_argument('--tariff-id', type=int, default=None, help='Limit to one tariff id')
+    parser.add_argument(
+        '--sync-min-max',
+        action='store_true',
+        help='Also set min_traffic_gb/max_traffic_gb to package ladder bounds',
+    )
     args = parser.parse_args()
 
     if args.execute and not args.i_understand:
         parser.error('--execute requires --i-understand')
 
-    asyncio.run(_run(execute=args.execute, tariff_id=args.tariff_id))
+    asyncio.run(_run(execute=args.execute, tariff_id=args.tariff_id, sync_min_max=args.sync_min_max))
 
 
 if __name__ == '__main__':
