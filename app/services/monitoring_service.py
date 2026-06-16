@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.database.crud.discount_offer import (
     deactivate_expired_offers,
     upsert_discount_offer,
@@ -60,13 +59,14 @@ from app.services.notification_settings_service import NotificationSettingsServi
 from app.services.promo_offer_service import promo_offer_service
 from app.services.subscription_service import SubscriptionService, get_traffic_reset_strategy
 from app.utils.cache import cache
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.message_patch import caption_exceeds_telegram_limit
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
-from app.utils.jalali_datetime import format_user_datetime
 
 
 def resolve_autopay_period_candidate(candidate, tariff) -> int | None:
@@ -1822,9 +1822,7 @@ class MonitoringService:
                 '⚡️ Успейте оформить до окончания тестового периода!\n',
             ).format(price=price)
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
-                    name=subscription.tariff.name
-                )
+                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
 
             from aiogram.types import InlineKeyboardMarkup
 
@@ -2194,9 +2192,7 @@ class MonitoringService:
                 and hasattr(subscription, 'tariff')
                 and subscription.tariff
             ):
-                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
-                    name=subscription.tariff.name
-                )
+                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
 
             from aiogram.types import InlineKeyboardMarkup
 

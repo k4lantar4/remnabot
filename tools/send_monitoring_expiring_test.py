@@ -8,11 +8,11 @@ Usage:
   docker compose run --rm bot python tools/send_monitoring_expiring_test.py --telegram-id 1713374557
   docker compose run --rm bot python tools/send_monitoring_expiring_test.py --days 3
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties

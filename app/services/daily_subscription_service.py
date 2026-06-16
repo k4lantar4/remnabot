@@ -26,11 +26,11 @@ from app.database.crud.user import get_user_by_id, subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
 )
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -325,9 +325,7 @@ class DailySubscriptionService:
         texts = get_texts(getattr(user, 'language', 'ru'))
         tariff_line = ''
         if settings.is_multi_tariff_enabled() and subscription.tariff:
-            tariff_line = texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
-                name=subscription.tariff.name
-            )
+            tariff_line = texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
         message = texts.t(
             'NOTIFY_DAILY_DEBIT',
             '💳 <b>Суточное списание</b>\n\n'

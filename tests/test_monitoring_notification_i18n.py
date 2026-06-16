@@ -8,6 +8,7 @@ import pytest
 
 from app.config import settings
 
+
 APP = Path(__file__).resolve().parents[1] / 'app'
 TARGETS = [
     APP / 'services' / 'monitoring_service.py',
@@ -38,9 +39,7 @@ def test_no_bare_cyrillic_notification_bodies():
         for i, line in enumerate(text.splitlines(), 1):
             if 'texts.t(' in line:
                 continue
-            if BARE_F.search(line) or (
-                'message = f"""' in line or "message = f'''" in line
-            ):
+            if BARE_F.search(line) or ('message = f"""' in line or "message = f'''" in line):
                 # flag only if block contains Cyrillic — scan next 15 lines
                 block = '\n'.join(text.splitlines()[i - 1 : i + 14])
                 if '[А-Яа-яЁё]' and __import__('re').search(r'[А-Яа-яЁё]', block):
