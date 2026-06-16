@@ -986,7 +986,11 @@ async def select_tariff(
                         '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                     ),
                 ),
-                reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'daily_tariff_confirm:{tariff_id}',
+                ),
                 parse_mode='HTML',
             )
     else:
@@ -1394,7 +1398,11 @@ async def select_tariff_period_custom_traffic(
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                 ),
             ),
-            reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -1902,7 +1910,11 @@ async def select_tariff_period(
                     '🛒 <i>Корзина сохранена! После пополнения баланса подписка будет оформлена автоматически.</i>',
                 ),
             ),
-            reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -3481,21 +3493,6 @@ def get_tariff_switch_confirm_keyboard(
     )
 
 
-def get_tariff_switch_insufficient_balance_keyboard(
-    tariff_id: int,
-    period: int,
-    language: str,
-) -> InlineKeyboardMarkup:
-    """Создает клавиатуру при недостаточном балансе для переключения."""
-    texts = get_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='balance_topup')],
-            [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_sw_select:{tariff_id}')],
-        ]
-    )
-
-
 @error_handler
 async def show_tariff_switch_list(
     callback: types.CallbackQuery,
@@ -3840,6 +3837,7 @@ async def select_tariff_switch_period(
             parse_mode='HTML',
         )
     else:
+        missing = ctx['missing_toman']
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_SWITCH_INSUFFICIENT',
@@ -3854,7 +3852,12 @@ async def select_tariff_switch_period(
                 missing=ctx['missing_label'],
                 extra='',
             ),
-            reply_markup=get_tariff_switch_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+            reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                has_saved_cart=False,
+                resume_callback=f'tariff_sw_confirm:{tariff_id}:{period}',
+            ),
             parse_mode='HTML',
         )
 
@@ -5362,6 +5365,7 @@ async def return_to_saved_tariff_cart(
     # Проверяем баланс (при 100% скидке — пропускаем)
     if total_price > 0 and not user_can_afford(user_balance, total_price):
         ctx = _affordance_context(texts, user_balance, total_price)
+        missing = ctx['missing_toman']
 
         if cart_mode == 'daily_tariff_purchase':
             await callback.message.edit_text(
@@ -5377,7 +5381,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'daily_tariff_confirm:{tariff_id}',
+                ),
                 parse_mode='HTML',
             )
         elif cart_mode == 'extend':
@@ -5398,7 +5406,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                    db_user.language,
+                    missing=missing,
+                    resume_callback=f'tariff_ext_confirm:{tariff_id}:{period}',
+                ),
                 parse_mode='HTML',
             )
         else:  # tariff_purchase
@@ -5419,7 +5431,11 @@ async def return_to_saved_tariff_cart(
                     balance=ctx['balance_label'],
                     missing=ctx['missing_label'],
                 ),
-                reply_markup=get_tariff_insufficient_balance_keyboard(tariff_id, period, db_user.language),
+                reply_markup=_tariff_insufficient_balance_keyboard(
+                db_user.language,
+                missing=missing,
+                resume_callback=f'tariff_confirm:{tariff_id}:{period}',
+            ),
                 parse_mode='HTML',
             )
         await callback.answer()
