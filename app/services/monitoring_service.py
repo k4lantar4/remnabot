@@ -1750,7 +1750,7 @@ class MonitoringService:
 
             extend_callback = f'se:{subscription.id}' if settings.is_multi_tariff_enabled() else 'subscription_extend'
             sub_btn_text = texts.t(
-                'BTN_MY_SUBSCRIPTIONS' if settings.is_multi_tariff_enabled() else 'BTN_MY_SUBSCRIPTION',
+                'MY_SUBSCRIPTIONS_BUTTON' if settings.is_multi_tariff_enabled() else 'MY_SUBSCRIPTION_BUTTON',
                 '📱 Мои подписки' if settings.is_multi_tariff_enabled() else '📱 Моя подписка',
             )
             keyboard = InlineKeyboardMarkup(
@@ -2189,7 +2189,7 @@ class MonitoringService:
             from aiogram.types import InlineKeyboardMarkup
 
             sub_btn_text = texts.t(
-                'BTN_MY_SUBSCRIPTIONS' if settings.is_multi_tariff_enabled() else 'BTN_MY_SUBSCRIPTION',
+                'MY_SUBSCRIPTIONS_BUTTON' if settings.is_multi_tariff_enabled() else 'MY_SUBSCRIPTION_BUTTON',
                 '📱 Мои подписки' if settings.is_multi_tariff_enabled() else '📱 Моя подписка',
             )
             keyboard = InlineKeyboardMarkup(
