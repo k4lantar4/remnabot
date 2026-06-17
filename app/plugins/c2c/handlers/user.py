@@ -173,6 +173,7 @@ async def start_c2c_payment(
             db_user,
             method='c2c',
             suggested_amount=cart_suggested,
+            state=state,
         )
         return
 

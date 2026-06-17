@@ -794,6 +794,7 @@ async def handle_topup_amount_callback(
             db_user,
             method=method,
             suggested_amount=amount_kopeks,
+            state=state,
         )
     except Exception as error:
         logger.error('Ошибка показа экрана суммы пополнения', error=error)

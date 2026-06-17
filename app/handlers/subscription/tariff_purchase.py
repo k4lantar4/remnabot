@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from aiogram import Dispatcher, F, types
+from aiogram.filters import BaseFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.exc import IntegrityError
@@ -1297,6 +1298,12 @@ async def handle_custom_traffic_prompt(
     await callback.answer()
 
 
+class AwaitingCustomTrafficFilter(BaseFilter):
+    async def __call__(self, message: types.Message, state: FSMContext) -> bool:
+        data = await state.get_data()
+        return bool(data.get('awaiting_custom_traffic_input'))
+
+
 @error_handler
 async def handle_custom_traffic_input_message(
     message: types.Message,
@@ -1306,9 +1313,6 @@ async def handle_custom_traffic_input_message(
 ):
     """Обрабатывает ручной ввод объема трафика в ГБ."""
     state_data = await state.get_data()
-    if not state_data.get('awaiting_custom_traffic_input'):
-        return
-
     texts = get_texts(db_user.language)
     tariff_id = int(state_data.get('selected_tariff_id', 0) or 0)
     tariff = await get_tariff_by_id(db, tariff_id)
@@ -5759,7 +5763,7 @@ def register_tariff_purchase_handlers(dp: Dispatcher):
     dp.callback_query.register(handle_tariff_traffic_back, F.data.startswith('tariff_traffic_back:'))
     dp.callback_query.register(select_tariff_period_custom_traffic, F.data.startswith('tariff_period_ct:'))
     dp.callback_query.register(handle_custom_confirm, F.data.startswith('custom_confirm:'))
-    dp.message.register(handle_custom_traffic_input_message, F.text)
+    dp.message.register(handle_custom_traffic_input_message, F.text, AwaitingCustomTrafficFilter())
 
     # Продление по тарифу
     dp.callback_query.register(select_tariff_extend_period, F.data.startswith('tariff_extend:'))

@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 from aiogram import types
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 
@@ -104,6 +105,9 @@ def error_handler(func: Callable) -> Callable:
             logger.error('Telegram API error', __name__=func.__name__, error=e)
             # Уведомление отправляется в _send_error_message
             await _send_error_message(args, kwargs, e, func.__name__)
+
+        except SkipHandler:
+            raise
 
         except Exception as e:
             logger.error('Необработанная ошибка в обработчике', __name__=func.__name__, error=e, exc_info=True)

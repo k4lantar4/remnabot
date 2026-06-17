@@ -77,6 +77,7 @@ async def show_cart_topup_amount_prompt(
     method: str,
     suggested_amount: int,
     back_callback: str = 'balance_topup',
+    state: FSMContext | None = None,
 ) -> None:
     texts = get_texts(db_user.language)
     missing_toman = await _load_missing_toman(db_user.id, suggested_amount)
@@ -100,6 +101,10 @@ async def show_cart_topup_amount_prompt(
         suggested_amount=suggested_amount,
         back_callback=back_callback,
     )
+
+    if state is not None:
+        await state.update_data(payment_method=method)
+        await state.set_state(BalanceStates.waiting_for_amount)
 
     await callback.answer()
     if isinstance(callback.message, types.Message):

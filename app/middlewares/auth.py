@@ -271,6 +271,10 @@ class AuthMiddleware(BaseMiddleware):
                     return None
                 raise
             except Exception as e:
+                from aiogram.dispatcher.event.bases import SkipHandler
+
+                if isinstance(e, SkipHandler):
+                    raise
                 logger.error('Ошибка в AuthMiddleware', error=e)
                 logger.error('Event type', event_type=type(event))
                 if hasattr(event, 'data'):
