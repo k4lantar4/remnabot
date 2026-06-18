@@ -50,6 +50,10 @@ from app.utils.decorators import admin_required, error_handler
 from app.utils.formatters import format_datetime, format_time_ago
 from app.utils.formatting import user_html_link
 from app.utils.price_display import balance_from_display_amount
+from app.utils.remnawave_panel_identity import (
+    build_subscription_panel_username,
+    resolve_remnawave_panel_description,
+)
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
@@ -4257,8 +4261,8 @@ async def toggle_user_server(callback: types.CallbackQuery, db_user: User, db: A
                     await api.update_user(
                         uuid=_uuid,
                         active_internal_squads=current_squads,
-                        description=settings.format_remnawave_user_description(
-                            full_name=user.full_name, username=user.username, telegram_id=user.telegram_id
+                        description=resolve_remnawave_panel_description(
+                            settings, user=user, subscription=subscription
                         ),
                     )
                 logger.info('✅ Обновлены серверы в RemnaWave для пользователя', telegram_id=user.telegram_id)
@@ -4828,8 +4832,8 @@ async def _update_user_devices(
                     await api.update_user(
                         uuid=_uuid,
                         hwid_device_limit=devices,
-                        description=settings.format_remnawave_user_description(
-                            full_name=user.full_name, username=user.username, telegram_id=user.telegram_id
+                        description=resolve_remnawave_panel_description(
+                            settings, user=user, subscription=subscription
                         ),
                     )
                 logger.info('✅ Обновлен лимит устройств в RemnaWave для пользователя', telegram_id=user.telegram_id)
@@ -4884,8 +4888,8 @@ async def _update_user_traffic(
                         traffic_limit_strategy=get_traffic_reset_strategy(
                             subscription.tariff if subscription else None
                         ),
-                        description=settings.format_remnawave_user_description(
-                            full_name=user.full_name, username=user.username, telegram_id=user.telegram_id
+                        description=resolve_remnawave_panel_description(
+                            settings, user=user, subscription=subscription
                         ),
                     )
                 logger.info('✅ Обновлен лимит трафика в RemnaWave для пользователя', telegram_id=user.telegram_id)
@@ -5694,12 +5698,8 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                             if subscription.traffic_limit_gb > 0
                             else 0,
                             traffic_limit_strategy=get_traffic_reset_strategy(subscription.tariff),
-                            description=settings.format_remnawave_user_description(
-                                full_name=target_user.full_name,
-                                username=target_user.username,
-                                telegram_id=target_user.telegram_id,
-                                email=target_user.email,
-                                user_id=target_user.id,
+                            description=resolve_remnawave_panel_description(
+                                settings, user=target_user, subscription=subscription
                             ),
                             active_internal_squads=subscription.connected_squads,
                         )
@@ -5724,12 +5724,9 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                         if (settings.is_multi_tariff_enabled() and subscription.remnawave_short_id)
                         else ''
                     )
-                    username = settings.build_remnawave_subscription_username(
-                        full_name=target_user.full_name,
-                        username=target_user.username,
-                        telegram_id=target_user.telegram_id,
-                        email=target_user.email,
-                        user_id=target_user.id,
+                    username = build_subscription_panel_username(
+                        settings,
+                        target_user,
                         suffix=username_suffix,
                     )
                     async with remnawave_service.get_api_client() as api:
@@ -5743,11 +5740,8 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                             traffic_limit_strategy=get_traffic_reset_strategy(subscription.tariff),
                             telegram_id=target_user.telegram_id,
                             email=target_user.email,
-                            description=settings.format_remnawave_user_description(
-                                full_name=target_user.full_name,
-                                username=target_user.username,
-                                telegram_id=target_user.telegram_id,
-                                email=target_user.email,
+                            description=resolve_remnawave_panel_description(
+                                settings, user=target_user, subscription=subscription
                             ),
                             active_internal_squads=subscription.connected_squads,
                         )

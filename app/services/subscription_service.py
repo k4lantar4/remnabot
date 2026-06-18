@@ -12,6 +12,10 @@ from app.database.crud.server_squad import get_all_server_squads
 from app.database.crud.user import get_user_by_id
 from app.database.models import Subscription, SubscriptionStatus, User
 from app.external.remnawave_api import RemnaWaveAPI, RemnaWaveAPIError, RemnaWaveUser, TrafficLimitStrategy, UserStatus
+from app.utils.remnawave_panel_identity import (
+    build_subscription_panel_username,
+    resolve_remnawave_panel_description,
+)
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
@@ -160,6 +164,7 @@ class SubscriptionService:
         *,
         reset_traffic: bool = False,
         reset_reason: str | None = None,
+        use_brand_prefix: bool = True,
     ) -> RemnaWaveUser | None:
         try:
             user = await get_user_by_id(db, subscription.user_id)
@@ -197,6 +202,7 @@ class SubscriptionService:
                         ext_squad_uuid=ext_squad_uuid,
                         reset_traffic=reset_traffic,
                         reset_reason=reset_reason,
+                        use_brand_prefix=use_brand_prefix,
                     )
                 else:
                     updated_user = await self._create_or_update_remnawave_user_single(
@@ -208,6 +214,7 @@ class SubscriptionService:
                         ext_squad_uuid=ext_squad_uuid,
                         reset_traffic=reset_traffic,
                         reset_reason=reset_reason,
+                        use_brand_prefix=use_brand_prefix,
                     )
 
                 subscription.remnawave_short_uuid = updated_user.short_uuid
@@ -246,15 +253,10 @@ class SubscriptionService:
         ext_squad_uuid: str | None,
         reset_traffic: bool,
         reset_reason: str | None,
+        use_brand_prefix: bool = True,
     ) -> RemnaWaveUser:
         """Multi-tariff mode: each subscription gets its own Remnawave user."""
-        description = settings.format_remnawave_user_description(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-        )
+        description = resolve_remnawave_panel_description(settings, user=user, subscription=subscription)
         common_kwargs = dict(
             status=UserStatus.ACTIVE,
             expire_at=subscription.end_date,
@@ -295,13 +297,11 @@ class SubscriptionService:
                 )
 
         # New subscription — create a NEW Remnawave user (username only on create).
-        username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
+        username = build_subscription_panel_username(
+            settings,
+            user,
             suffix=f'_{subscription.remnawave_short_id}',
+            use_brand_prefix=use_brand_prefix,
         )
         updated_user = await api.create_user(username=username, **common_kwargs)
         if updated_user and updated_user.username:
@@ -321,15 +321,10 @@ class SubscriptionService:
         ext_squad_uuid: str | None,
         reset_traffic: bool,
         reset_reason: str | None,
+        use_brand_prefix: bool = True,
     ) -> RemnaWaveUser:
         """Single-subscription mode (legacy): one Remnawave user per bot user."""
-        description = settings.format_remnawave_user_description(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-        )
+        description = resolve_remnawave_panel_description(settings, user=user, subscription=subscription)
 
         # Search for existing Remnawave user
         existing_users = []
@@ -384,12 +379,11 @@ class SubscriptionService:
             return updated_user
 
         logger.info('🆕 Создаем нового пользователя в панели', _format_user_log=self._format_user_log(user))
-        username = settings.format_remnawave_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
+        username = build_subscription_panel_username(
+            settings,
+            user,
+            suffix='',
+            use_brand_prefix=use_brand_prefix,
         )
         updated_user = await api.create_user(username=username, **common_kwargs)
         if updated_user and updated_user.username:
@@ -473,13 +467,7 @@ class SubscriptionService:
                     traffic_limit_strategy=get_traffic_reset_strategy(subscription.tariff),
                     telegram_id=user.telegram_id,
                     email=user.email,
-                    description=settings.format_remnawave_user_description(
-                        full_name=user.full_name,
-                        username=user.username,
-                        telegram_id=user.telegram_id,
-                        email=user.email,
-                        user_id=user.id,
-                    ),
+                    description=resolve_remnawave_panel_description(settings, user=user, subscription=subscription),
                 )
 
                 # Сквады отправляем только при явном sync_squads=True (propagate_squads и пр.)
@@ -1029,13 +1017,7 @@ class SubscriptionService:
                             traffic_limit_strategy=traffic_strategy,
                             telegram_id=user.telegram_id,
                             email=user.email,
-                            description=settings.format_remnawave_user_description(
-                                full_name=user.full_name,
-                                username=user.username,
-                                telegram_id=user.telegram_id,
-                                email=user.email,
-                                user_id=user.id,
-                            ),
+                            description=resolve_remnawave_panel_description(settings, user=user, subscription=sub),
                         )
 
                         if sub.connected_squads:

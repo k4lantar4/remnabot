@@ -64,9 +64,8 @@ from app.utils.message_patch import caption_exceeds_telegram_limit
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
-from app.utils.subscription_utils import (
-    resolve_hwid_device_limit_for_payload,
-)
+from app.utils.remnawave_panel_identity import resolve_remnawave_panel_description
+from app.utils.subscription_utils import resolve_hwid_device_limit_for_payload
 
 
 def resolve_autopay_period_candidate(candidate, tariff) -> int | None:
@@ -521,9 +520,7 @@ class MonitoringService:
                     else max(subscription.end_date, current_time + timedelta(minutes=1)),
                     traffic_limit_bytes=self._gb_to_bytes(subscription.traffic_limit_gb),
                     traffic_limit_strategy=get_traffic_reset_strategy(subscription.tariff),
-                    description=settings.format_remnawave_user_description(
-                        full_name=user.full_name, username=user.username, telegram_id=user.telegram_id
-                    ),
+                    description=resolve_remnawave_panel_description(settings, user=user, subscription=subscription),
                 )
 
                 # Не пересылаем activeInternalSquads в рутинном sync — сквады уже назначены

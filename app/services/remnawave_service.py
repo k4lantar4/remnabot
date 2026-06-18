@@ -34,6 +34,10 @@ from app.external.remnawave_api import (
     UserStatus,
 )
 from app.services.subscription_service import get_traffic_reset_strategy
+from app.utils.remnawave_panel_identity import (
+    build_subscription_panel_username,
+    resolve_remnawave_panel_description,
+)
 from app.utils.subscription_utils import (
     coerce_panel_device_limit,
     device_limit_needs_heal,
@@ -2452,12 +2456,9 @@ class RemnaWaveService:
                                     if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id)
                                     else ''
                                 )
-                                username = settings.build_remnawave_subscription_username(
-                                    full_name=user.full_name,
-                                    username=user.username,
-                                    telegram_id=user.telegram_id,
-                                    email=user.email,
-                                    user_id=user.id,
+                                username = build_subscription_panel_username(
+                                    settings,
+                                    user,
                                     suffix=username_suffix,
                                 )
 
@@ -2471,11 +2472,8 @@ class RemnaWaveService:
                                     traffic_limit_strategy=get_traffic_reset_strategy(sub.tariff),
                                     telegram_id=user.telegram_id,
                                     email=user.email,
-                                    description=settings.format_remnawave_user_description(
-                                        full_name=user.full_name,
-                                        username=user.username,
-                                        telegram_id=user.telegram_id,
-                                        email=user.email,
+                                    description=resolve_remnawave_panel_description(
+                                        settings, user=user, subscription=sub
                                     ),
                                     active_internal_squads=sub.connected_squads,
                                 )

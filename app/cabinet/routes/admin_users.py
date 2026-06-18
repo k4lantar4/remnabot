@@ -56,6 +56,10 @@ from app.utils.price_display import (
     display_balance_from_storage,
     display_transaction_amount_from_storage,
 )
+from app.utils.remnawave_panel_identity import (
+    build_subscription_panel_username,
+    resolve_remnawave_panel_description,
+)
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
 
@@ -323,22 +327,13 @@ async def _sync_subscription_to_panel(
             if (settings.is_multi_tariff_enabled() and subscription.remnawave_short_id)
             else ''
         )
-        username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
+        username = build_subscription_panel_username(
+            settings,
+            user,
             suffix=username_suffix,
         )
 
-        description = settings.format_remnawave_user_description(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-        )
+        description = resolve_remnawave_panel_description(settings, user=user, subscription=subscription)
 
         hwid_limit = resolve_hwid_device_limit_for_payload(subscription)
         traffic_limit_bytes = subscription.traffic_limit_gb * (1024**3) if subscription.traffic_limit_gb > 0 else 0
@@ -3449,22 +3444,13 @@ async def sync_user_to_panel(
         username_suffix = (
             f'_{sub.remnawave_short_id}' if (settings.is_multi_tariff_enabled() and sub.remnawave_short_id) else ''
         )
-        username = settings.build_remnawave_subscription_username(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
+        username = build_subscription_panel_username(
+            settings,
+            user,
             suffix=username_suffix,
         )
 
-        description = settings.format_remnawave_user_description(
-            full_name=user.full_name,
-            username=user.username,
-            telegram_id=user.telegram_id,
-            email=user.email,
-            user_id=user.id,
-        )
+        description = resolve_remnawave_panel_description(settings, user=user, subscription=subscription)
 
         hwid_limit = resolve_hwid_device_limit_for_payload(sub)
         traffic_limit_bytes = sub.traffic_limit_gb * (1024**3) if sub.traffic_limit_gb > 0 else 0
