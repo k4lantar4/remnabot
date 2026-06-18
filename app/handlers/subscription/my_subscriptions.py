@@ -8,6 +8,7 @@ Only active when MULTI_TARIFF_ENABLED=True.
 from __future__ import annotations
 
 import html
+from datetime import UTC, datetime
 
 import structlog
 from aiogram import Router, types
@@ -86,6 +87,39 @@ def _subscription_status_display(sub, texts) -> str:
             return texts.t('SUBSCRIPTION_STATUS_TRIAL', 'Тестовая')
         return texts.t('SUBSCRIPTION_STATUS_ACTIVE', 'Активна')
     return texts.t('SUBSCRIPTION_STATUS_UNKNOWN', 'Неизвестно')
+
+
+def _format_detail_time_remaining(sub, texts) -> str:
+    end = sub.end_date
+    if end is None or sub.actual_status == 'expired' or end <= datetime.now(UTC):
+        return texts.t('SUBSCRIPTION_TIME_LEFT_EXPIRED', 'истёк')
+
+    delta = end - datetime.now(UTC)
+    total_seconds = max(0, int(delta.total_seconds()))
+    days = total_seconds // 86400
+    remaining_seconds = total_seconds % 86400
+    hours = remaining_seconds // 3600
+    minutes = (remaining_seconds % 3600) // 60
+
+    if days > 0 and hours > 0:
+        return texts.t(
+            'MY_SUB_DETAIL_TIME_REMAINING_DAYS_HOURS',
+            '⏳ {days} дн. и {hours} ч.',
+        ).format(days=days, hours=hours)
+    if days > 0:
+        return texts.t(
+            'MY_SUB_DETAIL_TIME_REMAINING_DAYS',
+            '⏳ {days} дн.',
+        ).format(days=days)
+    if hours > 0:
+        return texts.t(
+            'MY_SUB_DETAIL_TIME_REMAINING_HOURS',
+            '⏳ {hours} ч.',
+        ).format(hours=hours)
+    return texts.t(
+        'SUBSCRIPTION_TIME_LEFT_MINUTES',
+        '{minutes} мин.',
+    ).format(minutes=max(minutes, 1))
 
 
 def _account_display_name(sub, texts) -> str:
@@ -599,14 +633,22 @@ async def show_subscription_detail(
         if subscription.end_date
         else '—'
     )
+    start_date = (
+        format_user_datetime(subscription.start_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
+        if subscription.start_date
+        else '—'
+    )
     status = _subscription_status_display(subscription, texts)
+    time_remaining = _format_detail_time_remaining(subscription, texts)
 
     text = (
         f'📋 {texts.t("MY_SUB_DETAIL_HEADER", "<b>{label}</b>").format(label=display_name)}\n\n'
         f'{texts.t("MY_SUB_DETAIL_STATUS", "Статус: {status}").format(status=status)}\n'
         f'{texts.t("MY_SUB_DETAIL_TRAFFIC", "📊 Трафик: {traffic}").format(traffic=traffic)}\n'
         f'{texts.t("MY_SUB_DETAIL_DEVICES", "📱 Устройства: {devices}").format(devices=subscription.device_limit)}\n'
+        f'{texts.t("MY_SUB_DETAIL_PURCHASE_DATE", "🛒 Дата покупки: {start_date}").format(start_date=start_date)}\n'
         f'{texts.t("MY_SUB_DETAIL_UNTIL", "📅 До: {end_date}").format(end_date=end_date)}\n'
+        f'{time_remaining}\n'
     )
 
     purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
@@ -616,7 +658,11 @@ async def show_subscription_detail(
         ) + '\n'
 
     if subscription.subscription_url and not settings.should_hide_subscription_link():
-        text += f'\n🔗 <code>{subscription.subscription_url}</code>'
+        text += (
+            f'\n{texts.t("MY_SUB_DETAIL_SMART_LINK_TITLE", "🔗 Умная ссылка подписки:")}\n'
+            f'🔗 <code>{subscription.subscription_url}</code>\n'
+            f'{texts.t("MY_SUB_DETAIL_LINK_COPY_HINT", "💡 Нажмите на ссылку выше, чтобы скопировать")}'
+        )
 
     keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription, language=db_user.language)
 
