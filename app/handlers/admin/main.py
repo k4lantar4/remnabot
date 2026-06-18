@@ -55,7 +55,16 @@ async def show_admin_panel(callback: types.CallbackQuery, db_user: User, db: Asy
     except Exception as e:
         logger.error('Не удалось получить статистику Remnawave для админ-панели', error=e)
 
-    await callback.message.edit_text(admin_text, reply_markup=get_admin_main_keyboard(db_user.language))
+    c2c_pending_count = None
+    if settings.is_c2c_enabled():
+        from app.plugins.c2c import crud as c2c_crud
+
+        c2c_pending_count = await c2c_crud.count_pending_receipts(db)
+
+    await callback.message.edit_text(
+        admin_text,
+        reply_markup=get_admin_main_keyboard(db_user.language, c2c_pending_count=c2c_pending_count),
+    )
     await callback.answer()
 
 

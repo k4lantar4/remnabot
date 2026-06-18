@@ -3,6 +3,7 @@
 from aiogram import Dispatcher
 
 from app.plugins.c2c.handlers.admin import register_admin_handlers
+from app.plugins.c2c.handlers.admin_inbox import register_admin_inbox_handlers
 from app.plugins.c2c.handlers.user import register_user_handlers
 from app.plugins.c2c.middleware import register_c2c_callback_middleware
 from app.plugins.c2c.service import set_c2c_fsm_storage
@@ -19,3 +20,4 @@ def register_c2c_plugin(dp: Dispatcher) -> None:
     set_c2c_fsm_storage(dp.storage)
     register_user_handlers(dp)
     register_admin_handlers(dp)
+    register_admin_inbox_handlers(dp)

@@ -1030,6 +1030,8 @@ class C2cReceipt(Base):
     admin_message_id = Column(BigInteger, nullable=True)
     reviewed_by_telegram_id = Column(BigInteger, nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    rejection_reason_key = Column(String(32), nullable=True)
+    approved_amount_kopeks = Column(Integer, nullable=True)
 
     transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=True)
 

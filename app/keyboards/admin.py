@@ -2,6 +2,7 @@ from typing import Any
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.config import settings
 from app.localization.texts import get_texts
 
 
@@ -10,70 +11,82 @@ def _t(texts, key: str, default: str) -> str:
     return texts.t(key, default)
 
 
-def get_admin_main_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
+def get_admin_main_keyboard(language: str = 'ru', *, c2c_pending_count: int | None = None) -> InlineKeyboardMarkup:
     texts = get_texts(language)
 
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_USERS_SUBSCRIPTIONS', '👥 Юзеры/Подписки'),
+                callback_data='admin_submenu_users',
+            ),
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_SERVERS', '🌐 Серверы'),
+                callback_data='admin_servers',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_TARIFFS', '📦 Тарифы'),
+                callback_data='admin_tariffs',
+            ),
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_PRICING', '💰 Цены'),
+                callback_data='admin_pricing',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_PROMO_STATS', '💰 Промокоды/Статистика'),
+                callback_data='admin_submenu_promo',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_SUPPORT', '🛟 Поддержка'),
+                callback_data='admin_submenu_support',
+            ),
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_MESSAGES', '📨 Сообщения'),
+                callback_data='admin_submenu_communications',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_SETTINGS', '⚙️ Настройки'),
+                callback_data='admin_submenu_settings',
+            ),
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_SYSTEM', '🛠️ Система'),
+                callback_data='admin_submenu_system',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_TRIALS', '🧪 Триалы'),
+                callback_data='admin_trials',
+            ),
+            InlineKeyboardButton(
+                text=_t(texts, 'ADMIN_MAIN_PAYMENTS', '💳 Пополнения'),
+                callback_data='admin_payments',
+            ),
+        ],
+    ]
+
+    if settings.is_c2c_enabled():
+        count_label = c2c_pending_count if c2c_pending_count is not None else 0
+        rows.append(
             [
                 InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_USERS_SUBSCRIPTIONS', '👥 Юзеры/Подписки'),
-                    callback_data='admin_submenu_users',
+                    text=texts.t('C2C_ADMIN_INBOX_BTN', '📥 C2C ({count})').format(count=count_label),
+                    callback_data='admin_c2c_inbox',
                 ),
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_SERVERS', '🌐 Серверы'),
-                    callback_data='admin_servers',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_TARIFFS', '📦 Тарифы'),
-                    callback_data='admin_tariffs',
-                ),
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_PRICING', '💰 Цены'),
-                    callback_data='admin_pricing',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_PROMO_STATS', '💰 Промокоды/Статистика'),
-                    callback_data='admin_submenu_promo',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_SUPPORT', '🛟 Поддержка'),
-                    callback_data='admin_submenu_support',
-                ),
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_MESSAGES', '📨 Сообщения'),
-                    callback_data='admin_submenu_communications',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_SETTINGS', '⚙️ Настройки'),
-                    callback_data='admin_submenu_settings',
-                ),
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_SYSTEM', '🛠️ Система'),
-                    callback_data='admin_submenu_system',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_TRIALS', '🧪 Триалы'),
-                    callback_data='admin_trials',
-                ),
-                InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_MAIN_PAYMENTS', '💳 Пополнения'),
-                    callback_data='admin_payments',
-                ),
-            ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-        ]
-    )
+            ]
+        )
+
+    rows.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def get_admin_users_submenu_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
