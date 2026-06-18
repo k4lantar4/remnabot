@@ -702,6 +702,14 @@ class AdminNotificationService:
                     notify_texts.t('ADMIN_NOTIFY_TARIFF_LINE', '🏷️ Тариф: <b>{name}</b>').format(name=tariff_name)
                 )
 
+            purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
+            if purchase_note:
+                message_lines.append(
+                    notify_texts.t('ADMIN_NOTIFY_PURCHASE_NOTE', '📝 یادdاشت: {note}').format(
+                        note=html.escape(purchase_note)
+                    )
+                )
+
             message_lines.extend(
                 [
                     '',

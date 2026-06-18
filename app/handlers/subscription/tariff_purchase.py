@@ -28,7 +28,7 @@ from app.localization.texts import get_texts
 from app.keyboards.inline import get_insufficient_balance_keyboard
 from app.services.admin_notification_service import AdminNotificationService
 from app.services.subscription_service import SubscriptionService
-from app.keyboards.inline import get_insufficient_balance_keyboard
+from app.states import SubscriptionStates
 from app.services.user_cart_service import user_cart_service
 from app.utils.topup_suggestion import build_cart_topup_metadata, format_topup_suggestion_line, suggest_topup_amount_toman
 from app.utils.decorators import error_handler
@@ -37,6 +37,7 @@ from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import resolve_period_price
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
+from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 from app.utils.subscription_display import subscription_account_label
 
 
@@ -532,19 +533,22 @@ def get_tariff_confirm_keyboard(
     tariff_id: int,
     period: int,
     language: str,
+    *,
+    db_user: User | None = None,
+    purchase_note: str | None = None,
+    use_brand_prefix: bool = False,
+    show_brand_toggle: bool = False,
 ) -> InlineKeyboardMarkup:
-    """Создает клавиатуру подтверждения покупки тарифа."""
-    texts = get_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}'),
-                InlineKeyboardButton(
-                    text=texts.t('TARIFF_CONFIRM_PURCHASE_BTN', '✅ Подтвердить покупку'),
-                    callback_data=f'tariff_confirm:{tariff_id}:{period}',
-                ),
-            ],
-        ]
+    from app.handlers.subscription.tariff_purchase_partner import get_partner_tariff_confirm_keyboard
+
+    return get_partner_tariff_confirm_keyboard(
+        tariff_id,
+        period,
+        language,
+        db_user=db_user,
+        purchase_note=purchase_note,
+        use_brand_prefix=use_brand_prefix,
+        show_brand_toggle=show_brand_toggle,
     )
 
 
@@ -1575,18 +1579,36 @@ async def select_tariff_period_custom_traffic(
     await state.update_data(custom_days=period, custom_traffic_gb=traffic_gb)
 
     if ctx['can_afford']:
+        state_data = await state.get_data()
+        from app.handlers.subscription.tariff_purchase_partner import (
+            append_purchase_note_preview,
+            checkout_partner_options,
+        )
+        partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            format_tariff_purchase_confirm_text(
+            append_purchase_note_preview(
+                format_tariff_purchase_confirm_text(
+                    texts,
+                    tariff=tariff,
+                    traffic_gb=traffic_gb,
+                    period_days=period,
+                    result=result,
+                    balance_kopeks=user_balance,
+                    language=db_user.language,
+                    user=db_user,
+                ),
                 texts,
-                tariff=tariff,
-                traffic_gb=traffic_gb,
-                period_days=period,
-                result=result,
-                balance_kopeks=user_balance,
-                language=db_user.language,
-                user=db_user,
+                partner_opts['purchase_note'],
             ),
-            reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
+            reply_markup=get_tariff_confirm_keyboard(
+                tariff_id,
+                period,
+                db_user.language,
+                db_user=db_user,
+                purchase_note=partner_opts['purchase_note'],
+                use_brand_prefix=partner_opts['use_brand_prefix'],
+                show_brand_toggle=partner_opts['has_brand_prefix'],
+            ),
             parse_mode='HTML',
         )
     else:
@@ -2006,18 +2028,36 @@ async def select_tariff_period(
 
     ctx = _affordance_context(texts, user_balance, final_price)
     if ctx['can_afford']:
+        state_data = await state.get_data()
+        from app.handlers.subscription.tariff_purchase_partner import (
+            append_purchase_note_preview,
+            checkout_partner_options,
+        )
+        partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            format_tariff_purchase_confirm_text(
+            append_purchase_note_preview(
+                format_tariff_purchase_confirm_text(
+                    texts,
+                    tariff=tariff,
+                    traffic_gb=tariff.traffic_limit_gb,
+                    period_days=period,
+                    result=result,
+                    balance_kopeks=user_balance,
+                    language=db_user.language,
+                    user=db_user,
+                ),
                 texts,
-                tariff=tariff,
-                traffic_gb=tariff.traffic_limit_gb,
-                period_days=period,
-                result=result,
-                balance_kopeks=user_balance,
-                language=db_user.language,
-                user=db_user,
+                partner_opts['purchase_note'],
             ),
-            reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
+            reply_markup=get_tariff_confirm_keyboard(
+                tariff_id,
+                period,
+                db_user.language,
+                db_user=db_user,
+                purchase_note=partner_opts['purchase_note'],
+                use_brand_prefix=partner_opts['use_brand_prefix'],
+                show_brand_toggle=partner_opts['has_brand_prefix'],
+            ),
             parse_mode='HTML',
         )
     else:
@@ -2397,9 +2437,19 @@ async def confirm_tariff_purchase(
             pass
         return
 
+    _checkout_state = await state.get_data() if state else {}
+    from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+    _partner_opts = checkout_partner_options(db_user, _checkout_state)
+    _purchase_note = _partner_opts['purchase_note']
+    _use_brand_prefix = _partner_opts['use_brand_prefix']
+
     # Обновляем пользователя в Remnawave
     # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
     try:
+        if _purchase_note is not None:
+            subscription.purchase_note = _purchase_note
+            await db.commit()
+
         subscription_service = SubscriptionService()
         # In multi-tariff mode, each subscription has its own panel user.
         # A new subscription has no remnawave_uuid yet, so always CREATE.
@@ -2415,6 +2465,7 @@ async def confirm_tariff_purchase(
                 subscription,
                 reset_traffic=True,
                 reset_reason='покупка тарифа',
+                use_brand_prefix=_use_brand_prefix,
             )
         else:
             await subscription_service.update_remnawave_user(
@@ -5718,18 +5769,36 @@ async def return_to_saved_tariff_cart(
             user=db_user,
         )
 
+        state_data = await state.get_data()
+        from app.handlers.subscription.tariff_purchase_partner import (
+            append_purchase_note_preview,
+            checkout_partner_options,
+        )
+        partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            format_tariff_purchase_confirm_text(
+            append_purchase_note_preview(
+                format_tariff_purchase_confirm_text(
+                    texts,
+                    tariff=tariff,
+                    traffic_gb=traffic_gb,
+                    period_days=period,
+                    result=result,
+                    balance_kopeks=user_balance,
+                    language=db_user.language,
+                    user=db_user,
+                ),
                 texts,
-                tariff=tariff,
-                traffic_gb=traffic_gb,
-                period_days=period,
-                result=result,
-                balance_kopeks=user_balance,
-                language=db_user.language,
-                user=db_user,
+                partner_opts['purchase_note'],
             ),
-            reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
+            reply_markup=get_tariff_confirm_keyboard(
+                tariff_id,
+                period,
+                db_user.language,
+                db_user=db_user,
+                purchase_note=partner_opts['purchase_note'],
+                use_brand_prefix=partner_opts['use_brand_prefix'],
+                show_brand_toggle=partner_opts['has_brand_prefix'],
+            ),
             parse_mode='HTML',
         )
 
@@ -5750,6 +5819,9 @@ def register_tariff_purchase_handlers(dp: Dispatcher):
 
     # Подтверждение покупки
     dp.callback_query.register(confirm_tariff_purchase, F.data.startswith('tariff_confirm:'))
+    from app.handlers.subscription.tariff_purchase_partner import register_partner_checkout_handlers
+
+    register_partner_checkout_handlers(dp)
 
     # Подтверждение покупки суточного тарифа
     dp.callback_query.register(confirm_daily_tariff_purchase, F.data.startswith('daily_tariff_confirm:'))

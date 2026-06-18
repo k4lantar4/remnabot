@@ -29,6 +29,7 @@ class SubscriptionStates(StatesGroup):
     selecting_custom_days = State()
     selecting_custom_traffic = State()
     confirming_custom_purchase = State()
+    entering_purchase_note = State()
 
     # Локальное переименование HWID-устройства (alias). hwid и page/sub_id
     # передаются через state data, чтобы вернуться к ровно тому же списку.
@@ -287,3 +288,7 @@ class ReferralWithdrawalStates(StatesGroup):
     waiting_for_amount = State()
     waiting_for_payment_details = State()
     confirming = State()
+
+
+class PartnerStates(StatesGroup):
+    entering_brand_prefix = State()
