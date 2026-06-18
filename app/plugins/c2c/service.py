@@ -37,6 +37,10 @@ def set_c2c_fsm_storage(storage: BaseStorage | None) -> None:
     _fsm_storage = storage
 
 
+def get_c2c_fsm_storage() -> BaseStorage | None:
+    return _fsm_storage
+
+
 def c2c_external_id(receipt_id: int) -> str:
     return f'c2c:{receipt_id}'
 

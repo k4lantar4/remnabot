@@ -50,6 +50,15 @@ async def get_c2c_receipt_by_id(db: AsyncSession, receipt_id: int) -> C2cReceipt
     return result.scalar_one_or_none()
 
 
+async def get_c2c_receipt_with_user(db: AsyncSession, receipt_id: int) -> C2cReceipt | None:
+    result = await db.execute(
+        select(C2cReceipt)
+        .options(joinedload(C2cReceipt.user))
+        .where(C2cReceipt.id == receipt_id)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_c2c_receipt_for_update(db: AsyncSession, receipt_id: int) -> C2cReceipt | None:
     result = await db.execute(select(C2cReceipt).where(C2cReceipt.id == receipt_id).with_for_update())
     return result.scalar_one_or_none()
