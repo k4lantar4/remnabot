@@ -159,6 +159,8 @@ class C2cPaymentService:
         db: AsyncSession,
         receipt_id: int,
         admin_telegram_id: int,
+        *,
+        credited_amount_kopeks: int | None = None,
     ) -> tuple[bool, str, C2cReceipt | None]:
         receipt = await c2c_crud.get_c2c_receipt_for_update(db, receipt_id)
         if not receipt:
@@ -184,8 +186,17 @@ class C2cPaymentService:
         old_balance = user.balance_kopeks
         was_first_topup = not user.has_made_first_topup
 
-        balance_credit_toman = receipt.amount_kopeks
-        description = f'Card-to-card top-up: {settings.format_balance(balance_credit_toman)} (receipt #{receipt_id})'
+        credit = credited_amount_kopeks if credited_amount_kopeks is not None else receipt.amount_kopeks
+        receipt.approved_amount_kopeks = credit
+        if credit != receipt.amount_kopeks:
+            description = (
+                f'Card-to-card top-up: {settings.format_balance(credit)} (receipt #{receipt_id}, '
+                f'requested {settings.format_balance(receipt.amount_kopeks)})'
+            )
+        else:
+            description = f'Card-to-card top-up: {settings.format_balance(credit)} (receipt #{receipt_id})'
+
+        balance_credit_toman = credit
 
         credited = await add_user_balance(
             db,
@@ -239,6 +250,8 @@ class C2cPaymentService:
         admin_telegram_id: int,
         *,
         reason: str | None = None,
+        reason_key: str | None = None,
+        notify_user: bool = True,
     ) -> tuple[bool, str, C2cReceipt | None]:
         receipt = await c2c_crud.get_c2c_receipt_for_update(db, receipt_id)
         if not receipt:
@@ -247,28 +260,48 @@ class C2cPaymentService:
         if receipt.status != C2cReceiptStatus.PENDING.value:
             return False, 'Already processed', receipt
 
+        if reason_key == 'silent':
+            notify_user = False
+
         receipt.status = C2cReceiptStatus.REJECTED.value
         receipt.reviewed_by_telegram_id = admin_telegram_id
-        receipt.rejection_reason = reason or 'Rejected by administrator'
+        receipt.rejection_reason_key = reason_key
+        receipt.rejection_reason = reason or reason_key or 'Rejected by administrator'
         receipt.processed_at = datetime.now(UTC)
         receipt.updated_at = datetime.now(UTC)
         await db.commit()
         await db.refresh(receipt)
 
         user = await get_user_by_id(db, receipt.user_id)
-        if user and user.telegram_id and self.bot:
+        if user and user.telegram_id and self.bot and notify_user:
             from app.localization.texts import get_texts
+            from app.plugins.c2c.reject_reasons import resolve_user_reject_reason_text
 
             texts = get_texts(user.language)
+            reason_text = resolve_user_reject_reason_text(reason_key, texts) if reason_key else None
             try:
-                await self.bot.send_message(
-                    user.telegram_id,
-                    texts.t(
+                if reason_text:
+                    message = texts.t(
+                        'C2C_RECEIPT_REJECTED_REASON',
+                        '❌ <b>Your card transfer receipt was rejected</b>\n\n'
+                        'Receipt #{id} for {requested} was not approved.\n'
+                        '<b>Reason:</b> {reason}\n\n'
+                        'Contact support if you believe this is a mistake.',
+                    ).format(
+                        id=receipt.id,
+                        requested=texts.format_balance(receipt.amount_kopeks),
+                        reason=reason_text,
+                    )
+                else:
+                    message = texts.t(
                         'C2C_RECEIPT_REJECTED',
                         '❌ <b>Your card transfer receipt was rejected</b>\n\n'
                         'Receipt #{id} for {amount} was not approved.\n'
                         'Contact support if you believe this is a mistake.',
-                    ).format(id=receipt.id, amount=texts.format_balance(receipt.amount_kopeks)),
+                    ).format(id=receipt.id, amount=texts.format_balance(receipt.amount_kopeks))
+                await self.bot.send_message(
+                    user.telegram_id,
+                    message,
                     parse_mode='HTML',
                 )
             except Exception as error:
