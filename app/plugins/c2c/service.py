@@ -88,7 +88,10 @@ class C2cPaymentService:
             return False, 'Receipt text is empty', None
 
         admin_text = self._build_admin_notification_text(receipt, user)
-        keyboard = get_c2c_admin_review_keyboard(receipt.id)
+        keyboard = get_c2c_admin_review_keyboard(
+            receipt.id,
+            settings.format_balance(receipt.amount_kopeks),
+        )
         notification_service = AdminNotificationService(self.bot)
         delivery_kwargs = build_delivery_kwargs(
             notification_service,
