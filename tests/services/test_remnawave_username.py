@@ -179,6 +179,63 @@ def test_build_subscription_username_handles_pathological_long_suffix() -> None:
     assert len(final) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH
 
 
+# ---------------------------------------------------------------------------
+# build_subscription_panel_username — brand prefix (partner panel sync)
+# ---------------------------------------------------------------------------
+
+
+def test_brand_prefix_username() -> None:
+    user = type(
+        'User',
+        (),
+        {
+            'full_name': 'Partner',
+            'username': 'partner',
+            'telegram_id': 999,
+            'email': None,
+            'id': 5,
+            'panel_brand_prefix': 'Mobile_x_shop',
+            'is_partner': True,
+            'partner_status': 'approved',
+        },
+    )()
+    from app.utils.remnawave_panel_identity import build_subscription_panel_username
+
+    result = build_subscription_panel_username(settings, user, suffix='_abc123')
+    assert result == 'Mobile_x_shop_abc123'
+    assert len(result) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH
+
+
+def test_brand_prefix_disabled_falls_back() -> None:
+    user = type(
+        'User',
+        (),
+        {
+            'full_name': 'Partner',
+            'username': 'partner',
+            'telegram_id': 999,
+            'email': None,
+            'id': 5,
+            'panel_brand_prefix': 'Mobile_x_shop',
+            'is_partner': True,
+            'partner_status': 'approved',
+        },
+    )()
+    from app.utils.remnawave_panel_identity import build_subscription_panel_username
+
+    expected = settings.build_remnawave_subscription_username(
+        full_name=user.full_name,
+        username=user.username,
+        telegram_id=user.telegram_id,
+        email=user.email,
+        user_id=user.id,
+        suffix='_abc123',
+    )
+    assert (
+        build_subscription_panel_username(settings, user, suffix='_abc123', use_brand_prefix=False) == expected
+    )
+
+
 # Regression: email-only cabinet users were getting the literal 'user' as their
 # RemnaWave username because `user_{username}` rendered identically for every
 # user without a Telegram @username — panel then rejected all but the first

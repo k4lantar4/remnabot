@@ -227,6 +227,9 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     common.register_handlers(dp)
     register_stars_handlers(dp)
     user_contests.register_handlers(dp)
+    from app.handlers.partner import register_partner_handlers
+
+    register_partner_handlers(dp)
     user_polls.register_handlers(dp)
     simple_subscription.register_simple_subscription_handlers(dp)
     logger.info('⭐ Зарегистрированы обработчики Telegram Stars платежей')

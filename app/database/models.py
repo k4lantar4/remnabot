@@ -2054,6 +2054,7 @@ class User(Base):
     partner_status = Column(String(20), default=PartnerStatus.NONE.value, nullable=False, index=True)
     business_role = Column(String(20), default='customer', nullable=False, index=True)
     wholesale_discount_bps = Column(Integer, default=0, nullable=False)
+    panel_brand_prefix = Column(String(24), nullable=True)
 
     @property
     def is_partner(self) -> bool:
@@ -2194,6 +2195,7 @@ class Subscription(Base):
     )  # Permanent short ID for username suffix
     account_sequence = Column(Integer, nullable=False, default=1)
     panel_username = Column(String(64), nullable=True)  # Display cache from RemnaWave panel; never pushed on update
+    purchase_note = Column(Text, nullable=True)
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)
