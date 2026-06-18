@@ -12,7 +12,7 @@ from aiogram.fsm.storage.base import StorageKey
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database.models import C2cReceiptStatus, User
+from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.constants import (
@@ -80,6 +80,76 @@ async def _edit_callback_message(
     except TelegramBadRequest as error:
         if 'message is not modified' not in str(error).lower():
             logger.warning('Could not edit C2C admin message', error=error)
+
+
+async def sync_c2c_group_admin_message(
+    bot: types.Bot,
+    receipt: C2cReceipt,
+    *,
+    status_html: str,
+    skip_message_id: int | None = None,
+) -> None:
+    """Update stored admin supergroup receipt post after inbox action."""
+    admin_chat_id = receipt.admin_chat_id
+    admin_message_id = receipt.admin_message_id
+    if not admin_chat_id or not admin_message_id:
+        return
+    if skip_message_id is not None and skip_message_id == admin_message_id:
+        return
+
+    chat_id = int(admin_chat_id)
+    message_id = int(admin_message_id)
+    try:
+        await bot.edit_message_text(
+            text=status_html,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=None,
+            parse_mode='HTML',
+        )
+    except TelegramBadRequest as error:
+        error_message = str(error).lower()
+        if 'message is not modified' in error_message:
+            return
+        if 'there is no text in the message to edit' not in error_message:
+            logger.warning(
+                'Could not sync C2C group admin message (text)',
+                receipt_id=receipt.id,
+                chat_id=chat_id,
+                message_id=message_id,
+                error=error,
+            )
+            return
+        try:
+            await bot.edit_message_caption(
+                caption=status_html,
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=None,
+                parse_mode='HTML',
+            )
+        except TelegramBadRequest as caption_error:
+            if 'message is not modified' not in str(caption_error).lower():
+                logger.warning(
+                    'Could not sync C2C group admin message (caption)',
+                    receipt_id=receipt.id,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    error=caption_error,
+                )
+
+
+def _callback_skip_group_sync_message_id(callback: types.CallbackQuery) -> int | None:
+    if _admin_chat_ok(callback) and callback.message:
+        return callback.message.message_id
+    return None
+
+
+async def _notify_c2c_already_processed(callback: types.CallbackQuery) -> None:
+    try:
+        await callback.answer('Already processed', show_alert=True)
+    except TelegramBadRequest:
+        pass
 
 
 def _message_reply_kwargs(message: types.Message) -> dict[str, Any]:
@@ -172,6 +242,10 @@ async def _execute_c2c_custom_amount_input(
         return
 
     credit_display = settings.format_balance(receipt.approved_amount_kopeks if receipt else amount_kopeks)
+    admin_label = message.from_user.username or str(message.from_user.id)
+    group_status = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
+    if receipt and message.bot:
+        await sync_c2c_group_admin_message(message.bot, receipt, status_html=group_status)
     await message.answer(
         f'✅ Receipt #{receipt_id} approved for {credit_display}',
         parse_mode='HTML',
@@ -200,6 +274,21 @@ async def execute_c2c_approve(
 
     if not success:
         logger.warning('C2C approve failed', receipt_id=receipt_id, message=message)
+        if message == 'Already processed' and receipt and callback.bot:
+            approved_amount = receipt.approved_amount_kopeks if receipt.approved_amount_kopeks is not None else 0
+            credit_display = settings.format_balance(approved_amount)
+            admin_label = (
+                callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+            )
+            stale_text = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
+            await sync_c2c_group_admin_message(
+                callback.bot,
+                receipt,
+                status_html=stale_text,
+                skip_message_id=_callback_skip_group_sync_message_id(callback),
+            )
+            if _admin_chat_ok(callback):
+                await _notify_c2c_already_processed(callback)
         return
 
     admin_label = (
@@ -210,6 +299,13 @@ async def execute_c2c_approve(
     new_text = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
     if receipt and receipt.status == C2cReceiptStatus.APPROVED.value:
         await _edit_callback_message(callback, new_text, reply_markup=None)
+        if callback.bot:
+            await sync_c2c_group_admin_message(
+                callback.bot,
+                receipt,
+                status_html=new_text,
+                skip_message_id=_callback_skip_group_sync_message_id(callback),
+            )
 
 
 async def execute_c2c_reject(
@@ -238,6 +334,20 @@ async def execute_c2c_reject(
 
     if not success:
         logger.warning('C2C reject failed', receipt_id=receipt_id, message=message)
+        if message == 'Already processed' and receipt and callback.bot:
+            admin_label = (
+                callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+            )
+            reason_suffix = f' ({receipt.rejection_reason_key})' if receipt.rejection_reason_key else ''
+            stale_text = f'❌ <b>Rejected</b>{reason_suffix} — receipt #{receipt_id} by @{admin_label}'
+            await sync_c2c_group_admin_message(
+                callback.bot,
+                receipt,
+                status_html=stale_text,
+                skip_message_id=_callback_skip_group_sync_message_id(callback),
+            )
+            if _admin_chat_ok(callback):
+                await _notify_c2c_already_processed(callback)
         return
 
     admin_label = (
@@ -247,6 +357,13 @@ async def execute_c2c_reject(
     new_text = f'❌ <b>Rejected</b>{reason_suffix} — receipt #{receipt_id} by @{admin_label}'
     if receipt and receipt.status == C2cReceiptStatus.REJECTED.value:
         await _edit_callback_message(callback, new_text, reply_markup=None)
+        if callback.bot:
+            await sync_c2c_group_admin_message(
+                callback.bot,
+                receipt,
+                status_html=new_text,
+                skip_message_id=_callback_skip_group_sync_message_id(callback),
+            )
 
 
 async def show_c2c_reject_menu(
