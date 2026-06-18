@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.database.models import C2cReceipt, C2cReceiptStatus
@@ -56,3 +57,29 @@ async def get_c2c_receipt_for_update(db: AsyncSession, receipt_id: int) -> C2cRe
 
 async def user_has_pending_receipt(db: AsyncSession, user_id: int) -> bool:
     return await get_pending_receipt_for_user(db, user_id) is not None
+
+
+async def count_pending_receipts(db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(C2cReceipt)
+        .where(C2cReceipt.status == C2cReceiptStatus.PENDING.value)
+    )
+    return int(result.scalar_one() or 0)
+
+
+async def list_pending_receipts(
+    db: AsyncSession,
+    *,
+    limit: int,
+    offset: int,
+) -> list[C2cReceipt]:
+    result = await db.execute(
+        select(C2cReceipt)
+        .options(joinedload(C2cReceipt.user))
+        .where(C2cReceipt.status == C2cReceiptStatus.PENDING.value)
+        .order_by(C2cReceipt.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().unique().all())
