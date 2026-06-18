@@ -3090,6 +3090,7 @@
   "MY_SUB_DETAIL_STATUS": "وضعیت: {status}",
   "MY_SUB_DETAIL_TRAFFIC": "📊 ترافیک: {traffic}",
   "MY_SUB_DETAIL_UNTIL": "📅 تا: {end_date}",
+  "MY_SUB_DETAIL_PURCHASE_NOTE": "📝 یادداشت: {note}",
   "MY_SUB_DEVICES_COUNT_SHORT": "{count} دستگاه",
   "MY_SUB_DEVICES_LINE": "   📱 دستگاه‌ها: {devices}",
   "MY_SUB_DEVICES_MENU": "📱 <b>دستگاه‌ها</b>\n\nلیمیت فعلی: {current} دستگاه\n\nعملیات را انتخاب کنید:",

@@ -609,6 +609,12 @@ async def show_subscription_detail(
         f'{texts.t("MY_SUB_DETAIL_UNTIL", "📅 До: {end_date}").format(end_date=end_date)}\n'
     )
 
+    purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
+    if purchase_note:
+        text += texts.t('MY_SUB_DETAIL_PURCHASE_NOTE', '📝 Note: {note}').format(
+            note=html.escape(purchase_note)
+        ) + '\n'
+
     if subscription.subscription_url and not settings.should_hide_subscription_link():
         text += f'\n🔗 <code>{subscription.subscription_url}</code>'
 
