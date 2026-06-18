@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import settings
+from app.utils.remnawave_panel_identity import parse_purchase_note_from_panel_description
 from app.database.crud.subscription import (
     deactivate_subscription,
     decrement_subscription_server_counts,
@@ -1223,6 +1224,13 @@ class RemnaWaveWebhookService:
                 changed = True
         # NOTE: панель не включает cryptoLink в каждый webhook user.modified
         # Отсутствие поля не означает что его нужно сбрасывать
+
+        panel_description = data.get('description')
+        if panel_description is not None:
+            parsed_note = parse_purchase_note_from_panel_description(panel_description)
+            if parsed_note is not None and subscription.purchase_note != parsed_note:
+                subscription.purchase_note = parsed_note
+                changed = True
 
         # Always stamp to protect from sync overwrite, even if no fields changed
         self._stamp_webhook_update(subscription)
