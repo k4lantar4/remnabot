@@ -14,6 +14,7 @@ from app.database.models import User
 from app.localization.texts import get_texts
 from app.states import SubscriptionStates
 from app.utils.decorators import error_handler
+from app.utils.message_edit import edit_bot_message_text_or_caption
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 
@@ -111,6 +112,7 @@ async def render_tariff_confirm_screen(
     state: FSMContext,
     tariff_id: int,
     period: int,
+    fallback_message: types.Message | None = None,
 ) -> None:
     texts = get_texts(db_user.language)
     tariff = await get_tariff_by_id(db, tariff_id)
@@ -144,11 +146,12 @@ async def render_tariff_confirm_screen(
         texts,
         partner_opts['purchase_note'],
     )
-    await bot.edit_message_text(
+    await edit_bot_message_text_or_caption(
+        bot,
+        chat_id,
+        message_id,
         body,
-        chat_id=chat_id,
-        message_id=message_id,
-        reply_markup=get_partner_tariff_confirm_keyboard(
+        get_partner_tariff_confirm_keyboard(
             tariff_id,
             period,
             db_user.language,
@@ -158,6 +161,7 @@ async def render_tariff_confirm_screen(
             show_brand_toggle=partner_opts['has_brand_prefix'],
         ),
         parse_mode='HTML',
+        fallback_message=fallback_message,
     )
 
 
@@ -241,6 +245,7 @@ async def handle_tariff_purchase_note_input(
         state=state,
         tariff_id=int(tariff_id),
         period=int(period),
+        fallback_message=message,
     )
     try:
         await message.delete()
@@ -275,6 +280,7 @@ async def toggle_tariff_brand_prefix(
         state=state,
         tariff_id=tariff_id,
         period=period,
+        fallback_message=callback.message,
     )
 
 
