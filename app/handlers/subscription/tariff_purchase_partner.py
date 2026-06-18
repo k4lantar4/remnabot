@@ -18,24 +18,41 @@ from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 
 
+def _sanitize_purchase_note(value: str | None) -> str | None:
+    note = (value or '').strip()
+    if not note:
+        return None
+    return note[:MAX_PURCHASE_NOTE_LEN]
+
+
 def checkout_partner_options(db_user: User, state_data: dict) -> dict:
     has_brand = bool(db_user.is_partner and (db_user.panel_brand_prefix or '').strip())
     use_brand = state_data.get('use_brand_prefix')
     if use_brand is None:
         use_brand = has_brand
     return {
-        'purchase_note': (state_data.get('purchase_note') or '').strip() or None,
+        'purchase_note': _sanitize_purchase_note(state_data.get('purchase_note')),
         'use_brand_prefix': bool(use_brand) if has_brand else False,
         'has_brand_prefix': has_brand,
     }
 
 
+def partner_checkout_cart_fields(db_user: User, state_data: dict) -> dict:
+    if not db_user.is_partner:
+        return {}
+    opts = checkout_partner_options(db_user, state_data)
+    fields: dict = {'use_brand_prefix': opts['use_brand_prefix']}
+    if opts['purchase_note']:
+        fields['purchase_note'] = opts['purchase_note']
+    return fields
+
+
 def append_purchase_note_preview(text: str, texts, purchase_note: str | None) -> str:
     if not purchase_note:
         return text
-    return text + '\n\n' + texts.t('PARTNER_PURCHASE_NOTE_PREVIEW', '📝 یادdاشت: {note}').format(
+    return text + '\n\n' + texts.t('PARTNER_PURCHASE_NOTE_PREVIEW', '📝 یادداشت: {note}').format(
         note=html.escape(purchase_note)
-    ).replace('یادdاشت', 'یاد\u062fاشت')
+    )
 
 
 def get_partner_tariff_confirm_keyboard(
@@ -52,36 +69,26 @@ def get_partner_tariff_confirm_keyboard(
     rows: list[list[InlineKeyboardButton]] = []
 
     if db_user and db_user.is_partner:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('PARTNER_BRAND_SETTINGS_BTN', '🏷 نام برند'),
-                    callback_data='partner_brand_settings',
-                )
-            ]
+        partner_row: list[InlineKeyboardButton] = []
+        note_key = 'PARTNER_PURCHASE_NOTE_SET_BTN' if purchase_note else 'PARTNER_PURCHASE_NOTE_BTN'
+        note_fallback = '📝 یادداشت ✓' if purchase_note else '📝 یادداشت'
+        partner_row.append(
+            InlineKeyboardButton(
+                text=texts.t(note_key, note_fallback),
+                callback_data=f'tariff_purchase_note:{tariff_id}:{period}',
+            )
         )
-    if show_brand_toggle:
-        key = 'PARTNER_BRAND_TOGGLE_ON' if use_brand_prefix else 'PARTNER_BRAND_TOGGLE_OFF'
-        fallback = '✅ استفاده از نام برند' if use_brand_prefix else '⬜ استفاده از نام برند'
-        rows.append(
-            [
+        if show_brand_toggle:
+            key = 'PARTNER_BRAND_TOGGLE_ON' if use_brand_prefix else 'PARTNER_BRAND_TOGGLE_OFF'
+            fallback = '✅ استفاده از نام برند' if use_brand_prefix else '⬜ استفاده از نام برند'
+            partner_row.append(
                 InlineKeyboardButton(
                     text=texts.t(key, fallback),
                     callback_data=f'tariff_brand_toggle:{tariff_id}:{period}',
                 )
-            ]
-        )
-
-    note_key = 'PARTNER_PURCHASE_NOTE_SET_BTN' if purchase_note else 'PARTNER_PURCHASE_NOTE_BTN'
-    note_text = texts.t(note_key, '📝 یادdاشت ✓' if purchase_note else '📝 یادdاشت')
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=note_text,
-                callback_data=f'tariff_purchase_note:{tariff_id}:{period}',
             )
-        ]
-    )
+        rows.append(partner_row)
+
     rows.append(
         [
             InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_select:{tariff_id}'),
@@ -95,8 +102,10 @@ def get_partner_tariff_confirm_keyboard(
 
 
 async def render_tariff_confirm_screen(
-    message: types.Message,
     *,
+    bot,
+    chat_id: int,
+    message_id: int,
     db_user: User,
     db: AsyncSession,
     state: FSMContext,
@@ -135,8 +144,10 @@ async def render_tariff_confirm_screen(
         texts,
         partner_opts['purchase_note'],
     )
-    await message.edit_text(
+    await bot.edit_message_text(
         body,
+        chat_id=chat_id,
+        message_id=message_id,
         reply_markup=get_partner_tariff_confirm_keyboard(
             tariff_id,
             period,
@@ -157,16 +168,25 @@ async def prompt_tariff_purchase_note(
     state: FSMContext,
 ) -> None:
     texts = get_texts(db_user.language)
+    if not db_user.is_partner:
+        await callback.answer(texts.t('PARTNER_ONLY', 'فقط برای همکاران'), show_alert=True)
+        return
+
     parts = callback.data.split(':')
     tariff_id, period = int(parts[1]), int(parts[2])
     await callback.answer()
-    await state.update_data(purchase_note_tariff_id=tariff_id, purchase_note_period=period)
+    await state.update_data(
+        purchase_note_tariff_id=tariff_id,
+        purchase_note_period=period,
+        purchase_note_chat_id=callback.message.chat.id,
+        purchase_note_message_id=callback.message.message_id,
+    )
     await state.set_state(SubscriptionStates.entering_purchase_note)
     await callback.message.edit_text(
         texts.t(
             'PARTNER_PURCHASE_NOTE_PROMPT',
-            '📝 یادdاشت اختیاری (حداکثر {max} کاراکتر). /skip برای رد.',
-        ).format(max=MAX_PURCHASE_NOTE_LEN).replace('یادdاشت', 'یاد\u062fاشت'),
+            '📝 یادداشت اختیاری برای این خرید (حداکثر {max} کاراکتر).\nبرای رد کردن /skip را بفرستید.',
+        ).format(max=MAX_PURCHASE_NOTE_LEN),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_period:{tariff_id}:{period}')]
@@ -190,17 +210,42 @@ async def handle_tariff_purchase_note_input(
         return
 
     raw = (message.text or '').strip()
-    note = None if raw.lower() in ('/skip', 'skip', '-') else (raw[:MAX_PURCHASE_NOTE_LEN] if raw else None)
+    if raw.lower() in ('/skip', 'skip', '-'):
+        note = None
+    elif not raw:
+        texts = get_texts(db_user.language)
+        await message.answer(
+            texts.t(
+                'PARTNER_PURCHASE_NOTE_PROMPT',
+                '📝 یادداشت اختیاری برای این خرید (حداکثر {max} کاراکتر).\nبرای رد کردن /skip را بفرستید.',
+            ).format(max=MAX_PURCHASE_NOTE_LEN)
+        )
+        return
+    else:
+        note = _sanitize_purchase_note(raw)
+
+    chat_id = state_data.get('purchase_note_chat_id')
+    message_id = state_data.get('purchase_note_message_id')
+    if not chat_id or not message_id:
+        await state.set_state(None)
+        return
+
     await state.update_data(purchase_note=note)
     await state.set_state(None)
     await render_tariff_confirm_screen(
-        message,
+        bot=message.bot,
+        chat_id=int(chat_id),
+        message_id=int(message_id),
         db_user=db_user,
         db=db,
         state=state,
         tariff_id=int(tariff_id),
         period=int(period),
     )
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 @error_handler
@@ -222,7 +267,9 @@ async def toggle_tariff_brand_prefix(
     await state.update_data(use_brand_prefix=not current)
     await callback.answer()
     await render_tariff_confirm_screen(
-        callback.message,
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
         db_user=db_user,
         db=db,
         state=state,

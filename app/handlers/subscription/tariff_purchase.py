@@ -1613,6 +1613,9 @@ async def select_tariff_period_custom_traffic(
         )
     else:
         missing = ctx['missing_toman']
+        state_data = await state.get_data()
+        from app.handlers.subscription.tariff_purchase_partner import partner_checkout_cart_fields
+
         cart_data = build_cart_topup_metadata(
             missing_toman=missing,
             cart_mode='tariff_purchase',
@@ -1628,6 +1631,7 @@ async def select_tariff_period_custom_traffic(
             device_limit=tariff.device_limit,
             allowed_squads=tariff.allowed_squads or [],
             custom_traffic_gb=traffic_gb,
+            **partner_checkout_cart_fields(db_user, state_data),
         )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
         await callback.message.edit_text(
@@ -2071,6 +2075,8 @@ async def select_tariff_period(
             _cart_sub_id = _legacy_sub.id if _legacy_sub else None
 
         # Сохраняем данные корзины для автопокупки после пополнения
+        from app.handlers.subscription.tariff_purchase_partner import partner_checkout_cart_fields
+
         cart_data = build_cart_topup_metadata(
             missing_toman=missing,
             cart_mode='tariff_purchase',
@@ -2087,6 +2093,7 @@ async def select_tariff_period(
             allowed_squads=tariff.allowed_squads or [],
             discount_percent=discount_percent,
             subscription_id=_cart_sub_id,
+            **partner_checkout_cart_fields(db_user, _state_data),
         )
         await user_cart_service.save_user_cart(db_user.id, cart_data)
 
@@ -2446,9 +2453,9 @@ async def confirm_tariff_purchase(
     # Обновляем пользователя в Remnawave
     # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
     try:
-        if _purchase_note is not None:
+        if getattr(db_user, 'is_partner', False):
             subscription.purchase_note = _purchase_note
-            await db.commit()
+            await db.flush()
 
         subscription_service = SubscriptionService()
         # In multi-tariff mode, each subscription has its own panel user.
@@ -5664,6 +5671,10 @@ async def return_to_saved_tariff_cart(
             _cart_traffic = cart_data.get('custom_traffic_gb')
             if _cart_traffic is not None:
                 _state_pin['custom_traffic_gb'] = _cart_traffic
+            if cart_data.get('purchase_note'):
+                _state_pin['purchase_note'] = cart_data['purchase_note']
+            if 'use_brand_prefix' in cart_data:
+                _state_pin['use_brand_prefix'] = cart_data['use_brand_prefix']
         await state.update_data(**_state_pin)
 
     if cart_mode == 'daily_tariff_purchase':
