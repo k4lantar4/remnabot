@@ -128,9 +128,9 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
 
     dp = Dispatcher(storage=storage)
 
-    from app.plugins.c2c.middleware import register_c2c_callback_middleware
+    from app.plugins.c2c.middleware import register_c2c_admin_middlewares
 
-    register_c2c_callback_middleware(dp)
+    register_c2c_admin_middlewares(dp)
 
     dp.message.middleware(ContextVarsMiddleware())
     dp.callback_query.middleware(ContextVarsMiddleware())

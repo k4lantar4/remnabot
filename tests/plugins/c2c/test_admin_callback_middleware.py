@@ -144,3 +144,38 @@ async def test_middleware_passes_through_non_c2c_callbacks(monkeypatch: pytest.M
     assert result == 'ok'
     inner_handler.assert_awaited_once_with(callback, {})
     mock_answer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_middleware_passes_c2c_callbacks_in_private_chat_to_inner_handler(monkeypatch: pytest.MonkeyPatch):
+    cfg = _settings()
+    monkeypatch.setattr('app.plugins.c2c.middleware.settings', cfg)
+
+    inner_handler = AsyncMock(return_value='inbox-handled')
+    middleware = C2cAdminCallbackMiddleware()
+    private_chat = Chat(id=ADMIN_USER_ID, type=ChatType.PRIVATE)
+    message = Message(
+        message_id=2,
+        date=datetime.now(),
+        chat=private_chat,
+        text='receipt detail',
+    )
+    from_user = User(id=ADMIN_USER_ID, is_bot=False, first_name='Admin', username='admin')
+    callback = CallbackQuery(
+        id='cb-test-private',
+        from_user=from_user,
+        chat_instance='test',
+        data='c2c:ca:7',
+        message=message,
+    )
+
+    with (
+        patch.object(CallbackQuery, 'answer', new_callable=AsyncMock) as mock_answer,
+        patch('app.plugins.c2c.middleware.execute_c2c_approve', new_callable=AsyncMock) as mock_approve,
+    ):
+        result = await middleware(inner_handler, callback, {})
+
+    assert result == 'inbox-handled'
+    inner_handler.assert_awaited_once_with(callback, {})
+    mock_answer.assert_not_awaited()
+    mock_approve.assert_not_awaited()

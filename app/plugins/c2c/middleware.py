@@ -1,4 +1,4 @@
-"""Outer callback middleware for C2C admin approve/reject in group chats."""
+"""Outer middleware for C2C admin approve/reject in group chats."""
 
 from __future__ import annotations
 
@@ -7,7 +7,9 @@ from typing import Any
 
 import structlog
 from aiogram import BaseMiddleware, Dispatcher
-from aiogram.types import CallbackQuery, TelegramObject
+from aiogram.enums import ChatType
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from app.config import settings
 from app.database.database import AsyncSessionLocal
@@ -20,6 +22,7 @@ from app.plugins.c2c.constants import (
     C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
 )
 from app.plugins.c2c.handlers.admin import (
+    _execute_c2c_custom_amount_input,
     _parse_receipt_id,
     _parse_reject_reason_callback,
     execute_c2c_approve,
@@ -28,6 +31,8 @@ from app.plugins.c2c.handlers.admin import (
     show_c2c_reject_menu,
     start_c2c_custom_amount,
 )
+from app.plugins.c2c.service import get_c2c_fsm_storage
+from app.states import AdminStates
 
 
 logger = structlog.get_logger(__name__)
@@ -77,10 +82,13 @@ class C2cAdminCallbackMiddleware(BaseMiddleware):
 
         callback = event
         admin_chat_id = settings.get_c2c_admin_chat_id()
-        chat_id = callback.message.chat.id if callback.message else None
+        chat = callback.message.chat if callback.message else None
+        chat_id = chat.id if chat else None
         message_thread_id = callback.message.message_thread_id if callback.message else None
 
         if not admin_chat_id or chat_id != admin_chat_id:
+            if chat and chat.type == ChatType.PRIVATE:
+                return await handler(event, data)
             await callback.answer('Wrong chat', show_alert=True)
             return None
 
@@ -121,5 +129,69 @@ class C2cAdminCallbackMiddleware(BaseMiddleware):
         return None
 
 
-def register_c2c_callback_middleware(dp: Dispatcher) -> None:
+class C2cAdminMessageMiddleware(BaseMiddleware):
+    """Handle custom-amount FSM text in admin supergroup before chat filter drops it."""
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        if not isinstance(event, Message):
+            return await handler(event, data)
+
+        message = event
+        admin_chat_id = settings.get_c2c_admin_chat_id()
+        if not admin_chat_id or message.chat.id != admin_chat_id:
+            return await handler(event, data)
+
+        if not message.from_user or not settings.is_admin(message.from_user.id):
+            return None
+
+        storage = get_c2c_fsm_storage()
+        if not storage or not message.bot:
+            return None
+
+        key = StorageKey(
+            bot_id=message.bot.id,
+            chat_id=message.chat.id,
+            user_id=message.from_user.id,
+        )
+        state = await storage.get_state(key)
+        if state != AdminStates.c2c_custom_amount.state:
+            return None
+
+        fsm_data = await storage.get_data(key)
+        receipt_id = fsm_data.get('c2c_custom_receipt_id')
+        if not receipt_id:
+            await storage.set_state(key=key, state=None)
+            await storage.set_data(key=key, data={})
+            return None
+
+        lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+        async with AsyncSessionLocal() as db:
+            await _execute_c2c_custom_amount_input(
+                message,
+                db,
+                receipt_id=int(receipt_id),
+                language=lang,
+            )
+
+        logger.info(
+            'C2C admin custom amount message handled',
+            receipt_id=receipt_id,
+            chat_id=message.chat.id,
+            message_thread_id=message.message_thread_id,
+        )
+        return None
+
+
+def register_c2c_admin_middlewares(dp: Dispatcher) -> None:
     dp.callback_query.outer_middleware(C2cAdminCallbackMiddleware())
+    dp.message.outer_middleware(C2cAdminMessageMiddleware())
+
+
+def register_c2c_callback_middleware(dp: Dispatcher) -> None:
+    """Backward-compatible alias for register_c2c_admin_middlewares."""
+    register_c2c_admin_middlewares(dp)

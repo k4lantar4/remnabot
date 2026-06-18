@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 from aiogram import F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -80,6 +82,12 @@ async def _edit_callback_message(
             logger.warning('Could not edit C2C admin message', error=error)
 
 
+def _message_reply_kwargs(message: types.Message) -> dict[str, Any]:
+    if message.message_thread_id is not None:
+        return {'message_thread_id': message.message_thread_id}
+    return {}
+
+
 async def _set_custom_amount_state(
     *,
     bot_id: int,
@@ -93,6 +101,82 @@ async def _set_custom_amount_state(
     key = StorageKey(bot_id=bot_id, chat_id=chat_id, user_id=user_id)
     await storage.set_state(key=key, state=AdminStates.c2c_custom_amount)
     await storage.set_data(key=key, data={'c2c_custom_receipt_id': receipt_id})
+
+
+async def _clear_custom_amount_state(*, bot_id: int, chat_id: int, user_id: int) -> None:
+    storage = get_c2c_fsm_storage()
+    if not storage:
+        return
+    key = StorageKey(bot_id=bot_id, chat_id=chat_id, user_id=user_id)
+    await storage.set_state(key=key, state=None)
+    await storage.set_data(key=key, data={})
+
+
+async def _execute_c2c_custom_amount_input(
+    message: types.Message,
+    db: AsyncSession,
+    *,
+    receipt_id: int,
+    language: str,
+) -> None:
+    if not message.from_user:
+        return
+
+    texts = get_texts(language)
+    reply_kwargs = _message_reply_kwargs(message)
+
+    if not message.text:
+        await message.answer(
+            texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
+            **reply_kwargs,
+        )
+        return
+
+    try:
+        amount_kopeks = balance_from_display_amount(message.text.strip())
+    except ValueError:
+        await message.answer(
+            texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
+            **reply_kwargs,
+        )
+        return
+
+    if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS or amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
+        await message.answer(
+            texts.t(
+                'C2C_ADMIN_CUSTOM_AMOUNT_OUT_OF_RANGE',
+                '❌ Amount must be between {min} and {max}.',
+            ).format(
+                min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS),
+                max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS),
+            ),
+            **reply_kwargs,
+        )
+        return
+
+    service = C2cPaymentService(message.bot)
+    success, status_message, receipt = await service.approve_receipt(
+        db,
+        receipt_id,
+        message.from_user.id,
+        credited_amount_kopeks=amount_kopeks,
+    )
+    await _clear_custom_amount_state(
+        bot_id=message.bot.id,
+        chat_id=message.chat.id,
+        user_id=message.from_user.id,
+    )
+
+    if not success:
+        await message.answer(f'❌ {status_message}', **reply_kwargs)
+        return
+
+    credit_display = settings.format_balance(receipt.approved_amount_kopeks if receipt else amount_kopeks)
+    await message.answer(
+        f'✅ Receipt #{receipt_id} approved for {credit_display}',
+        parse_mode='HTML',
+        **reply_kwargs,
+    )
 
 
 async def execute_c2c_approve(
@@ -322,57 +406,19 @@ async def process_c2c_custom_amount(
     state: FSMContext,
     db: AsyncSession,
 ) -> None:
-    texts = get_texts(db_user.language)
     data = await state.get_data()
     receipt_id = data.get('c2c_custom_receipt_id')
     if not receipt_id:
         await state.clear()
         return
 
-    if not message.text:
-        await message.answer(
-            texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
-        )
-        return
-
-    try:
-        amount_kopeks = balance_from_display_amount(message.text.strip())
-    except ValueError:
-        await message.answer(
-            texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
-        )
-        return
-
-    if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS or amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
-        await message.answer(
-            texts.t(
-                'C2C_ADMIN_CUSTOM_AMOUNT_OUT_OF_RANGE',
-                '❌ Amount must be between {min} and {max}.',
-            ).format(
-                min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS),
-                max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS),
-            ),
-        )
-        return
-
-    service = C2cPaymentService(message.bot)
-    success, status_message, receipt = await service.approve_receipt(
+    await _execute_c2c_custom_amount_input(
+        message,
         db,
-        int(receipt_id),
-        message.from_user.id,
-        credited_amount_kopeks=amount_kopeks,
+        receipt_id=int(receipt_id),
+        language=db_user.language,
     )
     await state.clear()
-
-    if not success:
-        await message.answer(f'❌ {status_message}')
-        return
-
-    credit_display = settings.format_balance(receipt.approved_amount_kopeks if receipt else amount_kopeks)
-    await message.answer(
-        f'✅ Receipt #{receipt_id} approved for {credit_display}',
-        parse_mode='HTML',
-    )
 
 
 def register_admin_handlers(dp) -> None:
