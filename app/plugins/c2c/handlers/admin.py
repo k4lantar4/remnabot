@@ -152,12 +152,6 @@ async def _notify_c2c_already_processed(callback: types.CallbackQuery) -> None:
         pass
 
 
-def _message_reply_kwargs(message: types.Message) -> dict[str, Any]:
-    if message.message_thread_id is not None:
-        return {'message_thread_id': message.message_thread_id}
-    return {}
-
-
 async def _set_custom_amount_state(
     *,
     bot_id: int,
@@ -193,12 +187,10 @@ async def _execute_c2c_custom_amount_input(
         return
 
     texts = get_texts(language)
-    reply_kwargs = _message_reply_kwargs(message)
 
     if not message.text:
         await message.answer(
             texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
-            **reply_kwargs,
         )
         return
 
@@ -207,7 +199,6 @@ async def _execute_c2c_custom_amount_input(
     except ValueError:
         await message.answer(
             texts.t('C2C_ADMIN_CUSTOM_AMOUNT_INVALID', '❌ Invalid amount. Enter an integer.'),
-            **reply_kwargs,
         )
         return
 
@@ -220,7 +211,6 @@ async def _execute_c2c_custom_amount_input(
                 min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS),
                 max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS),
             ),
-            **reply_kwargs,
         )
         return
 
@@ -238,7 +228,7 @@ async def _execute_c2c_custom_amount_input(
     )
 
     if not success:
-        await message.answer(f'❌ {status_message}', **reply_kwargs)
+        await message.answer(f'❌ {status_message}')
         return
 
     credit_display = settings.format_balance(receipt.approved_amount_kopeks if receipt else amount_kopeks)
@@ -249,7 +239,6 @@ async def _execute_c2c_custom_amount_input(
     await message.answer(
         f'✅ Receipt #{receipt_id} approved for {credit_display}',
         parse_mode='HTML',
-        **reply_kwargs,
     )
 
 
