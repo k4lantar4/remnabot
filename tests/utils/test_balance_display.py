@@ -80,7 +80,7 @@ def test_normalize_display_amount_text(raw: str, expected: str) -> None:
 
 def test_format_balance_fa_grouping(monkeypatch) -> None:
     monkeypatch.setattr(settings, 'PRICE_DISPLAY_SUFFIX', ' تومان', raising=False)
-    assert settings.format_balance(1000, language='fa') == '1\u066c000 تومان'
+    assert settings.format_balance(1000, language='fa') == '1,000 تومان'
 
 
 def test_format_balance_en_grouping(monkeypatch) -> None:
@@ -90,7 +90,7 @@ def test_format_balance_en_grouping(monkeypatch) -> None:
 
 def test_format_price_fa_grouping(monkeypatch) -> None:
     monkeypatch.setattr(settings, 'PRICE_DISPLAY_SUFFIX', ' تومان', raising=False)
-    assert settings.format_price(100_000_000, language='fa') == '1\u066c000\u066c000 تومان'
+    assert settings.format_price(100_000_000, language='fa') == '1,000,000 تومان'
 
 
 @pytest.mark.parametrize(

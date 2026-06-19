@@ -1794,7 +1794,7 @@ class Settings(BaseSettings):
                 rubles += 1
             kopeks = 0
 
-        grouped_rubles = self._group_balance_digits(rubles, language) if language else str(rubles)
+        grouped_rubles = self._group_balance_digits(rubles, language)
 
         if kopeks:
             value = f'{sign}{grouped_rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
@@ -1804,8 +1804,8 @@ class Settings(BaseSettings):
 
     def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
         lang = (language or 'fa').split('-')[0].lower()
-        if lang == 'fa':
-            return f'{abs_amount:,}'.replace(',', '\u066c')
+        if lang in ('fa', 'en'):
+            return f'{abs_amount:,}'
         if lang in ('ru', 'ua'):
             return f'{abs_amount:,}'.replace(',', '\u00a0')
         return f'{abs_amount:,}'

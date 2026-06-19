@@ -232,7 +232,7 @@ class Texts:
                     'zh': '∞ (无限)',
                 }
                 return unlimited.get(lang, '∞ (безлимит)')
-            zero = {'fa': '۰ گیگ', 'en': '0 GB', 'ua': '0 ГБ', 'zh': '0 GB'}
+            zero = {'fa': '0 GB', 'en': '0 GB', 'ua': '0 ГБ', 'zh': '0 GB'}
             return zero.get(lang, '0 ГБ')
 
         if gb >= 1024:

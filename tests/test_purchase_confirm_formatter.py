@@ -154,10 +154,9 @@ def test_confirm_fa_price_lines_use_thousand_grouping(monkeypatch):
         language='fa',
     )
 
-    fa_sep = '\u066c'
-    assert f'1{fa_sep}000{fa_sep}600' in message
-    assert f'1{fa_sep}000{fa_sep}000' in message
-    assert f'900{fa_sep}540' in message
+    assert '1,000,600' in message
+    assert '1,000,000' in message
+    assert '900,540' in message
     assert '1000000' not in message
     assert '1000600' not in message
     assert '900540' not in message

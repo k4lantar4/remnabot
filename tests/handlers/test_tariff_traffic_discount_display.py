@@ -74,5 +74,4 @@ def test_confirm_traffic_line_uses_discounted_amount_for_wholesale(monkeypatch):
         user=user,
     )
 
-    fa_sep = '\u066c'
-    assert f'250{fa_sep}000' in message
+    assert '250,000' in message
