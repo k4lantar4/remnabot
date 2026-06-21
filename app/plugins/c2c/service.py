@@ -64,16 +64,12 @@ class C2cPaymentService:
         if receipt.status != C2cReceiptStatus.PENDING.value:
             return False, 'Receipt is no longer pending', None
 
-        receipt.receipt_type = receipt_type
-        receipt.receipt_file_id = receipt_file_id
-        receipt.receipt_text = receipt_text
-        receipt.user_receipt_message_id = user_receipt_message_id
-        receipt.updated_at = datetime.now(UTC)
-        await db.flush()
-
         admin_chat_id = settings.get_c2c_admin_chat_id()
         if not admin_chat_id or not self.bot:
             return False, 'C2C admin chat is not configured', None
+
+        if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
+            return False, 'Receipt text is empty', None
 
         configured_c2c_raw = (settings.C2C_ADMIN_CHAT_ID or '').strip()
         if configured_c2c_raw:
@@ -87,9 +83,6 @@ class C2cPaymentService:
                     configured_chat_id=configured_c2c_id,
                     resolved_chat_id=admin_chat_id,
                 )
-
-        if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
-            return False, 'Receipt text is empty', None
 
         admin_text = self._build_admin_notification_text(receipt, user)
         keyboard = get_c2c_admin_review_keyboard(
@@ -153,8 +146,13 @@ class C2cPaymentService:
             logger.error('Failed to send C2C receipt to admin chat', receipt_id=receipt.id, error=error)
             return False, 'Failed to notify administrators', None
 
+        receipt.receipt_type = receipt_type
+        receipt.receipt_file_id = receipt_file_id
+        receipt.receipt_text = receipt_text
+        receipt.user_receipt_message_id = user_receipt_message_id
         receipt.admin_chat_id = admin_message.chat.id
         receipt.admin_message_id = admin_message.message_id
+        receipt.updated_at = datetime.now(UTC)
         await db.flush()
         return True, 'OK', admin_message.message_id
 
