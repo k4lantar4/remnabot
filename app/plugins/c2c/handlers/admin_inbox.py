@@ -64,7 +64,7 @@ async def _render_inbox_list(
     language: str,
 ) -> None:
     texts = get_texts(language)
-    total_count = await c2c_crud.count_pending_receipts(db)
+    total_count = await c2c_crud.count_reviewable_pending_receipts(db)
     if total_count == 0:
         await callback.message.edit_text(
             texts.t(
@@ -78,7 +78,7 @@ async def _render_inbox_list(
 
     max_page = max(0, (total_count - 1) // INBOX_PAGE_SIZE)
     page = max(0, min(page, max_page))
-    receipts = await c2c_crud.list_pending_receipts(
+    receipts = await c2c_crud.list_reviewable_pending_receipts(
         db,
         limit=INBOX_PAGE_SIZE,
         offset=page * INBOX_PAGE_SIZE,

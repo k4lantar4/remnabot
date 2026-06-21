@@ -59,3 +59,29 @@ async def test_list_pending_receipts_returns_pending_rows():
     assert rows[0].status == C2cReceiptStatus.PENDING.value
     assert rows[0].id == 1
     db.execute.assert_awaited_once()
+
+
+def test_is_reviewable_pending_receipt_requires_submission():
+    draft = SimpleNamespace(
+        status=C2cReceiptStatus.PENDING.value,
+        receipt_type=None,
+        admin_message_id=None,
+    )
+    submitted = SimpleNamespace(
+        status=C2cReceiptStatus.PENDING.value,
+        receipt_type='photo',
+        admin_message_id=999,
+    )
+    assert c2c_crud.is_reviewable_pending_receipt(draft) is False
+    assert c2c_crud.is_reviewable_pending_receipt(submitted) is True
+
+
+@pytest.mark.asyncio
+async def test_count_reviewable_pending_receipts():
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=_mock_scalar_result(1))
+
+    count = await c2c_crud.count_reviewable_pending_receipts(db)
+
+    assert count == 1
+    db.execute.assert_awaited_once()

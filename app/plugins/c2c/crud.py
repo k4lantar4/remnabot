@@ -68,6 +68,48 @@ async def user_has_pending_receipt(db: AsyncSession, user_id: int) -> bool:
     return await get_pending_receipt_for_user(db, user_id) is not None
 
 
+def is_reviewable_pending_receipt(receipt: C2cReceipt) -> bool:
+    return (
+        receipt.status == C2cReceiptStatus.PENDING.value
+        and receipt.receipt_type is not None
+        and receipt.admin_message_id is not None
+    )
+
+
+def _reviewable_pending_filters():
+    return (
+        C2cReceipt.status == C2cReceiptStatus.PENDING.value,
+        C2cReceipt.receipt_type.isnot(None),
+        C2cReceipt.admin_message_id.isnot(None),
+    )
+
+
+async def count_reviewable_pending_receipts(db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(C2cReceipt)
+        .where(*_reviewable_pending_filters())
+    )
+    return int(result.scalar_one() or 0)
+
+
+async def list_reviewable_pending_receipts(
+    db: AsyncSession,
+    *,
+    limit: int,
+    offset: int,
+) -> list[C2cReceipt]:
+    result = await db.execute(
+        select(C2cReceipt)
+        .options(joinedload(C2cReceipt.user))
+        .where(*_reviewable_pending_filters())
+        .order_by(C2cReceipt.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().unique().all())
+
+
 async def count_pending_receipts(db: AsyncSession) -> int:
     result = await db.execute(
         select(func.count())
