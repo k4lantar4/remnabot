@@ -64,6 +64,9 @@ async def _render_inbox_list(
     language: str,
 ) -> None:
     texts = get_texts(language)
+    expired_count = await c2c_crud.expire_stale_c2c_receipts(db)
+    if expired_count:
+        await db.commit()
     total_count = await c2c_crud.count_reviewable_pending_receipts(db)
     if total_count == 0:
         await callback.message.edit_text(

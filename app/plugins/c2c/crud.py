@@ -134,3 +134,31 @@ async def list_pending_receipts(
         .offset(offset)
     )
     return list(result.scalars().unique().all())
+
+
+def resolve_stale_receipt_status(receipt: C2cReceipt) -> str:
+    if receipt.receipt_type is None or receipt.admin_message_id is None:
+        return C2cReceiptStatus.CANCELLED.value
+    return C2cReceiptStatus.EXPIRED.value
+
+
+async def expire_stale_c2c_receipts(db: AsyncSession) -> int:
+    now = datetime.now(UTC)
+    result = await db.execute(
+        select(C2cReceipt).where(
+            C2cReceipt.status == C2cReceiptStatus.PENDING.value,
+            C2cReceipt.expires_at.isnot(None),
+            C2cReceipt.expires_at < now,
+        )
+    )
+    rows = list(result.scalars().all())
+    if not rows:
+        return 0
+
+    for receipt in rows:
+        receipt.status = resolve_stale_receipt_status(receipt)
+        receipt.processed_at = now
+        receipt.updated_at = now
+
+    await db.flush()
+    return len(rows)

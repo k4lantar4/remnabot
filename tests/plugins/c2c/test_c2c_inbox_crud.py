@@ -85,3 +85,13 @@ async def test_count_reviewable_pending_receipts():
 
     assert count == 1
     db.execute.assert_awaited_once()
+
+
+def test_resolve_stale_receipt_status():
+    draft = SimpleNamespace(receipt_type=None, admin_message_id=None)
+    notify_failed = SimpleNamespace(receipt_type='photo', admin_message_id=None)
+    submitted = SimpleNamespace(receipt_type='photo', admin_message_id=123)
+
+    assert c2c_crud.resolve_stale_receipt_status(draft) == C2cReceiptStatus.CANCELLED.value
+    assert c2c_crud.resolve_stale_receipt_status(notify_failed) == C2cReceiptStatus.CANCELLED.value
+    assert c2c_crud.resolve_stale_receipt_status(submitted) == C2cReceiptStatus.EXPIRED.value
