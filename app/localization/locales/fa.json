@@ -2516,6 +2516,7 @@
   "C2C_ADMIN_INBOX_EMPTY": "📥 <b>صندوق ورودی کارت به کارت</b>\n\nهیچ رسید در انتظاری وجود ندارد.",
   "C2C_ADMIN_INBOX_ROW": "#{id} — {user} — {amount}",
   "C2C_ADMIN_INBOX_DETAIL": "📄 <b>رسید #{id}</b>\n\n👤 {user}\n💰 درخواستی: {amount}\n💳 کارت: {card}",
+  "C2C_ADMIN_INBOX_DRAFT": "⏳ <b>رسید #{id}</b>\n\nاین درخواست هنوز توسط کاربر آپلود نشده و در گروه ادمین ارسال نشده است.\n\n👤 {user}\n💰 درخواستی: {amount}\n💳 کارت: {card}",
   "C2C_ADMIN_INBOX_BTN": "📥 کارت به کارت ({count})",
   "C2C_ADMIN_REVIEW_APPROVE": "✅ تأیید ({amount})",
   "C2C_ADMIN_REVIEW_CUSTOM": "💰 مبلغ دیگر",

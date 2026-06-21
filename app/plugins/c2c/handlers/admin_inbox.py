@@ -6,6 +6,7 @@ import html
 
 import structlog
 from aiogram import F, types
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -137,6 +138,18 @@ async def show_c2c_inbox_detail(callback: types.CallbackQuery, db_user: User, db
         'C2C_ADMIN_INBOX_DETAIL',
         '📄 <b>Receipt #{id}</b>\n\n👤 {user}\n💰 Requested: {amount}\n💳 Card: {card}',
     ).format(id=receipt.id, user=user_label, amount=amount_display, card=card_label)
+
+    if not c2c_crud.is_reviewable_pending_receipt(receipt):
+        draft_text = texts.t(
+            'C2C_ADMIN_INBOX_DRAFT',
+            '⏳ <b>Receipt #{id}</b>\n\nThis request has not been uploaded by the user yet and was not sent to the admin group.\n\n👤 {user}\n💰 Requested: {amount}\n💳 Card: {card}',
+        ).format(id=receipt.id, user=user_label, amount=amount_display, card=card_label)
+        back_kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text='↩️', callback_data=C2C_CALLBACK_ADMIN_INBOX)]]
+        )
+        await callback.message.edit_text(draft_text, reply_markup=back_kb, parse_mode='HTML')
+        return
+
     keyboard = get_c2c_admin_review_keyboard(
         receipt.id,
         amount_display,
