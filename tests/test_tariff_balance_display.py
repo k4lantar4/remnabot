@@ -16,4 +16,4 @@ def test_affordance_helper_labels():
     texts = get_texts('fa')
     ctx = _affordance_context(texts, 945_000, 1_000_000)
     assert ctx['can_afford'] is True
-    assert '945' in ctx['balance_label'] or '945000' in ctx['balance_label'].replace('\u066c', '')
+    assert '945,000' in ctx['balance_label']
