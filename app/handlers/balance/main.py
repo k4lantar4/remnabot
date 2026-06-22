@@ -399,6 +399,7 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
     except Exception:
         pass
 
+    if pending_receipt and c2c_integration:
         probe_keyboard = get_payment_methods_keyboard(
             amount_kopeks,
             db_user.language,
