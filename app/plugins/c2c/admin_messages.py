@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.config import settings
 from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.localization.texts import get_texts
-from app.plugins.c2c.constants import C2C_CALLBACK_RESOLVED_PREFIX
+from app.plugins.c2c.constants import C2C_CALLBACK_ADMIN_INBOX, C2C_CALLBACK_RESOLVED_PREFIX
 from app.plugins.c2c.reject_reasons import get_admin_reject_button_label
 from app.utils.jalali_datetime import format_user_datetime
 
@@ -109,6 +109,7 @@ def build_c2c_resolved_keyboard(
     status: str,
     *,
     lang: str | None = None,
+    include_inbox_back: bool = False,
 ) -> InlineKeyboardMarkup:
     resolved_lang = _resolve_lang(lang)
     texts = get_texts(resolved_lang)
@@ -116,13 +117,21 @@ def build_c2c_resolved_keyboard(
         button_text = texts.t('C2C_ADMIN_RESOLVED_BTN_APPROVED', '✅ Approved')
     else:
         button_text = texts.t('C2C_ADMIN_RESOLVED_BTN_REJECTED', '❌ Rejected')
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=button_text,
+                callback_data=f'{C2C_CALLBACK_RESOLVED_PREFIX}{receipt_id}',
+            ),
+        ],
+    ]
+    if include_inbox_back:
+        rows.append(
             [
                 InlineKeyboardButton(
-                    text=button_text,
-                    callback_data=f'{C2C_CALLBACK_RESOLVED_PREFIX}{receipt_id}',
+                    text=texts.t('C2C_ADMIN_INBOX_BACK', '📥 صندوق ورودی'),
+                    callback_data=C2C_CALLBACK_ADMIN_INBOX,
                 ),
             ],
-        ],
-    )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)

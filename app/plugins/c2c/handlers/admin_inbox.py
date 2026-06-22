@@ -57,28 +57,31 @@ def _format_user_label(user: User | None) -> str:
     return user.full_name or user.username or f'ID {user.id}'
 
 
-async def _render_inbox_list(
-    callback: types.CallbackQuery,
+async def _build_inbox_list_payload(
     db: AsyncSession,
     *,
     page: int,
     language: str,
-) -> None:
+) -> tuple[str, InlineKeyboardMarkup]:
     texts = get_texts(language)
     expired_count = await c2c_crud.expire_stale_c2c_receipts(db)
     if expired_count:
         await db.commit()
     total_count = await c2c_crud.count_reviewable_pending_receipts(db)
     if total_count == 0:
-        await callback.message.edit_text(
+        return (
             texts.t(
                 'C2C_ADMIN_INBOX_EMPTY',
                 '📥 <b>C2C inbox</b>\n\nNo pending receipts.',
             ),
-            reply_markup=get_c2c_inbox_list_keyboard([], page=0, total_count=0, page_size=INBOX_PAGE_SIZE, language=language),
-            parse_mode='HTML',
+            get_c2c_inbox_list_keyboard(
+                [],
+                page=0,
+                total_count=0,
+                page_size=INBOX_PAGE_SIZE,
+                language=language,
+            ),
         )
-        return
 
     max_page = max(0, (total_count - 1) // INBOX_PAGE_SIZE)
     page = max(0, min(page, max_page))
@@ -91,15 +94,44 @@ async def _render_inbox_list(
         'C2C_ADMIN_INBOX_TITLE',
         '📥 <b>C2C inbox</b>\n\nPending receipts: {count}',
     ).format(count=total_count)
+    keyboard = get_c2c_inbox_list_keyboard(
+        receipts,
+        page=page,
+        total_count=total_count,
+        page_size=INBOX_PAGE_SIZE,
+        language=language,
+    )
+    return body, keyboard
+
+
+async def send_inbox_list_message(
+    bot: types.Bot,
+    chat_id: int,
+    db: AsyncSession,
+    language: str,
+    *,
+    page: int = 0,
+) -> None:
+    body, keyboard = await _build_inbox_list_payload(db, page=page, language=language)
+    await bot.send_message(
+        chat_id,
+        body,
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+
+
+async def _render_inbox_list(
+    callback: types.CallbackQuery,
+    db: AsyncSession,
+    *,
+    page: int,
+    language: str,
+) -> None:
+    body, keyboard = await _build_inbox_list_payload(db, page=page, language=language)
     await callback.message.edit_text(
         body,
-        reply_markup=get_c2c_inbox_list_keyboard(
-            receipts,
-            page=page,
-            total_count=total_count,
-            page_size=INBOX_PAGE_SIZE,
-            language=language,
-        ),
+        reply_markup=keyboard,
         parse_mode='HTML',
     )
 
@@ -154,6 +186,7 @@ async def show_c2c_inbox_detail(callback: types.CallbackQuery, db_user: User, db
         receipt.id,
         amount_display,
         language=db_user.language,
+        include_inbox_back=True,
     )
 
     if receipt.receipt_type == C2C_RECEIPT_TYPE_PHOTO and receipt.receipt_file_id:
