@@ -378,17 +378,14 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
     payment_text = get_payment_methods_text(db_user.language)
 
     hide_c2c_payment = False
+    pending_receipt = None
+    c2c_integration = None
     if settings.is_c2c_enabled():
         from app.plugins.c2c import integration as c2c_integration
 
         pending_receipt = await c2c_integration.get_reviewable_pending_receipt(db, db_user.id)
         if pending_receipt:
             hide_c2c_payment = True
-            payment_text = (
-                c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language)
-                + '\n\n'
-                + payment_text
-            )
 
     # Проверяем сохранённую корзину для автоподстановки суммы пополнения
     amount_kopeks = 0
@@ -401,6 +398,39 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
             amount_kopeks = resolve_suggested_topup_from_cart(cart_data)
     except Exception:
         pass
+
+        probe_keyboard = get_payment_methods_keyboard(
+            amount_kopeks,
+            db_user.language,
+            hide_c2c_payment=True,
+        )
+        if not c2c_integration.payment_keyboard_has_selectable_method(probe_keyboard):
+            full_text, keyboard = c2c_integration.build_pending_receipt_topup_screen(
+                pending_receipt,
+                db_user.language,
+            )
+            if isinstance(callback.message, InaccessibleMessage):
+                await callback.message.answer(full_text, reply_markup=keyboard, parse_mode='HTML')
+            else:
+                try:
+                    await callback.message.edit_text(full_text, reply_markup=keyboard, parse_mode='HTML')
+                except TelegramBadRequest:
+                    try:
+                        await callback.message.edit_caption(full_text, reply_markup=keyboard, parse_mode='HTML')
+                    except TelegramBadRequest:
+                        try:
+                            await callback.message.delete()
+                        except TelegramBadRequest:
+                            pass
+                        await callback.message.answer(full_text, reply_markup=keyboard, parse_mode='HTML')
+            await callback.answer()
+            return
+
+        payment_text = (
+            c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language)
+            + '\n\n'
+            + payment_text
+        )
 
     full_text = payment_text
 

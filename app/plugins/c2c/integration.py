@@ -32,6 +32,51 @@ def format_pending_receipt_notice(receipt: C2cReceipt, language: str) -> str:
     ).format(id=receipt.id, amount=amount_display)
 
 
+def build_pending_receipt_topup_screen(
+    receipt: C2cReceipt,
+    language: str,
+) -> tuple[str, types.InlineKeyboardMarkup]:
+    """Full-screen top-up state when C2C receipt awaits admin review."""
+    texts = get_texts(language)
+    amount_display = settings.format_balance(receipt.amount_kopeks)
+    message_text = texts.t(
+        'C2C_PENDING_TOPUP_SCREEN',
+        (
+            '⏳ <b>Card-to-card receipt #{id}</b> ({amount})\n\n'
+            'Your receipt is queued for admin review. Balance will update automatically after approval.\n\n'
+            'No need to pay again or send another receipt.'
+        ),
+    ).format(id=receipt.id, amount=amount_display)
+
+    keyboard_rows: list[list[InlineKeyboardButton]] = []
+    support_url = settings.get_support_contact_url()
+    if support_url:
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CONTACT_SUPPORT_BUTTON', '💬 Contact support'),
+                    url=support_url,
+                )
+            ]
+        )
+    keyboard_rows.append(
+        [InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')],
+    )
+    return message_text, types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
+
+def payment_keyboard_has_selectable_method(keyboard: types.InlineKeyboardMarkup) -> bool:
+    """True when the top-up keyboard offers at least one actionable payment method."""
+    for row in keyboard.inline_keyboard:
+        for button in row:
+            callback_data = button.callback_data or ''
+            if callback_data in {'payment_methods_unavailable', 'topup_support', 'menu_balance'}:
+                continue
+            if callback_data.startswith(('topup_', 'topup_amount|')):
+                return True
+    return False
+
+
 def append_payment_button(
     keyboard: list[list[InlineKeyboardButton]],
     texts,
