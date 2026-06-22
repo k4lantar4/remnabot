@@ -827,6 +827,13 @@ async def handle_topup_confirm_callback(
 
     try:
         await callback.answer()
+    except TelegramBadRequest as error:
+        error_message = str(error).lower()
+        if 'query is too old' in error_message or 'query id is invalid' in error_message:
+            return
+        raise
+
+    try:
         success = await execute_topup_payment_with_amount(
             callback,
             db_user,
@@ -836,12 +843,17 @@ async def handle_topup_confirm_callback(
         )
         if not success:
             return
+    except TelegramBadRequest:
+        raise
     except Exception as error:
         logger.error('Ошибка подтверждения пополнения', error=error)
-        await callback.answer(
-            texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
-            show_alert=True,
-        )
+        try:
+            await callback.answer(
+                texts.t('CB_REQUEST_PROCESS_ERROR', '❌ Ошибка обработки запроса'),
+                show_alert=True,
+            )
+        except TelegramBadRequest:
+            pass
 
 
 @error_handler
