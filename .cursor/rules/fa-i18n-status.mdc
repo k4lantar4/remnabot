@@ -158,6 +158,14 @@ Branch `i18n/monitoring-notifications` from `main`.
 
 Plan: `docs/superpowers/plans/2026-06-16-fa-monitoring-notifications.md`
 
+## Done (force default language — Jun 23 2026)
+
+Branch `fix/force-default-language-when-disabled` from `main` (**2 commits**).
+
+- [x] **`d1df0821`** — `user_language.py` + `start.py` / `menu.py`: when `LANGUAGE_SELECTION_ENABLED=false`, resolve/persist `DEFAULT_LANGUAGE` (`fa`) for active users (DB had 1× `en`, 7465× `fa`)
+- [x] **`881286bf`** — `texts.py` / `loader.py`: missing `fa` keys fall back to `ru`; `texts.t()` / attribute access no longer crash on absent keys
+- [ ] **Awaiting user smoke** — affected user sends `/start`; then PR → `dev-local` → `main`
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
