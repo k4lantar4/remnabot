@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import html
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -85,7 +84,12 @@ class C2cPaymentService:
                     resolved_chat_id=admin_chat_id,
                 )
 
-        admin_text = self._build_admin_notification_text(receipt, user)
+        admin_text = build_c2c_admin_receipt_body(
+            receipt,
+            user,
+            lang=settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa',
+            receipt_text=receipt_text,
+        )
         keyboard = get_c2c_admin_review_keyboard(
             receipt.id,
             settings.format_balance(receipt.amount_kopeks),
@@ -129,16 +133,8 @@ class C2cPaymentService:
                     send_kwargs,
                 )
             elif receipt_type == C2C_RECEIPT_TYPE_TEXT:
-                body = admin_text
-                if receipt_text:
-                    safe_receipt = html.escape(receipt_text)
-                    from app.localization.texts import get_texts
-
-                    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
-                    attach_label = get_texts(lang).t('ADMIN_NOTIFY_C2C_RECEIPT_ATTACH', '📎 <b>Receipt:</b>')
-                    body = f'{admin_text}\n\n{attach_label}\n{safe_receipt}'
                 admin_message = await send_with_admin_topic_fallback(
-                    lambda kw: self.bot.send_message(text=body, **kw),
+                    lambda kw: self.bot.send_message(text=admin_text, **kw),
                     send_kwargs,
                 )
             else:
@@ -153,6 +149,7 @@ class C2cPaymentService:
         receipt.user_receipt_message_id = user_receipt_message_id
         receipt.admin_chat_id = admin_message.chat.id
         receipt.admin_message_id = admin_message.message_id
+        receipt.expires_at = datetime.now(UTC) + timedelta(hours=settings.C2C_RECEIPT_TTL_HOURS)
         receipt.updated_at = datetime.now(UTC)
         await db.flush()
         return True, 'OK', admin_message.message_id

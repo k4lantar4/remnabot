@@ -20,6 +20,7 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
+from app.plugins.c2c.admin_messages import build_c2c_admin_scan_lines
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard, get_c2c_inbox_list_keyboard
 from app.utils.decorators import admin_required, error_handler
 
@@ -166,10 +167,9 @@ async def show_c2c_inbox_detail(callback: types.CallbackQuery, db_user: User, db
     user_label = _format_user_label(receipt.user)
     amount_display = settings.format_balance(receipt.amount_kopeks)
     card_label = receipt.card_label or '—'
-    detail_text = texts.t(
-        'C2C_ADMIN_INBOX_DETAIL',
-        '📄 <b>Receipt #{id}</b>\n\n👤 {user}\n💰 Requested: {amount}\n💳 Card: {card}',
-    ).format(id=receipt.id, user=user_label, amount=amount_display, card=card_label)
+    detail_text = '\n'.join(
+        build_c2c_admin_scan_lines(receipt, receipt.user, lang=db_user.language),
+    )
 
     if not c2c_crud.is_reviewable_pending_receipt(receipt):
         draft_text = texts.t(
