@@ -241,6 +241,7 @@ class C2cPaymentService:
             balance_credit_toman,
             old_balance=old_balance,
             was_first_topup=was_first_topup,
+            send_admin_balance_notification=False,
         )
         if self.bot:
             await clear_user_c2c_fsm_state(user, bot_id=self.bot.id)
