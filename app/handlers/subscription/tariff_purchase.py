@@ -509,6 +509,7 @@ async def show_traffic_first_step(
             back_callback=back_cb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
             db_user=db_user,
+            can_custom_input=tariff.can_custom_traffic_input(),
         ),
         parse_mode='HTML',
     )
@@ -619,6 +620,7 @@ def get_custom_tariff_keyboard(
     back_callback: str | None = None,
     traffic_packages: dict[int, int] | None = None,
     db_user: User | None = None,
+    can_custom_input: bool = True,
 ) -> InlineKeyboardMarkup:
     """Создает клавиатуру для настройки кастомных дней и трафика."""
     texts = get_texts(language)
@@ -669,14 +671,16 @@ def get_custom_tariff_keyboard(
                 ]
             )
 
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('TARIFF_TRAFFIC_CUSTOM_VOLUME_BTN', '📊  حجم دلخواه'),
-                    callback_data=f'custom_traffic_prompt:{tariff_id}',
-                )
-            ]
-        )
+        # Only show free-text input button if per-GB pricing is configured
+        if can_custom_input:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('TARIFF_TRAFFIC_CUSTOM_VOLUME_BTN', '📊  حجم دلخواه'),
+                        callback_data=f'custom_traffic_prompt:{tariff_id}',
+                    )
+                ]
+            )
 
     # Кнопка подтверждения или переход к выбору периода
     if traffic_first_mode:
@@ -1036,6 +1040,7 @@ async def select_tariff(
                     max_traffic=tariff.max_traffic_gb,
                     traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
                     db_user=db_user,
+                    can_custom_input=tariff.can_custom_traffic_input(),
                 ),
                 parse_mode='HTML',
             )
@@ -1116,6 +1121,7 @@ async def handle_custom_days_change(
             max_traffic=tariff.max_traffic_gb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
             db_user=db_user,
+            can_custom_input=tariff.can_custom_traffic_input(),
         ),
         parse_mode='HTML',
     )
@@ -1174,6 +1180,7 @@ async def handle_custom_traffic_change(
             back_callback=back_cb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
             db_user=db_user,
+            can_custom_input=tariff.can_custom_traffic_input(),
         )
     else:
         user_balance = db_user.balance_kopeks or 0
@@ -1199,6 +1206,7 @@ async def handle_custom_traffic_change(
             max_traffic=tariff.max_traffic_gb,
             traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
             db_user=db_user,
+            can_custom_input=tariff.can_custom_traffic_input(),
         )
 
     await callback.message.edit_text(preview_text, reply_markup=keyboard, parse_mode='HTML')
@@ -1271,6 +1279,7 @@ async def handle_custom_traffic_package_select(
         max_traffic=tariff.max_traffic_gb,
         traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
         db_user=db_user,
+        can_custom_input=tariff.can_custom_traffic_input(),
     )
 
     await callback.message.edit_text(preview_text, reply_markup=keyboard, parse_mode='HTML')
@@ -1383,6 +1392,7 @@ async def handle_custom_traffic_input_message(
         max_traffic=tariff.max_traffic_gb,
         traffic_packages=_traffic_topup_packages_for_keyboard(tariff),
         db_user=db_user,
+        can_custom_input=tariff.can_custom_traffic_input(),
     )
 
     await message.answer(preview_text, reply_markup=keyboard, parse_mode='HTML')

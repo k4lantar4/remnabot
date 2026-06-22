@@ -47,7 +47,11 @@ export function TariffPurchaseForm({
   const [customDays, setCustomDays] = useState<number>(30);
   const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 1);
   const [useCustomDays, setUseCustomDays] = useState(false);
-  const [useCustomTraffic, setUseCustomTraffic] = useState(false);
+
+  const hasCustomTrafficSection =
+    tariff.custom_traffic_enabled === true &&
+    ((tariff.traffic_price_per_gb_kopeks ?? 0) > 0 ||
+      Object.keys((tariff.traffic_topup_packages as unknown as Record<string, number>) ?? {}).length > 0);
 
   const isDailyTariff =
     tariff.is_daily || (tariff.daily_price_kopeks && tariff.daily_price_kopeks > 0);
@@ -56,7 +60,7 @@ export function TariffPurchaseForm({
     : useCustomDays
       ? customDays
       : selectedTariffPeriod?.days;
-  const quoteTrafficGb = useCustomTraffic ? customTrafficGb : undefined;
+  const quoteTrafficGb = hasCustomTrafficSection ? customTrafficGb : undefined;
   const quoteEnabled =
     !isDailyTariff && periodDays != null && (selectedTariffPeriod != null || useCustomDays);
 
@@ -73,6 +77,16 @@ export function TariffPurchaseForm({
   });
 
   const trafficPackages = quote?.traffic_packages ?? [];
+
+  const perGbKopeks =
+    quoteTrafficGb && quoteTrafficGb > 0 && quote?.traffic_kopeks
+      ? Math.round(quote.traffic_kopeks / quoteTrafficGb)
+      : (tariff.traffic_price_per_gb_kopeks ?? 0);
+
+  const originalTrafficKopeks =
+    quote && quote.traffic_kopeks > 0 && quote.discount_percent > 0
+      ? Math.round(quote.traffic_kopeks / (1 - quote.discount_percent / 100))
+      : (quoteTrafficGb ?? 0) * (tariff.traffic_price_per_gb_kopeks ?? 0);
 
   const purchaseMutation = useMutation({
     mutationFn: () => {
@@ -234,7 +248,7 @@ export function TariffPurchaseForm({
                         setSelectedTariffPeriod(period);
                         setUseCustomDays(false);
                       }}
-                      className={`relative rounded-xl border p-4 text-left transition-all ${
+                      className={`relative rounded-xl border p-4 transition-all ${
                         selectedTariffPeriod?.days === period.days && !useCustomDays
                           ? 'border-accent-500 bg-accent-500/10'
                           : 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600'
@@ -352,55 +366,33 @@ export function TariffPurchaseForm({
             )}
           </div>
 
-          {tariff.custom_traffic_enabled && (tariff.traffic_price_per_gb_kopeks ?? 0) > 0 && (
+          {hasCustomTrafficSection && (
             <div>
-              <div className="mb-3 text-sm text-dark-400">
-                {t('subscription.customTraffic.label')}
-              </div>
               <div className="rounded-xl border border-dark-700/50 bg-dark-800/50 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="font-medium text-dark-200">
-                    {t('subscription.customTraffic.selectVolume')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setUseCustomTraffic(!useCustomTraffic)}
-                    role="switch"
-                    aria-checked={useCustomTraffic}
-                    aria-label={t('subscription.customTraffic.selectVolume')}
-                    className={`relative h-6 w-10 rounded-full transition-colors ${
-                      useCustomTraffic ? 'bg-accent-500' : 'bg-dark-600'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                        useCustomTraffic ? 'left-5' : 'left-1'
-                      }`}
-                    />
-                  </button>
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-200">
+                  <svg className="h-4 w-4 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                  </svg>
+                  <span>{t('subscription.customTraffic.selectVolume')}</span>
                 </div>
-                {!useCustomTraffic && (
-                  <div className="text-sm text-dark-400">
-                    {t('subscription.customTraffic.default', {
-                      label: tariff.traffic_limit_label,
-                    })}
-                  </div>
-                )}
-                {useCustomTraffic && (
-                  <div className="space-y-4">
-                    {trafficPackages.length > 0 && (
-                      <div className="grid grid-cols-1 gap-3">
-                        {trafficPackages.map((pkg) => (
-                          <PackageButton
-                            key={pkg.gb}
-                            pkg={pkg}
-                            selectedTrafficGb={customTrafficGb}
-                            onSelectTrafficGb={setCustomTrafficGb}
-                            formatPrice={formatPrice}
-                          />
-                        ))}
-                      </div>
-                    )}
+                <div className="space-y-4">
+                  {trafficPackages.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {trafficPackages.map((pkg) => (
+                        <PackageButton
+                          key={pkg.gb}
+                          pkg={pkg}
+                          selectedTrafficGb={customTrafficGb}
+                          onSelectTrafficGb={(gb) => {
+                            setCustomTrafficGb(gb);
+                          }}
+                          formatPrice={formatPrice}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {(tariff.traffic_price_per_gb_kopeks ?? 0) > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center gap-4">
                         <input
@@ -408,16 +400,19 @@ export function TariffPurchaseForm({
                           min={tariff.min_traffic_gb ?? 1}
                           max={tariff.max_traffic_gb ?? 1000}
                           value={customTrafficGb}
-                          onChange={(e) => setCustomTrafficGb(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            setCustomTrafficGb(parseInt(e.target.value));
+                          }}
                           className="purchase-range w-full flex-1 accent-accent-500"
                         />
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
+                            lang="en"
                             value={customTrafficGb}
                             min={tariff.min_traffic_gb ?? 1}
                             max={tariff.max_traffic_gb ?? 1000}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setCustomTrafficGb(
                                 Math.max(
                                   tariff.min_traffic_gb ?? 1,
@@ -426,26 +421,24 @@ export function TariffPurchaseForm({
                                     parseInt(e.target.value) || (tariff.min_traffic_gb ?? 1),
                                   ),
                                 ),
-                              )
-                            }
-                            className="w-20 rounded-lg border border-dark-600 bg-dark-700 px-3 py-2 text-center text-dark-100"
+                              );
+                            }}
+                            className="w-20 rounded-lg border border-dark-600/50 bg-dark-800/50 px-3 py-2 text-center text-dark-100"
                           />
                           <span className="text-dark-400">{t('common.units.gb')}</span>
                         </div>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-dark-400">
-                          {customTrafficGb} {t('common.units.gb')} ×{' '}
-                          {formatPrice(tariff.traffic_price_per_gb_kopeks ?? 0)}/
-                          {t('common.units.gb')}
+                      <div className="flex justify-between text-sm text-dark-400">
+                        <span>
+                          {t('subscription.customTraffic.perGb', 'هر 1 گیگ')}: {formatPrice(perGbKopeks)}
                         </span>
                         <span className="font-medium text-accent-400">
                           +{formatPrice(quote?.traffic_kopeks ?? 0)}
                         </span>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -454,69 +447,92 @@ export function TariffPurchaseForm({
             <div className="rounded-xl bg-dark-800/50 p-5">
               {quote && (
                 <>
-                  <div className="mb-4 space-y-2">
-                    {useCustomDays ? (
-                      <div className="flex justify-between text-sm text-dark-300">
-                        <span>
-                          {t('subscription.stepPeriod')}:{' '}
-                          {t('subscription.days', { count: customDays })}
+                  {quote.discount_percent > 0 && (
+                    <div className="mb-3 flex justify-end">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success-500/15 px-2.5 py-0.5 text-xs font-medium text-success-400">
+                        تخفیف اعمال شده: {quote.discount_percent}٪
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mb-4 space-y-3">
+                    {(quote.traffic_kopeks ?? 0) > 0 && (
+                      <div className="flex items-start justify-between text-sm">
+                        <span className="text-dark-300">
+                          {t('subscription.summary.traffic', { gb: quoteTrafficGb ?? customTrafficGb })}
                         </span>
-                        <span>{formatPrice(quote.period_kopeks + quote.devices_kopeks)}</span>
+                        <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+                          {originalTrafficKopeks > quote.traffic_kopeks && (
+                            <span className="text-xs text-dark-500 line-through">
+                              +{formatPrice(originalTrafficKopeks)}
+                            </span>
+                          )}
+                          <span className="font-medium text-accent-400">
+                            +{formatPrice(quote.traffic_kopeks)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {useCustomDays ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-dark-300">
+                          {t('subscription.stepPeriod')}: {t('subscription.days', { count: customDays })}
+                        </span>
+                        <span className="font-medium text-dark-200">{formatPrice(quote.period_kopeks + quote.devices_kopeks)}</span>
                       </div>
                     ) : (
                       selectedTariffPeriod && (
                         <>
                           {quote.devices_kopeks > 0 ? (
                             <>
-                              <div className="flex justify-between text-sm text-dark-300">
-                                <span>
+                              <div className="flex items-start justify-between text-sm">
+                                <span className="text-dark-300">
                                   {t('subscription.baseTariff')}: {selectedTariffPeriod.label}
                                 </span>
-                                <span>{formatPrice(quote.period_kopeks)}</span>
+                                <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+                                  {selectedTariffPeriod.original_price_kopeks &&
+                                    selectedTariffPeriod.original_price_kopeks > (selectedTariffPeriod?.price_kopeks ?? quote.period_kopeks) && (
+                                      <span className="text-xs text-dark-500 line-through">
+                                        {formatPrice(selectedTariffPeriod.original_price_kopeks)}
+                                      </span>
+                                    )}
+                                  <span className={`font-medium ${quote.discount_kopeks > 0 ? 'text-accent-400' : 'text-dark-200'}`}>
+                                    {formatPrice(selectedTariffPeriod?.price_kopeks ?? quote.period_kopeks)}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex justify-between text-sm text-dark-300">
                                 <span>
                                   {t('subscription.extraDevices')} (
-                                  {selectedTariffPeriod.extra_devices_count ??
-                                    Math.max(0, quote.devices_kopeks)})
+                                  {selectedTariffPeriod.extra_devices_count ?? Math.max(0, quote.devices_kopeks)})
                                 </span>
                                 <span>+{formatPrice(quote.devices_kopeks)}</span>
                               </div>
                             </>
                           ) : (
-                            <div className="flex justify-between text-sm text-dark-300">
-                              <span>
-                                {t('subscription.summary.period', {
-                                  label: selectedTariffPeriod.label,
-                                })}
+                            <div className="flex items-start justify-between text-sm">
+                              <span className="text-dark-300">
+                                {t('subscription.summary.period', { label: selectedTariffPeriod.label })}
                               </span>
-                              <span>
-                                {formatPrice(quote.period_kopeks + quote.devices_kopeks)}
-                              </span>
+                              <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+                                {selectedTariffPeriod.original_price_kopeks &&
+                                  selectedTariffPeriod.original_price_kopeks >
+                                    ((selectedTariffPeriod?.price_kopeks ?? quote.period_kopeks) + quote.devices_kopeks) && (
+                                    <span className="text-xs text-dark-500 line-through">
+                                      {formatPrice(selectedTariffPeriod.original_price_kopeks)}
+                                    </span>
+                                  )}
+                                <span className={`font-medium ${quote.discount_kopeks > 0 ? 'text-accent-400' : 'text-dark-200'}`}>
+                                  {formatPrice((selectedTariffPeriod?.price_kopeks ?? quote.period_kopeks) + quote.devices_kopeks)}
+                                </span>
+                              </div>
                             </div>
                           )}
                         </>
                       )
                     )}
-                    {quote.traffic_kopeks > 0 && (
-                      <div className="flex justify-between text-sm text-dark-300">
-                        <span>
-                          {t('subscription.summary.traffic', {
-                            gb: quoteTrafficGb ?? customTrafficGb,
-                          })}
-                        </span>
-                        <span>+{formatPrice(quote.traffic_kopeks)}</span>
-                      </div>
-                    )}
                   </div>
-
-                  {quote.discount_percent > 0 && (
-                    <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-warning-500/30 bg-warning-500/10 p-2">
-                      <span className="text-sm font-medium text-warning-400">
-                        {t('promo.discountApplied')} -{quote.discount_percent}%
-                      </span>
-                    </div>
-                  )}
 
                   <div className="mb-4 flex items-center justify-between border-t border-dark-700/50 pt-2">
                     <span className="font-medium text-dark-100">{t('subscription.total')}</span>

@@ -122,7 +122,7 @@ export function TariffPickerGrid({
             return (
               <div
                 key={tariff.id}
-                className={`bento-card-hover p-5 text-left transition-all ${
+                className={`bento-card-hover p-5 transition-all ${
                   isCurrentTariff ? 'bento-card-glow border-accent-500' : ''
                 }`}
               >
@@ -138,7 +138,7 @@ export function TariffPickerGrid({
                   {isCurrentTariff && (
                     <span className="badge-success text-xs">{t('subscription.currentTariff')}</span>
                   )}
-                  {isMultiRebuy && (
+                  {isMultiRebuy && !isLegacySubscription && (
                     <span className="badge-info text-xs">
                       {t('subscription.buyNewAccount', 'خرید اکانت جدید')}
                     </span>

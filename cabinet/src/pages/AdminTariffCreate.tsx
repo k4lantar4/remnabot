@@ -54,6 +54,10 @@ export default function AdminTariffCreate() {
   // Traffic topup
   const [trafficTopupEnabled, setTrafficTopupEnabled] = useState(false);
   const [maxTopupTrafficGb, setMaxTopupTrafficGb] = useState<number | ''>(0);
+
+  // Purchase-time traffic selection
+  const [customTrafficEnabled, setCustomTrafficEnabled] = useState(false);
+  const [trafficPricePerGbKopeks, setTrafficPricePerGbKopeks] = useState<number | ''>(0);
   const [trafficTopupPackages, setTrafficTopupPackages] = useState<Record<string, number>>({});
 
   // New traffic package for adding
@@ -125,6 +129,8 @@ export default function AdminTariffCreate() {
       setTrafficTopupEnabled(data.traffic_topup_enabled || false);
       setMaxTopupTrafficGb(data.max_topup_traffic_gb || 0);
       setTrafficTopupPackages(data.traffic_topup_packages || {});
+      setCustomTrafficEnabled(data.custom_traffic_enabled || false);
+      setTrafficPricePerGbKopeks(data.traffic_price_per_gb_kopeks || 0);
       setTrafficResetMode(data.traffic_reset_mode || null);
       setShowInGift(data.show_in_gift ?? true);
       return data;
@@ -171,6 +177,8 @@ export default function AdminTariffCreate() {
       traffic_topup_enabled: trafficTopupEnabled,
       traffic_topup_packages: trafficTopupPackages,
       max_topup_traffic_gb: toNumber(maxTopupTrafficGb),
+      custom_traffic_enabled: customTrafficEnabled,
+      traffic_price_per_gb_kopeks: toNumber(trafficPricePerGbKopeks),
       is_daily: isDaily,
       daily_price_kopeks: isDaily ? toNumber(dailyPriceKopeks) : 0,
       traffic_reset_mode: trafficResetMode,
@@ -984,6 +992,58 @@ export default function AdminTariffCreate() {
                     </div>
                   )}
                 </div>
+              </>
+            )}
+          </div>
+
+          {/* Purchase-time traffic selection */}
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-dark-200">انتخاب حجم در زمان خرید</h4>
+              <button
+                type="button"
+                onClick={() => setCustomTrafficEnabled(!customTrafficEnabled)}
+                role="switch"
+                aria-checked={customTrafficEnabled}
+                aria-label="انتخاب حجم در زمان خرید"
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  customTrafficEnabled ? 'bg-accent-500' : 'bg-dark-600'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                    customTrafficEnabled ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {customTrafficEnabled && (
+              <>
+                <div className="flex items-center gap-3">
+                  <span className="w-48 text-sm text-dark-400">
+                    قیمت هر گیگابایت (0 = فقط بسته‌ها)
+                  </span>
+                  <input
+                    type="number"
+                    value={trafficPricePerGbKopeks === '' ? '' : toNumber(trafficPricePerGbKopeks) / 100}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setTrafficPricePerGbKopeks('');
+                      } else {
+                        setTrafficPricePerGbKopeks(Math.max(0, parseFloat(val) || 0) * 100);
+                      }
+                    }}
+                    className="input w-24"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                  />
+                  <span className="text-dark-400">₽</span>
+                </div>
+                <p className="text-xs text-dark-500">
+                  اگر 0 باشد، فقط بسته‌های از پیش تعریف‌شده نمایش داده می‌شوند (بدون ورودی آزاد).
+                </p>
               </>
             )}
           </div>

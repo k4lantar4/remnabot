@@ -269,7 +269,7 @@ async def handle_reset_traffic(
 
     texts = get_texts(db_user.language)
 
-    if settings.is_traffic_topup_blocked():
+    if not settings.is_tariffs_mode() and settings.is_traffic_topup_blocked():
         await callback.answer(
             texts.t(
                 'CB_TRAFFIC_FIXED_CANNOT_RESET',
@@ -299,6 +299,17 @@ async def handle_reset_traffic(
             show_alert=True,
         )
         return
+
+    if settings.is_tariffs_mode() and subscription.tariff_id:
+        from app.database.crud.tariff import get_tariff_by_id
+
+        tariff = await get_tariff_by_id(db, subscription.tariff_id)
+        if tariff and not tariff.allow_traffic_topup:
+            await callback.answer(
+                texts.t('TARIFF_TRAFFIC_TOPUP_DISABLED', '⚠️ На вашем тарифе докупка трафика недоступна'),
+                show_alert=True,
+            )
+            return
 
     reset_price = _calculate_traffic_reset_price(subscription)
 
@@ -358,7 +369,7 @@ async def confirm_reset_traffic(
 
     texts = get_texts(db_user.language)
 
-    if settings.is_traffic_topup_blocked():
+    if not settings.is_tariffs_mode() and settings.is_traffic_topup_blocked():
         await callback.answer(
             texts.t('TRAFFIC_FIXED_MODE', '⚠️ В текущем режиме трафик фиксированный'),
             show_alert=True,
@@ -385,6 +396,17 @@ async def confirm_reset_traffic(
     subscription, _ = await _resolve_subscription(callback, db_user, db, state)
     if subscription is None:
         return
+
+    if settings.is_tariffs_mode() and subscription.tariff_id:
+        from app.database.crud.tariff import get_tariff_by_id
+
+        tariff = await get_tariff_by_id(db, subscription.tariff_id)
+        if tariff and not tariff.allow_traffic_topup:
+            await callback.answer(
+                texts.t('TARIFF_TRAFFIC_TOPUP_DISABLED', '⚠️ На вашем тарифе докупка трафика недоступна'),
+                show_alert=True,
+            )
+            return
 
     reset_price = _calculate_traffic_reset_price(subscription)
 
@@ -817,7 +839,7 @@ async def handle_switch_traffic(
 
     texts = get_texts(db_user.language)
 
-    if settings.is_traffic_topup_blocked():
+    if not settings.is_tariffs_mode() and settings.is_traffic_topup_blocked():
         await callback.answer(
             texts.t('TRAFFIC_FIXED_MODE', '⚠️ В текущем режиме трафик фиксированный'),
             show_alert=True,
