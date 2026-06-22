@@ -8,6 +8,7 @@ import structlog
 from app.config import settings
 from app.localization.loader import (
     DEFAULT_LANGUAGE,
+    UPSTREAM_FALLBACK_LOCALE,
     clear_locale_cache,
     load_locale,
 )
@@ -141,18 +142,38 @@ def _build_dynamic_values(language: str) -> dict[str, Any]:
     return values
 
 
+def _normalize_locale_code(language: str | None) -> str:
+    return (language or DEFAULT_LANGUAGE).strip().lower().split('-')[0]
+
+
+def _merge_locale_fallback(
+    target: dict[str, Any],
+    primary: dict[str, Any],
+    locale_code: str,
+    *,
+    skip_locale: str,
+) -> None:
+    if _normalize_locale_code(locale_code) == _normalize_locale_code(skip_locale):
+        return
+    for key, value in load_locale(locale_code).items():
+        if key not in primary and key not in target:
+            target[key] = value
+
+
 class Texts:
     def __init__(self, language: str = DEFAULT_LANGUAGE):
         self.language = language or DEFAULT_LANGUAGE
         raw_data = load_locale(self.language)
         self._values = {key: value for key, value in raw_data.items()}
 
-        if self.language != DEFAULT_LANGUAGE:
-            fallback_data = load_locale(DEFAULT_LANGUAGE)
-        else:
-            fallback_data = self._values
-
-        self._fallback_values = {key: value for key, value in fallback_data.items() if key not in self._values}
+        self._fallback_values: dict[str, Any] = {}
+        for locale_code in (DEFAULT_LANGUAGE, UPSTREAM_FALLBACK_LOCALE):
+            _merge_locale_fallback(
+                self._fallback_values,
+                self._values,
+                locale_code,
+                skip_locale=self.language,
+            )
 
         self._values.update(_build_dynamic_values(self.language))
 
@@ -161,11 +182,16 @@ class Texts:
             return super().__getattribute__(item)
         try:
             return self._get_value(item)
-        except KeyError as error:
-            raise AttributeError(item) from error
+        except KeyError:
+            _logger.warning('Missing localization attribute', item=item, language=self.language)
+            return item
 
     def __getitem__(self, item: str) -> Any:
-        return self._get_value(item)
+        try:
+            return self._get_value(item)
+        except KeyError:
+            _logger.warning('Missing localization key', item=item, language=self.language)
+            return item
 
     def get(self, item: str, default: Any = None) -> Any:
         try:
@@ -179,7 +205,8 @@ class Texts:
         except KeyError:
             if default is not None:
                 return default
-            raise
+            _logger.warning('Missing localization key', item=key, language=self.language)
+            return key
 
     def _apply_display_currency(self, value: Any) -> Any:
         if isinstance(value, str) and self.language.split('-')[0].lower() == 'fa':
