@@ -38,6 +38,11 @@ from app.keyboards.inline import (
 )
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_privacy_policy, get_rules, get_texts
+from app.localization.user_language import (
+    apply_forced_user_language,
+    mark_user_language_synced,
+    resolve_user_facing_language,
+)
 from app.middlewares.channel_checker import (
     delete_pending_payload_from_redis,
     get_pending_payload_from_redis,
@@ -132,7 +137,7 @@ async def _activate_pending_gift_after_registration(
     from app.localization.texts import get_texts
 
     gift_token: str | None = None
-    texts = get_texts(user.language)
+    texts = get_texts(resolve_user_facing_language(user.language))
     try:
         fresh_state = await state.get_data()
         gift_token = fresh_state.get('pending_gift_token')
@@ -795,7 +800,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
         if len(web_auth_token) >= WEB_AUTH_TOKEN_MIN_LENGTH:
             user = db_user or await get_user_by_telegram_id(db, message.from_user.id)
             if user and user.status != UserStatus.DELETED.value:
-                texts = get_texts(user.language)
+                texts = get_texts(resolve_user_facing_language(user.language))
                 keyboard = types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -1018,6 +1023,10 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
                     )
 
         profile_updated = False
+
+        if apply_forced_user_language(user):
+            profile_updated = True
+            mark_user_language_synced(user)
 
         if user.username != message.from_user.username:
             old_username = user.username
@@ -1717,6 +1726,11 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
 
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning('⚠️ Пользователь уже активен! Показываем главное меню.', from_user_id=callback.from_user.id)
+
+        if apply_forced_user_language(existing_user):
+            mark_user_language_synced(existing_user)
+            await db.commit()
+
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}
@@ -2038,6 +2052,11 @@ async def complete_registration(message: types.Message, state: FSMContext, db: A
 
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning('⚠️ Пользователь уже активен! Показываем главное меню.', from_user_id=message.from_user.id)
+
+        if apply_forced_user_language(existing_user):
+            mark_user_language_synced(existing_user)
+            await db.commit()
+
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}
@@ -2847,7 +2866,7 @@ async def process_webauth_confirm(
         return
 
     linked = await link_web_auth_token(token, callback.from_user.id, user.id)
-    texts = get_texts(user.language)
+    texts = get_texts(resolve_user_facing_language(user.language))
     if linked:
         await callback.message.edit_text(
             texts.t('WEB_AUTH_SUCCESS', '✅ Авторизация в кабинете подтверждена! Вернитесь в браузер.'),

@@ -23,6 +23,11 @@ from app.keyboards.inline import (
     get_main_menu_keyboard_async,
 )
 from app.localization.texts import get_rules, get_texts
+from app.localization.user_language import (
+    apply_forced_user_language,
+    mark_user_language_synced,
+    resolve_user_facing_language,
+)
 from app.services.faq_service import FaqService
 from app.services.main_menu_button_service import MainMenuButtonService
 from app.services.privacy_policy_service import PrivacyPolicyService
@@ -43,6 +48,10 @@ from app.utils.promo_offer import (
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _effective_user_language(db_user: User) -> str:
+    return resolve_user_facing_language(db_user.language)
 
 MAIN_MENU_MULTI_PREVIEW_MAX = 3
 
@@ -164,12 +173,13 @@ async def show_main_menu(
         )
         return
 
-    texts = get_texts(db_user.language)
+    if apply_forced_user_language(db_user):
+        mark_user_language_synced(db_user)
 
     db_user.last_activity = datetime.now(UTC)
     await db.commit()
 
-    has_active_subscription, subscription_is_active = calculate_user_subscription_flags(db_user)
+    texts = get_texts(db_user.language)
 
     menu_text = await get_main_menu_text(db_user, texts, db)
 
@@ -262,11 +272,11 @@ async def show_service_rules(callback: types.CallbackQuery, db_user: User, db: A
 
     from app.database.crud.rules import get_current_rules_content
 
-    texts = get_texts(db_user.language)
-    rules_text = await get_current_rules_content(db, db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
+    rules_text = await get_current_rules_content(db, _effective_user_language(db_user))
 
     if not rules_text:
-        rules_text = await get_rules(db_user.language)
+        rules_text = await get_rules(_effective_user_language(db_user))
 
     await callback.message.edit_text(
         f'{texts.t("RULES_HEADER", "📋 <b>Правила сервиса</b>")}\n\n{rules_text}',
@@ -294,22 +304,22 @@ async def show_info_menu(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     header = texts.t('MENU_INFO_HEADER', 'ℹ️ <b>Инфо</b>')
     prompt = texts.t('MENU_INFO_PROMPT', 'Выберите раздел:')
     caption = f'{header}\n\n{prompt}' if prompt else header
 
-    privacy_enabled = await PrivacyPolicyService.is_policy_enabled(db, db_user.language)
-    public_offer_enabled = await PublicOfferService.is_offer_enabled(db, db_user.language)
-    faq_enabled = await FaqService.is_enabled(db, db_user.language)
+    privacy_enabled = await PrivacyPolicyService.is_policy_enabled(db, _effective_user_language(db_user))
+    public_offer_enabled = await PublicOfferService.is_offer_enabled(db, _effective_user_language(db_user))
+    faq_enabled = await FaqService.is_enabled(db, _effective_user_language(db_user))
     promo_groups_available = await has_auto_assign_promo_groups(db)
 
     await edit_or_answer_photo(
         callback=callback,
         caption=caption,
         keyboard=get_info_menu_keyboard(
-            language=db_user.language,
+            language=_effective_user_language(db_user),
             show_privacy_policy=privacy_enabled,
             show_public_offer=public_offer_enabled,
             show_faq=faq_enabled,
@@ -337,7 +347,7 @@ async def show_promo_groups_info(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     promo_groups = await get_auto_assign_promo_groups(db)
 
@@ -448,7 +458,7 @@ async def show_promo_groups_info(
             )
         )
 
-        discount_lines = _build_group_discount_lines(group, texts, db_user.language)
+        discount_lines = _build_group_discount_lines(group, texts, _effective_user_language(db_user))
         for discount_line in discount_lines:
             if discount_line:
                 lines.append(f'   {discount_line}')
@@ -485,9 +495,9 @@ async def show_faq_pages(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
-    pages = await FaqService.get_pages(db, db_user.language)
+    pages = await FaqService.get_pages(db, _effective_user_language(db_user))
     if not pages:
         await callback.answer(
             texts.t('FAQ_NOT_AVAILABLE', 'FAQ временно недоступен.'),
@@ -542,7 +552,7 @@ async def show_faq_page(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     raw_data = callback.data or ''
     parts = raw_data.split(':')
@@ -566,7 +576,7 @@ async def show_faq_page(
         await callback.answer()
         return
 
-    page = await FaqService.get_page(db, page_id, db_user.language)
+    page = await FaqService.get_page(db, page_id, _effective_user_language(db_user))
 
     if not page or not page.is_active:
         await callback.answer(
@@ -679,7 +689,7 @@ async def show_privacy_policy(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     raw_page = 1
     if callback.data and ':' in callback.data:
@@ -690,7 +700,7 @@ async def show_privacy_policy(
 
     raw_page = max(raw_page, 1)
 
-    policy = await PrivacyPolicyService.get_active_policy(db, db_user.language)
+    policy = await PrivacyPolicyService.get_active_policy(db, _effective_user_language(db_user))
 
     if not policy:
         await callback.answer(
@@ -796,7 +806,7 @@ async def show_public_offer(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     raw_page = 1
     if callback.data and ':' in callback.data:
@@ -807,7 +817,7 @@ async def show_public_offer(
 
     raw_page = max(raw_page, 1)
 
-    offer = await PublicOfferService.get_active_offer(db, db_user.language)
+    offer = await PublicOfferService.get_active_offer(db, _effective_user_language(db_user))
 
     if not offer:
         await callback.answer(
@@ -913,7 +923,7 @@ async def show_language_menu(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     if not settings.is_language_selection_enabled():
         await callback.answer(
@@ -955,7 +965,7 @@ async def process_language_change(
         )
         return
 
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     if not settings.is_language_selection_enabled():
         await callback.answer(
@@ -1280,7 +1290,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     - Если подписки нет — создать новую с дефолтными параметрами
     Выбирает максимальный период, который можно оплатить из баланса.
     """
-    texts = get_texts(db_user.language)
+    texts = get_texts(_effective_user_language(db_user))
 
     from app.database.crud.server_squad import get_available_server_squads
     from app.database.crud.subscription import create_paid_subscription, get_subscription_by_user_id
