@@ -324,6 +324,7 @@ class C2cPaymentService:
         *,
         old_balance: int,
         was_first_topup: bool,
+        send_admin_balance_notification: bool = True,
     ) -> None:
         """Mirror post-top-up side effects from automatic gateways."""
         promo_group = user.get_primary_promo_group()
@@ -354,22 +355,23 @@ class C2cPaymentService:
         await db.refresh(user)
 
         if self.bot:
-            try:
-                from app.services.admin_notification_service import AdminNotificationService
+            if send_admin_balance_notification:
+                try:
+                    from app.services.admin_notification_service import AdminNotificationService
 
-                notification_service = AdminNotificationService(self.bot)
-                await notification_service.send_balance_topup_notification(
-                    user,
-                    transaction,
-                    old_balance,
-                    topup_status=topup_status,
-                    referrer_info=referrer_info,
-                    subscription=subscription,
-                    promo_group=promo_group,
-                    db=db,
-                )
-            except Exception as error:
-                logger.error('C2C admin balance notification error', error=error)
+                    notification_service = AdminNotificationService(self.bot)
+                    await notification_service.send_balance_topup_notification(
+                        user,
+                        transaction,
+                        old_balance,
+                        topup_status=topup_status,
+                        referrer_info=referrer_info,
+                        subscription=subscription,
+                        promo_group=promo_group,
+                        db=db,
+                    )
+                except Exception as error:
+                    logger.error('C2C admin balance notification error', error=error)
 
             try:
                 from app.services.payment_service import PaymentService
