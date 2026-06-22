@@ -377,6 +377,19 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
 
     payment_text = get_payment_methods_text(db_user.language)
 
+    hide_c2c_payment = False
+    if settings.is_c2c_enabled():
+        from app.plugins.c2c import integration as c2c_integration
+
+        pending_receipt = await c2c_integration.get_reviewable_pending_receipt(db, db_user.id)
+        if pending_receipt:
+            hide_c2c_payment = True
+            payment_text = (
+                c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language)
+                + '\n\n'
+                + payment_text
+            )
+
     # Проверяем сохранённую корзину для автоподстановки суммы пополнения
     amount_kopeks = 0
     try:
@@ -391,7 +404,11 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
 
     full_text = payment_text
 
-    keyboard = get_payment_methods_keyboard(amount_kopeks, db_user.language)
+    keyboard = get_payment_methods_keyboard(
+        amount_kopeks,
+        db_user.language,
+        hide_c2c_payment=hide_c2c_payment,
+    )
 
     # Если сообщение недоступно, отправляем новое
     if isinstance(callback.message, InaccessibleMessage):

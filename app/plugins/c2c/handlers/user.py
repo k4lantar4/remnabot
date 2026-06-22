@@ -21,7 +21,7 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
-from app.plugins.c2c.integration import activate_c2c_topup_fsm, build_c2c_topup_prompt
+from app.plugins.c2c.integration import activate_c2c_topup_fsm, build_c2c_topup_prompt, format_pending_receipt_notice
 from app.plugins.c2c.service import C2cPaymentService
 from app.plugins.c2c.states import C2cStates
 from app.utils.decorators import error_handler
@@ -164,6 +164,14 @@ async def start_c2c_payment(
         )
         return
 
+    pending_review = await c2c_crud.get_reviewable_pending_receipt_for_user(db, db_user.id)
+    if pending_review:
+        await callback.answer(
+            format_pending_receipt_notice(pending_review, db_user.language),
+            show_alert=True,
+        )
+        return
+
     from app.handlers.balance.topup_prompt import get_cart_suggested_topup_amount, show_cart_topup_amount_prompt
 
     cart_suggested = await get_cart_suggested_topup_amount(db_user.id)
@@ -257,10 +265,7 @@ async def process_c2c_payment_amount(
     if pending:
         if pending.receipt_type:
             await message.answer(
-                texts.t(
-                    'C2C_PENDING_REVIEW',
-                    '⏳ You already have receipt #{id} awaiting review. Please wait for admin decision.',
-                ).format(id=pending.id),
+                format_pending_receipt_notice(pending, db_user.language),
                 reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
             )
             return
