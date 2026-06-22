@@ -68,6 +68,13 @@ async def user_has_pending_receipt(db: AsyncSession, user_id: int) -> bool:
     return await get_pending_receipt_for_user(db, user_id) is not None
 
 
+async def get_reviewable_pending_receipt_for_user(db: AsyncSession, user_id: int) -> C2cReceipt | None:
+    pending = await get_pending_receipt_for_user(db, user_id)
+    if pending and is_reviewable_pending_receipt(pending):
+        return pending
+    return None
+
+
 def is_reviewable_pending_receipt(receipt: C2cReceipt) -> bool:
     return (
         receipt.status == C2cReceiptStatus.PENDING.value

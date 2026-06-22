@@ -1606,7 +1606,12 @@ def get_balance_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMark
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_payment_methods_keyboard(
+    amount_kopeks: int,
+    language: str = DEFAULT_LANGUAGE,
+    *,
+    hide_c2c_payment: bool = False,
+) -> InlineKeyboardMarkup:
     texts = get_texts(language)
     keyboard = []
     has_direct_payment_methods = False
@@ -2154,7 +2159,12 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
 
     from app.plugins.c2c import integration as c2c_integration
 
-    if c2c_integration.append_payment_button(keyboard, texts, _build_callback):
+    if c2c_integration.append_payment_button(
+        keyboard,
+        texts,
+        _build_callback,
+        hide_c2c_payment=hide_c2c_payment,
+    ):
         has_direct_payment_methods = True
 
     if settings.is_support_topup_enabled():

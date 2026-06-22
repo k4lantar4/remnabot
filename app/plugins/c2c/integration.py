@@ -11,19 +11,36 @@ from aiogram.types import InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database.models import User
+from app.database.models import C2cReceipt, User
 from app.keyboards.inline import get_back_keyboard
 from app.localization.texts import get_texts
 from app.states import BalanceStates
+
+
+async def get_reviewable_pending_receipt(db: AsyncSession, user_id: int) -> C2cReceipt | None:
+    from app.plugins.c2c import crud as c2c_crud
+
+    return await c2c_crud.get_reviewable_pending_receipt_for_user(db, user_id)
+
+
+def format_pending_receipt_notice(receipt: C2cReceipt, language: str) -> str:
+    texts = get_texts(language)
+    amount_display = settings.format_balance(receipt.amount_kopeks)
+    return texts.t(
+        'C2C_PENDING_RECEIPT_EXISTS',
+        '⏳ You already have pending receipt #{id} ({amount}). Wait for admin review.',
+    ).format(id=receipt.id, amount=amount_display)
 
 
 def append_payment_button(
     keyboard: list[list[InlineKeyboardButton]],
     texts,
     build_callback: Callable[[str], str],
+    *,
+    hide_c2c_payment: bool = False,
 ) -> bool:
     """Append C2C payment button when enabled."""
-    if not settings.is_c2c_enabled():
+    if hide_c2c_payment or not settings.is_c2c_enabled():
         return False
 
     display_name = settings.get_c2c_display_name()
