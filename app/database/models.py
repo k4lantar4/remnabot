@@ -1923,7 +1923,14 @@ class Tariff(Base):
         return self.custom_days_enabled and self.price_per_day_kopeks > 0
 
     def can_purchase_custom_traffic(self) -> bool:
-        """Проверяет, можно ли купить произвольный трафик."""
+        """True if traffic selection step should show at purchase time."""
+        if not self.custom_traffic_enabled:
+            return False
+        # Per-GB pricing OR predefined packages are enough
+        return self.traffic_price_per_gb_kopeks > 0 or bool(self.traffic_topup_packages)
+
+    def can_custom_traffic_input(self) -> bool:
+        """True only when per-GB pricing is configured (free-text input allowed)."""
         return self.custom_traffic_enabled and self.traffic_price_per_gb_kopeks > 0
 
     def __repr__(self):
