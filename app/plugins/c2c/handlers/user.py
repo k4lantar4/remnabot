@@ -250,6 +250,9 @@ async def process_c2c_payment_amount(
         )
         return
 
+    await c2c_crud.expire_stale_c2c_receipts(db)
+    await db.commit()
+
     pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
     if pending:
         if pending.receipt_type:

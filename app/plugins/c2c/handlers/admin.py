@@ -15,13 +15,19 @@ from app.config import settings
 from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
+from app.plugins.c2c.admin_messages import (
+    build_c2c_admin_receipt_body,
+    build_c2c_resolved_keyboard,
+)
 from app.plugins.c2c.constants import (
     C2C_CALLBACK_APPROVE_PREFIX,
     C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX,
     C2C_CALLBACK_REJECT_PREFIX,
     C2C_CALLBACK_REJECT_REASON_PREFIX,
     C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
+    C2C_CALLBACK_RESOLVED_PREFIX,
 )
+from app.plugins.c2c.handlers.admin_inbox import send_inbox_list_message
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard, get_c2c_reject_reason_keyboard
 from app.plugins.c2c.reject_reasons import C2C_REJECT_REASONS
 from app.plugins.c2c.service import C2cPaymentService, get_c2c_fsm_storage
@@ -87,6 +93,7 @@ async def sync_c2c_group_admin_message(
     receipt: C2cReceipt,
     *,
     status_html: str,
+    reply_markup=None,
     skip_message_id: int | None = None,
 ) -> None:
     """Update stored admin supergroup receipt post after inbox action."""
@@ -104,7 +111,7 @@ async def sync_c2c_group_admin_message(
             text=status_html,
             chat_id=chat_id,
             message_id=message_id,
-            reply_markup=None,
+            reply_markup=reply_markup,
             parse_mode='HTML',
         )
     except TelegramBadRequest as error:
@@ -125,7 +132,7 @@ async def sync_c2c_group_admin_message(
                 caption=status_html,
                 chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=None,
+                reply_markup=reply_markup,
                 parse_mode='HTML',
             )
         except TelegramBadRequest as caption_error:
@@ -143,6 +150,61 @@ def _callback_skip_group_sync_message_id(callback: types.CallbackQuery) -> int |
     if _admin_chat_ok(callback) and callback.message:
         return callback.message.message_id
     return None
+
+
+def _admin_label(callback: types.CallbackQuery | types.Message, admin_telegram_id: int) -> str:
+    user = callback.from_user
+    if user:
+        return user.username or str(user.id)
+    return str(admin_telegram_id)
+
+
+async def _refresh_private_inbox_after_action(
+    callback: types.CallbackQuery,
+    db: AsyncSession,
+) -> None:
+    if _admin_chat_ok(callback) or not callback.bot or not callback.message:
+        return
+    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+    await send_inbox_list_message(
+        callback.bot,
+        callback.message.chat.id,
+        db,
+        lang,
+    )
+
+
+async def _resolved_receipt_message(
+    db: AsyncSession,
+    receipt: C2cReceipt,
+    admin_label: str,
+    *,
+    include_inbox_back: bool = False,
+) -> tuple[str, types.InlineKeyboardMarkup]:
+    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+    receipt_with_user = await c2c_crud.get_c2c_receipt_with_user(db, receipt.id)
+    if receipt_with_user is not None:
+        receipt = receipt_with_user
+    body = build_c2c_admin_receipt_body(
+        receipt,
+        receipt.user,
+        lang=lang,
+        admin_label=admin_label,
+    )
+    keyboard = build_c2c_resolved_keyboard(
+        receipt.id,
+        receipt.status,
+        lang=lang,
+        include_inbox_back=include_inbox_back,
+    )
+    return body, keyboard
+
+
+async def on_c2c_resolved_tap(callback: types.CallbackQuery) -> None:
+    try:
+        await callback.answer('Already processed', show_alert=True)
+    except TelegramBadRequest:
+        pass
 
 
 async def _notify_c2c_already_processed(callback: types.CallbackQuery) -> None:
@@ -232,10 +294,15 @@ async def _execute_c2c_custom_amount_input(
         return
 
     credit_display = settings.format_balance(receipt.approved_amount_kopeks if receipt else amount_kopeks)
-    admin_label = message.from_user.username or str(message.from_user.id)
-    group_status = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
     if receipt and message.bot:
-        await sync_c2c_group_admin_message(message.bot, receipt, status_html=group_status)
+        label = _admin_label(message, message.from_user.id)
+        body, keyboard = await _resolved_receipt_message(db, receipt, label)
+        await sync_c2c_group_admin_message(
+            message.bot,
+            receipt,
+            status_html=body,
+            reply_markup=keyboard,
+        )
     await message.answer(
         f'✅ Receipt #{receipt_id} approved for {credit_display}',
         parse_mode='HTML',
@@ -264,37 +331,44 @@ async def execute_c2c_approve(
     if not success:
         logger.warning('C2C approve failed', receipt_id=receipt_id, message=message)
         if message == 'Already processed' and receipt and callback.bot:
-            approved_amount = receipt.approved_amount_kopeks if receipt.approved_amount_kopeks is not None else 0
-            credit_display = settings.format_balance(approved_amount)
-            admin_label = (
-                callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+            label = _admin_label(callback, admin_telegram_id)
+            include_inbox_back = not _admin_chat_ok(callback)
+            body, keyboard = await _resolved_receipt_message(
+                db,
+                receipt,
+                label,
+                include_inbox_back=include_inbox_back,
             )
-            stale_text = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
             await sync_c2c_group_admin_message(
                 callback.bot,
                 receipt,
-                status_html=stale_text,
+                status_html=body,
+                reply_markup=keyboard,
                 skip_message_id=_callback_skip_group_sync_message_id(callback),
             )
             if _admin_chat_ok(callback):
                 await _notify_c2c_already_processed(callback)
         return
 
-    admin_label = (
-        callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
-    )
-    approved_amount = receipt.approved_amount_kopeks if receipt and receipt.approved_amount_kopeks is not None else 0
-    credit_display = settings.format_balance(approved_amount)
-    new_text = f'✅ <b>Approved</b> — receipt #{receipt_id} ({credit_display}) by @{admin_label}'
+    label = _admin_label(callback, admin_telegram_id)
     if receipt and receipt.status == C2cReceiptStatus.APPROVED.value:
-        await _edit_callback_message(callback, new_text, reply_markup=None)
+        include_inbox_back = not _admin_chat_ok(callback)
+        body, keyboard = await _resolved_receipt_message(
+            db,
+            receipt,
+            label,
+            include_inbox_back=include_inbox_back,
+        )
+        await _edit_callback_message(callback, body, reply_markup=keyboard)
         if callback.bot:
             await sync_c2c_group_admin_message(
                 callback.bot,
                 receipt,
-                status_html=new_text,
+                status_html=body,
+                reply_markup=keyboard,
                 skip_message_id=_callback_skip_group_sync_message_id(callback),
             )
+        await _refresh_private_inbox_after_action(callback, db)
 
 
 async def execute_c2c_reject(
@@ -324,35 +398,44 @@ async def execute_c2c_reject(
     if not success:
         logger.warning('C2C reject failed', receipt_id=receipt_id, message=message)
         if message == 'Already processed' and receipt and callback.bot:
-            admin_label = (
-                callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
+            label = _admin_label(callback, admin_telegram_id)
+            include_inbox_back = not _admin_chat_ok(callback)
+            body, keyboard = await _resolved_receipt_message(
+                db,
+                receipt,
+                label,
+                include_inbox_back=include_inbox_back,
             )
-            reason_suffix = f' ({receipt.rejection_reason_key})' if receipt.rejection_reason_key else ''
-            stale_text = f'❌ <b>Rejected</b>{reason_suffix} — receipt #{receipt_id} by @{admin_label}'
             await sync_c2c_group_admin_message(
                 callback.bot,
                 receipt,
-                status_html=stale_text,
+                status_html=body,
+                reply_markup=keyboard,
                 skip_message_id=_callback_skip_group_sync_message_id(callback),
             )
             if _admin_chat_ok(callback):
                 await _notify_c2c_already_processed(callback)
         return
 
-    admin_label = (
-        callback.from_user.username or str(admin_telegram_id) if callback.from_user else str(admin_telegram_id)
-    )
-    reason_suffix = f' ({reason_key})' if reason_key else ''
-    new_text = f'❌ <b>Rejected</b>{reason_suffix} — receipt #{receipt_id} by @{admin_label}'
+    label = _admin_label(callback, admin_telegram_id)
     if receipt and receipt.status == C2cReceiptStatus.REJECTED.value:
-        await _edit_callback_message(callback, new_text, reply_markup=None)
+        include_inbox_back = not _admin_chat_ok(callback)
+        body, keyboard = await _resolved_receipt_message(
+            db,
+            receipt,
+            label,
+            include_inbox_back=include_inbox_back,
+        )
+        await _edit_callback_message(callback, body, reply_markup=keyboard)
         if callback.bot:
             await sync_c2c_group_admin_message(
                 callback.bot,
                 receipt,
-                status_html=new_text,
+                status_html=body,
+                reply_markup=keyboard,
                 skip_message_id=_callback_skip_group_sync_message_id(callback),
             )
+        await _refresh_private_inbox_after_action(callback, db)
 
 
 async def show_c2c_reject_menu(
@@ -390,22 +473,8 @@ async def restore_c2c_review_keyboard(
         return
 
     lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
-    texts = get_texts(lang)
     amount_display = settings.format_balance(receipt.amount_kopeks)
-    user = receipt.user
-    user_label = user.full_name or user.username or f'ID {user.id}' if user else '—'
-    card_label = receipt.card_label or '—'
-    body = '\n'.join(
-        [
-            texts.t('ADMIN_NOTIFY_C2C_TITLE', '🔔 <b>C2C Receipt #{receipt_id}</b>').format(receipt_id=receipt.id),
-            texts.t('ADMIN_NOTIFY_C2C_USER', '👤 <b>User:</b> {name} (ID: {telegram_id})').format(
-                name=user_label,
-                telegram_id=getattr(user, 'telegram_id', None) or '—',
-            ),
-            texts.t('ADMIN_NOTIFY_C2C_AMOUNT', '💰 <b>Amount:</b> {amount}').format(amount=amount_display),
-            texts.t('ADMIN_NOTIFY_C2C_CARD', '💳 <b>Card shown:</b> {card}').format(card=card_label),
-        ]
-    )
+    body = build_c2c_admin_receipt_body(receipt, receipt.user, lang=lang)
     keyboard = get_c2c_admin_review_keyboard(receipt_id, amount_display, language=lang)
     await _edit_callback_message(callback, body, reply_markup=keyboard)
 
@@ -527,6 +596,17 @@ async def process_c2c_custom_amount(
     await state.clear()
 
 
+@admin_required
+@error_handler
+async def handle_c2c_resolved(callback: types.CallbackQuery, db_user: User, db: AsyncSession) -> None:
+    receipt_id = _parse_receipt_id(callback.data or '', C2C_CALLBACK_RESOLVED_PREFIX)
+    if receipt_id is None:
+        await callback.answer('Invalid callback', show_alert=True)
+        return
+
+    await on_c2c_resolved_tap(callback)
+
+
 def register_admin_handlers(dp) -> None:
     from aiogram import Dispatcher
 
@@ -551,5 +631,9 @@ def register_admin_handlers(dp) -> None:
     dp.callback_query.register(
         handle_c2c_restore_review,
         F.data.startswith(C2C_CALLBACK_RESTORE_REVIEW_PREFIX),
+    )
+    dp.callback_query.register(
+        handle_c2c_resolved,
+        F.data.startswith(C2C_CALLBACK_RESOLVED_PREFIX),
     )
     dp.message.register(process_c2c_custom_amount, AdminStates.c2c_custom_amount)

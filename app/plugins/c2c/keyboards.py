@@ -5,6 +5,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.config import settings
 from app.localization.texts import get_texts
 from app.plugins.c2c.constants import (
+    C2C_CALLBACK_ADMIN_INBOX,
     C2C_CALLBACK_APPROVE_PREFIX,
     C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX,
     C2C_CALLBACK_INBOX_PREFIX,
@@ -25,33 +26,42 @@ def get_c2c_admin_review_keyboard(
     requested_amount_display: str,
     *,
     language: str | None = None,
+    include_inbox_back: bool = False,
 ) -> InlineKeyboardMarkup:
     texts = _admin_texts(language)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=texts.t(
+                    'C2C_ADMIN_REVIEW_APPROVE',
+                    '✅ Approve ({amount})',
+                ).format(amount=requested_amount_display),
+                callback_data=f'{C2C_CALLBACK_APPROVE_PREFIX}{receipt_id}',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('C2C_ADMIN_REVIEW_CUSTOM', '💰 Custom amount'),
+                callback_data=f'{C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX}{receipt_id}',
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('C2C_ADMIN_REVIEW_REJECT', '❌ Reject'),
+                callback_data=f'{C2C_CALLBACK_REJECT_PREFIX}{receipt_id}',
+            ),
+        ],
+    ]
+    if include_inbox_back:
+        rows.append(
             [
                 InlineKeyboardButton(
-                    text=texts.t(
-                        'C2C_ADMIN_REVIEW_APPROVE',
-                        '✅ Approve ({amount})',
-                    ).format(amount=requested_amount_display),
-                    callback_data=f'{C2C_CALLBACK_APPROVE_PREFIX}{receipt_id}',
+                    text=texts.t('C2C_ADMIN_INBOX_BACK', '📥 صندوق ورودی'),
+                    callback_data=C2C_CALLBACK_ADMIN_INBOX,
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('C2C_ADMIN_REVIEW_CUSTOM', '💰 Custom amount'),
-                    callback_data=f'{C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX}{receipt_id}',
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('C2C_ADMIN_REVIEW_REJECT', '❌ Reject'),
-                    callback_data=f'{C2C_CALLBACK_REJECT_PREFIX}{receipt_id}',
-                ),
-            ],
-        ]
-    )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def get_c2c_reject_reason_keyboard(

@@ -59,7 +59,7 @@ async def show_admin_panel(callback: types.CallbackQuery, db_user: User, db: Asy
     if settings.is_c2c_enabled():
         from app.plugins.c2c import crud as c2c_crud
 
-        c2c_pending_count = await c2c_crud.count_pending_receipts(db)
+        c2c_pending_count = await c2c_crud.count_reviewable_pending_receipts(db)
 
     await callback.message.edit_text(
         admin_text,

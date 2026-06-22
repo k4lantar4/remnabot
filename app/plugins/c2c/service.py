@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import html
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -22,6 +21,7 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
+from app.plugins.c2c.admin_messages import build_c2c_admin_receipt_body
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
 from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info
@@ -64,16 +64,12 @@ class C2cPaymentService:
         if receipt.status != C2cReceiptStatus.PENDING.value:
             return False, 'Receipt is no longer pending', None
 
-        receipt.receipt_type = receipt_type
-        receipt.receipt_file_id = receipt_file_id
-        receipt.receipt_text = receipt_text
-        receipt.user_receipt_message_id = user_receipt_message_id
-        receipt.updated_at = datetime.now(UTC)
-        await db.flush()
-
         admin_chat_id = settings.get_c2c_admin_chat_id()
         if not admin_chat_id or not self.bot:
             return False, 'C2C admin chat is not configured', None
+
+        if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
+            return False, 'Receipt text is empty', None
 
         configured_c2c_raw = (settings.C2C_ADMIN_CHAT_ID or '').strip()
         if configured_c2c_raw:
@@ -88,10 +84,12 @@ class C2cPaymentService:
                     resolved_chat_id=admin_chat_id,
                 )
 
-        if receipt_type == C2C_RECEIPT_TYPE_TEXT and not (receipt_text or '').strip():
-            return False, 'Receipt text is empty', None
-
-        admin_text = self._build_admin_notification_text(receipt, user)
+        admin_text = build_c2c_admin_receipt_body(
+            receipt,
+            user,
+            lang=settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa',
+            receipt_text=receipt_text,
+        )
         keyboard = get_c2c_admin_review_keyboard(
             receipt.id,
             settings.format_balance(receipt.amount_kopeks),
@@ -135,16 +133,8 @@ class C2cPaymentService:
                     send_kwargs,
                 )
             elif receipt_type == C2C_RECEIPT_TYPE_TEXT:
-                body = admin_text
-                if receipt_text:
-                    safe_receipt = html.escape(receipt_text)
-                    from app.localization.texts import get_texts
-
-                    lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
-                    attach_label = get_texts(lang).t('ADMIN_NOTIFY_C2C_RECEIPT_ATTACH', '📎 <b>Receipt:</b>')
-                    body = f'{admin_text}\n\n{attach_label}\n{safe_receipt}'
                 admin_message = await send_with_admin_topic_fallback(
-                    lambda kw: self.bot.send_message(text=body, **kw),
+                    lambda kw: self.bot.send_message(text=admin_text, **kw),
                     send_kwargs,
                 )
             else:
@@ -153,8 +143,14 @@ class C2cPaymentService:
             logger.error('Failed to send C2C receipt to admin chat', receipt_id=receipt.id, error=error)
             return False, 'Failed to notify administrators', None
 
+        receipt.receipt_type = receipt_type
+        receipt.receipt_file_id = receipt_file_id
+        receipt.receipt_text = receipt_text
+        receipt.user_receipt_message_id = user_receipt_message_id
         receipt.admin_chat_id = admin_message.chat.id
         receipt.admin_message_id = admin_message.message_id
+        receipt.expires_at = datetime.now(UTC) + timedelta(hours=settings.C2C_RECEIPT_TTL_HOURS)
+        receipt.updated_at = datetime.now(UTC)
         await db.flush()
         return True, 'OK', admin_message.message_id
 
@@ -242,6 +238,7 @@ class C2cPaymentService:
             balance_credit_toman,
             old_balance=old_balance,
             was_first_topup=was_first_topup,
+            send_admin_balance_notification=False,
         )
         if self.bot:
             await clear_user_c2c_fsm_state(user, bot_id=self.bot.id)
@@ -324,6 +321,7 @@ class C2cPaymentService:
         *,
         old_balance: int,
         was_first_topup: bool,
+        send_admin_balance_notification: bool = True,
     ) -> None:
         """Mirror post-top-up side effects from automatic gateways."""
         promo_group = user.get_primary_promo_group()
@@ -354,22 +352,23 @@ class C2cPaymentService:
         await db.refresh(user)
 
         if self.bot:
-            try:
-                from app.services.admin_notification_service import AdminNotificationService
+            if send_admin_balance_notification:
+                try:
+                    from app.services.admin_notification_service import AdminNotificationService
 
-                notification_service = AdminNotificationService(self.bot)
-                await notification_service.send_balance_topup_notification(
-                    user,
-                    transaction,
-                    old_balance,
-                    topup_status=topup_status,
-                    referrer_info=referrer_info,
-                    subscription=subscription,
-                    promo_group=promo_group,
-                    db=db,
-                )
-            except Exception as error:
-                logger.error('C2C admin balance notification error', error=error)
+                    notification_service = AdminNotificationService(self.bot)
+                    await notification_service.send_balance_topup_notification(
+                        user,
+                        transaction,
+                        old_balance,
+                        topup_status=topup_status,
+                        referrer_info=referrer_info,
+                        subscription=subscription,
+                        promo_group=promo_group,
+                        db=db,
+                    )
+                except Exception as error:
+                    logger.error('C2C admin balance notification error', error=error)
 
             try:
                 from app.services.payment_service import PaymentService
@@ -394,25 +393,8 @@ class C2cPaymentService:
 
     @staticmethod
     def _build_admin_notification_text(receipt: C2cReceipt, user: User) -> str:
-        from app.localization.texts import get_texts
-
         lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
-        texts = get_texts(lang)
-        name = user.full_name or user.username or f'User {user.id}'
-        telegram_id = user.telegram_id or '—'
-        card_label = receipt.card_label or '—'
-        return '\n'.join(
-            [
-                texts.t('ADMIN_NOTIFY_C2C_TITLE', '🔔 <b>C2C Receipt #{receipt_id}</b>').format(receipt_id=receipt.id),
-                texts.t('ADMIN_NOTIFY_C2C_USER', '👤 <b>User:</b> {name} (ID: {telegram_id})').format(
-                    name=name, telegram_id=telegram_id
-                ),
-                texts.t('ADMIN_NOTIFY_C2C_AMOUNT', '💰 <b>Amount:</b> {amount}').format(
-                    amount=settings.format_balance(receipt.amount_kopeks)
-                ),
-                texts.t('ADMIN_NOTIFY_C2C_CARD', '💳 <b>Card shown:</b> {card}').format(card=card_label),
-            ]
-        )
+        return build_c2c_admin_receipt_body(receipt, user, lang=lang)
 
 
 async def clear_user_c2c_fsm_state(user: User, *, bot_id: int | None = None) -> None:
