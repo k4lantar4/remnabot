@@ -20,6 +20,7 @@ from app.plugins.c2c.constants import (
     C2C_CALLBACK_REJECT_PREFIX,
     C2C_CALLBACK_REJECT_REASON_PREFIX,
     C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
+    C2C_CALLBACK_RESOLVED_PREFIX,
 )
 from app.plugins.c2c.handlers.admin import (
     _execute_c2c_custom_amount_input,
@@ -27,6 +28,7 @@ from app.plugins.c2c.handlers.admin import (
     _parse_reject_reason_callback,
     execute_c2c_approve,
     execute_c2c_reject,
+    on_c2c_resolved_tap,
     restore_c2c_review_keyboard,
     show_c2c_reject_menu,
     start_c2c_custom_amount,
@@ -77,10 +79,30 @@ class C2cAdminCallbackMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        if not isinstance(event, CallbackQuery) or not _is_c2c_admin_review_callback(event):
+        if not isinstance(event, CallbackQuery):
             return await handler(event, data)
 
         callback = event
+        callback_data = callback.data or ''
+
+        if callback_data.startswith(C2C_CALLBACK_RESOLVED_PREFIX):
+            admin_chat_id = settings.get_c2c_admin_chat_id()
+            chat = callback.message.chat if callback.message else None
+            chat_id = chat.id if chat else None
+            if admin_chat_id and chat_id == admin_chat_id:
+                if not callback.from_user or not settings.is_admin(callback.from_user.id):
+                    texts = get_texts()
+                    await callback.answer(texts.ACCESS_DENIED, show_alert=True)
+                    return None
+                await on_c2c_resolved_tap(callback)
+                return None
+            if chat and chat.type == ChatType.PRIVATE:
+                return await handler(event, data)
+            await callback.answer('Wrong chat', show_alert=True)
+            return None
+
+        if not _is_c2c_admin_review_callback(callback):
+            return await handler(event, data)
         admin_chat_id = settings.get_c2c_admin_chat_id()
         chat = callback.message.chat if callback.message else None
         chat_id = chat.id if chat else None

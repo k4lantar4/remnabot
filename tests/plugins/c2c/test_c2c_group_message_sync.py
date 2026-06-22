@@ -20,6 +20,28 @@ def _receipt(*, admin_chat_id: int | None = -1001, admin_message_id: int | None 
 
 
 @pytest.mark.asyncio
+async def test_sync_passes_reply_markup_to_group_message():
+    bot = AsyncMock()
+    markup = SimpleNamespace()
+    receipt = _receipt()
+
+    await sync_c2c_group_admin_message(
+        bot,
+        receipt,
+        status_html='✅ resolved body',
+        reply_markup=markup,
+    )
+
+    bot.edit_message_text.assert_awaited_once_with(
+        text='✅ resolved body',
+        chat_id=-1001,
+        message_id=42,
+        reply_markup=markup,
+        parse_mode='HTML',
+    )
+
+
+@pytest.mark.asyncio
 async def test_sync_edits_group_message_text():
     bot = AsyncMock()
     receipt = _receipt()

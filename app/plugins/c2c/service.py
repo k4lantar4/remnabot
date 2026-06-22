@@ -22,6 +22,7 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
+from app.plugins.c2c.admin_messages import build_c2c_admin_receipt_body
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
 from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info
@@ -392,25 +393,8 @@ class C2cPaymentService:
 
     @staticmethod
     def _build_admin_notification_text(receipt: C2cReceipt, user: User) -> str:
-        from app.localization.texts import get_texts
-
         lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
-        texts = get_texts(lang)
-        name = user.full_name or user.username or f'User {user.id}'
-        telegram_id = user.telegram_id or '—'
-        card_label = receipt.card_label or '—'
-        return '\n'.join(
-            [
-                texts.t('ADMIN_NOTIFY_C2C_TITLE', '🔔 <b>C2C Receipt #{receipt_id}</b>').format(receipt_id=receipt.id),
-                texts.t('ADMIN_NOTIFY_C2C_USER', '👤 <b>User:</b> {name} (ID: {telegram_id})').format(
-                    name=name, telegram_id=telegram_id
-                ),
-                texts.t('ADMIN_NOTIFY_C2C_AMOUNT', '💰 <b>Amount:</b> {amount}').format(
-                    amount=settings.format_balance(receipt.amount_kopeks)
-                ),
-                texts.t('ADMIN_NOTIFY_C2C_CARD', '💳 <b>Card shown:</b> {card}').format(card=card_label),
-            ]
-        )
+        return build_c2c_admin_receipt_body(receipt, user, lang=lang)
 
 
 async def clear_user_c2c_fsm_state(user: User, *, bot_id: int | None = None) -> None:
