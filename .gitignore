@@ -58,6 +58,8 @@
 !.cursor/rules/**
 !.cursor/plans/
 !.cursor/plans/**
+!.cursor/skills/
+!.cursor/skills/**
 !caddy-remnawave/
 !caddy-remnawave/**
 !cabinet/
