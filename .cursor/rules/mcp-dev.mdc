@@ -1,0 +1,37 @@
+---
+description: When to use project MCP servers (Postgres, Redis, docs) during development
+alwaysApply: true
+---
+
+# MCP (dev tooling)
+
+Project config: [`.cursor/mcp.json`](../mcp.json). Credentials live in `.env` only (`envFile`); never commit passwords.
+
+## Use proactively when
+
+| MCP server | Use for |
+|------------|---------|
+| **remnawave-postgres** | Live schema, row counts, balance/subscription debugging, verifying migrations or data issues — read-only (`restricted`) |
+| **remnawave-redis** | Cart/cache keys, TTL inspection, session or rate-limit state in DB 0 |
+| **context7** (plugin) | Up-to-date React/Vite/Radix/cabinet library docs |
+
+Prefer MCP over guessing DB/Redis state when the task depends on **actual** production or dev container data.
+
+## Do not use for local DB
+
+| Plugin | Why |
+|--------|-----|
+| **neon-postgres** | Neon cloud OAuth — not Docker Postgres |
+| **paradedb** | Docs search — not a DB client |
+
+## Safety
+
+- Postgres MCP is **read-only** on this deployment; do not expect write/DDL via MCP.
+- Do not paste connection strings or `.env` secrets into chat or commits.
+- MCP supplements rules and tests — it does not replace `delivery-cycle.mdc` smoke or user approval for merges.
+
+## If MCP is unavailable
+
+- Confirm Docker is up: `remnawave_bot_db`, `remnawave_bot_redis` on `bot-remnawave_bot_network`.
+- Pull images once: `docker pull crystaldba/postgres-mcp` and `docker pull mcp/redis`.
+- Reload Cursor after editing `mcp.json`.
