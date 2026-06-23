@@ -106,9 +106,12 @@ def register_handlers(dp: Dispatcher) -> None:
 
 ## FSM State
 
-Add only when the feature needs multi-step input.
+Add only when the feature needs multi-step input. Place in `app/states.py`:
 
 ```python
+from aiogram.fsm.state import State, StatesGroup
+
+
 class FeatureStates(StatesGroup):
     waiting_input = State()
 ```
@@ -169,3 +172,18 @@ from app.handlers import feature
 ```python
 feature.register_handlers(dp)
 ```
+
+## Main Menu Entry
+
+**`MENU_LAYOUT_ENABLED=false`** — append button in `get_main_menu_keyboard()` inside `app/keyboards/inline.py`:
+
+```python
+keyboard.append([
+    InlineKeyboardButton(
+        text=texts.t('FEATURE_MENU_BTN', 'Новая функция'),
+        callback_data='menu_feature',
+    ),
+])
+```
+
+**`MENU_LAYOUT_ENABLED=true`** — handler registration is still required; add the button via menu layout API (`POST /menu-layout/buttons` or admin panel). Config is stored in `SystemSetting` key `menu_layout_config`. See `app/webapi/routes/menu_layout.py` and `MenuLayoutService`.
