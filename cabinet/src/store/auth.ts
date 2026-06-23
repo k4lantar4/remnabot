@@ -20,6 +20,7 @@ import {
   restoreRefreshTokenFromCloud,
 } from '../utils/token';
 import { usePermissionStore } from './permissions';
+import { applyCabinetLanguagePreference } from '../i18n';
 
 export interface TelegramWidgetData {
   id: number;
@@ -99,6 +100,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setUser: (user) => {
+        applyCabinetLanguagePreference(user.language);
         set({ user });
       },
 
@@ -172,6 +174,7 @@ export const useAuthStore = create<AuthState>()(
           refreshTokenValue: string,
           user: User,
         ): void => {
+          applyCabinetLanguagePreference(user.language);
           set({
             accessToken,
             refreshToken: refreshTokenValue,
@@ -269,6 +272,7 @@ export const useAuthStore = create<AuthState>()(
         consumeCampaignSlug();
         consumeReferralCode();
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -286,6 +290,7 @@ export const useAuthStore = create<AuthState>()(
         consumeCampaignSlug();
         consumeReferralCode();
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -303,6 +308,7 @@ export const useAuthStore = create<AuthState>()(
         consumeCampaignSlug();
         consumeReferralCode();
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -320,6 +326,7 @@ export const useAuthStore = create<AuthState>()(
         consumeCampaignSlug();
         consumeReferralCode();
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -344,6 +351,7 @@ export const useAuthStore = create<AuthState>()(
         consumeCampaignSlug();
         consumeReferralCode();
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -360,6 +368,7 @@ export const useAuthStore = create<AuthState>()(
           throw new Error('Invalid auth response: missing tokens');
         }
         tokenStorage.setTokens(response.access_token, response.refresh_token);
+        applyCabinetLanguagePreference(response.user.language);
         set({
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
@@ -377,7 +386,7 @@ export const useAuthStore = create<AuthState>()(
           email,
           password,
           first_name: firstName,
-          language: navigator.language.split('-')[0] || 'ru',
+          language: 'fa',
           referral_code: code,
           campaign_slug: campaignSlug,
         });

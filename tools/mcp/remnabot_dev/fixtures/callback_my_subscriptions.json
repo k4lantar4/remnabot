@@ -1,0 +1,22 @@
+{
+  "update_id": 100003,
+  "callback_query": {
+    "id": "cq_dev_my_subs",
+    "from": {
+      "id": 0,
+      "is_bot": false,
+      "first_name": "Dev"
+    },
+    "message": {
+      "message_id": 102,
+      "date": 1715700002,
+      "chat": {
+        "id": 0,
+        "type": "private"
+      },
+      "text": "my subscriptions"
+    },
+    "chat_instance": "dev",
+    "data": "my_subscriptions"
+  }
+}

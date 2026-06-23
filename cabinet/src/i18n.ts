@@ -1,7 +1,6 @@
 import i18n, { type ResourceLanguage } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import { getTelegramLanguageCode } from './hooks/useTelegramSDK';
 
 const localeLoaders: Record<string, () => Promise<{ default: ResourceLanguage }>> = {
   ru: () => import('./locales/ru.json'),
@@ -11,6 +10,9 @@ const localeLoaders: Record<string, () => Promise<{ default: ResourceLanguage }>
 };
 
 const SUPPORTED_LANGS = Object.keys(localeLoaders);
+/** Deployment default — matches bot ``DEFAULT_LANGUAGE`` (fa). */
+const DEFAULT_LNG = 'fa';
+/** Secondary bundle for missing fa keys. */
 const FALLBACK_LNG = 'ru';
 const LANGUAGE_STORAGE_KEY = 'cabinet_language';
 
@@ -31,12 +33,14 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    fallbackLng: FALLBACK_LNG,
+    lng: DEFAULT_LNG,
+    fallbackLng: [DEFAULT_LNG, FALLBACK_LNG, 'en'],
     supportedLngs: SUPPORTED_LANGS,
     partialBundledLanguages: true,
 
     detection: {
-      order: ['localStorage', 'navigator'],
+      // Only explicit LanguageSwitcher choice — not browser navigator (often en).
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'cabinet_language',
     },
@@ -52,14 +56,14 @@ i18n
     showSupportNotice: false,
   });
 
-// Load detected language + fallback on startup
-const detectedLng = i18n.language?.split('-')[0] || FALLBACK_LNG;
-const langsToLoad = [FALLBACK_LNG, ...(detectedLng !== FALLBACK_LNG ? [detectedLng] : [])];
+// Load default language + fallback on startup
+const detectedLng = i18n.language?.split('-')[0] || DEFAULT_LNG;
+const langsToLoad = [DEFAULT_LNG, FALLBACK_LNG, ...(detectedLng !== DEFAULT_LNG && detectedLng !== FALLBACK_LNG ? [detectedLng] : [])];
 Promise.all(langsToLoad.map(loadLanguage));
 
 // Keep <html lang> + dir in sync with i18n so screen readers pronounce
 // content correctly, browsers don't offer to translate it, and RTL
-// languages (fa) flip layout direction. index.html ships with lang="ru"
+// languages (fa) flip layout direction. index.html ships with lang="fa"
 // for the first paint; runtime updates take over from there.
 const RTL_LANGS = new Set(['fa', 'ar', 'he', 'ur']);
 function syncHtmlLang(lng: string): void {
@@ -83,20 +87,26 @@ i18n.on('languageChanged', (lng: string) => {
 });
 
 /**
- * On first run inside Telegram (no explicit stored choice), adopt the user's
- * Telegram client language. Must be called after the Telegram SDK is initialised
- * (e.g. from main.tsx), since launch params are unavailable before init().
+ * Apply cabinet UI language when the user has not made an explicit choice
+ * (no ``cabinet_language`` in localStorage). Prefers the authenticated user's
+ * stored language; otherwise ``DEFAULT_LNG`` (fa).
  */
-export function applyTelegramLanguage(): void {
+export function applyCabinetLanguagePreference(preferred?: string | null): void {
   try {
-    if (localStorage.getItem(LANGUAGE_STORAGE_KEY)) return; // explicit choice wins
+    if (localStorage.getItem(LANGUAGE_STORAGE_KEY)) return;
   } catch {
     return;
   }
-  const code = getTelegramLanguageCode();
-  if (code && SUPPORTED_LANGS.includes(code) && i18n.language?.split('-')[0] !== code) {
+  const raw = preferred?.split('-')[0]?.toLowerCase();
+  const code = raw && SUPPORTED_LANGS.includes(raw) ? raw : DEFAULT_LNG;
+  if (i18n.language?.split('-')[0] !== code) {
     i18n.changeLanguage(code);
   }
+}
+
+/** @deprecated Use applyCabinetLanguagePreference — Telegram client lang is not auto-applied. */
+export function applyTelegramLanguage(): void {
+  applyCabinetLanguagePreference();
 }
 
 export default i18n;

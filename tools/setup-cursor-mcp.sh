@@ -46,4 +46,5 @@ done
 
 echo ""
 echo "Done. Reload Cursor window (or restart) so MCP servers connect."
+echo "Dev MCP: run 'uv sync' if remnawave-dev server fails (needs mcp dev dep)."
 echo "Docs: docs/ops/mcp-dev.md | rule: .cursor/rules/mcp-dev.mdc"

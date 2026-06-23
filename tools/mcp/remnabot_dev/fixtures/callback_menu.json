@@ -1,0 +1,22 @@
+{
+  "update_id": 100002,
+  "callback_query": {
+    "id": "cq_dev_menu",
+    "from": {
+      "id": 0,
+      "is_bot": false,
+      "first_name": "Dev"
+    },
+    "message": {
+      "message_id": 101,
+      "date": 1715700001,
+      "chat": {
+        "id": 0,
+        "type": "private"
+      },
+      "text": "menu"
+    },
+    "chat_instance": "dev",
+    "data": "menu"
+  }
+}

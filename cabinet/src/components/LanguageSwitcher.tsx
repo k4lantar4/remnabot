@@ -22,7 +22,7 @@ export default function LanguageSwitcher() {
   }, []);
 
   const currentLang = availableLanguages.find((l) => l.code === i18n.language) ||
-    availableLanguages[0] || { code: 'ru', name: 'RU', flag: '🇷🇺' };
+    availableLanguages[0] || { code: 'fa', name: 'FA', flag: '🇮🇷' };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

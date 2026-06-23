@@ -13,6 +13,6 @@ fi
 # sessionStart hook output (additional_context when supported)
 cat <<'EOF'
 {
-  "additional_context": "remnabot dev: Follow .cursor/rules/autonomous-dev-workflow.mdc — plan, implement, make staging-rebuild without per-chat briefing; ship/merge/prod only after user تایید. MCP: remnawave-postgres/redis (production read-only), remnawave-staging-postgres/redis (staging). Prefer staging MCP when debugging staging smoke. Setup: make setup-cursor. Never prod docker compose for UI iteration."
+  "additional_context": "remnabot dev: Follow .cursor/rules/autonomous-dev-workflow.mdc — plan, implement, make staging-rebuild without per-chat briefing; ship/merge/prod only after user تایید. MCP: remnawave-postgres/redis (production read-only), remnawave-staging-postgres/redis (staging DB/cache), remnawave-dev (staging bot health/logs/Telegram API; write tools need REMNAWAVE_DEV_MCP_WRITE=1). Prefer staging MCP when debugging staging smoke. Setup: make setup-cursor && uv sync. Never prod docker compose for UI iteration."
 }
 EOF
