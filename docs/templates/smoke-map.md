@@ -1,66 +1,51 @@
-# Smoke map — Phase 0 closeout (force-default-language + safe fa fallback)
+# Smoke map — Phase 1 (fa → en → ru fallback chain)
 
-> Agent: filled for Phase 0 closeout (2026-06-23).
-> User: follow paths in Telegram to verify before prod deploy.
+> Agent: filled for Phase 1 commit on `i18n/fa-en-ru-fallback` (2026-06-23).
+> User: verify on staging before ship approval.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `main` (Phase 0 commits `d1df0821`, `881286bf` already merged) |
-| Staging bot | `@mrj7_bot` (from `.env.staging` `BOT_USERNAME`) |
+| Branch | `i18n/fa-en-ru-fallback` |
+| Staging bot | `@mrj7_bot` |
 | Staging cabinet | `https://staging-host-cabinet.rookari.com` |
-| Deploy | `make staging-rebuild` (2026-06-23) |
+| Deploy | `make staging-rebuild` |
 | Env | `LANGUAGE_SELECTION_ENABLED=false`, `DEFAULT_LANGUAGE=fa` |
 
-## Phase 0 — what changed
+## Phase 1 — what changed
 
-1. When language selection is disabled, `/start` and main menu force `DEFAULT_LANGUAGE` (`fa`) and persist correction to DB.
-2. Missing `fa.json` keys fall back to `ru` (not crash); `texts.t(key, default)` still uses explicit default.
+1. Missing `fa.json` keys now resolve **`en` before `ru`** (not `fa → ru` directly).
+2. `en` users fall back to `ru` only; `ru` users get no locale merge.
+3. Rules/privacy defaults use the same `fa → en → ru` chain.
 
-**Not in this smoke:** duplicate «حجم», `تعداد کاربر`, purchase onboarding — Phases 3–5 of audit plan.
+**Not in this smoke:** device terminology, purchase onboarding, cabinet parity — Phases 2–9.
 
 ## Changes → where to smoke
 
 | # | What to verify | Expected behavior | Telegram path |
 |---|----------------|-------------------|---------------|
-| 1 | Stale `language=en` user sees Persian after `/start` | Main menu labels in Persian; DB `language` updated to `fa` | `/start` → main menu |
-| 2 | Language picker blocked when selection off | Alert with Persian `LANGUAGE_SELECTION_DISABLED`; no picker | Menu → language button (if visible in layout) |
-| 3 | New user skips language picker | Registration / menu in Persian without language step | New Telegram account → `/start` |
-| 4 | No bot crash on normal flows | No `KeyError` / `AttributeError` in logs | Buy path, «اشتراک من», balance |
-| 5 | DB persistence | After `/start`, `users.language = 'fa'` for corrected accounts | Check staging DB for test user |
+| 1 | Normal Persian UI unchanged | All existing flows still Persian | `/start` → main menu |
+| 2 | No regressions in purchase | Confirm/success screens Persian | Buy tariff flow |
+| 3 | No bot crash | No `KeyError` in logs | «اشتراک من», balance, tickets |
+| 4 | Fallback chain (indirect) | If a key were missing from fa, user would see English not Russian | Hard to spot manually — covered by `tests/localization/test_texts_fallback.py` |
 
-## Callback / button checklist
-
-| Callback / button | Handler | Expected after Phase 0 |
-|-------------------|---------|------------------------|
-| `/start` | `start.py` | Forces `fa` when selection disabled; persists DB |
-| `main_menu` / back to menu | `menu.py` `show_main_menu` | Same force + Persian UI |
-| `language_menu` / language change | `menu.py` | Disabled alert when selection off |
-| Normal menu items | various | Unchanged for existing `fa` users |
-
-## DB check (staging)
+## Agent verification (done)
 
 ```bash
-docker compose -f docker-compose.staging.yml --env-file .env.staging -p remnawave-staging \
-  exec staging-postgres psql -U remnawave_user -d remnawave_bot_staging \
-  -c "SELECT telegram_id, language FROM users WHERE language != 'fa' LIMIT 5;"
+uv run pytest tests/localization/test_texts_fallback.py tests/localization/test_fa_en_ru_chain.py -q
+docker compose run --rm --no-deps bot python -c "import main"
 ```
-
-After test user sends `/start`, re-run for that `telegram_id` — expect `language = fa`.
 
 ## User smoke sign-off
 
-- [ ] Staging Telegram: paths 1–4 verified
-- [ ] Staging DB: path 5 verified (optional)
-- [ ] No Cyrillic leaks in user-visible strings during flows
-- [ ] User approves → prod deploy (`CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh`)
+- [ ] Staging Telegram: paths 1–3 verified on `@mrj7_bot`
+- [ ] No new Cyrillic leaks in user-visible strings
+- [ ] User approves → `CONFIRM_SHIP=1 make ship BRANCH=i18n/fa-en-ru-fallback`
 
-## After merge to main (production stack, same server)
+## After merge to main
 
 ```bash
-git checkout main && git pull
-CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh
+git checkout main && git pull remnabot main
+CONFIRM_PROD_DEPLOY=1 make prod-deploy
 ```
-
-Production smoke (short): `/start` on live bot — same paths as above, especially stale-`en` user if available.

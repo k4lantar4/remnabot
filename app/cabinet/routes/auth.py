@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.localization.user_language import resolve_user_facing_language
 from app.database.crud.campaign import (
     get_campaign_by_start_parameter,
     get_campaign_registration_by_user,
@@ -562,7 +563,7 @@ async def auth_telegram(
     tg_username = user_data.get('username')
     tg_first_name = user_data.get('first_name')
     tg_last_name = user_data.get('last_name')
-    tg_language = user_data.get('language_code', 'ru')
+    tg_language = resolve_user_facing_language(user_data.get('language_code'))
 
     # Resolve referral code to referrer ID for new users
     referrer_id = None
@@ -797,7 +798,7 @@ async def auth_telegram_widget(
             username=request.username,
             first_name=request.first_name,
             last_name=request.last_name,
-            language='ru',
+            language=resolve_user_facing_language(None),
             referred_by_id=referrer_id,
         )
         logger.info('User created successfully: id=, telegram_id', user_id=user.id, telegram_id=user.telegram_id)
@@ -928,7 +929,9 @@ async def auth_telegram_oidc(
     first_name = claims.get('name', claims.get('given_name', ''))
     username = claims.get('preferred_username')
     last_name = claims.get('family_name')
-    language = claims.get('locale', 'ru')[:2] if claims.get('locale') else 'ru'
+    language = resolve_user_facing_language(
+        claims.get('locale', '')[:2] if claims.get('locale') else None
+    )
 
     user = await get_user_by_telegram_id(db, telegram_id)
 
@@ -1355,7 +1358,7 @@ async def register_email_standalone(
         email=request.email,
         password_hash=password_hash,
         first_name=request.first_name,
-        language=request.language,
+        language=resolve_user_facing_language(request.language),
         referred_by_id=referrer.id if referrer else None,
     )
 
@@ -1610,7 +1613,7 @@ async def login_email(
                 email=request.email,
                 password_hash=password_hash,
                 first_name='Test User',
-                language='ru',
+                language=resolve_user_facing_language(None),
             )
             user.email_verified = True
             user.email_verified_at = datetime.now(UTC)

@@ -57,7 +57,7 @@ if (isTelegramEnv && !alreadyInitialized) {
 
     clearStaleSessionIfNeeded(retrieveRawInitData() || null);
 
-    // Adopt the user's Telegram client language on first run (no explicit choice yet).
+    // Default cabinet UI to fa (or user.language after auth) — not Telegram client lang.
     applyTelegramLanguage();
 
     // Each mount in its own try/catch so one failure doesn't block others.
