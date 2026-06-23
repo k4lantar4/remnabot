@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "remnawave-postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "bot-remnawave_bot_network",
+        "-e",
+        "DATABASE_URI",
+        "crystaldba/postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://${env:POSTGRES_USER}:${env:POSTGRES_PASSWORD}@${env:POSTGRES_HOST}:${env:POSTGRES_PORT}/${env:POSTGRES_DB}"
+      },
+      "envFile": "${workspaceFolder}/.env"
+    },
+    "remnawave-redis": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "bot-remnawave_bot_network",
+        "-e",
+        "REDIS_URL",
+        "mcp/redis"
+      ],
+      "env": {
+        "REDIS_URL": "redis://redis:6379/0"
+      },
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}

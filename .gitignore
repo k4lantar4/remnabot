@@ -60,6 +60,8 @@
 !.cursor/plans/**
 !.cursor/skills/
 !.cursor/skills/**
+!.cursor/mcp.json
+!.cursor/mcp.json.example
 !caddy-remnawave/
 !caddy-remnawave/**
 !cabinet/
