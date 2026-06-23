@@ -1,37 +1,47 @@
 ---
-description: When to use project MCP servers (Postgres, Redis, docs) during development
+description: When to use project MCP servers (Postgres, Redis, staging) during development
 alwaysApply: true
 ---
 
 # MCP (dev tooling)
 
-Project config: [`.cursor/mcp.json`](../mcp.json). Credentials live in `.env` only (`envFile`); never commit passwords.
+Full setup: **`docs/ops/mcp-dev.md`** — bootstrap with `make setup-cursor`.
 
-## Use proactively when
+Config: [`.cursor/mcp.json`](../mcp.json) (from [`.cursor/mcp.json.example`](../mcp.json.example)). Credentials only in `.env` / `.env.staging` (`envFile`); never commit passwords.
 
-| MCP server | Use for |
-|------------|---------|
-| **remnawave-postgres** | Live schema, row counts, balance/subscription debugging, verifying migrations or data issues — read-only (`restricted`) |
-| **remnawave-redis** | Cart/cache keys, TTL inspection, session or rate-limit state in DB 0 |
-| **context7** (plugin) | Up-to-date React/Vite/Radix/cabinet library docs |
+Session hook: [`.cursor/hooks.json`](../hooks.json) injects `autonomous-dev-workflow.mdc` reminder on `sessionStart`.
 
-Prefer MCP over guessing DB/Redis state when the task depends on **actual** production or dev container data.
+## Servers (use proactively)
 
-## Do not use for local DB
+| MCP server | Stack | When |
+|------------|-------|------|
+| **remnawave-postgres** | Production | Live schema, balances, subscriptions — read-only |
+| **remnawave-redis** | Production | Prod cart/cache/TTL |
+| **remnawave-staging-postgres** | Staging | After `make staging-rebuild` — debug staging smoke data |
+| **remnawave-staging-redis** | Staging | Staging carts/cache |
+| **context7** (plugin) | — | React/Vite/cabinet library docs |
+
+**Rule:** Prefer MCP over guessing DB/Redis state. For i18n/UX iteration debugging, prefer **staging** MCP servers — not production.
+
+## Do not use
 
 | Plugin | Why |
 |--------|-----|
-| **neon-postgres** | Neon cloud OAuth — not Docker Postgres |
-| **paradedb** | Docs search — not a DB client |
+| **neon-postgres** | Neon cloud — not Docker Postgres on this host |
+| **paradedb** | Docs search only |
 
 ## Safety
 
-- Postgres MCP is **read-only** on this deployment; do not expect write/DDL via MCP.
-- Do not paste connection strings or `.env` secrets into chat or commits.
-- MCP supplements rules and tests — it does not replace `delivery-cycle.mdc` smoke or user approval for merges.
+- Postgres MCP: **read-only** (`restricted`); no DDL/DML.
+- Do not paste secrets in chat or commits.
+- MCP ≠ substitute for `make smoke`, staging deploy, or user `تایید` before ship/prod.
 
 ## If MCP is unavailable
 
-- Confirm Docker is up: `remnawave_bot_db`, `remnawave_bot_redis` on `bot-remnawave_bot_network`.
-- Pull images once: `docker pull crystaldba/postgres-mcp` and `docker pull mcp/redis`.
-- Reload Cursor after editing `mcp.json`.
+```bash
+make setup-cursor          # copy mcp.json, pull images, check networks
+docker compose up -d postgres redis
+make staging-rebuild       # staging MCP needs staging stack
+```
+
+Reload Cursor after editing `mcp.json`.

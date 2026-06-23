@@ -21,6 +21,8 @@ alwaysApply: true
 
 Agent must **not** push/merge production without user approval.
 
+**Full autonomous cycle:** `autonomous-dev-workflow.mdc` — staging deploy without per-chat briefing; ship/merge/prod after user smoke `تایید`.
+
 ## What kind of work?
 
 | Type | Approach |

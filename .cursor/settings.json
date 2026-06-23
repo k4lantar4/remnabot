@@ -1,0 +1,15 @@
+{
+  "plugins": {
+    "neon-postgres": { "enabled": true },
+    "subtext": { "enabled": true },
+    "stripe": { "enabled": true },
+    "netlify-skills": { "enabled": true },
+    "modern-web-guidance": { "enabled": true },
+    "context7-plugin": { "enabled": true },
+    "redis-development": { "enabled": true },
+    "sentry": { "enabled": true },
+    "linear": { "enabled": true },
+    "exa": { "enabled": true },
+    "paradedb": { "enabled": true }
+  }
+}
