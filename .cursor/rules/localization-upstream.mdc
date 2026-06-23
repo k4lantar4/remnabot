@@ -44,12 +44,13 @@ Bot + cabinet + miniapp parity — `user-surface-parity.mdc`. Callback spinner o
 
 ## After each commit
 
-Follow `delivery-cycle.mdc`. Quick check:
+Follow `delivery-cycle.mdc` (agent smoke + deploy matrix before user smoke). Quick check:
 
 ```bash
 docker compose run --rm --no-deps bot python -c "import main"
 cp app/localization/locales/fa.json ./locales/fa.json  # if fa.json changed
-docker compose restart bot
+# User-visible: build + up — not restart-only when handlers or cabinet changed
+docker compose build bot cabinet-frontend && docker compose up -d bot cabinet-frontend
 grep -r get_admin_texts app/  # must be 0
 ```
 

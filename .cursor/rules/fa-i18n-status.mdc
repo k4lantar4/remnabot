@@ -166,9 +166,21 @@ Branch `fix/force-default-language-when-disabled` from `main` (**2 commits**).
 - [x] **`881286bf`** — `texts.py` / `loader.py`: missing `fa` keys fall back to `ru`; `texts.t()` / attribute access no longer crash on absent keys
 - [ ] **Awaiting user smoke** — affected user sends `/start`; then PR → `dev-local` → `main`
 
+## Done (remaining audit — Jun 23 2026)
+
+Branch: audit-only (no code). Plan: `docs/superpowers/plans/2026-06-23-fa-i18n-remaining-audit.md`.
+
+- [x] **Phase-0 metrics:** fa.json 4,158 keys, 0 Cyrillic values, 0 missing vs ru; user keys ~98% Persian
+- [x] **Gap analysis:** 147 user `دستگاه` keys, 76 user `تعرفه` keys, duplicate «حجم» in traffic step (`tariff_purchase.py:386–393`)
+- [x] **Fallback:** current `fa → ru` documented; target `fa → en → ru` + admin English track scoped
+- [x] **Cabinet:** 96 user `دستگاه` paths, 26 Persian-digit user literals in `cabinet/src/locales/fa.json`
+- [ ] **Implementation:** 15-commit sequence in plan §9 — not started
+
 ## Next
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
+
+**Priority implementation** (from audit plan §9): `i18n/fa-en-ru-fallback` → device terminology (`تعداد کاربر`) → purchase success onboarding → cabinet parity.
 
 **fa Jalali P1 complete** on branch `i18n/fa-jalali-dates` — pending user smoke before PR → `dev-local` → `main`.
 
@@ -201,7 +213,7 @@ See `delivery-cycle.mdc` and `localization-upstream.mdc`:
 ```bash
 docker compose run --rm --no-deps bot python -c "import main"
 cp app/localization/locales/fa.json ./locales/fa.json
-docker compose restart bot
+docker compose build bot cabinet-frontend && docker compose up -d bot cabinet-frontend
 grep -r get_admin_texts app/  # must be 0
 ```
 

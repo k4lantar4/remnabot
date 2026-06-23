@@ -12,6 +12,8 @@
 !docker-compose.yml
 !docker-compose.local.yml
 !docker-compose.dev.example.yml
+!docker-compose.staging.yml
+!.env.staging.example
 !Makefile
 !pyproject.toml
 !uv.lock
@@ -41,10 +43,17 @@
 !tests/**
 !tools/
 !tools/**
+!tools/deploy-staging.sh
+!tools/deploy-production.sh
+!tools/ship-after-smoke.sh
 !migrations/
 !migrations/**
 !docs/
 !docs/**
+!docs/ops/
+!docs/ops/**
+!docs/templates/
+!docs/templates/**
 !assets/
 !assets/**
 !locales/
@@ -105,6 +114,7 @@ htmlcov/
 docker-compose.override.yml
 .env
 .env.local
+.env.staging
 .env.*.local
 
 # Runtime data
