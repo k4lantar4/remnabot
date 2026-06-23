@@ -152,14 +152,14 @@
       "title": "اشتراک تمدید شد!"
     },
     "subscriptionPurchased": {
-      "title": "اشتراک خریداری شد!"
+      "title": "سرویس خریداری شد!"
     },
     "amount": "مبلغ",
     "price": "قیمت",
     "newBalance": "موجودی جدید",
-    "tariff": "تعرفه",
+    "tariff": "سرویس",
     "validUntil": "معتبر تا",
-    "goToSubscription": "رفتن به اشتراک",
+    "goToSubscription": "رفتن به اشتراک من",
     "goToBalance": "رفتن به موجودی",
     "devicesAdded": "+{{count}} دستگاه",
     "devicesPurchased": {
