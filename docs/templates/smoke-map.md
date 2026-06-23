@@ -1,25 +1,45 @@
-# Smoke map — Phase 2 (bot device terminology) — CLOSED
+# Smoke map — Phase 3 (purchase success copy)
 
-> Merged PR #73 @ `a1375f5b`; prod deploy + user تایید 2026-06-24.
+> Branch `i18n/fa-copy-purchase-success` — awaiting user smoke on `@mrj7_bot` + staging cabinet.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-device-terminology-bot` (merged, deleted) |
-| Merge | `a1375f5b` on `main` |
-| Prod | deployed 2026-06-24 |
-| Hotfix | PR #74 `show_main_menu` NameError (`9fa5cef5`) |
+| Branch | `i18n/fa-copy-purchase-success` |
+| Commits | `35391a7e` fa.json, `e2751e1d` tariff_purchase.py, `5e3061d4` cabinet fa.json |
+| Staging | `make staging-rebuild` + `make staging-health` |
 
-## Phase 2 — what changed
+## What changed
 
-Bot `fa.json` only: «دستگاه» → «تعداد کاربر» / «اتصال». User keys 147 → 29 (deferred CABINET/MINIAPP/HAPP/connect).
+### Bot `app/localization/locales/fa.json`
 
-## User smoke sign-off
+- New `POST_PURCHASE_ONBOARDING` — 3-step connect guide
+- Updated success keys: `TARIFF_PURCHASE_SUCCESS`, `TARIFF_DAILY_SUCCESS`, `TARIFF_RENEW_SUCCESS`, `TARIFF_CHANGE_SUCCESS`, `TARIFF_SWITCH_SUCCESS`, `TARIFF_SWITCH_DAILY_SUCCESS`, `TARIFF_INSTANT_SWITCH_*`
+- Copy: `سرویس`, `حجم`, `مبلغ پرداخت`, `مدت`, short inline CTA
+- `TARIFF_INFO_HEADER`, `CABINET_PURCHASE_TARIFF_SUCCESS`, `SIMPLE_SUB_PAYMENT_*`
 
-- [x] Production Telegram: purchase, my_sub, device-change flows — تایید 2026-06-24
-- [x] Back to menu (PR #74 hotfix)
+### Bot `app/handlers/subscription/tariff_purchase.py`
 
-## Next phase
+- `_with_post_purchase_onboarding()` appends numbered block at 8 success `edit_text` sites
 
-Phase 3: `i18n/fa-copy-purchase-success` — onboarding copy in success messages. See `docs/superpowers/plans/2026-06-23-fa-i18n-remaining-audit.md` §9.
+### Cabinet `cabinet/src/locales/fa.json`
+
+- `successNotification.tariff` → `سرویس`
+- `successNotification.goToSubscription` → `رفتن به اشتراک من`
+- `successNotification.subscriptionPurchased.title` → `سرویس خریداری شد!`
+
+## User smoke checklist (`@mrj7_bot`)
+
+| # | Path | Expect |
+|---|------|--------|
+| 1 | Buy tariff (custom or preset) → success | `سرویس`, `حجم`, `مبلغ پرداخت`; numbered `3 گام تا اتصال`; no `تعرفه` |
+| 2 | Tap «اشتراک من» on success keyboard | Opens subscription detail |
+| 3 | Renew subscription | Same copy style on `TARIFF_RENEW_SUCCESS` |
+| 4 | Switch / instant-switch tariff (if available) | Aligned success copy + onboarding block |
+| 5 | Cabinet purchase (staging cabinet URL) | Success modal: `سرویس` label, `رفتن به اشتراک من` button |
+
+## Sign-off
+
+- [x] User smoke تایید 2026-06-24
+- [ ] PR merged → prod smoke

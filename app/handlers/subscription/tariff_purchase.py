@@ -68,7 +68,7 @@ def _with_post_purchase_onboarding(texts, body: str) -> str:
         '✅ <b>3 шага до подключения:</b>\n'
         '1️⃣ Меню → <b>Моя подписка</b>\n'
         '2️⃣ Кнопка <b>🔗 Получить ссылку</b>\n'
-        '3️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Streisand)\n\n'
+        '3️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)\n\n'
         '💬 Вопросы? Напишите в поддержку.',
     )
     return f'{body}\n\n{onboarding}'

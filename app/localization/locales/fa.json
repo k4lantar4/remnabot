@@ -3324,7 +3324,7 @@
   "POLL_QUESTION_HEADER": "<b>سوال {current}/{total}</b>",
   "POLL_REWARD_GRANTED": "پاداش {amount} به موجودی شما اضافه شد.",
   "POLL_START_BUTTON": "📝 شرکت در نظرسنجی",
-  "POST_PURCHASE_ONBOARDING": "✅ <b>3 گام تا اتصال:</b>\n1️⃣ منو → <b>اشتراک من</b>\n2️⃣ دکمه <b>🔗 دریافت لینک</b>\n3️⃣ لینک را در اپ VPN (مثل v2rayNG یا Streisand) وارد کنید\n\n💬 سوالی بود؟ پشتیبانی را بزنید.",
+  "POST_PURCHASE_ONBOARDING": "✅ <b>3 گام تا اتصال:</b>\n1️⃣ منو → <b>اشتراک من</b>\n2️⃣ دکمه <b>🔗 دریافت لینک</b>\n3️⃣ لینک را در اپ VPN (مثل v2rayNG یا Happ) وارد کنید\n\n💬 سوالی بود؟ پشتیبانی را بزنید.",
   "POST_REGISTRATION_TRIAL_BUTTON": "🚀 اتصال رایگان 🚀",
   "PRICE": "قیمت",
   "PRIVACY_POLICY_ACCEPT": "✅ می‌پذیرم",
