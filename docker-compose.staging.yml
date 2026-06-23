@@ -1,0 +1,135 @@
+# Staging stack — same host as production, isolated DB/Redis/volumes/ports.
+#
+# Service names staging-postgres / staging-redis avoid DNS clash with prod on remnawave-network.
+#
+# Usage: ./tools/deploy-staging.sh
+# Ports: WEB_API_PORT=8081, CABINET_PORT=3021
+
+name: remnawave-staging
+
+services:
+  staging-postgres:
+    image: postgres:15-alpine
+    container_name: remnawave_staging_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-remnawave_bot_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-remnawave_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required in .env.staging}
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    networks:
+      - staging_network
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-remnawave_user} -d ${POSTGRES_DB:-remnawave_bot_staging}',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  staging-redis:
+    image: redis:7-alpine
+    container_name: remnawave_staging_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - staging_redis_data:/data
+    networks:
+      - staging_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  bot:
+    build: .
+    container_name: remnawave_staging_bot
+    restart: unless-stopped
+    depends_on:
+      staging-postgres:
+        condition: service_healthy
+      staging-redis:
+        condition: service_healthy
+    env_file:
+      - .env.staging
+    environment:
+      FORCE_COLOR: '1'
+      DOCKER_ENV: 'true'
+      DATABASE_MODE: 'auto'
+      POSTGRES_HOST: 'staging-postgres'
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: '${POSTGRES_DB:-remnawave_bot_staging}'
+      POSTGRES_USER: '${POSTGRES_USER:-remnawave_user}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      REDIS_URL: 'redis://staging-redis:6379/0'
+      TZ: '${TZ:-Asia/Tehran}'
+      LOCALES_PATH: '/app/locales'
+      WEB_API_PORT: '8080'
+    volumes:
+      - ./logs-staging:/app/logs:rw
+      - ./data-staging:/app/data:rw
+      - ./locales-staging:/app/locales:rw
+      - ./uploads-staging:/app/uploads:rw
+      - ./vpn_logo.png:/app/vpn_logo.png:ro
+    ports:
+      - '8081:8080'
+    networks:
+      - staging_network
+      - remnawave-network
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python -c "import requests, os; requests.get(''http://localhost:8080/health'', headers={''X-API-Key'': os.environ.get(''WEB_API_DEFAULT_TOKEN'')}, timeout=5) or exit(1)"',
+        ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  cabinet-frontend:
+    build:
+      context: ./cabinet
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_TELEGRAM_BOT_USERNAME: ${VITE_TELEGRAM_BOT_USERNAME:-${BOT_USERNAME:-}}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Moon VPN Staging}
+        VITE_APP_LOGO: ${VITE_APP_LOGO:-V}
+    container_name: remnawave_staging_cabinet
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    ports:
+      - '3021:80'
+    networks:
+      - staging_network
+      - remnawave-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:80/']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  staging_postgres_data:
+    driver: local
+  staging_redis_data:
+    driver: local
+
+networks:
+  staging_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1350
+
+  remnawave-network:
+    name: remnawave-network
+    external: true

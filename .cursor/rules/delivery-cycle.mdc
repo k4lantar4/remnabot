@@ -11,7 +11,83 @@ Every change ships through this cycle. See also `git-branch-workflow.mdc` for re
 
 - **Any change, however small** → new branch from `main` (`fix/`, `feat/`, `i18n/`, `chore/`)
 - **Each commit** = one concern (one handler, or only `fa.json`, or only display currency)
-- Before the next commit: `docker compose run --rm --no-deps bot python -c "import main"`
+- Before the next commit: agent smoke (§ Agent smoke) — `import main` is necessary but **not sufficient** for user-visible checks
+
+## Sprint workflow (multi-commit features / i18n)
+
+1. **Branch** from `main` (`i18n/…`, `fix/…`)
+2. **One agent or operator — sequential** commits (no parallel edits on `fa.json` / hot paths)
+3. After **each** commit → agent smoke (§ Agent smoke)
+4. End of sprint (or when user should see UI) → **deploy to smoke target** (§ Deploy for user smoke) — staging stack preferred, not production bot
+5. **User smoke** — Telegram / cabinet / miniapp on smoke target
+6. **Smoke map** — agent fills `docs/templates/smoke-map.md` (keys, handlers, Telegram path per change)
+7. User approves staging → **ship** (`CONFIRM_SHIP=1 ./tools/ship-after-smoke.sh`) → PR → merge
+8. **Production deploy** after merge (`CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh`) — same host, prod stack only
+
+See `docs/ops/staging-dev.md` and `.cursor/skills/staging-workflow/SKILL.md`.
+
+Agent must **not** merge or prod-deploy without user smoke approval.
+
+## Agent smoke (every commit)
+
+```bash
+docker compose run --rm --no-deps bot python -c "import main"
+grep -r get_admin_texts app/   # must be 0
+```
+
+If `cabinet/src/**` touched:
+
+```bash
+docker compose run --rm --no-deps -w /app/cabinet node:20-alpine sh -c "npm ci && npm run build"
+# or locally: cd cabinet && npm run build
+```
+
+`restart bot` alone does **not** pick up Python handler changes (app code is in the image, not a bind mount).
+
+## Deploy for user smoke (running containers)
+
+| What changed | Required action |
+|--------------|-----------------|
+| `app/localization/locales/fa.json` only | `cp app/localization/locales/fa.json ./locales/fa.json` then `docker compose up -d bot` |
+| Bot Python (`app/**`, deps) | `docker compose build bot && docker compose up -d bot` |
+| Cabinet UI/locales (`cabinet/src/**`) | `docker compose build cabinet-frontend && docker compose up -d cabinet-frontend` |
+| Bot + cabinet in same sprint | `cp … fa.json` + `docker compose build bot cabinet-frontend && docker compose up -d bot cabinet-frontend` |
+| Alembic migration | run migration on **target** Postgres **before** `up -d bot` |
+| `.env` / secrets | restart only affected services |
+
+**Postgres / Redis:** no image rebuild for locale/copy work. Use **separate volumes** per environment (prod vs staging).
+
+**Typical i18n deploy (so user sees strings in Telegram + cabinet):**
+
+```bash
+cp app/localization/locales/fa.json ./locales/fa.json
+docker compose build bot cabinet-frontend
+docker compose up -d bot cabinet-frontend
+docker compose ps   # healthy
+```
+
+Smoke on **staging** bot + staging cabinet — not production bot while iterating (§ Staging).
+
+**Staging deploy (parallel stack, same host):**
+
+```bash
+./tools/deploy-staging.sh
+./tools/deploy-staging.sh --migrate   # first boot or new Alembic revision
+```
+
+## Staging vs production (same server)
+
+| | Production | Staging |
+|---|------------|---------|
+| Telegram | prod `@BOT` | **separate** staging bot token |
+| DB / Redis | `postgres_data`, `redis_data` | `staging_*` volumes |
+| Host ports | `8080`, `3020` | **`8081`, `3021`** |
+| Compose | default project | `remnawave-staging` + `.env.staging` |
+| Public URL | prod domains | **subdomains** e.g. `staging-hooks`, `staging-cabinet` (same IP) |
+
+Subdomains required for **webhook** staging (each bot needs its own URL). Optional if staging uses `BOT_RUN_MODE=polling`.
+
+Resource: +~1–2 GB RAM for staging stack; prod keeps running.
 
 ## When off-track
 
@@ -31,11 +107,12 @@ Agent must **not** try multiple currency/i18n strategies uncommitted; must **not
 | 1 | Branch from `main` | agent |
 | 2 | Minimal implementation | agent |
 | 3 | **Commit** | agent |
-| 4 | Agent smoke: `import main` (+ build if needed) | agent |
-| 5 | Push branch + **PR** | agent (push only when user allows) |
-| 6 | User smoke: Telegram bot / cabinet / web | **user** |
-| 7 | Merge to `dev-local` → `main` after PR approval | **user** |
-| 8 | Deploy: copy `fa.json` to `./locales/` if changed; `docker compose build` + `restart bot` | agent or user |
-| 9 | User smoke on running containers | **user** |
+| 4 | Agent smoke: `import main` (+ cabinet `npm run build` if cabinet touched) | agent |
+| 5 | Push branch + **PR** (after smoke map written) | agent (push when user allows) |
+| 6 | Deploy **staging**: `./tools/deploy-staging.sh` (same host) | agent |
+| 7 | User smoke staging + **smoke map** sign-off | **user** |
+| 8 | Ship: `CONFIRM_SHIP=1 ./tools/ship-after-smoke.sh` → PR merge | **user** approves merge |
+| 9 | Prod deploy: `CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh` (same host) | agent or user |
+| 10 | Short prod smoke | **user** |
 
 Rollback on shared lines: `git revert <sha>` — not `reset --hard` on `main`.
