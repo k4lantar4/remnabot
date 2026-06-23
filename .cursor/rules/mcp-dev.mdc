@@ -19,9 +19,10 @@ Session hook: [`.cursor/hooks.json`](../hooks.json) injects `autonomous-dev-work
 | **remnawave-redis** | Production | Prod cart/cache/TTL |
 | **remnawave-staging-postgres** | Staging | After `make staging-rebuild` — debug staging smoke data |
 | **remnawave-staging-redis** | Staging | Staging carts/cache |
+| **remnawave-dev** | Staging (host) | Bot health/logs/webhook status; optional staging webhook inject (`REMNAWAVE_DEV_MCP_WRITE=1`) |
 | **context7** (plugin) | — | React/Vite/cabinet library docs |
 
-**Rule:** Prefer MCP over guessing DB/Redis state. For i18n/UX iteration debugging, prefer **staging** MCP servers — not production.
+**Rule:** Prefer MCP over guessing DB/Redis state. For bot process/logs/webhook mode use **remnawave-dev**. For i18n/UX iteration debugging, prefer **staging** MCP servers — not production.
 
 ## Do not use
 

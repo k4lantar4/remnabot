@@ -37,6 +37,7 @@ dev = [
     'pytest',
     'pytest-asyncio',
     'pytest-cov',
+    "mcp>=1.28.0",
 ]
 
 [tool.uv]

@@ -69,6 +69,18 @@
         "REDIS_URL": "redis://staging-redis:6379/0"
       },
       "envFile": "${workspaceFolder}/.env.staging"
+    },
+    "remnawave-dev": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${workspaceFolder}",
+        "python",
+        "-m",
+        "tools.mcp.remnabot_dev.server"
+      ],
+      "envFile": "${workspaceFolder}/.env.staging"
     }
   }
 }
