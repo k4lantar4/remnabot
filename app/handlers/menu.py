@@ -183,6 +183,8 @@ async def show_main_menu(
 
     menu_text = await get_main_menu_text(db_user, texts, db)
 
+    has_active_subscription, subscription_is_active = calculate_user_subscription_flags(db_user)
+
     draft_exists = await has_subscription_checkout_draft(db_user.id)
     show_resume_checkout = should_offer_checkout_resume(db_user, draft_exists)
 
