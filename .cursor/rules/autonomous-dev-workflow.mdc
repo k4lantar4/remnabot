@@ -1,0 +1,97 @@
+---
+description: Autonomous plan→implement→staging→ship→prod cycle — no per-session briefing needed
+alwaysApply: true
+---
+
+# Autonomous development workflow
+
+**Assume this workflow in every new chat.** The user does **not** repeat staging/prod instructions. Follow it end-to-end unless they explicitly override.
+
+Canonical ops doc: `docs/ops/staging-dev.md`  
+Makefile: `make help`  
+Skill: `.cursor/skills/staging-workflow/SKILL.md`
+
+## This server (fixed facts)
+
+| | Production | Staging |
+|---|------------|---------|
+| Path | `/opt/bot-remnawave` | same repo |
+| Compose | `docker compose` | `docker compose -f docker-compose.staging.yml --env-file .env.staging -p remnawave-staging` |
+| Env file | `.env` (gitignored) | `.env.staging` (gitignored) |
+| Telegram | prod bot (`@MOONVPN_BOT` or prod `BOT_USERNAME` in `.env`) | **`@mrj7_bot`** |
+| Host ports | `8080`, `3020` | **`8081`**, **`3021`** |
+| Public URLs | prod `hooks` / `cabinet` on `rookari.com` | **`staging-host-hooks`**, **`staging-host-cabinet`**, **`staging-host-miniapp`**, **`staging-host-sub`** |
+| DB host in staging env | — | `POSTGRES_HOST=staging-postgres` (not `postgres`) |
+| Bot `WEB_API_PORT` inside container | `8080` | **`8080`** (host maps `8081:8080`) |
+
+**Never** iterate i18n/UX on the production Telegram bot. **Always** smoke on `@mrj7_bot` + staging cabinet URL.
+
+## What the agent does without being asked
+
+### A. New feature / i18n / fix (multi-step)
+
+1. **Plan** — for non-trivial work, write or update `docs/superpowers/plans/YYYY-MM-DD-<topic>.md` (phases, files, smoke paths).
+2. **Branch** from `main` (`i18n/`, `fix/`, `feat/`, `chore/`).
+3. **Implement** — minimal diff; one concern per commit (`localization-upstream.mdc`).
+4. **After each commit** — agent smoke:
+   ```bash
+   make smoke
+   make check-admin-texts
+   # if cabinet touched: docker compose run --rm --no-deps -w /app/cabinet node:20-alpine sh -c "npm ci && npm run build"
+   ```
+5. **Commit** when a slice is done (user must ask for commit only if they use that policy; otherwise commit per `delivery-cycle.mdc`).
+6. **End of slice or sprint** — deploy **staging automatically** (do not wait for user to say “build staging”):
+   ```bash
+   make staging-rebuild    # or make staging-migrate if new Alembic revision
+   make staging-health
+   ```
+7. **Smoke map** — fill `docs/templates/smoke-map.md` (keys, handlers, Telegram path on `@mrj7_bot`).
+8. **Tell user** — short checklist: what to tap in Telegram / which staging URL; ask for smoke sign-off (`تایید` / “approved”).
+
+### B. After user approves staging smoke
+
+User words like **تایید**, **approved**, **smoke OK** = permission to ship. Agent runs **in order** (no re-asking):
+
+```bash
+CONFIRM_SHIP=1 make ship BRANCH=<feature-branch>
+# PR on remnabot fork:
+gh pr merge <number> -R k4lantar4/remnabot --merge
+git checkout main && git pull remnabot main
+CONFIRM_PROD_DEPLOY=1 make prod-deploy
+```
+
+Then report: PR URL, merge sha, prod health hint (`make prod-ps`). User does a **short prod smoke** on live bot.
+
+Use `GITHUB_REPO=k4lantar4/remnabot` for all `gh` commands (default `gh` remote is upstream).
+
+### C. Forbidden without explicit user override
+
+| Action | Rule |
+|--------|------|
+| `docker compose build/up` on **prod** stack while iterating | Use **staging** only |
+| `CONFIRM_PROD_DEPLOY=1` / `make prod-deploy` | Only **after** staging smoke approval + merge to `main` |
+| `CONFIRM_SHIP=1` / `make ship` | Only **after** user staging smoke approval |
+| `git push remnabot main` / force-push `main` | Never without explicit user request |
+| Edit `.env` / `.env.staging` secrets in commits | Never commit secrets |
+| `docker compose` without staging flags for UI testing | Wrong stack — use `make staging-*` |
+
+## Makefile quick reference
+
+```bash
+make smoke && make staging-rebuild && make staging-health   # after implementation
+CONFIRM_SHIP=1 make ship BRANCH=i18n/foo                      # after user تایید staging
+CONFIRM_PROD_DEPLOY=1 make prod-deploy                        # after merge to main
+```
+
+## MCP caution
+
+| Server | Stack |
+|--------|-------|
+| `remnawave-postgres` / `remnawave-redis` | **Production** (read-only) |
+| `remnawave-staging-postgres` / `remnawave-staging-redis` | **Staging** — use when debugging `@mrj7_bot` smoke |
+
+Bootstrap: `make setup-cursor` — see `docs/ops/mcp-dev.md` and `.cursor/rules/mcp-dev.mdc`.
+
+## Plans directory
+
+Active and historical plans: `docs/superpowers/plans/`. Before a new i18n sprint, check for an existing plan (e.g. `2026-06-23-fa-i18n-remaining-audit.md`) and execute phases sequentially on staging.

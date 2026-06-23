@@ -7,6 +7,8 @@ alwaysApply: true
 
 Every change ships through this cycle. See also `git-branch-workflow.mdc` for remotes and merge paths.
 
+**Autonomous mode:** `autonomous-dev-workflow.mdc` — agent runs plan → implement → `make staging-rebuild` without per-chat briefing; ship/merge/prod only after user staging smoke approval (`تایید`).
+
 ## Start
 
 - **Any change, however small** → new branch from `main` (`fix/`, `feat/`, `i18n/`, `chore/`)
@@ -83,7 +85,7 @@ Smoke on **staging** bot + staging cabinet — not production bot while iteratin
 | DB / Redis | `postgres_data`, `redis_data` | `staging_*` volumes |
 | Host ports | `8080`, `3020` | **`8081`, `3021`** |
 | Compose | default project | `remnawave-staging` + `.env.staging` |
-| Public URL | prod domains | **subdomains** e.g. `staging-hooks`, `staging-cabinet` (same IP) |
+| Public URL | prod domains | **`staging-host-hooks`**, **`staging-host-cabinet`** (`@mrj7_bot`) |
 
 Subdomains required for **webhook** staging (each bot needs its own URL). Optional if staging uses `BOT_RUN_MODE=polling`.
 
@@ -105,14 +107,15 @@ Agent must **not** try multiple currency/i18n strategies uncommitted; must **not
 | Step | Action | Owner |
 |------|--------|-------|
 | 1 | Branch from `main` | agent |
-| 2 | Minimal implementation | agent |
-| 3 | **Commit** | agent |
-| 4 | Agent smoke: `import main` (+ cabinet `npm run build` if cabinet touched) | agent |
-| 5 | Push branch + **PR** (after smoke map written) | agent (push when user allows) |
-| 6 | Deploy **staging**: `./tools/deploy-staging.sh` (same host) | agent |
-| 7 | User smoke staging + **smoke map** sign-off | **user** |
-| 8 | Ship: `CONFIRM_SHIP=1 ./tools/ship-after-smoke.sh` → PR merge | **user** approves merge |
-| 9 | Prod deploy: `CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh` (same host) | agent or user |
-| 10 | Short prod smoke | **user** |
+| 2 | Plan (if multi-step): `docs/superpowers/plans/` | agent |
+| 3 | Minimal implementation | agent |
+| 4 | **Commit** (one concern) | agent |
+| 5 | Agent smoke: `make smoke` (+ cabinet build if touched) | agent |
+| 6 | Deploy **staging**: `make staging-rebuild` + `make staging-health` — **automatic** | agent |
+| 7 | Smoke map: `docs/templates/smoke-map.md` | agent |
+| 8 | User smoke on `@mrj7_bot` + staging cabinet | **user** |
+| 9 | On user **تایید**: `CONFIRM_SHIP=1 make ship` → `gh pr merge` → pull `main` | agent |
+| 10 | `CONFIRM_PROD_DEPLOY=1 make prod-deploy` | agent |
+| 11 | Short prod smoke | **user** |
 
 Rollback on shared lines: `git revert <sha>` — not `reset --hard` on `main`.

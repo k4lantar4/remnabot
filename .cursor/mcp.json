@@ -34,6 +34,41 @@
         "REDIS_URL": "redis://redis:6379/0"
       },
       "envFile": "${workspaceFolder}/.env"
+    },
+    "remnawave-staging-postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "remnawave-staging_staging_network",
+        "-e",
+        "DATABASE_URI",
+        "crystaldba/postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://${env:POSTGRES_USER}:${env:POSTGRES_PASSWORD}@staging-postgres:5432/${env:POSTGRES_DB}"
+      },
+      "envFile": "${workspaceFolder}/.env.staging"
+    },
+    "remnawave-staging-redis": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "remnawave-staging_staging_network",
+        "-e",
+        "REDIS_URL",
+        "mcp/redis"
+      ],
+      "env": {
+        "REDIS_URL": "redis://staging-redis:6379/0"
+      },
+      "envFile": "${workspaceFolder}/.env.staging"
     }
   }
 }

@@ -23,13 +23,15 @@ if [[ "$BRANCH" == "main" || "$BRANCH" == "dev-local" ]]; then
 fi
 
 REMOTE="${GIT_REMOTE:-remnabot}"
+GITHUB_REPO="${GITHUB_REPO:-k4lantar4/remnabot}"
+GH=(gh -R "$GITHUB_REPO")
 
 echo "==> Push $BRANCH to $REMOTE"
 git push -u "$REMOTE" "$BRANCH"
 
 if command -v gh >/dev/null 2>&1; then
-  if gh pr view "$BRANCH" --json url -q .url 2>/dev/null; then
-    PR_URL="$(gh pr view "$BRANCH" --json url -q .url)"
+  if "${GH[@]}" pr view "$BRANCH" --json url -q .url 2>/dev/null; then
+    PR_URL="$("${GH[@]}" pr view "$BRANCH" --json url -q .url)"
     echo "PR exists: $PR_URL"
   else
     SMOKE_MAP="docs/templates/smoke-map.md"
@@ -48,12 +50,12 @@ if command -v gh >/dev/null 2>&1; then
     else
       echo "Staging smoke approved." > "$BODY_FILE"
     fi
-    gh pr create --base main --head "$BRANCH" --title "$BRANCH" --body-file "$BODY_FILE"
+    "${GH[@]}" pr create --base main --head "$BRANCH" --title "$BRANCH" --body-file "$BODY_FILE"
     rm -f "$BODY_FILE"
   fi
   echo ""
-  echo "Next (user): review PR → merge to main on GitHub"
-  echo "Then: git checkout main && git pull && CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh"
+  echo "Next (after user تایید): ${GH[*]} pr merge <number> --merge"
+  echo "Then: git checkout main && git pull $REMOTE main && CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh"
 else
   echo "gh not installed — open PR manually on GitHub"
 fi

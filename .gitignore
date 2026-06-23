@@ -69,8 +69,15 @@
 !.cursor/plans/**
 !.cursor/skills/
 !.cursor/skills/**
+!.cursor/agents/
+!.cursor/agents/**
+!.cursor/hooks.json
+!.cursor/hooks/
+!.cursor/hooks/**
+!.cursor/settings.json
 !.cursor/mcp.json
 !.cursor/mcp.json.example
+!tools/setup-cursor-mcp.sh
 !caddy-remnawave/
 !caddy-remnawave/**
 !cabinet/

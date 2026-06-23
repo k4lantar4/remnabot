@@ -1,5 +1,7 @@
 # Staging & ship workflow (same host as production)
 
+Agent default: **`autonomous-dev-workflow.mdc`** — plan, implement, `make staging-rebuild`, ship after user `تایید`.
+
 ## Topology — one server, two stacks
 
 ```
@@ -7,89 +9,75 @@
                     │           Same server (/opt/bot-remnawave) │
                     └─────────────────────────────────────────┘
    Production          │                    Staging
-   docker compose     │                    docker compose.staging.yml
+   docker compose     │                    docker-compose.staging.yml
    project: default   │                    project: remnawave-staging
                       │
-   remnawave_bot       │   remnawave_staging_bot     :8081→8080
-   cabinet_frontend    │   remnawave_staging_cabinet :3021→80
+   remnawave_bot       │   remnawave_staging_bot     host 8081 → container 8080
+   cabinet_frontend    │   remnawave_staging_cabinet host 3021 → container 80
    postgres_data       │   staging_postgres_data      (isolated)
    redis_data          │   staging_redis_data
    .env                │   .env.staging
-   @MOONVPN_BOT (prod) │   @staging_bot (separate token)
+   prod @MOONVPN_BOT   │   @mrj7_bot (separate token)
 ```
 
-**Never** smoke i18n/UX on the production bot while iterating — use the staging bot only.
+**Never** smoke i18n/UX on the production bot while iterating — use **@mrj7_bot** only.
 
-## Subdomains — لازم است؟
+## Public URLs (staging)
 
-| حالت | ساب‌دامین | توضیح |
-|------|-----------|--------|
-| **Webhook (پیشنهادی)** | **بله** — ۲ ساب‌دامین | هر ربات Telegram یک `WEBHOOK_URL` جدا می‌خواهد. prod و staging نمی‌توانند یک URL مشترک داشته باشند. |
-| Polling (جایگزین ساده) | خیر | `BOT_RUN_MODE=polling` در `.env.staging` — بدون webhook؛ شبیه prod نیست. |
+| Host | Role | Caddy → |
+|------|------|---------|
+| `staging-host-hooks.rookari.com` | webhook staging bot | `localhost:8081` |
+| `staging-host-cabinet.rookari.com` | cabinet staging | `localhost:3021` |
+| `staging-host-miniapp.rookari.com` | miniapp staging | (as configured) |
+| `staging-host-sub.rookari.com` | subscription page | prod sub page (shared) |
 
-**پیشنهاد (همان IP prod):**
+Prod domains (`hooks`, `cabinet`, …) unchanged — same IP, different Caddy routes.
 
-| ساب‌دامین | نقش | Caddy → |
-|-----------|-----|---------|
-| `staging-hooks.rookari.com` | webhook staging bot | `localhost:8081` یا `remnawave_staging_bot:8080` |
-| `staging-cabinet.rookari.com` | کابینت staging | `localhost:3021` یا `remnawave_staging_cabinet:80` |
+## Port / env pitfalls
 
-دامنه‌های prod (`hooks`, `cabinet`) بدون تغییر — همان IP، مسیر Caddy متفاوت.
+| Variable | Staging value | Note |
+|----------|---------------|------|
+| `WEB_API_PORT` | **`8080`** inside container | Host mapping `8081:8080` is in compose |
+| `CABINET_PORT` | **`3021`** | Host port for cabinet |
+| `POSTGRES_HOST` | **`staging-postgres`** | Do not use `postgres` (resolves to prod on shared network) |
+| `BOT_USERNAME` / `VITE_TELEGRAM_BOT_USERNAME` | **`mrj7_bot`** | BotFather + cabinet build |
 
 ## First-time setup (same host)
 
-1. `.env.staging` در ریشه repo (gitignored) — از `.env.staging.example`
-2. **پورت‌ها در `.env.staging`:**
-   - `WEB_API_PORT=8081`
-   - `CABINET_PORT=3021`
-3. ربات **جدید** BotFather + `BOT_TOKEN` / `BOT_USERNAME` / `VITE_TELEGRAM_BOT_USERNAME`
-4. `WEBHOOK_URL=https://staging-hooks.rookari.com` (DNS A → همین سرور)
-5. `CABINET_URL` / `MINIAPP_CUSTOM_URL` → `https://staging-cabinet.rookari.com`
-6. `POSTGRES_DB=remnawave_bot_staging` (توصیه — volume جدا)
-7. `REMNAWAVE_API_URL` — همان پنل prod روی `remnawave-network` یا پنل تست
-8. Caddy: دو route جدید به پورت‌های 8081 و 3021
-9. اولین بالا آوردن:
-   ```bash
-   ./tools/deploy-staging.sh --migrate
-   ```
+1. `.env.staging` from `.env.staging.example` (never commit)
+2. Staging bot in BotFather; domain `staging-host-cabinet.rookari.com` on **@mrj7_bot**
+3. Caddy routes for `staging-host-*` → ports 8081 / 3021
+4. First boot with migrations: `make staging-migrate`
 
-## Daily sprint loop
+## Daily sprint loop (Makefile)
 
 ```
-branch → commits → smoke-map → ./tools/deploy-staging.sh
-  → smoke روی ربات staging در Telegram
-  → CONFIRM_SHIP=1 ./tools/ship-after-smoke.sh <branch>
-  → merge PR
-  → CONFIRM_PROD_DEPLOY=1 ./tools/deploy-production.sh   # همان سرور، استک prod
-  → smoke کوتاه prod
+branch → commits → make smoke
+  → make staging-rebuild && make staging-health
+  → smoke-map.md → user smokes @mrj7_bot
+  → (user تایید) CONFIRM_SHIP=1 make ship BRANCH=…
+  → gh pr merge -R k4lantar4/remnabot
+  → git pull remnabot main
+  → CONFIRM_PROD_DEPLOY=1 make prod-deploy
+  → short prod smoke
 ```
 
-## Config checklist (`.env.staging`)
+## Scripts
 
-| Variable | Note |
-|----------|------|
-| `WEB_API_PORT` | **8081** (not 8080) |
-| `CABINET_PORT` | **3021** (not 3020) |
-| `MINIAPP_CUSTOM_URL` | staging cabinet URL, not prod |
-| `BOT_TOKEN` | staging bot only |
-| `ADMIN_NOTIFICATIONS_*` | optional: topic جدا تا نوتیف staging به prod نرود |
-
-## Scripts (همه روی همین سرور)
-
-| Script | Stack |
-|--------|--------|
-| `make staging-rebuild` | Full staging deploy (smoke + build + up) |
-| `make staging-health` | Verify health + HTTPS endpoints |
-| `make staging-cabinet-build` | Rebuild cabinet only (VITE / @username change) |
+| Command | Stack |
+|---------|--------|
+| `make staging-rebuild` | Full staging deploy |
+| `make staging-health` | localhost + HTTPS health |
+| `make staging-cabinet-build` | Cabinet only (VITE / username) |
+| `CONFIRM_SHIP=1 make ship BRANCH=…` | Push + PR (after user smoke) |
 | `CONFIRM_PROD_DEPLOY=1 make prod-deploy` | Production after merge |
-| `CONFIRM_SHIP=1 make ship BRANCH=i18n/foo` | Push + PR after user smoke |
 
 ## Resources
 
-استک staging ≈ **+1–2 GB RAM** (Postgres + Redis + bot + cabinet دوم). prod در حین توسعه دست‌نخورده می‌ماند.
+Staging stack ≈ **+1–2 GB RAM**. Production keeps running during staging work.
 
 ## Security
 
 - `.env.staging` never commit
 - staging token ≠ prod token
-- C2C/payments: آگاه باشید روی staging فعال است
+- C2C on staging: aware test top-ups may hit real admin inbox unless disabled
