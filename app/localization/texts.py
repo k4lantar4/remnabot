@@ -8,6 +8,7 @@ import structlog
 from app.config import settings
 from app.localization.loader import (
     DEFAULT_LANGUAGE,
+    SECONDARY_FALLBACK_LOCALE,
     UPSTREAM_FALLBACK_LOCALE,
     clear_locale_cache,
     load_locale,
@@ -146,6 +147,29 @@ def _normalize_locale_code(language: str | None) -> str:
     return (language or DEFAULT_LANGUAGE).strip().lower().split('-')[0]
 
 
+def _fallback_locales_for_language(language: str) -> tuple[str, ...]:
+    """Ordered locale chain for missing keys (active language is never merged)."""
+    normalized = _normalize_locale_code(language)
+    if normalized == 'fa':
+        return (SECONDARY_FALLBACK_LOCALE, UPSTREAM_FALLBACK_LOCALE)
+    if normalized == 'en':
+        return (UPSTREAM_FALLBACK_LOCALE,)
+    if normalized == UPSTREAM_FALLBACK_LOCALE:
+        return ()
+    return (DEFAULT_LANGUAGE, UPSTREAM_FALLBACK_LOCALE)
+
+
+def _resolve_locale_key(language: str, key: str) -> str:
+    locale = load_locale(language)
+    if key in locale:
+        return locale[key]
+    for fallback_locale in _fallback_locales_for_language(language):
+        fallback = load_locale(fallback_locale)
+        if key in fallback:
+            return fallback[key]
+    return ''
+
+
 def _merge_locale_fallback(
     target: dict[str, Any],
     primary: dict[str, Any],
@@ -167,7 +191,7 @@ class Texts:
         self._values = {key: value for key, value in raw_data.items()}
 
         self._fallback_values: dict[str, Any] = {}
-        for locale_code in (DEFAULT_LANGUAGE, UPSTREAM_FALLBACK_LOCALE):
+        for locale_code in _fallback_locales_for_language(self.language):
             _merge_locale_fallback(
                 self._fallback_values,
                 self._values,
@@ -301,21 +325,11 @@ async def get_rules_from_db(language: str = DEFAULT_LANGUAGE) -> str:
 
 
 def _get_default_rules(language: str = DEFAULT_LANGUAGE) -> str:
-    default_key = 'RULES_TEXT_DEFAULT'
-    locale = load_locale(language)
-    if default_key in locale:
-        return locale[default_key]
-    fallback = load_locale(DEFAULT_LANGUAGE)
-    return fallback.get(default_key, '')
+    return _resolve_locale_key(language, 'RULES_TEXT_DEFAULT')
 
 
 def _get_default_privacy_policy(language: str = DEFAULT_LANGUAGE) -> str:
-    default_key = 'PRIVACY_POLICY_TEXT_DEFAULT'
-    locale = load_locale(language)
-    if default_key in locale:
-        return locale[default_key]
-    fallback = load_locale(DEFAULT_LANGUAGE)
-    return fallback.get(default_key, '')
+    return _resolve_locale_key(language, 'PRIVACY_POLICY_TEXT_DEFAULT')
 
 
 def get_privacy_policy(language: str = DEFAULT_LANGUAGE) -> str:
