@@ -69,6 +69,23 @@ def append_brand_prefix_preview(text: str, texts, prefix: str | None) -> str:
     )
 
 
+def build_partner_confirm_body(
+    base: str,
+    texts,
+    db_user: User,
+    checkout_state: dict,
+) -> str:
+    partner_opts = checkout_partner_options(db_user, checkout_state)
+    body = append_purchase_note_preview(base, texts, partner_opts['purchase_note'])
+    if db_user.is_partner:
+        body = append_brand_prefix_preview(
+            body,
+            texts,
+            (db_user.panel_brand_prefix or '').strip() or None,
+        )
+    return body
+
+
 def get_partner_tariff_confirm_keyboard(
     tariff_id: int,
     period: int,
@@ -145,23 +162,20 @@ async def render_tariff_confirm_screen(
         user=db_user,
     )
     partner_opts = checkout_partner_options(db_user, state_data)
-    body = append_brand_prefix_preview(
-        append_purchase_note_preview(
-            format_tariff_purchase_confirm_text(
-                texts,
-                tariff=tariff,
-                traffic_gb=traffic_gb,
-                period_days=period,
-                result=result,
-                balance_kopeks=db_user.balance_kopeks or 0,
-                language=db_user.language,
-                user=db_user,
-            ),
+    body = build_partner_confirm_body(
+        format_tariff_purchase_confirm_text(
             texts,
-            partner_opts['purchase_note'],
+            tariff=tariff,
+            traffic_gb=traffic_gb,
+            period_days=period,
+            result=result,
+            balance_kopeks=db_user.balance_kopeks or 0,
+            language=db_user.language,
+            user=db_user,
         ),
         texts,
-        (db_user.panel_brand_prefix or '').strip() or None,
+        db_user,
+        state_data,
     )
     await edit_bot_message_text_or_caption(
         bot,

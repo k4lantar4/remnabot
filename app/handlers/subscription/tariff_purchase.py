@@ -1609,12 +1609,12 @@ async def select_tariff_period_custom_traffic(
     if ctx['can_afford']:
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -1626,7 +1626,8 @@ async def select_tariff_period_custom_traffic(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -2063,12 +2064,12 @@ async def select_tariff_period(
     if ctx['can_afford']:
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -2080,7 +2081,8 @@ async def select_tariff_period(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -5824,12 +5826,12 @@ async def return_to_saved_tariff_cart(
 
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -5841,7 +5843,8 @@ async def return_to_saved_tariff_cart(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
