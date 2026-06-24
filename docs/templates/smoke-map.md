@@ -1,45 +1,55 @@
-# Smoke map — Phase 3 (purchase success copy)
+# Smoke map — Phase 4 + 4b + 4c (my_sub onboarding + cabinet UX polish)
 
-> Branch `i18n/fa-copy-purchase-success` — awaiting user smoke on `@mrj7_bot` + staging cabinet.
+> Branch `i18n/fa-onboarding-my-sub` @ `f8e27dda`; staging deployed 2026-06-24.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-copy-purchase-success` |
-| Commits | `35391a7e` fa.json, `e2751e1d` tariff_purchase.py, `5e3061d4` cabinet fa.json |
-| Staging | `make staging-rebuild` + `make staging-health` |
+| Branch | `i18n/fa-onboarding-my-sub` |
+| Phase 4 | `2c572ed0` fa.json keys, `6b7b36b7` detail onboarding UI |
+| Phase 4b | `bdc1021e` miniapp copy, `cabe43f3` smart WebApp URL, `ec15aca4` single connect button |
+| Phase 4c | `a09dd053` bot labels, `f9d05116` cabinet fa copy, `f8e27dda` Subscription.tsx CTA |
+| Staging | `make staging-rebuild` + `make staging-health` ✓ |
 
 ## What changed
 
 ### Bot `app/localization/locales/fa.json`
 
-- New `POST_PURCHASE_ONBOARDING` — 3-step connect guide
-- Updated success keys: `TARIFF_PURCHASE_SUCCESS`, `TARIFF_DAILY_SUCCESS`, `TARIFF_RENEW_SUCCESS`, `TARIFF_CHANGE_SUCCESS`, `TARIFF_SWITCH_SUCCESS`, `TARIFF_SWITCH_DAILY_SUCCESS`, `TARIFF_INSTANT_SWITCH_*`
-- Copy: `سرویس`, `حجم`, `مبلغ پرداخت`, `مدت`, short inline CTA
-- `TARIFF_INFO_HEADER`, `CABINET_PURCHASE_TARIFF_SUCCESS`, `SIMPLE_SUB_PAYMENT_*`
+- Detail onboarding: `MY_SUB_DETAIL_ONBOARDING`, `MY_SUB_DETAIL_FIRST_CONNECT`, `MY_SUB_BTN_CONNECT_LINK`
+- Purchase success: `POST_PURCHASE_ONBOARDING` — mini-app flow (no manual paste)
+- Connect screen: `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE` — mini-app explainer
+- **Phase 4c:** `MY_SUB_DETAIL_HEADER` → `نام اشتراک:`; `MY_SUB_BTN_TRAFFIC` → `خرید ترافیک اضافه`; `MY_SUB_BTN_AUTOPAY` → `تمدید خودکار از اعتبار`
 
-### Bot `app/handlers/subscription/tariff_purchase.py`
+### Cabinet `cabinet/src/locales/fa.json` + `Subscription.tsx` (Phase 4c)
 
-- `_with_post_purchase_onboarding()` appends numbered block at 8 success `edit_text` sites
+- `subscription.traffic` → `حجم`; new `subscription.volumeEmptyHint` when used = 0 GB
+- Connect card: `dashboard.connectGuideTitle` / `connectGuideSubtitle` — no device count on CTA box
 
-### Cabinet `cabinet/src/locales/fa.json`
+### Bot `app/handlers/subscription/my_subscriptions.py`
 
-- `successNotification.tariff` → `سرویس`
-- `successNotification.goToSubscription` → `رفتن به اشتراک من`
-- `successNotification.subscriptionPurchased.title` → `سرویس خریداری شد!`
+- Onboarding block on active subscription detail; first-connect hint when HWID count is 0
+- **One** connect button (removed duplicate setup guide row)
+
+### Bot `app/utils/subscription_utils.py` + `links.py`
+
+- `resolve_connect_webapp_url()` — cabinet `/connection?sub=ID` when RemnaWave app config exists; else raw subscription link
+- `handle_connect_subscription` miniapp mode uses smart URL; early `callback.answer()`
 
 ## User smoke checklist (`@mrj7_bot`)
 
 | # | Path | Expect |
 |---|------|--------|
-| 1 | Buy tariff (custom or preset) → success | `سرویس`, `حجم`, `مبلغ پرداخت`; numbered `3 گام تا اتصال`; no `تعرفه` |
-| 2 | Tap «اشتراک من» on success keyboard | Opens subscription detail |
-| 3 | Renew subscription | Same copy style on `TARIFF_RENEW_SUCCESS` |
-| 4 | Switch / instant-switch tariff (if available) | Aligned success copy + onboarding block |
-| 5 | Cabinet purchase (staging cabinet URL) | Success modal: `سرویس` label, `رفتن به اشتراک من` button |
+| 1 | Buy tariff → success → «اشتراک من» | Onboarding mentions mini-app (not v2rayNG paste) |
+| 2 | Subscription detail | One button: `🔗 دریافت لینک و راهنمای اتصال`; onboarding block |
+| 3 | Tap connect | WebApp opens; with RemnaWave apps → cabinet `/connection` platform picker |
+| 4 | Tap connect (no app config) | WebApp opens subscription link (`sub.*`) |
+| 5 | Expired sub detail | No onboarding block |
+| 6 | Subscription detail (`@mrj7_bot`) | `📋 نام اشتراک: u_…`; buttons «خرید ترافیک اضافه» / «تمدید خودکار از اعتبار» |
+| 7 | Staging cabinet → active sub page | Section label «حجم»; hint when 0 GB used; connect box «🔗 راهنمای اتصال — برای وصل شدن ضربه بزنید» (no «۰ از ۵») |
+| 8 | Tap connect box | `/connection?sub=` → InstallationGuide |
 
 ## Sign-off
 
-- [x] User smoke تایید 2026-06-24
-- [ ] PR merged → prod smoke
+- [ ] User smoke on staging
+- [ ] PR → merge → prod deploy

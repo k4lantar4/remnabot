@@ -787,6 +787,11 @@ export default function Subscription() {
                       {t(`subscription.trafficReset.${subscription.traffic_reset_mode}`)}
                     </div>
                   )}
+                {!isUnlimited && usedGb === 0 && (
+                  <div className="mb-2 text-[10px] text-dark-50/25">
+                    {t('subscription.volumeEmptyHint')}
+                  </div>
+                )}
                 <TrafficProgressBar
                   usedGb={usedGb}
                   limitGb={subscription.traffic_limit_gb}
@@ -820,15 +825,10 @@ export default function Subscription() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold tracking-tight text-dark-50">
-                      {t('dashboard.connectDevice')}
+                      {t('dashboard.connectGuideTitle')}
                     </div>
                     <div className="mt-0.5 text-[11px] text-dark-50/30">
-                      {subscription.device_limit === 0
-                        ? t('dashboard.devicesConnectedUnlimited', { used: connectedDevices })
-                        : t('dashboard.devicesOfMax', {
-                            used: connectedDevices,
-                            max: subscription.device_limit,
-                          })}
+                      {t('dashboard.connectGuideSubtitle')}
                     </div>
                     {isAtDeviceLimit && (
                       <div
@@ -839,49 +839,6 @@ export default function Subscription() {
                       </div>
                     )}
                   </div>
-                  {subscription.device_limit === 0 ? (
-                    <div
-                      className="flex flex-shrink-0 items-center text-lg text-dark-50/40"
-                      aria-hidden="true"
-                    >
-                      ∞
-                    </div>
-                  ) : subscription.device_limit <= 10 ? (
-                    <div className="flex flex-shrink-0 gap-1.5" aria-hidden="true">
-                      {Array.from({ length: subscription.device_limit }, (_, i) => (
-                        <div
-                          key={i}
-                          className="h-[7px] w-[7px] rounded-full transition-[background-color,box-shadow] duration-300"
-                          style={{
-                            background: i < connectedDevices ? zone.mainHex : g.textGhost,
-                            boxShadow: i < connectedDevices ? `0 0 6px ${zone.mainHex}50` : 'none',
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex w-16 flex-shrink-0 items-center" aria-hidden="true">
-                      <div
-                        className="h-[6px] w-full overflow-hidden rounded-full"
-                        style={{ background: g.textGhost }}
-                      >
-                        {/* scaleX (compositor) instead of width (layout-thrash).
-                            Track is 64px (w-16), so 0.0625 floor = 4px minimum,
-                            preserving the prior minWidth behaviour. */}
-                        <div
-                          className="h-full w-full origin-left rounded-full transition-transform duration-500"
-                          style={{
-                            transform: `scaleX(${(() => {
-                              const pct = connectedDevices / subscription.device_limit;
-                              return connectedDevices > 0 ? Math.max(pct, 0.0625) : 0;
-                            })()})`,
-                            background: zone.mainHex,
-                            boxShadow: `0 0 8px ${zone.mainHex}40`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </HoverBorderGradient>
               )}
 

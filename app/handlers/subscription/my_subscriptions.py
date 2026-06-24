@@ -586,6 +586,27 @@ async def process_my_subscriptions_search(
         pass
 
 
+def _get_remnawave_uuid(subscription: Subscription, db_user: User) -> str | None:
+    return getattr(subscription, 'remnawave_uuid', None) or db_user.remnawave_uuid
+
+
+async def _fetch_connected_devices_count(subscription: Subscription, db_user: User) -> int | None:
+    remnawave_uuid = _get_remnawave_uuid(subscription, db_user)
+    if not remnawave_uuid:
+        return None
+    try:
+        from app.services.remnawave_service import RemnaWaveService
+
+        service = RemnaWaveService()
+        async with service.get_api_client() as api:
+            response = await api._make_request('GET', f'/api/hwid/devices/{remnawave_uuid}')
+            if response and 'response' in response:
+                return response['response'].get('total', 0)
+    except Exception as e:
+        logger.warning('Failed to fetch connected devices count', error=e)
+    return None
+
+
 async def show_subscription_detail(
     callback: types.CallbackQuery,
     db_user: User,
@@ -619,6 +640,13 @@ async def show_subscription_detail(
         target_subscription_id=sub_id,
     )
 
+    await callback.answer()
+
+    is_inactive = subscription.actual_status in ('expired', 'disabled')
+    connected_count: int | None = None
+    if not is_inactive:
+        connected_count = await _fetch_connected_devices_count(subscription, db_user)
+
     display_name = _account_display_name(subscription, texts)
 
     # Traffic
@@ -651,6 +679,25 @@ async def show_subscription_detail(
         f'{time_remaining}\n'
     )
 
+    if not is_inactive:
+        text += (
+            '\n\n'
+            + texts.t(
+                'MY_SUB_DETAIL_ONBOARDING',
+                '💡 <b>Инструкция:</b>\n'
+                '1️⃣ Нажмите «🔗 Получить ссылку»\n'
+                '2️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)',
+            )
+        )
+        if connected_count is None or connected_count == 0:
+            text += (
+                '\n\n'
+                + texts.t(
+                    'MY_SUB_DETAIL_FIRST_CONNECT',
+                    'Ещё не подключились? Нажмите кнопку ниже 👇',
+                )
+            )
+
     purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
     if purchase_note:
         text += texts.t('MY_SUB_DETAIL_PURCHASE_NOTE', '📝 Note: {note}').format(
@@ -668,7 +715,6 @@ async def show_subscription_detail(
 
     if callback.message:
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
-    await callback.answer()
 
 
 async def _resolve_and_store_sub(
