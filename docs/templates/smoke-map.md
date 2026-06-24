@@ -1,51 +1,45 @@
-# Smoke map — Phase 6 user تعرفه → سرویس (fa.json)
+# Smoke map — Phase 7 cabinet device terminology
 
-> Branch `i18n/fa-tariff-to-service-json`; staging deploy after 1 commit.
+> Branch `i18n/fa-cabinet-device-terminology`; staging deployed after 2 commits.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-tariff-to-service-json` |
-| Commit | `03d6743e` — 66 user keys in `app/localization/locales/fa.json` |
-| Staging | `cp fa.json` + `make staging-rebuild` + `make staging-health` |
-| Scope | Bot + miniapp API keys only; cabinet React deferred (Phase 6b) |
+| Branch | `i18n/fa-cabinet-device-terminology` |
+| Commit 1 | `c794d287` — 96 paths in `cabinet/src/locales/fa.json` |
+| Commit 2 | `8a3b3b13` — 20 `CABINET_*` keys in `app/localization/locales/fa.json` |
+| Staging | `make staging-rebuild` + `make staging-health` |
+| Surfaces | Staging cabinet (`staging-host-cabinet`, port 3021) + cabinet API toasts via bot |
 
 ## What changed
 
-Single-file terminology migration: all non-`ADMIN_*` keys containing `تعرفه` now use `سرویس` (and derived forms: `سرویس‌ها`, `سرویسی`, `سرویس روزانه`, `تغییر سرویس`).
+Terminology migration: user-facing `دستگاه` → `تعداد کاربر` / `کاربر` (HWID slot limits) or `اتصال` / `اتصال‌های فعال` (connected HWID list, revoke, delete).
 
-**Already سرویس from prior phases (unchanged):** `TARIFF_*_SUCCESS`, `TARIFF_PURCHASE_CONFIRM_BODY`, pre-invoice breakdown keys.
+**Cabinet React (`cabinet/src/locales/fa.json`):** 96 user paths across `successNotification`, `dashboard`, `subscription` (+ trial, connection, additionalOptions, revoke, cta), `info`, `onboarding`, `merge`, `landing`, `gift`.
 
-**Sample keys updated:**
+**Bot API (`app/localization/locales/fa.json`):** `CABINET_DEVICES_*`, `CABINET_DEVICE_*`, `CABINET_TARIFF_SWITCH_DEVICES_RESET`.
 
-| Group | Examples |
-|-------|----------|
-| Menu | `MAIN_MENU_TARIFF_LINE` → `📦 سرویس:` |
-| Callbacks | `CB_TARIFF_NOT_FOUND`, `CB_NO_TARIFFS_AVAILABLE` |
-| Confirm (legacy) | `TARIFF_PURCHASE_CONFIRM`, `TARIFF_RENEW_CONFIRM` |
-| Switch flows | `TARIFF_SWITCH_LIST_TITLE`, `TARIFF_INSTANT_UPGRADE` |
-| Ledger | `TARIFF_PURCHASE_LEDGER_DESC` → `خرید سرویس` |
-| Miniapp | `MINIAPP_TARIFF_SWITCH_SUCCESS` |
-| Campaign | `CAMPAIGN_BONUS_TARIFF` |
+**Guard:** user cabinet paths with `دستگاه` → **0** (admin sections unchanged, 30 hits remain).
 
-**Guard:** `rg 'تعرفه' app/localization/locales/fa.json | rg -v ADMIN_` → **0** user keys.
-
-## User smoke checklist (`@mrj7_bot`)
+## User smoke checklist (staging cabinet)
 
 | # | Path | Expect |
 |---|------|--------|
-| 1 | Main menu (active subscription) | `📦 سرویس:` — not `تعرفه` |
-| 2 | Buy → pick tariff → confirm | Labels say `سرویس` (pre-invoice + legacy confirm) |
-| 3 | Insufficient balance during purchase | Error body: `📦 سرویس:` |
-| 4 | Switch tariff flow | Titles/errors: `سرویس` / `تغییر سرویس` |
-| 5 | Campaign bonus (if testable) | `سرویس «…»` |
-| 6 | Balance history after purchase | Ledger: `خرید سرویس` |
-| 7 | Miniapp tariff switch (if used) | `سرویس به «…» تغییر کرد` |
+| 1 | Dashboard → active subscription card | `👥 کاربر:` usage line — not `دستگاه‌ها:` |
+| 2 | Subscription detail page | Label `تعداد کاربر`; section `اتصال‌های فعال` |
+| 3 | Purchase wizard → devices step | Step `تعداد کاربر`; counts `N کاربر` |
+| 4 | Connection page (`/connection`) | `سیستم‌عامل خود را انتخاب کنید`; CTA `دریافت لینک اتصال` |
+| 5 | Additional options → buy/reduce users | `افزودن کاربر`; API toast uses `کاربر` not `دستگاه` |
+| 6 | Revoke link confirm dialog | `اتصال‌ها` disconnected wording |
+| 7 | Gift / landing purchase flow | Column label `تعداد کاربر` |
+| 8 | Merge accounts compare screen | `تعداد کاربر` label |
+| 9 | Onboarding tour (first login) | Connect step: `راهنمای اتصال VPN` — no `دستگاه` |
+| 10 | Admin cabinet (tariffs, users) | Still `دستگاه` — expected (Phase 10) |
 
-**Regression:** Phases 3–5 success/onboarding/pre-invoice copy unchanged; amounts still `تومان` with Latin digits.
+**Regression:** Toman amounts, Jalali dates, Phase 6 `سرویس` labels, no Cyrillic in user UI.
 
 ## Sign-off
 
-- [ ] User smoke on staging (`@mrj7_bot`)
+- [ ] User smoke on staging cabinet
 - [ ] PR → merge → prod deploy
