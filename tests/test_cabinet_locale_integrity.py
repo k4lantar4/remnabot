@@ -9,6 +9,11 @@ import pytest
 
 CABINET_LOCALES = Path(__file__).resolve().parents[1] / 'cabinet' / 'src' / 'locales'
 CYRILLIC_RE = re.compile(r'[А-Яа-яЁё]')
+PERSIAN_DIGIT_RE = re.compile(r'[۰-۹]')
+# Wrong RTL order: Latin QR immediately before Persian content word (e.g. «نمایش QR کد»).
+QR_BAD_ORDER = re.compile(r'QR[\s\u200c]+ک')
+# Admin namespaces excluded from user-facing digit / bidi scans
+ADMIN_SKIP_PREFIXES = ('admin.', 'adminDashboard.', 'adminUpdates.', 'news.admin.')
 # User-visible namespaces — admin.* excluded from Cyrillic scan
 USER_PREFIXES = (
     'subscription.',
@@ -63,3 +68,28 @@ def test_cabinet_user_fa_has_no_cyrillic(cabinet_locales):
         if isinstance(val, str) and CYRILLIC_RE.search(val):
             problems.append(f'{key}: {val[:60]}')
     assert not problems, 'Cyrillic in user-facing cabinet fa:\n' + '\n'.join(problems[:20])
+
+
+def test_cabinet_user_fa_has_latin_digits(cabinet_locales):
+    problems = []
+    for key, val in cabinet_locales['fa'].items():
+        if any(key.startswith(p) for p in ADMIN_SKIP_PREFIXES):
+            continue
+        if isinstance(val, str) and PERSIAN_DIGIT_RE.search(val):
+            problems.append(f'{key}: {val[:60]}')
+    assert not problems, (
+        f'Persian digits in user-facing cabinet fa ({len(problems)} keys). First 20:\n'
+        + '\n'.join(problems[:20])
+    )
+
+
+def test_cabinet_user_fa_qr_word_order(cabinet_locales):
+    problems = []
+    for key, val in cabinet_locales['fa'].items():
+        if any(key.startswith(p) for p in ADMIN_SKIP_PREFIXES):
+            continue
+        if isinstance(val, str) and QR_BAD_ORDER.search(val):
+            problems.append(f'{key}: {val[:60]}')
+    assert not problems, (
+        'QR before Persian letter (wrong RTL word order):\n' + '\n'.join(problems[:20])
+    )
