@@ -177,7 +177,18 @@ Branch: audit-only (no code). Plan: `docs/superpowers/plans/2026-06-23-fa-i18n-r
 - [x] **Cabinet:** 96 user `دستگاه` paths, 26 Persian-digit user literals in `cabinet/src/locales/fa.json`
 - [x] **Phase 0 closeout** — force-default-language + safe fa→ru fallback (merged on `main`)
 - [x] **Phase 2 merged + prod** — bot device terminology (`a1375f5b`); user smoke تایید 2026-06-24
-- [ ] **Implementation Phases 5–11:** **Phase 5 next** — `i18n/fa-traffic-step-ux`
+- [ ] **Implementation Phases 6–11:** **Phase 6 next** — `i18n/fa-tariff-to-service-json`
+
+## Done (Phase 5 traffic-first funnel UX — Jun 24 2026)
+
+Branch `i18n/fa-traffic-step-ux` (**6 commits**, `22ca0bc6` → `9538e469`); pushed; staging deployed.
+
+- [x] Tariff list: drop GB/device line; show admin `description` for fa
+- [x] Volume step: `TARIFF_TRAFFIC_STEP_INTRO` (no default 1 GB); hint copy; buttons unchanged
+- [x] Period step: `TARIFF_PERIOD_STEP_*` hint (no formula in message); buttons unchanged
+- [x] Pre-invoice: `پیش‌فاکتور` / سرویس / حجم / مدت labels in fa.json + `purchase_confirm.py`
+- [x] Agent smoke + staging bot rebuild + `make staging-health`
+- [ ] **Awaiting user smoke** on `@mrj7_bot` before ship
 
 ## Done (Phase 3 purchase success copy — Jun 24 2026) — CLOSED
 
@@ -222,7 +233,7 @@ Branch `i18n/fa-onboarding-my-sub` (**8 commits**, `2c572ed0` → `f8e27dda`).
 
 **Status file for new session:** `.cursor/rules/fa-i18n-status.mdc` (this file).
 
-**Priority implementation** (audit plan §9): **Phase 5** (`i18n/fa-traffic-step-ux`) → Phase 7 cabinet device parity.
+**Priority implementation** (audit plan §9): **Phase 6** (`i18n/fa-tariff-to-service-json`) → Phase 7 cabinet device parity.
 
 **fa Jalali P1 complete** on branch `i18n/fa-jalali-dates` — pending user smoke before PR → `dev-local` → `main`.
 
