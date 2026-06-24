@@ -6,10 +6,10 @@ import { subscriptionApi } from '../api/subscription';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../constants/devices';
 import { WebBackButton } from '../components/WebBackButton';
 import { useDestructiveConfirm } from '../platform/hooks/useNativeDialog';
+import { TrafficUsageText } from '../components/subscription/TrafficUsageText';
 import TrafficProgressBar from '../components/dashboard/TrafficProgressBar';
 import { HoverBorderGradient } from '../components/ui/hover-border-gradient';
 import { useTrafficZone } from '../hooks/useTrafficZone';
-import { formatTraffic } from '../utils/formatTraffic';
 import { formatUserDate } from '../utils/formatDate';
 import { getGlassColors } from '../utils/glassTheme';
 import { copyToClipboard } from '../utils/clipboard';
@@ -767,24 +767,39 @@ export default function Subscription() {
                     {t('subscription.traffic')}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] font-medium" style={{ color: g.text }}>
-                      {isUnlimited
-                        ? formatTraffic(usedGb)
-                        : `${formatTraffic(usedGb)} / ${formatTraffic(subscription.traffic_limit_gb)}`}
-                    </span>
+                    <TrafficUsageText
+                      usedGb={usedGb}
+                      limitGb={subscription.traffic_limit_gb}
+                      isUnlimited={isUnlimited}
+                      className="text-[11px] font-medium"
+                      style={{ color: g.text }}
+                    />
                     <button
+                      type="button"
                       onClick={() => refreshTrafficMutation.mutate()}
                       disabled={refreshTrafficMutation.isPending || trafficRefreshCooldown > 0}
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-dark-50/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ color: g.textMuted }}
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-[background-color,color] disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ color: g.textMuted, backgroundColor: 'transparent' }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.backgroundColor = g.hoverBg;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                     >
                       <RefreshIcon
                         className="h-3 w-3"
                         spinning={refreshTrafficMutation.isPending}
                       />
-                      {trafficRefreshCooldown > 0
-                        ? `${trafficRefreshCooldown}s`
-                        : t('common.refresh')}
+                      {trafficRefreshCooldown > 0 ? (
+                        <span dir="ltr" className="[unicode-bidi:isolate] tabular-nums">
+                          {trafficRefreshCooldown}s
+                        </span>
+                      ) : (
+                        t('common.refresh')
+                      )}
                     </button>
                   </div>
                 </div>
@@ -834,7 +849,7 @@ export default function Subscription() {
                     <div className="text-sm font-semibold tracking-tight text-dark-50">
                       {t('dashboard.connectGuideTitle')}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-dark-50/30">
+                    <div className="mt-0.5 text-[11px]" style={{ color: g.textMuted }}>
                       {t('dashboard.connectGuideSubtitle')}
                     </div>
                     {isAtDeviceLimit && (
