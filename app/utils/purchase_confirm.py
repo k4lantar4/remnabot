@@ -31,7 +31,7 @@ def format_tariff_purchase_confirm_text(
         texts.t('TARIFF_PURCHASE_CONFIRM_HEADER', '✅ <b>Подтверждение покупки</b>\n\n'),
         texts.t(
             'TARIFF_PURCHASE_CONFIRM_BODY',
-            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n📅 Период: {period}\n',
+            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n👥 Устройств: {devices}\n📅 Период: {period}\n',
         ).format(
             name=html.escape(tariff.name),
             traffic=format_traffic(traffic_gb, language),

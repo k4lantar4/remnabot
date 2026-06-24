@@ -229,10 +229,6 @@ async def format_tariffs_list_text(
     hide_prices = _hide_tariff_purchase_prices()
 
     for tariff in tariffs:
-        # Трафик компактно
-        traffic_gb = tariff.traffic_limit_gb
-        traffic = format_traffic(traffic_gb, language)
-
         # Цена
         is_daily = getattr(tariff, 'is_daily', False)
         price_text = ''
@@ -277,14 +273,12 @@ async def format_tariffs_list_text(
                     price=format_price_kopeks(min_price, compact=True), icon=discount_icon
                 )
 
-        # Компактный формат: Название — 250 ГБ / 10 📱 от 179₽🔥
         purchased_mark = ' ✅' if tariff.id in purchased_tariff_ids else ''
-        lines.append(
-            f'<b>{html.escape(tariff.name)}</b>{purchased_mark} — {traffic} / {tariff.device_limit} 📱 {price_text}'
-        )
+        lines.append(f'<b>{html.escape(tariff.name)}</b>{purchased_mark}')
+        if price_text:
+            lines.append(price_text)
 
-        # Описание тарифа если есть (DB text; skip for FA — often Russian admin seed)
-        if tariff.description and not _is_fa_language(language):
+        if tariff.description and not _is_migration_placeholder_description(tariff.description):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
@@ -391,21 +385,43 @@ def format_traffic_step_preview(
     traffic_gb: int,
     *,
     flow: str = 'purchase',
+    show_volume: bool = False,
 ) -> str:
     """Текст шага выбора трафика (до выбора периода)."""
     texts = get_texts(language)
     hint_key = 'TARIFF_RENEW_TRAFFIC_STEP_HINT' if flow == 'extend' else 'TARIFF_CUSTOM_TRAFFIC_STEP_HINT'
-    traffic_label = texts.t('TARIFF_TRAFFIC_VOLUME_BTN', '📊 حجم: {gb} گیگ').format(gb=traffic_gb)
-    return texts.t(
-        'TARIFF_TRAFFIC_STEP_HEADER',
-        '📦 <b>{name}</b>\n\n<b>حجم سرویس:</b> {traffic}\n📱 دستگاه: {devices}',
-    ).format(
-        name=html.escape(tariff.name),
-        traffic=traffic_label,
-        devices=tariff.device_limit,
-    ) + texts.t(
+    if show_volume:
+        header = texts.t(
+            'TARIFF_TRAFFIC_STEP_HEADER',
+            '📦 <b>{name}</b>\n\n📊 حجم: {traffic}\n👥 تعداد کاربر: {devices}',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=format_traffic(traffic_gb, language),
+            devices=tariff.device_limit,
+        )
+    else:
+        header = texts.t(
+            'TARIFF_TRAFFIC_STEP_INTRO',
+            '📦 <b>{name}</b>\n\n👥 تعداد کاربر: {devices}',
+        ).format(
+            name=html.escape(tariff.name),
+            devices=tariff.device_limit,
+        )
+    return header + texts.t(
         hint_key,
-        '\n\n📊 <i>حجم را تنظیم کنید، سپس دوره را انتخاب کنید</i>',
+        '\n\n📊 <i>یکی از گزینه‌های حجم را انتخاب کنید؛ سپس مدت زمان را انتخاب می‌کنید</i>',
+    )
+
+
+def _format_period_step_pricing_hint(texts, traffic_final_kopeks: int, language: str) -> str:
+    """Volume price + CTA for period selection (message text only; buttons unchanged)."""
+    traffic_price_text = format_price_kopeks(traffic_final_kopeks, language=language)
+    return (
+        texts.t('TARIFF_PERIOD_STEP_VOLUME_PRICE', '💵 مبلغ حجم: {traffic_price}').format(
+            traffic_price=traffic_price_text,
+        )
+        + '\n\n'
+        + texts.t('TARIFF_PERIOD_STEP_CTA', 'مدت را انتخاب کنید — پیش‌فاکتور در مرحله بعد.')
     )
 
 
@@ -1429,14 +1445,8 @@ async def show_period_step_after_traffic(
         extend_flow = state_data.get('extend_flow', False)
 
     traffic_base = _resolve_selected_traffic_price(tariff, traffic_gb)
-    traffic_final, traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
-    traffic_price_text = format_price_kopeks(traffic_final, language=db_user.language)
-    if traffic_discount_pct > 0:
-        traffic_price_text = f'{traffic_price_text} 🔥−{traffic_discount_pct}%'
-    hint = texts.t(
-        'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
-        '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
-    ).format(traffic_price=traffic_price_text)
+    traffic_final, _traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
+    hint = _format_period_step_pricing_hint(texts, traffic_final, db_user.language)
 
     if extend_flow:
         if subscription is None:
@@ -1475,7 +1485,7 @@ async def show_period_step_after_traffic(
         traffic = format_traffic(traffic_gb, db_user.language)
         period_message = texts.t(
             'TARIFF_PERIOD_AFTER_TRAFFIC',
-            '📦 <b>{name}</b>\n\n📊 حجم انتخابی: {traffic}\n📱 دستگاه: {devices}\n\nانتخاب دوره:',
+            '📦 <b>{name}</b>\n\n📊 حجم انتخابی: {traffic}\n👥 تعداد کاربر: {devices}\n\nدوره را انتخاب کنید:',
         ).format(
             name=html.escape(tariff.name),
             traffic=traffic,
@@ -3198,14 +3208,8 @@ async def select_tariff_extend_period(
                 devices=actual_device_limit,
             )
             traffic_base = _resolve_selected_traffic_price(tariff, traffic_gb)
-            traffic_final, traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
-            traffic_price_label = format_price_kopeks(traffic_final, language=db_user.language)
-            if traffic_discount_pct > 0:
-                traffic_price_label = f'{traffic_price_label} 🔥−{traffic_discount_pct}%'
-            period_message += '\n\n' + texts.t(
-                'TARIFF_PERIOD_RUNNING_TOTAL_HINT',
-                '💵 حجم انتخابی: {traffic_price}\n💡 مبلغ نهایی هر دوره = قیمت دوره + {traffic_price}',
-            ).format(traffic_price=traffic_price_label)
+            traffic_final, _traffic_discount_pct = _discounted_traffic_display(traffic_base, db_user)
+            period_message += '\n\n' + _format_period_step_pricing_hint(texts, traffic_final, db_user.language)
             await callback.message.edit_text(
                 period_message,
                 reply_markup=await get_tariff_extend_keyboard(
