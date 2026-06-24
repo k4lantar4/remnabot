@@ -230,7 +230,7 @@
     "continueWithDiscord": "ادامه با Discord",
     "continueWithVk": "ادامه با VK",
     "oauthError": "مجوز رد شد یا ناموفق بود",
-    "oauthExpired": "نشست OAuth منقضی شده است. لطفاً دوباره امتحان کنید."
+    "oauthExpired": "نشست ورود منقضی شده است. لطفاً دوباره امتحان کنید."
   },
   "emailVerification": {
     "title": "تایید ایمیل",
@@ -402,7 +402,7 @@
     "connectionInfo": "اطلاعات اتصال",
     "copyLink": "کپی لینک",
     "copied": "کپی شد!",
-    "showQR": "نمایش QR کد",
+    "showQR": "نمایش کد QR",
     "downloadConfig": "دانلود تنظیمات",
     "trafficUsed": "ترافیک استفاده شده",
     "timeLeft": "زمان باقی‌مانده",
@@ -423,7 +423,7 @@
     "perDevice": "/ کاربر",
     "summary": {
       "period": "دوره: {{label}}",
-      "traffic": "ترافیک: {{gb}} GB"
+      "traffic": "حجم: {{gb}} گیگ"
     },
     "total": "جمع کل",
     "purchase": "خرید",
@@ -461,12 +461,12 @@
       "upgrade": "انتخاب سرویس"
     },
     "connection": {
-      "title": "اتصال VPN",
+      "title": "راهنمای اتصال VPN",
       "selectDevice": "سیستم‌عامل خود را انتخاب کنید",
       "selectApp": "برنامه را انتخاب کنید",
-      "installApp": "1. نصب برنامه",
-      "addSubscription": "2. افزودن اشتراک",
-      "connectVpn": "3. اتصال VPN",
+      "installApp": "مرحله 1: نصب برنامه",
+      "addSubscription": "مرحله 2: افزودن اشتراک",
+      "connectVpn": "مرحله 3: اتصال به VPN",
       "addToApp": "افزودن به {{appName}}",
       "connect": "اتصال",
       "noApps": "برنامه‌ای برای این پلتفرم موجود نیست",
@@ -504,12 +504,12 @@
       "devicesUnit": "کاربر",
       "buy": "خرید",
       "buyTraffic": "خرید ترافیک بیشتر",
-      "currentTrafficLimit": "محدودیت فعلی: {{limit}} GB (مصرف شده {{used}} GB)",
+      "currentTrafficLimit": "محدودیت فعلی: {{limit}} گیگ (مصرف‌شده {{used}} گیگ)",
       "buyTrafficTitle": "خرید ترافیک بیشتر",
       "trafficWarning": "ترافیک خریداری شده به محدودیت فعلی اضافه می‌شود و به دوره بعدی منتقل نمی‌شود",
       "trafficUnavailable": "خرید ترافیک برای اشتراک شما در دسترس نیست",
       "unlimited": "نامحدود",
-      "buyTrafficGb": "خرید {{gb}} GB",
+      "buyTrafficGb": "خرید {{gb}} گیگ",
       "buyUnlimited": "خرید نامحدود",
       "manageServers": "مدیریت اسکوادها",
       "manageServersTitle": "مدیریت اسکوادها",
@@ -670,7 +670,7 @@
       "error": "خطا در ارسال به تلویزیون",
       "scanTitle": "اسکن کد QR",
       "scanDescription": "کد QR روی صفحه تلویزیون را اسکن کنید",
-      "scanBtn": "اسکن QR از تلویزیون",
+      "scanBtn": "اسکن کد QR از تلویزیون",
       "stopScan": "بستن دوربین",
       "noCamera": "دسترسی به دوربین امکان‌پذیر نیست",
       "codeFound": "کد پیدا شد"
@@ -733,7 +733,7 @@
         "description": "پرداخت با ارز دیجیتال"
       },
       "telegram_stars": {
-        "description": "پرداخت با Telegram Stars"
+        "description": "پرداخت با ستاره‌های تلگرام"
       },
       "tribute": {
         "description": "پرداخت با کارت بانکی از طریق Tribute"
@@ -852,7 +852,7 @@
     "openPaymentPage": "باز کردن صفحه پرداخت",
     "errors": {
       "noPaymentLink": "سرور لینک پرداخت را برنگرداند",
-      "starsOnlyInTelegram": "پرداخت Stars فقط در Telegram Mini App در دسترس است",
+      "starsOnlyInTelegram": "پرداخت با ستاره فقط در مینی‌اپ تلگرام در دسترس است",
       "generic": "خطا: {{details}}",
       "invoiceFailed": "ایجاد فاکتور ناموفق بود",
       "rateLimit": "لطفاً {{seconds}} ثانیه صبر کنید",
@@ -1100,7 +1100,7 @@
     "spinsRemaining": "تعداد چرخش باقی‌مانده امروز",
     "choosePayment": "روش پرداخت را انتخاب کنید",
     "stars": "Stars",
-    "telegramStars": "Telegram Stars",
+    "telegramStars": "ستاره‌های تلگرام",
     "days": "روز",
     "days_other": "{{count}} روز",
     "subscriptionDays": "روز اشتراک",
