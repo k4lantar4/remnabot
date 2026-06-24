@@ -270,14 +270,6 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
                 )
             ]
         )
-        buttons.append(
-            [
-                types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по подключению'),
-                    callback_data=f'sl:{sub_id}',
-                )
-            ]
-        )
 
     buttons.append(
         [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_RENEW', '🔄 Продлить'), callback_data=f'se:{sub_id}')]
