@@ -1,57 +1,51 @@
-# Smoke map — Phase 5 traffic-first purchase funnel UX
+# Smoke map — Phase 6 user تعرفه → سرویس (fa.json)
 
-> Branch `i18n/fa-traffic-step-ux`; staging deploy after 5 commits.
+> Branch `i18n/fa-tariff-to-service-json`; staging deploy after 1 commit.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-traffic-step-ux` |
-| Commits | `22ca0bc6` list, `1dfa334b` fa keys, `af010118` traffic intro, `82b51e4a` period hint, `191e5363` confirm |
-| Staging | `make staging-rebuild` + `make staging-health` |
+| Branch | `i18n/fa-tariff-to-service-json` |
+| Commit | `03d6743e` — 66 user keys in `app/localization/locales/fa.json` |
+| Staging | `cp fa.json` + `make staging-rebuild` + `make staging-health` |
+| Scope | Bot + miniapp API keys only; cabinet React deferred (Phase 6b) |
 
 ## What changed
 
-### Screen 1 — Tariff list (`format_tariffs_list_text`)
+Single-file terminology migration: all non-`ADMIN_*` keys containing `تعرفه` now use `سرویس` (and derived forms: `سرویس‌ها`, `سرویسی`, `سرویس روزانه`, `تغییر سرویس`).
 
-- Removed `1 گیگ / 5 📱` from list lines
-- Shows `tariff.description` from admin DB for fa users (migration placeholders skipped)
+**Already سرویس from prior phases (unchanged):** `TARIFF_*_SUCCESS`, `TARIFF_PURCHASE_CONFIRM_BODY`, pre-invoice breakdown keys.
 
-### Screen 2 — Volume step (`format_traffic_step_preview`)
+**Sample keys updated:**
 
-- `TARIFF_TRAFFIC_STEP_INTRO` — no default volume line on first paint
-- `TARIFF_CUSTOM_TRAFFIC_STEP_HINT` / `TARIFF_RENEW_TRAFFIC_STEP_HINT` — preset-flow guidance
-- **Package buttons unchanged** (`🔥−%` on buttons if configured)
+| Group | Examples |
+|-------|----------|
+| Menu | `MAIN_MENU_TARIFF_LINE` → `📦 سرویس:` |
+| Callbacks | `CB_TARIFF_NOT_FOUND`, `CB_NO_TARIFFS_AVAILABLE` |
+| Confirm (legacy) | `TARIFF_PURCHASE_CONFIRM`, `TARIFF_RENEW_CONFIRM` |
+| Switch flows | `TARIFF_SWITCH_LIST_TITLE`, `TARIFF_INSTANT_UPGRADE` |
+| Ledger | `TARIFF_PURCHASE_LEDGER_DESC` → `خرید سرویس` |
+| Miniapp | `MINIAPP_TARIFF_SWITCH_SUCCESS` |
+| Campaign | `CAMPAIGN_BONUS_TARIFF` |
 
-### Screen 3 — Period step (`show_period_step_after_traffic`)
-
-- `TARIFF_PERIOD_STEP_VOLUME_PRICE` + `TARIFF_PERIOD_STEP_CTA` replace confusing formula hint
-- **Period inline buttons unchanged**
-
-### Screen 4 — Pre-invoice (`format_tariff_purchase_confirm_text`)
-
-- `پیش‌فاکتور`, `سرویس` / `حجم` / `مدت`, `مبلغ حجم` / `مبلغ مدت`, `قابل پرداخت`
-
-### Keys (`app/localization/locales/fa.json`)
-
-- `TARIFF_TRAFFIC_STEP_INTRO`, `TARIFF_PERIOD_STEP_*`, confirm `TARIFF_PURCHASE_CONFIRM_*`
+**Guard:** `rg 'تعرفه' app/localization/locales/fa.json | rg -v ADMIN_` → **0** user keys.
 
 ## User smoke checklist (`@mrj7_bot`)
 
-**Prerequisite:** Persian `description` on traffic-first tariffs in admin.
-
 | # | Path | Expect |
 |---|------|--------|
-| 1 | Menu → buy → tariff list | Name + `از X تومان` + description; no `گیگ / 📱` |
-| 2 | Pick traffic-first tariff | Intro: name + تعداد کاربر + hint; **no** «1 گیگ» in header |
-| 3 | Package buttons | Unchanged (`🔥−%` if present before) |
-| 4 | Tap 10 GB | Period: حجم انتخابی + `مبلغ حجم` + CTA; no formula line |
-| 5 | Period buttons | Unchanged (`🔥−%` if present before) |
-| 6 | Pick period | `پیش‌فاکتور` with سرویس/حجم/مدت breakdown |
-| 7 | Confirm purchase | Success + onboarding (unchanged) |
-| 8 | Renew traffic-first sub | Renew hints on volume + period steps |
+| 1 | Main menu (active subscription) | `📦 سرویس:` — not `تعرفه` |
+| 2 | Buy → pick tariff → confirm | Labels say `سرویس` (pre-invoice + legacy confirm) |
+| 3 | Insufficient balance during purchase | Error body: `📦 سرویس:` |
+| 4 | Switch tariff flow | Titles/errors: `سرویس` / `تغییر سرویس` |
+| 5 | Campaign bonus (if testable) | `سرویس «…»` |
+| 6 | Balance history after purchase | Ledger: `خرید سرویس` |
+| 7 | Miniapp tariff switch (if used) | `سرویس به «…» تغییر کرد` |
+
+**Regression:** Phases 3–5 success/onboarding/pre-invoice copy unchanged; amounts still `تومان` with Latin digits.
 
 ## Sign-off
 
-- [ ] User smoke on staging
+- [ ] User smoke on staging (`@mrj7_bot`)
 - [ ] PR → merge → prod deploy
