@@ -207,14 +207,16 @@ Branch `i18n/fa-device-terminology-bot` (**4 i18n commits** + docs `c61ed35b`).
 
 ## Done (Phase 4 my_subscriptions onboarding — Jun 24 2026)
 
-Branch `i18n/fa-onboarding-my-sub` (**5 commits**, `2c572ed0` → `ec15aca4`).
+Branch `i18n/fa-onboarding-my-sub` (**8 commits**, `2c572ed0` → `f8e27dda`).
 
 - [x] **Phase 4:** fa.json onboarding keys + `my_subscriptions.py` detail block, first-connect hint, setup guide row
 - [x] **Phase 4b:** mini-app aligned copy (`POST_PURCHASE_ONBOARDING`, `MY_SUB_DETAIL_ONBOARDING`, `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE`)
 - [x] **Phase 4b:** `resolve_connect_webapp_url()` — cabinet `/connection?sub=` when RemnaWave apps exist, else sub link
 - [x] **Phase 4b:** removed duplicate connect button on detail keyboard
-- [x] Agent smoke + staging deploy
-- [ ] **Awaiting user smoke** on `@mrj7_bot` before ship
+- [x] **Phase 4c:** bot detail labels (`MY_SUB_DETAIL_HEADER`, `MY_SUB_BTN_TRAFFIC`, `MY_SUB_BTN_AUTOPAY`)
+- [x] **Phase 4c:** cabinet subscription page — `حجم` label, `volumeEmptyHint`, connect guide CTA (no device count on card)
+- [x] Agent smoke + staging deploy (2026-06-24)
+- [ ] **Awaiting user smoke** on `@mrj7_bot` + staging cabinet before ship
 
 ## Next
 
