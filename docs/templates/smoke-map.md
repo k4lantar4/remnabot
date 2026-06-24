@@ -1,43 +1,43 @@
-# Smoke map — Phase 7 cabinet device terminology
+# Smoke map — Phase 8 cabinet Latin digits + RTL copy
 
-> Branch `i18n/fa-cabinet-device-terminology`; staging deployed after 2 commits.
+> Branch `i18n/fa-cabinet-latin-digits`; staging deployed after 3 commits (Commit 3 LtrIsolate skipped).
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-cabinet-device-terminology` |
-| Commit 1 | `c794d287` — 96 paths in `cabinet/src/locales/fa.json` |
-| Commit 2 | `8a3b3b13` — 20 `CABINET_*` keys in `app/localization/locales/fa.json` |
+| Branch | `i18n/fa-cabinet-latin-digits` |
+| Commit 1 | `0ef8cc37` — Latin digits in 22 user paths (`cabinet/src/locales/fa.json`) |
+| Commit 2 | `dcca3852` — RTL/bidi copy fixes (QR order, steps, گیگ, Stars Persian) |
+| Commit 3 | skipped — JSON fixes sufficient; no `LtrIsolate.tsx` |
+| Commit 4 | `c76b900d` — `test_cabinet_user_fa_has_latin_digits` + QR order guard |
 | Staging | `make staging-rebuild` + `make staging-health` |
-| Surfaces | Staging cabinet (`staging-host-cabinet`, port 3021) + cabinet API toasts via bot |
+| Surfaces | Staging cabinet (`staging-host-cabinet`, port 3021) |
 
 ## What changed
 
-Terminology migration: user-facing `دستگاه` → `تعداد کاربر` / `کاربر` (HWID slot limits) or `اتصال` / `اتصال‌های فعال` (connected HWID list, revoke, delete).
+**Commit 1 — Western digits (0–9):** 22 user paths across `auth.passwordTooShort`, `dashboard.usageLast14Days`, `subscription.trafficReset.MONTH_ROLLING`, `subscription.connection` steps, `subscription.tvQuickConnect`, `referral.partner`, `landing.periodLabels` d1–d456.
 
-**Cabinet React (`cabinet/src/locales/fa.json`):** 96 user paths across `successNotification`, `dashboard`, `subscription` (+ trial, connection, additionalOptions, revoke, cta), `info`, `onboarding`, `merge`, `landing`, `gift`.
+**Commit 2 — RTL-safe copy:** `showQR` / `scanBtn` QR word order; connection steps `مرحله 1:` … `مرحله 3:`; traffic labels `گیگ` instead of `GB`; Persian wrappers for OAuth session, Stars payment strings.
 
-**Bot API (`app/localization/locales/fa.json`):** `CABINET_DEVICES_*`, `CABINET_DEVICE_*`, `CABINET_TARIFF_SWITCH_DEVICES_RESET`.
-
-**Guard:** user cabinet paths with `دستگاه` → **0** (admin sections unchanged, 30 hits remain).
+**Guard:** user cabinet paths with Persian digits → **0** (admin unchanged).
 
 ## User smoke checklist (staging cabinet)
 
 | # | Path | Expect |
 |---|------|--------|
-| 1 | Dashboard → active subscription card | `👥 کاربر:` usage line — not `دستگاه‌ها:` |
-| 2 | Subscription detail page | Label `تعداد کاربر`; section `اتصال‌های فعال` |
-| 3 | Purchase wizard → devices step | Step `تعداد کاربر`; counts `N کاربر` |
-| 4 | Connection page (`/connection`) | `سیستم‌عامل خود را انتخاب کنید`; CTA `دریافت لینک اتصال` |
-| 5 | Additional options → buy/reduce users | `افزودن کاربر`; API toast uses `کاربر` not `دستگاه` |
-| 6 | Revoke link confirm dialog | `اتصال‌ها` disconnected wording |
-| 7 | Gift / landing purchase flow | Column label `تعداد کاربر` |
-| 8 | Merge accounts compare screen | `تعداد کاربر` label |
-| 9 | Onboarding tour (first login) | Connect step: `راهنمای اتصال VPN` — no `دستگاه` |
-| 10 | Admin cabinet (tariffs, users) | Still `دستگاه` — expected (Phase 10) |
+| 1 | Register — password too short | `8 کاراکتر`; digits not flipped |
+| 2 | Dashboard chart label | `14 روز` reads left-to-right within RTL page |
+| 3 | Subscription → connection guide (`/connection`) | Steps show `مرحله 1:` … `مرحله 3:`; title `راهنمای اتصال VPN` |
+| 4 | Purchase wizard → confirm step | `حجم: N گیگ` — no `GB` bidi jump |
+| 5 | Traffic top-up sheet | Limit line `…گیگ`; package buttons readable |
+| 6 | TV quick connect | `5 رقمی`; `اسکن کد QR` not `QR کد` |
+| 7 | Balance → Stars error (outside miniapp) | `پرداخت با ستاره فقط در مینی‌اپ تلگرام` |
+| 8 | Landing period picker | `1 روز`, `1 هفته`, Latin digits |
+| 9 | Wheel → Stars payment label | `ستاره‌های تلگرام` |
+| 10 | Admin cabinet | unchanged (admin track) |
 
-**Regression:** Toman amounts, Jalali dates, Phase 6 `سرویس` labels, no Cyrillic in user UI.
+**Regression:** Phase 7 device terminology (`کاربر`/`اتصال`), Toman amounts, Jalali dates, Phase 6 `سرویس` labels.
 
 ## Sign-off
 
