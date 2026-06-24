@@ -1911,6 +1911,14 @@ async def handle_custom_confirm(
             pass
         return
 
+    _checkout_state = await state.get_data() if state else {}
+    from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+    _partner_opts = checkout_partner_options(db_user, _checkout_state)
+    if getattr(db_user, 'is_partner', False):
+        subscription.purchase_note = _partner_opts['purchase_note']
+        await db.flush()
+
     try:
         # Обновляем пользователя в Remnawave
         # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
@@ -1927,6 +1935,7 @@ async def handle_custom_confirm(
                     subscription,
                     reset_traffic=True,
                     reset_reason='покупка тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -2798,6 +2807,14 @@ async def confirm_daily_tariff_purchase(
             pass
         return
 
+    _checkout_state = await state.get_data() if state else {}
+    from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+    _partner_opts = checkout_partner_options(db_user, _checkout_state)
+    if getattr(db_user, 'is_partner', False):
+        subscription.purchase_note = _partner_opts['purchase_note']
+        await db.flush()
+
     # Обновляем пользователя в Remnawave
     # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
     try:
@@ -2813,6 +2830,7 @@ async def confirm_daily_tariff_purchase(
                 subscription,
                 reset_traffic=True,
                 reset_reason='покупка суточного тарифа',
+                use_brand_prefix=_partner_opts['use_brand_prefix'],
             )
         else:
             await subscription_service.update_remnawave_user(
@@ -3473,6 +3491,13 @@ async def confirm_tariff_extend(
             device_limit=actual_device_limit if was_trial else None,
         )
 
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave
         try:
             subscription_service = SubscriptionService()
@@ -3487,6 +3512,7 @@ async def confirm_tariff_extend(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_PAYMENT or was_trial,
                     reset_reason='конвертация триала' if was_trial else 'продление тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -4238,6 +4264,14 @@ async def confirm_tariff_switch(
             connected_squads=squads,
         )
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave
         try:
             subscription_service = SubscriptionService()
@@ -4252,6 +4286,7 @@ async def confirm_tariff_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='переключение тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -4537,6 +4572,14 @@ async def confirm_daily_tariff_switch(
         await db.commit()
         await db.refresh(subscription)
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
         try:
             subscription_service = SubscriptionService()
@@ -4551,6 +4594,7 @@ async def confirm_daily_tariff_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='смена на суточный тариф',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -5399,6 +5443,14 @@ async def confirm_instant_switch(
         await db.commit()
         await db.refresh(subscription)
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
         try:
             subscription_service = SubscriptionService()
@@ -5413,6 +5465,7 @@ async def confirm_instant_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='мгновенное переключение тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
