@@ -1,53 +1,55 @@
-# Smoke map — Phase 4 + 4b + 4c (my_sub onboarding + cabinet UX polish)
+# Smoke map — Phase 5 traffic-first purchase funnel UX
 
-> Branch `i18n/fa-onboarding-my-sub` @ `f8e27dda`; staging deployed 2026-06-24.
+> Branch `i18n/fa-traffic-step-ux`; staging deploy after 5 commits.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-onboarding-my-sub` |
-| Phase 4 | `2c572ed0` fa.json keys, `6b7b36b7` detail onboarding UI |
-| Phase 4b | `bdc1021e` miniapp copy, `cabe43f3` smart WebApp URL, `ec15aca4` single connect button |
-| Phase 4c | `a09dd053` bot labels, `f9d05116` cabinet fa copy, `f8e27dda` Subscription.tsx CTA |
-| Staging | `make staging-rebuild` + `make staging-health` ✓ |
+| Branch | `i18n/fa-traffic-step-ux` |
+| Commits | `22ca0bc6` list, `1dfa334b` fa keys, `af010118` traffic intro, `82b51e4a` period hint, `191e5363` confirm |
+| Staging | `make staging-rebuild` + `make staging-health` |
 
 ## What changed
 
-### Bot `app/localization/locales/fa.json`
+### Screen 1 — Tariff list (`format_tariffs_list_text`)
 
-- Detail onboarding: `MY_SUB_DETAIL_ONBOARDING`, `MY_SUB_DETAIL_FIRST_CONNECT`, `MY_SUB_BTN_CONNECT_LINK`
-- Purchase success: `POST_PURCHASE_ONBOARDING` — mini-app flow (no manual paste)
-- Connect screen: `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE` — mini-app explainer
-- **Phase 4c:** `MY_SUB_DETAIL_HEADER` → `نام اشتراک:`; `MY_SUB_BTN_TRAFFIC` → `خرید ترافیک اضافه`; `MY_SUB_BTN_AUTOPAY` → `تمدید خودکار از اعتبار`
+- Removed `1 گیگ / 5 📱` from list lines
+- Shows `tariff.description` from admin DB for fa users (migration placeholders skipped)
 
-### Cabinet `cabinet/src/locales/fa.json` + `Subscription.tsx` (Phase 4c)
+### Screen 2 — Volume step (`format_traffic_step_preview`)
 
-- `subscription.traffic` → `حجم`; new `subscription.volumeEmptyHint` when used = 0 GB
-- Connect card: `dashboard.connectGuideTitle` / `connectGuideSubtitle` — no device count on CTA box
+- `TARIFF_TRAFFIC_STEP_INTRO` — no default volume line on first paint
+- `TARIFF_CUSTOM_TRAFFIC_STEP_HINT` / `TARIFF_RENEW_TRAFFIC_STEP_HINT` — preset-flow guidance
+- **Package buttons unchanged** (`🔥−%` on buttons if configured)
 
-### Bot `app/handlers/subscription/my_subscriptions.py`
+### Screen 3 — Period step (`show_period_step_after_traffic`)
 
-- Onboarding block on active subscription detail; first-connect hint when HWID count is 0
-- **One** connect button (removed duplicate setup guide row)
+- `TARIFF_PERIOD_STEP_VOLUME_PRICE` + `TARIFF_PERIOD_STEP_CTA` replace confusing formula hint
+- **Period inline buttons unchanged**
 
-### Bot `app/utils/subscription_utils.py` + `links.py`
+### Screen 4 — Pre-invoice (`format_tariff_purchase_confirm_text`)
 
-- `resolve_connect_webapp_url()` — cabinet `/connection?sub=ID` when RemnaWave app config exists; else raw subscription link
-- `handle_connect_subscription` miniapp mode uses smart URL; early `callback.answer()`
+- `پیش‌فاکتور`, `سرویس` / `حجم` / `مدت`, `مبلغ حجم` / `مبلغ مدت`, `قابل پرداخت`
+
+### Keys (`app/localization/locales/fa.json`)
+
+- `TARIFF_TRAFFIC_STEP_INTRO`, `TARIFF_PERIOD_STEP_*`, confirm `TARIFF_PURCHASE_CONFIRM_*`
 
 ## User smoke checklist (`@mrj7_bot`)
 
+**Prerequisite:** Persian `description` on traffic-first tariffs in admin.
+
 | # | Path | Expect |
 |---|------|--------|
-| 1 | Buy tariff → success → «اشتراک من» | Onboarding mentions mini-app (not v2rayNG paste) |
-| 2 | Subscription detail | One button: `🔗 دریافت لینک و راهنمای اتصال`; onboarding block |
-| 3 | Tap connect | WebApp opens; with RemnaWave apps → cabinet `/connection` platform picker |
-| 4 | Tap connect (no app config) | WebApp opens subscription link (`sub.*`) |
-| 5 | Expired sub detail | No onboarding block |
-| 6 | Subscription detail (`@mrj7_bot`) | `📋 نام اشتراک: u_…`; buttons «خرید ترافیک اضافه» / «تمدید خودکار از اعتبار» |
-| 7 | Staging cabinet → active sub page | Section label «حجم»; hint when 0 GB used; connect box «🔗 راهنمای اتصال — برای وصل شدن ضربه بزنید» (no «۰ از ۵») |
-| 8 | Tap connect box | `/connection?sub=` → InstallationGuide |
+| 1 | Menu → buy → tariff list | Name + `از X تومان` + description; no `گیگ / 📱` |
+| 2 | Pick traffic-first tariff | Intro: name + تعداد کاربر + hint; **no** «1 گیگ» in header |
+| 3 | Package buttons | Unchanged (`🔥−%` if present before) |
+| 4 | Tap 10 GB | Period: حجم انتخابی + `مبلغ حجم` + CTA; no formula line |
+| 5 | Period buttons | Unchanged (`🔥−%` if present before) |
+| 6 | Pick period | `پیش‌فاکتور` with سرویس/حجم/مدت breakdown |
+| 7 | Confirm purchase | Success + onboarding (unchanged) |
+| 8 | Renew traffic-first sub | Renew hints on volume + period steps |
 
 ## Sign-off
 
