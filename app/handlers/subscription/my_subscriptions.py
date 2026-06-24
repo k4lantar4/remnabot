@@ -139,6 +139,9 @@ def _subscription_matches_search(sub, query: str, texts) -> bool:
     tariff_name = (getattr(tariff, 'name', None) or '').strip().lower()
     if tariff_name and q in tariff_name:
         return True
+    serial = (getattr(sub, 'remnawave_short_id', '') or '').strip()
+    if serial and q in serial:
+        return True
     return False
 
 
@@ -149,7 +152,7 @@ def _filter_subscriptions_by_query(subscriptions: list, query: str, texts) -> li
     return [s for s in subscriptions if _subscription_matches_search(s, q, texts)]
 
 
-def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
+def _format_subscription_line(sub, idx: int, texts, language: str, db_user) -> str:
     """Format a single subscription for the list view."""
     tariff_name = _account_display_name(sub, texts)
     emoji = _status_emoji(sub)
@@ -172,7 +175,11 @@ def _format_subscription_line(sub, idx: int, texts, language: str) -> str:
     # End date
     end_date = format_user_datetime(sub.end_date, language=texts.language, fmt='%d.%m.%Y') if sub.end_date else '—'
 
-    parts = [f'{emoji} <b>{idx}. {tariff_name}</b>{label}']
+    line = f'{emoji} <b>{idx}. {tariff_name}</b>{label}'
+    serial = (getattr(sub, 'remnawave_short_id', '') or '').strip()
+    if getattr(db_user, 'is_partner', False) and serial.isdigit():
+        line += f" · {texts.t('MY_SUB_LIST_PUBLIC_SERIAL', 'شماره {serial}').format(serial=serial)}"
+    parts = [line]
     parts.append(texts.t('MY_SUB_TRAFFIC_LINE', '   📊 Трафик: {traffic}').format(traffic=traffic))
     if devices:
         parts.append(texts.t('MY_SUB_DEVICES_LINE', '   📱 Устройства: {devices}').format(devices=devices))
@@ -414,7 +421,7 @@ async def _build_my_subscriptions_view(
                 ).format(page=page, pages=total_pages, total=total_count)
             )
         for idx, sub in enumerate(page_subs, start + 1):
-            lines.append(_format_subscription_line(sub, idx, texts, db_user.language))
+            lines.append(_format_subscription_line(sub, idx, texts, db_user.language, db_user))
             lines.append('')
         text = '\n'.join(lines).rstrip()
         keyboard = _build_subscriptions_keyboard(

@@ -3123,6 +3123,7 @@
   "MY_SUB_DEVICES_MENU": "👥 <b>تعداد کاربر</b>\n\nسقف فعلی: {current} کاربر\n\nعملیات را انتخاب کنید:",
   "MY_SUB_LIST_EMPTY": "📋 <b>اشتراک‌های من</b>\n\nاشتراکی ندارید.",
   "MY_SUB_LIST_PAGE": "📄 صفحه {page}/{pages} · مجموع {total}\n",
+  "MY_SUB_LIST_PUBLIC_SERIAL": "شماره {serial}",
   "MY_SUB_LIST_TITLE": "📋 <b>اشتراک‌های من</b>",
   "MY_SUB_SEARCH_ACTIVE": "🔍 جستجو: <b>{query}</b>\n",
   "MY_SUB_SEARCH_CANCEL": "✖️ لغو",
