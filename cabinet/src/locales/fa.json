@@ -304,6 +304,8 @@
     "showAll": "نمایش همه",
     "subscriptions": "اشتراک‌ها",
     "connectDevice": "اتصال دستگاه",
+    "connectGuideTitle": "🔗 راهنمای اتصال",
+    "connectGuideSubtitle": "برای وصل شدن ضربه بزنید",
     "devicesConnectedUnlimited": "{{count}} دستگاه متصل",
     "devicesOfMax": "{{used}} از {{max}}",
     "maxUsage": "حداکثر",
@@ -368,7 +370,8 @@
       "MONTH": "بازنشانی ماهانه",
       "MONTH_ROLLING": "بازنشانی هر ۳۰ روز"
     },
-    "traffic": "ترافیک",
+    "traffic": "حجم",
+    "volumeEmptyHint": "هنوز مصرفی ثبت نشده — کل حجم در دسترس است",
     "unlimited": "نامحدود",
     "used": "استفاده شده",
     "of": "از",
