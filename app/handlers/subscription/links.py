@@ -15,6 +15,7 @@ from app.utils.subscription_utils import (
     convert_subscription_link_to_happ_scheme,
     get_display_subscription_link,
     get_happ_cryptolink_redirect_link,
+    resolve_connect_webapp_url,
 )
 
 from .common import get_platforms_list, load_app_config_async, logger
@@ -102,12 +103,14 @@ async def handle_connect_subscription(
     connect_mode = settings.CONNECT_BUTTON_MODE
 
     if connect_mode == 'miniapp_subscription':
+        await callback.answer()
+        webapp_url = await resolve_connect_webapp_url(subscription, sub_id) or subscription_link
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
                         text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                        web_app=types.WebAppInfo(url=subscription_link),
+                        web_app=types.WebAppInfo(url=webapp_url),
                     )
                 ],
                 [InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)],
@@ -124,6 +127,7 @@ async def handle_connect_subscription(
             reply_markup=keyboard,
             parse_mode='HTML',
         )
+        return
 
     elif connect_mode == 'miniapp_custom':
         if not settings.MINIAPP_CUSTOM_URL:

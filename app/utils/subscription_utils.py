@@ -58,6 +58,23 @@ def get_display_subscription_link(subscription: Subscription | None) -> str | No
     return base_link
 
 
+async def resolve_connect_webapp_url(subscription: Subscription | None, sub_id: int) -> str | None:
+    """Pick WebApp URL: cabinet /connection guide when RemnaWave apps exist, else subscription link."""
+    from app.handlers.subscription.common import get_platforms_list, load_app_config_async
+    from app.utils.miniapp_buttons import build_cabinet_url
+
+    subscription_link = get_display_subscription_link(subscription)
+    cabinet_url = build_cabinet_url(f'/connection?sub={sub_id}')
+    if cabinet_url:
+        try:
+            config = await load_app_config_async()
+            if config and get_platforms_list(config):
+                return cabinet_url
+        except Exception as e:
+            logger.warning('Failed to resolve cabinet connection WebApp URL', error=e, sub_id=sub_id)
+    return subscription_link
+
+
 def get_happ_cryptolink_redirect_link(subscription_link: str | None) -> str | None:
     if not subscription_link:
         return None
