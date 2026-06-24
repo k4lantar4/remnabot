@@ -2239,7 +2239,7 @@ def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFA
     )
 
 
-def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_referral_keyboard(language: str = DEFAULT_LANGUAGE, *, is_partner: bool = False) -> InlineKeyboardMarkup:
     texts = get_texts(language)
 
     keyboard = [
@@ -2268,6 +2268,16 @@ def get_referral_keyboard(language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMar
                 InlineKeyboardButton(
                     text=texts.t('REFERRAL_WITHDRAWAL_BUTTON', '💸 Запросить вывод'),
                     callback_data='referral_withdrawal',
+                )
+            ]
+        )
+
+    if is_partner:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('PARTNER_BRAND_SETTINGS_BTN', '🏷 نام برند'),
+                    callback_data='partner_brand_settings',
                 )
             ]
         )

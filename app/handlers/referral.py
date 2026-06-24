@@ -240,7 +240,7 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
     await edit_or_answer_photo(
         callback,
         referral_text,
-        get_referral_keyboard(db_user.language),
+        get_referral_keyboard(db_user.language, is_partner=db_user.is_partner),
     )
     await callback.answer()
 
