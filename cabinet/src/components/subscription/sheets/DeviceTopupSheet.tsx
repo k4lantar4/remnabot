@@ -69,10 +69,10 @@ export function DeviceTopupSheet({
     return (
       <button
         onClick={onOpen}
-        className={`w-full rounded-xl border p-4 text-left transition-colors ${isDark ? 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600' : 'border-champagne-300/60 bg-champagne-200/40 hover:border-champagne-400'}`}
+        className={`w-full rounded-xl border p-4 text-start transition-colors ${isDark ? 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600' : 'border-champagne-300/60 bg-champagne-200/40 hover:border-champagne-400'}`}
       >
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <div className="font-medium text-dark-100">
               {t('subscription.additionalOptions.buyDevices')}
             </div>
@@ -82,7 +82,7 @@ export function DeviceTopupSheet({
               })}
             </div>
           </div>
-          <ChevronRightIcon className="text-dark-400" />
+          <ChevronRightIcon className="shrink-0 text-dark-400" />
         </div>
       </button>
     );
