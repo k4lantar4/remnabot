@@ -565,8 +565,6 @@ def get_tariff_confirm_keyboard(
     *,
     db_user: User | None = None,
     purchase_note: str | None = None,
-    use_brand_prefix: bool = False,
-    show_brand_toggle: bool = False,
 ) -> InlineKeyboardMarkup:
     from app.handlers.subscription.tariff_purchase_partner import get_partner_tariff_confirm_keyboard
 
@@ -576,8 +574,6 @@ def get_tariff_confirm_keyboard(
         language,
         db_user=db_user,
         purchase_note=purchase_note,
-        use_brand_prefix=use_brand_prefix,
-        show_brand_toggle=show_brand_toggle,
     )
 
 
@@ -1638,8 +1634,6 @@ async def select_tariff_period_custom_traffic(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )
@@ -2094,8 +2088,6 @@ async def select_tariff_period(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )
@@ -5857,8 +5849,6 @@ async def return_to_saved_tariff_cart(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )
