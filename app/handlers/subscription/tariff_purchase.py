@@ -385,21 +385,31 @@ def format_traffic_step_preview(
     traffic_gb: int,
     *,
     flow: str = 'purchase',
+    show_volume: bool = False,
 ) -> str:
     """Текст шага выбора трафика (до выбора периода)."""
     texts = get_texts(language)
     hint_key = 'TARIFF_RENEW_TRAFFIC_STEP_HINT' if flow == 'extend' else 'TARIFF_CUSTOM_TRAFFIC_STEP_HINT'
-    traffic_label = texts.t('TARIFF_TRAFFIC_VOLUME_BTN', '📊 حجم: {gb} گیگ').format(gb=traffic_gb)
-    return texts.t(
-        'TARIFF_TRAFFIC_STEP_HEADER',
-        '📦 <b>{name}</b>\n\n<b>حجم سرویس:</b> {traffic}\n📱 دستگاه: {devices}',
-    ).format(
-        name=html.escape(tariff.name),
-        traffic=traffic_label,
-        devices=tariff.device_limit,
-    ) + texts.t(
+    if show_volume:
+        header = texts.t(
+            'TARIFF_TRAFFIC_STEP_HEADER',
+            '📦 <b>{name}</b>\n\n📊 حجم: {traffic}\n👥 تعداد کاربر: {devices}',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=format_traffic(traffic_gb, language),
+            devices=tariff.device_limit,
+        )
+    else:
+        header = texts.t(
+            'TARIFF_TRAFFIC_STEP_INTRO',
+            '📦 <b>{name}</b>\n\n👥 تعداد کاربر: {devices}',
+        ).format(
+            name=html.escape(tariff.name),
+            devices=tariff.device_limit,
+        )
+    return header + texts.t(
         hint_key,
-        '\n\n📊 <i>حجم را تنظیم کنید، سپس دوره را انتخاب کنید</i>',
+        '\n\n📊 <i>یکی از گزینه‌های حجم را انتخاب کنید؛ سپس مدت زمان را انتخاب می‌کنید</i>',
     )
 
 
