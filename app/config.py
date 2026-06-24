@@ -142,6 +142,7 @@ class Settings(BaseSettings):
     REMNAWAVE_AUTH_TYPE: str = 'api_key'  # api_key, basic, bearer, cookies, caddy
     REMNAWAVE_USER_DESCRIPTION_TEMPLATE: str = 'Bot user: {full_name} {username}'
     REMNAWAVE_USER_USERNAME_TEMPLATE: str = 'user_{telegram_id}'
+    SUBSCRIPTION_PUBLIC_SERIAL_START: int = 1000
     REMNAWAVE_USER_DELETE_MODE: str = 'delete'  # "delete" или "disable"
     REMNAWAVE_AUTO_SYNC_ENABLED: bool = False
     REMNAWAVE_AUTO_SYNC_TIMES: str = '03:00'
