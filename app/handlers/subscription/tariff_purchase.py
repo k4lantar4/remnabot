@@ -229,10 +229,6 @@ async def format_tariffs_list_text(
     hide_prices = _hide_tariff_purchase_prices()
 
     for tariff in tariffs:
-        # Трафик компактно
-        traffic_gb = tariff.traffic_limit_gb
-        traffic = format_traffic(traffic_gb, language)
-
         # Цена
         is_daily = getattr(tariff, 'is_daily', False)
         price_text = ''
@@ -277,14 +273,12 @@ async def format_tariffs_list_text(
                     price=format_price_kopeks(min_price, compact=True), icon=discount_icon
                 )
 
-        # Компактный формат: Название — 250 ГБ / 10 📱 от 179₽🔥
         purchased_mark = ' ✅' if tariff.id in purchased_tariff_ids else ''
-        lines.append(
-            f'<b>{html.escape(tariff.name)}</b>{purchased_mark} — {traffic} / {tariff.device_limit} 📱 {price_text}'
-        )
+        lines.append(f'<b>{html.escape(tariff.name)}</b>{purchased_mark}')
+        if price_text:
+            lines.append(price_text)
 
-        # Описание тарифа если есть (DB text; skip for FA — often Russian admin seed)
-        if tariff.description and not _is_fa_language(language):
+        if tariff.description and not _is_migration_placeholder_description(tariff.description):
             lines.append(f'<i>{html.escape(tariff.description)}</i>')
 
         lines.append('')
