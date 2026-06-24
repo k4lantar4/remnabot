@@ -92,7 +92,10 @@ const CountdownTimer = memo(function CountdownTimer({
             : `1px solid ${g.innerBorder}`,
       }}
     >
-      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-dark-50/35">
+      <div
+        className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider"
+        style={{ color: g.textSecondary }}
+      >
         <div
           className="flex h-6 w-6 items-center justify-center rounded-[7px]"
           style={{
@@ -125,7 +128,7 @@ const CountdownTimer = memo(function CountdownTimer({
           {t('subscription.expired')}
         </div>
       ) : (
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-col gap-2">
           <div className="flex items-baseline gap-1 font-mono tabular-nums">
             {countdown.days > 0 && (
               <>
@@ -135,7 +138,7 @@ const CountdownTimer = memo(function CountdownTimer({
                 >
                   {countdown.days}
                 </span>
-                <span className="mr-1 text-[10px] font-medium text-dark-50/25">
+                <span className="mr-1 text-[10px] font-medium" style={{ color: g.textMuted }}>
                   {t('subscription.daysShort')}
                 </span>
               </>
@@ -171,7 +174,7 @@ const CountdownTimer = memo(function CountdownTimer({
               {String(countdown.seconds).padStart(2, '0')}
             </span>
           </div>
-          <div className="text-[10px] font-medium text-dark-50/25">
+          <div className="text-[11px] font-medium" style={{ color: g.textSecondary }}>
             {t('subscription.expiresAt')}: {formattedDate}
           </div>
         </div>
@@ -757,11 +760,14 @@ export default function Subscription() {
               {/* ─── Traffic Progress ─── */}
               <div className="mb-6">
                 <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-dark-50/40">
+                  <span
+                    className="text-[11px] font-medium tracking-wider"
+                    style={{ color: g.textSecondary }}
+                  >
                     {t('subscription.traffic')}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-dark-50/30">
+                    <span className="font-mono text-[11px] font-medium" style={{ color: g.text }}>
                       {isUnlimited
                         ? formatTraffic(usedGb)
                         : `${formatTraffic(usedGb)} / ${formatTraffic(subscription.traffic_limit_gb)}`}
@@ -769,7 +775,8 @@ export default function Subscription() {
                     <button
                       onClick={() => refreshTrafficMutation.mutate()}
                       disabled={refreshTrafficMutation.isPending || trafficRefreshCooldown > 0}
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-dark-50/30 transition-colors hover:bg-dark-50/[0.05] hover:text-dark-50/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-dark-50/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ color: g.textMuted }}
                     >
                       <RefreshIcon
                         className="h-3 w-3"
@@ -783,12 +790,12 @@ export default function Subscription() {
                 </div>
                 {subscription.traffic_reset_mode &&
                   subscription.traffic_reset_mode !== 'NO_RESET' && (
-                    <div className="mb-2 text-[10px] text-dark-50/25">
+                    <div className="mb-2 text-[10px]" style={{ color: g.textMuted }}>
                       {t(`subscription.trafficReset.${subscription.traffic_reset_mode}`)}
                     </div>
                   )}
                 {!isUnlimited && usedGb === 0 && (
-                  <div className="mb-2 text-[10px] text-dark-50/25">
+                  <div className="mb-2 text-[10px]" style={{ color: g.textMuted }}>
                     {t('subscription.volumeEmptyHint')}
                   </div>
                 )}
