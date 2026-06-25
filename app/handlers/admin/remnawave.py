@@ -2451,7 +2451,7 @@ async def show_sync_options(callback: types.CallbackQuery, db_user: User, db: As
     await callback.answer()
 
 
-@admin_required@admin_required
+@admin_required
 @error_handler
 async def show_auto_sync_settings(
     callback: types.CallbackQuery,
