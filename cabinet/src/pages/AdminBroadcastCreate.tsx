@@ -95,16 +95,16 @@ export default function AdminBroadcastCreate() {
     const rows: { text: string; url?: string; callback_data?: string }[][] = [];
     if (selectedButtons.length > 0) {
       const presetLabels: Record<string, string> = {
-        balance: t('admin.broadcasts.btnBalance', 'Пополнить баланс'),
+        balance: t('admin.broadcasts.btnBalance', 'Top up balance'),
         // Бот отдаёт ключ кнопки как 'referrals' (см. BROADCAST_BUTTONS в admin.py),
         // раньше тут был 'partners' — из-за рассинхрона кнопка показывалась сырым
         // ключом 'referrals' вместо «Партнёрка» (Telegram-баг #602989).
-        referrals: t('admin.broadcasts.btnPartners', 'Партнёрка'),
-        promocode: t('admin.broadcasts.btnPromocode', 'Промокод'),
-        connect: t('admin.broadcasts.btnConnect', 'Подключиться'),
-        subscription: t('admin.broadcasts.btnSubscription', 'Подписка'),
-        support: t('admin.broadcasts.btnSupport', 'Техподдержка'),
-        home: t('admin.broadcasts.btnHome', 'На главную'),
+        referrals: t('admin.broadcasts.btnPartners', 'Partners'),
+        promocode: t('admin.broadcasts.btnPromocode', 'Promocode'),
+        connect: t('admin.broadcasts.btnConnect', 'Connect'),
+        subscription: t('admin.broadcasts.btnSubscription', 'Subscription'),
+        support: t('admin.broadcasts.btnSupport', 'Support'),
+        home: t('admin.broadcasts.btnHome', 'Home'),
       };
       for (const id of selectedButtons) {
         rows.push([{ text: presetLabels[id] || id, callback_data: id }]);
@@ -556,7 +556,7 @@ export default function AdminBroadcastCreate() {
       {/* Broadcast category */}
       <div className="card">
         <label className="mb-3 block text-sm font-medium text-dark-300">
-          {t('admin.broadcasts.category', 'Категория рассылки')}
+          {t('admin.broadcasts.category', 'Broadcast category')}
         </label>
         <p className="mb-3 text-xs text-dark-500">
           {t(
@@ -575,9 +575,9 @@ export default function AdminBroadcastCreate() {
                   : 'border-dark-700 bg-dark-800 text-dark-300 hover:border-dark-600'
               }`}
             >
-              {cat === 'system' && t('admin.broadcasts.categorySystem', '⚙️ Системное')}
-              {cat === 'news' && t('admin.broadcasts.categoryNews', '📰 Новости')}
-              {cat === 'promo' && t('admin.broadcasts.categoryPromo', '🎁 Промо')}
+              {cat === 'system' && t('admin.broadcasts.categorySystem', 'System')}
+              {cat === 'news' && t('admin.broadcasts.categoryNews', 'News')}
+              {cat === 'promo' && t('admin.broadcasts.categoryPromo', 'Promo')}
             </button>
           ))}
         </div>
@@ -596,7 +596,7 @@ export default function AdminBroadcastCreate() {
               disabled={messageText.trim().length === 0}
               className="rounded-lg border border-dark-700 bg-dark-800 px-3 py-1.5 text-sm text-dark-300 transition-colors hover:border-dark-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('admin.broadcasts.preview', 'Предпросмотр')}
+              {t('admin.broadcasts.preview', 'Preview')}
             </button>
           </div>
 
@@ -844,7 +844,7 @@ export default function AdminBroadcastCreate() {
               disabled={emailContent.trim().length === 0}
               className="rounded-lg border border-dark-700 bg-dark-800 px-3 py-1.5 text-sm text-dark-300 transition-colors hover:border-dark-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('admin.broadcasts.preview', 'Предпросмотр')}
+              {t('admin.broadcasts.preview', 'Preview')}
             </button>
           </div>
 
