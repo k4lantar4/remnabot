@@ -1,45 +1,42 @@
-# Smoke map — Phase 8 cabinet Latin digits + RTL copy
+# Smoke map — Partner sequential username (global public serial)
 
-> Branch `i18n/fa-cabinet-latin-digits`; staging deployed after 3 commits (Commit 3 LtrIsolate skipped).
+> Branch `feat/subscription-public-serial`; staging deployed after Alembic `0101` + `make staging-rebuild`.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `i18n/fa-cabinet-latin-digits` |
-| Commit 1 | `0ef8cc37` — Latin digits in 22 user paths (`cabinet/src/locales/fa.json`) |
-| Commit 2 | `dcca3852` — RTL/bidi copy fixes (QR order, steps, گیگ, Stars Persian) |
-| Commit 3 | skipped — JSON fixes sufficient; no `LtrIsolate.tsx` |
-| Commit 4 | `c76b900d` — `test_cabinet_user_fa_has_latin_digits` + QR order guard |
-| Staging | `make staging-rebuild` + `make staging-health` |
-| Surfaces | Staging cabinet (`staging-host-cabinet`, port 3021) |
+| Branch | `feat/subscription-public-serial` |
+| Tip (pre-docs) | `8b868572` — brand settings from photo referral menu |
+| Key commits | `4a901bfd` PG sequence START 1000; `ac604cee` decimal serial allocator; `70ea755a` brand button at confirm; `5168012e` serial in list/search; `8b868572` referral menu brand settings |
+| Migration | `0101_subscription_public_serial_seq` |
+| Staging | `make staging-migrate` + `make staging-rebuild` + `make staging-health` |
+| Bot | `@mrj7_bot` (staging Telegram) |
+| Plan | `docs/superpowers/plans/2026-06-24-partner-sequential-username.md` |
 
 ## What changed
 
-**Commit 1 — Western digits (0–9):** 22 user paths across `auth.passwordTooShort`, `dashboard.usageLast14Days`, `subscription.trafficReset.MONTH_ROLLING`, `subscription.connection` steps, `subscription.tvQuickConnect`, `referral.partner`, `landing.periodLabels` d1–d456.
+- Global PostgreSQL sequence allocates decimal public serial (`1000`, `1001`, …) into `subscriptions.remnawave_short_id`.
+- Multi-tariff panel username: `{brand_or_template}_{serial}` (e.g. `mobile_x_1000`).
+- Partner checkout: brand-name button + preview on confirm (no toggle); prefix stored on `users.panel_brand_prefix`.
+- My subscriptions: partners see `#serial` and can search by serial.
+- Renewals: panel username unchanged.
 
-**Commit 2 — RTL-safe copy:** `showQR` / `scanBtn` QR word order; connection steps `مرحله 1:` … `مرحله 3:`; traffic labels `گیگ` instead of `GB`; Persian wrappers for OAuth session, Stars payment strings.
+## User smoke checklist (staging @mrj7_bot)
 
-**Guard:** user cabinet paths with Persian digits → **0** (admin unchanged).
+| Step | Telegram @mrj7_bot | Expected |
+|------|---------------------|----------|
+| Partner confirm | Buy tariff → confirm screen | «نام دلخواه: هنوز انتخاب نشده» + button |
+| Set brand | Tap 🏷 → `mobile_x` | Preview shows `mobile_x`; DB `users.panel_brand_prefix` |
+| First buy | Confirm | Panel username `mobile_x_1000` (or next serial) |
+| Second buy | Confirm without changing brand | `mobile_x_1001` |
+| Search | My subscriptions → search `1001` | Finds subscription |
+| Renewal | Renew existing | Username unchanged in panel |
+| Referral menu | Referrals → 🏷 نام برند | Brand settings opens (photo menu fix) |
 
-## User smoke checklist (staging cabinet)
-
-| # | Path | Expect |
-|---|------|--------|
-| 1 | Register — password too short | `8 کاراکتر`; digits not flipped |
-| 2 | Dashboard chart label | `14 روز` reads left-to-right within RTL page |
-| 3 | Subscription → connection guide (`/connection`) | Steps show `مرحله 1:` … `مرحله 3:`; title `راهنمای اتصال VPN` |
-| 4 | Purchase wizard → confirm step | `حجم: N گیگ` — no `GB` bidi jump |
-| 5 | Traffic top-up sheet | Limit line `…گیگ`; package buttons readable |
-| 6 | TV quick connect | `5 رقمی`; `اسکن کد QR` not `QR کد` |
-| 7 | Balance → Stars error (outside miniapp) | `پرداخت با ستاره فقط در مینی‌اپ تلگرام` |
-| 8 | Landing period picker | `1 روز`, `1 هفته`, Latin digits |
-| 9 | Wheel → Stars payment label | `ستاره‌های تلگرام` |
-| 10 | Admin cabinet | unchanged (admin track) |
-
-**Regression:** Phase 7 device terminology (`کاربر`/`اتصال`), Toman amounts, Jalali dates, Phase 6 `سرویس` labels.
+**Regression:** default purchase (non-partner) still works; existing hex serial rows unchanged; Toman/Jalali/device terminology unaffected.
 
 ## Sign-off
 
-- [ ] User smoke on staging cabinet
-- [ ] PR → merge → prod deploy
+- [ ] User smoke on `@mrj7_bot` (partner account with brand prefix)
+- [ ] PR → merge → prod deploy (after `تایید`)

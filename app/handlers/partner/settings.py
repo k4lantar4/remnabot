@@ -15,6 +15,7 @@ from app.database.models import User
 from app.localization.texts import get_texts
 from app.states import PartnerStates
 from app.utils.decorators import error_handler
+from app.utils.photo_message import edit_or_answer_photo
 from app.utils.remnawave_panel_identity import validate_brand_prefix
 
 logger = structlog.get_logger(__name__)
@@ -59,10 +60,12 @@ async def show_partner_brand_settings(
         'نام فعلی: {current}',
     ).format(current=html.escape(current) if current else texts.t('PARTNER_BRAND_NOT_SET', '— تنظیم نشده —'))
 
-    await callback.message.edit_text(
+    await edit_or_answer_photo(
+        callback,
         body,
-        reply_markup=_partner_settings_keyboard(db_user.language, current_prefix=current or None),
+        _partner_settings_keyboard(db_user.language, current_prefix=current or None),
         parse_mode='HTML',
+        force_text=True,
     )
     await state.set_state(PartnerStates.entering_brand_prefix)
 
@@ -126,10 +129,12 @@ async def clear_partner_brand_prefix(
         'نام فعلی: {current}',
     ).format(current=texts.t('PARTNER_BRAND_NOT_SET', '— تنظیم نشده —'))
 
-    await callback.message.edit_text(
+    await edit_or_answer_photo(
+        callback,
         body,
-        reply_markup=_partner_settings_keyboard(db_user.language, current_prefix=None),
+        _partner_settings_keyboard(db_user.language, current_prefix=None),
         parse_mode='HTML',
+        force_text=True,
     )
     await state.set_state(PartnerStates.entering_brand_prefix)
 

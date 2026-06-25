@@ -26,7 +26,7 @@ def _make_subscription() -> Subscription:
     sub = MagicMock(spec=Subscription)
     sub.id = 99
     sub.remnawave_uuid = 'uuid-existing-123'
-    sub.remnawave_short_id = '41103d'
+    sub.remnawave_short_id = '10001'
     sub.account_sequence = 1
     sub.end_date = datetime(2026, 7, 17, 16, 22, tzinfo=UTC)
     sub.traffic_limit_gb = 86

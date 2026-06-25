@@ -206,6 +206,27 @@ def test_brand_prefix_username() -> None:
     assert len(result) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH
 
 
+def test_brand_prefix_with_large_serial_fits_limit() -> None:
+    from types import SimpleNamespace
+
+    from app.utils.remnawave_panel_identity import build_subscription_panel_username
+
+    user = SimpleNamespace(
+        full_name='Test',
+        username='t',
+        telegram_id=1,
+        email=None,
+        id=1,
+        partner_status='approved',
+        panel_brand_prefix='mob_x',
+        is_partner=True,
+    )
+    # 5-digit serial + prefix within 36 chars
+    result = build_subscription_panel_username(settings, user, suffix='_10001')
+    assert len(result) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH
+    assert result == 'mob_x_10001'
+
+
 def test_brand_prefix_disabled_falls_back() -> None:
     user = type(
         'User',

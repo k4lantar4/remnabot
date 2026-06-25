@@ -10,13 +10,14 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.crud.tariff import get_tariff_by_id
+from app.database.crud.user import update_user
 from app.database.models import User
 from app.localization.texts import get_texts
 from app.states import SubscriptionStates
 from app.utils.decorators import error_handler
 from app.utils.message_edit import edit_bot_message_text_or_caption
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
-from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
+from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN, validate_brand_prefix
 
 
 def _sanitize_purchase_note(value: str | None) -> str | None:
@@ -56,6 +57,35 @@ def append_purchase_note_preview(text: str, texts, purchase_note: str | None) ->
     )
 
 
+def append_brand_prefix_preview(text: str, texts, prefix: str | None) -> str:
+    if prefix:
+        return text + '\n\n' + texts.t(
+            'PARTNER_BRAND_NAME_PREVIEW',
+            '🏷 نام دلخواه: <code>{prefix}</code>',
+        ).format(prefix=html.escape(prefix))
+    return text + '\n\n' + texts.t(
+        'PARTNER_BRAND_NAME_NOT_SET',
+        '🏷 نام دلخواه: هنوز انتخاب نشده',
+    )
+
+
+def build_partner_confirm_body(
+    base: str,
+    texts,
+    db_user: User,
+    checkout_state: dict,
+) -> str:
+    partner_opts = checkout_partner_options(db_user, checkout_state)
+    body = append_purchase_note_preview(base, texts, partner_opts['purchase_note'])
+    if db_user.is_partner:
+        body = append_brand_prefix_preview(
+            body,
+            texts,
+            (db_user.panel_brand_prefix or '').strip() or None,
+        )
+    return body
+
+
 def get_partner_tariff_confirm_keyboard(
     tariff_id: int,
     period: int,
@@ -63,8 +93,6 @@ def get_partner_tariff_confirm_keyboard(
     *,
     db_user: User | None = None,
     purchase_note: str | None = None,
-    use_brand_prefix: bool = False,
-    show_brand_toggle: bool = False,
 ) -> InlineKeyboardMarkup:
     texts = get_texts(language)
     rows: list[list[InlineKeyboardButton]] = []
@@ -79,15 +107,17 @@ def get_partner_tariff_confirm_keyboard(
                 callback_data=f'tariff_purchase_note:{tariff_id}:{period}',
             )
         )
-        if show_brand_toggle:
-            key = 'PARTNER_BRAND_TOGGLE_ON' if use_brand_prefix else 'PARTNER_BRAND_TOGGLE_OFF'
-            fallback = '✅ استفاده از نام برند' if use_brand_prefix else '⬜ استفاده از نام برند'
-            partner_row.append(
-                InlineKeyboardButton(
-                    text=texts.t(key, fallback),
-                    callback_data=f'tariff_brand_toggle:{tariff_id}:{period}',
-                )
+        brand_key = (
+            'PARTNER_BRAND_NAME_SET_BTN'
+            if (db_user.panel_brand_prefix or '').strip()
+            else 'PARTNER_BRAND_NAME_BTN'
+        )
+        partner_row.append(
+            InlineKeyboardButton(
+                text=texts.t(brand_key, '🏷 نام دلخواه'),
+                callback_data=f'tariff_purchase_brand:{tariff_id}:{period}',
             )
+        )
         rows.append(partner_row)
 
     rows.append(
@@ -132,7 +162,7 @@ async def render_tariff_confirm_screen(
         user=db_user,
     )
     partner_opts = checkout_partner_options(db_user, state_data)
-    body = append_purchase_note_preview(
+    body = build_partner_confirm_body(
         format_tariff_purchase_confirm_text(
             texts,
             tariff=tariff,
@@ -144,7 +174,8 @@ async def render_tariff_confirm_screen(
             user=db_user,
         ),
         texts,
-        partner_opts['purchase_note'],
+        db_user,
+        state_data,
     )
     await edit_bot_message_text_or_caption(
         bot,
@@ -157,8 +188,6 @@ async def render_tariff_confirm_screen(
             db_user.language,
             db_user=db_user,
             purchase_note=partner_opts['purchase_note'],
-            use_brand_prefix=partner_opts['use_brand_prefix'],
-            show_brand_toggle=partner_opts['has_brand_prefix'],
         ),
         parse_mode='HTML',
         fallback_message=fallback_message,
@@ -254,37 +283,130 @@ async def handle_tariff_purchase_note_input(
 
 
 @error_handler
-async def toggle_tariff_brand_prefix(
+async def prompt_tariff_purchase_brand(
     callback: types.CallbackQuery,
     db_user: User,
-    db: AsyncSession,
     state: FSMContext,
 ) -> None:
     texts = get_texts(db_user.language)
-    if not db_user.is_partner or not (db_user.panel_brand_prefix or '').strip():
-        await callback.answer(texts.t('PARTNER_BRAND_NOT_SET', '— تنظیم نشده —'), show_alert=True)
+    if not db_user.is_partner:
+        await callback.answer(texts.t('PARTNER_ONLY', 'فقط برای همکاران'), show_alert=True)
         return
 
     parts = callback.data.split(':')
     tariff_id, period = int(parts[1]), int(parts[2])
-    state_data = await state.get_data()
-    current = state_data.get('use_brand_prefix', True)
-    await state.update_data(use_brand_prefix=not current)
     await callback.answer()
+    await state.update_data(
+        purchase_brand_tariff_id=tariff_id,
+        purchase_brand_period=period,
+        purchase_brand_chat_id=callback.message.chat.id,
+        purchase_brand_message_id=callback.message.message_id,
+    )
+    await state.set_state(SubscriptionStates.entering_purchase_brand)
+    await callback.message.edit_text(
+        texts.t(
+            'PARTNER_BRAND_NAME_PROMPT',
+            '🏷 نام دلخواه برای اشتراک‌های جدید (۳ تا ۲۰ کاراکتر انگلیسی/عدد/_/-).\n'
+            'برای رد کردن /skip را بفرستید.',
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=texts.BACK, callback_data=f'tariff_period:{tariff_id}:{period}')]
+            ]
+        ),
+    )
+
+
+@error_handler
+async def handle_tariff_purchase_brand_input(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    state_data = await state.get_data()
+    tariff_id = state_data.get('purchase_brand_tariff_id')
+    period = state_data.get('purchase_brand_period')
+    if not tariff_id or not period:
+        await state.set_state(None)
+        return
+
+    texts = get_texts(db_user.language)
+    raw = (message.text or '').strip()
+    if raw.lower() in ('/skip', 'skip', '-'):
+        chat_id = state_data.get('purchase_brand_chat_id')
+        message_id = state_data.get('purchase_brand_message_id')
+        if not chat_id or not message_id:
+            await state.set_state(None)
+            return
+        await state.set_state(None)
+        await render_tariff_confirm_screen(
+            bot=message.bot,
+            chat_id=int(chat_id),
+            message_id=int(message_id),
+            db_user=db_user,
+            db=db,
+            state=state,
+            tariff_id=int(tariff_id),
+            period=int(period),
+            fallback_message=message,
+        )
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        return
+    if not raw:
+        await message.answer(
+            texts.t(
+                'PARTNER_BRAND_NAME_PROMPT',
+                '🏷 نام دلخواه برای اشتراک‌های جدید (۳ تا ۲۰ کاراکتر انگلیسی/عدد/_/-).\n'
+                'برای رد کردن /skip را بفرستید.',
+            )
+        )
+        return
+    prefix = validate_brand_prefix(raw)
+    if not prefix:
+        await message.answer(
+            texts.t(
+                'PARTNER_BRAND_INVALID',
+                '❌ نام برند نامعتبر است. فقط حروف انگلیسی، اعداد، _ و - (۳ تا ۲۰ کاراکتر).\n'
+                'مثال: <code>Mobile_x_shop</code>',
+            ),
+            parse_mode='HTML',
+        )
+        return
+    await update_user(db, db_user, panel_brand_prefix=prefix)
+    await db.commit()
+    db_user.panel_brand_prefix = prefix
+
+    chat_id = state_data.get('purchase_brand_chat_id')
+    message_id = state_data.get('purchase_brand_message_id')
+    if not chat_id or not message_id:
+        await state.set_state(None)
+        return
+
+    await state.update_data(use_brand_prefix=True)
+    await state.set_state(None)
     await render_tariff_confirm_screen(
-        bot=callback.bot,
-        chat_id=callback.message.chat.id,
-        message_id=callback.message.message_id,
+        bot=message.bot,
+        chat_id=int(chat_id),
+        message_id=int(message_id),
         db_user=db_user,
         db=db,
         state=state,
-        tariff_id=tariff_id,
-        period=period,
-        fallback_message=callback.message,
+        tariff_id=int(tariff_id),
+        period=int(period),
+        fallback_message=message,
     )
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 def register_partner_checkout_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(prompt_tariff_purchase_note, F.data.startswith('tariff_purchase_note:'))
-    dp.callback_query.register(toggle_tariff_brand_prefix, F.data.startswith('tariff_brand_toggle:'))
+    dp.callback_query.register(prompt_tariff_purchase_brand, F.data.startswith('tariff_purchase_brand:'))
     dp.message.register(handle_tariff_purchase_note_input, SubscriptionStates.entering_purchase_note)
+    dp.message.register(handle_tariff_purchase_brand_input, SubscriptionStates.entering_purchase_brand)

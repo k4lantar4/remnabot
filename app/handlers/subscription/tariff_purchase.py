@@ -565,8 +565,6 @@ def get_tariff_confirm_keyboard(
     *,
     db_user: User | None = None,
     purchase_note: str | None = None,
-    use_brand_prefix: bool = False,
-    show_brand_toggle: bool = False,
 ) -> InlineKeyboardMarkup:
     from app.handlers.subscription.tariff_purchase_partner import get_partner_tariff_confirm_keyboard
 
@@ -576,8 +574,6 @@ def get_tariff_confirm_keyboard(
         language,
         db_user=db_user,
         purchase_note=purchase_note,
-        use_brand_prefix=use_brand_prefix,
-        show_brand_toggle=show_brand_toggle,
     )
 
 
@@ -1613,12 +1609,12 @@ async def select_tariff_period_custom_traffic(
     if ctx['can_afford']:
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -1630,7 +1626,8 @@ async def select_tariff_period_custom_traffic(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -1638,8 +1635,6 @@ async def select_tariff_period_custom_traffic(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )
@@ -1916,6 +1911,14 @@ async def handle_custom_confirm(
             pass
         return
 
+    _checkout_state = await state.get_data() if state else {}
+    from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+    _partner_opts = checkout_partner_options(db_user, _checkout_state)
+    if getattr(db_user, 'is_partner', False):
+        subscription.purchase_note = _partner_opts['purchase_note']
+        await db.flush()
+
     try:
         # Обновляем пользователя в Remnawave
         # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
@@ -1932,6 +1935,7 @@ async def handle_custom_confirm(
                     subscription,
                     reset_traffic=True,
                     reset_reason='покупка тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -2069,12 +2073,12 @@ async def select_tariff_period(
     if ctx['can_afford']:
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -2086,7 +2090,8 @@ async def select_tariff_period(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -2094,8 +2099,6 @@ async def select_tariff_period(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )
@@ -2804,6 +2807,14 @@ async def confirm_daily_tariff_purchase(
             pass
         return
 
+    _checkout_state = await state.get_data() if state else {}
+    from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+    _partner_opts = checkout_partner_options(db_user, _checkout_state)
+    if getattr(db_user, 'is_partner', False):
+        subscription.purchase_note = _partner_opts['purchase_note']
+        await db.flush()
+
     # Обновляем пользователя в Remnawave
     # При покупке тарифа ВСЕГДА сбрасываем трафик в панели
     try:
@@ -2819,6 +2830,7 @@ async def confirm_daily_tariff_purchase(
                 subscription,
                 reset_traffic=True,
                 reset_reason='покупка суточного тарифа',
+                use_brand_prefix=_partner_opts['use_brand_prefix'],
             )
         else:
             await subscription_service.update_remnawave_user(
@@ -3479,6 +3491,13 @@ async def confirm_tariff_extend(
             device_limit=actual_device_limit if was_trial else None,
         )
 
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave
         try:
             subscription_service = SubscriptionService()
@@ -3493,6 +3512,7 @@ async def confirm_tariff_extend(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_PAYMENT or was_trial,
                     reset_reason='конвертация триала' if was_trial else 'продление тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -4244,6 +4264,14 @@ async def confirm_tariff_switch(
             connected_squads=squads,
         )
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave
         try:
             subscription_service = SubscriptionService()
@@ -4258,6 +4286,7 @@ async def confirm_tariff_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='переключение тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -4543,6 +4572,14 @@ async def confirm_daily_tariff_switch(
         await db.commit()
         await db.refresh(subscription)
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
         try:
             subscription_service = SubscriptionService()
@@ -4557,6 +4594,7 @@ async def confirm_daily_tariff_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='смена на суточный тариф',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -5405,6 +5443,14 @@ async def confirm_instant_switch(
         await db.commit()
         await db.refresh(subscription)
 
+        _checkout_state = await state.get_data() if state else {}
+        from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options
+
+        _partner_opts = checkout_partner_options(db_user, _checkout_state)
+        if getattr(db_user, 'is_partner', False):
+            subscription.purchase_note = _partner_opts['purchase_note']
+            await db.flush()
+
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
         try:
             subscription_service = SubscriptionService()
@@ -5419,6 +5465,7 @@ async def confirm_instant_switch(
                     subscription,
                     reset_traffic=settings.RESET_TRAFFIC_ON_TARIFF_SWITCH,
                     reset_reason='мгновенное переключение тарифа',
+                    use_brand_prefix=_partner_opts['use_brand_prefix'],
                 )
             else:
                 await subscription_service.update_remnawave_user(
@@ -5832,12 +5879,12 @@ async def return_to_saved_tariff_cart(
 
         state_data = await state.get_data()
         from app.handlers.subscription.tariff_purchase_partner import (
-            append_purchase_note_preview,
+            build_partner_confirm_body,
             checkout_partner_options,
         )
         partner_opts = checkout_partner_options(db_user, state_data)
         await callback.message.edit_text(
-            append_purchase_note_preview(
+            build_partner_confirm_body(
                 format_tariff_purchase_confirm_text(
                     texts,
                     tariff=tariff,
@@ -5849,7 +5896,8 @@ async def return_to_saved_tariff_cart(
                     user=db_user,
                 ),
                 texts,
-                partner_opts['purchase_note'],
+                db_user,
+                state_data,
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -5857,8 +5905,6 @@ async def return_to_saved_tariff_cart(
                 db_user.language,
                 db_user=db_user,
                 purchase_note=partner_opts['purchase_note'],
-                use_brand_prefix=partner_opts['use_brand_prefix'],
-                show_brand_toggle=partner_opts['has_brand_prefix'],
             ),
             parse_mode='HTML',
         )

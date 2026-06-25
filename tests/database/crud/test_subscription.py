@@ -11,7 +11,8 @@ async def test_create_trial_subscription_uses_all_available_squads_by_default(mo
     db.refresh = AsyncMock()
 
     monkeypatch.setattr('app.database.crud.subscription.get_subscription_by_user_id', AsyncMock(return_value=None))
-    monkeypatch.setattr('app.database.crud.subscription.generate_unique_short_id', AsyncMock(return_value='abc123'))
+    monkeypatch.setattr('app.database.crud.subscription.generate_unique_short_id', AsyncMock(return_value='1000'))
+    monkeypatch.setattr('app.database.crud.subscription.get_next_account_sequence', AsyncMock(return_value=1))
     monkeypatch.setattr(
         'app.database.crud.server_squad.get_available_server_squads',
         AsyncMock(

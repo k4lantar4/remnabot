@@ -1,5 +1,4 @@
 import math
-import secrets
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 
@@ -11,6 +10,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import settings
 from app.database.crud.notification import clear_notifications
+from app.database.crud.subscription_serial import allocate_subscription_public_serial
 from app.database.models import (
     Subscription,
     SubscriptionServer,
@@ -34,14 +34,9 @@ async def get_next_account_sequence(db: AsyncSession, user_id: int) -> int:
 
 
 async def generate_unique_short_id(db: AsyncSession, max_attempts: int = 10) -> str:
-    """Generate a unique remnawave_short_id (6 hex chars) with collision check."""
-    for _ in range(max_attempts):
-        short_id = secrets.token_hex(3)
-        existing = await db.execute(select(Subscription.id).where(Subscription.remnawave_short_id == short_id).limit(1))
-        if existing.scalar_one_or_none() is None:
-            return short_id
-    # Fallback: 8 chars for extra entropy
-    return secrets.token_hex(4)
+    """Deprecated name — returns global public serial (decimal), not random hex."""
+    del max_attempts  # unused; kept for signature compat
+    return await allocate_subscription_public_serial(db)
 
 
 _WEBHOOK_GUARD_SECONDS = 60

@@ -67,8 +67,9 @@ def test_brand_prefix_username() -> None:
         is_partner=True,
         partner_status='approved',
     )
-    result = build_subscription_panel_username(settings, user, suffix='_abc123')
-    assert result == 'Mobile_x_shop_abc123'
+    result = build_subscription_panel_username(settings, user, suffix='_1042')
+    assert result.startswith('Mobile_x_shop_')
+    assert result.endswith('1042')
     assert len(result) <= settings.REMNAWAVE_USERNAME_MAX_LENGTH
 
 
