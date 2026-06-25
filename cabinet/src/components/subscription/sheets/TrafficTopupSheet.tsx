@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { getErrorMessage } from '../../../utils/subscriptionHelpers';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import { ChevronRightIcon } from '../../icons';
@@ -40,11 +41,12 @@ export function TrafficTopupSheet({
 }: TrafficTopupSheetProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { formatAmount, currencySymbol } = useCurrency();
 
-  const formatPrice = (kopeks: number) => {
-    const rubles = kopeks / 100;
-    return rubles % 1 === 0 ? `${rubles} ₽` : `${rubles.toFixed(2)} ₽`;
-  };
+  const formatPrice = (kopeks: number) =>
+    kopeks === 0
+      ? t('subscription.free', 'Бесплатно')
+      : `${formatAmount(kopeks / 100)} ${currencySymbol}`;
 
   const { data: trafficPackages } = useQuery({
     queryKey: ['traffic-packages', subscriptionId],
@@ -134,9 +136,13 @@ export function TrafficTopupSheet({
                 }`}
               >
                 <div className="text-lg font-semibold text-dark-100">
-                  {pkg.is_unlimited
-                    ? '♾️ ' + t('subscription.additionalOptions.unlimited')
-                    : `${pkg.gb} ${t('common.units.gb')}`}
+                  {pkg.is_unlimited ? (
+                    '♾️ ' + t('subscription.additionalOptions.unlimited')
+                  ) : (
+                    <span dir="ltr" className="inline-block [unicode-bidi:isolate] tabular-nums">
+                      {pkg.gb} {t('common.units.gb')}
+                    </span>
+                  )}
                 </div>
                 {pkg.discount_percent && pkg.discount_percent > 0 && (
                   <div className="mb-1">
