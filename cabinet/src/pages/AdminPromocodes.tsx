@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
+import { formatUserDate } from '../utils/formatDate';
 import { promocodesApi, PromoCode, PromoCodeType } from '../api/promocodes';
 import { usePlatform } from '../platform/hooks/usePlatform';
 import { copyToClipboard } from '../utils/clipboard';
@@ -39,16 +40,7 @@ const getTypeColor = (type: PromoCodeType): string => {
   return colors[type] || 'bg-dark-600 text-dark-300';
 };
 
-const formatDate = (date: string | null): string => {
-  if (!date) return '-';
-  const localeMap: Record<string, string> = { ru: 'ru-RU', en: 'en-US', zh: 'zh-CN', fa: 'fa-IR' };
-  const locale = localeMap[i18n.language] || 'ru-RU';
-  return new Date(date).toLocaleDateString(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
+const formatDate = (date: string | null): string => formatUserDate(date, i18n.language);
 
 export default function AdminPromocodes() {
   const { t } = useTranslation();

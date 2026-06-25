@@ -360,7 +360,7 @@ export default function AdminPartnerDetail() {
                         {campaign.registrations_count}
                       </div>
                       <div className="text-[10px] text-dark-500">
-                        {t('admin.partnerDetail.campaigns.registrations', 'Регистрации')}
+                        {t('admin.partnerDetail.campaigns.registrations', 'Registrations')}
                       </div>
                     </div>
                     <div className="text-center">
@@ -368,7 +368,7 @@ export default function AdminPartnerDetail() {
                         {campaign.referrals_count}
                       </div>
                       <div className="text-[10px] text-dark-500">
-                        {t('admin.partnerDetail.campaigns.referrals', 'Рефералы')}
+                        {t('admin.partnerDetail.campaigns.referrals', 'Referrals')}
                       </div>
                     </div>
                     <div className="text-center">
@@ -378,7 +378,7 @@ export default function AdminPartnerDetail() {
                         {formatWithCurrency(campaign.earnings_kopeks / 100)}
                       </div>
                       <div className="text-[10px] text-dark-500">
-                        {t('admin.partnerDetail.campaigns.earnings', 'Доход')}
+                        {t('admin.partnerDetail.campaigns.earnings', 'Earnings')}
                       </div>
                     </div>
                   </div>

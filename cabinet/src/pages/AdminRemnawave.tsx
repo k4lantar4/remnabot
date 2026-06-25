@@ -699,7 +699,7 @@ function OverviewTab({
             color={stats.system.nodes_online < stats.system.total_nodes ? 'orange' : 'purple'}
           />
           <StatCard
-            label={t('admin.remnawave.overview.active24h', 'Активны за 24ч')}
+            label={t('admin.remnawave.overview.active24h', 'Active in 24h')}
             value={stats.system.users_last_day}
             icon={<ServerIcon className="h-5 w-5" />}
             color="orange"
@@ -828,33 +828,33 @@ function OverviewTab({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-300">
             <RemnawaveIcon className="h-4 w-4" />
-            {t('admin.remnawave.overview.panel', 'Панель')}
+            {t('admin.remnawave.overview.panel', 'Panel')}
           </h3>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 max-lg:[&>*:last-child:nth-child(odd)]:col-span-2">
             <StatCard
-              label={t('admin.remnawave.overview.lifetimeTraffic', 'Трафик за всё время')}
+              label={t('admin.remnawave.overview.lifetimeTraffic', 'Lifetime traffic')}
               value={formatBytes(recap.total.traffic_bytes)}
               icon={<ChartIcon className="h-5 w-5" />}
               color="purple"
             />
             <StatCard
-              label={t('admin.remnawave.overview.thisMonthTraffic', 'Трафик за месяц')}
+              label={t('admin.remnawave.overview.thisMonthTraffic', 'Traffic this month')}
               value={formatBytes(recap.this_month.traffic_bytes)}
               icon={<ChartIcon className="h-5 w-5" />}
               color="blue"
             />
             <StatCard
-              label={t('admin.remnawave.overview.countries', 'Стран')}
+              label={t('admin.remnawave.overview.countries', 'Countries')}
               value={recap.total.distinct_countries}
               icon={<GlobeIcon className="h-5 w-5" />}
               color="green"
             />
             <StatCard
-              label={t('admin.remnawave.overview.panelVersion', 'Версия панели')}
+              label={t('admin.remnawave.overview.panelVersion', 'Panel version')}
               value={recap.version || '—'}
               subValue={
                 recap.init_date
-                  ? `${t('admin.remnawave.overview.uptime', 'аптайм')} ${formatUptimeSince(recap.init_date)}`
+                  ? `${t('admin.remnawave.overview.uptime', 'uptime')} ${formatUptimeSince(recap.init_date)}`
                   : undefined
               }
               icon={<ServerIcon className="h-5 w-5" />}
@@ -869,22 +869,22 @@ function OverviewTab({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-300">
             <DevicesIcon className="h-4 w-4" />
-            {t('admin.remnawave.overview.devices', 'Устройства')} ·{' '}
+            {t('admin.remnawave.overview.devices', 'Devices')} ·{' '}
             {devicesStats.total_hwid_devices} ({devicesStats.average_devices_per_user.toFixed(1)}/
-            {t('admin.remnawave.overview.perUser', 'юзер')})
+            {t('admin.remnawave.overview.perUser', 'per user')})
           </h3>
           <div className="grid gap-3 lg:grid-cols-3">
             <BreakdownCard
-              title={t('admin.remnawave.overview.byPlatform', 'По платформам')}
+              title={t('admin.remnawave.overview.byPlatform', 'By platform')}
               items={devicesStats.by_platform.map((p) => ({ label: p.platform, count: p.count }))}
             />
             <BreakdownCard
-              title={t('admin.remnawave.overview.byApp', 'По приложениям')}
+              title={t('admin.remnawave.overview.byApp', 'By app')}
               items={devicesStats.by_app.map((a) => ({ label: a.app, count: a.count }))}
             />
             {devicesStats.top_users.length > 0 && (
               <BreakdownCard
-                title={t('admin.remnawave.overview.topByDevices', 'Топ по устройствам')}
+                title={t('admin.remnawave.overview.topByDevices', 'Top by devices')}
                 items={devicesStats.top_users.map((u) => ({
                   label: u.username,
                   count: u.devices_count,
@@ -900,9 +900,9 @@ function OverviewTab({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-300">
             <ChartIcon className="h-4 w-4" />
-            {t('admin.remnawave.overview.topConsumers', 'Топ потребителей')} ·{' '}
+            {t('admin.remnawave.overview.topConsumers', 'Top consumers')} ·{' '}
             {topConsumers.period_days}
-            {t('admin.remnawave.overview.daysShort', 'д')}
+            {t('admin.remnawave.overview.daysShort', 'd')}
           </h3>
           <div className="divide-y divide-dark-700 rounded-xl border border-dark-700 bg-dark-800/50">
             {topConsumers.users.map((u, i) => (
@@ -928,12 +928,12 @@ function OverviewTab({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-300">
             <ServerIcon className="h-4 w-4" />
-            {t('admin.remnawave.overview.panelHealth', 'Здоровье панели')}
+            {t('admin.remnawave.overview.panelHealth', 'Panel health')}
             {health.instances > 1 ? ` · ${health.instances}` : ''}
           </h3>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 max-lg:[&>*:last-child:nth-child(odd)]:col-span-2">
             <StatCard
-              label={t('admin.remnawave.overview.panelRam', 'RAM процесса')}
+              label={t('admin.remnawave.overview.panelRam', 'Process RAM')}
               value={formatBytes(health.rss_bytes)}
               icon={<MemoryIcon className="h-5 w-5" />}
               color="blue"
@@ -952,7 +952,7 @@ function OverviewTab({
               color={health.event_loop_p99_ms > 50 ? 'red' : 'green'}
             />
             <StatCard
-              label={t('admin.remnawave.overview.panelUptime', 'Аптайм панели')}
+              label={t('admin.remnawave.overview.panelUptime', 'Panel uptime')}
               value={formatUptime(health.uptime_seconds)}
               icon={<StatUptimeIcon className="h-5 w-5" />}
               color="accent"
@@ -966,12 +966,12 @@ function OverviewTab({
         <div>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-dark-300">
             <SubscriptionIcon className="h-4 w-4" />
-            {t('admin.remnawave.overview.subRequests', 'Запросы подписки (по клиентам)')} ·{' '}
+            {t('admin.remnawave.overview.subRequests', 'Subscription requests (by client)')} ·{' '}
             {subRequests.by_app.reduce((acc, a) => acc + a.count, 0)}
           </h3>
           <BreakdownCard
             wide
-            title={t('admin.remnawave.overview.byApp', 'По приложениям')}
+            title={t('admin.remnawave.overview.byApp', 'By app')}
             items={subRequests.by_app.map((a) => ({ label: a.app, count: a.count }))}
           />
         </div>

@@ -197,14 +197,14 @@ export function TelegramPreview({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={t('admin.broadcasts.preview', 'Предпросмотр Telegram')}
+        aria-label={t('admin.broadcasts.preview', 'Telegram preview')}
         tabIndex={-1}
         className="w-full max-w-md rounded-2xl bg-[#17212b] p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold text-white">
-            {t('admin.broadcasts.preview', 'Предпросмотр Telegram')}
+            {t('admin.broadcasts.preview', 'Telegram preview')}
           </h3>
           <button
             onClick={onClose}
@@ -233,7 +233,7 @@ export function TelegramPreview({
               </div>
             ) : (
               <div className="text-sm italic text-white/60">
-                {t('admin.broadcasts.previewEmpty', '— пусто —')}
+                {t('admin.broadcasts.previewEmpty', '— empty —')}
               </div>
             )}
           </div>
@@ -265,7 +265,7 @@ export function EmailPreview({ open, onClose, subject, htmlContent }: EmailPrevi
   const { t } = useTranslation();
   const dialogRef = useFocusTrap<HTMLDivElement>(open, { onEscape: onClose });
   if (!open) return null;
-  const emptyHtml = `<p style="color:#999;font-family:sans-serif">${t('admin.broadcasts.previewEmpty', '— пусто —')}</p>`;
+  const emptyHtml = `<p style="color:#999;font-family:sans-serif">${t('admin.broadcasts.previewEmpty', '— empty —')}</p>`;
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-dark-950/70 p-4"
@@ -283,10 +283,10 @@ export function EmailPreview({ open, onClose, subject, htmlContent }: EmailPrevi
         <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <div className="min-w-0 flex-1">
             <div className="text-xs uppercase tracking-wider text-gray-400">
-              {t('admin.broadcasts.emailSubject', 'Тема')}
+              {t('admin.broadcasts.emailSubject', 'Subject')}
             </div>
             <div className="truncate text-base font-semibold text-gray-900">
-              {subject || t('admin.broadcasts.previewEmpty', '— пусто —')}
+              {subject || t('admin.broadcasts.previewEmpty', '— empty —')}
             </div>
           </div>
           <button

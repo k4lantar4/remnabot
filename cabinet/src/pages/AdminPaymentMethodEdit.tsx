@@ -200,7 +200,7 @@ export default function AdminPaymentMethodEdit() {
         <div className="flex items-center justify-between border-t border-dark-800 pt-6">
           <div className="pr-4">
             <div className="text-sm font-medium text-dark-200">
-              {t('admin.paymentMethods.openUrlDirect', 'Открывать страницу оплаты сразу')}
+              {t('admin.paymentMethods.openUrlDirect', 'Open payment page directly')}
             </div>
             <div className="mt-0.5 text-xs text-dark-500">
               {t(

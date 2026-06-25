@@ -1,3 +1,90 @@
+# Smoke map — Phase 10 Slice C: cabinet admin TSX fallbacks
+
+> Branch `i18n/admin-fa-completion` @ `97d4ee81`; 9 TSX files + remnawave `fa.json` keys; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-completion` |
+| Commits | `f58f93de` remnawave · `f318bd13` broadcasts · `ce02c928` user detail · `97d4ee81` partner/promo/payment |
+| Files | 9 cabinet admin TSX + `cabinet/src/locales/fa.json` (16 `admin.remnawave.overview` keys) |
+| Deploy | `make staging-cabinet-build` |
+| Cabinet URL | staging cabinet (`3021` / `staging-host-cabinet`) |
+| Guard | `rg "t\\(['\\\"]admin\\." cabinet/src` Cyrillic fallbacks = **0** |
+
+## What changed
+
+- 55 Cyrillic `t('admin.*', '…')` fallbacks → English upstream-safe defaults
+- 16 new Persian keys under `admin.remnawave.overview` (active24h, panel health, top consumers, etc.)
+- fa admin users still see Persian from `fa.json`; missing keys no longer fall back to Russian
+
+## User smoke checklist (staging cabinet, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| Remnawave overview | `/admin/remnawave` → Overview | Persian labels; no Cyrillic |
+| Broadcast create | `/admin/broadcasts/create` | Category/button labels Persian; preview modal Persian |
+| User subscription | `/admin/users/:id` → Subscription tab | Create/back/device rename Persian |
+| Partner detail | `/admin/partners/:id` → campaigns | Registrations/referrals/earnings Persian |
+| Promocode create | `/admin/promocodes/create` | Tariff picker Persian |
+| Regression | Ban monitoring, pinned messages (Slice B) | Unchanged |
+
+## Sign-off
+
+- [x] User smoke on staging cabinet (**تایید** 2026-06-25; post-fix `c53ff63e` redeployed)
+- [ ] Ship with Slice A + remaining Phase 10 slices
+
+### Smoke fixes (`c53ff63e`)
+
+| Issue | Fix |
+|-------|-----|
+| Broadcast buttons Russian (img 1) | UI uses `admin.broadcasts.btn*` from fa.json, not API `default_text` |
+| Filter dropdown Russian (img 2) | `admin.broadcasts.audienceFilters.*` keys; tariff **names** still from DB (e.g. Стандартный) |
+| `categoryDesc` Cyrillic | fa key + English fallback |
+| `Текущий трафик` / live traffic | `admin.remnawave.traffic.realtimeTitle` in fa.json |
+| Subscription dates Persian digits (img 3) | `formatUserDateTime` in admin user detail |
+| Promocode dates Persian digits (img 4) | `formatUserDate` in AdminPromocodes |
+
+---
+
+# Smoke map — Phase 10 Slice A: bot admin locale keys (CLOSED)
+
+> Branch `i18n/admin-fa-completion` @ `96133025`; bot `fa.json` only; user smoke **تایید** 2026-06-25.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-completion` |
+| Commit | `96133025` — 7 missing `texts.t` keys (C2C inbox back + disabled payment providers) |
+| Files | `app/localization/locales/fa.json` |
+| Deploy | `make staging-rebuild` (bot image + locale copy) |
+| Bot | `@mrj7_bot` (staging) |
+| Locale | `fa` admin (`get_texts(db_user.language)`) |
+
+## What changed
+
+- `C2C_ADMIN_INBOX_BACK` → `📥 صندوق ورودی` (was inline default only)
+- `PAYMENT_AURAPAY`, `PAYMENT_KASSA_AI`, `PAYMENT_OVERPAY`, `PAYMENT_PAYPEAR`, `PAYMENT_ROLLYPAY`, `PAYMENT_SEVERPAY` → Latin brand labels with `💳` prefix (disabled providers; admin config test buttons)
+
+## User smoke checklist (staging Telegram, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| C2C inbox back | Admin panel → C2C inbox → open receipt → tap back | Button `📥 صندوق ورودی` |
+| Regression | Cabinet `/admin` (Slice B) | Still Persian — unchanged |
+| Regression | User main menu | Still Persian — unchanged |
+
+Payment provider test buttons: optional (providers disabled in `.env`).
+
+## Sign-off
+
+- [x] User smoke on `@mrj7_bot` (**تایید** 2026-06-25)
+- [ ] Ship with remaining Phase 10 slices or standalone PR
+
+---
+
 # Smoke map — Phase 10 Slice B: cabinet admin Persian (CLOSED)
 
 > Branch `i18n/admin-fa-completion`; cabinet `fa.json` only; user smoke **تایید** 2026-06-25.

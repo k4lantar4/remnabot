@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import i18n from '../i18n';
+import { formatUserDateTime } from '../utils/formatDate';
 import { useNotify } from '../platform/hooks/useNotify';
 import { copyToClipboard as copyText } from '../utils/clipboard';
 import {
@@ -474,7 +475,7 @@ export default function AdminUserDetail() {
     const snapshotName = editingDeviceName.trim();
     try {
       await adminUsersApi.renameUserDevice(userId, hwid, snapshotName || null);
-      notify.success(t('admin.users.detail.devices.renamed', 'Имя устройства обновлено'));
+      notify.success(t('admin.users.detail.devices.renamed', 'Device name updated'));
       // Reset edit state only if user is still on the saved row.
       setEditingDeviceHwid((current) => (current === hwid ? null : current));
       await loadDevices();
@@ -683,16 +684,7 @@ export default function AdminUserDetail() {
     }
   };
 
-  const formatDate = (date: string | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString(locale, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatDate = (date: string | null) => formatUserDateTime(date, i18n.language);
 
   // Compute node usage for selected period from cached 30-day data
   const nodeUsageForPeriod = (() => {

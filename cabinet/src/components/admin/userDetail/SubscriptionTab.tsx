@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import i18n from '../../../i18n';
 import {
   BackIcon,
   CheckIcon,
@@ -11,6 +12,7 @@ import {
   XIcon,
 } from '@/components/icons';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../../../constants/devices';
+import { formatUserDateTime } from '../../../utils/formatDate';
 import { createNumberInputHandler } from '../../../utils/inputHelpers';
 import { getFlagEmoji } from '../../../utils/subscriptionHelpers';
 import type {
@@ -200,10 +202,11 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
     onLoadRequestHistory,
     hasPermission,
     formatDate,
-    locale,
+    locale: _locale,
   } = props;
   // Suppress activeSubscriptionId-unused; the parent uses it for query keys.
   void activeSubscriptionId;
+  void _locale;
 
   return (
     <div className="space-y-4">
@@ -235,7 +238,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
                   </span>
                   <span>{formatDate(sub.end_date)}</span>
                   <span>
-                    {sub.device_limit} {t('admin.users.detail.subscription.devices', 'устройств')}
+                    {sub.device_limit} {t('admin.users.detail.subscription.devices', 'devices')}
                   </span>
                 </div>
               </button>
@@ -246,7 +249,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
           {hasPermission('users:subscription') && (
             <div className="rounded-xl bg-dark-800/50 p-4">
               <div className="mb-3 text-sm font-medium text-dark-200">
-                {t('admin.users.detail.subscription.createNew', 'Создать подписку')}
+                {t('admin.users.detail.subscription.createNew', 'Create subscription')}
               </div>
               <div className="space-y-3">
                 <select
@@ -308,7 +311,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
               className="flex items-center gap-1.5 text-sm text-dark-400 transition-colors hover:text-dark-200"
             >
               <BackIcon className="h-4 w-4" />
-              {t('admin.users.detail.subscription.backToList', 'Все подписки')}
+              {t('admin.users.detail.subscription.backToList', 'All subscriptions')}
             </button>
           )}
 
@@ -553,7 +556,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
             </div>
           )}
           <div className="mb-3 text-sm font-medium text-dark-200">
-            {t('admin.users.detail.subscription.createNew', 'Создать подписку')}
+            {t('admin.users.detail.subscription.createNew', 'Create subscription')}
           </div>
           <div className="space-y-3">
             <select
@@ -915,7 +918,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
                           )}
                           <span className="font-mono">{device.hwid.slice(0, 8)}...</span>
                           {device.created_at && (
-                            <span>{new Date(device.created_at).toLocaleDateString(locale)}</span>
+                            <span>{formatUserDateTime(device.created_at, i18n.language)}</span>
                           )}
                         </div>
                       </div>
@@ -931,7 +934,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
                                 'admin.users.detail.devices.renameSave',
                                 t('common.save', 'Сохранить'),
                               )}
-                              aria-label={t('admin.users.detail.devices.renameSave', 'Сохранить')}
+                              aria-label={t('admin.users.detail.devices.renameSave', 'Save')}
                             >
                               <CheckIcon className="h-3.5 w-3.5" />
                             </button>
@@ -958,8 +961,8 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
                                 onEditingDeviceNameChange(device.local_name || '');
                               }}
                               className="rounded-lg px-2 py-1 text-dark-500 transition-all hover:bg-accent-500/15 hover:text-accent-400"
-                              title={t('admin.users.detail.devices.rename', 'Переименовать')}
-                              aria-label={t('admin.users.detail.devices.rename', 'Переименовать')}
+                              title={t('admin.users.detail.devices.rename', 'Rename')}
+                              aria-label={t('admin.users.detail.devices.rename', 'Rename')}
                             >
                               <EditIcon className="h-3.5 w-3.5" />
                             </button>

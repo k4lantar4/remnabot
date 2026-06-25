@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   adminBroadcastsApi,
   BroadcastFilter,
@@ -35,6 +36,52 @@ const FILTER_GROUP_LABEL_KEYS: Record<string, string> = {
   tariff: 'admin.broadcasts.filterGroups.tariff',
   email: 'admin.broadcasts.filterGroups.email',
 };
+
+const BROADCAST_BUTTON_LABEL_KEYS: Record<string, string> = {
+  balance: 'admin.broadcasts.btnBalance',
+  referrals: 'admin.broadcasts.btnPartners',
+  promocode: 'admin.broadcasts.btnPromocode',
+  connect: 'admin.broadcasts.btnConnect',
+  subscription: 'admin.broadcasts.btnSubscription',
+  support: 'admin.broadcasts.btnSupport',
+  home: 'admin.broadcasts.btnHome',
+};
+
+const AUDIENCE_FILTER_LABEL_KEYS: Record<string, string> = {
+  all: 'admin.broadcasts.audienceFilters.all',
+  active: 'admin.broadcasts.audienceFilters.active',
+  trial: 'admin.broadcasts.audienceFilters.trial',
+  no: 'admin.broadcasts.audienceFilters.no',
+  expiring: 'admin.broadcasts.audienceFilters.expiring',
+  expired: 'admin.broadcasts.audienceFilters.expired',
+  zero: 'admin.broadcasts.audienceFilters.zero',
+  active_zero: 'admin.broadcasts.audienceFilters.active_zero',
+  trial_zero: 'admin.broadcasts.audienceFilters.trial_zero',
+  custom_today: 'admin.broadcasts.audienceFilters.custom_today',
+  custom_week: 'admin.broadcasts.audienceFilters.custom_week',
+  custom_month: 'admin.broadcasts.audienceFilters.custom_month',
+  custom_active_today: 'admin.broadcasts.audienceFilters.custom_active_today',
+  custom_inactive_week: 'admin.broadcasts.audienceFilters.custom_inactive_week',
+  custom_inactive_month: 'admin.broadcasts.audienceFilters.custom_inactive_month',
+  custom_referrals: 'admin.broadcasts.audienceFilters.custom_referrals',
+  custom_direct: 'admin.broadcasts.audienceFilters.custom_direct',
+  all_email: 'admin.broadcasts.audienceFilters.all_email',
+  email_only: 'admin.broadcasts.audienceFilters.email_only',
+  telegram_with_email: 'admin.broadcasts.audienceFilters.telegram_with_email',
+  active_email: 'admin.broadcasts.audienceFilters.active_email',
+  expired_email: 'admin.broadcasts.audienceFilters.expired_email',
+};
+
+function resolveAudienceFilterLabel(
+  filter: BroadcastFilter | TariffFilter,
+  t: TFunction,
+): string {
+  const labelKey = AUDIENCE_FILTER_LABEL_KEYS[filter.key];
+  if (labelKey) {
+    return t(labelKey);
+  }
+  return filter.label;
+}
 
 export default function AdminBroadcastCreate() {
   const { t } = useTranslation();
@@ -94,18 +141,9 @@ export default function AdminBroadcastCreate() {
   const previewButtonRows = useMemo(() => {
     const rows: { text: string; url?: string; callback_data?: string }[][] = [];
     if (selectedButtons.length > 0) {
-      const presetLabels: Record<string, string> = {
-        balance: t('admin.broadcasts.btnBalance', 'Пополнить баланс'),
-        // Бот отдаёт ключ кнопки как 'referrals' (см. BROADCAST_BUTTONS в admin.py),
-        // раньше тут был 'partners' — из-за рассинхрона кнопка показывалась сырым
-        // ключом 'referrals' вместо «Партнёрка» (Telegram-баг #602989).
-        referrals: t('admin.broadcasts.btnPartners', 'Партнёрка'),
-        promocode: t('admin.broadcasts.btnPromocode', 'Промокод'),
-        connect: t('admin.broadcasts.btnConnect', 'Подключиться'),
-        subscription: t('admin.broadcasts.btnSubscription', 'Подписка'),
-        support: t('admin.broadcasts.btnSupport', 'Техподдержка'),
-        home: t('admin.broadcasts.btnHome', 'На главную'),
-      };
+      const presetLabels: Record<string, string> = Object.fromEntries(
+        Object.entries(BROADCAST_BUTTON_LABEL_KEYS).map(([id, key]) => [id, t(key)]),
+      );
       for (const id of selectedButtons) {
         rows.push([{ text: presetLabels[id] || id, callback_data: id }]);
       }
@@ -453,7 +491,7 @@ export default function AdminBroadcastCreate() {
             <UsersIcon />
             <span className={selectedFilter ? 'text-dark-100' : 'text-dark-400'}>
               {selectedFilter
-                ? selectedFilter.label
+                ? resolveAudienceFilterLabel(selectedFilter, t)
                 : channelType === 'telegram'
                   ? t('admin.broadcasts.selectFilterPlaceholder')
                   : t('admin.broadcasts.selectEmailFilterPlaceholder')}
@@ -485,7 +523,7 @@ export default function AdminBroadcastCreate() {
                         target === filter.key ? 'bg-accent-500/20' : ''
                       }`}
                     >
-                      <span className="text-dark-100">{filter.label}</span>
+                      <span className="text-dark-100">{resolveAudienceFilterLabel(filter, t)}</span>
                       {filter.count !== null && filter.count !== undefined && (
                         <span className="text-xs text-dark-400">{filter.count}</span>
                       )}
@@ -556,12 +594,12 @@ export default function AdminBroadcastCreate() {
       {/* Broadcast category */}
       <div className="card">
         <label className="mb-3 block text-sm font-medium text-dark-300">
-          {t('admin.broadcasts.category', 'Категория рассылки')}
+          {t('admin.broadcasts.category', 'Broadcast category')}
         </label>
         <p className="mb-3 text-xs text-dark-500">
           {t(
             'admin.broadcasts.categoryDesc',
-            'Пользователи могут отключить получение новостей и промо в настройках профиля. Системные рассылки доставляются всем.',
+            'Users can disable news and promo in profile settings. System broadcasts are delivered to everyone.',
           )}
         </p>
         <div className="flex gap-3">
@@ -575,9 +613,9 @@ export default function AdminBroadcastCreate() {
                   : 'border-dark-700 bg-dark-800 text-dark-300 hover:border-dark-600'
               }`}
             >
-              {cat === 'system' && t('admin.broadcasts.categorySystem', '⚙️ Системное')}
-              {cat === 'news' && t('admin.broadcasts.categoryNews', '📰 Новости')}
-              {cat === 'promo' && t('admin.broadcasts.categoryPromo', '🎁 Промо')}
+              {cat === 'system' && t('admin.broadcasts.categorySystem', 'System')}
+              {cat === 'news' && t('admin.broadcasts.categoryNews', 'News')}
+              {cat === 'promo' && t('admin.broadcasts.categoryPromo', 'Promo')}
             </button>
           ))}
         </div>
@@ -596,7 +634,7 @@ export default function AdminBroadcastCreate() {
               disabled={messageText.trim().length === 0}
               className="rounded-lg border border-dark-700 bg-dark-800 px-3 py-1.5 text-sm text-dark-300 transition-colors hover:border-dark-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('admin.broadcasts.preview', 'Предпросмотр')}
+              {t('admin.broadcasts.preview', 'Preview')}
             </button>
           </div>
 
@@ -706,7 +744,9 @@ export default function AdminBroadcastCreate() {
                       : 'border border-dark-700 bg-dark-800 text-dark-300 hover:bg-dark-700'
                   }`}
                 >
-                  {button.label}
+                  {BROADCAST_BUTTON_LABEL_KEYS[button.key]
+                    ? t(BROADCAST_BUTTON_LABEL_KEYS[button.key])
+                    : button.label}
                 </button>
               ))}
             </div>
@@ -844,7 +884,7 @@ export default function AdminBroadcastCreate() {
               disabled={emailContent.trim().length === 0}
               className="rounded-lg border border-dark-700 bg-dark-800 px-3 py-1.5 text-sm text-dark-300 transition-colors hover:border-dark-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('admin.broadcasts.preview', 'Предпросмотр')}
+              {t('admin.broadcasts.preview', 'Preview')}
             </button>
           </div>
 

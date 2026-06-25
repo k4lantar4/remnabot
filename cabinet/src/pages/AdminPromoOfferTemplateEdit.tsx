@@ -256,7 +256,7 @@ export default function AdminPromoOfferTemplateEdit() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-dark-300">
-                    {t('admin.promoOffers.form.testSquads', 'Тестовые серверы')}
+                    {t('admin.promoOffers.form.testSquads', 'Test squads')}
                   </label>
                   {serversData?.servers && serversData.servers.length > 0 ? (
                     <div className="space-y-1.5">
@@ -292,7 +292,7 @@ export default function AdminPromoOfferTemplateEdit() {
                     </div>
                   ) : (
                     <p className="text-sm text-dark-500">
-                      {t('admin.promoOffers.form.noServers', 'Нет доступных серверов')}
+                      {t('admin.promoOffers.form.noServers', 'No servers available')}
                     </p>
                   )}
                   {selectedSquadUuids.length === 0 && (
