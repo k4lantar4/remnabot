@@ -35,3 +35,35 @@
 
 - [ ] User smoke on staging cabinet (`تایید`)
 - [ ] PR → merge → prod deploy (after approval)
+
+---
+
+# Smoke map — Cabinet partner checkout (یادداشت + نام دلخواه)
+
+> Branch `feat/cabinet-partner-checkout`; staging bot + cabinet rebuild.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/cabinet-partner-checkout` |
+| Scope | Partner-only fields on `/subscription/purchase` confirm (cabinet + miniapp WebView) |
+| API | `POST /cabinet/subscription/purchase-tariff` + `GET /cabinet/referral/partner/status` (`panel_brand_prefix`) |
+| Staging | `make staging-rebuild` + `make staging-health` |
+| Cabinet URL | staging cabinet (`3021` / `staging-host-cabinet`) |
+| Bot | `@mrj7_bot` (partner account) |
+
+## User smoke checklist (approved partner, fa)
+
+| Step | Path | Expected |
+|------|------|----------|
+| Open purchase | Cabinet/miniapp → خرید سرویس → انتخاب سرویس → تأیید | بلوک «یادداشت خرید» + «نام دلخواه» visible |
+| Non-partner | Same with retail account | No partner block |
+| Prefill brand | Partner with saved prefix | نام دلخواه input prefilled |
+| Set note + brand | Enter note + `mobile_x` → خرید | Panel username `mobile_x_{serial}`; note in description |
+| Renew path | Renew existing sub | Purchase works; username unchanged on panel |
+
+## Sign-off
+
+- [ ] User smoke on staging (`تایید`)
+- [ ] PR → merge → prod deploy (after approval)
