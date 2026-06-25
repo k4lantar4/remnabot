@@ -2458,11 +2458,11 @@ def _extract_offer_duration_hours(
         return None
 
 
-def _format_bonus_label(amount_kopeks: int) -> str | None:
+def _format_bonus_label(amount_kopeks: int, user: User | None = None) -> str | None:
     if amount_kopeks <= 0:
         return None
     try:
-        return settings.format_price(amount_kopeks)
+        return _format_price(user, amount_kopeks)
     except Exception:  # pragma: no cover - defensive
         return f'{amount_kopeks / 100:.2f}'
 
@@ -2592,7 +2592,7 @@ async def _build_promo_offer_models(
         test_squads = build_test_squads(offer)
         server_name = test_squads[0].name if test_squads else None
         message_text = _format_offer_message(template, offer, server_name=server_name)
-        bonus_label = _format_bonus_label(int(getattr(offer, 'bonus_amount_kopeks', 0) or 0))
+        bonus_label = _format_bonus_label(int(getattr(offer, 'bonus_amount_kopeks', 0) or 0), user)
         discount_percent = getattr(offer, 'discount_percent', 0)
         try:
             discount_percent = int(discount_percent)
@@ -2656,7 +2656,7 @@ async def _build_promo_offer_models(
                 active_offer_record,
                 server_name=server_name,
             )
-            bonus_label = _format_bonus_label(int(getattr(active_offer_record, 'bonus_amount_kopeks', 0) or 0))
+            bonus_label = _format_bonus_label(int(getattr(active_offer_record, 'bonus_amount_kopeks', 0) or 0), user)
 
             started_at = getattr(active_offer_record, 'claimed_at', None)
             expires_at = expires_override or getattr(active_offer_record, 'expires_at', None)
@@ -2931,11 +2931,11 @@ async def _build_referral_info(
 
     terms = MiniAppReferralTerms(
         minimum_topup_kopeks=minimum_topup_kopeks,
-        minimum_topup_label=settings.format_price(minimum_topup_kopeks),
+        minimum_topup_label=_format_price(user, minimum_topup_kopeks),
         first_topup_bonus_kopeks=first_topup_bonus_kopeks,
-        first_topup_bonus_label=settings.format_price(first_topup_bonus_kopeks),
+        first_topup_bonus_label=_format_price(user, first_topup_bonus_kopeks),
         inviter_bonus_kopeks=inviter_bonus_kopeks,
-        inviter_bonus_label=settings.format_price(inviter_bonus_kopeks),
+        inviter_bonus_label=_format_price(user, inviter_bonus_kopeks),
         commission_percent=commission_percent,
     )
 
@@ -2952,9 +2952,9 @@ async def _build_referral_info(
             paid_referrals_count=int(summary.get('paid_referrals_count') or 0),
             active_referrals_count=int(summary.get('active_referrals_count') or 0),
             total_earned_kopeks=total_earned_kopeks,
-            total_earned_label=settings.format_price(total_earned_kopeks),
+            total_earned_label=_format_price(user, total_earned_kopeks),
             month_earned_kopeks=month_earned_kopeks,
-            month_earned_label=settings.format_price(month_earned_kopeks),
+            month_earned_label=_format_price(user, month_earned_kopeks),
             conversion_rate=float(summary.get('conversion_rate') or 0.0),
         )
 
@@ -2963,7 +2963,7 @@ async def _build_referral_info(
             recent_earnings.append(
                 MiniAppReferralRecentEarning(
                     amount_kopeks=amount,
-                    amount_label=settings.format_price(amount),
+                    amount_label=_format_price(user, amount),
                     reason=earning.get('reason'),
                     referral_name=earning.get('referral_name'),
                     created_at=earning.get('created_at'),
@@ -2986,9 +2986,9 @@ async def _build_referral_info(
                     last_activity=item.get('last_activity'),
                     has_made_first_topup=bool(item.get('has_made_first_topup')),
                     balance_kopeks=balance,
-                    balance_label=settings.format_balance(balance),
+                    balance_label=_format_balance(user, balance),
                     total_earned_kopeks=total_earned,
-                    total_earned_label=settings.format_price(total_earned),
+                    total_earned_label=_format_price(user, total_earned),
                     topups_count=int(item.get('topups_count') or 0),
                     days_since_registration=item.get('days_since_registration'),
                     days_since_activity=item.get('days_since_activity'),
@@ -3179,7 +3179,7 @@ async def get_subscription_details(
                 name=group.name,
                 threshold_kopeks=threshold,
                 threshold_rubles=round(threshold / 100, 2),
-                threshold_label=settings.format_price(threshold),
+                threshold_label=_format_price(user, threshold),
                 is_reached=total_spent_kopeks >= threshold,
                 is_current=bool(promo_group and promo_group.id == group.id),
                 **_extract_promo_discounts(group),
@@ -3460,7 +3460,7 @@ async def get_subscription_details(
     trial_duration_days = settings.TRIAL_DURATION_DAYS if settings.TRIAL_DURATION_DAYS > 0 else None
     trial_price_kopeks = settings.get_trial_activation_price()
     trial_payment_required = settings.is_trial_paid_activation_enabled() and trial_price_kopeks > 0
-    trial_price_label = settings.format_price(trial_price_kopeks) if trial_payment_required else None
+    trial_price_label = _format_price(user, trial_price_kopeks) if trial_payment_required else None
 
     subscription_missing_reason = None
     if subscription is None:
@@ -3543,7 +3543,7 @@ async def get_subscription_details(
         auto_assign_promo_groups=auto_promo_levels,
         total_spent_kopeks=total_spent_kopeks,
         total_spent_rubles=round(total_spent_kopeks / 100, 2),
-        total_spent_label=settings.format_price(total_spent_kopeks),
+        total_spent_label=_format_price(user, total_spent_kopeks),
         subscription_type=('trial' if subscription and subscription.is_trial else ('paid' if subscription else 'none')),
         autopay_enabled=autopay_enabled,
         autopay_days_before=autopay_days_before,
@@ -3617,9 +3617,9 @@ async def _get_current_tariff_model(db: AsyncSession, subscription, user=None) -
                     MiniAppTrafficTopupPackage(
                         gb=gb,
                         price_kopeks=discounted_price,
-                        price_label=settings.format_price(discounted_price),
+                        price_label=_format_price(user, discounted_price),
                         original_price_kopeks=base_price,
-                        original_price_label=settings.format_price(base_price),
+                        original_price_label=_format_price(user, base_price),
                         discount_percent=traffic_discount_pct,
                     )
                 )
@@ -3628,7 +3628,7 @@ async def _get_current_tariff_model(db: AsyncSession, subscription, user=None) -
                     MiniAppTrafficTopupPackage(
                         gb=gb,
                         price_kopeks=base_price,
-                        price_label=settings.format_price(base_price),
+                        price_label=_format_price(user, base_price),
                     )
                 )
 
@@ -3930,6 +3930,7 @@ async def activate_subscription_trial_endpoint(
     await db.refresh(subscription)
 
     subscription_service = SubscriptionService()
+    trial_refund_description = _t(user, 'TRIAL_REFUND_DESCRIPTION', 'Refund for failed trial activation')
     try:
         await subscription_service.create_remnawave_user(db, subscription)
     except RemnaWaveConfigurationError as error:  # pragma: no cover - configuration issues
@@ -3939,7 +3940,7 @@ async def activate_subscription_trial_endpoint(
             user,
             subscription,
             charged_amount,
-            refund_description='Возврат оплаты за активацию триала в мини-приложении',
+            refund_description=trial_refund_description,
         )
         if not revert_result.subscription_rolled_back:
             raise HTTPException(
@@ -3974,7 +3975,7 @@ async def activate_subscription_trial_endpoint(
             user,
             subscription,
             charged_amount,
-            refund_description='Возврат оплаты за активацию триала в мини-приложении',
+            refund_description=trial_refund_description,
         )
         if not revert_result.subscription_rolled_back:
             raise HTTPException(
@@ -4016,24 +4017,26 @@ async def activate_subscription_trial_endpoint(
     if not duration_days and settings.TRIAL_DURATION_DAYS > 0:
         duration_days = settings.TRIAL_DURATION_DAYS
 
-    charged_amount_label = settings.format_price(charged_amount) if charged_amount > 0 else None
+    charged_amount_label = _format_price(user, charged_amount) if charged_amount > 0 else None
     if duration_days:
         message = _t(
             user,
             'MINIAPP_TRIAL_ACTIVATED_DAYS',
-            'Триал активирован на {days} дн. Приятного пользования!',
+            'Trial activated for {days} days. Enjoy!',
             days=duration_days,
         )
     else:
-        message = _t(user, 'MINIAPP_TRIAL_ACTIVATED', 'Триал активирован. Приятного пользования!')
+        message = _t(user, 'MINIAPP_TRIAL_ACTIVATED', 'Trial activated. Enjoy!')
 
     if charged_amount_label:
         message = f'{message}\n\n' + _t(
             user,
             'MINIAPP_TRIAL_CHARGED',
-            '💳 С вашего баланса списано {amount}.',
+            '💳 {amount} was charged from your balance.',
             amount=charged_amount_label,
         )
+
+    message = _with_post_purchase_onboarding(user, message)
 
     await with_admin_notification_service(
         lambda service: service.send_trial_activation_notification(
@@ -4052,7 +4055,7 @@ async def activate_subscription_trial_endpoint(
         charged_amount_kopeks=charged_amount if charged_amount > 0 else None,
         charged_amount_label=charged_amount_label,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
+        balance_label=_format_balance(user, user.balance_kopeks),
     )
 
 
@@ -4449,18 +4452,39 @@ def _t(user: User | None, key: str, fallback: str, **fmt) -> str:
     return text.format(**fmt) if fmt else text
 
 
+def _format_price(user: User | None, kopeks: int, **kwargs) -> str:
+    return settings.format_price(kopeks, language=_normalize_language_code(user), **kwargs)
+
+
+def _format_balance(user: User | None, amount_toman: int, **kwargs) -> str:
+    return settings.format_balance(amount_toman, language=_normalize_language_code(user), **kwargs)
+
+
+def _with_post_purchase_onboarding(user: User | None, body: str) -> str:
+    onboarding = _t(
+        user,
+        'POST_PURCHASE_ONBOARDING',
+        '✅ <b>3 steps to connect:</b>\n'
+        '1️⃣ Menu → <b>My subscription</b>\n'
+        '2️⃣ Button <b>🔗 Get link</b>\n'
+        '3️⃣ Open the Telegram mini app and follow the connection steps\n\n'
+        '💬 Questions? Contact support.',
+    )
+    return f'{body}\n\n{onboarding}'
+
+
 def _format_daily_price_label(price_kopeks: int, user: User | None) -> str | None:
     if price_kopeks <= 0:
         return None
-    return settings.format_price(price_kopeks) + _t(user, 'MINIAPP_DAILY_PRICE_SUFFIX', '/день')
+    return _format_price(user, price_kopeks) + _t(user, 'MINIAPP_DAILY_PRICE_SUFFIX', '/day')
 
 
 def _insufficient_funds_message(user: User, missing_toman: int) -> str:
     return _t(
         user,
         'CABINET_INSUFFICIENT_FUNDS_MISSING',
-        'Недостаточно средств. Не хватает {missing}',
-        missing=settings.format_balance(missing_toman, round_kopeks=False),
+        'Insufficient funds. Missing {missing}',
+        missing=_format_balance(user, missing_toman, round_kopeks=False),
     )
 
 
@@ -4468,7 +4492,7 @@ def _build_renewal_status_message(user: User | None) -> str:
     return _t(
         user,
         'MINIAPP_RENEWAL_STATUS_NOTE',
-        'Стоимость указана с учётом ваших текущих серверов, трафика и устройств.',
+        'Price is based on your current servers, traffic and devices.',
     )
 
 
@@ -4486,7 +4510,7 @@ def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
     payload['message'] = _t(
         user,
         'MINIAPP_PROMO_DISCOUNT_AUTO',
-        'Дополнительная скидка применяется автоматически.',
+        'Additional discount is applied automatically.',
     )
 
     return payload
@@ -4495,7 +4519,7 @@ def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
 def _format_payment_method_title(method: str, user: User | None = None) -> str:
     key = (method or '').lower()
     if key == 'yookassa_sbp':
-        return _t(user, 'PAYMENT_SBP_YOOKASSA', 'YooKassa СБП')
+        return _t(user, 'PAYMENT_SBP_YOOKASSA', 'YooKassa SBP')
     mapping = {
         'cryptobot': 'CryptoBot',
         'yookassa': 'YooKassa',
@@ -4515,7 +4539,7 @@ def _build_renewal_success_message(
     charged_amount: int,
     promo_discount_value: int = 0,
 ) -> str:
-    amount_label = settings.format_price(max(0, charged_amount))
+    amount_label = _format_price(user, max(0, charged_amount))
     date_label = (
         format_user_datetime(subscription.end_date, language=user.language, fmt='%d.%m.%Y %H:%M')
         if subscription.end_date
@@ -4531,7 +4555,7 @@ def _build_renewal_success_message(
             message = _t(
                 user,
                 'MINIAPP_SUBSCRIPTION_RENEWED',
-                'Подписка{tariff_label} продлена до {date_label}. Списано {amount_label}.',
+                'Subscription{tariff_label} renewed until {date_label}. Charged {amount_label}.',
                 tariff_label=tariff_label,
                 date_label=date_label,
                 amount_label=amount_label,
@@ -4540,7 +4564,7 @@ def _build_renewal_success_message(
             message = _t(
                 user,
                 'MINIAPP_SUBSCRIPTION_RENEWED_NO_DATE',
-                'Подписка{tariff_label} продлена. Списано {amount_label}.',
+                'Subscription{tariff_label} renewed. Charged {amount_label}.',
                 tariff_label=tariff_label,
                 amount_label=amount_label,
             )
@@ -4548,7 +4572,7 @@ def _build_renewal_success_message(
         message = _t(
             user,
             'MINIAPP_SUBSCRIPTION_RENEWED_UNTIL',
-            'Подписка{tariff_label} продлена до {date_label}.',
+            'Subscription{tariff_label} renewed until {date_label}.',
             tariff_label=tariff_label,
             date_label=date_label,
         )
@@ -4556,16 +4580,16 @@ def _build_renewal_success_message(
         message = _t(
             user,
             'MINIAPP_SUBSCRIPTION_RENEWED_SIMPLE',
-            'Подписка{tariff_label} успешно продлена.',
+            'Subscription{tariff_label} successfully renewed.',
             tariff_label=tariff_label,
         )
 
     if promo_discount_value > 0:
-        discount_label = settings.format_price(promo_discount_value)
+        discount_label = _format_price(user, promo_discount_value)
         message += _t(
             user,
             'MINIAPP_SUBSCRIPTION_RENEWED_PROMO',
-            ' Применена дополнительная скидка {discount_label}.',
+            ' Additional discount {discount_label} applied.',
             discount_label=discount_label,
         )
 
@@ -4577,22 +4601,21 @@ def _build_renewal_pending_message(
     missing_amount: int,
     method: str,
 ) -> str:
-    amount_label = settings.format_price(max(0, missing_amount))
+    amount_label = _format_price(user, max(0, missing_amount))
     method_title = _format_payment_method_title(method, user)
 
     if method_title:
         return _t(
             user,
             'MINIAPP_INSUFFICIENT_BALANCE_TOPUP',
-            'Недостаточно средств на балансе. Доплатите {amount_label} через {method_title}, '
-            'чтобы завершить продление.',
+            'Insufficient balance. Pay {amount_label} via {method_title} to complete renewal.',
             amount_label=amount_label,
             method_title=method_title,
         )
     return _t(
         user,
         'MINIAPP_INSUFFICIENT_BALANCE_TOPUP_NO_METHOD',
-        'Недостаточно средств на балансе. Доплатите {amount_label}, чтобы завершить продление.',
+        'Insufficient balance. Pay {amount_label} to complete renewal.',
         amount_label=amount_label,
     )
 
@@ -4663,9 +4686,9 @@ async def _prepare_subscription_renewal_options(
             getattr(user, 'language', settings.DEFAULT_LANGUAGE),
         )
 
-        price_label = settings.format_price(pricing_result.final_total)
-        original_label = settings.format_price(original_price) if has_discount else None
-        per_month_label = settings.format_price(per_month)
+        price_label = _format_price(user, pricing_result.final_total)
+        original_label = _format_price(user, original_price) if has_discount else None
+        per_month_label = _format_price(user, per_month)
 
         period_id = (
             f'tariff_{tariff.id}_{period_days}' if pricing_result.is_tariff_mode and tariff else f'days:{period_days}'
@@ -5163,7 +5186,7 @@ async def get_subscription_renewal_options_endpoint(
             periods=[],
             currency=(getattr(user, 'balance_currency', None) or 'RUB').upper(),
             balance_kopeks=getattr(user, 'balance_kopeks', 0),
-            balance_label=settings.format_balance(getattr(user, 'balance_kopeks', 0)),
+            balance_label=_format_balance(user, getattr(user, 'balance_kopeks', 0)),
             status_message='Classic subscriptions cannot be renewed. Please purchase a tariff.',
             sales_mode=settings.get_sales_mode(),
         )
@@ -5215,7 +5238,7 @@ async def get_subscription_renewal_options_endpoint(
         subscription_id=subscription.id,
         currency=currency,
         balance_kopeks=balance_kopeks,
-        balance_label=settings.format_balance(balance_kopeks),
+        balance_label=_format_balance(user, balance_kopeks),
         promo_group=promo_group_model,
         promo_offer=promo_offer_payload,
         periods=periods,
@@ -5375,7 +5398,7 @@ async def submit_subscription_renewal_endpoint(
         return MiniAppSubscriptionRenewalResponse(
             message=message,
             balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_balance(user.balance_kopeks),
+            balance_label=_format_balance(user, user.balance_kopeks),
             subscription_id=updated_subscription.id,
             renewed_until=updated_subscription.end_date,
         )
@@ -5489,7 +5512,7 @@ async def submit_subscription_renewal_endpoint(
             success=False,
             message=message,
             balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_balance(user.balance_kopeks),
+            balance_label=_format_balance(user, user.balance_kopeks),
             subscription_id=subscription.id,
             requires_payment=True,
             payment_method=method,
@@ -5522,13 +5545,13 @@ async def get_subscription_purchase_options_endpoint(
     data_payload.setdefault('currency', context.currency)
     data_payload.setdefault('balance_kopeks', context.balance_kopeks)
     data_payload.setdefault('balanceKopeks', context.balance_kopeks)
-    data_payload.setdefault('balance_label', settings.format_balance(context.balance_kopeks))
-    data_payload.setdefault('balanceLabel', settings.format_balance(context.balance_kopeks))
+    data_payload.setdefault('balance_label', _format_balance(user, context.balance_kopeks))
+    data_payload.setdefault('balanceLabel', _format_balance(user, context.balance_kopeks))
 
     return MiniAppSubscriptionPurchaseOptionsResponse(
         currency=context.currency,
         balance_kopeks=context.balance_kopeks,
-        balance_label=settings.format_balance(context.balance_kopeks),
+        balance_label=_format_balance(user, context.balance_kopeks),
         subscription_id=data_payload.get('subscription_id') or data_payload.get('subscriptionId'),
         data=data_payload,
     )
@@ -5557,7 +5580,7 @@ async def subscription_purchase_preview_endpoint(
     pricing = await purchase_service.calculate_pricing(db, context, selection)
     preview_payload = purchase_service.build_preview_payload(context, pricing)
 
-    balance_label = settings.format_balance(getattr(user, 'balance_kopeks', 0))
+    balance_label = _format_balance(user, getattr(user, 'balance_kopeks', 0))
 
     return MiniAppSubscriptionPurchasePreviewResponse(
         preview=preview_payload,
@@ -5642,7 +5665,7 @@ async def subscription_purchase_endpoint(
             )
         )
 
-    balance_label = settings.format_balance(getattr(user, 'balance_kopeks', 0))
+    balance_label = _format_balance(user, getattr(user, 'balance_kopeks', 0))
 
     return MiniAppSubscriptionPurchaseResponse(
         message=result.get('message'),
@@ -6121,7 +6144,7 @@ async def update_subscription_devices_endpoint(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'devices_unavailable',
-                'message': _t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Докупка устройств недоступна'),
+                'message': _t(user, 'CABINET_DEVICES_PURCHASE_UNAVAILABLE', 'Adding users is unavailable'),
             },
         )
 
@@ -6134,7 +6157,7 @@ async def update_subscription_devices_endpoint(
                 'message': _t(
                     user,
                     'DEVICES_LIMIT_EXCEEDED',
-                    'Превышен максимальный лимит устройств ({limit})',
+                    'Maximum user limit exceeded ({limit})',
                     limit=tariff_max_device_limit,
                 ),
             },
@@ -6253,7 +6276,7 @@ async def update_subscription_devices_endpoint(
                         'message': _t(
                             user,
                             'MINIAPP_DEVICES_CONCURRENT_APPLIED',
-                            'Изменение уже применено параллельным запросом. Баланс возвращён.',
+                            'Change was already applied by a concurrent request. Balance refunded.',
                         ),
                     },
                 )
@@ -6264,7 +6287,7 @@ async def update_subscription_devices_endpoint(
                     'message': _t(
                         user,
                         'DEVICES_LIMIT_EXCEEDED_REFUND',
-                        'Превышен максимальный лимит устройств ({max}). Баланс возвращён.',
+                        'Maximum user limit ({max}) exceeded. Balance refunded.',
                         max=tariff_max_device_limit,
                     ),
                 },
@@ -6305,8 +6328,8 @@ async def update_subscription_devices_endpoint(
 def _format_traffic_limit_label(traffic_gb: int, user: User | None = None) -> str:
     """Форматирует лимит трафика для отображения."""
     if traffic_gb == 0:
-        return _t(user, 'CABINET_PURCHASE_TRAFFIC_UNLIMITED', '♾️ Безлимит')
-    return _t(user, 'SUBSCRIPTION_ORDER_TRAFFIC_GB', '{gb} ГБ', gb=traffic_gb)
+        return _t(user, 'CABINET_PURCHASE_TRAFFIC_UNLIMITED', '♾️ Unlimited')
+    return _t(user, 'SUBSCRIPTION_ORDER_TRAFFIC_GB', '{gb} GB', gb=traffic_gb)
 
 
 async def _build_tariff_model(
@@ -6360,11 +6383,11 @@ async def _build_tariff_model(
                     months=months,
                     label=format_period_description(period_days),
                     price_kopeks=price_kopeks,
-                    price_label=settings.format_price(price_kopeks),
+                    price_label=_format_price(user, price_kopeks),
                     price_per_month_kopeks=per_month,
-                    price_per_month_label=settings.format_price(per_month),
+                    price_per_month_label=_format_price(user, per_month),
                     original_price_kopeks=original_price_kopeks if discount_percent > 0 else None,
-                    original_price_label=settings.format_price(original_price_kopeks) if discount_percent > 0 else None,
+                    original_price_label=_format_price(user, original_price_kopeks) if discount_percent > 0 else None,
                     discount_percent=discount_percent,
                 )
             )
@@ -6379,7 +6402,7 @@ async def _build_tariff_model(
         # PricingEngine обрабатывает все случаи: periodic↔periodic, daily→periodic, periodic→daily
         result = _calculate_tariff_switch(current_tariff, tariff, remaining_days, user=user)
         switch_cost_kopeks = result.upgrade_cost
-        switch_cost_label = settings.format_price(result.upgrade_cost) if result.upgrade_cost > 0 else None
+        switch_cost_label = _format_price(user, result.upgrade_cost) if result.upgrade_cost > 0 else None
         is_upgrade = result.is_upgrade
         is_switch_free = result.upgrade_cost == 0
 
@@ -6549,7 +6572,7 @@ async def get_tariffs_endpoint(
         tariffs=tariff_models,
         current_tariff=current_tariff_model,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
+        balance_label=_format_balance(user, user.balance_kopeks),
         promo_group=promo_group_model,
     )
 
@@ -6765,7 +6788,7 @@ async def purchase_tariff_endpoint(
         message=_t(
             user,
             'CABINET_PURCHASE_TARIFF_SUCCESS',
-            "Тариф '{name}' успешно активирован",
+            "Service '{name}' successfully activated",
             name=tariff.name,
         ),
         subscription_id=subscription.id,
@@ -6773,7 +6796,7 @@ async def purchase_tariff_endpoint(
         tariff_name=tariff.name,
         new_end_date=subscription.end_date,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
+        balance_label=_format_balance(user, user.balance_kopeks),
     )
 
 
@@ -6897,17 +6920,17 @@ async def preview_tariff_switch_endpoint(
         new_tariff_name=new_tariff.name,
         remaining_days=remaining_days,
         upgrade_cost_kopeks=upgrade_cost,
-        upgrade_cost_label=settings.format_price(upgrade_cost)
+        upgrade_cost_label=_format_price(user, upgrade_cost)
         if upgrade_cost > 0
-        else _t(user, 'MINIAPP_SWITCH_FREE', 'Бесплатно'),
+        else _t(user, 'MINIAPP_SWITCH_FREE', 'Free'),
         balance_kopeks=balance,
         # Когда показываем missing_amount_label с копейками (round_kopeks=False),
         # balance_label тоже должен быть с копейками — иначе пары "Баланс 150 ₽,
         # не хватает 0.40 ₽" выглядит противоречиво ("150 ₽ это > 150 ₽? зачем не хватает?").
-        balance_label=settings.format_balance(balance),
+        balance_label=_format_balance(user, balance),
         has_enough_balance=has_enough,
         missing_amount_kopeks=missing,
-        missing_amount_label=settings.format_price(missing, round_kopeks=False) if missing > 0 else '',
+        missing_amount_label=_format_price(user, missing, round_kopeks=False) if missing > 0 else '',
         is_upgrade=is_upgrade,
         message=None,
     )
@@ -7172,15 +7195,15 @@ async def switch_tariff_endpoint(
         message = _t(
             user,
             'MINIAPP_TARIFF_SWITCH_CHARGED',
-            "Тариф изменён на '{name}'. Списано {amount}",
+            "Service changed to '{name}'. Charged {amount}",
             name=new_tariff.name,
-            amount=settings.format_price(upgrade_cost),
+            amount=_format_price(user, upgrade_cost),
         )
     else:
         message = _t(
             user,
             'MINIAPP_TARIFF_SWITCH_SUCCESS',
-            "Тариф изменён на '{name}'",
+            "Service changed to '{name}'",
             name=new_tariff.name,
         )
 
@@ -7191,7 +7214,7 @@ async def switch_tariff_endpoint(
         tariff_name=new_tariff.name,
         charged_kopeks=upgrade_cost,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
+        balance_label=_format_balance(user, user.balance_kopeks),
     )
 
 
@@ -7391,7 +7414,7 @@ async def purchase_traffic_topup_endpoint(
         message=_t(
             user,
             'MINIAPP_TRAFFIC_TOPUP_SUCCESS',
-            'Добавлено {gb} ГБ трафика',
+            'Added {gb} GB traffic',
             gb=payload.gb,
         ),
         new_traffic_limit_gb=subscription.traffic_limit_gb,
@@ -7655,14 +7678,14 @@ async def toggle_daily_subscription_pause_endpoint(
                 logger.error('Failed to send admin notification for daily resume (miniapp)', error=notif_err)
 
     if new_paused_state:
-        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_PAUSED', 'Суточная подписка приостановлена')
+        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_PAUSED', 'Daily subscription paused')
     else:
-        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_RESUMED', 'Суточная подписка возобновлена')
+        message = _t(user, 'MINIAPP_DAILY_SUBSCRIPTION_RESUMED', 'Daily subscription resumed')
 
     return MiniAppDailySubscriptionToggleResponse(
         success=True,
         message=message,
         is_paused=new_paused_state,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
+        balance_label=_format_balance(user, user.balance_kopeks),
     )
