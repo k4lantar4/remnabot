@@ -297,7 +297,7 @@ export default function AdminPromocodeCreate() {
         {type === 'trial_subscription' && (
           <div>
             <label htmlFor="pc-tariff" className="mb-2 block text-sm font-medium text-dark-300">
-              {t('admin.promocodes.form.tariff', 'Тариф')}
+              {t('admin.promocodes.form.tariff', 'Tariff')}
             </label>
             <select
               id="pc-tariff"
@@ -307,10 +307,10 @@ export default function AdminPromocodeCreate() {
             >
               <option value="">
                 {trialTariff
-                  ? t('admin.promocodes.form.defaultTrialTariff', 'По умолчанию: {{name}}', {
+                  ? t('admin.promocodes.form.defaultTrialTariff', 'Default: {{name}}', {
                       name: trialTariff.name,
                     })
-                  : t('admin.promocodes.form.selectTariff', '— Выберите тариф —')}
+                  : t('admin.promocodes.form.selectTariff', '— Select tariff —')}
               </option>
               {tariffsData?.tariffs?.map((tariff) => (
                 <option key={tariff.id} value={tariff.id}>
