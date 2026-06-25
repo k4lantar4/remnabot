@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { getErrorMessage, getFlagEmoji } from '../../../utils/subscriptionHelpers';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import { ChevronRightIcon } from '../../icons';
@@ -41,11 +42,12 @@ export function ServerManagementSheet({
 }: ServerManagementSheetProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { formatAmount, currencySymbol } = useCurrency();
 
-  const formatPrice = (kopeks: number) => {
-    const rubles = kopeks / 100;
-    return rubles % 1 === 0 ? `${rubles} ₽` : `${rubles.toFixed(2)} ₽`;
-  };
+  const formatPrice = (kopeks: number) =>
+    kopeks === 0
+      ? t('subscription.free', 'Бесплатно')
+      : `${formatAmount(kopeks / 100)} ${currencySymbol}`;
 
   const { data: countriesData, isLoading: countriesLoading } = useQuery({
     queryKey: ['countries', subscriptionId],
