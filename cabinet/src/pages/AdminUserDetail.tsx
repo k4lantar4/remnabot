@@ -474,7 +474,7 @@ export default function AdminUserDetail() {
     const snapshotName = editingDeviceName.trim();
     try {
       await adminUsersApi.renameUserDevice(userId, hwid, snapshotName || null);
-      notify.success(t('admin.users.detail.devices.renamed', 'Имя устройства обновлено'));
+      notify.success(t('admin.users.detail.devices.renamed', 'Device name updated'));
       // Reset edit state only if user is still on the saved row.
       setEditingDeviceHwid((current) => (current === hwid ? null : current));
       await loadDevices();
