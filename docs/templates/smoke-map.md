@@ -1,6 +1,45 @@
-# Smoke map — Phase 10 Slice A: bot admin locale keys
+# Smoke map — Phase 10 Slice C: cabinet admin TSX fallbacks
 
-> Branch `i18n/admin-fa-completion` @ `96133025`; bot `fa.json` only; awaiting user smoke.
+> Branch `i18n/admin-fa-completion` @ `97d4ee81`; 9 TSX files + remnawave `fa.json` keys; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-completion` |
+| Commits | `f58f93de` remnawave · `f318bd13` broadcasts · `ce02c928` user detail · `97d4ee81` partner/promo/payment |
+| Files | 9 cabinet admin TSX + `cabinet/src/locales/fa.json` (16 `admin.remnawave.overview` keys) |
+| Deploy | `make staging-cabinet-build` |
+| Cabinet URL | staging cabinet (`3021` / `staging-host-cabinet`) |
+| Guard | `rg "t\\(['\\\"]admin\\." cabinet/src` Cyrillic fallbacks = **0** |
+
+## What changed
+
+- 55 Cyrillic `t('admin.*', '…')` fallbacks → English upstream-safe defaults
+- 16 new Persian keys under `admin.remnawave.overview` (active24h, panel health, top consumers, etc.)
+- fa admin users still see Persian from `fa.json`; missing keys no longer fall back to Russian
+
+## User smoke checklist (staging cabinet, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| Remnawave overview | `/admin/remnawave` → Overview | Persian labels; no Cyrillic |
+| Broadcast create | `/admin/broadcasts/create` | Category/button labels Persian; preview modal Persian |
+| User subscription | `/admin/users/:id` → Subscription tab | Create/back/device rename Persian |
+| Partner detail | `/admin/partners/:id` → campaigns | Registrations/referrals/earnings Persian |
+| Promocode create | `/admin/promocodes/create` | Tariff picker Persian |
+| Regression | Ban monitoring, pinned messages (Slice B) | Unchanged |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet (**تایید** pending)
+- [ ] Ship with Slice A + remaining Phase 10 slices
+
+---
+
+# Smoke map — Phase 10 Slice A: bot admin locale keys (CLOSED)
+
+> Branch `i18n/admin-fa-completion` @ `96133025`; bot `fa.json` only; user smoke **تایید** 2026-06-25.
 
 ## Branch & deploy
 
@@ -30,7 +69,7 @@ Payment provider test buttons: optional (providers disabled in `.env`).
 
 ## Sign-off
 
-- [ ] User smoke on `@mrj7_bot` (**تایید** pending)
+- [x] User smoke on `@mrj7_bot` (**تایید** 2026-06-25)
 - [ ] Ship with remaining Phase 10 slices or standalone PR
 
 ---
