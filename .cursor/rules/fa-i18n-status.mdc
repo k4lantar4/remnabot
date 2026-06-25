@@ -179,7 +179,8 @@ Branch: audit-only (no code). Plan: `docs/superpowers/plans/2026-06-23-fa-i18n-r
 - [x] **Phase 2 merged + prod** — bot device terminology (`a1375f5b`); user smoke تایید 2026-06-24
 - [x] **Implementation Phases 7–9:** Phase 9 miniapp parity — user smoke **تایید** 2026-06-25
 - [x] **Phase 11** — monitoring notifications merged on `main`
-- [ ] **Phase 10 remainder** — Slices A, C, D, E on `i18n/admin-fa-completion` (Slice B closed)
+- [x] **Phase 10 Slice D** — `i18n/admin-fa-slice-d` @ `5e0e9bc7`: D1 remnawave (+252 keys), D2 broadcast FSM (+70), D3 monitoring (+152); fa.json **4652**; staging deployed; awaiting user smoke
+- [ ] **Phase 10 remainder** — Slices A, C, E on `i18n/admin-fa-completion` (Slices B, D in progress)
 
 ## Done (Phase 10 Slice B — cabinet admin fa — Jun 25 2026)
 
@@ -194,6 +195,20 @@ Branch `i18n/admin-fa-completion` (**3 commits**, `07a7db29` → `7063e3fe`).
 - [ ] **PR / merge** — after Phase 10 scope or ship Slice B alone if operator chooses
 
 Policy: **Persian-first admin** (not force English). Plan: `docs/superpowers/plans/2026-06-25-fa-i18n-remaining-implementation.md`.
+
+## Done (Phase 10 Slice D — bot admin remnawave/broadcast/monitoring — Jun 25 2026)
+
+Branch `i18n/admin-fa-slice-d` (**3 commits**, `f6a77f5f` → `5e0e9bc7`).
+
+- [x] **D1:** `remnawave.py` — system stats, nodes, squads partial, sync panels; +252 `ADMIN_RW_*` keys → fa.json **4430**
+- [x] **D2:** `messages.py` — broadcast FSM, pinned, history, preview/progress; +70 `ADMIN_MSG_*` keys → **4500**
+- [x] **D3:** `monitoring.py` — toggles, notify settings, traffic settings, logs/stats/nalogo partial; +152 `ADMIN_MON_*` → **4652**
+- [x] Tools: `tools/admin_fa_slice_d.py`, `apply_slice_d.py`, `patch_monitoring_d3*.py`
+- [x] Agent smoke + `check-admin-texts` after each commit; `make staging-rebuild`
+- [ ] **User smoke** on `@mrj7_bot` — see `docs/templates/smoke-map.md` Slice D checklist
+- [ ] **PR / merge** after user **تایید**
+
+Remaining hardcoded Cyrillic (`count_hardcoded`, excl. `texts.t`/logger): remnawave **154**, messages **33**, monitoring **112** (mostly fallback continuation lines + log-parse regex).
 
 ## Done (Phase 9 miniapp parity — Jun 25 2026)
 
