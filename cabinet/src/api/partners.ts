@@ -37,6 +37,7 @@ export interface PartnerStatusResponse {
   partner_status: string;
   commission_percent: number | null;
   wholesale_discount_bps: number;
+  panel_brand_prefix?: string | null;
   latest_application: PartnerApplicationInfo | null;
   campaigns: PartnerCampaignInfo[];
 }
