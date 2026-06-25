@@ -4621,7 +4621,14 @@
       "online": "آنلاین",
       "offline": "آفلاین",
       "users": "کاربران",
-      "noNodes": "گره‌ای یافت نشد"
+      "noNodes": "گره‌ای یافت نشد",
+      "address": "آدرس",
+      "lastSeen": "آخرین بازدید",
+      "name": "نام",
+      "onlineCount": "آنلاین",
+      "title": "گره‌ها",
+      "total": "کل",
+      "usersCount": "کاربران"
     },
     "agents": {
       "status": "وضعیت",
@@ -4637,7 +4644,26 @@
       "healthy": "سالم",
       "warning": "هشدار",
       "critical": "بحرانی",
-      "noAgents": "عاملی یافت نشد"
+      "noAgents": "عاملی یافت نشد",
+      "batches": "دسته‌ها",
+      "dedup": "حذف تکراری",
+      "failures": "خطاها",
+      "filter": "فیلتر",
+      "lastReport": "آخرین گزارش",
+      "nodeName": "گره",
+      "reconnects": "اتصال مجدد",
+      "summary": {
+        "avgQueueSize": "میانگین اندازه صف",
+        "criticalCount": "بحرانی",
+        "healthyCount": "سالم",
+        "onlineAgents": "آنلاین",
+        "title": "خلاصه",
+        "totalAgents": "کل عامل‌ها",
+        "totalDropped": "کل حذف‌شده",
+        "totalSent": "کل ارسال‌شده",
+        "warningCount": "هشدار"
+      },
+      "title": "عامل‌ها"
     },
     "users": {
       "status": "وضعیت",
@@ -4649,7 +4675,19 @@
       "networkType": "نوع شبکه",
       "bans": "مسدودسازی",
       "searchPlaceholder": "جستجو بر اساس ایمیل...",
-      "viewDetails": "مشاهده جزئیات"
+      "viewDetails": "مشاهده جزئیات",
+      "filter": {
+        "all": "همه",
+        "normal": "عادی",
+        "overLimit": "بیش از حد"
+      },
+      "lastSeen": "آخرین بازدید",
+      "noLimit": "بدون محدودیت",
+      "noUsers": "کاربری یافت نشد",
+      "normal": "عادی",
+      "requests": "درخواست‌ها",
+      "title": "کاربران",
+      "uniqueIps": "IP یکتا"
     },
     "punishments": {
       "user": "کاربر",
@@ -4659,7 +4697,19 @@
       "ipCount": "IP",
       "limit": "محدودیت",
       "unban": "رفع مسدودسازی",
-      "noBans": "مسدودسازی فعالی نیست"
+      "noBans": "مسدودسازی فعالی نیست",
+      "actions": "عملیات",
+      "history": "تاریخچه مسدودسازی",
+      "noHistory": "تاریخچه‌ای یافت نشد",
+      "noPunishments": "مسدودسازی فعالی نیست",
+      "node": "گره",
+      "punishedAt": "زمان مسدودسازی",
+      "searchHistory": "جستجو در تاریخچه...",
+      "title": "مسدودسازی‌های فعال",
+      "unbanConfirm": "رفع مسدودسازی {{username}}؟",
+      "unbanError": "رفع مسدودسازی ناموفق بود",
+      "unbanSuccess": "مسدودسازی کاربر رفع شد",
+      "username": "کاربر"
     },
     "violations": {
       "type": "نوع",
@@ -4669,7 +4719,14 @@
       "active": "فعال",
       "resolved": "حل شده",
       "detectedAt": "زمان شناسایی",
-      "noViolations": "تخلفی یافت نشد"
+      "noViolations": "تخلفی یافت نشد",
+      "bytesLimit": "محدودیت",
+      "bytesUsed": "مصرف‌شده",
+      "email": "ایمیل",
+      "no": "خیر",
+      "title": "تخلفات ترافیک",
+      "username": "کاربر",
+      "yes": "بله"
     },
     "reports": {
       "period": "دوره",
@@ -4677,7 +4734,8 @@
       "currentIps": "IP یکتا",
       "count": "تخلفات",
       "topViolators": "بیشترین تخلفات",
-      "username": "کاربر"
+      "username": "کاربر",
+      "title": "گزارش‌های دوره‌ای"
     },
     "traffic": {
       "enabled": "نظارت ترافیک",
@@ -4688,10 +4746,17 @@
       "bytesLimit": "محدودیت",
       "topUsers": "بیشترین ترافیک",
       "username": "کاربر",
-      "recentViolations": "تخلفات اخیر"
+      "recentViolations": "تخلفات اخیر",
+      "title": "آمار ترافیک"
     },
     "health": {
-      "systemStatus": "وضعیت سیستم"
+      "systemStatus": "وضعیت سیستم",
+      "components": "اجزا",
+      "degraded": "تضعیف‌شده",
+      "healthy": "سالم",
+      "title": "سلامت سیستم",
+      "unhealthy": "ناسالم",
+      "uptime": "زمان فعالیت"
     },
     "userDetail": {
       "title": "جزئیات کاربر",
@@ -4699,7 +4764,102 @@
       "country": "کشور",
       "node": "گره",
       "requests": "درخواست‌ها",
-      "ipHistory": "تاریخچه IP"
+      "ipHistory": "تاریخچه IP",
+      "action": "عملیات",
+      "ban": "مسدود کردن",
+      "city": "شهر",
+      "close": "بستن",
+      "destination": "مقصد",
+      "email": "ایمیل",
+      "firstSeen": "اولین بازدید",
+      "lastSeen": "آخرین بازدید",
+      "limit": "محدودیت کاربر",
+      "networkType": "نوع شبکه",
+      "noIps": "داده IP وجود ندارد",
+      "noRequests": "داده درخواست وجود ندارد",
+      "port": "پورت",
+      "protocol": "پروتکل",
+      "recentRequests": "درخواست‌های اخیر",
+      "requestCount": "درخواست‌ها",
+      "sourceIp": "IP مبدأ",
+      "status": "وضعیت",
+      "timestamp": "زمان",
+      "totalRequests": "کل درخواست‌ها",
+      "uniqueIps": "IP یکتا"
+    },
+    "banModal": {
+      "ban": "مسدود کردن",
+      "cancel": "لغو",
+      "duration": "مدت (دقیقه)",
+      "durationPlaceholder": "مدت را به دقیقه وارد کنید",
+      "error": "مسدودسازی ناموفق بود",
+      "reason": "دلیل",
+      "reasonPlaceholder": "دلیل مسدودسازی (اختیاری)",
+      "success": "کاربر مسدود شد",
+      "title": "مسدود کردن کاربر",
+      "username": "نام کاربری",
+      "usernamePlaceholder": "نام کاربری را وارد کنید"
+    },
+    "dashboard": {
+      "activePunishments": "مسدودسازی‌های فعال",
+      "activeUsers": "کاربران فعال",
+      "agentsOnline": "عامل‌های آنلاین",
+      "nodesOnline": "گره‌های آنلاین",
+      "panelConnected": "پنل متصل",
+      "panelDisconnected": "پنل قطع",
+      "totalPunishments": "کل مسدودسازی‌ها",
+      "totalRequests": "کل درخواست‌ها",
+      "totalUsers": "کل کاربران",
+      "uptime": "زمان فعالیت",
+      "usersOverLimit": "بیش از حد"
+    },
+    "settings": {
+      "categories": {
+        "general": "تنظیمات عمومی",
+        "network": "شناسایی شبکه",
+        "notifications": "اعلان‌ها",
+        "progressive_bans": "مسدودسازی تصاعدی",
+        "punishment": "مسدودسازی‌ها",
+        "rate_limit": "محدودیت نرخ",
+        "traffic": "نظارت ترافیک"
+      },
+      "daily_report_enabled": "گزارش روزانه",
+      "daily_report_hour": "ساعت گزارش",
+      "error": "خطا در ذخیره",
+      "general": "عمومی",
+      "heartbeat_timeout": "مهلت heartbeat (ثانیه)",
+      "ip_window_seconds": "پنجره شمارش IP (ثانیه)",
+      "limits": "محدودیت‌ها",
+      "network_block_mobile": "مسدود کردن موبایل",
+      "network_block_mobile_minutes": "مسدود کردن موبایل (دقیقه)",
+      "network_block_wifi": "مسدود کردن WiFi",
+      "network_block_wifi_minutes": "مسدود کردن WiFi (دقیقه)",
+      "network_detection_collect_all": "جمع‌آوری از همه گره‌ها",
+      "network_detection_enabled": "شناسایی نوع شبکه",
+      "network_detection_monitor_all": "نظارت بر همه گره‌ها",
+      "network_detection_nodes": "گره‌های شناسایی",
+      "network_notify_mobile": "اعلان در موبایل",
+      "network_notify_wifi": "اعلان در WiFi",
+      "notifications": "اعلان‌ها",
+      "notify_on_node_status": "اعلان وضعیت گره",
+      "notify_on_punishment": "اعلان مسدودسازی",
+      "progressive_ban_1": "مسدودسازی اول (دقیقه)",
+      "progressive_ban_2": "مسدودسازی دوم (دقیقه)",
+      "progressive_ban_3": "مسدودسازی سوم (دقیقه)",
+      "progressive_ban_window_hours": "پنجره بازنشانی (ساعت)",
+      "progressive_bans_enabled": "مسدودسازی تصاعدی",
+      "punishment_enabled": "فعال‌سازی مسدودسازی خودکار",
+      "punishment_minutes": "مدت مسدودسازی (دقیقه)",
+      "rate_limit_max": "حداکثر درخواست",
+      "rate_limit_window": "پنجره محدودیت نرخ (ثانیه)",
+      "saved": "تنظیم ذخیره شد",
+      "title": "تنظیمات سیستم",
+      "traffic_ban_minutes": "مسدودسازی ترافیک (دقیقه)",
+      "traffic_check_interval": "فاصله بررسی (دقیقه)",
+      "traffic_limit_gb": "محدودیت ترافیک (گیگ)",
+      "traffic_monitor_enabled": "نظارت ترافیک",
+      "traffic_window_minutes": "پنجره بررسی (دقیقه)",
+      "whitelist": "لیست سفید"
     }
   },
   "blocking": {
