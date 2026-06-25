@@ -1,3 +1,41 @@
+# Smoke map — Phase 10 Slice B: cabinet admin Persian (CLOSED)
+
+> Branch `i18n/admin-fa-completion`; cabinet `fa.json` only; user smoke **تایید** 2026-06-25.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-completion` |
+| Commits | `07a7db29` plural/misc (58 keys) · `9902058a` banSystem (148) · `7063e3fe` pinnedMessages + patch tool |
+| Files | `cabinet/src/locales/fa.json`, `tools/cabinet_admin_fa_slice_b.py` |
+| Deploy | `make staging-cabinet-build` |
+| Cabinet URL | staging cabinet (`3021` / `staging-host-cabinet`) |
+| Locale | `fa` (admin routes use global i18n; no force-en) |
+
+## What changed
+
+- Cabinet admin `en_only` paths: **206 → 0** (plural `_one`, banSystem, user confirm dialogs, news combobox).
+- `banSystem.*` — dashboard, agents, settings, punishments, user detail (Persian).
+- `admin.pinnedMessages.*` — was full English leak; now Persian.
+- `admin.settings` — already 172/172 Persian (no commit needed).
+
+## User smoke checklist (staging cabinet, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| Ban monitoring | `/admin` → نظارت بر مسدودسازی | Tabs/settings Persian |
+| Pinned messages | `/admin/pinned-messages` | Create/edit UI Persian |
+| User actions | `/admin/users` → delete/disable confirm | Persian dialogs |
+| Regression | `/subscription` (user) | Unchanged Persian user UI |
+
+## Sign-off
+
+- [x] User smoke on staging cabinet (**تایید** 2026-06-25)
+- [ ] PR → merge → prod deploy (when Phase 10 scope agreed)
+
+---
+
 # Smoke map — Cabinet subscription sheets currency (تومان)
 
 > Branch `fix/cabinet-subscription-sheets-currency`; staging cabinet rebuild only.
