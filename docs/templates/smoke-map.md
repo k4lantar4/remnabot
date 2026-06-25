@@ -1,3 +1,42 @@
+# Smoke map — Admin Persian gaps (smoke follow-up)
+
+> Branch `i18n/admin-fa-slice-d` @ `a46fbc7f`; fixes reported Russian leaks; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-slice-d` |
+| Commits | `0edd37ec` monitoring language · `7308d380` broadcast-by-tariff key · `a46fbc7f` bot config + remna |
+| Bot | `@mrj7_bot` (staging) |
+| Deploy | `make staging-rebuild` (2026-06-25) |
+
+## Fixes in this batch
+
+| Issue | Root cause | Fix |
+|-------|------------|-----|
+| Force check / monitoring menu Russian | `from_user.language_code` not `db_user.language` | D3.1 `monitoring.py` |
+| `broadcast_by_tariff` button Russian | Missing `ADMIN_BROADCAST_TARGET_BY_TARIFF` in fa.json | D2 gap commit |
+| `admin_bot_config` / `admin_remna_config` Russian | D4 deferred — hardcoded Cyrillic | Dashboard + remna selector localized |
+
+## User smoke checklist (`@mrj7_bot`, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| 1 | Monitoring → force check | Persian result (not `Принудительная проверка`) |
+| 2 | Monitoring main menu | Persian status/stats |
+| 3 | Messages → by sub → **بر اساس سرویس** | Persian button + tariff list |
+| 4 | Settings → bot config (`admin_bot_config`) | Persian dashboard + group buttons |
+| 5 | Settings → remna app config | Persian title/body/buttons |
+| 6 | FAQ / privacy / offer admin menus | Persian chrome (P2); DB content unchanged |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** to ship or continue D5+
+
+---
+
 # Smoke map — Phase 10 Slice D: bot admin remnawave / broadcast / monitoring
 
 > Branch `i18n/admin-fa-slice-d` @ `5e0e9bc7`; 3 commits (D1–D3); awaiting user smoke.
