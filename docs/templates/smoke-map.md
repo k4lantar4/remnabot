@@ -1,42 +1,37 @@
-# Smoke map — Partner sequential username (global public serial)
+# Smoke map — Cabinet subscription sheets currency (تومان)
 
-> Branch `feat/subscription-public-serial`; staging deployed after Alembic `0101` + `make staging-rebuild`.
+> Branch `fix/cabinet-subscription-sheets-currency`; staging cabinet rebuild only.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `feat/subscription-public-serial` |
-| Tip (pre-docs) | `8b868572` — brand settings from photo referral menu |
-| Key commits | `4a901bfd` PG sequence START 1000; `ac604cee` decimal serial allocator; `70ea755a` brand button at confirm; `5168012e` serial in list/search; `8b868572` referral menu brand settings |
-| Migration | `0101_subscription_public_serial_seq` |
-| Staging | `make staging-migrate` + `make staging-rebuild` + `make staging-health` |
-| Bot | `@mrj7_bot` (staging Telegram) |
-| Plan | `docs/superpowers/plans/2026-06-24-partner-sequential-username.md` |
+| Branch | `fix/cabinet-subscription-sheets-currency` |
+| Commit | `8a65e958` — `useCurrency` in traffic/device/server sheets |
+| Files | `TrafficTopupSheet.tsx`, `DeviceTopupSheet.tsx`, `ServerManagementSheet.tsx` |
+| Staging | `make staging-cabinet-build` (cabinet only — no bot rebuild) |
+| Cabinet URL | `https://staging-host-cabinet.rookari.com` (port `3021`) |
+| Bot | `@mrj7_bot` (login via Telegram if needed) |
 
 ## What changed
 
-- Global PostgreSQL sequence allocates decimal public serial (`1000`, `1001`, …) into `subscriptions.remnawave_short_id`.
-- Multi-tariff panel username: `{brand_or_template}_{serial}` (e.g. `mobile_x_1000`).
-- Partner checkout: brand-name button + preview on confirm (no toggle); prefix stored on `users.panel_brand_prefix`.
-- My subscriptions: partners see `#serial` and can search by serial.
-- Renewals: panel username unchanged.
+- Subscription page «گزینه‌های اضافی» sheets no longer hardcode `₽`.
+- Prices use `useCurrency`: `30,000 تومان` for `fa` (comma-grouped Latin digits).
+- Fixes double `₽ ₽` on discounted traffic cards in RTL/mobile.
 
-## User smoke checklist (staging @mrj7_bot)
+## User smoke checklist (staging cabinet, fa locale)
 
-| Step | Telegram @mrj7_bot | Expected |
-|------|---------------------|----------|
-| Partner confirm | Buy tariff → confirm screen | «نام دلخواه: هنوز انتخاب نشده» + button |
-| Set brand | Tap 🏷 → `mobile_x` | Preview shows `mobile_x`; DB `users.panel_brand_prefix` |
-| First buy | Confirm | Panel username `mobile_x_1000` (or next serial) |
-| Second buy | Confirm without changing brand | `mobile_x_1001` |
-| Search | My subscriptions → search `1001` | Finds subscription |
-| Renewal | Renew existing | Username unchanged in panel |
-| Referral menu | Referrals → 🏷 نام برند | Brand settings opens (photo menu fix) |
+| Step | Path | Expected |
+|------|------|----------|
+| Traffic topup | `/subscriptions/:id` → **خرید ترافیک بیشتر** | Package prices show `N تومان`, not `₽` |
+| Discount card | Same, package with `-50%` badge | Strikethrough + final price both `تومان`; no double ruble |
+| Device topup | **افزودن کاربر بیشتر** (if enabled) | Per-device / total prices in `تومان` |
+| Server management | **مدیریت سرورها** (classic mode, if shown) | Country add-on prices in `تومان` |
+| Balance prompt | Select package above balance | Insufficient-balance line consistent `تومان` |
 
-**Regression:** default purchase (non-partner) still works; existing hex serial rows unchanged; Toman/Jalali/device terminology unaffected.
+**Regression:** `ru` locale still shows ruble amounts; tariff purchase wizard unchanged.
 
 ## Sign-off
 
-- [ ] User smoke on `@mrj7_bot` (partner account with brand prefix)
-- [ ] PR → merge → prod deploy (after `تایید`)
+- [ ] User smoke on staging cabinet (`تایید`)
+- [ ] PR → merge → prod deploy (after approval)
