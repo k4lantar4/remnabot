@@ -1283,7 +1283,8 @@
       "landings": "صفحات فرود",
       "referralNetwork": "شبکه ارجاع",
       "news": "اخبار",
-      "infoPages": "صفحات اطلاعات"
+      "infoPages": "صفحات اطلاعات",
+      "bulkActions": "عملیات گروهی"
     },
     "panel": {
       "title": "پنل مدیریت",
@@ -1662,7 +1663,8 @@
         "times_other": "{{count}} بار",
         "topWins": "برترین برنده‌ها",
         "loadError": "بارگذاری آمار ناموفق بود",
-        "empty": "هنوز چرخشی انجام نشده"
+        "empty": "هنوز چرخشی انجام نشده",
+        "times_one": "{{count}} بار"
       }
     },
     "broadcasts": {
@@ -1713,7 +1715,8 @@
         "registration": "بر اساس ثبت نام",
         "activity": "بر اساس فعالیت",
         "source": "بر اساس منبع",
-        "tariff": "بر اساس تعرفه"
+        "tariff": "بر اساس تعرفه",
+        "email": "کاربران ایمیل"
       },
       "enableTelegram": "Telegram",
       "enableEmail": "Email",
@@ -1751,7 +1754,13 @@
       "selectChannel": "کانال ارسال",
       "selectEmailFilter": "مخاطبان ایمیل را انتخاب کنید",
       "selectEmailFilterPlaceholder": "فیلتر را انتخاب کنید...",
-      "telegramSection": "ارسال انبوه تلگرام"
+      "telegramSection": "ارسال انبوه تلگرام",
+      "channel": {
+        "both": "هر دو",
+        "email": "ایمیل",
+        "telegram": "تلگرام"
+      },
+      "emailSubjectLabel": "موضوع"
     },
     "pinnedMessages": {
       "title": "Pinned Messages",
@@ -2375,7 +2384,14 @@
         "periodsRequired": "حداقل یک دوره اضافه کنید",
         "dailyPriceRequired": "قیمت روزانه بزرگتر از 0 را وارد کنید",
         "trafficPackagesRequired": "حداقل یک بسته ترافیک اضافه کنید (یا خرید ترافیک را غیرفعال کنید)"
-      }
+      },
+      "days_one": "{{count}} روز",
+      "devices_one": "{{count}} کاربر",
+      "periodDisabled": "غیرفعال",
+      "serverTrafficLimit": "محدودیت حجم",
+      "servers_one": "{{count}} سرور",
+      "subscriptions_one": "{{count}} اشتراک",
+      "useDefault": "پیش‌فرض"
     },
     "servers": {
       "title": "مدیریت اسکوادها",
@@ -2479,7 +2495,8 @@
         "activate": "فعال کردن",
         "edit": "ویرایش",
         "delete": "حذف",
-        "registrations": "ثبت‌نام‌ها"
+        "registrations": "ثبت‌نام‌ها",
+        "registrations_one": "{{count}} ثبت‌نام"
       },
       "modal": {
         "editTitle": "ویرایش کمپین",
@@ -2549,7 +2566,9 @@
         "vsLastWeek": "نسبت به هفته قبل",
         "topRegistrations": "بالاترین ثبت‌نام‌ها",
         "subscriptionsIssued": "اشتراک‌های صادر شده",
-        "tariffsIssued": "تعرفه‌های صادر شده"
+        "tariffsIssued": "تعرفه‌های صادر شده",
+        "subscriptionsIssued_one": "{{count}} اشتراک",
+        "tariffsIssued_one": "{{count}} سرویس"
       },
       "users": {
         "title": "کاربران کمپین",
@@ -2793,7 +2812,9 @@
       "discountForHours": "-{{percent}}% برای {{hours}} ساعت",
       "tabs": {
         "promocodes_other": "کدهای تخفیف ({{count}})",
-        "groups_other": "گروه‌های تخفیف ({{count}})"
+        "groups_other": "گروه‌های تخفیف ({{count}})",
+        "groups_one": "گروه‌های تخفیف ({{count}} گروه)",
+        "promocodes_one": "کدهای تخفیف ({{count}} کد)"
       },
       "type": {
         "balance": "موجودی",
@@ -2870,7 +2891,8 @@
         "activeCount": "فعال",
         "usagesCount": "استفاده‌ها",
         "exhausted": "تمام شده",
-        "hoursValue": "{{count}} ساعت"
+        "hoursValue": "{{count}} ساعت",
+        "hoursValue_one": "{{count}} ساعت"
       },
       "actions": {
         "stats": "آمار",
@@ -2896,7 +2918,8 @@
         "default": "پیش‌فرض",
         "daysShort": "{{days}} روز",
         "autoFrom": "خودکار از {{amount}} روبل",
-        "members_other": "{{count}} عضو"
+        "members_other": "{{count}} عضو",
+        "members_one": "{{count}} عضو"
       },
       "confirm": {
         "deletePromocode": "کد تخفیف حذف شود؟",
@@ -3230,8 +3253,25 @@
           "disable": "کاربر غیرفعال شد",
           "resetSubscription": "اشتراک بازنشانی شد",
           "resetTrial": "دوره آزمایشی بازنشانی شد"
+        },
+        "confirmDelete": {
+          "message": "مطمئن هستید؟ این عمل غیرقابل بازگشت است. کاربر به‌طور کامل از ربات و پنل Remnawave حذف می‌شود.",
+          "title": "حذف کاربر؟"
+        },
+        "confirmDisable": {
+          "message": "کاربر تا زمان فعال‌سازی مجدد نمی‌تواند از سرویس استفاده کند.",
+          "title": "غیرفعال کردن کاربر؟"
+        },
+        "confirmResetSubscription": {
+          "message": "اشتراک فعلی کاربر لغو می‌شود.",
+          "title": "بازنشانی اشتراک؟"
+        },
+        "confirmResetTrial": {
+          "message": "کاربر دوباره می‌تواند از دوره آزمایشی استفاده کند.",
+          "title": "بازنشانی آزمایشی؟"
         }
-      }
+      },
+      "purchaseCount_one": "{{count}} خرید"
     },
     "promoOffers": {
       "title": "پیشنهادات تبلیغاتی",
@@ -3240,7 +3280,8 @@
       "tabs": {
         "templates_other": "قالب‌ها ({{count}})",
         "logs": "گزارش‌ها",
-        "templates": "قالب‌ها"
+        "templates": "قالب‌ها",
+        "templates_one": "قالب‌ها ({{count}} قالب)"
       },
       "noData": {
         "templates": "قالبی وجود ندارد",
@@ -3297,7 +3338,11 @@
         "notificationsFailed": "(ناموفق: {{count}})",
         "sendError": "ارسال پیشنهاد ناموفق بود",
         "notificationsSent": "اعلان‌های ارسال شده",
-        "offersCreated": "پیشنهادهای ایجاد شده"
+        "offersCreated": "پیشنهادهای ایجاد شده",
+        "notificationsFailed_one": "(ناموفق: {{count}})",
+        "notificationsFailed_other": "(ناموفق: {{count}})",
+        "notificationsSent_one": "اعلان ارسال شد: {{count}}",
+        "offersCreated_one": "پیشنهاد ایجاد شد: {{count}}"
       },
       "notFound": "قالب یافت نشد",
       "noActiveTemplates": "قالب فعالی وجود ندارد",
@@ -3387,7 +3432,8 @@
           "disabled": "غیرفعال",
           "users": "کاربران"
         },
-        "usersOnlineCount": "{{count}} آنلاین"
+        "usersOnlineCount": "{{count}} آنلاین",
+        "usersOnlineCount_one": "{{count}} آنلاین"
       },
       "overview": {
         "bandwidth": "پهنای باند لحظه‌ای",
@@ -3440,7 +3486,9 @@
         "price": "قیمت",
         "users": "کاربران",
         "inboundsCount": "{{count}} ورودی",
-        "membersCount": "{{count}} عضو"
+        "membersCount": "{{count}} عضو",
+        "inboundsCount_one": "{{count}} ورودی",
+        "membersCount_one": "{{count}} عضو"
       },
       "sync": {
         "autoSync": "همگام‌سازی خودکار",
@@ -3566,7 +3614,8 @@
         "cancel": "لغو",
         "saving": "در حال ذخیره...",
         "save": "ذخیره",
-        "selectedPermissions": "مجوزهای انتخاب‌شده"
+        "selectedPermissions": "مجوزهای انتخاب‌شده",
+        "selectedPermissions_one": "{{count}} مجوز انتخاب شده"
       },
       "presets": {
         "moderator": "مدیر محتوا",
@@ -3588,7 +3637,9 @@
         "deleteFailed": "حذف نقش ناموفق بود"
       },
       "permissionsCount": "{{count}} مجوز",
-      "usersCount": "{{count}} کاربر"
+      "usersCount": "{{count}} کاربر",
+      "permissionsCount_one": "{{count}} مجوز",
+      "usersCount_one": "{{count}} کاربر"
     },
     "roleAssign": {
       "title": "تخصیص نقش",
@@ -3641,7 +3692,8 @@
         "assignFailed": "تخصیص نقش ناموفق بود",
         "revokeFailed": "لغو نقش ناموفق بود"
       },
-      "totalAssignments": "مجموع انتساب‌ها: {{count}}"
+      "totalAssignments": "مجموع انتساب‌ها: {{count}}",
+      "totalAssignments_one": "{{count}} تخصیص در مجموع"
     },
     "policies": {
       "title": "سیاست‌های دسترسی",
@@ -3709,7 +3761,8 @@
         "day4": "پنجشنبه",
         "day5": "جمعه",
         "day6": "شنبه",
-        "ipCount": "تعداد آی‌پی"
+        "ipCount": "تعداد آی‌پی",
+        "ipCount_one": "{{count}} IP"
       },
       "confirm": {
         "title": "حذف سیاست؟",
@@ -3794,7 +3847,10 @@
         "daysAgo_other": "{{count}} روز پیش",
         "daysAgo": "{{count}} روز پیش",
         "hoursAgo": "{{count}} ساعت پیش",
-        "minutesAgo": "{{count}} دقیقه پیش"
+        "minutesAgo": "{{count}} دقیقه پیش",
+        "daysAgo_one": "{{count}} روز پیش",
+        "hoursAgo_one": "{{count}} ساعت پیش",
+        "minutesAgo_one": "{{count}} دقیقه پیش"
       },
       "pagination": {
         "pageSize": "در هر صفحه:",
@@ -3808,7 +3864,8 @@
         "loadFailed": "بارگذاری گزارش بازرسی ناموفق بود",
         "retry": "تلاش مجدد"
       },
-      "totalEntries": "مجموع موارد: {{count}}"
+      "totalEntries": "مجموع موارد: {{count}}",
+      "totalEntries_one": "{{count}} رکورد"
     },
     "landings": {
       "title": "صفحات فرود",
@@ -4165,7 +4222,8 @@
       "disable": "غیرفعال",
       "hide": "پنهان کردن ({{count}})",
       "showMore_other": "نمایش {{count}} گره بیشتر",
-      "showMore": "نمایش بیشتر"
+      "showMore": "نمایش بیشتر",
+      "showMore_one": "نمایش {{count}} گره دیگر"
     },
     "revenue": {
       "title": "درآمد",
@@ -4238,7 +4296,8 @@
       "subtitle": "آمار به تفکیک تعرفه",
       "tariffName": "نام تعرفه",
       "title": "آمار تعرفه‌ها",
-      "trialSubscriptions": "اشتراک‌های آزمایشی"
+      "trialSubscriptions": "اشتراک‌های آزمایشی",
+      "noTariffs": "سرویسی وجود ندارد"
     }
   },
   "profile": {
@@ -4996,6 +5055,17 @@
         "image": "تصویر",
         "imageUrlPrompt": "آدرس تصویر:",
         "linkUrlPrompt": "آدرس پیوند:"
+      },
+      "combobox": {
+        "clear": "پاک کردن",
+        "create": "ایجاد",
+        "createNew": "ایجاد جدید",
+        "delete": "حذف {{name}}",
+        "noItems": "موردی یافت نشد",
+        "placeholder": "انتخاب...",
+        "searchOrCreate": "جستجو یا ایجاد...",
+        "selectCategory": "انتخاب دسته",
+        "selectTag": "انتخاب برچسب"
       }
     }
   },
