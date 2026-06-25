@@ -1,3 +1,116 @@
+# Smoke map — Admin Persian gaps (smoke follow-up)
+
+> Branch `i18n/admin-fa-slice-d` (uncommitted hotfix); re-smoke items 1, 2, 5.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-slice-d` |
+| Commits | `0edd37ec` monitoring language · `7308d380` broadcast-by-tariff · `a46fbc7f` bot config |
+| Hotfix (local) | `monitoring.py` — `db_user: User` not `data: dict` (crash fix) · `fa.json` `ADMIN_SETTINGS_APP_CONFIG` |
+| Bot | `@mrj7_bot` (staging) |
+| Deploy | `make staging-rebuild` (2026-06-25, post hotfix) |
+
+## Fixes in this batch
+
+| Issue | Root cause | Fix |
+|-------|------------|-----|
+| **admin_monitoring does not open** | D3.1 used `data: dict` param — aiogram injects `db_user`, not `data` | Handlers use `db_user: User`; FSM uses `state.get_data()` |
+| Force check / monitoring menu Russian | `from_user.language_code` | D3.1 `_admin_language(db_user)` |
+| `broadcast_by_tariff` button Russian | Missing key | `ADMIN_BROADCAST_TARGET_BY_TARIFF` — **تایید** |
+| `admin_bot_config` Russian | D4 deferred | Localized — **تایید** |
+| **`admin_remna_config` button label Russian** | `ADMIN_SETTINGS_APP_CONFIG` missing in fa.json | Added Persian label in settings submenu keyboard |
+
+## User smoke checklist (`@mrj7_bot`, fa admin)
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | Monitoring → force check | Persian result | re-test |
+| 2 | Monitoring main menu | Opens + Persian status/stats | re-test |
+| 3 | Messages → by sub → **بر اساس سرویس** | Persian button + tariff list | **تایید** |
+| 4 | Settings → bot config | Persian dashboard | **تایید** |
+| 5 | Settings submenu → **پیکربندی اپلیکیشن‌ها** (`admin_remna_config`) | Persian button label (+ screen from D4) | re-test |
+| 6 | FAQ / privacy / offer admin menus | Persian chrome (P2) | optional |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** to ship or continue D5+
+
+---
+
+# Smoke map — Phase 10 Slice D: bot admin remnawave / broadcast / monitoring
+
+> Branch `i18n/admin-fa-slice-d` @ `5e0e9bc7`; 3 commits (D1–D3); awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-slice-d` |
+| Commits | `f6a77f5f` remnawave · `e2fe9912` broadcast FSM · `5e0e9bc7` monitoring |
+| Files | `app/handlers/admin/remnawave.py`, `messages.py`, `monitoring.py`, `app/localization/locales/fa.json` (+452 keys) |
+| Deploy | `make staging-rebuild` + `cp app/localization/locales/fa.json ./locales/fa.json` |
+| Bot | `@mrj7_bot` (staging) |
+| Locale | `fa` admin (`get_texts(db_user.language)`) |
+
+## fa.json key delta
+
+| Commit | Keys | +new |
+|--------|------|------|
+| D1 remnawave | 4430 | +252 |
+| D2 broadcast | 4500 | +70 |
+| D3 monitoring | 4652 | +152 |
+
+## User smoke checklist (staging Telegram, fa admin)
+
+### D1 — Remnawave panel
+
+| Step | Path | Expected |
+|------|------|----------|
+| System stats | Admin → Remnawave → system stats | Persian labels; Jalali dates where shown |
+| Nodes list | Nodes management → node detail | Persian status/connect labels |
+| Node stats | Node statistics view | Persian traffic/uptime copy |
+| Squads | Squad list → detail | Persian (some FSM bodies may still Cyrillic — known gap) |
+| Sync | Sync options / recommendations | Persian menu; sync result bodies may mix |
+
+### D2 — Broadcast FSM
+
+| Step | Path | Expected |
+|------|------|----------|
+| Menu | Admin → Messages / broadcasts | Persian menu |
+| Pinned | Pinned message menu + edit flow | Persian |
+| Target picker | By subscription / criteria / history | Persian buttons + history lines |
+| Create flow | Message → media → buttons → preview → send | Persian prompts; preview keyboard Persian |
+| Progress | Confirm send | Persian progress + result |
+
+### D3 — Monitoring
+
+| Step | Path | Expected |
+|------|------|----------|
+| Main menu | Admin → Monitoring | Persian status + 24h stats |
+| Notify settings | Settings → user notifications | Persian toggles + test buttons |
+| Test preview | Send test notification previews | Persian admin chrome; user template from fa.json |
+| Traffic settings | Traffic monitoring settings | Persian toggles/thresholds |
+| Force check | Force subscription check | Persian result |
+| Traffic delta | Manual traffic check | Persian result |
+| Logs | Monitoring logs paginated | Persian headers/stats |
+| NaloGO | Statistics → receipt queue (if enabled) | Persian labels (partial — reconcile log regex unchanged) |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` (**تایید**)
+- [ ] Ship PR → merge → prod deploy
+
+## Known gaps (Slice D)
+
+- `remnawave.py`: ~154 `count_hardcoded` lines (squad edit FSM + sync result f-strings) — Cyrillic in `texts.t` fallbacks excluded from metric
+- `messages.py`: ~33 lines (multi-line `texts.t` fallback continuations)
+- `monitoring.py`: ~112 lines (fallback continuations, logger, YooKassa log parse regex, duplicate nalogo stats block)
+
+---
+
 # Smoke map — Phase 10 Slice C: cabinet admin TSX fallbacks
 
 > Branch `i18n/admin-fa-completion` @ `97d4ee81`; 9 TSX files + remnawave `fa.json` keys; awaiting user smoke.
