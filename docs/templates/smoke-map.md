@@ -32,8 +32,19 @@
 
 ## Sign-off
 
-- [ ] User smoke on staging cabinet (**تایید** pending)
+- [x] User smoke on staging cabinet (**تایید** 2026-06-25; post-fix `c53ff63e` redeployed)
 - [ ] Ship with Slice A + remaining Phase 10 slices
+
+### Smoke fixes (`c53ff63e`)
+
+| Issue | Fix |
+|-------|-----|
+| Broadcast buttons Russian (img 1) | UI uses `admin.broadcasts.btn*` from fa.json, not API `default_text` |
+| Filter dropdown Russian (img 2) | `admin.broadcasts.audienceFilters.*` keys; tariff **names** still from DB (e.g. Стандартный) |
+| `categoryDesc` Cyrillic | fa key + English fallback |
+| `Текущий трафик` / live traffic | `admin.remnawave.traffic.realtimeTitle` in fa.json |
+| Subscription dates Persian digits (img 3) | `formatUserDateTime` in admin user detail |
+| Promocode dates Persian digits (img 4) | `formatUserDate` in AdminPromocodes |
 
 ---
 
