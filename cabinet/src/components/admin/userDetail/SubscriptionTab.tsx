@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import i18n from '../../../i18n';
 import {
   BackIcon,
   CheckIcon,
@@ -11,6 +12,7 @@ import {
   XIcon,
 } from '@/components/icons';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../../../constants/devices';
+import { formatUserDateTime } from '../../../utils/formatDate';
 import { createNumberInputHandler } from '../../../utils/inputHelpers';
 import { getFlagEmoji } from '../../../utils/subscriptionHelpers';
 import type {
@@ -200,10 +202,11 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
     onLoadRequestHistory,
     hasPermission,
     formatDate,
-    locale,
+    locale: _locale,
   } = props;
   // Suppress activeSubscriptionId-unused; the parent uses it for query keys.
   void activeSubscriptionId;
+  void _locale;
 
   return (
     <div className="space-y-4">
@@ -915,7 +918,7 @@ export function SubscriptionTab(props: SubscriptionTabProps) {
                           )}
                           <span className="font-mono">{device.hwid.slice(0, 8)}...</span>
                           {device.created_at && (
-                            <span>{new Date(device.created_at).toLocaleDateString(locale)}</span>
+                            <span>{formatUserDateTime(device.created_at, i18n.language)}</span>
                           )}
                         </div>
                       </div>
