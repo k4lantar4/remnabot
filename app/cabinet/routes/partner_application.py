@@ -94,10 +94,13 @@ async def get_partner_status(
                 )
             )
 
+    saved_prefix = (getattr(user, 'panel_brand_prefix', None) or '').strip() or None
+
     return PartnerStatusResponse(
         partner_status=user.partner_status,
         commission_percent=commission,
         wholesale_discount_bps=user.effective_wholesale_discount_bps,
+        panel_brand_prefix=saved_prefix,
         latest_application=app_info,
         campaigns=campaigns,
     )

@@ -62,6 +62,7 @@ class PartnerStatusResponse(BaseModel):
     partner_status: str
     commission_percent: int | None = None
     wholesale_discount_bps: int = 0
+    panel_brand_prefix: str | None = None
     latest_application: PartnerApplicationInfo | None = None
     campaigns: list[PartnerCampaignInfo] = []
 

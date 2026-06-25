@@ -252,3 +252,13 @@ class TariffPurchaseRequest(BaseModel):
         pattern=r'^[A-Za-z0-9._:-]{4,128}$',
         description='Cached Yandex.Metrika ClientID (optional).',
     )
+    purchase_note: str | None = Field(
+        None,
+        max_length=500,
+        description='Optional partner purchase note (stored on subscription, partner-only).',
+    )
+    panel_brand_prefix: str | None = Field(
+        None,
+        max_length=24,
+        description='Optional partner panel username prefix (partner-only; replaces stored prefix).',
+    )
