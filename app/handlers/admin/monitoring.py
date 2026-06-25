@@ -27,6 +27,18 @@ from app.utils.pagination import paginate_list
 logger = structlog.get_logger(__name__)
 router = Router()
 
+def _admin_language(data: dict) -> str:
+    db_user = data.get('db_user')
+    if db_user:
+        return db_user.language or settings.DEFAULT_LANGUAGE
+    return settings.DEFAULT_LANGUAGE
+
+
+def _admin_texts(data: dict):
+    language = _admin_language(data)
+    return get_texts(language), language
+
+
 
 def _format_toggle(enabled: bool, language: str) -> str:
     texts = get_texts(language)
@@ -315,8 +327,8 @@ async def _send_notification_preview(bot, chat_id: int, language: str, notificat
     )
 
 
-async def _render_notification_settings(callback: CallbackQuery) -> None:
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+async def _render_notification_settings(callback: CallbackQuery, data: dict) -> None:
+    language = _admin_language(data)
     text, keyboard = _build_notification_settings_view(language)
     await callback.message.edit_text(text, parse_mode='HTML', reply_markup=keyboard)
 
@@ -363,9 +375,9 @@ async def _render_notification_settings_for_state(
 
 @router.callback_query(F.data == 'admin_monitoring')
 @admin_required
-async def admin_monitoring_menu(callback: CallbackQuery):
+async def admin_monitoring_menu(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         async with AsyncSessionLocal() as db:
             status = await monitoring_service.get_monitoring_status(db)
@@ -398,15 +410,15 @@ async def admin_monitoring_menu(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка в админ меню мониторинга', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_DATA_ERR', '❌ Ошибка получения данных'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_settings')
 @admin_required
-async def admin_monitoring_settings(callback: CallbackQuery):
+async def admin_monitoring_settings(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         global_status = (
             texts.t('ADMIN_MON_GLOBAL_ON', '🟢 Включены')
@@ -435,126 +447,126 @@ async def admin_monitoring_settings(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка отображения настроек мониторинга', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_SETTINGS_ERR', '❌ Не удалось открыть настройки'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_settings')
 @admin_required
-async def admin_notify_settings(callback: CallbackQuery):
+async def admin_notify_settings(callback: CallbackQuery, data: dict):
     try:
-        await _render_notification_settings(callback)
+        await _render_notification_settings(callback, data)
     except Exception as e:
         logger.error('Ошибка отображения настроек уведомлений', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_NOTIFY_ERR', '❌ Не удалось загрузить настройки'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_toggle_trial_channel')
 @admin_required
-async def toggle_trial_channel_notification(callback: CallbackQuery):
+async def toggle_trial_channel_notification(callback: CallbackQuery, data: dict):
     enabled = NotificationSettingsService.is_trial_channel_unsubscribed_enabled()
     NotificationSettingsService.set_trial_channel_unsubscribed_enabled(not enabled)
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     texts = get_texts(language)
     await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if not enabled else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
-    await _render_notification_settings(callback)
+    await _render_notification_settings(callback, data)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_preview_trial_channel')
 @admin_required
-async def preview_trial_channel_notification(callback: CallbackQuery):
+async def preview_trial_channel_notification(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await _send_notification_preview(callback.bot, callback.from_user.id, language, 'trial_channel_unsubscribed')
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_SENT', '✅ Пример отправлен'))
     except Exception as exc:
         logger.error('Failed to send trial channel preview', exc=exc)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_FAIL', '❌ Не удалось отправить тест'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_toggle_expired_1d')
 @admin_required
-async def toggle_expired_1d_notification(callback: CallbackQuery):
+async def toggle_expired_1d_notification(callback: CallbackQuery, data: dict):
     enabled = NotificationSettingsService.is_expired_1d_enabled()
     NotificationSettingsService.set_expired_1d_enabled(not enabled)
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     texts = get_texts(language)
     await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if not enabled else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
-    await _render_notification_settings(callback)
+    await _render_notification_settings(callback, data)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_preview_expired_1d')
 @admin_required
-async def preview_expired_1d_notification(callback: CallbackQuery):
+async def preview_expired_1d_notification(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await _send_notification_preview(callback.bot, callback.from_user.id, language, 'expired_1d')
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_SENT', '✅ Пример отправлен'))
     except Exception as exc:
         logger.error('Failed to send expired 1d preview', exc=exc)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_FAIL', '❌ Не удалось отправить тест'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_toggle_expired_2d')
 @admin_required
-async def toggle_second_wave_notification(callback: CallbackQuery):
+async def toggle_second_wave_notification(callback: CallbackQuery, data: dict):
     enabled = NotificationSettingsService.is_second_wave_enabled()
     NotificationSettingsService.set_second_wave_enabled(not enabled)
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     texts = get_texts(language)
     await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if not enabled else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
-    await _render_notification_settings(callback)
+    await _render_notification_settings(callback, data)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_preview_expired_2d')
 @admin_required
-async def preview_second_wave_notification(callback: CallbackQuery):
+async def preview_second_wave_notification(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await _send_notification_preview(callback.bot, callback.from_user.id, language, 'expired_2d')
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_SENT', '✅ Пример отправлен'))
     except Exception as exc:
         logger.error('Failed to send second wave preview', exc=exc)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_FAIL', '❌ Не удалось отправить тест'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_toggle_expired_nd')
 @admin_required
-async def toggle_third_wave_notification(callback: CallbackQuery):
+async def toggle_third_wave_notification(callback: CallbackQuery, data: dict):
     enabled = NotificationSettingsService.is_third_wave_enabled()
     NotificationSettingsService.set_third_wave_enabled(not enabled)
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     texts = get_texts(language)
     await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if not enabled else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
-    await _render_notification_settings(callback)
+    await _render_notification_settings(callback, data)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_preview_expired_nd')
 @admin_required
-async def preview_third_wave_notification(callback: CallbackQuery):
+async def preview_third_wave_notification(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await _send_notification_preview(callback.bot, callback.from_user.id, language, 'expired_nd')
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_SENT', '✅ Пример отправлен'))
     except Exception as exc:
         logger.error('Failed to send third wave preview', exc=exc)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_PREVIEW_FAIL', '❌ Не удалось отправить тест'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_notify_preview_all')
 @admin_required
-async def preview_all_notifications(callback: CallbackQuery):
+async def preview_all_notifications(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         chat_id = callback.from_user.id
         for notification_type in [
             'trial_channel_unsubscribed',
@@ -563,11 +575,11 @@ async def preview_all_notifications(callback: CallbackQuery):
             'expired_nd',
         ]:
             await _send_notification_preview(callback.bot, chat_id, language, notification_type)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_ALL_SENT', '✅ Все тестовые уведомления отправлены'))
     except Exception as exc:
         logger.error('Failed to send all notification previews', exc=exc)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_ALL_FAIL', '❌ Не удалось отправить тесты'), show_alert=True)
 
 
@@ -579,7 +591,7 @@ async def _start_notification_value_edit(
     prompt_key: str,
     default_prompt: str,
 ):
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await state.set_state(AdminStates.editing_notification_value)
     await state.update_data(
         notification_setting_key=setting_key,
@@ -600,7 +612,7 @@ async def _start_notification_value_edit(
 
 @router.callback_query(F.data == 'admin_mon_notify_edit_2d_percent')
 @admin_required
-async def edit_second_wave_percent(callback: CallbackQuery, state: FSMContext):
+async def edit_second_wave_percent(callback: CallbackQuery, state: FSMContext, data: dict):
     await _start_notification_value_edit(
         callback,
         state,
@@ -613,7 +625,7 @@ async def edit_second_wave_percent(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_mon_notify_edit_2d_hours')
 @admin_required
-async def edit_second_wave_hours(callback: CallbackQuery, state: FSMContext):
+async def edit_second_wave_hours(callback: CallbackQuery, state: FSMContext, data: dict):
     await _start_notification_value_edit(
         callback,
         state,
@@ -626,7 +638,7 @@ async def edit_second_wave_hours(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_mon_notify_edit_nd_percent')
 @admin_required
-async def edit_third_wave_percent(callback: CallbackQuery, state: FSMContext):
+async def edit_third_wave_percent(callback: CallbackQuery, state: FSMContext, data: dict):
     await _start_notification_value_edit(
         callback,
         state,
@@ -639,7 +651,7 @@ async def edit_third_wave_percent(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_mon_notify_edit_nd_hours')
 @admin_required
-async def edit_third_wave_hours(callback: CallbackQuery, state: FSMContext):
+async def edit_third_wave_hours(callback: CallbackQuery, state: FSMContext, data: dict):
     await _start_notification_value_edit(
         callback,
         state,
@@ -652,7 +664,7 @@ async def edit_third_wave_hours(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_mon_notify_edit_nd_threshold')
 @admin_required
-async def edit_third_wave_threshold(callback: CallbackQuery, state: FSMContext):
+async def edit_third_wave_threshold(callback: CallbackQuery, state: FSMContext, data: dict):
     await _start_notification_value_edit(
         callback,
         state,
@@ -665,10 +677,10 @@ async def edit_third_wave_threshold(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_mon_start')
 @admin_required
-async def start_monitoring_callback(callback: CallbackQuery):
+async def start_monitoring_callback(callback: CallbackQuery, data: dict):
     try:
         if monitoring_service.is_running:
-            language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+            language = _admin_language(data)
             await callback.answer(get_texts(language).t('ADMIN_MON_ALREADY_RUNNING', 'ℹ️ Мониторинг уже запущен'))
             return
 
@@ -677,49 +689,49 @@ async def start_monitoring_callback(callback: CallbackQuery):
 
         asyncio.create_task(monitoring_service.start_monitoring())
 
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_STARTED', '✅ Мониторинг запущен!'))
 
         await admin_monitoring_menu(callback)
 
     except Exception as e:
         logger.error('Ошибка запуска мониторинга', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_START_ERR', '❌ Ошибка запуска: {error}').format(error=e), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_stop')
 @admin_required
-async def stop_monitoring_callback(callback: CallbackQuery):
+async def stop_monitoring_callback(callback: CallbackQuery, data: dict):
     try:
         if not monitoring_service.is_running:
-            language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+            language = _admin_language(data)
             await callback.answer(get_texts(language).t('ADMIN_MON_ALREADY_STOPPED', 'ℹ️ Мониторинг уже остановлен'))
             return
 
         monitoring_service.stop_monitoring()
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_STOPPED_MSG', '⏹️ Мониторинг остановлен!'))
 
         await admin_monitoring_menu(callback)
 
     except Exception as e:
         logger.error('Ошибка остановки мониторинга', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_STOP_ERR', '❌ Ошибка остановки: {error}').format(error=e), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_force_check')
 @admin_required
-async def force_check_callback(callback: CallbackQuery):
+async def force_check_callback(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_FORCE_CHECK', '⏳ Выполняем проверку подписок...'))
 
         async with AsyncSessionLocal() as db:
             results = await monitoring_service.force_check_subscriptions(db)
 
-            language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+            language = _admin_language(data)
             texts = get_texts(language)
             text = texts.t(
                 'ADMIN_MON_FORCE_DONE',
@@ -741,18 +753,18 @@ async def force_check_callback(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка принудительной проверки', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_FORCE_ERR', '❌ Ошибка проверки: {error}').format(error=e), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_traffic_check')
 @admin_required
-async def traffic_check_callback(callback: CallbackQuery):
+async def traffic_check_callback(callback: CallbackQuery, data: dict):
     """Ручная проверка трафика — использует snapshot и дельту."""
     try:
         # Проверяем, включен ли мониторинг трафика
         if not traffic_monitoring_scheduler.is_enabled():
-            language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+            language = _admin_language(data)
             await callback.answer(
                 get_texts(language).t(
                     'ADMIN_MON_TRAFFIC_DISABLED',
@@ -762,7 +774,7 @@ async def traffic_check_callback(callback: CallbackQuery):
             )
             return
 
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         await callback.answer(texts.t('ADMIN_MON_TRAFFIC_CHECK', '⏳ Запускаем проверку трафика (дельта)...'))
 
@@ -815,15 +827,15 @@ async def traffic_check_callback(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка проверки трафика', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_TRAFFIC_ERR', '❌ Ошибка: {error}').format(error=e), show_alert=True)
 
 
 @router.callback_query(F.data.startswith('admin_mon_logs'))
 @admin_required
-async def monitoring_logs_callback(callback: CallbackQuery):
+async def monitoring_logs_callback(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         page = 1
         if '_page_' in callback.data:
@@ -871,15 +883,15 @@ async def monitoring_logs_callback(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка получения логов', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_LOGS_ERR', '❌ Ошибка получения логов'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_clear_logs')
 @admin_required
-async def clear_logs_callback(callback: CallbackQuery):
+async def clear_logs_callback(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         async with AsyncSessionLocal() as db:
             deleted_count = await monitoring_service.cleanup_old_logs(db, days=0)
@@ -894,15 +906,15 @@ async def clear_logs_callback(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка очистки логов', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_LOGS_CLEAR_ERR', '❌ Ошибка очистки: {error}').format(error=e), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_mon_test_notifications')
 @admin_required
-async def test_notifications_callback(callback: CallbackQuery):
+async def test_notifications_callback(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         running = (
             texts.t('ADMIN_MON_RUNNING', '🟢 Работает')
@@ -930,9 +942,9 @@ async def test_notifications_callback(callback: CallbackQuery):
 
 @router.callback_query(F.data == 'admin_mon_statistics')
 @admin_required
-async def monitoring_statistics_callback(callback: CallbackQuery):
+async def monitoring_statistics_callback(callback: CallbackQuery, data: dict):
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         async with AsyncSessionLocal() as db:
             from app.database.crud.subscription import get_subscriptions_statistics
@@ -1030,7 +1042,7 @@ async def monitoring_statistics_callback(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка получения статистики', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_STATS_ERR', '❌ Ошибка получения статистики: {error}').format(error=e), show_alert=True)
 
 
@@ -1702,9 +1714,9 @@ def get_monitoring_logs_back_keyboard(language: str = 'ru'):
 
 @router.message(Command('monitoring'))
 @admin_required
-async def monitoring_command(message: Message):
+async def monitoring_command(message: Message, data: dict):
     try:
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         async with AsyncSessionLocal() as db:
             status = await monitoring_service.get_monitoring_status(db)
@@ -1728,16 +1740,16 @@ async def monitoring_command(message: Message):
 
     except Exception as e:
         logger.error('Ошибка команды /monitoring', error=e)
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await message.answer(get_texts(language).t('ADMIN_MON_CMD_ERR', '❌ Ошибка: {error}').format(error=e))
 
 
 @router.message(AdminStates.editing_notification_value)
-async def process_notification_value_input(message: Message, state: FSMContext):
+async def process_notification_value_input(message: Message, state: FSMContext, data: dict):
     data = await state.get_data()
     if not data:
         await state.clear()
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await message.answer(get_texts(language).t('ADMIN_MON_CONTEXT_LOST', 'ℹ️ Контекст утерян, попробуйте снова из меню настроек.'))
         return
 
@@ -1745,14 +1757,14 @@ async def process_notification_value_input(message: Message, state: FSMContext):
     try:
         value = int(raw_value)
     except (TypeError, ValueError):
-        language = data.get('settings_language') or message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = data.get('settings_language') or _admin_language(data)
         texts = get_texts(language)
         await message.answer(texts.get('NOTIFICATION_VALUE_INVALID', '❌ Введите целое число.'))
         return
 
     key = data.get('notification_setting_key')
     field = data.get('notification_setting_field')
-    language = data.get('settings_language') or message.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = data.get('settings_language') or _admin_language(data)
     texts = get_texts(language)
 
     # Добавляем дополнительные проверки диапазона значений
@@ -1918,22 +1930,22 @@ def _build_traffic_settings_text(language: str) -> str:
 
 @router.callback_query(F.data == 'admin_mon_traffic_settings')
 @admin_required
-async def admin_traffic_settings(callback: CallbackQuery):
+async def admin_traffic_settings(callback: CallbackQuery, data: dict):
     """Показывает настройки мониторинга трафика."""
     try:
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         text = _build_traffic_settings_text(language)
         keyboard = _build_traffic_settings_keyboard(language)
         await callback.message.edit_text(text, parse_mode='HTML', reply_markup=keyboard)
     except Exception as e:
         logger.error('Ошибка отображения настроек трафика', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_TRAFFIC_LOAD_ERR', '❌ Ошибка загрузки настроек'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_traffic_toggle_fast')
 @admin_required
-async def toggle_fast_check(callback: CallbackQuery):
+async def toggle_fast_check(callback: CallbackQuery, data: dict):
     """Переключает быструю проверку трафика."""
     try:
         from app.services.system_settings_service import BotConfigurationService
@@ -1945,7 +1957,7 @@ async def toggle_fast_check(callback: CallbackQuery):
             await BotConfigurationService.set_value(db, 'TRAFFIC_FAST_CHECK_ENABLED', new_value)
             await db.commit()
 
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if new_value else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
 
@@ -1956,13 +1968,13 @@ async def toggle_fast_check(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка переключения быстрой проверки', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_TRAFFIC_TOGGLE_ERR', '❌ Ошибка'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_traffic_toggle_daily')
 @admin_required
-async def toggle_daily_check(callback: CallbackQuery):
+async def toggle_daily_check(callback: CallbackQuery, data: dict):
     """Переключает суточную проверку трафика."""
     try:
         from app.services.system_settings_service import BotConfigurationService
@@ -1974,7 +1986,7 @@ async def toggle_daily_check(callback: CallbackQuery):
             await BotConfigurationService.set_value(db, 'TRAFFIC_DAILY_CHECK_ENABLED', new_value)
             await db.commit()
 
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         texts = get_texts(language)
         await callback.answer(texts.t('ADMIN_MON_TOGGLED_ON', '✅ Включено') if new_value else texts.t('ADMIN_MON_TOGGLED_OFF', '⏸️ Отключено'))
 
@@ -1984,13 +1996,13 @@ async def toggle_daily_check(callback: CallbackQuery):
 
     except Exception as e:
         logger.error('Ошибка переключения суточной проверки', error=e)
-        language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await callback.answer(get_texts(language).t('ADMIN_MON_TRAFFIC_TOGGLE_ERR', '❌ Ошибка'), show_alert=True)
 
 
 @router.callback_query(F.data == 'admin_traffic_edit_fast_interval')
 @admin_required
-async def edit_fast_interval(callback: CallbackQuery, state: FSMContext):
+async def edit_fast_interval(callback: CallbackQuery, state: FSMContext, data: dict):
     """Начинает редактирование интервала быстрой проверки."""
     await state.set_state(AdminStates.editing_traffic_setting)
     await state.update_data(
@@ -2000,13 +2012,13 @@ async def edit_fast_interval(callback: CallbackQuery, state: FSMContext):
         settings_message_id=callback.message.message_id,
     )
     await callback.answer()
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await callback.message.answer(get_texts(language).t('ADMIN_MON_PROMPT_FAST_INTERVAL', '⏱ Введите интервал быстрой проверки в минутах (минимум 1):'))
 
 
 @router.callback_query(F.data == 'admin_traffic_edit_fast_threshold')
 @admin_required
-async def edit_fast_threshold(callback: CallbackQuery, state: FSMContext):
+async def edit_fast_threshold(callback: CallbackQuery, state: FSMContext, data: dict):
     """Начинает редактирование порога быстрой проверки."""
     await state.set_state(AdminStates.editing_traffic_setting)
     await state.update_data(
@@ -2016,13 +2028,13 @@ async def edit_fast_threshold(callback: CallbackQuery, state: FSMContext):
         settings_message_id=callback.message.message_id,
     )
     await callback.answer()
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await callback.message.answer(get_texts(language).t('ADMIN_MON_PROMPT_FAST_THRESHOLD', '📊 Введите порог дельты трафика в ГБ (например: 5.0):'))
 
 
 @router.callback_query(F.data == 'admin_traffic_edit_daily_time')
 @admin_required
-async def edit_daily_time(callback: CallbackQuery, state: FSMContext):
+async def edit_daily_time(callback: CallbackQuery, state: FSMContext, data: dict):
     """Начинает редактирование времени суточной проверки."""
     await state.set_state(AdminStates.editing_traffic_setting)
     await state.update_data(
@@ -2032,7 +2044,7 @@ async def edit_daily_time(callback: CallbackQuery, state: FSMContext):
         settings_message_id=callback.message.message_id,
     )
     await callback.answer()
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await callback.message.answer(
         get_texts(language).t(
             'ADMIN_MON_PROMPT_DAILY_TIME',
@@ -2043,7 +2055,7 @@ async def edit_daily_time(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == 'admin_traffic_edit_daily_threshold')
 @admin_required
-async def edit_daily_threshold(callback: CallbackQuery, state: FSMContext):
+async def edit_daily_threshold(callback: CallbackQuery, state: FSMContext, data: dict):
     """Начинает редактирование суточного порога."""
     await state.set_state(AdminStates.editing_traffic_setting)
     await state.update_data(
@@ -2053,13 +2065,13 @@ async def edit_daily_threshold(callback: CallbackQuery, state: FSMContext):
         settings_message_id=callback.message.message_id,
     )
     await callback.answer()
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await callback.message.answer(get_texts(language).t('ADMIN_MON_PROMPT_DAILY_THRESHOLD', '📈 Введите суточный порог трафика в ГБ (например: 50.0):'))
 
 
 @router.callback_query(F.data == 'admin_traffic_edit_cooldown')
 @admin_required
-async def edit_cooldown(callback: CallbackQuery, state: FSMContext):
+async def edit_cooldown(callback: CallbackQuery, state: FSMContext, data: dict):
     """Начинает редактирование кулдауна уведомлений."""
     await state.set_state(AdminStates.editing_traffic_setting)
     await state.update_data(
@@ -2069,19 +2081,19 @@ async def edit_cooldown(callback: CallbackQuery, state: FSMContext):
         settings_message_id=callback.message.message_id,
     )
     await callback.answer()
-    language = callback.from_user.language_code or settings.DEFAULT_LANGUAGE
+    language = _admin_language(data)
     await callback.message.answer(get_texts(language).t('ADMIN_MON_PROMPT_COOLDOWN', '⏳ Введите кулдаун уведомлений в минутах (минимум 1):'))
 
 
 @router.message(AdminStates.editing_traffic_setting)
-async def process_traffic_setting_input(message: Message, state: FSMContext):
+async def process_traffic_setting_input(message: Message, state: FSMContext, data: dict):
     """Обрабатывает ввод настройки мониторинга трафика."""
     from app.services.system_settings_service import BotConfigurationService
 
     data = await state.get_data()
     if not data:
         await state.clear()
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await message.answer(get_texts(language).t('ADMIN_MON_CONTEXT_LOST', 'ℹ️ Контекст утерян, попробуйте снова из меню настроек.'))
         return
 
@@ -2124,10 +2136,10 @@ async def process_traffic_setting_input(message: Message, state: FSMContext):
 
         back_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=get_texts(message.from_user.language_code or settings.DEFAULT_LANGUAGE).t('ADMIN_MON_BACK_TRAFFIC', '⬅️ К настройкам трафика'), callback_data='admin_mon_traffic_settings')]
+                [InlineKeyboardButton(text=get_texts(_admin_language(data)).t('ADMIN_MON_BACK_TRAFFIC', '⬅️ К настройкам трафика'), callback_data='admin_mon_traffic_settings')]
             ]
         )
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await message.answer(get_texts(language).t('ADMIN_MON_VALUE_SAVED', '✅ Настройка сохранена!'), reply_markup=back_keyboard)
 
         # Обновляем исходное сообщение с настройками
@@ -2135,7 +2147,7 @@ async def process_traffic_setting_input(message: Message, state: FSMContext):
         message_id = data.get('settings_message_id')
         if chat_id and message_id:
             try:
-                lang = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+                lang = _admin_language(data)
                 text = _build_traffic_settings_text(lang)
                 keyboard = _build_traffic_settings_keyboard(lang)
                 await message.bot.edit_message_text(
@@ -2146,7 +2158,7 @@ async def process_traffic_setting_input(message: Message, state: FSMContext):
 
     except Exception as e:
         logger.error('Ошибка сохранения настройки трафика', error=e)
-        language = message.from_user.language_code or settings.DEFAULT_LANGUAGE
+        language = _admin_language(data)
         await message.answer(get_texts(language).t('ADMIN_MON_SAVE_ERR', '❌ Ошибка сохранения: {error}').format(error=e))
 
     await state.clear()
