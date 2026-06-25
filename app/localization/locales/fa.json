@@ -4524,7 +4524,7 @@
   "ADMIN_MON_STOPPED": "🔴 متوقف",
   "ADMIN_MON_NEVER": "هرگز",
   "ADMIN_MON_DATA_ERR": "❌ خطا در دریافت داده",
-  "ADMIN_MON_SETTINGS": "⚙️ <b>تنظیمات مانیتورینگ</b>\n\n🔔 <b>اعلان کاربران:</b> {global}\n• تخفیف 2-3 روز: {p2}%\n• تخفیف پس از {d3} روز: {p3}%\n\nبخش را برای تنظیم انتخاب کنید.",
+  "ADMIN_MON_SETTINGS": "⚙️ <b>تنظیمات مانیتورینگ</b>\n\n🔔 <b>اعلان کاربران:</b> {global_status}\n• تخفیف 2-3 روز: {p2}%\n• تخفیف پس از {d3} روز: {p3}%\n\nبخش را برای تنظیم انتخاب کنید.",
   "ADMIN_MON_GLOBAL_ON": "🟢 فعال",
   "ADMIN_MON_GLOBAL_OFF": "🔴 غیرفعال",
   "ADMIN_MON_BTN_NOTIFY": "🔔 اعلان کاربران",

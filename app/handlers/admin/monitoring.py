@@ -419,8 +419,8 @@ async def admin_monitoring_settings(callback: CallbackQuery):
 
         text = texts.t(
             'ADMIN_MON_SETTINGS',
-            '⚙️ <b>Настройки мониторинга</b>\n\n🔔 <b>Уведомления пользователям:</b> {global}\n• Скидка 2-3 дня: {p2}%\n• Скидка после {d3} дней: {p3}%\n\nВыберите раздел для настройки.',
-        ).format(global=global_status, p2=second_percent, d3=third_days, p3=third_percent)
+            '⚙️ <b>Настройки мониторинга</b>\n\n🔔 <b>Уведомления пользователям:</b> {global_status}\n• Скидка 2-3 дня: {p2}%\n• Скидка после {d3} дней: {p3}%\n\nВыберите раздел для настройки.',
+        ).format(global_status=global_status, p2=second_percent, d3=third_days, p3=third_percent)
 
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
