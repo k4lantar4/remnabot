@@ -1,34 +1,37 @@
 # Smoke map — Admin Persian gaps (smoke follow-up)
 
-> Branch `i18n/admin-fa-slice-d` @ `a46fbc7f`; fixes reported Russian leaks; awaiting user smoke.
+> Branch `i18n/admin-fa-slice-d` (uncommitted hotfix); re-smoke items 1, 2, 5.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
 | Branch | `i18n/admin-fa-slice-d` |
-| Commits | `0edd37ec` monitoring language · `7308d380` broadcast-by-tariff key · `a46fbc7f` bot config + remna |
+| Commits | `0edd37ec` monitoring language · `7308d380` broadcast-by-tariff · `a46fbc7f` bot config |
+| Hotfix (local) | `monitoring.py` — `db_user: User` not `data: dict` (crash fix) · `fa.json` `ADMIN_SETTINGS_APP_CONFIG` |
 | Bot | `@mrj7_bot` (staging) |
-| Deploy | `make staging-rebuild` (2026-06-25) |
+| Deploy | `make staging-rebuild` (2026-06-25, post hotfix) |
 
 ## Fixes in this batch
 
 | Issue | Root cause | Fix |
 |-------|------------|-----|
-| Force check / monitoring menu Russian | `from_user.language_code` not `db_user.language` | D3.1 `monitoring.py` |
-| `broadcast_by_tariff` button Russian | Missing `ADMIN_BROADCAST_TARGET_BY_TARIFF` in fa.json | D2 gap commit |
-| `admin_bot_config` / `admin_remna_config` Russian | D4 deferred — hardcoded Cyrillic | Dashboard + remna selector localized |
+| **admin_monitoring does not open** | D3.1 used `data: dict` param — aiogram injects `db_user`, not `data` | Handlers use `db_user: User`; FSM uses `state.get_data()` |
+| Force check / monitoring menu Russian | `from_user.language_code` | D3.1 `_admin_language(db_user)` |
+| `broadcast_by_tariff` button Russian | Missing key | `ADMIN_BROADCAST_TARGET_BY_TARIFF` — **تایید** |
+| `admin_bot_config` Russian | D4 deferred | Localized — **تایید** |
+| **`admin_remna_config` button label Russian** | `ADMIN_SETTINGS_APP_CONFIG` missing in fa.json | Added Persian label in settings submenu keyboard |
 
 ## User smoke checklist (`@mrj7_bot`, fa admin)
 
-| Step | Path | Expected |
-|------|------|----------|
-| 1 | Monitoring → force check | Persian result (not `Принудительная проверка`) |
-| 2 | Monitoring main menu | Persian status/stats |
-| 3 | Messages → by sub → **بر اساس سرویس** | Persian button + tariff list |
-| 4 | Settings → bot config (`admin_bot_config`) | Persian dashboard + group buttons |
-| 5 | Settings → remna app config | Persian title/body/buttons |
-| 6 | FAQ / privacy / offer admin menus | Persian chrome (P2); DB content unchanged |
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | Monitoring → force check | Persian result | re-test |
+| 2 | Monitoring main menu | Opens + Persian status/stats | re-test |
+| 3 | Messages → by sub → **بر اساس سرویس** | Persian button + tariff list | **تایید** |
+| 4 | Settings → bot config | Persian dashboard | **تایید** |
+| 5 | Settings submenu → **پیکربندی اپلیکیشن‌ها** (`admin_remna_config`) | Persian button label (+ screen from D4) | re-test |
+| 6 | FAQ / privacy / offer admin menus | Persian chrome (P2) | optional |
 
 ## Sign-off
 
