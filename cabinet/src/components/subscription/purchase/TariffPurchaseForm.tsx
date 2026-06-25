@@ -9,6 +9,11 @@ import { useCurrency } from '../../../hooks/useCurrency';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import type { Tariff, TariffPeriod } from '../../../types';
 import { PackageButton } from './steps/TrafficPlanStep';
+import {
+  isPartnerBrandPrefixValid,
+  PartnerCheckoutFields,
+  type PartnerCheckoutValues,
+} from './PartnerCheckoutFields';
 
 // ──────────────────────────────────────────────────────────────────
 // TariffPurchaseForm
@@ -47,6 +52,10 @@ export function TariffPurchaseForm({
   const [customDays, setCustomDays] = useState<number>(30);
   const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 1);
   const [useCustomDays, setUseCustomDays] = useState(false);
+  const [partnerCheckout, setPartnerCheckout] = useState<PartnerCheckoutValues>({
+    purchaseNote: '',
+    panelBrandPrefix: '',
+  });
 
   const hasCustomTrafficSection =
     tariff.custom_traffic_enabled === true &&
@@ -97,6 +106,10 @@ export function TariffPurchaseForm({
         days,
         trafficGb,
         subscriptionId ?? undefined,
+        {
+          purchaseNote: partnerCheckout.purchaseNote,
+          panelBrandPrefix: partnerCheckout.panelBrandPrefix,
+        },
       );
     },
     onSuccess: () => {
@@ -186,9 +199,17 @@ export function TariffPurchaseForm({
                   />
                 )}
 
+                <PartnerCheckoutFields
+                  values={partnerCheckout}
+                  onChange={setPartnerCheckout}
+                />
+
                 <button
                   onClick={() => purchaseMutation.mutate()}
-                  disabled={purchaseMutation.isPending}
+                  disabled={
+                    purchaseMutation.isPending ||
+                    !isPartnerBrandPrefixValid(partnerCheckout.panelBrandPrefix)
+                  }
                   className="btn-primary w-full py-3"
                 >
                   {purchaseMutation.isPending ? (
@@ -548,9 +569,17 @@ export function TariffPurchaseForm({
                     </div>
                   </div>
 
+                  <PartnerCheckoutFields
+                    values={partnerCheckout}
+                    onChange={setPartnerCheckout}
+                  />
+
                   <button
                     onClick={() => purchaseMutation.mutate()}
-                    disabled={purchaseMutation.isPending}
+                    disabled={
+                      purchaseMutation.isPending ||
+                      !isPartnerBrandPrefixValid(partnerCheckout.panelBrandPrefix)
+                    }
                     className="btn-primary w-full py-3"
                   >
                     {purchaseMutation.isPending ? (

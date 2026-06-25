@@ -422,6 +422,10 @@ export const subscriptionApi = {
      * this is a fresh purchase from the catalog.
      */
     subscriptionId?: number,
+    partnerCheckout?: {
+      purchaseNote?: string;
+      panelBrandPrefix?: string;
+    },
   ): Promise<{
     success: boolean;
     message: string;
@@ -437,6 +441,8 @@ export const subscriptionApi = {
       traffic_gb: trafficGb,
       subscription_id: subscriptionId,
       yandex_cid: getYandexCid() || undefined,
+      purchase_note: partnerCheckout?.purchaseNote?.trim() || undefined,
+      panel_brand_prefix: partnerCheckout?.panelBrandPrefix?.trim() || undefined,
     });
     return response.data;
   },

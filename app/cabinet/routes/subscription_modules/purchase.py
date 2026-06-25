@@ -34,6 +34,7 @@ from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
 from app.database.models import PaymentMethod, Subscription, Tariff, TransactionType, User
 from app.localization.texts import get_texts
+from app.services.partner_checkout import PartnerCheckoutValidationError, apply_partner_checkout_fields
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -1173,6 +1174,20 @@ async def purchase_tariff(
             else:
                 _should_create = not getattr(user, 'remnawave_uuid', None)
 
+            try:
+                _use_brand_prefix = await apply_partner_checkout_fields(
+                    db,
+                    user,
+                    subscription,
+                    purchase_note=request.purchase_note,
+                    panel_brand_prefix=request.panel_brand_prefix,
+                )
+            except PartnerCheckoutValidationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                ) from exc
+
             if not _should_create:
                 await service.update_remnawave_user(
                     db,
@@ -1187,6 +1202,7 @@ async def purchase_tariff(
                     subscription,
                     reset_traffic=True,
                     reset_reason='покупка тарифа (cabinet)',
+                    use_brand_prefix=_use_brand_prefix,
                 )
         except Exception as remnawave_error:
             logger.error('Failed to sync subscription with RemnaWave', remnawave_error=remnawave_error)

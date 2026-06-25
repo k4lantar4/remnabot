@@ -427,6 +427,18 @@
     },
     "total": "جمع کل",
     "purchase": "خرید",
+    "partner": {
+      "purchaseNoteLabel": "یادداشت خرید",
+      "purchaseNotePlaceholder": "یادداشت اختیاری برای این اشتراک (حداکثر 500 کاراکتر)",
+      "purchaseNoteEmpty": "هنوز وارد نشده",
+      "purchaseNotePreview": "یادداشت: {{note}}",
+      "brandPrefixLabel": "نام دلخواه",
+      "brandPrefixPlaceholder": "mobile_x",
+      "brandPrefixEmpty": "هنوز انتخاب نشده",
+      "brandPrefixPreview": "نام دلخواه: {{prefix}}",
+      "brandPrefixHint": "۳ تا ۲۰ کاراکتر انگلیسی، عدد، _ یا -",
+      "brandPrefixInvalid": "نام دلخواه باید ۳ تا ۲۰ کاراکتر انگلیسی، عدد، _ یا - باشد"
+    },
     "buyNewAccount": "خرید اکانت جدید",
     "step": "مرحله {{current}} از {{total}}",
     "stepPeriod": "دوره",
