@@ -1844,7 +1844,9 @@ class Settings(BaseSettings):
         return self.ADMIN_NOTIFICATIONS_CHAT_ID
 
     def get_reports_topic_id(self) -> int | None:
-        return self.ADMIN_REPORTS_TOPIC_ID or None
+        if self.ADMIN_REPORTS_TOPIC_ID:
+            return self.ADMIN_REPORTS_TOPIC_ID
+        return self.ADMIN_NOTIFICATIONS_TOPIC_ID or None
 
     def get_reports_send_time(self) -> time | None:
         value = self.ADMIN_REPORTS_SEND_TIME

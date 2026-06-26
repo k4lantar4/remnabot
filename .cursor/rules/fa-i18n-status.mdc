@@ -158,6 +158,18 @@ Branch `i18n/monitoring-notifications` from `main`.
 
 Plan: `docs/superpowers/plans/2026-06-16-fa-monitoring-notifications.md`
 
+## Done (Phase 11b admin reports — Jun 26 2026)
+
+Branch `i18n/admin-reports-fa` from `main`.
+
+- [x] **fa.json** — 27 `ADMIN_REPORT_*` keys + `ADMIN_REPORTS_MENU` / `ADMIN_REPORT_SENT` / `ADMIN_REPORT_SEND_ERROR`
+- [x] **reporting_service.py** — `_admin_notify_texts()`, `format_price` (تومان), Jalali period labels
+- [x] **reports.py** — menu and callback toasts keyed
+- [x] **tests/test_admin_reporting_i18n.py** — Persian body guard, no bare Cyrillic blocks
+- [x] **Fix (2026-06-26):** `ADMIN_STATS_*_BODY` + statistics handlers; report preview-first + topic retry
+- [x] Agent smoke + `make staging-rebuild`
+- [ ] **Awaiting user smoke** on `@mrj7_bot` admin reports + statistics panels
+
 ## Done (force default language — Jun 23 2026) — Phase 0 closed
 
 Merged on `main` (**2 commits**; branch `fix/force-default-language-when-disabled` deleted).
@@ -179,6 +191,7 @@ Branch: audit-only (no code). Plan: `docs/superpowers/plans/2026-06-23-fa-i18n-r
 - [x] **Phase 2 merged + prod** — bot device terminology (`a1375f5b`); user smoke تایید 2026-06-24
 - [x] **Implementation Phases 7–9:** Phase 9 miniapp parity — user smoke **تایید** 2026-06-25
 - [x] **Phase 11** — monitoring notifications merged on `main`
+- [x] **Phase 11b admin reports** — `i18n/admin-reports-fa`: `reporting_service.py` Persian + Toman + Jalali labels; staging deployed; awaiting user smoke
 - [x] **Phase 10 Slice D** — `i18n/admin-fa-slice-d` @ `a46fbc7f`: D1–D3 + smoke-gap fixes (monitoring language, broadcast key, bot config); fa.json **~4740**; staging redeployed; awaiting user smoke
 - [ ] **Phase 10 remainder** — Slices A, C, E on `i18n/admin-fa-completion` (Slice B merged)
 

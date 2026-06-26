@@ -13,10 +13,15 @@ from app.keyboards.admin import get_admin_statistics_keyboard
 from app.localization.texts import get_texts
 from app.services.user_service import UserService
 from app.utils.decorators import admin_required, error_handler
-from app.utils.formatters import format_datetime, format_percentage
+from app.utils.formatters import format_percentage
+from app.utils.jalali_datetime import format_user_datetime
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _stats_updated_at(dt: datetime, language: str) -> str:
+    return format_user_datetime(dt, language=language, fmt='%d.%m.%Y %H:%M')
 
 
 def _stats_nav_keyboard(texts, refresh_cb: str, back_cb: str = 'admin_statistics'):
@@ -50,10 +55,10 @@ async def show_users_statistics(callback: types.CallbackQuery, db_user: User, db
 
     total_users = stats['total_users']
     active_rate = format_percentage(stats['active_users'] / total_users * 100 if total_users > 0 else 0)
-    current_time = format_datetime(datetime.now(UTC))
+    current_time = _stats_updated_at(datetime.now(UTC), db_user.language)
 
     text = texts.t(
-        'ADMIN_STATS_USERS',
+        'ADMIN_STATS_USERS_BODY',
         '👥 <b>Статистика пользователей</b>\n\n'
         '<b>Общие показатели:</b>\n'
         '- Всего зарегистрировано: {total}\n'
@@ -100,9 +105,8 @@ async def show_subscriptions_statistics(callback: types.CallbackQuery, db_user: 
     texts = get_texts(db_user.language)
     stats = await get_subscriptions_statistics(db)
 
-    total_subs = stats['total_subscriptions']
-    conversion_rate = format_percentage(stats['paid_subscriptions'] / total_subs * 100 if total_subs > 0 else 0)
-    current_time = format_datetime(datetime.now(UTC))
+    conversion_rate = format_percentage(stats['trial_to_paid_conversion'])
+    current_time = _stats_updated_at(datetime.now(UTC), db_user.language)
 
     text = texts.t(
         'ADMIN_STATS_SUBS',
@@ -154,10 +158,10 @@ async def show_revenue_statistics(callback: types.CallbackQuery, db_user: User, 
 
     month_stats = await get_transactions_statistics(db, month_start, now)
     all_time_stats = await get_transactions_statistics(db, start_date=datetime(2020, 1, 1, tzinfo=UTC), end_date=now)
-    current_time = format_datetime(datetime.now(UTC))
+    current_time = _stats_updated_at(datetime.now(UTC), db_user.language)
 
     text = texts.t(
-        'ADMIN_STATS_REVENUE',
+        'ADMIN_STATS_REVENUE_BODY',
         '💰 <b>Статистика доходов</b>\n\n'
         '<b>За текущий месяц:</b>\n'
         '- Доходы: {month_income}\n'
@@ -208,14 +212,14 @@ async def show_revenue_statistics(callback: types.CallbackQuery, db_user: User, 
 async def show_referral_statistics(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
     texts = get_texts(db_user.language)
     stats = await get_referral_statistics(db)
-    current_time = format_datetime(datetime.now(UTC))
+    current_time = _stats_updated_at(datetime.now(UTC), db_user.language)
 
     avg_per_referrer = 0
     if stats['active_referrers'] > 0:
         avg_per_referrer = stats['total_paid_kopeks'] / stats['active_referrers']
 
     text = texts.t(
-        'ADMIN_STATS_REFERRALS',
+        'ADMIN_STATS_REFERRALS_BODY',
         '🤝 <b>Реферальная статистика</b>\n\n'
         '<b>Общие показатели:</b>\n'
         '- Пользователей с рефералами: {with_refs}\n'
@@ -275,18 +279,19 @@ async def show_summary_statistics(callback: types.CallbackQuery, db_user: User, 
     now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     revenue_stats = await get_transactions_statistics(db, month_start, now)
-    current_time = format_datetime(datetime.now(UTC))
+    current_time = _stats_updated_at(datetime.now(UTC), db_user.language)
 
-    conversion_rate = 0
-    if user_stats['total_users'] > 0:
-        conversion_rate = sub_stats['paid_subscriptions'] / user_stats['total_users'] * 100
+    revenue_totals = revenue_stats['totals']
+    month_revenue_kopeks = int(revenue_totals['subscription_income_kopeks'] or 0)
+
+    conversion_rate = sub_stats['trial_to_paid_conversion']
 
     arpu = 0
     if user_stats['active_users'] > 0:
-        arpu = revenue_stats['totals']['income_kopeks'] / user_stats['active_users']
+        arpu = month_revenue_kopeks / user_stats['active_users']
 
     text = texts.t(
-        'ADMIN_STATS_SUMMARY',
+        'ADMIN_STATS_SUMMARY_BODY',
         '📊 <b>Общая сводка системы</b>\n\n'
         '<b>Пользователи:</b>\n'
         '- Всего: {users_total}\n'
@@ -311,8 +316,8 @@ async def show_summary_statistics(callback: types.CallbackQuery, db_user: User, 
         subs_active=sub_stats['active_subscriptions'],
         subs_paid=sub_stats['paid_subscriptions'],
         conversion=format_percentage(conversion_rate),
-        income=settings.format_price(revenue_stats['totals']['income_kopeks']),
-        arpu=settings.format_price(int(arpu)),
+        income=texts.format_price(month_revenue_kopeks),
+        arpu=texts.format_price(int(arpu)),
         tx_count=sum(data['count'] for data in revenue_stats['by_type'].values()),
         sales_month=sub_stats['purchased_month'],
         updated=current_time,
