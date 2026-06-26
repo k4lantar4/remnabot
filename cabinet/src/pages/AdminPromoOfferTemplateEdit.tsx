@@ -299,7 +299,7 @@ export default function AdminPromoOfferTemplateEdit() {
                     <p className="mt-1 text-xs text-warning-400">
                       {t(
                         'admin.promoOffers.form.selectSquadHint',
-                        'Выберите хотя бы один сервер для тестового доступа',
+                        'Select at least one server for test access.',
                       )}
                     </p>
                   )}
