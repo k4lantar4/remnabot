@@ -11,7 +11,7 @@ from app.database.models import User
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_texts
 from app.utils.autopay_utils import effective_autopay_enabled
-from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+from app.utils.miniapp_buttons import build_cabinet_url, build_miniapp_or_callback_button
 from app.utils.price_display import PriceInfo, format_price_button
 from app.utils.formatting import format_traffic_package_keyboard_label
 from app.utils.pricing_utils import (
@@ -617,17 +617,13 @@ def get_main_menu_keyboard(
             balance=balance_kopeks,
         )
 
-    safe_balance = balance_kopeks or 0
-    if hasattr(texts, 'BALANCE_BUTTON') and safe_balance > 0:
-        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_balance(safe_balance))
-    else:
-        balance_button_text = texts.t(
-            'BALANCE_BUTTON_DEFAULT',
-            '💰 Баланс: {balance}',
-        ).format(balance=texts.format_balance(safe_balance))
-
     keyboard: list[list[InlineKeyboardButton]] = []
     paired_buttons: list[InlineKeyboardButton] = []
+
+    def _flush_paired(target: list, buttons: list[InlineKeyboardButton], *, per_row: int = 2) -> None:
+        for i in range(0, len(buttons), per_row):
+            target.append(buttons[i : i + per_row])
+        buttons.clear()
 
     if has_active_subscription and subscription_is_active:
         if not settings.is_multi_tariff_enabled():
@@ -709,8 +705,6 @@ def get_main_menu_keyboard(
                     )
                 )
 
-    keyboard.append([InlineKeyboardButton(text=balance_button_text, callback_data='menu_balance')])
-
     show_trial = not has_had_paid_subscription and not has_active_subscription
 
     show_buy = not has_active_subscription or not subscription_is_active
@@ -762,16 +756,41 @@ def get_main_menu_keyboard(
             if isinstance(button, InlineKeyboardButton):
                 paired_buttons.append(button)
 
-    # Добавляем кнопки промокода и рефералов, учитывая настройки
-    paired_buttons.append(InlineKeyboardButton(text=texts.MENU_PROMOCODE, callback_data='menu_promocode'))
+    _flush_paired(keyboard, paired_buttons)
 
-    # Добавляем кнопку рефералов, только если программа включена
+    wallet_btn = InlineKeyboardButton(
+        text=texts.t('MENU_WALLET_BTN', '💳 Пополнить баланс'),
+        callback_data='menu_balance',
+    )
+    cabinet_url = build_cabinet_url('/')
+    if cabinet_url:
+        cabinet_btn = InlineKeyboardButton(
+            text=texts.t('MENU_CABINET_BTN', '📱 Личный кабинет'),
+            web_app=types.WebAppInfo(url=cabinet_url),
+        )
+        keyboard.append([cabinet_btn, wallet_btn])
+    else:
+        keyboard.append([wallet_btn])
+
+    lower_buttons: list[InlineKeyboardButton] = []
+    lower_buttons.append(InlineKeyboardButton(text=texts.MENU_PROMOCODE, callback_data='menu_promocode'))
+
     if settings.is_referral_program_enabled():
-        paired_buttons.append(InlineKeyboardButton(text=texts.MENU_REFERRALS, callback_data='menu_referrals'))
+        referral_url = build_cabinet_url('/referral')
+        if referral_url:
+            lower_buttons.append(
+                InlineKeyboardButton(
+                    text=texts.MENU_REFERRALS,
+                    web_app=types.WebAppInfo(url=referral_url),
+                )
+            )
+        else:
+            lower_buttons.append(
+                InlineKeyboardButton(text=texts.MENU_REFERRALS, callback_data='menu_referrals'),
+            )
 
-    # Добавляем кнопку конкурсов
     if settings.CONTESTS_ENABLED and settings.CONTESTS_BUTTON_VISIBLE:
-        paired_buttons.append(
+        lower_buttons.append(
             InlineKeyboardButton(text=texts.t('CONTESTS_BUTTON', '🎲 Конкурсы'), callback_data='contests_menu')
         )
 
@@ -783,25 +802,15 @@ def get_main_menu_keyboard(
         support_enabled = settings.SUPPORT_MENU_ENABLED
 
     if support_enabled:
-        paired_buttons.append(InlineKeyboardButton(text=texts.MENU_SUPPORT, callback_data='menu_support'))
+        lower_buttons.append(InlineKeyboardButton(text=texts.MENU_SUPPORT, callback_data='menu_support'))
 
-    # Добавляем кнопку активации
     if settings.ACTIVATE_BUTTON_VISIBLE:
-        paired_buttons.append(InlineKeyboardButton(text=settings.ACTIVATE_BUTTON_TEXT, callback_data='activate_button'))
-
-    paired_buttons.append(
-        InlineKeyboardButton(
-            text=texts.t('MENU_INFO', 'ℹ️ Инфо'),
-            callback_data='menu_info',
-        )
-    )
+        lower_buttons.append(InlineKeyboardButton(text=settings.ACTIVATE_BUTTON_TEXT, callback_data='activate_button'))
 
     if settings.is_language_selection_enabled():
-        paired_buttons.append(InlineKeyboardButton(text=texts.MENU_LANGUAGE, callback_data='menu_language'))
+        lower_buttons.append(InlineKeyboardButton(text=texts.MENU_LANGUAGE, callback_data='menu_language'))
 
-    for i in range(0, len(paired_buttons), 2):
-        row = paired_buttons[i : i + 2]
-        keyboard.append(row)
+    _flush_paired(keyboard, lower_buttons)
 
     if settings.DEBUG:
         logger.debug('DEBUG KEYBOARD: админ кнопка', is_admin=is_admin)
