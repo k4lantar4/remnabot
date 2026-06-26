@@ -979,8 +979,14 @@ def get_pinned_broadcast_confirm_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=_t(texts, 'ADMIN_PINNED_BROADCAST_NOW', '📨 Разослать сейчас всем'),
-                    callback_data=f'admin_pinned_broadcast_now:{pinned_message_id}',
+                    text=_t(texts, 'ADMIN_PINNED_BROADCAST_NOW_ALL', '📨 Разослать сейчас всем'),
+                    callback_data=f'admin_pinned_broadcast_now:{pinned_message_id}:all',
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_t(texts, 'ADMIN_PINNED_BROADCAST_NOW_PARTNERS', '🤝 Разослать сейчас партнёрам'),
+                    callback_data=f'admin_pinned_broadcast_now:{pinned_message_id}:partners',
                 )
             ],
             [
@@ -1374,6 +1380,12 @@ def get_broadcast_target_keyboard(language: str = 'ru') -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=_t(texts, 'ADMIN_BROADCAST_TARGET_ACTIVE', '📱 С подпиской'), callback_data='broadcast_active'
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=_t(texts, 'ADMIN_BROADCAST_TARGET_PARTNERS', '🤝 نمایندگان'),
+                    callback_data='broadcast_partners',
+                )
             ],
             [
                 InlineKeyboardButton(
@@ -2244,19 +2256,24 @@ BROADCAST_BUTTONS = {
         'callback': 'menu_promocode',
     },
     'connect': {
-        'default_text': '🔗 Подключиться',
+        'default_text': '🛒 Купить подписку',
         'text_key': 'ADMIN_BROADCAST_BUTTON_CONNECT',
-        'callback': 'subscription_connect',
+        'callback': 'menu_buy',
     },
     'subscription': {
-        'default_text': '📱 Подписка',
+        'default_text': '📱 Мои подписки',
         'text_key': 'ADMIN_BROADCAST_BUTTON_SUBSCRIPTION',
-        'callback': 'menu_subscription',
+        'callback': 'my_subscriptions',
     },
     'support': {
         'default_text': '🛠️ Техподдержка',
         'text_key': 'ADMIN_BROADCAST_BUTTON_SUPPORT',
         'callback': 'menu_support',
+    },
+    'partner_apply': {
+        'default_text': '🤝 Заявка на партнёрство',
+        'text_key': 'ADMIN_BROADCAST_BUTTON_PARTNER_APPLY',
+        'callback': 'partner_apply_start',
     },
     'home': {
         'default_text': '🏠 На главную',
@@ -2269,6 +2286,7 @@ BROADCAST_BUTTON_ROWS: tuple[tuple[str, ...], ...] = (
     ('balance', 'referrals'),
     ('promocode', 'connect'),
     ('subscription', 'support'),
+    ('partner_apply',),
     ('home',),
 )
 

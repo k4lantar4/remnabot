@@ -516,11 +516,14 @@ async def handle_pinned_broadcast_now(
     state: FSMContext,
     db: AsyncSession,
 ):
-    """Разослать закреплённое сообщение сейчас всем пользователям."""
+    """Разослать закреплённое сообщение выбранной аудитории."""
     texts = get_texts(db_user.language)
 
-    # Получаем ID сообщения из callback_data
-    pinned_message_id = int(callback.data.split(':')[1])
+    parts = callback.data.split(':')
+    pinned_message_id = int(parts[1])
+    target = parts[2] if len(parts) > 2 else 'all'
+    if target not in {'all', 'partners'}:
+        target = 'all'
 
     # Получаем сообщение из БД
     from sqlalchemy import select
@@ -535,6 +538,7 @@ async def handle_pinned_broadcast_now(
         await state.clear()
         return
 
+    audience_name = get_target_name(target, db_user.language)
     await callback.message.edit_text(
         texts.t('ADMIN_PINNED_SAVING', '📌 Сообщение сохранено. Начинаю отправку и закрепление у пользователей...'),
         parse_mode='HTML',
@@ -544,6 +548,7 @@ async def handle_pinned_broadcast_now(
         callback.bot,
         db,
         pinned_message,
+        target=target,
     )
 
     total = sent_count + failed_count
@@ -551,10 +556,16 @@ async def handle_pinned_broadcast_now(
         texts.t(
             'ADMIN_PINNED_UPDATED',
             '✅ <b>Закрепленное сообщение обновлено</b>\n\n'
+            '🎯 <b>Аудитория:</b> {audience}\n'
             '👥 Получателей: {total}\n'
             '✅ Отправлено: {sent}\n'
             '⚠️ Ошибок: {failed}',
-        ).format(total=total, sent=sent_count, failed=failed_count),
+        ).format(
+            audience=audience_name,
+            total=total,
+            sent=sent_count,
+            failed=failed_count,
+        ),
         reply_markup=get_admin_messages_keyboard(db_user.language),
         parse_mode='HTML',
     )
@@ -1537,6 +1548,11 @@ async def get_target_users_count(db: AsyncSession, target: str) -> int:
 
     base_filter = User.status == UserStatus.ACTIVE.value
 
+    if target == 'partners':
+        from app.database.crud.user import count_approved_partner_users
+
+        return await count_approved_partner_users(db, telegram_only=True)
+
     if target == 'all':
         query = select(sql_func.count(User.id)).where(base_filter)
         result = await db.execute(query)
@@ -1742,6 +1758,11 @@ async def get_target_users_count(db: AsyncSession, target: str) -> int:
 
 
 async def get_target_users(db: AsyncSession, target: str) -> list:
+    if target == 'partners':
+        from app.database.crud.user import get_approved_partner_users
+
+        return await get_approved_partner_users(db, telegram_only=True)
+
     # Загружаем всех активных пользователей батчами, чтобы не ограничиваться 10к
     users: list[User] = []
     offset = 0
@@ -2036,6 +2057,7 @@ def get_target_name(target_type: str, language: str = 'ru') -> str:
         'custom_inactive_month': texts.t('ADMIN_MSG_TARGET_CUSTOM_INACTIVE_MONTH', 'Неактивные 30+ дней'),
         'custom_referrals': texts.t('ADMIN_MSG_TARGET_CUSTOM_REFERRALS', 'Через рефералов'),
         'custom_direct': texts.t('ADMIN_MSG_TARGET_CUSTOM_DIRECT', 'Прямая регистрация'),
+        'partners': texts.t('ADMIN_MSG_TARGET_PARTNERS', 'نمایندگان (شرکا)'),
     }
     if target_type.startswith('tariff_'):
         tariff_id = target_type.split('_')[1]

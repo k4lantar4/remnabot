@@ -118,19 +118,17 @@ async def deliver_pinned_message_to_user(
     return success
 
 
-async def broadcast_pinned_message(
-    bot: Bot,
+async def _resolve_pinned_recipient_telegram_ids(
     db: AsyncSession,
-    pinned_message: PinnedMessage,
-) -> tuple[int, int]:
-    """
-    Рассылает закреплённое сообщение всем активным пользователям.
+    *,
+    target: str = 'all',
+) -> list[int]:
+    if target == 'partners':
+        from app.database.crud.user import get_approved_partner_users
 
-    ВАЖНО: Извлекаем telegram_id в список ДО начала долгой рассылки,
-    чтобы избежать обращения к ORM-объектам после истечения таймаута
-    соединения с БД.
-    """
-    # Собираем telegram_id всех активных пользователей
+        users = await get_approved_partner_users(db, telegram_only=True)
+        return [user.telegram_id for user in users if user.telegram_id is not None]
+
     recipient_telegram_ids: list[int] = []
     offset = 0
     batch_size = 5000
@@ -146,12 +144,30 @@ async def broadcast_pinned_message(
         if not batch:
             break
 
-        # Извлекаем только telegram_id, фильтруем email-only пользователей
         for user in batch:
             if user.telegram_id is not None:
                 recipient_telegram_ids.append(user.telegram_id)
 
         offset += batch_size
+
+    return recipient_telegram_ids
+
+
+async def broadcast_pinned_message(
+    bot: Bot,
+    db: AsyncSession,
+    pinned_message: PinnedMessage,
+    *,
+    target: str = 'all',
+) -> tuple[int, int]:
+    """
+    Рассылает закреплённое сообщение активным пользователям выбранной аудитории.
+
+    ВАЖНО: Извлекаем telegram_id в список ДО начала долгой рассылки,
+    чтобы избежать обращения к ORM-объектам после истечения таймаута
+    соединения с БД.
+    """
+    recipient_telegram_ids = await _resolve_pinned_recipient_telegram_ids(db, target=target)
 
     sent_count = 0
     failed_count = 0

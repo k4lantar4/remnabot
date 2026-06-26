@@ -43,6 +43,7 @@ CALLBACK_TO_CABINET_PATH: dict[str, str] = {
     'menu_balance': '/balance',
     'balance_topup': '/balance/top-up',
     'menu_subscription': '/subscription',
+    'my_subscriptions': '/subscription',
     'subscription': '/subscription',
     'subscription_extend': '/subscription',
     'subscription_upgrade': '/subscription',
