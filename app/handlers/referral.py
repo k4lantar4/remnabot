@@ -12,7 +12,7 @@ from aiogram.types import FSInputFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database.models import User
+from app.database.models import PartnerStatus, User
 from app.keyboards.inline import get_referral_keyboard
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
@@ -232,6 +232,12 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
 
         referral_text += '\n'
 
+    if db_user.partner_status == PartnerStatus.PENDING.value:
+        referral_text += (
+            '\n\n'
+            + texts.t('PARTNER_APPLY_PENDING_HINT', '⏳ Заявка на рассмотрении')
+        )
+
     referral_text += texts.t(
         'REFERRAL_INVITE_FOOTER',
         '📢 Приглашайте друзей и зарабатывайте!',
@@ -240,7 +246,11 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
     await edit_or_answer_photo(
         callback,
         referral_text,
-        get_referral_keyboard(db_user.language, is_partner=db_user.is_partner),
+        get_referral_keyboard(
+            db_user.language,
+            is_partner=db_user.is_partner,
+            partner_status=db_user.partner_status,
+        ),
     )
     await callback.answer()
 
