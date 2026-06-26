@@ -76,4 +76,34 @@ def test_start_imports_menu_get_main_menu_text() -> None:
     import app.handlers.start as start_module
 
     assert start_module.get_main_menu_text is menu_module.get_main_menu_text
-    assert start_module.get_main_menu_text_simple is menu_module.get_main_menu_text_simple
+
+
+@pytest.mark.asyncio
+async def test_main_menu_text_includes_balance_line() -> None:
+    from app.handlers.menu import get_main_menu_text
+
+    user = SimpleNamespace(
+        id=1,
+        full_name='Ali',
+        balance_kopeks=150_000,
+        language='fa',
+        subscription=None,
+    )
+    texts = get_texts('fa')
+    db = AsyncMock()
+
+    with (
+        patch('app.config.Settings.is_multi_tariff_enabled', return_value=True),
+        patch(
+            'app.handlers.menu._get_multi_tariff_status',
+            new_callable=AsyncMock,
+            return_value=('❌ بدون اشتراک', ''),
+        ),
+        patch('app.handlers.menu.build_promo_offer_hint', new_callable=AsyncMock, return_value=None),
+        patch('app.handlers.menu.build_test_access_hint', new_callable=AsyncMock, return_value=None),
+        patch('app.handlers.menu.get_random_active_message', new_callable=AsyncMock, return_value=None),
+    ):
+        result = await get_main_menu_text(user, texts, db)
+
+    assert texts.format_balance(150_000) in result
+    assert 'موجودی' in result
