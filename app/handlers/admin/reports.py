@@ -27,8 +27,12 @@ async def show_reports_menu(
     db_user: User,
     db: AsyncSession,
 ) -> None:
+    texts = get_texts(db_user.language)
     await callback.message.edit_text(
-        '📊 <b>Отчеты</b>\n\nВыберите период, чтобы отправить отчет в админский топик.',
+        texts.t(
+            'ADMIN_REPORTS_MENU',
+            '📊 <b>Отчеты</b>\n\nВыберите период, чтобы отправить отчет в админский топик.',
+        ),
         reply_markup=get_admin_reports_keyboard(db_user.language),
         parse_mode='HTML',
     )
@@ -70,22 +74,41 @@ async def _send_report(
     period: ReportPeriod,
     language: str,
 ) -> None:
+    texts = get_texts(language)
     try:
-        report_text = await reporting_service.send_report(period, send_to_topic=True)
-    except ReportingServiceError as exc:
-        logger.warning('Не удалось отправить отчет', exc=exc)
-        await callback.answer(str(exc), show_alert=True)
-        return
+        report_text = await reporting_service.send_report(period, send_to_topic=False)
     except Exception as exc:
-        logger.error('Непредвиденная ошибка при отправке отчета', exc=exc)
-        await callback.answer('Не удалось отправить отчет. Попробуйте позже.', show_alert=True)
+        logger.error('Непредвиденная ошибка при формировании отчета', exc=exc)
+        await callback.answer(
+            texts.t(
+                'ADMIN_REPORT_SEND_ERROR',
+                'Не удалось отправить отчет. Попробуйте позже.',
+            ),
+            show_alert=True,
+        )
         return
 
     await callback.message.answer(
         report_text,
         reply_markup=get_admin_report_result_keyboard(language),
     )
-    await callback.answer('Отчет отправлен в топик')
+
+    try:
+        await reporting_service.deliver_report(report_text)
+    except ReportingServiceError as exc:
+        logger.warning('Не удалось отправить отчет в топик', exc=exc)
+        await callback.answer(
+            texts.t(
+                'ADMIN_REPORT_TOPIC_FAILED',
+                'گزارش نمایش داده شد؛ ارسال به تاپیک ناموفق بود.',
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer(
+        texts.t('ADMIN_REPORT_SENT', 'Отчет отправлен в топик'),
+    )
 
 
 @admin_required
