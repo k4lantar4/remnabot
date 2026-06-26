@@ -1,3 +1,59 @@
+# Smoke map — Partner broadcast targeting (admin)
+
+> Branch `feat/admin-partner-broadcast`; مخاطب «نمایندگان» برای ارسال همگانی، نظرسنجی، و سنجاق فوری.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/admin-partner-broadcast` |
+| Files | `user.py`, `messages.py`, `polls.py`, `pinned_message_service.py`, `admin.py`, `fa.json`, tests |
+| Guard | `uv run pytest tests/handlers/test_admin_partner_audience.py -v` |
+| Deploy | `make staging-rebuild` (2026-06-26) |
+| Bot | `@mrj7_bot` (staging) |
+
+## Keys / callbacks
+
+| Key / callback | Surface |
+|----------------|---------|
+| `ADMIN_BROADCAST_TARGET_PARTNERS` | Broadcast + poll target keyboard |
+| `ADMIN_MSG_TARGET_PARTNERS` | History / confirm audience label |
+| `broadcast_partners` | Admin → ارسال پیام → audience |
+| `poll_target:{id}:partners` | Admin → نظرسنجی → send |
+| `admin_pinned_broadcast_now:{id}:all` | Pinned instant — all |
+| `admin_pinned_broadcast_now:{id}:partners` | Pinned instant — partners only |
+| `admin_pinned_broadcast_skip:{id}` | Pinned — /start only (unchanged) |
+| `ADMIN_BROADCAST_BUTTON_CONNECT` / `menu_buy` | Broadcast attach button — **خرید سرویس** (was اتصال) |
+| `ADMIN_BROADCAST_BUTTON_PARTNER_APPLY` / `partner_apply_start` | Broadcast attach — **ثبت درخواست نمایندگی** |
+
+## Broadcast button selector smoke (`@mrj7_bot`)
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| B1 | ارسال پیام → button step | Row shows **💎 خرید سرویس** (not اتصال) | pending |
+| B2 | Same screen | Row **🤝 ثبت درخواست نمایندگی** before home | pending |
+| B3 | Preview + send with both buttons | Tap خرید سرویس → `menu_buy`; tap نمایندگی → partner apply FSM | pending |
+| B4 | Staging cabinet `/admin` broadcasts create | Labels: خرید سرویس + ثبت درخواست نمایندگی | pending |
+
+## User smoke checklist (`@mrj7_bot`, fa admin)
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | ارتباطات → ارسال پیام → (همه یا بر اساس اشتراک) → **🤝 نمایندگان** | Count > 0 if approved partners exist; Persian label | pending |
+| 2 | Confirm broadcast to partners | Only approved partners with telegram receive message | pending |
+| 3 | ارتباطات → نظرسنجی → Send → **🤝 نمایندگان** | Same count as step 1 | pending |
+| 4 | ارسال پیام → سنجاق → edit → **🤝 الان — نمایندگان** | Only partners pinned | pending |
+| 5 | Regression: **📨 الان — همه** pinned | All active telegram users | pending |
+| 6 | Regression: **⏳ فقط /start** | No instant send; /start delivery unchanged | pending |
+| 7 | History → last broadcast | Target shows «نمایندگان» | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** to ship
+
+---
+
 # Smoke map — Main menu UX (low-risk)
 
 > Branch `i18n/main-menu-ux-low-risk`; balance in caption, cabinet+wallet paired row, referrals WebApp; awaiting user smoke.
