@@ -205,7 +205,7 @@ export default function AdminPaymentMethodEdit() {
             <div className="mt-0.5 text-xs text-dark-500">
               {t(
                 'admin.paymentMethods.openUrlDirectHint',
-                'Без панели со ссылкой — провайдер открывается внутри MiniApp/вкладки сразу после клика. После оплаты юзер возвращается на /balance/result.',
+                'Without link panel: provider opens inside MiniApp/tab after click. User returns to /balance/result after payment.',
               )}
             </div>
           </div>

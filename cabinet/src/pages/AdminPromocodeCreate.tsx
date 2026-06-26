@@ -314,7 +314,12 @@ export default function AdminPromocodeCreate() {
               </option>
               {tariffsData?.tariffs?.map((tariff) => (
                 <option key={tariff.id} value={tariff.id}>
-                  {tariff.name} ({tariff.traffic_limit_gb} GB, {tariff.device_limit} устр.)
+                  {tariff.name} (
+                  {t('admin.promocodes.form.tariffOption', '{{traffic}} GB, {{devices}} dev.', {
+                    traffic: tariff.traffic_limit_gb,
+                    devices: tariff.device_limit,
+                  })}
+                  )
                 </option>
               ))}
             </select>
@@ -322,7 +327,7 @@ export default function AdminPromocodeCreate() {
               <div className="mt-1 text-xs text-warning-400">
                 {t(
                   'admin.promocodes.form.noTrialTariffHint',
-                  'Выберите тариф или отметьте тариф как «доступен для триала» в настройках.',
+                  'Select a tariff or mark one as trial-eligible in settings.',
                 )}
               </div>
             )}
