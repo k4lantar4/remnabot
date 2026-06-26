@@ -337,6 +337,12 @@ def _build_target_keyboard(poll_id: int, language: str) -> types.InlineKeyboardM
             ],
             [
                 types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_BROADCAST_TARGET_PARTNERS', '🤝 نمایندگان'),
+                    callback_data=f'poll_target:{poll_id}:partners',
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
                     text=texts.t('ADMIN_BROADCAST_TARGET_TRIAL', '🎁 Триал'),
                     callback_data=f'poll_target:{poll_id}:trial',
                 ),

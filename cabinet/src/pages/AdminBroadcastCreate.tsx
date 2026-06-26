@@ -44,6 +44,7 @@ const BROADCAST_BUTTON_LABEL_KEYS: Record<string, string> = {
   connect: 'admin.broadcasts.btnConnect',
   subscription: 'admin.broadcasts.btnSubscription',
   support: 'admin.broadcasts.btnSupport',
+  partner_apply: 'admin.broadcasts.btnPartnerApply',
   home: 'admin.broadcasts.btnHome',
 };
 

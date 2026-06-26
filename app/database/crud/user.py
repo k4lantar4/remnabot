@@ -17,6 +17,7 @@ from app.database.crud.promo_offer_log import log_promo_offer_action
 from app.database.models import (
     AdvertisingCampaign,
     AdvertisingCampaignRegistration,
+    PartnerStatus,
     PaymentMethod,
     PromoGroup,
     Subscription,
@@ -1151,6 +1152,32 @@ async def get_referrals(db: AsyncSession, user_id: int) -> list[User]:
             _ = user.subscription.is_active
 
     return users
+
+
+async def get_approved_partner_users(
+    db: AsyncSession,
+    *,
+    telegram_only: bool = True,
+) -> list[User]:
+    filters = [
+        User.status == UserStatus.ACTIVE.value,
+        User.partner_status == PartnerStatus.APPROVED.value,
+    ]
+    if telegram_only:
+        filters.append(User.telegram_id.isnot(None))
+    result = await db.execute(select(User).where(*filters).order_by(User.id))
+    return list(result.scalars().all())
+
+
+async def count_approved_partner_users(db: AsyncSession, *, telegram_only: bool = True) -> int:
+    filters = [
+        User.status == UserStatus.ACTIVE.value,
+        User.partner_status == PartnerStatus.APPROVED.value,
+    ]
+    if telegram_only:
+        filters.append(User.telegram_id.isnot(None))
+    result = await db.execute(select(func.count(User.id)).where(*filters))
+    return result.scalar() or 0
 
 
 async def get_users_for_promo_segment(db: AsyncSession, segment: str) -> list[User]:

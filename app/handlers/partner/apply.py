@@ -66,9 +66,7 @@ async def start_partner_application(
 
     if db_user.partner_status == PartnerStatus.APPROVED.value:
         await callback.answer(
-            texts.t('PARTNER_APPLY_ERROR', '❌ {error}').format(
-                error=texts.t('PARTNER_ONLY', 'Только для партнёров'),
-            ),
+            texts.t('PARTNER_APPLY_ALREADY_APPROVED', '✅ Вы уже являетесь партнёром'),
             show_alert=True,
         )
         return
