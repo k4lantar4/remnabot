@@ -21,6 +21,7 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
+from app.utils.photo_message import edit_or_answer_photo
 from app.utils.price_display import balance_from_display_amount, is_balance_scale_transaction
 
 
@@ -244,16 +245,12 @@ async def show_balance_menu(callback: types.CallbackQuery, db_user: User, db: As
 
     reply_markup = get_balance_keyboard(db_user.language)
 
-    try:
-        if callback.message and callback.message.text:
-            await callback.message.edit_text(balance_text, reply_markup=reply_markup)
-        elif callback.message and callback.message.caption:
-            await callback.message.edit_caption(balance_text, reply_markup=reply_markup)
-        else:
-            await callback.message.answer(balance_text, reply_markup=reply_markup)
-    except TelegramBadRequest as error:
-        logger.warning('Failed to edit balance message, sending a new one instead', error=error)
-        await callback.message.answer(balance_text, reply_markup=reply_markup)
+    await edit_or_answer_photo(
+        callback,
+        balance_text,
+        reply_markup,
+        parse_mode='HTML',
+    )
     await callback.answer()
 
 

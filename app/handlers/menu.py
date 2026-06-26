@@ -1223,7 +1223,14 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
             if action_prompt_text in base_text:
                 base_text = base_text.replace(action_prompt_text, f'{tariff_info_block}\n\n{action_prompt_text}')
 
+    balance_line = texts.t('MAIN_MENU_BALANCE_LINE', '💰 Баланс: {balance}').format(
+        balance=texts.format_balance(getattr(user, 'balance_kopeks', 0) or 0),
+    )
     action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', 'Выберите действие:')
+    if action_prompt in base_text:
+        base_text = base_text.replace(action_prompt, f'{action_prompt}\n\n{balance_line}')
+    else:
+        base_text = f'{base_text.rstrip()}\n\n{action_prompt}\n\n{balance_line}\n'
 
     info_sections: list[str] = []
 

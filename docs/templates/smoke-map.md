@@ -1,3 +1,45 @@
+# Smoke map — Main menu UX (low-risk)
+
+> Branch `i18n/main-menu-ux-low-risk`; balance in caption, cabinet+wallet paired row, referrals WebApp; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/main-menu-ux-low-risk` |
+| Commits | `8b9d163c` fa labels, `25ed64df` caption balance, `3216fbc2` keyboard reorder |
+| Files | `fa.json`, `menu.py`, `inline.py`, tests |
+| Deploy | `make staging-rebuild` |
+| Bot | `@mrj7_bot` (staging) |
+| Guard | `uv run pytest tests/handlers/test_main_menu_text.py tests/keyboards/test_main_menu_keyboard_layout.py -v` |
+
+## What changed
+
+- Caption shows `💰 موجودی: …` via `MAIN_MENU_BALANCE_LINE` (not first keyboard row)
+- Cabinet + wallet paired below buy / my subscriptions
+- Referrals opens cabinet `/referral` WebApp (`🤝 همکاری و دعوت`)
+- `menu_info` removed from main menu
+
+## User smoke checklist (`@mrj7_bot`, fa user)
+
+| # | Action | Expected |
+|---|--------|----------|
+| 1 | `/start` → main menu | Caption shows `💰 موجودی: …` |
+| 2 | First action row | NOT balance-only row |
+| 3 | Row with `📱 پنل کاربری` + `💳 شارژ موجودی` | Below buy / my subs |
+| 4 | Tap `💳 شارژ موجودی` | Balance / top-up flow |
+| 5 | Tap `📱 پنل کاربری` | Cabinet mini-app opens |
+| 6 | Tap `🤝 همکاری و دعوت` | Cabinet `/referral` with partner CTA |
+| 7 | No `ℹ️ اطلاعات` on main menu | `menu_info` absent |
+| 8 | Active sub → `اشتراک‌های من` → detail → connect | Unchanged per-sub flow |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** → `CONFIRM_SHIP=1 make ship BRANCH=i18n/main-menu-ux-low-risk`
+
+---
+
 # Smoke map — Phase 11 admin reports + statistics fix
 
 > Branch `i18n/admin-reports-fa`; reports Persian + stats `*_BODY` keys + delivery resilience; awaiting user smoke.

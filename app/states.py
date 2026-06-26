@@ -295,3 +295,7 @@ class ReferralWithdrawalStates(StatesGroup):
 
 class PartnerStates(StatesGroup):
     entering_brand_prefix = State()
+
+
+class PartnerApplicationStates(StatesGroup):
+    waiting_description = State()
