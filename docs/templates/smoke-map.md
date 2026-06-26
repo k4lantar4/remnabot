@@ -1,3 +1,41 @@
+# Smoke map — Phase 11 admin reports + statistics fix
+
+> Branch `i18n/admin-reports-fa`; reports Persian + stats `*_BODY` keys + delivery resilience; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-reports-fa` |
+| Files | `fa.json`, `reporting_service.py`, `reports.py`, `statistics.py`, `config.py`, tests |
+| Deploy | `make staging-rebuild` |
+| Bot | `@mrj7_bot` (staging) |
+| Guard | `uv run pytest tests/test_admin_statistics_i18n.py tests/test_admin_reporting_i18n.py -v` |
+
+## What changed (2026-06-26 fix)
+
+- Reports: preview always in DM; topic delivery best-effort with topic retry + `ADMIN_NOTIFICATIONS_TOPIC_ID` fallback
+- Stats: `ADMIN_STATS_*_BODY` keys separate from keyboard labels — summary/users/revenue/referrals show full numbers
+- `ADMIN_REPORT_TOPIC_FAILED` Persian toast if topic post fails after preview
+
+## User smoke checklist (`@mrj7_bot`, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| 1 | Admin → گزارش‌ها → دیروز | Persian report in chat; no Russian alert (topic fail → Persian warning + preview visible) |
+| 2 | Admin reports topic | Report posted if topic configured |
+| 3 | Admin → آمار → خلاصه کلی | Full Persian stats with numbers, not label-only |
+| 4 | آمار → کاربران / درآمدها / دعوت | Full panel bodies with data |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** → `CONFIRM_SHIP=1 make ship BRANCH=i18n/admin-reports-fa`
+
+---
+
+# Smoke map — Phase 11 admin reports Persian (initial)
+
 # Smoke map — Phase 10 Slice C gaps (cabinet admin)
 
 > Branch `i18n/admin-fa-slice-c-gaps`; multiline Cyrillic `admin.*` fallbacks + missing fa keys; awaiting user smoke.
@@ -29,8 +67,8 @@
 
 ## Sign-off
 
-- [ ] User smoke on staging cabinet
-- [ ] Ship with remaining Phase 10 slices
+- [x] User smoke on staging cabinet (**تایید** 2026-06-26)
+- [x] Shipped PR [#91](https://github.com/k4lantar4/remnabot/pull/91) → `main` @ `31276b98`; prod cabinet deploy
 
 ---
 
