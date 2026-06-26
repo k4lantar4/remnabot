@@ -1,3 +1,39 @@
+# Smoke map — Phase 10 Slice C gaps (cabinet admin)
+
+> Branch `i18n/admin-fa-slice-c-gaps`; multiline Cyrillic `admin.*` fallbacks + missing fa keys; awaiting user smoke.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/admin-fa-slice-c-gaps` |
+| Files | `cabinet/src/locales/fa.json` + 3 `Admin*.tsx` |
+| Deploy | `make staging-cabinet-build` |
+| Cabinet URL | staging cabinet (`3021` / `staging-host-cabinet`) |
+| Guard | `rg -U "t\\(['\\\"]admin\\." cabinet/src` Cyrillic fallbacks = **0** |
+
+## What changed
+
+- Added `admin.promocodes.form.noTrialTariffHint`, `tariffOption`, `admin.promoOffers.form.selectSquadHint` to cabinet `fa.json`
+- Replaced hardcoded `устр.` in promocode tariff dropdown with `tariffOption` i18n (`کاربر` label)
+- 3 multiline Cyrillic `t('admin.*', …)` fallbacks → English upstream-safe defaults
+
+## User smoke checklist (staging cabinet, fa admin)
+
+| Step | Path | Expected |
+|------|------|----------|
+| 1 | `/admin/promocodes/create` → type «اشتراک آزمایشی» | Tariff dropdown: `GB، N کاربر`; empty-tariff hint Persian |
+| 2 | `/admin/promo-offers/templates/:id/edit` → test squads | Warning when no server selected is Persian |
+| 3 | `/admin/payment-methods/:id/edit` | «Open URL directly» hint stays Persian |
+| 4 | Regression | `/admin/remnawave`, `/admin/broadcasts/create` unchanged |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet
+- [ ] Ship with remaining Phase 10 slices
+
+---
+
 # Smoke map — Admin Persian gaps (smoke follow-up)
 
 > Branch `i18n/admin-fa-slice-d` (uncommitted hotfix); re-smoke items 1, 2, 5.
