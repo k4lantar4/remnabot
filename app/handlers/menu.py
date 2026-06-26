@@ -1228,9 +1228,9 @@ async def get_main_menu_text(user, texts, db: AsyncSession):
     )
     action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', 'Выберите действие:')
     if action_prompt in base_text:
-        base_text = base_text.replace(action_prompt, f'{balance_line}\n\n{action_prompt}')
+        base_text = base_text.replace(action_prompt, f'{action_prompt}\n\n{balance_line}')
     else:
-        base_text = f'{base_text.rstrip()}\n\n{balance_line}\n'
+        base_text = f'{base_text.rstrip()}\n\n{action_prompt}\n\n{balance_line}\n'
 
     info_sections: list[str] = []
 

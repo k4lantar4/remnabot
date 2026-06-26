@@ -107,3 +107,7 @@ async def test_main_menu_text_includes_balance_line() -> None:
 
     assert texts.format_balance(150_000) in result
     assert 'موجودی' in result
+    assert '<b>' in result
+    action_prompt = texts.t('MAIN_MENU_ACTION_PROMPT', '')
+    assert action_prompt in result
+    assert result.index(action_prompt) < result.index(texts.format_balance(150_000))
