@@ -625,6 +625,17 @@ def get_main_menu_keyboard(
             target.append(buttons[i : i + per_row])
         buttons.clear()
 
+    cabinet_url = build_cabinet_url('/')
+    if cabinet_url:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MENU_CABINET_BTN', '📱 Личный кабинет'),
+                    web_app=types.WebAppInfo(url=cabinet_url),
+                )
+            ]
+        )
+
     if has_active_subscription and subscription_is_active:
         if not settings.is_multi_tariff_enabled():
             connect_mode = settings.CONNECT_BUTTON_MODE
@@ -759,40 +770,26 @@ def get_main_menu_keyboard(
     _flush_paired(keyboard, paired_buttons)
 
     wallet_btn = InlineKeyboardButton(
-        text=texts.t('MENU_WALLET_BTN', '💳 Пополнить баланс'),
+        text=texts.t('MENU_WALLET_BTN', '💳 Пополнить баланس'),
         callback_data='menu_balance',
     )
-    cabinet_url = build_cabinet_url('/')
-    if cabinet_url:
-        cabinet_btn = InlineKeyboardButton(
-            text=texts.t('MENU_CABINET_BTN', '📱 Личный кабинет'),
-            web_app=types.WebAppInfo(url=cabinet_url),
-        )
-        keyboard.append([cabinet_btn, wallet_btn])
-    else:
-        keyboard.append([wallet_btn])
+    promocode_btn = InlineKeyboardButton(text=texts.MENU_PROMOCODE, callback_data='menu_promocode')
+    keyboard.append([wallet_btn, promocode_btn])
 
-    lower_buttons: list[InlineKeyboardButton] = []
-    lower_buttons.append(InlineKeyboardButton(text=texts.MENU_PROMOCODE, callback_data='menu_promocode'))
-
-    if settings.is_referral_program_enabled():
-        referral_url = build_cabinet_url('/referral')
-        if referral_url:
-            lower_buttons.append(
-                InlineKeyboardButton(
-                    text=texts.MENU_REFERRALS,
-                    web_app=types.WebAppInfo(url=referral_url),
-                )
-            )
-        else:
-            lower_buttons.append(
-                InlineKeyboardButton(text=texts.MENU_REFERRALS, callback_data='menu_referrals'),
-            )
+    middle_buttons: list[InlineKeyboardButton] = []
 
     if settings.CONTESTS_ENABLED and settings.CONTESTS_BUTTON_VISIBLE:
-        lower_buttons.append(
+        middle_buttons.append(
             InlineKeyboardButton(text=texts.t('CONTESTS_BUTTON', '🎲 Конкурсы'), callback_data='contests_menu')
         )
+
+    if settings.ACTIVATE_BUTTON_VISIBLE:
+        middle_buttons.append(InlineKeyboardButton(text=settings.ACTIVATE_BUTTON_TEXT, callback_data='activate_button'))
+
+    if settings.is_language_selection_enabled():
+        middle_buttons.append(InlineKeyboardButton(text=texts.MENU_LANGUAGE, callback_data='menu_language'))
+
+    _flush_paired(keyboard, middle_buttons)
 
     try:
         from app.services.support_settings_service import SupportSettingsService
@@ -801,16 +798,15 @@ def get_main_menu_keyboard(
     except Exception:
         support_enabled = settings.SUPPORT_MENU_ENABLED
 
+    bottom_row: list[InlineKeyboardButton] = []
     if support_enabled:
-        lower_buttons.append(InlineKeyboardButton(text=texts.MENU_SUPPORT, callback_data='menu_support'))
-
-    if settings.ACTIVATE_BUTTON_VISIBLE:
-        lower_buttons.append(InlineKeyboardButton(text=settings.ACTIVATE_BUTTON_TEXT, callback_data='activate_button'))
-
-    if settings.is_language_selection_enabled():
-        lower_buttons.append(InlineKeyboardButton(text=texts.MENU_LANGUAGE, callback_data='menu_language'))
-
-    _flush_paired(keyboard, lower_buttons)
+        bottom_row.append(InlineKeyboardButton(text=texts.MENU_SUPPORT, callback_data='menu_support'))
+    if settings.is_referral_program_enabled():
+        bottom_row.append(
+            InlineKeyboardButton(text=texts.MENU_REFERRALS, callback_data='menu_referrals'),
+        )
+    if bottom_row:
+        keyboard.append(bottom_row)
 
     if settings.DEBUG:
         logger.debug('DEBUG KEYBOARD: админ кнопка', is_admin=is_admin)
@@ -2248,7 +2244,14 @@ def get_autopay_notification_keyboard(subscription_id: int, language: str = DEFA
     )
 
 
-def get_referral_keyboard(language: str = DEFAULT_LANGUAGE, *, is_partner: bool = False) -> InlineKeyboardMarkup:
+def get_referral_keyboard(
+    language: str = DEFAULT_LANGUAGE,
+    *,
+    is_partner: bool = False,
+    partner_status: str = 'none',
+) -> InlineKeyboardMarkup:
+    from app.database.models import PartnerStatus
+
     texts = get_texts(language)
 
     keyboard = [
@@ -2289,6 +2292,16 @@ def get_referral_keyboard(language: str = DEFAULT_LANGUAGE, *, is_partner: bool 
                     callback_data='partner_brand_settings',
                 )
             ]
+        )
+    elif partner_status not in (PartnerStatus.PENDING.value, PartnerStatus.APPROVED.value):
+        keyboard.insert(
+            0,
+            [
+                InlineKeyboardButton(
+                    text=texts.t('PARTNER_APPLY_BTN', '🤝 Заявка на партнёрство'),
+                    callback_data='partner_apply_start',
+                )
+            ],
         )
 
     keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])

@@ -74,21 +74,54 @@ def test_menu_info_removed_from_main_menu() -> None:
     assert 'menu_info' not in _callback_data_set(kb)
 
 
-def test_cabinet_and_referral_webapp_urls() -> None:
+def test_cabinet_webapp_on_dashboard_only() -> None:
     kb = get_main_menu_keyboard(language='fa', balance_kopeks=0)
     urls = _webapp_urls(kb)
     assert 'https://cabinet.example.com' in urls
-    assert 'https://cabinet.example.com/referral' in urls
+    assert 'https://cabinet.example.com/referral' not in urls
+    assert 'menu_referrals' in _callback_data_set(kb)
 
 
-def test_cabinet_wallet_share_a_row() -> None:
+def test_dashboard_button_label_fa() -> None:
+    from app.localization.texts import get_texts
+
+    kb = get_main_menu_keyboard(language='fa', balance_kopeks=0)
+    texts = get_texts('fa')
+    dashboard_btn = next(b for b in _flat_buttons(kb) if b.web_app and b.web_app.url == 'https://cabinet.example.com')
+    assert dashboard_btn.text == texts.MENU_CABINET_BTN
+    assert 'داشبورد' in dashboard_btn.text
+
+
+def test_dashboard_first_row_full_width() -> None:
+    kb = get_main_menu_keyboard(language='fa', balance_kopeks=0)
+    first_row = kb.inline_keyboard[0]
+    assert len(first_row) == 1
+    assert first_row[0].web_app is not None
+    assert first_row[0].web_app.url == 'https://cabinet.example.com'
+
+
+def test_wallet_promocode_share_a_row() -> None:
     kb = get_main_menu_keyboard(language='fa', balance_kopeks=0, has_active_subscription=False)
     for row in kb.inline_keyboard:
         cbs = {b.callback_data for b in row if b.callback_data}
-        webapps = [b.web_app.url for b in row if b.web_app]
         if 'menu_balance' in cbs:
-            assert any(url == 'https://cabinet.example.com' for url in webapps)
+            assert 'menu_promocode' in cbs
             assert len(row) == 2
             break
     else:
         pytest.fail('wallet row not found')
+
+
+def test_support_left_referrals_right_last_row() -> None:
+    from app.localization.texts import get_texts
+
+    kb = get_main_menu_keyboard(language='fa', balance_kopeks=0, is_admin=False)
+    texts = get_texts('fa')
+    rows = [row for row in kb.inline_keyboard if any(b.callback_data in {'menu_support', 'menu_referrals'} for b in row)]
+    assert rows, 'support/referrals row missing'
+    row = rows[-1]
+    assert row[0].callback_data == 'menu_support'
+    assert row[1].callback_data == 'menu_referrals'
+    assert row[0].text == texts.MENU_SUPPORT
+    assert row[1].text == texts.MENU_REFERRALS
+    assert 'نمایندگی' in row[1].text
