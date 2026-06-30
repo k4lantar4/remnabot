@@ -65,6 +65,7 @@ from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.remnawave_panel_identity import resolve_remnawave_panel_description
+from app.utils.subscription_display import format_subscription_notify_context
 from app.utils.subscription_utils import resolve_hwid_device_limit_for_payload
 
 
@@ -411,22 +412,7 @@ class MonitoringService:
 
                 user = await get_user_by_id(db, subscription.user_id)
                 if user and self.bot:
-                    # Skip notification if user has another ACTIVE subscription (multi-tariff)
-                    skip_notify = False
-                    if settings.is_multi_tariff_enabled():
-                        other_active = await db.execute(
-                            select(Subscription.id)
-                            .where(
-                                Subscription.user_id == user.id,
-                                Subscription.id != subscription.id,
-                                Subscription.status == SubscriptionStatus.ACTIVE.value,
-                                Subscription.end_date > datetime.now(UTC),
-                            )
-                            .limit(1)
-                        )
-                        skip_notify = other_active.scalar_one_or_none() is not None
-                    if not skip_notify:
-                        await self._send_subscription_expired_notification(user, subscription, tariff_name=_tariff_name)
+                    await self._send_subscription_expired_notification(user, subscription, tariff_name=_tariff_name)
 
                 logger.info(
                     "🔴 Подписка пользователя истекла и статус изменен на 'expired'", user_id=subscription.user_id
@@ -1071,21 +1057,6 @@ class MonitoringService:
                 if subscription.end_date is None:
                     continue
 
-                # Skip if user has another ACTIVE subscription — they still have service
-                if settings.is_multi_tariff_enabled():
-                    other_active = await db.execute(
-                        select(Subscription.id)
-                        .where(
-                            Subscription.user_id == user.id,
-                            Subscription.id != subscription.id,
-                            Subscription.status == SubscriptionStatus.ACTIVE.value,
-                            Subscription.end_date > now,
-                        )
-                        .limit(1)
-                    )
-                    if other_active.scalar_one_or_none() is not None:
-                        continue
-
                 time_since_end = now - subscription.end_date
                 if time_since_end.total_seconds() < 0:
                     continue
@@ -1631,12 +1602,13 @@ class MonitoringService:
                 elif hasattr(subscription, 'tariff') and subscription.tariff:
                     tariff_label = f' «{subscription.tariff.name}»'
             texts = get_texts(user.language)
+            notify_ctx = format_subscription_notify_context(subscription, user, texts)
             message = texts.t(
                 'SUBSCRIPTION_EXPIRED_NOTIFY',
-                '⛔ <b>Подписка{tariff_label} истекла</b>\n\n'
+                '⛔ <b>Подписка{tariff_label} истекла</b>{subscription_line}\n\n'
                 'Ваша подписка истекла. Для восстановления доступа продлите подписку.\n\n'
                 '🔧 Доступ к серверам заблокирован до продления.',
-            ).format(tariff_label=tariff_label)
+            ).format(tariff_label=tariff_label, subscription_line=notify_ctx['subscription_line'])
 
             from aiogram.types import InlineKeyboardMarkup
 
@@ -1733,9 +1705,10 @@ class MonitoringService:
             tariff_label = ''
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
                 tariff_label = f' «{subscription.tariff.name}»'
+            notify_ctx = format_subscription_notify_context(subscription, user, texts)
             message = texts.t(
                 'SUBSCRIPTION_EXPIRING_PAID',
-                '\n⚠️ <b>Подписка{tariff_label} истекает через {days_text}!</b>\n\n'
+                '\n⚠️ <b>Подписка{tariff_label} истекает через {days_text}!</b>{subscription_line}\n\n'
                 'Ваша платная подписка истекает {end_date}.\n\n'
                 '💳 <b>Автоплатеж:</b> {autopay_status}\n\n'
                 '{action_text}\n',
@@ -1745,6 +1718,7 @@ class MonitoringService:
                 autopay_status=autopay_status,
                 action_text=action_text,
                 tariff_label=tariff_label,
+                subscription_line=notify_ctx['subscription_line'],
             )
 
             from aiogram.types import InlineKeyboardMarkup
@@ -1805,9 +1779,10 @@ class MonitoringService:
         try:
             texts = get_texts(user.language)
             price = settings.format_price(settings.PRICE_30_DAYS)
+            notify_ctx = format_subscription_notify_context(subscription, user, texts)
             message = texts.t(
                 'TRIAL_ENDING_SOON',
-                '\n🎁 <b>Тестовая подписка скоро закончится!</b>\n\n'
+                '\n🎁 <b>Тестовая подписка скоро закончится!</b>{subscription_line}\n\n'
                 'Ваша тестовая подписка истекает через несколько часов.\n\n'
                 '💎 <b>Не хотите остаться без VPN?</b>\n'
                 'Переходите на полную подписку!\n\n'
@@ -1817,9 +1792,7 @@ class MonitoringService:
                 '• Все серверы доступны\n'
                 '• Скорость до 1ГБит/сек\n\n'
                 '⚡️ Успейте оформить до окончания тестового периода!\n',
-            ).format(price=price)
-            if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
+            ).format(price=price, subscription_line=notify_ctx['subscription_line'])
 
             from aiogram.types import InlineKeyboardMarkup
 
@@ -1970,10 +1943,11 @@ class MonitoringService:
             template = texts.get(
                 'SUBSCRIPTION_EXPIRED_1D',
                 (
-                    '⛔ <b>Подписка{tariff_label} закончилась</b>\n\n'
+                    '⛔ <b>Подписка{tariff_label} закончилась</b>{subscription_line}\n\n'
                     'Доступ был отключён {end_date}. Продлите подписку, чтобы вернуться в сервис.'
                 ),
             )
+            notify_ctx = format_subscription_notify_context(subscription, user, texts)
             message = template.format(
                 end_date=format_user_datetime(
                     subscription.end_date,
@@ -1982,6 +1956,7 @@ class MonitoringService:
                 ),
                 price=settings.format_price(renewal_price_kopeks),
                 tariff_label=tariff_label,
+                subscription_line=notify_ctx['subscription_line'],
             )
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -2055,11 +2030,13 @@ class MonitoringService:
             if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
                 tariff_label = f' «{subscription.tariff.name}»'
 
+            notify_ctx = format_subscription_notify_context(subscription, user, texts)
+
             if wave == 'second':
                 template = texts.get(
                     'SUBSCRIPTION_EXPIRED_SECOND_WAVE',
                     (
-                        '🔥 <b>Скидка {percent}% на продление{tariff_label}</b>\n\n'
+                        '🔥 <b>Скидка {percent}% на продление{tariff_label}</b>{subscription_line}\n\n'
                         'Активируйте предложение, чтобы получить дополнительную скидку. '
                         'Она суммируется с вашей промогруппой и действует до {expires_at}.'
                     ),
@@ -2068,7 +2045,7 @@ class MonitoringService:
                 template = texts.get(
                     'SUBSCRIPTION_EXPIRED_THIRD_WAVE',
                     (
-                        '🎁 <b>Индивидуальная скидка {percent}%{tariff_label}</b>\n\n'
+                        '🎁 <b>Индивидуальная скидка {percent}%{tariff_label}</b>{subscription_line}\n\n'
                         'Прошло {trigger_days} дней без подписки — возвращайтесь и активируйте дополнительную скидку. '
                         'Она суммируется с промогруппой и действует до {expires_at}.'
                     ),
@@ -2083,6 +2060,7 @@ class MonitoringService:
                 ),
                 trigger_days=trigger_days or '',
                 tariff_label=tariff_label,
+                subscription_line=notify_ctx['subscription_line'],
             )
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -2146,17 +2124,16 @@ class MonitoringService:
     ):
         try:
             texts = get_texts(user.language)
-            tariff_label = ''
-            if (
-                settings.is_multi_tariff_enabled()
-                and subscription
-                and hasattr(subscription, 'tariff')
-                and subscription.tariff
-            ):
-                tariff_label = f' «{subscription.tariff.name}»'
-            message = texts.AUTOPAY_SUCCESS.format(days=days, amount=settings.format_price(amount))
-            if tariff_label and subscription and subscription.tariff:
-                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
+            notify_ctx = (
+                format_subscription_notify_context(subscription, user, texts)
+                if subscription
+                else {'subscription_line': ''}
+            )
+            message = texts.AUTOPAY_SUCCESS.format(
+                days=days,
+                amount=settings.format_price(amount),
+                subscription_line=notify_ctx['subscription_line'],
+            )
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
@@ -2181,16 +2158,16 @@ class MonitoringService:
     ):
         try:
             texts = get_texts(user.language)
-            message = texts.AUTOPAY_FAILED.format(
-                balance=settings.format_balance(balance), required=settings.format_price(required)
+            notify_ctx = (
+                format_subscription_notify_context(subscription, user, texts)
+                if subscription
+                else {'subscription_line': ''}
             )
-            if (
-                settings.is_multi_tariff_enabled()
-                and subscription
-                and hasattr(subscription, 'tariff')
-                and subscription.tariff
-            ):
-                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
+            message = texts.AUTOPAY_FAILED.format(
+                balance=settings.format_balance(balance),
+                required=settings.format_price(required),
+                subscription_line=notify_ctx['subscription_line'],
+            )
 
             from aiogram.types import InlineKeyboardMarkup
 
@@ -2320,9 +2297,10 @@ class MonitoringService:
                 try:
                     language = getattr(user, 'language', 'ru') or 'ru'
                     texts = get_texts(language)
+                    notify_ctx = format_subscription_notify_context(subscription, user, texts)
                     message = texts.get(
                         'TRAFFIC_WARNING_ALERT',
-                        '⚠️ <b>Предупреждение о трафике</b>\n\n'
+                        '⚠️ <b>Предупреждение о трафике</b>{subscription_line}\n\n'
                         'Использовано: {used:.1f} / {limit} ГБ ({percent:.0f}%)\n\n'
                         'Ваш лимит трафика почти исчерпан.',
                     )
@@ -2330,6 +2308,7 @@ class MonitoringService:
                         used=traffic_used,
                         limit=traffic_limit,
                         percent=current_percent,
+                        subscription_line=notify_ctx['subscription_line'],
                     )
                     await self.bot.send_message(
                         user.telegram_id,
@@ -2422,18 +2401,40 @@ class MonitoringService:
                 try:
                     language = getattr(user, 'language', 'ru') or 'ru'
                     texts = get_texts(language)
-                    threshold_rub = threshold / 100
-                    balance_rub = balance / 100
+
+                    from sqlalchemy.orm import selectinload
+
+                    sub_result = await db.execute(
+                        select(Subscription)
+                        .options(selectinload(Subscription.tariff))
+                        .where(
+                            Subscription.user_id == user.id,
+                            Subscription.status.in_(['active', 'trial']),
+                            Subscription.autopay_enabled.is_(True),
+                            Subscription.end_date.isnot(None),
+                            Subscription.end_date <= expiry_threshold,
+                        )
+                        .order_by(Subscription.end_date.asc())
+                        .limit(1)
+                    )
+                    nearest_sub = sub_result.scalar_one_or_none()
+                    notify_ctx = (
+                        format_subscription_notify_context(nearest_sub, user, texts)
+                        if nearest_sub
+                        else {'subscription_line': ''}
+                    )
+
                     message = texts.get(
                         'LOW_BALANCE_ALERT',
-                        '⚠️ <b>Низкий баланс</b>\n\n'
-                        'Ваш баланс: {balance} ₽\n'
-                        'Порог уведомления: {threshold} ₽\n\n'
+                        '⚠️ <b>Низкий баланс</b>{subscription_line}\n\n'
+                        'Ваш баланс: {balance}\n'
+                        'Порог уведомления: {threshold}\n\n'
                         'Пополните баланс, чтобы автопродление подписки прошло успешно.',
                     )
                     message = message.format(
-                        balance=f'{balance_rub:.0f}',
-                        threshold=f'{threshold_rub:.0f}',
+                        balance=texts.format_balance(balance),
+                        threshold=texts.format_balance(threshold),
+                        subscription_line=notify_ctx['subscription_line'],
                     )
 
                     # Build inline keyboard with cabinet top-up button
