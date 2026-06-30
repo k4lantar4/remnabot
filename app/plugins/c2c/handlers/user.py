@@ -173,14 +173,15 @@ async def start_c2c_payment(
         return
 
     from app.handlers.balance.topup_prompt import get_cart_suggested_topup_amount, show_cart_topup_amount_prompt
+    from app.utils.topup_suggestion import effective_c2c_topup_amount
 
     cart_suggested = await get_cart_suggested_topup_amount(db_user.id)
-    if cart_suggested >= settings.C2C_MIN_AMOUNT_KOPEKS:
+    if cart_suggested > 0:
         await show_cart_topup_amount_prompt(
             callback,
             db_user,
             method='c2c',
-            suggested_amount=cart_suggested,
+            suggested_amount=effective_c2c_topup_amount(cart_suggested),
             state=state,
         )
         return

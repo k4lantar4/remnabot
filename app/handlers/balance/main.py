@@ -831,6 +831,11 @@ async def handle_topup_amount_callback(
         await callback.answer(texts.INVALID_AMOUNT, show_alert=True)
         return
 
+    if method == 'c2c':
+        from app.utils.topup_suggestion import effective_c2c_topup_amount
+
+        amount_kopeks = effective_c2c_topup_amount(amount_kopeks)
+
     from .topup_prompt import show_cart_topup_amount_prompt
 
     try:
@@ -869,6 +874,11 @@ async def handle_topup_confirm_callback(
     if amount_kopeks <= 0:
         await callback.answer(texts.INVALID_AMOUNT, show_alert=True)
         return
+
+    if method == 'c2c':
+        from app.utils.topup_suggestion import effective_c2c_topup_amount
+
+        amount_kopeks = effective_c2c_topup_amount(amount_kopeks)
 
     try:
         await callback.answer()
