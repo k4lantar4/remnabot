@@ -2093,7 +2093,8 @@ class MonitoringService:
                 inline_keyboard=[
                     [
                         build_miniapp_or_callback_button(
-                            text='🎁 Получить скидку', callback_data=f'claim_discount_{offer_id}'
+                            text=texts.t('CLAIM_DISCOUNT_BTN', '🎁 Получить скидку'),
+                            callback_data=f'claim_discount_{offer_id}',
                         )
                     ],
                     [
@@ -2154,8 +2155,8 @@ class MonitoringService:
             ):
                 tariff_label = f' «{subscription.tariff.name}»'
             message = texts.AUTOPAY_SUCCESS.format(days=days, amount=settings.format_price(amount))
-            if tariff_label:
-                message += f'\n📦 Тариф:{tariff_label}'
+            if tariff_label and subscription and subscription.tariff:
+                message += texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
