@@ -142,6 +142,9 @@ def _subscription_matches_search(sub, query: str, texts) -> bool:
     serial = (getattr(sub, 'remnawave_short_id', '') or '').strip()
     if serial and q in serial:
         return True
+    note = (getattr(sub, 'purchase_note', None) or '').strip().lower()
+    if note and q in note:
+        return True
     return False
 
 

@@ -77,6 +77,19 @@ def test_matches_subscription_id() -> None:
     assert _subscription_matches_search(sub, '42', _texts()) is True
 
 
+def test_matches_purchase_note_substring() -> None:
+    sub = SimpleNamespace(
+        id=7,
+        panel_username='shop-a',
+        tariff=SimpleNamespace(name='Pro'),
+        account_sequence=1,
+        purchase_note='فروشگاه مرکزی - مشتری 12',
+    )
+    texts = _texts()
+    assert _subscription_matches_search(sub, 'مرکزی', texts) is True
+    assert _subscription_matches_search(sub, 'nomatch', texts) is False
+
+
 def test_filter_returns_only_matches() -> None:
     subs = [
         SimpleNamespace(id=1, panel_username='Alpha', tariff=None, account_sequence=1),
