@@ -1,3 +1,45 @@
+# Smoke map — Dual connect (miniapp + panel direct)
+
+> On `main` (uncommitted); `@mrj7_bot` staging.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `main` |
+| Files | `subscription_utils.py`, `links.py`, `purchase.py`, `tariff_purchase.py`, `fa.json` |
+| Deploy | `make staging-rebuild` (2026-07-01) |
+| Bot | `@mrj7_bot` |
+
+## Keys / callbacks
+
+| Key / callback | Surface |
+|----------------|---------|
+| `SUBSCRIPTION_CONNECT_BTN_MINIAPP_GUIDE` | Connect screen — WebApp cabinet `/connection?sub=` |
+| `SUBSCRIPTION_CONNECT_BTN_PANEL_DIRECT` | Connect screen — `url` panel `subscription_url` |
+| `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE` | Connect screen body (dual-option copy) |
+| `MY_SUB_DETAIL_ONBOARDING` / `POST_PURCHASE_ONBOARDING` | Detail + post-purchase hints |
+| `sl:{sub_id}` | Entry from detail, tariff success, purchase success |
+| `MY_SUB_BTN_CONNECT_LINK` | Tariff purchase success CTA |
+
+## User smoke checklist (`@mrj7_bot`, fa)
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | اشتراک من → detail → «دریافت لینک» | Two buttons: مینی‌اپ + لینک مستقیم پنل | pending |
+| 2 | Tap مینی‌اپ | Stays in Telegram WebView (`/connection?sub=`) | pending |
+| 3 | Tap لینک مستقیم پنل | Opens `subscription_url` in mobile browser (not cabinet) | pending |
+| 4 | Buy tariff → success | «دریافت لینک» CTA above «اشتراک من» → step 1 screen | pending |
+| 5 | Trial/paid purchase success (`purchase.py`) | Inline dual buttons on success message | pending |
+| 6 | Detail onboarding text | Mentions both paths; no cabinet/rookari branding | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** before prod deploy
+
+---
+
 # Smoke map — Partner broadcast targeting (admin)
 
 > Branch `feat/admin-partner-broadcast`; مخاطب «نمایندگان» برای ارسال همگانی، نظرسنجی، و سنجاق فوری.

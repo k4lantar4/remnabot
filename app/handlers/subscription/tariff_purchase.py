@@ -74,6 +74,33 @@ def _with_post_purchase_onboarding(texts, body: str) -> str:
     return f'{body}\n\n{onboarding}'
 
 
+def _tariff_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
+    """Post-purchase success: connect guide CTA + subscription detail."""
+    sub_callback = (
+        f'sm:{subscription.id}'
+        if settings.is_multi_tariff_enabled() and subscription
+        else 'menu_subscription'
+    )
+    connect_callback = f'sl:{subscription.id}' if subscription else 'subscription_connect'
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_CONNECT_LINK', '🔗 Ссылка подключения'),
+                    callback_data=connect_callback,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
+                    callback_data=sub_callback,
+                )
+            ],
+            [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
+        ]
+    )
+
+
 def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bool = False) -> bool:
     pinned = state_data.get('target_subscription_id')
     if pinned and existing_sub:
@@ -2011,19 +2038,7 @@ async def handle_custom_confirm(
                     charged=format_price_kopeks(total_price),
                 ),
             ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                            callback_data=f'sm:{subscription.id}'
-                            if settings.is_multi_tariff_enabled() and subscription
-                            else 'menu_subscription',
-                        )
-                    ],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                ]
-            ),
+            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
         )
     except Exception as e:
@@ -2590,19 +2605,7 @@ async def confirm_tariff_purchase(
                 charged=format_price_kopeks(final_price),
             ),
         ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                        callback_data=f'sm:{subscription.id}'
-                        if settings.is_multi_tariff_enabled() and subscription
-                        else 'menu_subscription',
-                    )
-                ],
-                [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-            ]
-        ),
+        reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
         parse_mode='HTML',
     )
 
@@ -2907,19 +2910,7 @@ async def confirm_daily_tariff_purchase(
                 charged=format_price_kopeks(final_daily_price),
             ),
         ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                        callback_data=f'sm:{subscription.id}'
-                        if settings.is_multi_tariff_enabled() and subscription
-                        else 'menu_subscription',
-                    )
-                ],
-                [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-            ]
-        ),
+        reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
         parse_mode='HTML',
     )
 
@@ -3589,19 +3580,7 @@ async def confirm_tariff_extend(
                     charged=format_price_kopeks(final_price),
                 ),
             ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                            callback_data=f'sm:{subscription.id}'
-                            if settings.is_multi_tariff_enabled() and subscription
-                            else 'menu_subscription',
-                        )
-                    ],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                ]
-            ),
+            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
         )
     except Exception as e:
@@ -4395,19 +4374,7 @@ async def confirm_tariff_switch(
                     time_info=time_info,
                 ),
             ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                            callback_data=f'sm:{subscription.id}'
-                            if settings.is_multi_tariff_enabled() and subscription
-                            else 'menu_subscription',
-                        )
-                    ],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                ]
-            ),
+            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
         )
 
@@ -4687,19 +4654,7 @@ async def confirm_daily_tariff_switch(
                     charged=format_price_kopeks(final_daily_price),
                 ),
             ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                            callback_data=f'sm:{subscription.id}'
-                            if settings.is_multi_tariff_enabled() and subscription
-                            else 'menu_subscription',
-                        )
-                    ],
-                    [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                ]
-            ),
+            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
         )
 
@@ -5563,19 +5518,7 @@ async def confirm_instant_switch(
                         charged=format_price_kopeks(daily_price),
                     ),
                 ),
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                                callback_data=f'sm:{subscription.id}'
-                                if settings.is_multi_tariff_enabled() and subscription
-                                else 'menu_subscription',
-                            )
-                        ],
-                        [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                    ]
-                ),
+                reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
                 parse_mode='HTML',
             )
         else:
@@ -5605,19 +5548,7 @@ async def confirm_instant_switch(
                         cost=cost_text,
                     ),
                 ),
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                                callback_data=f'sm:{subscription.id}'
-                                if settings.is_multi_tariff_enabled() and subscription
-                                else 'menu_subscription',
-                            )
-                        ],
-                        [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-                    ]
-                ),
+                reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
                 parse_mode='HTML',
             )
 

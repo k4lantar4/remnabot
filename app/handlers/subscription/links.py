@@ -12,10 +12,10 @@ from app.keyboards.inline import (
 )
 from app.localization.texts import get_texts
 from app.utils.subscription_utils import (
+    build_miniapp_subscription_connect_keyboard,
     convert_subscription_link_to_happ_scheme,
     get_display_subscription_link,
     get_happ_cryptolink_redirect_link,
-    resolve_connect_webapp_url,
 )
 
 from .common import get_platforms_list, load_app_config_async, logger
@@ -104,17 +104,11 @@ async def handle_connect_subscription(
 
     if connect_mode == 'miniapp_subscription':
         await callback.answer()
-        webapp_url = await resolve_connect_webapp_url(subscription, sub_id) or subscription_link
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                        web_app=types.WebAppInfo(url=webapp_url),
-                    )
-                ],
-                [InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)],
-            ]
+        keyboard = await build_miniapp_subscription_connect_keyboard(
+            subscription=subscription,
+            sub_id=sub_id,
+            texts=texts,
+            back_rows=[[InlineKeyboardButton(text=texts.BACK, callback_data=back_cb)]],
         )
 
         await callback.message.edit_text(

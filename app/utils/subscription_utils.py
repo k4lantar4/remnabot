@@ -75,6 +75,61 @@ async def resolve_connect_webapp_url(subscription: Subscription | None, sub_id: 
     return subscription_link
 
 
+async def build_miniapp_subscription_connect_keyboard(
+    *,
+    subscription: Subscription | None,
+    sub_id: int,
+    texts,
+    back_rows: list[list],
+):
+    """Build connect keyboard: cabinet WebApp guide + panel url when guide is available."""
+    from aiogram import types
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    from app.utils.miniapp_buttons import build_cabinet_url
+
+    subscription_link = get_display_subscription_link(subscription)
+    cabinet_guide_url = build_cabinet_url(f'/connection?sub={sub_id}')
+    webapp_url = await resolve_connect_webapp_url(subscription, sub_id) or subscription_link
+
+    rows: list[list[InlineKeyboardButton]] = []
+    if cabinet_guide_url and subscription_link:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t(
+                        'SUBSCRIPTION_CONNECT_BTN_MINIAPP_GUIDE',
+                        '📱 Руководство в мини-приложении',
+                    ),
+                    web_app=types.WebAppInfo(url=cabinet_guide_url),
+                )
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t(
+                        'SUBSCRIPTION_CONNECT_BTN_PANEL_DIRECT',
+                        '🔗 Прямая ссылка панели',
+                    ),
+                    url=subscription_link,
+                )
+            ]
+        )
+    elif webapp_url:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
+                    web_app=types.WebAppInfo(url=webapp_url),
+                )
+            ]
+        )
+
+    rows.extend(back_rows)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def get_happ_cryptolink_redirect_link(subscription_link: str | None) -> str | None:
     if not subscription_link:
         return None
