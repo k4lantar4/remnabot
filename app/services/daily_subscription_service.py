@@ -323,19 +323,19 @@ class DailySubscriptionService:
     async def _notify_daily_charge(self, user, subscription, amount_kopeks: int):
         """Уведомляет пользователя о суточном списании."""
         texts = get_texts(getattr(user, 'language', 'ru'))
-        from app.utils.subscription_display import format_subscription_notify_context
+        from app.utils.subscription_display import format_subscription_notify_card
 
-        notify_ctx = format_subscription_notify_context(subscription, user, texts)
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
         message = texts.t(
             'NOTIFY_DAILY_DEBIT',
-            '💳 <b>Суточное списание</b>{subscription_line}\n\n'
+            '💳 <b>Суточное списание</b>{subscription_card}\n\n'
             'Списано: {amount}\n'
             'Остаток баланса: {balance}\n\n'
             'Следующее списание через 24 часа.',
         ).format(
             amount=texts.format_price(amount_kopeks),
             balance=texts.format_balance(user.balance_kopeks),
-            subscription_line=notify_ctx['subscription_line'],
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         # Use unified notification delivery service
@@ -355,24 +355,20 @@ class DailySubscriptionService:
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         texts = get_texts(getattr(user, 'language', 'ru'))
-        from app.utils.subscription_display import format_subscription_notify_context
+        from app.utils.subscription_display import format_subscription_notify_card
 
-        tariff_label = ''
-        if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-            tariff_label = f' «{subscription.tariff.name}»'
-        notify_ctx = format_subscription_notify_context(subscription, user, texts)
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
         message = texts.t(
             'NOTIFY_DAILY_INSUFFICIENT_FUNDS',
-            '⚠️ <b>Подписка{tariff_label} приостановлена</b>{subscription_line}\n\n'
+            '⚠️ <b>Подписка приостановлена</b>{subscription_card}\n\n'
             'Недостаточно средств для суточной оплаты.\n\n'
             'Требуется: {required}\n'
             'Баланс: {balance}\n\n'
             'Пополните баланс, чтобы возобновить подписку.',
         ).format(
-            tariff_label=tariff_label,
             required=texts.format_price(required_amount),
             balance=texts.format_balance(user.balance_kopeks),
-            subscription_line=notify_ctx['subscription_line'],
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         sub_btn_text = texts.t(
@@ -727,12 +723,12 @@ class DailySubscriptionService:
     async def _notify_traffic_reset(self, user: User, subscription: Subscription, reset_gb: int):
         """Уведомляет пользователя о сбросе докупленного трафика."""
         texts = get_texts(getattr(user, 'language', 'ru'))
-        from app.utils.subscription_display import format_subscription_notify_context
+        from app.utils.subscription_display import format_subscription_notify_card
 
-        notify_ctx = format_subscription_notify_context(subscription, user, texts)
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
         message = texts.t(
             'NOTIFY_TRAFFIC_RESET',
-            'ℹ️ <b>Сброс докупленного трафика</b>{subscription_line}\n\n'
+            'ℹ️ <b>Сброс докупленного трафика</b>{subscription_card}\n\n'
             'Ваш докупленный трафик ({reset_gb} ГБ) был сброшен, '
             'так как прошло 30 дней с момента первой докупки.\n\n'
             'Текущий лимит трафика: {current_limit_gb} ГБ\n\n'
@@ -740,7 +736,7 @@ class DailySubscriptionService:
         ).format(
             reset_gb=reset_gb,
             current_limit_gb=subscription.traffic_limit_gb,
-            subscription_line=notify_ctx['subscription_line'],
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         context = {

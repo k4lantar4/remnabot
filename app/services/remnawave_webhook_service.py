@@ -936,13 +936,13 @@ class RemnaWaveWebhookService:
                     tariff_label = f' «{loaded_tariff.name}»'
             format_kwargs['tariff_label'] = tariff_label
 
-        if 'subscription_line' not in format_kwargs and subscription:
-            from app.utils.subscription_display import format_subscription_notify_context
+        if 'subscription_card' not in format_kwargs and subscription:
+            from app.utils.subscription_display import format_subscription_notify_card
 
-            notify_ctx = format_subscription_notify_context(subscription, user, texts)
-            format_kwargs['subscription_line'] = notify_ctx['subscription_line']
-        elif 'subscription_line' not in format_kwargs:
-            format_kwargs['subscription_line'] = ''
+            notify_ctx = format_subscription_notify_card(subscription, user, texts)
+            format_kwargs['subscription_card'] = notify_ctx['subscription_card']
+        elif 'subscription_card' not in format_kwargs:
+            format_kwargs['subscription_card'] = ''
 
         if format_kwargs:
             try:
