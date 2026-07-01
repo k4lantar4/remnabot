@@ -61,3 +61,10 @@ def test_monitoring_expiring_end_date_is_jalali_for_fa() -> None:
     dt = datetime(2026, 7, 9, 12, 0, tzinfo=UTC)
     end_date = format_user_datetime(dt, language='fa', fmt='%d.%m.%Y %H:%M')
     assert end_date.startswith('18.04.1405')
+
+
+def test_monitoring_notifications_use_subscription_card():
+    for rel in ('services/monitoring_service.py', 'services/daily_subscription_service.py'):
+        text = (APP / rel).read_text(encoding='utf-8')
+        assert 'format_subscription_notify_card' in text
+        assert 'subscription_card' in text
