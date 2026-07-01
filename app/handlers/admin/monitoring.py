@@ -23,6 +23,7 @@ from app.services.traffic_monitoring_service import (
 from app.states import AdminStates
 from app.utils.decorators import admin_required
 from app.utils.pagination import paginate_list
+from app.utils.subscription_display import format_subscription_notify_card
 
 
 logger = structlog.get_logger(__name__)
@@ -153,6 +154,26 @@ def _build_notification_settings_view(language: str):
     return summary_text, keyboard
 
 
+def _preview_subscription_card(texts, language: str, *, expired: bool = False) -> str:
+    from types import SimpleNamespace
+
+    end_date = datetime.now(UTC) - timedelta(days=1) if expired else datetime.now(UTC) + timedelta(days=3)
+    days_left = 0 if expired else 3
+    subscription = SimpleNamespace(
+        panel_username='Moji_5001',
+        tariff=SimpleNamespace(name='Mobile'),
+        account_sequence=1,
+        traffic_limit_gb=50,
+        traffic_used_gb=12.5,
+        end_date=end_date,
+        days_left=days_left,
+        purchase_note='مشتری نمونه',
+        remnawave_short_id='5001',
+    )
+    user = SimpleNamespace(is_partner=True, language=language)
+    return format_subscription_notify_card(subscription, user, texts, language=language)['subscription_card']
+
+
 async def _build_notification_preview_message(language: str, notification_type: str):
     texts = get_texts(language)
     now = datetime.now(UTC)
@@ -180,17 +201,18 @@ async def _build_notification_preview_message(language: str, notification_type: 
         required_channels = await channel_subscription_service.get_required_channels()
         keyboard = get_channel_sub_keyboard(required_channels, language=language)
     elif notification_type == 'expired_1d':
+        subscription_card = _preview_subscription_card(texts, language, expired=True)
         template = texts.get(
             'SUBSCRIPTION_EXPIRED_1D',
             (
-                '⛔ <b>Подписка закончилась</b>\n\n'
+                '⛔ <b>Подписка закончилась</b>{subscription_card}\n\n'
                 'Доступ был отключён {end_date}. Продлите подписку, чтобы вернуться в сервис.'
             ),
         )
         message = template.format(
             end_date=(now - timedelta(days=1)).strftime('%d.%m.%Y %H:%M'),
             price=price_30_days,
-            tariff_label='',
+            subscription_card=subscription_card,
         )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -217,10 +239,11 @@ async def _build_notification_preview_message(language: str, notification_type: 
     elif notification_type == 'expired_2d':
         percent = NotificationSettingsService.get_second_wave_discount_percent()
         valid_hours = NotificationSettingsService.get_second_wave_valid_hours()
+        subscription_card = _preview_subscription_card(texts, language, expired=True)
         template = texts.get(
             'SUBSCRIPTION_EXPIRED_SECOND_WAVE',
             (
-                '🔥 <b>Скидка {percent}% на продление</b>\n\n'
+                '🔥 <b>Скидка {percent}% на продление</b>{subscription_card}\n\n'
                 'Активируйте предложение, чтобы получить дополнительную скидку. '
                 'Она суммируется с вашей промогруппой и действует до {expires_at}.'
             ),
@@ -229,7 +252,7 @@ async def _build_notification_preview_message(language: str, notification_type: 
             percent=percent,
             expires_at=(now + timedelta(hours=valid_hours)).strftime('%d.%m.%Y %H:%M'),
             trigger_days=3,
-            tariff_label='',
+            subscription_card=subscription_card,
         )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -263,10 +286,11 @@ async def _build_notification_preview_message(language: str, notification_type: 
         percent = NotificationSettingsService.get_third_wave_discount_percent()
         valid_hours = NotificationSettingsService.get_third_wave_valid_hours()
         trigger_days = NotificationSettingsService.get_third_wave_trigger_days()
+        subscription_card = _preview_subscription_card(texts, language, expired=True)
         template = texts.get(
             'SUBSCRIPTION_EXPIRED_THIRD_WAVE',
             (
-                '🎁 <b>Индивидуальная скидка {percent}%</b>\n\n'
+                '🎁 <b>Индивидуальная скидка {percent}%</b>{subscription_card}\n\n'
                 'Прошло {trigger_days} дней без подписки — возвращайтесь и активируйте дополнительную скидку. '
                 'Она суммируется с промогруппой и действует до {expires_at}.'
             ),
@@ -275,7 +299,7 @@ async def _build_notification_preview_message(language: str, notification_type: 
             percent=percent,
             trigger_days=trigger_days,
             expires_at=(now + timedelta(hours=valid_hours)).strftime('%d.%m.%Y %H:%M'),
-            tariff_label='',
+            subscription_card=subscription_card,
         )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
