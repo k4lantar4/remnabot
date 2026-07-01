@@ -16,6 +16,16 @@ def suggest_topup_amount_toman(missing_toman: int, *, step: int = TOPUP_SUGGESTI
     return math.ceil(missing / step) * step
 
 
+def effective_c2c_topup_amount(missing_or_suggested_toman: int) -> int:
+    """Round up to suggestion step, then enforce C2C minimum deposit."""
+    from app.config import settings
+
+    rounded = suggest_topup_amount_toman(missing_or_suggested_toman)
+    if rounded == 0:
+        return 0
+    return max(rounded, settings.C2C_MIN_AMOUNT_KOPEKS)
+
+
 def build_cart_topup_metadata(*, missing_toman: int, **cart_fields: Any) -> dict[str, Any]:
     """Attach standard cart fields for insufficient-balance → top-up → resume flows."""
     suggested = suggest_topup_amount_toman(missing_toman)

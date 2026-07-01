@@ -323,19 +323,19 @@ class DailySubscriptionService:
     async def _notify_daily_charge(self, user, subscription, amount_kopeks: int):
         """Уведомляет пользователя о суточном списании."""
         texts = get_texts(getattr(user, 'language', 'ru'))
-        tariff_line = ''
-        if settings.is_multi_tariff_enabled() and subscription.tariff:
-            tariff_line = texts.t('NOTIFY_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(name=subscription.tariff.name)
+        from app.utils.subscription_display import format_subscription_notify_card
+
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
         message = texts.t(
             'NOTIFY_DAILY_DEBIT',
-            '💳 <b>Суточное списание</b>\n\n'
+            '💳 <b>Суточное списание</b>{subscription_card}\n\n'
             'Списано: {amount}\n'
-            'Остаток баланса: {balance}{tariff_line}\n\n'
+            'Остаток баланса: {balance}\n\n'
             'Следующее списание через 24 часа.',
         ).format(
             amount=texts.format_price(amount_kopeks),
             balance=texts.format_balance(user.balance_kopeks),
-            tariff_line=tariff_line,
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         # Use unified notification delivery service
@@ -355,20 +355,20 @@ class DailySubscriptionService:
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         texts = get_texts(getattr(user, 'language', 'ru'))
-        tariff_label = ''
-        if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-            tariff_label = f' «{subscription.tariff.name}»'
+        from app.utils.subscription_display import format_subscription_notify_card
+
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
         message = texts.t(
             'NOTIFY_DAILY_INSUFFICIENT_FUNDS',
-            '⚠️ <b>Подписка{tariff_label} приостановлена</b>\n\n'
+            '⚠️ <b>Подписка приостановлена</b>{subscription_card}\n\n'
             'Недостаточно средств для суточной оплаты.\n\n'
             'Требуется: {required}\n'
             'Баланс: {balance}\n\n'
             'Пополните баланс, чтобы возобновить подписку.',
         ).format(
-            tariff_label=tariff_label,
             required=texts.format_price(required_amount),
             balance=texts.format_balance(user.balance_kopeks),
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         sub_btn_text = texts.t(
@@ -722,15 +722,21 @@ class DailySubscriptionService:
 
     async def _notify_traffic_reset(self, user: User, subscription: Subscription, reset_gb: int):
         """Уведомляет пользователя о сбросе докупленного трафика."""
-        tariff_label = ''
-        if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-            tariff_label = f'\n📦 Тариф: «{subscription.tariff.name}»'
-        message = (
-            f'ℹ️ <b>Сброс докупленного трафика</b>\n\n'
-            f'Ваш докупленный трафик ({reset_gb} ГБ) был сброшен, '
-            f'так как прошло 30 дней с момента первой докупки.{tariff_label}\n\n'
-            f'Текущий лимит трафика: {subscription.traffic_limit_gb} ГБ\n\n'
-            f'Вы можете докупить трафик снова в любое время.'
+        texts = get_texts(getattr(user, 'language', 'ru'))
+        from app.utils.subscription_display import format_subscription_notify_card
+
+        notify_ctx = format_subscription_notify_card(subscription, user, texts)
+        message = texts.t(
+            'NOTIFY_TRAFFIC_RESET',
+            'ℹ️ <b>Сброс докупленного трафика</b>{subscription_card}\n\n'
+            'Ваш докупленный трафик ({reset_gb} ГБ) был сброшен, '
+            'так как прошло 30 дней с момента первой докупки.\n\n'
+            'Текущий лимит трафика: {current_limit_gb} ГБ\n\n'
+            'Вы можете докупить трафик снова в любое время.',
+        ).format(
+            reset_gb=reset_gb,
+            current_limit_gb=subscription.traffic_limit_gb,
+            subscription_card=notify_ctx['subscription_card'],
         )
 
         context = {

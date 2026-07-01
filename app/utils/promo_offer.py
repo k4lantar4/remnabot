@@ -81,6 +81,8 @@ def _format_time_left(seconds_left: int, language: str) -> str:
     language_code = (language or 'ru').split('-')[0].lower()
     if language_code == 'en':
         day_label, hour_label, minute_label = 'd', 'h', 'm'
+    elif language_code == 'fa':
+        day_label, hour_label, minute_label = 'روز', 'س', 'د'
     else:
         day_label, hour_label, minute_label = 'д', 'ч', 'м'
 
