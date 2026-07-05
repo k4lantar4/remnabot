@@ -39,6 +39,7 @@ from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 from app.utils.subscription_display import subscription_account_label
+from app.utils.subscription_utils import get_display_subscription_link
 
 
 logger = structlog.get_logger(__name__)
@@ -62,7 +63,7 @@ def _affordance_context(texts, user_balance: int, final_price_kopeks: int) -> di
     }
 
 
-def _with_post_purchase_onboarding(texts, body: str) -> str:
+def _with_post_purchase_onboarding(texts, body: str, subscription=None) -> str:
     onboarding = texts.t(
         'POST_PURCHASE_ONBOARDING',
         '✅ <b>3 шага до подключения:</b>\n'
@@ -71,7 +72,19 @@ def _with_post_purchase_onboarding(texts, body: str) -> str:
         '3️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)\n\n'
         '💬 Вопросы? Напишите в поддержку.',
     )
-    return f'{body}\n\n{onboarding}'
+    parts = [body]
+    subscription_link = None
+    if subscription and not settings.should_hide_subscription_link():
+        subscription_link = get_display_subscription_link(subscription)
+    if subscription_link:
+        parts.append(
+            texts.t(
+                'CONNECT_SHARE_LINK_BLOCK',
+                '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
+            ).format(link=subscription_link)
+        )
+    parts.append(onboarding)
+    return '\n\n'.join(parts)
 
 
 def _tariff_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
@@ -2037,6 +2050,7 @@ async def handle_custom_confirm(
                     period=format_period(custom_days, db_user.language),
                     charged=format_price_kopeks(total_price),
                 ),
+                subscription,
             ),
             reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
@@ -2604,6 +2618,7 @@ async def confirm_tariff_purchase(
                 period=format_period(period, db_user.language),
                 charged=format_price_kopeks(final_price),
             ),
+            subscription,
         ),
         reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
         parse_mode='HTML',
@@ -2909,6 +2924,7 @@ async def confirm_daily_tariff_purchase(
                 devices=tariff.device_limit,
                 charged=format_price_kopeks(final_daily_price),
             ),
+            subscription,
         ),
         reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
         parse_mode='HTML',
@@ -3579,6 +3595,7 @@ async def confirm_tariff_extend(
                     period=format_period(period, db_user.language),
                     charged=format_price_kopeks(final_price),
                 ),
+                subscription,
             ),
             reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
@@ -4373,6 +4390,7 @@ async def confirm_tariff_switch(
                     charged=format_price_kopeks(final_price),
                     time_info=time_info,
                 ),
+                subscription,
             ),
             reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
@@ -4653,6 +4671,7 @@ async def confirm_daily_tariff_switch(
                     devices=tariff.device_limit,
                     charged=format_price_kopeks(final_daily_price),
                 ),
+                subscription,
             ),
             reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
             parse_mode='HTML',
@@ -5517,6 +5536,7 @@ async def confirm_instant_switch(
                         devices=new_tariff.device_limit,
                         charged=format_price_kopeks(daily_price),
                     ),
+                    subscription,
                 ),
                 reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
                 parse_mode='HTML',
@@ -5547,6 +5567,7 @@ async def confirm_instant_switch(
                         days=remaining_days,
                         cost=cost_text,
                     ),
+                    subscription,
                 ),
                 reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
                 parse_mode='HTML',
