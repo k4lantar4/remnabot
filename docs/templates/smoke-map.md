@@ -1,3 +1,70 @@
+# Smoke map — Bot admin RBAC parity
+
+> Branch `fix/bot-admin-rbac-parity`; RBAC cabinet admins see Telegram admin button without `ADMIN_IDS`.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/bot-admin-rbac-parity` |
+| Files | `admin_access_service.py`, `auth.py`, `menu.py`, `start.py`, `decorators.py`, `cabinet/dependencies.py`, `cabinet/routes/auth.py` |
+| Guard | `uv run pytest tests/services/test_admin_access.py -q` |
+| Deploy | `make staging-rebuild` (bot Python) |
+
+## User smoke checklist (`@mrj7_bot` or prod after merge)
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | Login as RBAC admin (e.g. `6371108688`) — `/start` or منوی اصلی | Row with **⚙️ پنل ادمین** visible | pending |
+| 2 | Tap **⚙️ پنل ادمین** | Admin panel opens (not ACCESS_DENIED) | pending |
+| 3 | Legacy `ADMIN_IDS` admin still sees button | Unchanged | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging `@mrj7_bot`
+- [ ] User approval (`تایید`) before ship
+
+---
+
+# Smoke map — Support/ticket i18n (fa)
+
+> On `main` (uncommitted); prod bot redeploy 2026-07-01.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `main` (direct) |
+| Files | `fa.json`, `tickets.py`, `admin/tickets.py`, `monitoring_service.py`, `ticket_notification.py` |
+| Deploy | `docker compose build bot && docker compose up -d bot` + `cp fa.json locales/` |
+| Bot | prod `@MOONVPN_BOT` |
+
+## Keys / paths
+
+| Key / handler | Surface |
+|---------------|---------|
+| `ADMIN_NOTIFY_TICKET_*` | Telegram admin group — new ticket, user reply, SLA |
+| `ADMIN_TICKET_*` | Admin panel ticket detail card + block toasts |
+| `CABINET_TICKET_NOTIFY_*` | Cabinet notification bell dropdown |
+| `TICKET_REPLY_NOTIFICATION` | User Telegram — admin reply with preview |
+
+## User smoke checklist
+
+| Step | Path | Expected | Status |
+|------|------|----------|--------|
+| 1 | User creates ticket | Admin group: `🎫 تیکت جدید` + Persian fields + Jalali date | pending |
+| 2 | User replies on ticket | Admin group: `💬 پاسخ به تیکت` | pending |
+| 3 | `/admin` → تیکت‌ها → open ticket | Card labels in Persian (کاربر، عنوان، …) | pending |
+| 4 | Cabinet `/admin/tickets` bell | Dropdown message in Persian | pending |
+| 5 | Admin replies | User gets `TICKET_REPLY_NOTIFICATION` with preview + ticket id | pending |
+
+## Sign-off
+
+- [ ] User smoke on prod bot
+- [ ] Reply **تایید** if OK
+
+---
+
 # Smoke map — Dual connect (miniapp + panel direct)
 
 > On `main` (uncommitted); `@mrj7_bot` staging.
