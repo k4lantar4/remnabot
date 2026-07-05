@@ -206,13 +206,24 @@ class PaymentCommonMixin:
                 method_display = payment_method_title
             else:
                 method_display = texts.t('PAYMENT_CARD_YOOKASSA', '💳 Карта (YooKassa)')
-            message = texts.t(
-                'PAYMENT_TOPUP_SUCCESS',
-                '✅ <b>Платеж успешно завершен!</b>\n\n'
-                '💰 Сумма: {amount}\n'
-                '💳 Способ: {method}\n\n'
-                'Средства зачислены на ваш баланс!',
-            ).format(amount=amount_str, method=method_display)
+            user_id = getattr(user_snapshot, 'id', None) if user_snapshot else None
+            has_cart_intent = bool(user_id and await user_cart_service.has_topup_intent(user_id))
+            if has_cart_intent:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS_WITH_CART',
+                    '✅ <b>Платеж подтверждён!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Активируем сервис…',
+                ).format(amount=amount_str, method=method_display)
+            else:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS',
+                    '✅ <b>Платеж успешно завершен!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Средства зачислены на ваш баланс!',
+                ).format(amount=amount_str, method=method_display)
 
             keyboard = await self.build_topup_success_keyboard(user_snapshot)
 

@@ -24,6 +24,7 @@ from app.plugins.c2c.constants import (
 from app.plugins.c2c.integration import activate_c2c_topup_fsm, build_c2c_topup_prompt, format_pending_receipt_notice
 from app.plugins.c2c.service import C2cPaymentService
 from app.plugins.c2c.states import C2cStates
+from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 
 
@@ -359,14 +360,23 @@ async def process_c2c_receipt(
         )
         return
 
-    await message.answer(
-        texts.t(
+    cart = await user_cart_service.get_user_cart(db_user.id)
+    has_cart_intent = await user_cart_service.has_topup_intent(db_user.id)
+    if cart or has_cart_intent:
+        receipt_message = texts.t(
+            'C2C_RECEIPT_SUBMITTED_WITH_CART',
+            '✅ Receipt #{id} submitted.\n\nService will activate after approval.',
+        ).format(id=receipt.id)
+    else:
+        receipt_message = texts.t(
             'C2C_RECEIPT_SUBMITTED',
             '✅ Receipt #{id} submitted for review.\n\nYou will be notified when it is processed.',
-        ).format(id=receipt.id),
+        ).format(id=receipt.id)
+
+    await message.answer(
+        receipt_message,
         reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
     )
-    from app.services.user_cart_service import user_cart_service
 
     await user_cart_service.refresh_topup_intent(db_user.id)
     await state.clear()

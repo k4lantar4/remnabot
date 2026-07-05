@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.types import InlineKeyboardMarkup
@@ -96,6 +97,84 @@ async def test_send_payment_success_notification_recovers_missing_greenlet(monke
     assert 'Тестовый метод' in message['text']
     assert service.keyboard_user is not None
     assert isinstance(service.keyboard_user, SimpleNamespace)
+
+
+@pytest.mark.anyio
+async def test_send_payment_success_notification_uses_cart_key_when_topup_intent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    async def fake_has_topup_intent(user_id: int) -> bool:
+        assert user_id == user.id
+        return True
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.services.payment.common.user_cart_service.has_topup_intent',
+        fake_has_topup_intent,
+    )
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_SUCCESS_WITH_CART'
+    assert service.bot.messages
+
+
+@pytest.mark.anyio
+async def test_send_payment_success_notification_uses_balance_key_without_topup_intent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.services.payment.common.user_cart_service.has_topup_intent',
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_SUCCESS'
+    assert service.bot.messages
 
 
 @pytest.mark.anyio
