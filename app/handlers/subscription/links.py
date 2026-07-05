@@ -28,6 +28,155 @@ async def _resolve_subscription(callback: types.CallbackQuery, db_user: User, db
     return await resolve_subscription_from_context(callback, db_user, db, state)
 
 
+def _connect_back_cb(sub_id: int) -> str:
+    return f'sm:{sub_id}' if settings.is_multi_tariff_enabled() else 'menu_subscription'
+
+
+async def _show_connect_chooser(
+    callback: types.CallbackQuery,
+    db_user: User,
+    subscription,
+    sub_id: int,
+) -> None:
+    texts = get_texts(db_user.language)
+    subscription_link = get_display_subscription_link(subscription)
+    if not subscription_link:
+        await callback.answer(
+            texts.t(
+                'SUBSCRIPTION_NO_ACTIVE_LINK',
+                '⚠ У вас нет активной подписки или ссылка еще генерируется',
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CONNECT_CHOOSER_BTN_SELF', '📱 Руководство для себя'),
+                    callback_data=f'sl_self:{sub_id}',
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('CONNECT_CHOOSER_BTN_SHARE', '📋 Ссылка для клиента'),
+                    callback_data=f'sl_share:{sub_id}',
+                )
+            ],
+        ]
+    )
+    await callback.message.edit_text(
+        texts.t(
+            'CONNECT_CHOOSER_TITLE',
+            '📱 <b>Как подключиться?</b>\n\nВыберите вариант 👇',
+        ),
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+
+
+async def handle_connect_self(
+    callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
+):
+    if isinstance(callback.message, InaccessibleMessage):
+        await callback.answer()
+        return
+
+    texts = get_texts(db_user.language)
+    subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
+    if subscription is None:
+        return
+
+    subscription_link = get_display_subscription_link(subscription)
+    if not subscription_link:
+        await callback.answer(
+            texts.t(
+                'SUBSCRIPTION_NO_ACTIVE_LINK',
+                '⚠ У вас нет активной подписки или ссылка еще генерируется',
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+    keyboard = await build_miniapp_subscription_connect_keyboard(
+        subscription=subscription,
+        sub_id=sub_id,
+        texts=texts,
+        back_rows=[[InlineKeyboardButton(text=texts.BACK, callback_data=_connect_back_cb(sub_id))]],
+        include_panel_url=False,
+    )
+    await callback.message.edit_text(
+        texts.t('CONNECT_SELF_TITLE', '📱 Руководство по установке в Telegram'),
+        reply_markup=keyboard,
+        parse_mode='HTML',
+    )
+
+
+async def handle_connect_share(
+    callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
+):
+    if isinstance(callback.message, InaccessibleMessage):
+        await callback.answer()
+        return
+
+    texts = get_texts(db_user.language)
+    subscription, sub_id = await _resolve_subscription(callback, db_user, db, state)
+    if subscription is None:
+        return
+
+    subscription_link = get_display_subscription_link(subscription)
+    if not subscription_link:
+        await callback.answer(
+            texts.t(
+                'SUBSCRIPTION_NO_ACTIVE_LINK',
+                '⚠ У вас нет активной подписки или ссылка еще генерируется',
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+    message = (
+        texts.t(
+            'CONNECT_SHARE_TITLE',
+            '📋 <b>Ссылка сервиса</b> — для отправки клиенту',
+        )
+        + '\n\n'
+        + texts.t(
+            'CONNECT_SHARE_LINK_BLOCK',
+            '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
+        ).format(link=subscription_link)
+        + '\n\n'
+        + texts.t(
+            'CONNECT_SHARE_NOT_BOT_HINT',
+            'ℹ️ Это не адрес вашего бота/канала — это VPN-ссылка',
+        )
+        + '\n\n'
+        + texts.t(
+            'CONNECT_SHARE_FORWARD_TEMPLATE',
+            '🔗 Ссылка VPN:\n<code>{link}</code>\n\nВставьте ссылку в VPN-приложение.',
+        ).format(link=subscription_link)
+    )
+
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=texts.t('CONNECT_SHARE_BTN_OPEN_BROWSER', '🔗 Проверить ссылку в браузере'),
+                url=subscription_link,
+            )
+        ],
+        [InlineKeyboardButton(text=texts.BACK, callback_data=_connect_back_cb(sub_id))],
+    ]
+    await callback.message.edit_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        parse_mode='HTML',
+    )
+
+
 async def handle_connect_subscription(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
@@ -88,7 +237,7 @@ async def handle_connect_subscription(
         return
     subscription_link = get_display_subscription_link(subscription)
     hide_subscription_link = settings.should_hide_subscription_link()
-    back_cb = f'sm:{sub_id}' if settings.is_multi_tariff_enabled() else 'menu_subscription'
+    back_cb = _connect_back_cb(sub_id)
 
     if not subscription_link:
         await callback.answer(
@@ -98,6 +247,10 @@ async def handle_connect_subscription(
             ),
             show_alert=True,
         )
+        return
+
+    if callback.data and callback.data.startswith('sl:'):
+        await _show_connect_chooser(callback, db_user, subscription, sub_id)
         return
 
     connect_mode = settings.CONNECT_BUTTON_MODE

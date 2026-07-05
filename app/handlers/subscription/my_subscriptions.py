@@ -768,14 +768,20 @@ async def handle_subscription_link(
     db: AsyncSession,
     state: FSMContext,
 ) -> None:
-    """Delegation: sl:{sub_id} → connect subscription link handler."""
+    """Route sl / sl_self / sl_share callbacks to connect chooser handlers."""
     subscription = await _resolve_and_store_sub(callback, db_user, db, state)
     if not subscription:
         return
 
-    from .links import handle_connect_subscription
+    from .links import handle_connect_self, handle_connect_share, handle_connect_subscription
 
-    await handle_connect_subscription(callback, db_user, db, state)
+    data = callback.data or ''
+    if data.startswith('sl_self:'):
+        await handle_connect_self(callback, db_user, db, state)
+    elif data.startswith('sl_share:'):
+        await handle_connect_share(callback, db_user, db, state)
+    else:
+        await handle_connect_subscription(callback, db_user, db, state)
 
 
 async def handle_subscription_extend(

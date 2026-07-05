@@ -81,8 +81,9 @@ async def build_miniapp_subscription_connect_keyboard(
     sub_id: int,
     texts,
     back_rows: list[list],
+    include_panel_url: bool = True,
 ):
-    """Build connect keyboard: cabinet WebApp guide + panel url when guide is available."""
+    """Build connect keyboard: cabinet WebApp guide + optional panel url when guide is available."""
     from aiogram import types
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -105,17 +106,18 @@ async def build_miniapp_subscription_connect_keyboard(
                 )
             ]
         )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t(
-                        'SUBSCRIPTION_CONNECT_BTN_PANEL_DIRECT',
-                        '🔗 Прямая ссылка панели',
-                    ),
-                    url=subscription_link,
-                )
-            ]
-        )
+        if include_panel_url:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=texts.t(
+                            'SUBSCRIPTION_CONNECT_BTN_PANEL_DIRECT',
+                            '🔗 Прямая ссылка панели',
+                        ),
+                        url=subscription_link,
+                    )
+                ]
+            )
     elif webapp_url:
         rows.append(
             [
