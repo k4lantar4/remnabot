@@ -344,9 +344,8 @@ async def send_cart_notification_after_topup(
 ) -> bool:
     """Run post-topup side-effects: resume daily / auto-purchase saved cart / auto-extend.
 
-    Возвращает False всегда (имя оставлено ради 19+ существующих вызовов).
-    Само сообщение «Баланс пополнен…» больше не шлётся — оно дублировало
-    основное «Пополнение успешно!» и ломало MAIN_MENU_MODE=cabinet.
+    Returns True when saved-cart autopurchase succeeded (caller may skip generic topup
+    Telegram message — autopurchase service already notifies the user).
     """
     del amount_kopeks  # больше не используется после удаления второго сообщения
 
@@ -399,7 +398,7 @@ async def send_cart_notification_after_topup(
             auto_succeeded = False
 
         if auto_succeeded:
-            return False
+            return True
 
         # return_to_saved_cart is already on build_topup_success_keyboard in the
         # primary «Пополнение успешно!» message — no second nudge here.

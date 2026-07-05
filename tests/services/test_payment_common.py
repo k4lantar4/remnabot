@@ -210,3 +210,38 @@ async def test_send_cart_notification_after_topup_skips_duplicate_cart_nudge(
 
     assert result is False
     assert bot.messages == []
+
+
+@pytest.mark.anyio
+async def test_send_cart_notification_after_topup_returns_true_on_autopurchase_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = _FakeBot()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    cart = {'total_price': 40000, 'return_to_cart': True}
+    db = object()
+
+    async def fake_get_cart(user_id: int):
+        assert user_id == user.id
+        return cart
+
+    async def fake_daily(*_a, **_k):
+        return False
+
+    async def fake_auto_purchase(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr('app.services.payment.common.user_cart_service.get_user_cart', fake_get_cart)
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.try_resume_disabled_daily_after_topup',
+        fake_daily,
+    )
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.auto_purchase_saved_cart_after_topup',
+        fake_auto_purchase,
+    )
+
+    result = await send_cart_notification_after_topup(user, 10000, db, bot)
+
+    assert result is True
+    assert bot.messages == []

@@ -370,26 +370,30 @@ class C2cPaymentService:
                 except Exception as error:
                     logger.error('C2C admin balance notification error', error=error)
 
+            autopurchase_succeeded = False
             try:
-                from app.services.payment_service import PaymentService
+                from app.services.payment.common import send_cart_notification_after_topup
 
-                payment_service = PaymentService(self.bot)
-                await payment_service._send_payment_success_notification(
-                    user.telegram_id,
-                    balance_credit_toman,
-                    user=user,
-                    db=db,
-                    payment_method_title=settings.get_c2c_display_name(),
+                autopurchase_succeeded = await send_cart_notification_after_topup(
+                    user, balance_credit_toman, db, self.bot
                 )
             except Exception as error:
-                logger.error('C2C user success notification error', error=error)
+                logger.error('C2C cart notification error', user_id=user.id, error=error)
 
-        try:
-            from app.services.payment.common import send_cart_notification_after_topup
+            if not autopurchase_succeeded:
+                try:
+                    from app.services.payment_service import PaymentService
 
-            await send_cart_notification_after_topup(user, balance_credit_toman, db, self.bot)
-        except Exception as error:
-            logger.error('C2C cart notification error', user_id=user.id, error=error)
+                    payment_service = PaymentService(self.bot)
+                    await payment_service._send_payment_success_notification(
+                        user.telegram_id,
+                        balance_credit_toman,
+                        user=user,
+                        db=db,
+                        payment_method_title=settings.get_c2c_display_name(),
+                    )
+                except Exception as error:
+                    logger.error('C2C user success notification error', error=error)
 
     @staticmethod
     def _build_admin_notification_text(receipt: C2cReceipt, user: User) -> str:

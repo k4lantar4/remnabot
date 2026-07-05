@@ -33,7 +33,7 @@ async def test_finalize_skips_admin_balance_notification_when_disabled():
         'app.services.admin_notification_service.AdminNotificationService',
     ) as admin_notify_cls, patch(
         'app.services.payment.common.send_cart_notification_after_topup',
-        new=AsyncMock(),
+        new=AsyncMock(return_value=False),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
@@ -75,7 +75,7 @@ async def test_finalize_sends_admin_balance_notification_by_default():
         'app.services.admin_notification_service.AdminNotificationService',
     ) as admin_notify_cls, patch(
         'app.services.payment.common.send_cart_notification_after_topup',
-        new=AsyncMock(),
+        new=AsyncMock(return_value=False),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
@@ -90,3 +90,45 @@ async def test_finalize_sends_admin_balance_notification_by_default():
         )
 
         admin_notify_cls.return_value.send_balance_topup_notification.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_finalize_skips_topup_notification_when_autopurchase_succeeds():
+    user = SimpleNamespace(
+        id=1,
+        telegram_id=123,
+        has_made_first_topup=True,
+        referred_by_id=None,
+        get_primary_promo_group=lambda: None,
+    )
+    transaction = SimpleNamespace(id=10)
+    db = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+
+    bot = AsyncMock()
+    service = C2cPaymentService(bot)
+    cart_notify = AsyncMock(return_value=True)
+
+    with patch('app.services.referral_service.process_referral_topup', new=AsyncMock()), patch(
+        'app.services.payment_service.PaymentService',
+    ) as payment_service_cls, patch(
+        'app.services.admin_notification_service.AdminNotificationService',
+    ) as admin_notify_cls, patch(
+        'app.services.payment.common.send_cart_notification_after_topup',
+        new=cart_notify,
+    ):
+        payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
+        admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
+
+        await service.finalize_approved_topup(
+            db,
+            user,
+            transaction,
+            100_000,
+            old_balance=0,
+            was_first_topup=False,
+        )
+
+        cart_notify.assert_awaited_once()
+        payment_service_cls.return_value._send_payment_success_notification.assert_not_awaited()
