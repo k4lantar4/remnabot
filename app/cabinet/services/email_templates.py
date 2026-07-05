@@ -245,6 +245,7 @@ class EmailNotificationTemplates:
             'en': f'Balance topped up by {amount}',
             'zh': f'余额已充值 {amount}',
             'ua': f'Баланс поповнено на {amount}',
+            'fa': f'موجودی به مبلغ {amount} شارژ شد',
         }
 
         bodies = {
@@ -275,6 +276,15 @@ class EmailNotificationTemplates:
                 <p>感谢使用我们的服务！</p>
                 {self._get_cabinet_button(language)}
             """,
+            'fa': f"""
+                <h2>موجودی با موفقیت شارژ شد!</h2>
+                <div class="highlight success">
+                    <p>مبلغ شارژ: <span class="amount">+{amount}</span></p>
+                    <p>موجودی فعلی: <strong>{balance}</strong></p>
+                </div>
+                <p>از استفاده از سرویس ما سپاسگزاریم!</p>
+                {self._get_cabinet_button(language)}
+            """,
             'ua': f"""
                 <h2>Баланс успішно поповнено!</h2>
                 <div class="highlight success">
@@ -286,9 +296,12 @@ class EmailNotificationTemplates:
             """,
         }
 
+        fallback_lang = 'fa' if 'fa' in subjects else 'en'
         return {
-            'subject': subjects.get(language, subjects['ru']),
-            'body_html': self._get_base_template(bodies.get(language, bodies['ru']), language),
+            'subject': subjects.get(language, subjects[fallback_lang]),
+            'body_html': self._get_base_template(
+                bodies.get(language, bodies[fallback_lang]), language
+            ),
         }
 
     def _balance_change_template(self, language: str, context: dict[str, Any]) -> dict[str, str]:
@@ -301,6 +314,7 @@ class EmailNotificationTemplates:
             'en': 'Balance Changed',
             'zh': '余额变动',
             'ua': 'Зміна балансу',
+            'fa': 'تغییر موجودی',
         }
 
         bodies = {
@@ -336,11 +350,23 @@ class EmailNotificationTemplates:
                 </div>
                 {self._get_cabinet_button(language)}
             """,
+            'fa': f"""
+                <h2>تغییر موجودی</h2>
+                <div class="highlight">
+                    <p>مبلغ: <strong>{amount}</strong></p>
+                    <p>موجودی فعلی: <strong>{balance}</strong></p>
+                </div>
+                {self._get_cabinet_button(language)}
+            """,
         }
 
+        # Prefer fa over ru when language missing (DEFAULT_LANGUAGE=fa).
+        fallback_lang = 'fa' if 'fa' in subjects else 'en'
         return {
-            'subject': subjects.get(language, subjects['ru']),
-            'body_html': self._get_base_template(bodies.get(language, bodies['ru']), language),
+            'subject': subjects.get(language, subjects[fallback_lang]),
+            'body_html': self._get_base_template(
+                bodies.get(language, bodies[fallback_lang]), language
+            ),
         }
 
     # ============================================================================
@@ -974,7 +1000,7 @@ class EmailNotificationTemplates:
 
     def _partner_approved_template(self, language: str, context: dict[str, Any]) -> dict[str, str]:
         """Template for partner application approved notification."""
-        commission = context.get('commission_percent', 0)
+        wholesale_percent = context.get('commission_percent', 0)
         comment = html.escape(context.get('comment', ''))
 
         subjects = {
@@ -989,7 +1015,7 @@ class EmailNotificationTemplates:
                 <h2>Заявка на партнёрство одобрена!</h2>
                 <div class="highlight success">
                     <p>Ваша заявка на партнёрство была одобрена.</p>
-                    <p>Ваша комиссия: <strong>{commission}%</strong></p>
+                    <p>Скидка на оптовую покупку: <strong>{wholesale_percent}%</strong></p>
                     {f'<p>Комментарий: {comment}</p>' if comment else ''}
                 </div>
                 <p>Теперь вы можете приглашать пользователей и получать вознаграждение!</p>
@@ -999,7 +1025,7 @@ class EmailNotificationTemplates:
                 <h2>Partner Application Approved!</h2>
                 <div class="highlight success">
                     <p>Your partner application has been approved.</p>
-                    <p>Your commission rate: <strong>{commission}%</strong></p>
+                    <p>Wholesale purchase discount: <strong>{wholesale_percent}%</strong></p>
                     {f'<p>Comment: {comment}</p>' if comment else ''}
                 </div>
                 <p>You can now invite users and earn rewards!</p>
@@ -1009,7 +1035,7 @@ class EmailNotificationTemplates:
                 <h2>合作伙伴申请已批准！</h2>
                 <div class="highlight success">
                     <p>您的合作伙伴申请已获批准。</p>
-                    <p>您的佣金比例: <strong>{commission}%</strong></p>
+                    <p>批发购买折扣: <strong>{wholesale_percent}%</strong></p>
                     {f'<p>备注: {comment}</p>' if comment else ''}
                 </div>
                 <p>您现在可以邀请用户并获得奖励！</p>
@@ -1019,7 +1045,7 @@ class EmailNotificationTemplates:
                 <h2>Заявка на партнерство схвалена!</h2>
                 <div class="highlight success">
                     <p>Вашу заявку на партнерство було схвалено.</p>
-                    <p>Ваша комісія: <strong>{commission}%</strong></p>
+                    <p>Знижка на оптову покупку: <strong>{wholesale_percent}%</strong></p>
                     {f'<p>Коментар: {comment}</p>' if comment else ''}
                 </div>
                 <p>Тепер ви можете запрошувати користувачів та отримувати винагороду!</p>

@@ -1026,7 +1026,7 @@
         "descriptionPlaceholder": "درباره مخاطبان خود و نحوه تبلیغ بگویید...",
         "expectedReferrals": "تعداد معرفی ماهانه مورد انتظار",
         "expectedReferralsPlaceholder": "تعداد تخمینی در ماه",
-        "desiredCommission": "درصد کمیسیون مورد نظر",
+        "desiredCommission": "تخفیف عمده مورد نظر",
         "desiredCommissionPlaceholder": "از 1 تا 100٪"
       }
     },
@@ -2720,12 +2720,12 @@
         "channel": "کانال",
         "description": "توضیحات",
         "expectedReferrals": "معرفی مورد انتظار/ماه",
-        "desiredCommission": "کمیسیون مورد نظر"
+        "desiredCommission": "تخفیف عمده مورد نظر"
       },
       "approveDialog": {
         "title": "تأیید درخواست",
         "description": "تأیید درخواست شراکت از {{name}}",
-        "commissionLabel": "کمیسیون (%)"
+        "commissionLabel": "تخفیف عمده‌فروشی (%)"
       },
       "rejectDialog": {
         "title": "رد درخواست",
