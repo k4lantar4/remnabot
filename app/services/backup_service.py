@@ -2031,6 +2031,12 @@ class BackupService:
 
         except Exception as e:
             logger.error('Ошибка отправки бекапа в чат', error=e)
+            if self.bot:
+                await self._send_backup_notification(
+                    'error',
+                    f'❌ Не удалось отправить бекап в Telegram: {e!s}',
+                    file_path,
+                )
 
     async def _create_password_protected_archive(self, file_path: str, password: str) -> str | None:
         try:

@@ -98,7 +98,8 @@ class PartnerApplicationService:
 
         user.partner_status = PartnerStatus.APPROVED.value
         user.business_role = 'partner'
-        user.referral_commission_percent = commission_percent
+        user.referral_commission_percent = None
+        user.wholesale_discount_bps = max(0, min(10000, commission_percent * 100))
 
         from app.database.crud.promo_group import get_promo_group_by_name
         from app.database.crud.user_promo_group import add_user_to_promo_group
@@ -125,7 +126,7 @@ class PartnerApplicationService:
             '✅ Партнёрская заявка одобрена',
             application_id=application_id,
             user_id=application.user_id,
-            commission_percent=commission_percent,
+            wholesale_discount_bps=user.wholesale_discount_bps,
             admin_id=admin_id,
         )
 

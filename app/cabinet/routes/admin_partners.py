@@ -281,7 +281,9 @@ async def approve_application(
             if user:
                 comment_text = f'\n{request.comment}' if request.comment else ''
                 tg_message = (
-                    f'✅ Ваша заявка на партнёрство одобрена!\nКомиссия: {request.commission_percent}%{comment_text}'
+                    f'✅ Ваша заявка на партнёрство одобрена!\n'
+                    f'Скидка на оптовую покупку: {request.commission_percent}%'
+                    f'{comment_text}'
                 )
                 bot = create_bot()
                 try:

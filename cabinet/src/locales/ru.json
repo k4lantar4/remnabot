@@ -3282,12 +3282,12 @@
         "channel": "Канал",
         "description": "Описание",
         "expectedReferrals": "Ожидаемых рефералов/мес",
-        "desiredCommission": "Желаемая комиссия"
+        "desiredCommission": "Желаемая оптовая скидка"
       },
       "approveDialog": {
         "title": "Одобрить заявку",
         "description": "Одобрить партнёрскую заявку от {{name}}",
-        "commissionLabel": "Комиссия (%)"
+        "commissionLabel": "Оптовая скидка (%)"
       },
       "rejectDialog": {
         "title": "Отклонить заявку",

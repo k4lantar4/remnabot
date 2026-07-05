@@ -2491,12 +2491,12 @@
         "channel": "频道",
         "description": "描述",
         "expectedReferrals": "预计每月推荐数",
-        "desiredCommission": "期望佣金"
+        "desiredCommission": "期望批发折扣"
       },
       "approveDialog": {
         "title": "批准申请",
         "description": "批准来自 {{name}} 的合作伙伴申请",
-        "commissionLabel": "佣金（%）"
+        "commissionLabel": "批发折扣（%）"
       },
       "rejectDialog": {
         "title": "拒绝申请",

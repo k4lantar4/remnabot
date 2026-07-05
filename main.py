@@ -339,6 +339,7 @@ async def main():
         ) as stage:
             try:
                 backup_service.bot = bot
+                backup_service.reload_settings_from_db()
                 settings_obj = await backup_service.get_backup_settings()
                 if settings_obj.auto_backup_enabled:
                     await backup_service.start_auto_backup()

@@ -2880,12 +2880,12 @@
         "channel": "Channel",
         "description": "Description",
         "expectedReferrals": "Expected referrals/mo",
-        "desiredCommission": "Desired commission"
+        "desiredCommission": "Desired wholesale discount"
       },
       "approveDialog": {
         "title": "Approve Application",
         "description": "Approve partner application from {{name}}",
-        "commissionLabel": "Commission (%)"
+        "commissionLabel": "Wholesale discount (%)"
       },
       "rejectDialog": {
         "title": "Reject Application",
