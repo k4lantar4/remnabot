@@ -13,6 +13,7 @@ from app.database.database import AsyncSessionLocal
 from app.database.models import User, UserStatus
 from app.localization.texts import get_texts
 from app.services.blacklist_service import blacklist_service
+from app.services.admin_access_service import is_user_admin
 from app.services.maintenance_service import maintenance_service
 from app.services.user_revival_service import NotDeletedError, revive_deleted_user
 
@@ -316,18 +317,7 @@ async def get_current_admin_user(
         HTTPException: If user is not an admin by either mechanism
     """
     # Legacy check: config-based admin list
-    is_legacy_admin = settings.is_admin(
-        telegram_id=user.telegram_id,
-        email=user.email if user.email_verified else None,
-    )
-    if is_legacy_admin:
-        return user
-
-    # RBAC check: user has any active role with level > 0
-    from app.database.crud.rbac import UserRoleCRUD
-
-    _permissions, _role_names, max_level = await UserRoleCRUD.get_user_permissions(db, user.id)
-    if max_level > 0:
+    if await is_user_admin(db, user):
         return user
 
     raise HTTPException(

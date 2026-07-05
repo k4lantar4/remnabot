@@ -13,6 +13,7 @@ from sqlalchemy.exc import InterfaceError, OperationalError
 from app.config import settings
 from app.database.crud.user import get_user_by_telegram_id
 from app.database.database import AsyncSessionLocal
+from app.services.admin_access_service import is_user_admin
 from app.services.remnawave_service import RemnaWaveService
 from app.states import RegistrationStates
 from app.utils.check_reg_process import is_registration_process
@@ -233,7 +234,7 @@ class AuthMiddleware(BaseMiddleware):
 
                 data['db'] = db
                 data['db_user'] = db_user
-                data['is_admin'] = settings.is_admin(user.id)
+                data['is_admin'] = await is_user_admin(db, db_user)
 
                 result = await handler(event, data)
                 try:

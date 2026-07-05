@@ -10,9 +10,28 @@ from aiogram.fsm.context import FSMContext
 
 from app.config import settings
 from app.localization.texts import get_texts
+from app.services.admin_access_service import is_user_admin
 
 
 logger = structlog.get_logger(__name__)
+
+
+async def _is_admin_for_event(event: types.Update, kwargs: dict[str, Any]) -> bool:
+    if kwargs.get('is_admin'):
+        return True
+
+    user = None
+    if isinstance(event, (types.Message, types.CallbackQuery)):
+        user = event.from_user
+    if not user:
+        return False
+
+    db_user = kwargs.get('db_user')
+    db = kwargs.get('db')
+    if db_user is not None and db is not None:
+        return await is_user_admin(db, db_user)
+
+    return settings.is_admin(user.id)
 
 
 def admin_required(func: Callable) -> Callable:
@@ -22,7 +41,7 @@ def admin_required(func: Callable) -> Callable:
         if isinstance(event, (types.Message, types.CallbackQuery)):
             user = event.from_user
 
-        if not user or not settings.is_admin(user.id):
+        if not user or not await _is_admin_for_event(event, kwargs):
             texts = get_texts()
 
             try:

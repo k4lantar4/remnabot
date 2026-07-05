@@ -43,6 +43,7 @@ from app.localization.user_language import (
     mark_user_language_synced,
     resolve_user_facing_language,
 )
+from app.services.admin_access_service import is_user_admin
 from app.middlewares.channel_checker import (
     delete_pending_payload_from_redis,
     get_pending_payload_from_redis,
@@ -1095,7 +1096,7 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
 
         menu_text = await get_main_menu_text(user, texts, db)
 
-        is_admin = settings.is_admin(user.telegram_id)
+        is_admin = await is_user_admin(db, user)
         is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
@@ -1752,7 +1753,7 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
 
         menu_text = await get_main_menu_text(existing_user, texts, db)
 
-        is_admin = settings.is_admin(existing_user.telegram_id)
+        is_admin = await is_user_admin(db, existing_user)
         is_moderator = (not is_admin) and SupportSettingsService.is_moderator(existing_user.telegram_id)
 
         custom_buttons = []
@@ -2001,7 +2002,7 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
 
         menu_text = await get_main_menu_text(user, texts, db)
 
-        is_admin = settings.is_admin(user.telegram_id)
+        is_admin = await is_user_admin(db, user)
         is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
@@ -2078,7 +2079,7 @@ async def complete_registration(message: types.Message, state: FSMContext, db: A
 
         menu_text = await get_main_menu_text(existing_user, texts, db)
 
-        is_admin = settings.is_admin(existing_user.telegram_id)
+        is_admin = await is_user_admin(db, existing_user)
         is_moderator = (not is_admin) and SupportSettingsService.is_moderator(existing_user.telegram_id)
 
         custom_buttons = []
@@ -2362,7 +2363,7 @@ async def complete_registration(message: types.Message, state: FSMContext, db: A
 
         menu_text = await get_main_menu_text(user, texts, db)
 
-        is_admin = settings.is_admin(user.telegram_id)
+        is_admin = await is_user_admin(db, user)
         is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
         custom_buttons = []
@@ -2592,7 +2593,7 @@ async def required_sub_channel_check(
 
             menu_text = await get_main_menu_text(user, texts, db)
 
-            is_admin = settings.is_admin(user.telegram_id)
+            is_admin = await is_user_admin(db, user)
             is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
             custom_buttons = await MainMenuButtonService.get_buttons_for_user(
@@ -2745,7 +2746,7 @@ async def required_sub_channel_check(
 
                     menu_text = await get_main_menu_text(user, texts, db)
 
-                    is_admin = settings.is_admin(user.telegram_id)
+                    is_admin = await is_user_admin(db, user)
                     is_moderator = (not is_admin) and SupportSettingsService.is_moderator(user.telegram_id)
 
                     custom_buttons = await MainMenuButtonService.get_buttons_for_user(

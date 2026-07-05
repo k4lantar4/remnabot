@@ -37,6 +37,7 @@ from app.services.subscription_checkout_service import (
     should_offer_checkout_resume,
 )
 from app.services.support_settings_service import SupportSettingsService
+from app.services.admin_access_service import is_user_admin
 from app.services.user_cart_service import user_cart_service
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.photo_message import edit_or_answer_photo
@@ -204,7 +205,7 @@ async def show_main_menu(
         except Exception:
             pass
 
-    is_admin = settings.is_admin(db_user.telegram_id)
+    is_admin = await is_user_admin(db, db_user)
     is_moderator = (not is_admin) and SupportSettingsService.is_moderator(db_user.telegram_id)
 
     custom_buttons = []

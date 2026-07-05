@@ -18,6 +18,7 @@ from app.database.crud.campaign import (
     get_campaign_registration_by_user,
 )
 from app.database.crud.rbac import UserRoleCRUD
+from app.services.admin_access_service import is_user_admin
 from app.database.crud.system_setting import get_setting_value
 from app.database.crud.user import (
     clear_email_change_pending,
@@ -1970,16 +1971,7 @@ async def check_is_admin(
     db: AsyncSession = Depends(get_cabinet_db),
 ):
     """Check if current user is an admin (legacy config or RBAC)."""
-    # Legacy check: config-based admin list
-    is_admin = settings.is_admin(telegram_id=user.telegram_id, email=user.email if user.email_verified else None)
-
-    if not is_admin:
-        # RBAC check: user has any active role with level > 0
-        _permissions, _role_names, max_level = await UserRoleCRUD.get_user_permissions(db, user.id)
-        if max_level > 0:
-            is_admin = True
-
-    return {'is_admin': is_admin}
+    return {'is_admin': await is_user_admin(db, user)}
 
 
 @router.post('/email/change', response_model=EmailChangeResponse)
