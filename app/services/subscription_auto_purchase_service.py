@@ -35,10 +35,54 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
+from app.utils.subscription_utils import get_display_subscription_link
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _auto_purchase_success_link_block(texts, subscription) -> str | None:
+    if not subscription or settings.should_hide_subscription_link():
+        return None
+    subscription_link = get_display_subscription_link(subscription)
+    if not subscription_link:
+        return None
+    return texts.t(
+        'CONNECT_SHARE_LINK_BLOCK',
+        '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
+    ).format(link=subscription_link)
+
+
+def _auto_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
+    sub_callback = (
+        f'sm:{subscription.id}'
+        if settings.is_multi_tariff_enabled() and subscription
+        else 'menu_subscription'
+    )
+    connect_callback = f'sl:{subscription.id}' if subscription else 'subscription_connect'
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_CONNECT_LINK', '🔗 Ссылка подключения'),
+                    callback_data=connect_callback,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
+                    callback_data=sub_callback,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '🏠 Главное меню'),
+                    callback_data='back_to_menu',
+                )
+            ],
+        ]
+    )
 
 
 def _format_user_id(user: User) -> str:
@@ -1001,31 +1045,22 @@ async def _auto_purchase_tariff(
             if settings.is_multi_tariff_enabled() and tariff_name_for_label:
                 message += f'\n📦 Тариф: «{tariff_name_for_label}»'
 
+            link_block = _auto_purchase_success_link_block(texts, subscription)
             hint = texts.t(
                 'AUTO_PURCHASE_SUBSCRIPTION_HINT',
                 'Перейдите в раздел «Моя подписка», чтобы получить ссылку.',
             )
+            message_parts = [message]
+            if link_block:
+                message_parts.append(link_block)
+            message_parts.append(hint)
+            full_message = '\n\n'.join(part.strip() for part in message_parts if part and part.strip())
 
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                            callback_data='menu_subscription',
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '🏠 Главное меню'),
-                            callback_data='back_to_menu',
-                        )
-                    ],
-                ]
-            )
+            keyboard = _auto_purchase_success_keyboard(texts, subscription)
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=f'{message}\n\n{hint}',
+                text=full_message,
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -3225,32 +3260,22 @@ async def _process_legacy_generic_cart(
                     except Exception:
                         pass
 
+                link_block = _auto_purchase_success_link_block(texts, subscription)
                 hint_message = texts.t(
                     'AUTO_PURCHASE_SUBSCRIPTION_HINT',
                     "Open the 'My subscription' section to access your link.",
                 )
 
                 purchase_message = purchase_result.get('message', '')
+                message_parts = [auto_message, purchase_message]
+                if link_block:
+                    message_parts.append(link_block)
+                message_parts.append(hint_message)
                 full_message = '\n\n'.join(
-                    part.strip() for part in [auto_message, purchase_message, hint_message] if part and part.strip()
+                    part.strip() for part in message_parts if part and part.strip()
                 )
 
-                keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 My subscription'),
-                                callback_data='menu_subscription',
-                            )
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '🏠 Main menu'),
-                                callback_data='back_to_menu',
-                            )
-                        ],
-                    ]
-                )
+                keyboard = _auto_purchase_success_keyboard(texts, subscription)
 
                 await bot.send_message(
                     chat_id=user.telegram_id,
