@@ -202,7 +202,12 @@ class TicketNotificationCRUD:
             return None
 
         title = (ticket.title or '').strip()[:50]
-        message = f'Новый тикет #{ticket.id}: {title}'
+        from app.services.admin_notification_service import _admin_notify_texts
+
+        texts = _admin_notify_texts()
+        message = texts.t('CABINET_TICKET_NOTIFY_NEW', 'Новый тикет #{ticket_id}: {title}').format(
+            ticket_id=ticket.id, title=title
+        )
 
         return await TicketNotificationCRUD.create(
             db=db,
@@ -224,7 +229,17 @@ class TicketNotificationCRUD:
             return None
 
         preview = (reply_preview or '').strip()[:100]
-        message = f'Ответ на тикет #{ticket.id}: {preview}...'
+        from app.config import settings
+        from app.localization.texts import get_texts
+
+        user = getattr(ticket, 'user', None)
+        lang = getattr(user, 'language', None) if user else None
+        if not isinstance(lang, str):
+            lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
+        texts = get_texts(lang)
+        message = texts.t(
+            'CABINET_TICKET_NOTIFY_ADMIN_REPLY', 'Ответ на тикет #{ticket_id}: {preview}...'
+        ).format(ticket_id=ticket.id, preview=preview)
 
         return await TicketNotificationCRUD.create(
             db=db,
@@ -246,7 +261,12 @@ class TicketNotificationCRUD:
             return None
 
         preview = (reply_preview or '').strip()[:100]
-        message = f'Ответ в тикете #{ticket.id}: {preview}...'
+        from app.services.admin_notification_service import _admin_notify_texts
+
+        texts = _admin_notify_texts()
+        message = texts.t(
+            'CABINET_TICKET_NOTIFY_USER_REPLY', 'Ответ в тикете #{ticket_id}: {preview}...'
+        ).format(ticket_id=ticket.id, preview=preview)
 
         return await TicketNotificationCRUD.create(
             db=db,

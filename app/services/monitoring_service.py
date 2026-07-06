@@ -2572,10 +2572,11 @@ class MonitoringService:
             if not tickets:
                 return
 
-            from app.services.admin_notification_service import AdminNotificationService
+            from app.services.admin_notification_service import AdminNotificationService, _admin_notify_texts
 
             reminders_sent = 0
             service = AdminNotificationService(self.bot)
+            notify_texts = _admin_notify_texts()
 
             for ticket in tickets:
                 try:
@@ -2584,22 +2585,44 @@ class MonitoringService:
                     if len(title) > 60:
                         title = title[:57] + '...'
 
-                    # Детали пользователя: имя, Telegram ID и username
                     full_name = html.escape(ticket.user.full_name or '') if ticket.user else 'Unknown'
                     telegram_id_display = ticket.user.telegram_id if ticket.user else '—'
+                    username_none = notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
                     username_display = html.escape(
-                        (ticket.user.username or 'отсутствует') if ticket.user else 'отсутствует'
+                        (ticket.user.username or username_none) if ticket.user else username_none
                     )
                     safe_title = html.escape(title) if title else '—'
+                    id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_TELEGRAM_ID', 'Telegram ID')
 
                     text = (
-                        f'⏰ <b>Ожидание ответа на тикет превышено</b>\n\n'
-                        f'🆔 <b>ID:</b> <code>{ticket.id}</code>\n'
-                        f'👤 <b>Пользователь:</b> {full_name}\n'
-                        f'🆔 <b>Telegram ID:</b> <code>{telegram_id_display}</code>\n'
-                        f'📱 <b>Username:</b> @{username_display}\n'
-                        f'📝 <b>Заголовок:</b> {safe_title}\n'
-                        f'⏱️ <b>Ожидает ответа:</b> {waited_minutes} мин\n'
+                        notify_texts.t(
+                            'ADMIN_NOTIFY_TICKET_SLA_TITLE', '⏰ <b>Ожидание ответа на тикет превышено</b>'
+                        )
+                        + '\n\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TICKET_ID', '🆔 <b>ID:</b> <code>{ticket_id}</code>').format(
+                            ticket_id=ticket.id
+                        )
+                        + '\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TRIAL_USER', '👤 <b>Пользователь:</b> {user}').format(
+                            user=full_name
+                        )
+                        + '\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TRIAL_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                            label=id_label, user_id=telegram_id_display
+                        )
+                        + '\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TRIAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                            username=username_display
+                        )
+                        + '\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TICKET_TITLE', '📝 <b>Заголовок:</b> {title}').format(
+                            title=safe_title
+                        )
+                        + '\n'
+                        + notify_texts.t('ADMIN_NOTIFY_TICKET_WAITING', '⏱️ <b>Ожидает ответа:</b> {minutes} мин').format(
+                            minutes=waited_minutes
+                        )
+                        + '\n'
                     )
 
                     sent = await service.send_ticket_event_notification(text)

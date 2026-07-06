@@ -20,8 +20,9 @@ from app.keyboards.inline import (
     get_ticket_view_keyboard,
 )
 from app.localization.texts import get_texts
-from app.services.admin_notification_service import AdminNotificationService
+from app.services.admin_notification_service import AdminNotificationService, _admin_notify_texts
 from app.utils.cache import RateLimitCache, cache, cache_key
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.photo_message import edit_or_answer_photo
 from app.utils.timezone import format_local_datetime
 
@@ -1026,7 +1027,8 @@ async def notify_admins_about_new_ticket(ticket: Ticket, db: AsyncSession):
             )
             return
 
-        get_texts(settings.DEFAULT_LANGUAGE)
+        notify_texts = _admin_notify_texts()
+        lang = settings.DEFAULT_LANGUAGE if isinstance(settings.DEFAULT_LANGUAGE, str) else 'fa'
         title = (ticket.title or '').strip()
         if len(title) > 60:
             title = title[:57] + '...'
@@ -1037,7 +1039,14 @@ async def notify_admins_about_new_ticket(ticket: Ticket, db: AsyncSession):
             user = None
         full_name = html.escape(user.full_name or '') if user else 'Unknown'
         telegram_id_display = (user.telegram_id or user.email or f'#{user.id}') if user else '—'
-        username_display = html.escape((user.username or 'отсутствует') if user else 'отсутствует')
+        username_none = notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
+        username_display = html.escape((user.username or username_none) if user else username_none)
+        if user and user.telegram_id:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_TELEGRAM_ID', 'Telegram ID')
+        elif user and user.email:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_EMAIL', 'Email')
+        else:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_ID', 'ID')
 
         # Загружаем первое сообщение для получения медиа и превью текста
         first_message = await TicketMessageCRUD.get_first_message(db, ticket.id)
@@ -1054,18 +1063,43 @@ async def notify_admins_about_new_ticket(ticket: Ticket, db: AsyncSession):
         safe_title = html.escape(title) if title else '—'
 
         notification_text = (
-            f'🎫 <b>НОВЫЙ ТИКЕТ</b>\n\n'
-            f'🆔 <b>ID:</b> <code>{ticket.id}</code>\n'
-            f'👤 <b>Пользователь:</b> {full_name}\n'
-            f'🆔 <b>ID:</b> <code>{telegram_id_display}</code>\n'
-            f'📱 <b>Username:</b> @{username_display}\n'
-            f'📝 <b>Заголовок:</b> {safe_title}\n'
+            notify_texts.t('ADMIN_NOTIFY_TICKET_NEW_TITLE', '🎫 <b>НОВЫЙ ТИКЕТ</b>')
+            + '\n\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_ID', '🆔 <b>ID:</b> <code>{ticket_id}</code>').format(
+                ticket_id=ticket.id
+            )
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_USER', '👤 <b>Пользователь:</b> {user}').format(user=full_name)
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                label=id_label, user_id=telegram_id_display
+            )
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                username=username_display
+            )
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_TITLE', '📝 <b>Заголовок:</b> {title}').format(title=safe_title)
+            + '\n'
         )
 
         if message_preview:
-            notification_text += f'\n📩 <b>Сообщение:</b>\n{html.escape(message_preview)}\n'
+            notification_text += (
+                '\n'
+                + notify_texts.t('ADMIN_NOTIFY_TICKET_MESSAGE', '📩 <b>Сообщение:</b>\n{message}').format(
+                    message=html.escape(message_preview)
+                )
+                + '\n'
+            )
 
-        notification_text += f'\n📅 <b>Создан:</b> {format_local_datetime(ticket.created_at, "%d.%m.%Y %H:%M")}\n'
+        created_at = format_user_datetime(ticket.created_at, language=lang, fmt='%d.%m.%Y %H:%M')
+        notification_text += (
+            '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_CREATED', '📅 <b>Создан:</b> {created_at}').format(
+                created_at=created_at
+            )
+            + '\n'
+        )
 
         from app.services.maintenance_service import maintenance_service
 
@@ -1099,6 +1133,7 @@ async def notify_admins_about_ticket_reply(
             logger.info('Admin notifications disabled. Reply to ticket', ticket_id=ticket.id)
             return
 
+        notify_texts = _admin_notify_texts()
         title = (ticket.title or '').strip()
         if len(title) > 60:
             title = title[:57] + '...'
@@ -1109,19 +1144,41 @@ async def notify_admins_about_ticket_reply(
             user = None
         full_name = html.escape(user.full_name or '') if user else 'Unknown'
         telegram_id_display = (user.telegram_id or user.email or f'#{user.id}') if user else '—'
-        username_display = html.escape((user.username or 'отсутствует') if user else 'отсутствует')
+        username_none = notify_texts.t('ADMIN_NOTIFY_USERNAME_NONE', 'отсутствует')
+        username_display = html.escape((user.username or username_none) if user else username_none)
+        if user and user.telegram_id:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_TELEGRAM_ID', 'Telegram ID')
+        elif user and user.email:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_EMAIL', 'Email')
+        else:
+            id_label = notify_texts.t('ADMIN_NOTIFY_LABEL_ID', 'ID')
 
         reply_preview = reply_text[:200] + '...' if len(reply_text) > 200 else reply_text
         safe_title = html.escape(title) if title else '—'
 
         notification_text = (
-            f'💬 <b>ОТВЕТ НА ТИКЕТ</b>\n\n'
-            f'🆔 <b>ID тикета:</b> <code>{ticket.id}</code>\n'
-            f'📝 <b>Заголовок:</b> {safe_title}\n'
-            f'👤 <b>Пользователь:</b> {full_name}\n'
-            f'🆔 <b>ID:</b> <code>{telegram_id_display}</code>\n'
-            f'📱 <b>Username:</b> @{username_display}\n\n'
-            f'📩 <b>Сообщение:</b>\n{html.escape(reply_preview)}\n'
+            notify_texts.t('ADMIN_NOTIFY_TICKET_REPLY_TITLE', '💬 <b>ОТВЕТ НА ТИКЕТ</b>')
+            + '\n\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_ID', '🆔 <b>ID:</b> <code>{ticket_id}</code>').format(
+                ticket_id=ticket.id
+            )
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_TITLE', '📝 <b>Заголовок:</b> {title}').format(title=safe_title)
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_USER', '👤 <b>Пользователь:</b> {user}').format(user=full_name)
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_ID', '🆔 <b>{label}:</b> {user_id}').format(
+                label=id_label, user_id=telegram_id_display
+            )
+            + '\n'
+            + notify_texts.t('ADMIN_NOTIFY_TRIAL_USERNAME', '📱 <b>Username:</b> @{username}').format(
+                username=username_display
+            )
+            + '\n\n'
+            + notify_texts.t('ADMIN_NOTIFY_TICKET_MESSAGE', '📩 <b>Сообщение:</b>\n{message}').format(
+                message=html.escape(reply_preview)
+            )
+            + '\n'
         )
 
         from app.services.maintenance_service import maintenance_service
