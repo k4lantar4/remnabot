@@ -361,8 +361,8 @@ async def process_c2c_receipt(
         return
 
     cart = await user_cart_service.get_user_cart(db_user.id)
-    has_cart_intent = await user_cart_service.has_topup_intent(db_user.id)
-    if cart or has_cart_intent:
+    is_checkout_cart = bool(cart and cart.get('return_to_cart'))
+    if is_checkout_cart:
         receipt_message = texts.t(
             'C2C_RECEIPT_SUBMITTED_WITH_CART',
             '✅ Receipt #{id} submitted.\n\nService will activate after approval.',
@@ -373,9 +373,24 @@ async def process_c2c_receipt(
             '✅ Receipt #{id} submitted for review.\n\nYou will be notified when it is processed.',
         ).format(id=receipt.id)
 
+    if is_checkout_cart:
+        reply_markup = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
+                        callback_data='return_to_saved_cart',
+                    )
+                ],
+                [types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')],
+            ]
+        )
+    else:
+        reply_markup = get_back_keyboard(db_user.language, callback_data='menu_balance')
+
     await message.answer(
         receipt_message,
-        reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
+        reply_markup=reply_markup,
     )
 
     await user_cart_service.refresh_topup_intent(db_user.id)

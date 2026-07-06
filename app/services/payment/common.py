@@ -159,6 +159,7 @@ class PaymentCommonMixin:
         *,
         db: AsyncSession | None = None,
         payment_method_title: str | None = None,
+        cart_autopurchase_failed: bool = False,
     ) -> None:
         """Отправляет пользователю уведомление об успешном платеже."""
         # Lazy import to avoid circular dependency
@@ -208,7 +209,15 @@ class PaymentCommonMixin:
                 method_display = texts.t('PAYMENT_CARD_YOOKASSA', '💳 Карта (YooKassa)')
             user_id = getattr(user_snapshot, 'id', None) if user_snapshot else None
             has_cart_intent = bool(user_id and await user_cart_service.has_topup_intent(user_id))
-            if has_cart_intent:
+            if cart_autopurchase_failed:
+                message = texts.t(
+                    'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED',
+                    '✅ <b>Balance topped up!</b>\n\n'
+                    '💰 Amount: {amount}\n'
+                    '💳 Method: {method}\n\n'
+                    '⚠️ To complete your purchase, tap «Return to checkout».',
+                ).format(amount=amount_str, method=method_display)
+            elif has_cart_intent:
                 message = texts.t(
                     'PAYMENT_TOPUP_SUCCESS_WITH_CART',
                     '✅ <b>Платеж подтверждён!</b>\n\n'

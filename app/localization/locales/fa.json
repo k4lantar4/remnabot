@@ -3419,6 +3419,7 @@
   "PAYMENT_TELEGRAM_STARS": "⭐ Telegram Stars",
   "PAYMENT_TOPUP_SUCCESS": "✅ <b>پرداخت با موفقیت انجام شد!</b>\n\n💰 مبلغ: {amount}\n💳 روش: {method}\n\nمبلغ به موجودی شما واریز شد!",
   "PAYMENT_TOPUP_SUCCESS_WITH_CART": "✅ <b>پرداخت تأیید شد!</b>\n\n💰 مبلغ: {amount}\n💳 روش: {method}\n\nدر حال فعال‌سازی سرویس…",
+  "PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED": "✅ <b>موجودی شارژ شد!</b>\n\n💰 مبلغ: {amount}\n💳 روش: {method}\n\n⚠️ برای تکمیل خرید سرویس، دکمهٔ «بازگشت به خرید اشتراک» را بزنید.",
   "PAYMENT_VIA_SUPPORT": "🛠️ از طریق پشتیبانی",
   "PAYPEAR_ENTER_AMOUNT": "💳 <b>شارژ از طریق {name}</b>\\n\\n",
   "PAYPEAR_PAYMENT_CREATED": "💳 <b>پرداخت از طریق {name}</b>\\n\\n",

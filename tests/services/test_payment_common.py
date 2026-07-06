@@ -178,6 +178,40 @@ async def test_send_payment_success_notification_uses_balance_key_without_topup_
 
 
 @pytest.mark.anyio
+async def test_send_payment_success_notification_uses_autopurchase_failed_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+        cart_autopurchase_failed=True,
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED'
+    assert service.bot.messages
+
+
+@pytest.mark.anyio
 async def test_send_cart_notification_after_topup_skips_duplicate_cart_nudge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -371,8 +371,14 @@ class C2cPaymentService:
                     logger.error('C2C admin balance notification error', error=error)
 
             autopurchase_succeeded = False
+            checkout_cart = None
             try:
                 from app.services.payment.common import send_cart_notification_after_topup
+                from app.services.user_cart_service import user_cart_service
+
+                checkout_cart = await user_cart_service.get_user_cart(user.id)
+                if checkout_cart and checkout_cart.get('return_to_cart'):
+                    await user_cart_service.refresh_topup_intent(user.id)
 
                 autopurchase_succeeded = await send_cart_notification_after_topup(
                     user, balance_credit_toman, db, self.bot
@@ -385,12 +391,14 @@ class C2cPaymentService:
                     from app.services.payment_service import PaymentService
 
                     payment_service = PaymentService(self.bot)
+                    has_checkout_cart = bool(checkout_cart and checkout_cart.get('return_to_cart'))
                     await payment_service._send_payment_success_notification(
                         user.telegram_id,
                         balance_credit_toman,
                         user=user,
                         db=db,
                         payment_method_title=settings.get_c2c_display_name(),
+                        cart_autopurchase_failed=has_checkout_cart,
                     )
                 except Exception as error:
                     logger.error('C2C user success notification error', error=error)
