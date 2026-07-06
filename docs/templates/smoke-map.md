@@ -1,3 +1,47 @@
+# Smoke map — Purchase-Connect UX Jul 2026
+
+> Branch `fix/purchase-connect-ux`; two-step connect chooser (self vs share), inline link on purchase success, cart-aware C2C copy.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/purchase-connect-ux` |
+| Files | `links.py`, `my_subscriptions.py`, `tariff_purchase.py`, `subscription_auto_purchase_service.py`, `payment/common.py`, `plugins/c2c/`, `fa.json` |
+| Guard | `uv run pytest tests/handlers/test_connect_chooser.py tests/services/test_subscription_auto_purchase_service.py::test_auto_purchase_success_keyboard_has_connect_chooser tests/plugins/c2c/ -q` |
+| Deploy | `cp app/localization/locales/fa.json ./locales/fa.json` + `make staging-rebuild` |
+| Bot | `@mrj7_bot` |
+
+## Keys / callbacks
+
+| Key / callback | Surface |
+|----------------|---------|
+| `CONNECT_CHOOSER_*` | Chooser screen (`sl:{sub_id}`) — self vs share buttons |
+| `CONNECT_SHARE_*` | Share screen — copyable link, forward template, not-bot hint |
+| `CONNECT_SELF_TITLE` | Self path — WebApp install guide only |
+| `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE` | Shortened chooser intro (no dual-path essay) |
+| `sl:{sub_id}` | Chooser entry from detail, purchase success, autopurchase |
+| `sl_self:{sub_id}` / `sl_share:{sub_id}` | Self vs share branches |
+
+## User smoke checklist (`@mrj7_bot`, fa)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | Buy service (balance) → success | Copyable link in body + chooser button | pending |
+| 2 | اشتراک من → دریافت لینک | Chooser with 2 buttons only | pending |
+| 3 | Tap «خودم» | WebApp guide only — no panel URL button | pending |
+| 4 | Tap «مشتری» | Link in `<code>`, forward template, NOT bot URL | pending |
+| 5 | C2C from insufficient checkout → receipt submit | Text mentions service activation | pending |
+| 6 | C2C approve (autopurchase ok) | One clear message — not balance-only + separate | pending |
+| 7 | Partner rep: share screen | Can copy link without reading detail onboarding | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot`
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Bot admin RBAC parity
 
 > Branch `fix/bot-admin-rbac-parity`; RBAC cabinet admins see Telegram admin button without `ADMIN_IDS`.

@@ -4302,7 +4302,10 @@ def register_handlers(dp: Dispatcher):
         handle_subscription_traffic,
     )
 
-    dp.callback_query.register(handle_subscription_link, F.data.startswith('sl:'))
+    dp.callback_query.register(
+        handle_subscription_link,
+        F.data.startswith('sl:') | F.data.startswith('sl_self:') | F.data.startswith('sl_share:'),
+    )
     dp.callback_query.register(handle_subscription_extend, F.data.startswith('se:'))
     dp.callback_query.register(handle_subscription_traffic, F.data.startswith('st:'))
     dp.callback_query.register(handle_subscription_devices, F.data.startswith('sd:'))

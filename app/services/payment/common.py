@@ -159,6 +159,7 @@ class PaymentCommonMixin:
         *,
         db: AsyncSession | None = None,
         payment_method_title: str | None = None,
+        cart_autopurchase_failed: bool = False,
     ) -> None:
         """Отправляет пользователю уведомление об успешном платеже."""
         # Lazy import to avoid circular dependency
@@ -206,13 +207,32 @@ class PaymentCommonMixin:
                 method_display = payment_method_title
             else:
                 method_display = texts.t('PAYMENT_CARD_YOOKASSA', '💳 Карта (YooKassa)')
-            message = texts.t(
-                'PAYMENT_TOPUP_SUCCESS',
-                '✅ <b>Платеж успешно завершен!</b>\n\n'
-                '💰 Сумма: {amount}\n'
-                '💳 Способ: {method}\n\n'
-                'Средства зачислены на ваш баланс!',
-            ).format(amount=amount_str, method=method_display)
+            user_id = getattr(user_snapshot, 'id', None) if user_snapshot else None
+            has_cart_intent = bool(user_id and await user_cart_service.has_topup_intent(user_id))
+            if cart_autopurchase_failed:
+                message = texts.t(
+                    'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED',
+                    '✅ <b>Balance topped up!</b>\n\n'
+                    '💰 Amount: {amount}\n'
+                    '💳 Method: {method}\n\n'
+                    '⚠️ To complete your purchase, tap «Return to checkout».',
+                ).format(amount=amount_str, method=method_display)
+            elif has_cart_intent:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS_WITH_CART',
+                    '✅ <b>Платеж подтверждён!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Активируем сервис…',
+                ).format(amount=amount_str, method=method_display)
+            else:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS',
+                    '✅ <b>Платеж успешно завершен!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Средства зачислены на ваш баланс!',
+                ).format(amount=amount_str, method=method_display)
 
             keyboard = await self.build_topup_success_keyboard(user_snapshot)
 
@@ -333,9 +353,8 @@ async def send_cart_notification_after_topup(
 ) -> bool:
     """Run post-topup side-effects: resume daily / auto-purchase saved cart / auto-extend.
 
-    Возвращает False всегда (имя оставлено ради 19+ существующих вызовов).
-    Само сообщение «Баланс пополнен…» больше не шлётся — оно дублировало
-    основное «Пополнение успешно!» и ломало MAIN_MENU_MODE=cabinet.
+    Returns True when saved-cart autopurchase succeeded (caller may skip generic topup
+    Telegram message — autopurchase service already notifies the user).
     """
     del amount_kopeks  # больше не используется после удаления второго сообщения
 
@@ -388,7 +407,7 @@ async def send_cart_notification_after_topup(
             auto_succeeded = False
 
         if auto_succeeded:
-            return False
+            return True
 
         # return_to_saved_cart is already on build_topup_success_keyboard in the
         # primary «Пополнение успешно!» message — no second nudge here.

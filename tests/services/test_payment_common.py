@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.types import InlineKeyboardMarkup
@@ -99,6 +100,118 @@ async def test_send_payment_success_notification_recovers_missing_greenlet(monke
 
 
 @pytest.mark.anyio
+async def test_send_payment_success_notification_uses_cart_key_when_topup_intent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    async def fake_has_topup_intent(user_id: int) -> bool:
+        assert user_id == user.id
+        return True
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.services.payment.common.user_cart_service.has_topup_intent',
+        fake_has_topup_intent,
+    )
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_SUCCESS_WITH_CART'
+    assert service.bot.messages
+
+
+@pytest.mark.anyio
+async def test_send_payment_success_notification_uses_balance_key_without_topup_intent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.services.payment.common.user_cart_service.has_topup_intent',
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_SUCCESS'
+    assert service.bot.messages
+
+
+@pytest.mark.anyio
+async def test_send_payment_success_notification_uses_autopurchase_failed_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+        cart_autopurchase_failed=True,
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED'
+    assert service.bot.messages
+
+
+@pytest.mark.anyio
 async def test_send_cart_notification_after_topup_skips_duplicate_cart_nudge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -130,4 +243,39 @@ async def test_send_cart_notification_after_topup_skips_duplicate_cart_nudge(
     result = await send_cart_notification_after_topup(user, 10000, db, bot)
 
     assert result is False
+    assert bot.messages == []
+
+
+@pytest.mark.anyio
+async def test_send_cart_notification_after_topup_returns_true_on_autopurchase_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = _FakeBot()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    cart = {'total_price': 40000, 'return_to_cart': True}
+    db = object()
+
+    async def fake_get_cart(user_id: int):
+        assert user_id == user.id
+        return cart
+
+    async def fake_daily(*_a, **_k):
+        return False
+
+    async def fake_auto_purchase(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr('app.services.payment.common.user_cart_service.get_user_cart', fake_get_cart)
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.try_resume_disabled_daily_after_topup',
+        fake_daily,
+    )
+    monkeypatch.setattr(
+        'app.services.subscription_auto_purchase_service.auto_purchase_saved_cart_after_topup',
+        fake_auto_purchase,
+    )
+
+    result = await send_cart_notification_after_topup(user, 10000, db, bot)
+
+    assert result is True
     assert bot.messages == []

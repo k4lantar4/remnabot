@@ -653,9 +653,6 @@ async def show_subscription_detail(
     await callback.answer()
 
     is_inactive = subscription.actual_status in ('expired', 'disabled')
-    connected_count: int | None = None
-    if not is_inactive:
-        connected_count = await _fetch_connected_devices_count(subscription, db_user)
 
     display_name = _account_display_name(subscription, texts)
 
@@ -693,20 +690,10 @@ async def show_subscription_detail(
         text += (
             '\n\n'
             + texts.t(
-                'MY_SUB_DETAIL_ONBOARDING',
-                '💡 <b>Инструкция:</b>\n'
-                '1️⃣ Нажмите «🔗 Получить ссылку»\n'
-                '2️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)',
+                'MY_SUB_DETAIL_CONNECT_HINT',
+                '💡 برای اتصال «🔗 دریافت لینк» → راهنمای نصب (خودم) یا لینک برای مشتری/فروش',
             )
         )
-        if connected_count is None or connected_count == 0:
-            text += (
-                '\n\n'
-                + texts.t(
-                    'MY_SUB_DETAIL_FIRST_CONNECT',
-                    'Ещё не подключились? Нажмите кнопку ниже 👇',
-                )
-            )
 
     purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
     if purchase_note:
@@ -715,13 +702,6 @@ async def show_subscription_detail(
             + texts.t('MY_SUB_DETAIL_PURCHASE_NOTE', '📝 Note: {note}').format(
                 note=html.escape(purchase_note)
             )
-        )
-
-    if subscription.subscription_url and not settings.should_hide_subscription_link():
-        text += (
-            f'\n{texts.t("MY_SUB_DETAIL_SMART_LINK_TITLE", "🔗 Умная ссылка подписки:")}\n'
-            f'🔗 <code>{subscription.subscription_url}</code>\n'
-            f'{texts.t("MY_SUB_DETAIL_LINK_COPY_HINT", "💡 Нажмите на ссылку выше, чтобы скопировать")}'
         )
 
     keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription, language=db_user.language)
@@ -768,14 +748,20 @@ async def handle_subscription_link(
     db: AsyncSession,
     state: FSMContext,
 ) -> None:
-    """Delegation: sl:{sub_id} → connect subscription link handler."""
+    """Route sl / sl_self / sl_share callbacks to connect chooser handlers."""
     subscription = await _resolve_and_store_sub(callback, db_user, db, state)
     if not subscription:
         return
 
-    from .links import handle_connect_subscription
+    from .links import handle_connect_self, handle_connect_share, handle_connect_subscription
 
-    await handle_connect_subscription(callback, db_user, db, state)
+    data = callback.data or ''
+    if data.startswith('sl_self:'):
+        await handle_connect_self(callback, db_user, db, state)
+    elif data.startswith('sl_share:'):
+        await handle_connect_share(callback, db_user, db, state)
+    else:
+        await handle_connect_subscription(callback, db_user, db, state)
 
 
 async def handle_subscription_extend(
