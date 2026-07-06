@@ -85,53 +85,44 @@ class UserService:
         Если подписки нет - показывает БОЛЬШОЕ предупреждение что нужно активировать.
         Поддерживает как Telegram, так и email-only пользователей.
         """
-        texts = get_texts(user.language)
+        from app.localization.user_language import resolve_user_facing_language
+
+        texts = get_texts(resolve_user_facing_language(user.language))
+        # Balance is Toman 1:1 — never format_price (÷100).
+        amount_display = texts.format_balance(amount_kopeks)
+        balance_display = texts.format_balance(user.balance_kopeks)
 
         has_active_subscription = subscription is not None and subscription.status in {'active', 'trial'}
 
         if has_active_subscription:
-            # У пользователя есть активная подписка - обычное сообщение
-            message = (
-                f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
-                f'Спасибо за использование нашего сервиса! 🎉'
-            )
-            extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
-            keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text=texts.t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
-                            callback_data=extend_callback,
-                        )
-                    ]
-                ]
-            )
+            message = texts.t(
+                'USER_BALANCE_TOPUP_SUCCESS',
+                '✅ <b>موجودی به مبلغ {amount} شارژ شد!</b>\n\n'
+                '💳 موجودی فعلی: {balance}\n\n'
+                'از استفاده از سرویس ما سپاسگزاریم! 🎉',
+            ).format(amount=amount_display, balance=balance_display)
         else:
-            # НЕТ активной подписки - БОЛЬШОЕ ПРЕДУПРЕЖДЕНИЕ
-            message = (
-                f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
-                f'{"─" * 25}\n\n'
-                f'⚠️ <b>ВАЖНО!</b> ⚠️\n\n'
-                f'🔴 <b>ПОДПИСКА НЕ АКТИВНА!</b>\n\n'
-                f'Пополнение баланса НЕ активирует подписку автоматически!\n\n'
-                f'👇 <b>Выберите действие:</b>'
-            )
-            extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
-            keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [types.InlineKeyboardButton(text='🚀 АКТИВИРОВАТЬ ПОДПИСКУ', callback_data='subscription_buy')],
-                    [types.InlineKeyboardButton(text='💎 ПРОДЛИТЬ ПОДПИСКУ', callback_data=extend_callback)],
-                    [
-                        types.InlineKeyboardButton(
-                            text='📱 ДОБАВИТЬ УСТРОЙСТВА', callback_data='subscription_add_devices'
-                        )
-                    ],
-                ]
-            )
+            message = texts.t(
+                'USER_BALANCE_TOPUP_NO_SUB',
+                '✅ <b>موجودی به مبلغ {amount} شارژ شد!</b>\n\n'
+                '💳 موجودی فعلی: {balance}\n\n'
+                '⚠️ <b>توجه:</b> شارژ موجودی به‌تنهایی اشتراک را فعال نمی‌کند.\n'
+                'برای خرید سرویس دکمه زیر را بزنید.',
+            ).format(amount=amount_display, balance=balance_display)
 
-        # Use unified notification delivery service
+        from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+
+        keyboard = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    build_miniapp_or_callback_button(
+                        text=texts.t('MENU_BUY_SUBSCRIPTION', '💎 خرید سرویس'),
+                        callback_data='menu_buy',
+                    )
+                ]
+            ]
+        )
+
         return await notification_delivery_service.notify_balance_topup(
             user=user,
             amount_kopeks=amount_kopeks,
@@ -146,52 +137,68 @@ class UserService:
         Отправляет уведомление пользователю о пополнении/списании баланса.
         Поддерживает как Telegram, так и email-only пользователей.
         """
-        if amount_kopeks > 0:
-            # Пополнение
-            emoji = '💰'
-            amount_text = f'+{settings.format_price(amount_kopeks)}'
-            message = (
-                f'{emoji} <b>Баланс пополнен!</b>\n\n'
-                f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_balance(user.balance_kopeks)}\n\n'
-                f'Спасибо за использование нашего сервиса! 🎉'
-            )
-        else:
-            # Списание
-            emoji = '💸'
-            amount_text = f'-{settings.format_price(abs(amount_kopeks))}'
-            message = (
-                f'{emoji} <b>Средства списаны с баланса</b>\n\n'
-                f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_balance(user.balance_kopeks)}\n\n'
-                f'Если у вас есть вопросы, обратитесь в поддержку.'
-            )
+        from app.localization.user_language import resolve_user_facing_language
 
-        keyboard_rows = []
-        subs = getattr(user, 'subscriptions', None) or []
-        has_extendable = any(sub.status in {'active', 'expired', 'trial'} for sub in subs)
-        if has_extendable:
-            extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
-            keyboard_rows.append(
+        texts = get_texts(resolve_user_facing_language(user.language))
+        # Balance is Toman 1:1 — never format_price (÷100).
+        amount_display = texts.format_balance(abs(amount_kopeks))
+        balance_display = texts.format_balance(user.balance_kopeks)
+
+        if amount_kopeks > 0:
+            message = texts.t(
+                'USER_BALANCE_CREDITED_NOTIFY',
+                '💰 <b>موجودی شارژ شد!</b>\n\n'
+                '💵 <b>مبلغ:</b> +{amount}\n'
+                '💳 <b>موجودی فعلی:</b> {balance}\n\n'
+                'از استفاده از سرویس ما سپاسگزاریم! 🎉',
+            ).format(amount=amount_display, balance=balance_display)
+        else:
+            message = texts.t(
+                'USER_BALANCE_DEBITED_NOTIFY',
+                '💸 <b>مبلغی از موجودی کسر شد</b>\n\n'
+                '💵 <b>مبلغ:</b> -{amount}\n'
+                '💳 <b>موجودی فعلی:</b> {balance}\n\n'
+                'در صورت نیاز با پشتیبانی تماس بگیرید.',
+            ).format(amount=amount_display, balance=balance_display)
+
+        reply_markup = None
+        if amount_kopeks > 0:
+            from app.utils.miniapp_buttons import build_miniapp_or_callback_button
+
+            keyboard_rows: list[list] = [
                 [
-                    types.InlineKeyboardButton(
-                        text=get_texts(user.language).t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
-                        callback_data=extend_callback,
+                    build_miniapp_or_callback_button(
+                        text=texts.t('MENU_BUY_SUBSCRIPTION', '💎 خرید سرویس'),
+                        callback_data='menu_buy',
                     )
                 ]
-            )
+            ]
+            try:
+                from app.services.user_cart_service import user_cart_service
 
-        reply_markup = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows) if keyboard_rows else None
+                if await user_cart_service.has_user_cart(user.id):
+                    keyboard_rows.append(
+                        [
+                            build_miniapp_or_callback_button(
+                                text=texts.t('RETURN_TO_SUBSCRIPTION_CHECKOUT', '⬅️ بازگشت به خرید اشتراک'),
+                                callback_data='return_to_saved_cart',
+                            )
+                        ]
+                    )
+            except Exception:
+                pass
+            reply_markup = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-        # Use unified notification delivery service
+        signed_amount = (
+            f'+{amount_display}' if amount_kopeks > 0 else f'-{amount_display}'
+        )
         context = {
             'amount_kopeks': amount_kopeks,
             'amount_rubles': float(amount_kopeks),
             'new_balance_kopeks': user.balance_kopeks,
             'new_balance_rubles': float(user.balance_kopeks),
-            'formatted_amount': settings.format_balance(amount_kopeks),
-            'formatted_balance': settings.format_balance(user.balance_kopeks),
-            # No description - don't expose admin name to user
+            'formatted_amount': signed_amount,
+            'formatted_balance': balance_display,
         }
 
         return await notification_delivery_service.send_notification(

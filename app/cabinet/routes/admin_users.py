@@ -1134,6 +1134,24 @@ async def update_user_balance(
     # Refresh user
     await db.refresh(user)
 
+    # Notify user (Telegram / email) — same path as bot admin balance change.
+    try:
+        from app.bot_factory import create_bot
+        from app.services.user_service import UserService
+
+        await UserService()._send_balance_notification(
+            create_bot(),
+            user,
+            amount_kopeks,
+            admin.full_name or f'Admin #{admin.id}',
+        )
+    except Exception as notify_error:
+        logger.error(
+            'Failed to notify user about admin balance change',
+            user_id=user_id,
+            error=notify_error,
+        )
+
     logger.info(
         'Admin updated balance for user',
         admin_id=admin.id,
