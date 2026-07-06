@@ -1017,6 +1017,10 @@ class YooKassaPaymentMixin:
                             if getattr(self, 'bot', None) and user.telegram_id:
                                 from aiogram import types
 
+                                from app.localization.texts import get_texts
+                                from app.utils.subscription_user_messages import format_user_tariff_line
+
+                                texts = get_texts(user.language)
                                 tariff_line = ''
                                 if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff_id', None):
                                     try:
@@ -1024,7 +1028,7 @@ class YooKassaPaymentMixin:
 
                                         _t = await get_tariff_by_id(db, subscription.tariff_id)
                                         if _t:
-                                            tariff_line = f'\n📦 Тариф: «{_t.name}»'
+                                            tariff_line = format_user_tariff_line(texts, _t.name)
                                     except Exception:
                                         pass
                                 success_message = (

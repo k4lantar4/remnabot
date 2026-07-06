@@ -451,8 +451,9 @@ class TelegramStarsMixin:
                 from aiogram import types
 
                 from app.localization.texts import get_texts
+                from app.utils.subscription_user_messages import format_user_tariff_line
 
-                get_texts(user.language)
+                texts = get_texts(user.language)
                 traffic_limit = getattr(subscription, 'traffic_limit_gb', 0) or 0
                 traffic_label = 'Безлимит' if traffic_limit == 0 else f'{int(traffic_limit)} ГБ'
 
@@ -463,7 +464,7 @@ class TelegramStarsMixin:
 
                         _t = await get_tariff_by_id(db, subscription.tariff_id)
                         if _t:
-                            tariff_line = f'\n📦 Тариф: «{_t.name}»'
+                            tariff_line = format_user_tariff_line(texts, _t.name)
                     except Exception:
                         pass
                 success_message = (

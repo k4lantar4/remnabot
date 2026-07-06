@@ -35,6 +35,7 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
+from app.utils.subscription_user_messages import format_user_tariff_line, format_user_traffic_line
 from app.utils.subscription_utils import get_display_subscription_link
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
@@ -186,6 +187,21 @@ def _safe_int(value: object | None, default: int = 0) -> int:
         return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return default
+
+
+def _resolve_tariff_cart_traffic_gb(cart_data: dict, tariff) -> tuple[int | None, int]:
+    """Mirror confirm_tariff_purchase: cart traffic for pricing and subscription limits."""
+    custom_traffic_gb = None
+    if tariff.can_purchase_custom_traffic():
+        raw = cart_data.get('custom_traffic_gb')
+        if raw is None:
+            raw = cart_data.get('traffic_limit_gb')
+        if raw is not None:
+            parsed = _safe_int(raw, 0)
+            if parsed > 0:
+                custom_traffic_gb = parsed
+    purchase_traffic_gb = custom_traffic_gb if custom_traffic_gb else (tariff.traffic_limit_gb or 0)
+    return custom_traffic_gb, purchase_traffic_gb
 
 
 async def _delete_cart_for_subscription(user_id: int, cart_data: dict) -> None:
@@ -674,7 +690,7 @@ async def _auto_extend_subscription(
                 '✅ Subscription automatically extended for {period}.',
             ).format(period=period_label)
             if settings.is_multi_tariff_enabled() and prepared.tariff_name:
-                auto_message += f'\n📦 Тариф: «{prepared.tariff_name}»'
+                auto_message += format_user_tariff_line(texts, prepared.tariff_name)
             details_message = texts.t(
                 'AUTO_PURCHASE_SUBSCRIPTION_EXTENDED_DETAILS',
                 'New expiration date: {date}.',
@@ -831,6 +847,8 @@ async def _auto_purchase_tariff(
 
     user = await lock_user_for_pricing(db, user.id)
 
+    custom_traffic_gb, purchase_traffic_gb = _resolve_tariff_cart_traffic_gb(cart_data, tariff)
+
     # Calculate price via PricingEngine (single source of truth)
     device_limit = None
     if existing_subscription and existing_subscription.tariff_id == tariff_id:
@@ -840,6 +858,7 @@ async def _auto_purchase_tariff(
         tariff,
         period_days,
         device_limit=device_limit,
+        custom_traffic_gb=custom_traffic_gb,
         user=user,
     )
     final_price = result.final_total
@@ -903,7 +922,7 @@ async def _auto_purchase_tariff(
                 existing_subscription,
                 days=period_days,
                 tariff_id=tariff.id,
-                traffic_limit_gb=tariff.traffic_limit_gb,
+                traffic_limit_gb=purchase_traffic_gb,
                 device_limit=effective_device_limit,
                 connected_squads=squads,
             )
@@ -918,7 +937,7 @@ async def _auto_purchase_tariff(
                 db=db,
                 user_id=user.id,
                 duration_days=period_days,
-                traffic_limit_gb=tariff.traffic_limit_gb,
+                traffic_limit_gb=purchase_traffic_gb,
                 device_limit=tariff.device_limit,
                 connected_squads=squads,
                 tariff_id=tariff.id,
@@ -1043,7 +1062,12 @@ async def _auto_purchase_tariff(
                 '✅ Подписка на {period} автоматически оформлена после пополнения баланса.',
             ).format(period=period_label)
             if settings.is_multi_tariff_enabled() and tariff_name_for_label:
-                message += f'\n📦 Тариф: «{tariff_name_for_label}»'
+                message += format_user_tariff_line(texts, tariff_name_for_label)
+            message += format_user_traffic_line(
+                texts,
+                purchase_traffic_gb,
+                getattr(user, 'language', 'ru'),
+            )
 
             link_block = _auto_purchase_success_link_block(texts, subscription)
             hint = texts.t(
@@ -2467,7 +2491,7 @@ async def try_auto_extend_expired_after_topup(
                 '✅ Subscription automatically extended for {period}.',
             ).format(period=period_label)
             if settings.is_multi_tariff_enabled() and tariff_name_for_label:
-                auto_message += f'\n📦 Тариф: «{tariff_name_for_label}»'
+                auto_message += format_user_tariff_line(texts, tariff_name_for_label)
             details_message = texts.t(
                 'AUTO_PURCHASE_SUBSCRIPTION_EXTENDED_DETAILS',
                 'New expiration date: {date}.',
@@ -3256,9 +3280,15 @@ async def _process_legacy_generic_cart(
 
                         _t = await _get_tariff_label(db, subscription.tariff_id)
                         if _t:
-                            auto_message += f'\n📦 Тариф: «{_t.name}»'
+                            auto_message += format_user_tariff_line(texts, _t.name)
                     except Exception:
                         pass
+                if subscription and getattr(subscription, 'traffic_limit_gb', None):
+                    auto_message += format_user_traffic_line(
+                        texts,
+                        subscription.traffic_limit_gb,
+                        getattr(user, 'language', 'ru'),
+                    )
 
                 link_block = _auto_purchase_success_link_block(texts, subscription)
                 hint_message = texts.t(

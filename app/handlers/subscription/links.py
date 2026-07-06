@@ -152,7 +152,7 @@ async def handle_connect_share(
         + '\n\n'
         + texts.t(
             'CONNECT_SHARE_NOT_BOT_HINT',
-            'ℹ️ Это не адрес вашего бота/канала — это VPN-ссылка',
+            'ℹ️ توجه: это ссылка на подписку, а не адрес нашего бота/канала.',
         )
         + '\n\n'
         + texts.t(
