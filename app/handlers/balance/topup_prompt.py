@@ -35,9 +35,13 @@ async def get_cart_suggested_topup_amount(user_id: int) -> int:
         return 0
 
 
-def _build_amount_prompt_keyboard(
+from app.utils.cart_checkout_keyboard import prepend_return_to_checkout_row
+
+
+async def _build_amount_prompt_keyboard(
     texts,
     *,
+    user_id: int,
     method: str,
     suggested_amount: int,
     back_callback: str = 'balance_topup',
@@ -46,28 +50,28 @@ def _build_amount_prompt_keyboard(
         'TOPUP_CONFIRM_SUGGESTED_BTN',
         '✅ Top up {amount}',
     ).format(amount=texts.format_balance(suggested_amount, round_kopeks=False))
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=confirm_label,
-                    callback_data=f'topup_confirm|{method}|{suggested_amount}',
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('TOPUP_ENTER_CUSTOM_BTN', '✏️ Enter another amount'),
-                    callback_data=f'topup_custom|{method}',
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('BACK', '◀️ Назад'),
-                    callback_data=back_callback,
-                )
-            ],
-        ]
-    )
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=confirm_label,
+                callback_data=f'topup_confirm|{method}|{suggested_amount}',
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('TOPUP_ENTER_CUSTOM_BTN', '✏️ Enter another amount'),
+                callback_data=f'topup_custom|{method}',
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=texts.t('BACK', '◀️ Назад'),
+                callback_data=back_callback,
+            )
+        ],
+    ]
+    await prepend_return_to_checkout_row(rows, user_id, texts)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def show_cart_topup_amount_prompt(
@@ -95,8 +99,9 @@ async def show_cart_topup_amount_prompt(
         suggested=texts.format_balance(suggested_amount, round_kopeks=False),
     )
 
-    keyboard = _build_amount_prompt_keyboard(
+    keyboard = await _build_amount_prompt_keyboard(
         texts,
+        user_id=db_user.id,
         method=method,
         suggested_amount=suggested_amount,
         back_callback=back_callback,
@@ -138,8 +143,9 @@ async def send_cart_topup_amount_prompt_message(
         suggested=texts.format_balance(suggested_amount, round_kopeks=False),
     )
 
-    keyboard = _build_amount_prompt_keyboard(
+    keyboard = await _build_amount_prompt_keyboard(
         texts,
+        user_id=db_user.id,
         method=method,
         suggested_amount=suggested_amount,
         back_callback=back_callback,

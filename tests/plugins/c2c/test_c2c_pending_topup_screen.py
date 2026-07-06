@@ -48,6 +48,20 @@ def test_build_pending_receipt_topup_screen_includes_receipt_details():
     assert keyboard.inline_keyboard[-1][0].callback_data == 'menu_balance'
 
 
+def test_build_pending_receipt_topup_screen_with_return_to_checkout():
+    receipt = SimpleNamespace(id=183, amount_kopeks=10_000_000)
+    message_text, keyboard = c2c_integration.build_pending_receipt_topup_screen(
+        receipt,
+        'fa',
+        show_return_to_checkout=True,
+    )
+
+    assert '#183' in message_text
+    callback_data = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
+    assert 'return_to_saved_cart' in callback_data
+    assert callback_data[-1] == 'menu_balance'
+
+
 def test_show_payment_methods_pending_block_not_inside_cart_except():
     """Guard against indentation regression that skips the dedicated screen."""
     from pathlib import Path

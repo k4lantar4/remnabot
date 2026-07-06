@@ -49,7 +49,8 @@ CALLBACK_TO_CABINET_PATH: dict[str, str] = {
     'subscription_upgrade': '/subscription',
     'subscription_connect': '/subscription',
     'subscription_resume_checkout': '/subscription',
-    'return_to_saved_cart': '/subscription',
+    # ``return_to_saved_cart`` is intentionally NOT mapped here — same reason as
+    # ``back_to_menu``: resume checkout must run the bot handler, not open cabinet.
     'menu_buy': '/subscription',
     'buy_traffic': '/subscription',
     'menu_referrals': '/referral',
@@ -81,7 +82,6 @@ CALLBACK_TO_CABINET_STYLE: dict[str, str] = {
     'subscription_upgrade': 'success',
     'subscription_connect': 'success',
     'subscription_resume_checkout': 'success',
-    'return_to_saved_cart': 'success',
     'menu_buy': 'success',
     'buy_traffic': 'success',
     'menu_referrals': 'success',

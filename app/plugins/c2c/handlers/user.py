@@ -13,6 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.keyboards.inline import get_back_keyboard
+from app.utils.cart_checkout_keyboard import (
+    build_back_keyboard_with_checkout,
+    return_to_checkout_button,
+)
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.config_helpers import format_card_message, get_card_by_index, get_next_card
@@ -92,7 +96,11 @@ async def _send_c2c_card_instructions(
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
         ).format(card_info=card_info)
 
-    keyboard = get_back_keyboard(db_user.language, callback_data='menu_balance')
+    keyboard = await build_back_keyboard_with_checkout(
+        db_user.language,
+        db_user.id,
+        back_callback='menu_balance',
+    )
     await state.update_data(c2c_receipt_id=receipt.id, payment_method='c2c')
     await state.set_state(C2cStates.waiting_for_receipt)
 
@@ -266,9 +274,14 @@ async def process_c2c_payment_amount(
     pending = await c2c_crud.get_pending_receipt_for_user(db, db_user.id)
     if pending:
         if pending.receipt_type:
+            reply_markup = await build_back_keyboard_with_checkout(
+                db_user.language,
+                db_user.id,
+                back_callback='menu_balance',
+            )
             await message.answer(
                 format_pending_receipt_notice(pending, db_user.language),
-                reply_markup=get_back_keyboard(db_user.language, callback_data='menu_balance'),
+                reply_markup=reply_markup,
             )
             return
         pending.amount_kopeks = amount_kopeks
@@ -376,12 +389,7 @@ async def process_c2c_receipt(
     if is_checkout_cart:
         reply_markup = types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                        callback_data='return_to_saved_cart',
-                    )
-                ],
+                [return_to_checkout_button(texts)],
                 [types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')],
             ]
         )

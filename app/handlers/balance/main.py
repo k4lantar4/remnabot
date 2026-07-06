@@ -396,6 +396,10 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
     except Exception:
         pass
 
+    from app.utils.cart_checkout_keyboard import user_has_checkout_cart
+
+    has_checkout_cart = await user_has_checkout_cart(db_user.id)
+
     if pending_receipt and c2c_integration:
         probe_keyboard = get_payment_methods_keyboard(
             amount_kopeks,
@@ -406,6 +410,7 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
             full_text, keyboard = c2c_integration.build_pending_receipt_topup_screen(
                 pending_receipt,
                 db_user.language,
+                show_return_to_checkout=has_checkout_cart,
             )
             if isinstance(callback.message, InaccessibleMessage):
                 await callback.message.answer(full_text, reply_markup=keyboard, parse_mode='HTML')

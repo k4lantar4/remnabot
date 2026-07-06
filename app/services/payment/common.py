@@ -26,6 +26,7 @@ from app.services.subscription_checkout_service import (
     should_offer_checkout_resume,
 )
 from app.services.user_cart_service import user_cart_service
+from app.utils.cart_checkout_keyboard import return_to_checkout_button, user_has_checkout_cart
 from app.utils.miniapp_buttons import build_main_menu_button, build_miniapp_or_callback_button
 from app.utils.payment_logger import payment_logger as logger
 
@@ -98,24 +99,17 @@ class PaymentCommonMixin:
         # Если для пользователя есть незавершённый checkout, предлагаем вернуться к нему.
         if user:
             try:
-                has_saved_cart = await user_cart_service.has_user_cart(user.id)
+                has_checkout_cart = await user_has_checkout_cart(user.id)
             except Exception as cart_error:
                 logger.warning(
                     'Не удалось проверить наличие сохраненной корзины у пользователя',
                     user_id=user.id,
                     cart_error=cart_error,
                 )
-                has_saved_cart = False
+                has_checkout_cart = False
 
-            if has_saved_cart:
-                keyboard_rows.append(
-                    [
-                        build_miniapp_or_callback_button(
-                            text=texts.RETURN_TO_SUBSCRIPTION_CHECKOUT,
-                            callback_data='return_to_saved_cart',
-                        )
-                    ]
-                )
+            if has_checkout_cart:
+                keyboard_rows.append([return_to_checkout_button(texts)])
             else:
                 draft_exists = await has_subscription_checkout_draft(user.id)
                 if should_offer_checkout_resume(user, draft_exists, subscription=subscription):

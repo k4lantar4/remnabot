@@ -32,9 +32,14 @@ def format_pending_receipt_notice(receipt: C2cReceipt, language: str) -> str:
     ).format(id=receipt.id, amount=amount_display)
 
 
+from app.utils.cart_checkout_keyboard import return_to_checkout_button
+
+
 def build_pending_receipt_topup_screen(
     receipt: C2cReceipt,
     language: str,
+    *,
+    show_return_to_checkout: bool = False,
 ) -> tuple[str, types.InlineKeyboardMarkup]:
     """Full-screen top-up state when C2C receipt awaits admin review."""
     texts = get_texts(language)
@@ -59,6 +64,8 @@ def build_pending_receipt_topup_screen(
                 )
             ]
         )
+    if show_return_to_checkout:
+        keyboard_rows.append([return_to_checkout_button(texts)])
     keyboard_rows.append(
         [InlineKeyboardButton(text=texts.BACK, callback_data='menu_balance')],
     )
