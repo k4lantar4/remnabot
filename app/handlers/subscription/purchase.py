@@ -115,6 +115,7 @@ from app.utils.pricing_utils import (
     calculate_months_from_days,
     format_period_description,
 )
+from app.utils.purchase_success_delivery import send_purchase_success_delivery
 from app.utils.subscription_utils import (
     build_miniapp_subscription_connect_keyboard,
     get_display_subscription_link,
@@ -2784,14 +2785,8 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                     )
                 )
             else:
-                import_link_section = texts.t(
-                    'SUBSCRIPTION_IMPORT_LINK_SECTION',
-                    '🔗 <b>Ваша ссылка для импорта в VPN приложение:</b>\\n<code>{subscription_url}</code>',
-                ).format(subscription_url=subscription_link)
-
                 success_text = (
                     f'{texts.SUBSCRIPTION_PURCHASED}\n\n'
-                    f'{import_link_section}\n\n'
                     f'{texts.t("SUBSCRIPTION_IMPORT_INSTRUCTION_PROMPT", "📱 Нажмите кнопку ниже, чтобы получить инструкцию по настройке VPN на вашем устройстве")}'
                 )
 
@@ -2903,7 +2898,13 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                     ]
                 )
 
-            await callback.message.edit_text(success_text, reply_markup=connect_keyboard, parse_mode='HTML')
+            await send_purchase_success_delivery(
+                callback.message,
+                texts,
+                subscription,
+                summary_html=success_text,
+                keyboard=connect_keyboard,
+            )
         else:
             purchase_text = texts.SUBSCRIPTION_PURCHASED
             if discount_note:
