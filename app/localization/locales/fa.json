@@ -4070,6 +4070,8 @@
   "TARIFF_PURCHASE_CONFIRM_TRAFFIC_LINE": "📊 مبلغ حجم: {amount}",
   "TARIFF_PURCHASE_CONFIRM_TOTAL": "💰 <b>قابل پرداخت: {amount}</b>",
   "TARIFF_PURCHASE_INSUFFICIENT": "❌ <b>موجودی ناکافی</b>\n\n📦 سرویس: <b>{name}</b>\n📅 دوره: {period}\n💰 هزینه: {cost}\n\n💳 موجودی: {balance}\n⚠️ کسری: <b>{missing}</b>\n\n{cart_note}",
+  "C2C_TOPUP_LEDGER_DESC": "واریز کارت‌به‌کارت: {amount} (رسید #{receipt_id})",
+  "C2C_TOPUP_LEDGER_DESC_PARTIAL": "واریز کارت‌به‌کارت: {amount} (درخواست {requested}، رسید #{receipt_id})",
   "TARIFF_PURCHASE_LEDGER_DESC": "خرید سرویس «{name}» برای {days} روز",
   "TARIFF_PURCHASE_SUCCESS": "🎉 <b>سرویس شما فعال شد!</b>\n\n📦 سرویس: <b>{name}</b>\n📊 حجم: {traffic}\n👥 تعداد کاربر: {devices}\n📅 مدت: {period}\n💰 مبلغ پرداخت: {charged}\n\n✅ گام بعدی: از منو «اشتراک من» → «🔗 دریافت لینک» را بزنید.",
   "TARIFF_REFUND_ALREADY_ACTIVE": "بازگشت: سرویس «{name}» از قبل فعال است",
