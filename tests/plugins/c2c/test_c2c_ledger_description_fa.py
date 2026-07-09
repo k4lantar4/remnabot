@@ -11,6 +11,7 @@ from app.database.models import C2cReceiptStatus
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.service import C2cPaymentService
 from app.services.subscription_auto_purchase_service import _auto_purchase_tariff
+from app.config import Settings
 
 
 @pytest.mark.asyncio
@@ -76,7 +77,9 @@ async def test_auto_purchase_uses_persian_tariff_ledger_description(monkeypatch)
         name='سرویس تست',
         is_active=True,
         period_prices={'30': 100_000},
+        traffic_limit_gb=100,
         allowed_squads=[],
+        can_purchase_custom_traffic=lambda: False,
     )
 
     monkeypatch.setattr('app.database.crud.tariff.get_tariff_by_id', AsyncMock(return_value=tariff))
@@ -89,7 +92,7 @@ async def test_auto_purchase_uses_persian_tariff_ledger_description(monkeypatch)
     subtract_balance = AsyncMock(return_value=False)
     monkeypatch.setattr('app.database.crud.user.subtract_user_balance', subtract_balance)
     monkeypatch.setattr('app.services.subscription_auto_purchase_service.user_can_afford', lambda *_args, **_kw: True)
-    monkeypatch.setattr('app.services.subscription_auto_purchase_service.settings.is_multi_tariff_enabled', lambda: False)
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: False)
 
     result = await _auto_purchase_tariff(
         db,
