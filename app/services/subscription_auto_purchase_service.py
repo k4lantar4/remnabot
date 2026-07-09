@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from aiogram import Bot
+from aiogram import Bot, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +35,7 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
+from app.utils.purchase_success_delivery import send_purchase_success_delivery_to_chat
 from app.utils.subscription_user_messages import format_user_tariff_line, format_user_traffic_line
 from app.utils.subscription_utils import get_display_subscription_link
 from app.utils.timezone import format_email_datetime, format_local_datetime
@@ -55,21 +56,37 @@ def _auto_purchase_success_link_block(texts, subscription) -> str | None:
     ).format(link=subscription_link)
 
 
-def _auto_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
-    sub_callback = (
-        f'sm:{subscription.id}'
-        if settings.is_multi_tariff_enabled() and subscription
-        else 'menu_subscription'
+async def _auto_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
+    sub_id = getattr(subscription, 'id', None) if subscription else None
+    has_valid_sub_id = isinstance(sub_id, int) and sub_id > 0
+    sub_callback = f'sm:{sub_id}' if settings.is_multi_tariff_enabled() and has_valid_sub_id else 'menu_subscription'
+    connect_callback = f'sl:{sub_id}' if has_valid_sub_id else 'subscription_connect'
+    raw_setup_guide_url = get_display_subscription_link(subscription) if has_valid_sub_id else None
+    setup_guide_url = (
+        raw_setup_guide_url
+        if isinstance(raw_setup_guide_url, str) and raw_setup_guide_url.strip()
+        else None
     )
-    connect_callback = f'sl:{subscription.id}' if subscription else 'subscription_connect'
+    setup_guide_button = (
+        InlineKeyboardButton(
+            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+            web_app=types.WebAppInfo(url=setup_guide_url),
+        )
+        if setup_guide_url
+        else InlineKeyboardButton(
+            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+            callback_data='subscription_connect',
+        )
+    )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_CONNECT_LINK', '🔗 Ссылка подключения'),
+                    text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить конфиг'),
                     callback_data=connect_callback,
                 )
             ],
+            [setup_guide_button],
             [
                 InlineKeyboardButton(
                     text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
@@ -1077,24 +1094,14 @@ async def _auto_purchase_tariff(
                 getattr(user, 'language', 'ru'),
             )
 
-            link_block = _auto_purchase_success_link_block(texts, subscription)
-            hint = texts.t(
-                'AUTO_PURCHASE_SUBSCRIPTION_HINT',
-                'Перейдите в раздел «Моя подписка», чтобы получить ссылку.',
-            )
-            message_parts = [message]
-            if link_block:
-                message_parts.append(link_block)
-            message_parts.append(hint)
-            full_message = '\n\n'.join(part.strip() for part in message_parts if part and part.strip())
-
-            keyboard = _auto_purchase_success_keyboard(texts, subscription)
-
-            await bot.send_message(
-                chat_id=user.telegram_id,
-                text=full_message,
-                reply_markup=keyboard,
-                parse_mode='HTML',
+            keyboard = await _auto_purchase_success_keyboard(texts, subscription)
+            await send_purchase_success_delivery_to_chat(
+                bot,
+                user.telegram_id,
+                texts,
+                subscription,
+                summary_html=message,
+                keyboard=keyboard,
             )
         except Exception as error:
             logger.warning(
@@ -3282,44 +3289,38 @@ async def _process_legacy_generic_cart(
                     'AUTO_PURCHASE_SUBSCRIPTION_SUCCESS',
                     '✅ Subscription purchased automatically after balance top-up ({period}).',
                 ).format(period=period_label)
-                if settings.is_multi_tariff_enabled() and subscription and getattr(subscription, 'tariff_id', None):
+                tariff_id = getattr(subscription, 'tariff_id', None) if subscription else None
+                if settings.is_multi_tariff_enabled() and isinstance(tariff_id, int) and tariff_id > 0:
                     try:
                         from app.database.crud.tariff import get_tariff_by_id as _get_tariff_label
 
-                        _t = await _get_tariff_label(db, subscription.tariff_id)
+                        _t = await _get_tariff_label(db, tariff_id)
                         if _t:
                             auto_message += format_user_tariff_line(texts, _t.name)
                     except Exception:
                         pass
-                if subscription and getattr(subscription, 'traffic_limit_gb', None):
+                traffic_limit_gb = getattr(subscription, 'traffic_limit_gb', None) if subscription else None
+                if isinstance(traffic_limit_gb, int) and traffic_limit_gb > 0:
                     auto_message += format_user_traffic_line(
                         texts,
-                        subscription.traffic_limit_gb,
+                        traffic_limit_gb,
                         getattr(user, 'language', 'ru'),
                     )
 
-                link_block = _auto_purchase_success_link_block(texts, subscription)
-                hint_message = texts.t(
-                    'AUTO_PURCHASE_SUBSCRIPTION_HINT',
-                    "Open the 'My subscription' section to access your link.",
-                )
-
                 purchase_message = purchase_result.get('message', '')
                 message_parts = [auto_message, purchase_message]
-                if link_block:
-                    message_parts.append(link_block)
-                message_parts.append(hint_message)
-                full_message = '\n\n'.join(
+                summary_html = '\n\n'.join(
                     part.strip() for part in message_parts if part and part.strip()
                 )
 
-                keyboard = _auto_purchase_success_keyboard(texts, subscription)
-
-                await bot.send_message(
-                    chat_id=user.telegram_id,
-                    text=full_message,
-                    reply_markup=keyboard,
-                    parse_mode='HTML',
+                keyboard = await _auto_purchase_success_keyboard(texts, subscription)
+                await send_purchase_success_delivery_to_chat(
+                    bot,
+                    user.telegram_id,
+                    texts,
+                    subscription,
+                    summary_html=summary_html,
+                    keyboard=keyboard,
                 )
             except Exception as error:  # pragma: no cover - defensive logging
                 logger.error(
