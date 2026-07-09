@@ -27,13 +27,14 @@
 
 | # | Path | Expected | Status |
 |---|------|----------|--------|
-| 1 | Buy service (balance) → success | Copyable link in body + chooser button | pending |
-| 2 | اشتراک من → دریافت لینک | Chooser with 2 buttons only | pending |
+| 1 | Buy service (balance) → success | QR photo + caption with config + 2 buttons (کانفیگ/راهنما) | pending |
+| 2 | اشتراک من → دریافت کانفیگ | Chooser with 2 buttons only | pending |
 | 3 | Tap «خودم» | WebApp guide only — no panel URL button | pending |
 | 4 | Tap «مشتری» | Link in `<code>`, forward template, NOT bot URL | pending |
 | 5 | C2C from insufficient checkout → receipt submit | Text mentions service activation | pending |
 | 6 | C2C approve (autopurchase ok) | One clear message — not balance-only + separate | pending |
 | 7 | Partner rep: share screen | Can copy link without reading detail onboarding | pending |
+| 10 | C2C top-up ledger (fa) | History/ledger line is Persian (`واریز کارت‌به‌کارت` / `خرید سرویس`) | pending |
 
 ## Sign-off
 
