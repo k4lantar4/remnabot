@@ -880,7 +880,15 @@ async def _auto_purchase_tariff(
 
     # Списываем баланс
     try:
-        description = f'Покупка тарифа {tariff.name} на {format_days_declension(period_days)}'
+        language = getattr(user, 'language', 'ru')
+        texts = get_texts(language)
+        description = texts.t(
+            'TARIFF_PURCHASE_LEDGER_DESC',
+            "Покупка тарифа '{name}' на {days} дней",
+        ).format(
+            name=tariff.name,
+            days=format_days_declension(period_days, language),
+        )
         success = await subtract_user_balance(
             db,
             user,
