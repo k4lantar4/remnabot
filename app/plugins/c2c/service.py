@@ -14,6 +14,7 @@ from app.config import settings
 from app.database.crud.transaction import create_transaction, get_transaction_by_external_id
 from app.database.crud.user import add_user_balance, get_user_by_id, lock_user_for_update
 from app.database.models import C2cReceipt, C2cReceiptStatus, PaymentMethod, Transaction, TransactionType, User
+from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.admin_delivery import build_delivery_kwargs, send_with_admin_topic_fallback
 from app.plugins.c2c.constants import (
@@ -188,13 +189,24 @@ class C2cPaymentService:
 
         credit = credited_amount_kopeks if credited_amount_kopeks is not None else receipt.amount_kopeks
         receipt.approved_amount_kopeks = credit
+        texts = get_texts(getattr(user, 'language', 'ru'))
         if credit != receipt.amount_kopeks:
-            description = (
-                f'Card-to-card top-up: {settings.format_balance(credit)} (receipt #{receipt_id}, '
-                f'requested {settings.format_balance(receipt.amount_kopeks)})'
+            description = texts.t(
+                'C2C_TOPUP_LEDGER_DESC_PARTIAL',
+                'Пополнение C2C: {amount} (запрошено {requested}, чек #{receipt_id})',
+            ).format(
+                amount=settings.format_balance(credit),
+                requested=settings.format_balance(receipt.amount_kopeks),
+                receipt_id=receipt_id,
             )
         else:
-            description = f'Card-to-card top-up: {settings.format_balance(credit)} (receipt #{receipt_id})'
+            description = texts.t(
+                'C2C_TOPUP_LEDGER_DESC',
+                'Пополнение C2C: {amount} (чек #{receipt_id})',
+            ).format(
+                amount=settings.format_balance(credit),
+                receipt_id=receipt_id,
+            )
 
         balance_credit_toman = credit
 
@@ -275,7 +287,6 @@ class C2cPaymentService:
 
         user = await get_user_by_id(db, receipt.user_id)
         if user and user.telegram_id and self.bot and notify_user:
-            from app.localization.texts import get_texts
             from app.plugins.c2c.reject_reasons import resolve_user_reject_reason_text
 
             texts = get_texts(user.language)

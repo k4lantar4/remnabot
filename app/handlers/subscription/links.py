@@ -11,11 +11,13 @@ from app.keyboards.inline import (
     get_happ_download_button_row,
 )
 from app.localization.texts import get_texts
+from app.utils.purchase_success_delivery import send_config_qr_reply
 from app.utils.subscription_utils import (
     build_miniapp_subscription_connect_keyboard,
     convert_subscription_link_to_happ_scheme,
     get_display_subscription_link,
     get_happ_cryptolink_redirect_link,
+    resolve_connect_webapp_url,
 )
 
 from .common import get_platforms_list, load_app_config_async, logger
@@ -61,8 +63,8 @@ async def _show_connect_chooser(
             ],
             [
                 InlineKeyboardButton(
-                    text=texts.t('CONNECT_CHOOSER_BTN_SHARE', '📋 Ссылка для клиента'),
-                    callback_data=f'sl_share:{sub_id}',
+                    text=texts.t('CONNECT_CHOOSER_BTN_CONFIG', '📋 Получить QR и ссылку'),
+                    callback_data=f'sl_config:{sub_id}',
                 )
             ],
         ]
@@ -115,7 +117,7 @@ async def handle_connect_self(
     )
 
 
-async def handle_connect_share(
+async def handle_connect_config(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
     if isinstance(callback.message, InaccessibleMessage):
@@ -127,54 +129,28 @@ async def handle_connect_share(
     if subscription is None:
         return
 
-    subscription_link = get_display_subscription_link(subscription)
-    if not subscription_link:
-        await callback.answer(
-            texts.t(
-                'SUBSCRIPTION_NO_ACTIVE_LINK',
-                '⚠ У вас нет активной подписки или ссылка еще генерируется',
-            ),
-            show_alert=True,
+    setup_guide_url = await resolve_connect_webapp_url(subscription, sub_id)
+    rows: list[list[InlineKeyboardButton]] = []
+    if setup_guide_url:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+                    web_app=types.WebAppInfo(url=setup_guide_url),
+                )
+            ]
         )
-        return
+    rows.append([InlineKeyboardButton(text=texts.BACK, callback_data=_connect_back_cb(sub_id))])
+    keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
 
-    await callback.answer()
-    message = (
-        texts.t(
-            'CONNECT_SHARE_TITLE',
-            '📋 <b>Ссылка сервиса</b> — для отправки клиенту',
-        )
-        + '\n\n'
-        + texts.t(
-            'CONNECT_SHARE_LINK_BLOCK',
-            '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
-        ).format(link=subscription_link)
-        + '\n\n'
-        + texts.t(
-            'CONNECT_SHARE_NOT_BOT_HINT',
-            'ℹ️ توجه: это ссылка на подписку, а не адрес нашего бота/канала.',
-        )
-        + '\n\n'
-        + texts.t(
-            'CONNECT_SHARE_FORWARD_TEMPLATE',
-            '🔗 Ссылка VPN:\n<code>{link}</code>\n\nВставьте ссылку в VPN-приложение.',
-        ).format(link=subscription_link)
-    )
+    await send_config_qr_reply(callback, texts, subscription, keyboard=keyboard)
 
-    rows: list[list[InlineKeyboardButton]] = [
-        [
-            InlineKeyboardButton(
-                text=texts.t('CONNECT_SHARE_BTN_OPEN_BROWSER', '🔗 Проверить ссылку в браузере'),
-                url=subscription_link,
-            )
-        ],
-        [InlineKeyboardButton(text=texts.BACK, callback_data=_connect_back_cb(sub_id))],
-    ]
-    await callback.message.edit_text(
-        message,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-        parse_mode='HTML',
-    )
+
+async def handle_connect_share(
+    callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
+):
+    """Backward compat: legacy sl_share callbacks deliver QR+link like sl_config."""
+    await handle_connect_config(callback, db_user, db, state)
 
 
 async def handle_connect_subscription(

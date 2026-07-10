@@ -36,10 +36,11 @@ from app.utils.formatting import format_period, format_price_kopeks, format_traf
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import resolve_period_price
 from app.utils.promo_offer import get_user_active_promo_discount_percent
+from app.utils.purchase_success_delivery import build_post_purchase_connect_keyboard, send_purchase_success_delivery
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 from app.utils.subscription_display import subscription_account_label
-from app.utils.subscription_utils import get_display_subscription_link
+from app.utils.subscription_utils import get_display_subscription_link, resolve_connect_webapp_url
 
 
 logger = structlog.get_logger(__name__)
@@ -87,31 +88,9 @@ def _with_post_purchase_onboarding(texts, body: str, subscription=None) -> str:
     return '\n\n'.join(parts)
 
 
-def _tariff_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
+async def _tariff_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
     """Post-purchase success: connect guide CTA + subscription detail."""
-    sub_callback = (
-        f'sm:{subscription.id}'
-        if settings.is_multi_tariff_enabled() and subscription
-        else 'menu_subscription'
-    )
-    connect_callback = f'sl:{subscription.id}' if subscription else 'subscription_connect'
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_CONNECT_LINK', '🔗 Ссылка подключения'),
-                    callback_data=connect_callback,
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                    callback_data=sub_callback,
-                )
-            ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-        ]
-    )
+    return await build_post_purchase_connect_keyboard(texts, subscription)
 
 
 def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bool = False) -> bool:
@@ -2035,25 +2014,27 @@ async def handle_custom_confirm(
 
         traffic_display = format_traffic(traffic_limit, db_user.language)
 
-        await callback.message.edit_text(
-            _with_post_purchase_onboarding(
-                texts,
-                texts.t(
-                    'TARIFF_PURCHASE_SUCCESS',
-                    '🎉 <b>Подписка успешно оформлена!</b>\n\n'
-                    '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                    '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
-                ).format(
-                    name=html.escape(tariff.name),
-                    traffic=traffic_display,
-                    devices=tariff.device_limit,
-                    period=format_period(custom_days, db_user.language),
-                    charged=format_price_kopeks(total_price),
-                ),
-                subscription,
+        summary_html = _with_post_purchase_onboarding(
+            texts,
+            texts.t(
+                'TARIFF_PURCHASE_SUCCESS',
+                '🎉 <b>Подписка успешно оформлена!</b>\n\n'
+                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
+                '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic_display,
+                devices=tariff.device_limit,
+                period=format_period(custom_days, db_user.language),
+                charged=format_price_kopeks(total_price),
             ),
-            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-            parse_mode='HTML',
+        )
+        await send_purchase_success_delivery(
+            callback.message,
+            texts,
+            subscription,
+            summary_html=summary_html,
+            keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
         )
     except Exception as e:
         logger.error('Ошибка при покупке тарифа с кастомными параметрами', error=e, exc_info=True)
@@ -2603,25 +2584,27 @@ async def confirm_tariff_purchase(
 
     traffic = format_traffic(subscription.traffic_limit_gb or purchase_traffic_gb, db_user.language)
 
-    await callback.message.edit_text(
-        _with_post_purchase_onboarding(
-            texts,
-            texts.t(
-                'TARIFF_PURCHASE_SUCCESS',
-                '🎉 <b>Подписка успешно оформлена!</b>\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-                period=format_period(period, db_user.language),
-                charged=format_price_kopeks(final_price),
-            ),
-            subscription,
+    summary_html = _with_post_purchase_onboarding(
+        texts,
+        texts.t(
+            'TARIFF_PURCHASE_SUCCESS',
+            '🎉 <b>Подписка успешно оформлена!</b>\n\n'
+            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
+            '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=tariff.device_limit,
+            period=format_period(period, db_user.language),
+            charged=format_price_kopeks(final_price),
         ),
-        reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-        parse_mode='HTML',
+    )
+    await send_purchase_success_delivery(
+        callback.message,
+        texts,
+        subscription,
+        summary_html=summary_html,
+        keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
     )
 
 
@@ -2909,25 +2892,27 @@ async def confirm_daily_tariff_purchase(
 
     traffic = format_traffic(tariff.traffic_limit_gb)
 
-    await callback.message.edit_text(
-        _with_post_purchase_onboarding(
-            texts,
-            texts.t(
-                'TARIFF_DAILY_SUCCESS',
-                '🎉 <b>Суточная подписка оформлена!</b>\n\n'
-                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                '🔄 Тип: Суточный\n💰 Списано: {charged}\n\n'
-                'ℹ️ Следующее списание через 24 часа.\nПерейдите в раздел «Подписка» для подключения.',
-            ).format(
-                name=html.escape(tariff.name),
-                traffic=traffic,
-                devices=tariff.device_limit,
-                charged=format_price_kopeks(final_daily_price),
-            ),
-            subscription,
+    summary_html = _with_post_purchase_onboarding(
+        texts,
+        texts.t(
+            'TARIFF_DAILY_SUCCESS',
+            '🎉 <b>Суточная подписка оформлена!</b>\n\n'
+            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
+            '🔄 Тип: Суточный\n💰 Списано: {charged}\n\n'
+            'ℹ️ Следующее списание через 24 часа.\nПерейдите в раздел «Подписка» для подключения.',
+        ).format(
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=tariff.device_limit,
+            charged=format_price_kopeks(final_daily_price),
         ),
-        reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-        parse_mode='HTML',
+    )
+    await send_purchase_success_delivery(
+        callback.message,
+        texts,
+        subscription,
+        summary_html=summary_html,
+        keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
     )
 
 
@@ -3580,25 +3565,27 @@ async def confirm_tariff_extend(
 
         traffic = format_traffic(subscription.traffic_limit_gb or tariff.traffic_limit_gb, db_user.language)
 
-        await callback.message.edit_text(
-            _with_post_purchase_onboarding(
-                texts,
-                texts.t(
-                    'TARIFF_RENEW_SUCCESS',
-                    '🎉 <b>Подписка успешно продлена!</b>\n\n'
-                    '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
-                    '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
-                ).format(
-                    name=html.escape(tariff.name),
-                    traffic=traffic,
-                    devices=actual_device_limit,
-                    period=format_period(period, db_user.language),
-                    charged=format_price_kopeks(final_price),
-                ),
-                subscription,
+        summary_html = _with_post_purchase_onboarding(
+            texts,
+            texts.t(
+                'TARIFF_RENEW_SUCCESS',
+                '🎉 <b>Подписка успешно продлена!</b>\n\n'
+                '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n'
+                '📅 Период: {period}\n💰 Списано: {charged}\n\nПерейдите в раздел «Подписка» для подключения.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=actual_device_limit,
+                period=format_period(period, db_user.language),
+                charged=format_price_kopeks(final_price),
             ),
-            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-            parse_mode='HTML',
+        )
+        await send_purchase_success_delivery(
+            callback.message,
+            texts,
+            subscription,
+            summary_html=summary_html,
+            keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
         )
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
@@ -4371,29 +4358,31 @@ async def confirm_tariff_switch(
             period=days_for_new_tariff
         )
 
-        await callback.message.edit_text(
-            _with_post_purchase_onboarding(
-                texts,
-                texts.t(
-                    'TARIFF_SWITCH_SUCCESS',
-                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
-                    '📦 Новый тариф: <b>{name}</b>\n'
-                    '📊 Трафик: {traffic}\n'
-                    '📱 Устройств: {devices}\n'
-                    '💰 Списано: {charged}\n'
-                    '{time_info}\n\n'
-                    'Перейдите в раздел «Подписка» для просмотра деталей.',
-                ).format(
-                    name=html.escape(tariff.name),
-                    traffic=traffic,
-                    devices=tariff.device_limit,
-                    charged=format_price_kopeks(final_price),
-                    time_info=time_info,
-                ),
-                subscription,
+        summary_html = _with_post_purchase_onboarding(
+            texts,
+            texts.t(
+                'TARIFF_SWITCH_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '💰 Списано: {charged}\n'
+                '{time_info}\n\n'
+                'Перейдите в раздел «Подписка» для просмотра деталей.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_price),
+                time_info=time_info,
             ),
-            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-            parse_mode='HTML',
+        )
+        await send_purchase_success_delivery(
+            callback.message,
+            texts,
+            subscription,
+            summary_html=summary_html,
+            keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
         )
 
     except Exception as e:
@@ -4653,28 +4642,30 @@ async def confirm_daily_tariff_switch(
 
         traffic = format_traffic(tariff.traffic_limit_gb)
 
-        await callback.message.edit_text(
-            _with_post_purchase_onboarding(
-                texts,
-                texts.t(
-                    'TARIFF_SWITCH_DAILY_SUCCESS',
-                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
-                    '📦 Новый тариф: <b>{name}</b>\n'
-                    '📊 Трафик: {traffic}\n'
-                    '📱 Устройств: {devices}\n'
-                    '🔄 Тип: Суточный\n'
-                    '💰 Списано: {charged}\n\n'
-                    'ℹ️ Следующее списание через 24 часа.',
-                ).format(
-                    name=html.escape(tariff.name),
-                    traffic=traffic,
-                    devices=tariff.device_limit,
-                    charged=format_price_kopeks(final_daily_price),
-                ),
-                subscription,
+        summary_html = _with_post_purchase_onboarding(
+            texts,
+            texts.t(
+                'TARIFF_SWITCH_DAILY_SUCCESS',
+                '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                '📦 Новый тариф: <b>{name}</b>\n'
+                '📊 Трафик: {traffic}\n'
+                '📱 Устройств: {devices}\n'
+                '🔄 Тип: Суточный\n'
+                '💰 Списано: {charged}\n\n'
+                'ℹ️ Следующее списание через 24 часа.',
+            ).format(
+                name=html.escape(tariff.name),
+                traffic=traffic,
+                devices=tariff.device_limit,
+                charged=format_price_kopeks(final_daily_price),
             ),
-            reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-            parse_mode='HTML',
+        )
+        await send_purchase_success_delivery(
+            callback.message,
+            texts,
+            subscription,
+            summary_html=summary_html,
+            keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
         )
 
     except Exception as e:
@@ -5518,28 +5509,30 @@ async def confirm_instant_switch(
 
         # Для суточного тарифа другое сообщение об успехе
         if is_new_daily:
-            await callback.message.edit_text(
-                _with_post_purchase_onboarding(
-                    texts,
-                    texts.t(
-                        'TARIFF_INSTANT_SWITCH_DAILY_SUCCESS',
-                        '🎉 <b>Тариф успешно изменён!</b>\n\n'
-                        '📦 Новый тариф: <b>{name}</b>\n'
-                        '📊 Трафик: {traffic}\n'
-                        '📱 Устройств: {devices}\n'
-                        '🔄 Тип: Суточный\n'
-                        '💰 Списано: {charged}\n\n'
-                        'ℹ️ Следующее списание через 24 часа.',
-                    ).format(
-                        name=html.escape(new_tariff.name),
-                        traffic=traffic,
-                        devices=new_tariff.device_limit,
-                        charged=format_price_kopeks(daily_price),
-                    ),
-                    subscription,
+            summary_html = _with_post_purchase_onboarding(
+                texts,
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_DAILY_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '🔄 Тип: Суточный\n'
+                    '💰 Списано: {charged}\n\n'
+                    'ℹ️ Следующее списание через 24 часа.',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    charged=format_price_kopeks(daily_price),
                 ),
-                reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-                parse_mode='HTML',
+            )
+            await send_purchase_success_delivery(
+                callback.message,
+                texts,
+                subscription,
+                summary_html=summary_html,
+                keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
             )
         else:
             if is_upgrade:
@@ -5549,28 +5542,30 @@ async def confirm_instant_switch(
             else:
                 cost_text = texts.t('TARIFF_SWITCH_COST_FREE', '💰 Бесплатно')
 
-            await callback.message.edit_text(
-                _with_post_purchase_onboarding(
-                    texts,
-                    texts.t(
-                        'TARIFF_INSTANT_SWITCH_SUCCESS',
-                        '🎉 <b>Тариф успешно изменён!</b>\n\n'
-                        '📦 Новый тариф: <b>{name}</b>\n'
-                        '📊 Трафик: {traffic}\n'
-                        '📱 Устройств: {devices}\n'
-                        '⏰ Осталось дней: {days}\n'
-                        '{cost}',
-                    ).format(
-                        name=html.escape(new_tariff.name),
-                        traffic=traffic,
-                        devices=new_tariff.device_limit,
-                        days=remaining_days,
-                        cost=cost_text,
-                    ),
-                    subscription,
+            summary_html = _with_post_purchase_onboarding(
+                texts,
+                texts.t(
+                    'TARIFF_INSTANT_SWITCH_SUCCESS',
+                    '🎉 <b>Тариф успешно изменён!</b>\n\n'
+                    '📦 Новый тариф: <b>{name}</b>\n'
+                    '📊 Трафик: {traffic}\n'
+                    '📱 Устройств: {devices}\n'
+                    '⏰ Осталось дней: {days}\n'
+                    '{cost}',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    traffic=traffic,
+                    devices=new_tariff.device_limit,
+                    days=remaining_days,
+                    cost=cost_text,
                 ),
-                reply_markup=_tariff_purchase_success_keyboard(texts, subscription),
-                parse_mode='HTML',
+            )
+            await send_purchase_success_delivery(
+                callback.message,
+                texts,
+                subscription,
+                summary_html=summary_html,
+                keyboard=await _tariff_purchase_success_keyboard(texts, subscription),
             )
 
     except Exception as e:

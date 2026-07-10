@@ -260,7 +260,11 @@ def _build_subscriptions_keyboard(
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str = 'ru') -> types.InlineKeyboardMarkup:
+async def _build_subscription_detail_keyboard(
+    sub_id: int, sub=None, *, language: str = 'ru'
+) -> types.InlineKeyboardMarkup:
+    from app.utils.subscription_utils import resolve_connect_webapp_url
+
     texts = get_texts(language)
     """Build keyboard for single subscription management.
 
@@ -272,14 +276,33 @@ def _build_subscription_detail_keyboard(sub_id: int, sub=None, *, language: str 
     buttons = []
 
     if not is_inactive:
+        setup_guide_url = await resolve_connect_webapp_url(sub, sub_id) if sub else None
         buttons.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_CONNECT_LINK', '🔗 Ссылка подключения'),
-                    callback_data=f'sl:{sub_id}',
+                    text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить QR и ссылку'),
+                    callback_data=f'sl_config:{sub_id}',
                 )
             ]
         )
+        if setup_guide_url:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+                        web_app=types.WebAppInfo(url=setup_guide_url),
+                    )
+                ]
+            )
+        else:
+            buttons.append(
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+                        callback_data=f'sl_self:{sub_id}',
+                    )
+                ]
+            )
 
     buttons.append(
         [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_RENEW', '🔄 Продлить'), callback_data=f'se:{sub_id}')]
@@ -704,7 +727,7 @@ async def show_subscription_detail(
             )
         )
 
-    keyboard = _build_subscription_detail_keyboard(sub_id, sub=subscription, language=db_user.language)
+    keyboard = await _build_subscription_detail_keyboard(sub_id, sub=subscription, language=db_user.language)
 
     if callback.message:
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
@@ -753,11 +776,13 @@ async def handle_subscription_link(
     if not subscription:
         return
 
-    from .links import handle_connect_self, handle_connect_share, handle_connect_subscription
+    from .links import handle_connect_config, handle_connect_self, handle_connect_share, handle_connect_subscription
 
     data = callback.data or ''
     if data.startswith('sl_self:'):
         await handle_connect_self(callback, db_user, db, state)
+    elif data.startswith('sl_config:'):
+        await handle_connect_config(callback, db_user, db, state)
     elif data.startswith('sl_share:'):
         await handle_connect_share(callback, db_user, db, state)
     else:
