@@ -37,6 +37,8 @@ def _grant_cart_topup_intent(monkeypatch):
 
 
 class DummyTexts:
+    BACK = 'Back'
+
     def t(self, key: str, default: str):
         return default
 
@@ -53,6 +55,7 @@ async def test_auto_purchase_success_keyboard_has_connect_chooser(monkeypatch):
 
     subscription = MagicMock()
     subscription.id = 123
+    subscription.subscription_url = 'https://example.com/sub/123'
 
     user = MagicMock(spec=User)
     user.id = 42
@@ -193,6 +196,10 @@ async def test_auto_purchase_success_keyboard_has_connect_chooser(monkeypatch):
         'app.services.subscription_auto_purchase_service.get_display_subscription_link',
         lambda sub: 'https://example.com/sub/123',
     )
+    monkeypatch.setattr(
+        'app.utils.purchase_success_delivery.resolve_connect_webapp_url',
+        AsyncMock(return_value=None),
+    )
 
     admin_service_mock = MagicMock()
     admin_service_mock.send_subscription_purchase_notification = AsyncMock()
@@ -218,7 +225,7 @@ async def test_auto_purchase_success_keyboard_has_connect_chooser(monkeypatch):
     assert bot.send_photo.await_count + bot.send_message.await_count >= 1
     delivery_call = bot.send_photo.await_args if bot.send_photo.await_count else bot.send_message.await_args
     keyboard = delivery_call.kwargs['reply_markup']
-    assert 'sl:123' in _keyboard_callback_data(keyboard)
+    assert 'sl_config:123' in _keyboard_callback_data(keyboard)
     assert 'back_to_menu' in _keyboard_callback_data(keyboard)
 
 

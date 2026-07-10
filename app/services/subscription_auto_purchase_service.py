@@ -35,7 +35,10 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
-from app.utils.purchase_success_delivery import send_purchase_success_delivery_to_chat
+from app.utils.purchase_success_delivery import (
+    build_post_purchase_connect_keyboard,
+    send_purchase_success_delivery_to_chat,
+)
 from app.utils.subscription_user_messages import format_user_tariff_line, format_user_traffic_line
 from app.utils.subscription_utils import get_display_subscription_link
 from app.utils.timezone import format_email_datetime, format_local_datetime
@@ -57,50 +60,7 @@ def _auto_purchase_success_link_block(texts, subscription) -> str | None:
 
 
 async def _auto_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
-    sub_id = getattr(subscription, 'id', None) if subscription else None
-    has_valid_sub_id = isinstance(sub_id, int) and sub_id > 0
-    sub_callback = f'sm:{sub_id}' if settings.is_multi_tariff_enabled() and has_valid_sub_id else 'menu_subscription'
-    connect_callback = f'sl:{sub_id}' if has_valid_sub_id else 'subscription_connect'
-    raw_setup_guide_url = get_display_subscription_link(subscription) if has_valid_sub_id else None
-    setup_guide_url = (
-        raw_setup_guide_url
-        if isinstance(raw_setup_guide_url, str) and raw_setup_guide_url.strip()
-        else None
-    )
-    setup_guide_button = (
-        InlineKeyboardButton(
-            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-            web_app=types.WebAppInfo(url=setup_guide_url),
-        )
-        if setup_guide_url
-        else InlineKeyboardButton(
-            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-            callback_data='subscription_connect',
-        )
-    )
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить конфиг'),
-                    callback_data=connect_callback,
-                )
-            ],
-            [setup_guide_button],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                    callback_data=sub_callback,
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '🏠 Главное меню'),
-                    callback_data='back_to_menu',
-                )
-            ],
-        ]
-    )
+    return await build_post_purchase_connect_keyboard(texts, subscription)
 
 
 def _format_user_id(user: User) -> str:

@@ -115,7 +115,7 @@ from app.utils.pricing_utils import (
     calculate_months_from_days,
     format_period_description,
 )
-from app.utils.purchase_success_delivery import send_purchase_success_delivery
+from app.utils.purchase_success_delivery import build_post_purchase_connect_keyboard, send_purchase_success_delivery
 from app.utils.subscription_utils import (
     build_miniapp_subscription_connect_keyboard,
     get_display_subscription_link,
@@ -2793,110 +2793,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             if discount_note:
                 success_text = f'{success_text}\n\n{discount_note}'
 
-            connect_mode = settings.CONNECT_BUTTON_MODE
-
-            if connect_mode == 'miniapp_custom' and not settings.MINIAPP_CUSTOM_URL:
-                await callback.answer(
-                    texts.t(
-                        'CUSTOM_MINIAPP_URL_NOT_SET',
-                        '⚠ Кастомная ссылка для мини-приложения не настроена',
-                    ),
-                    show_alert=True,
-                )
-                return
-
-            if connect_mode == 'miniapp_subscription':
-                connect_keyboard = await build_miniapp_subscription_connect_keyboard(
-                    subscription=subscription,
-                    sub_id=subscription.id,
-                    texts=texts,
-                    back_rows=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '⬅️ В главное меню'),
-                                callback_data='back_to_menu',
-                            )
-                        ]
-                    ],
-                )
-            elif connect_mode == 'miniapp_custom':
-                if not settings.MINIAPP_CUSTOM_URL:
-                    await callback.answer(
-                        texts.t(
-                            'CUSTOM_MINIAPP_URL_NOT_SET',
-                            '⚠ Кастомная ссылка для мини-приложения не настроена',
-                        ),
-                        show_alert=True,
-                    )
-                    return
-
-                connect_keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                                web_app=types.WebAppInfo(url=settings.MINIAPP_CUSTOM_URL),
-                            )
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '⬅️ В главное меню'),
-                                callback_data='back_to_menu',
-                            )
-                        ],
-                    ]
-                )
-            elif connect_mode == 'link':
-                rows = [
-                    [InlineKeyboardButton(text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'), url=subscription_link)]
-                ]
-                happ_row = get_happ_download_button_row(texts)
-                if happ_row:
-                    rows.append(happ_row)
-                rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '⬅️ В главное меню'), callback_data='back_to_menu'
-                        )
-                    ]
-                )
-                connect_keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
-            elif connect_mode == 'happ_cryptolink':
-                rows = [
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'),
-                            callback_data='open_subscription_link',
-                        )
-                    ]
-                ]
-                happ_row = get_happ_download_button_row(texts)
-                if happ_row:
-                    rows.append(happ_row)
-                rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '⬅️ В главное меню'), callback_data='back_to_menu'
-                        )
-                    ]
-                )
-                connect_keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
-            else:
-                connect_keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('CONNECT_BUTTON', '🔗 Подключиться'), callback_data='subscription_connect'
-                            )
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                text=texts.t('BACK_TO_MAIN_MENU_BUTTON', '⬅️ В главное меню'),
-                                callback_data='back_to_menu',
-                            )
-                        ],
-                    ]
-                )
+            connect_keyboard = await build_post_purchase_connect_keyboard(texts, subscription)
 
             await send_purchase_success_delivery(
                 callback.message,
@@ -4305,7 +4202,7 @@ def register_handlers(dp: Dispatcher):
 
     dp.callback_query.register(
         handle_subscription_link,
-        F.data.startswith('sl:') | F.data.startswith('sl_self:') | F.data.startswith('sl_share:'),
+        F.data.startswith('sl:') | F.data.startswith('sl_self:') | F.data.startswith('sl_share:') | F.data.startswith('sl_config:'),
     )
     dp.callback_query.register(handle_subscription_extend, F.data.startswith('se:'))
     dp.callback_query.register(handle_subscription_traffic, F.data.startswith('st:'))

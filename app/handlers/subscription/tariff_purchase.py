@@ -36,7 +36,7 @@ from app.utils.formatting import format_period, format_price_kopeks, format_traf
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import resolve_period_price
 from app.utils.promo_offer import get_user_active_promo_discount_percent
-from app.utils.purchase_success_delivery import send_purchase_success_delivery
+from app.utils.purchase_success_delivery import build_post_purchase_connect_keyboard, send_purchase_success_delivery
 from app.utils.purchase_confirm import format_tariff_purchase_confirm_text
 from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 from app.utils.subscription_display import subscription_account_label
@@ -90,44 +90,7 @@ def _with_post_purchase_onboarding(texts, body: str, subscription=None) -> str:
 
 async def _tariff_purchase_success_keyboard(texts, subscription) -> InlineKeyboardMarkup:
     """Post-purchase success: connect guide CTA + subscription detail."""
-    sub_callback = (
-        f'sm:{subscription.id}'
-        if settings.is_multi_tariff_enabled() and subscription
-        else 'menu_subscription'
-    )
-    connect_callback = f'sl:{subscription.id}' if subscription else 'subscription_connect'
-    setup_guide_url = await resolve_connect_webapp_url(subscription, subscription.id) if subscription else None
-
-    setup_guide_button = (
-        InlineKeyboardButton(
-            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-            web_app=types.WebAppInfo(url=setup_guide_url),
-        )
-        if setup_guide_url
-        else InlineKeyboardButton(
-            text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-            callback_data='subscription_connect',
-        )
-    )
-
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить конфиг'),
-                    callback_data=connect_callback,
-                )
-            ],
-            [setup_guide_button],
-            [
-                InlineKeyboardButton(
-                    text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'),
-                    callback_data=sub_callback,
-                )
-            ],
-            [InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')],
-        ]
-    )
+    return await build_post_purchase_connect_keyboard(texts, subscription)
 
 
 def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bool = False) -> bool:

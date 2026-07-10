@@ -1,14 +1,14 @@
-# Smoke map — Purchase-Connect UX Jul 2026
+# Smoke map — Post-purchase connect parity Jul 2026
 
-> Branch `fix/purchase-connect-ux`; two-step connect chooser (self vs share), inline link on purchase success, cart-aware C2C copy.
+> Branch `fix/post-purchase-connect-parity`; QR+config delivery at purchase, re-fetch from subscription detail and chooser.
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `fix/purchase-connect-ux` |
-| Files | `links.py`, `my_subscriptions.py`, `tariff_purchase.py`, `subscription_auto_purchase_service.py`, `payment/common.py`, `plugins/c2c/`, `fa.json` |
-| Guard | `uv run pytest tests/handlers/test_connect_chooser.py tests/services/test_subscription_auto_purchase_service.py::test_auto_purchase_success_keyboard_has_connect_chooser tests/plugins/c2c/ -q` |
+| Branch | `fix/post-purchase-connect-parity` |
+| Files | `purchase_success_delivery.py`, `links.py`, `my_subscriptions.py`, `tariff_purchase.py`, `purchase.py`, `subscription_auto_purchase_service.py`, `fa.json` |
+| Guard | `uv run pytest tests/handlers/test_connect_chooser.py tests/utils/test_subscription_qr.py tests/services/test_subscription_auto_purchase_service.py -q` |
 | Deploy | `cp app/localization/locales/fa.json ./locales/fa.json` + `make staging-rebuild` |
 | Bot | `@mrj7_bot` |
 
@@ -16,25 +16,25 @@
 
 | Key / callback | Surface |
 |----------------|---------|
-| `CONNECT_CHOOSER_*` | Chooser screen (`sl:{sub_id}`) — self vs share buttons |
-| `CONNECT_SHARE_*` | Share screen — copyable link, forward template, not-bot hint |
-| `CONNECT_SELF_TITLE` | Self path — WebApp install guide only |
-| `SUBSCRIPTION_CONNECT_MINIAPP_MESSAGE` | Shortened chooser intro (no dual-path essay) |
-| `sl:{sub_id}` | Chooser entry from detail, purchase success, autopurchase |
-| `sl_self:{sub_id}` / `sl_share:{sub_id}` | Self vs share branches |
+| `CONNECT_CHOOSER_BTN_CONFIG` | Chooser — «دریافت QR و لینک اتصال» |
+| `CONNECT_CONFIG_*` | QR delivery caption (title + hint) |
+| `MY_SUB_BTN_GET_CONFIG` | Detail + post-purchase — resend QR |
+| `MY_SUB_BTN_SETUP_GUIDE` | Detail + post-purchase — WebApp guide |
+| `sl_config:{sub_id}` | Direct QR photo + link in chat |
+| `sl_self:{sub_id}` | Install guide (WebApp) |
+| `sl:{sub_id}` | Legacy chooser entry (self + config buttons) |
 
 ## User smoke checklist (`@mrj7_bot`, fa)
 
-| # | Path | Expected | Status |
-|---|------|----------|--------|
-| 1 | Buy service (balance) → success | QR photo + caption with config + 2 buttons (کانفیگ/راهنما) | pending |
-| 2 | اشتراک من → دریافت کانفیگ | Chooser with 2 buttons only | pending |
-| 3 | Tap «خودم» | WebApp guide only — no panel URL button | pending |
-| 4 | Tap «مشتری» | Link in `<code>`, forward template, NOT bot URL | pending |
-| 5 | C2C from insufficient checkout → receipt submit | Text mentions service activation | pending |
-| 6 | C2C approve (autopurchase ok) | One clear message — not balance-only + separate | pending |
-| 7 | Partner rep: share screen | Can copy link without reading detail onboarding | pending |
-| 10 | C2C top-up ledger (fa) | History/ledger line is Persian (`واریز کارت‌به‌کارت` / `خرید سرویس`) | pending |
+| # | مسیر | انتظار | Status |
+|---|------|--------|--------|
+| 1 | خرید با موجودی → موفق | عکس QR + کپشن کانفیگ + ۲ دکمه (دریافت QR/لینک + راهنمای اتصال) | pending |
+| 2 | اشتراک من → جزئیات یک سرویس | ۲ دکمه جدا: «دریافت QR و لینک» + «راهنمای اتصال» | pending |
+| 3 | زدن «راهنمای اتصال» | WebApp راهنما باز شود؛ بدون لینک مستقیم پنل | pending |
+| 4 | زدن «دریافت QR و لینک» (از جزئیات یا chooser) | عکس QR جدید + لینک در `<code>` — نه صفحه «برای مشتری» | pending |
+| 5 | C2C: موجودی کم → ارسال رسید | متن «سرویس پس از تایید فعال می‌شود» — **بدون QR** (هنوز اشتراک نیست) | pending |
+| 6 | C2C: ادمین رسید را تایید می‌کند | **یک** پیام با QR مثل خرید با موجودی (نه «شارژ شد» جدا) | pending |
+| 10 | کابینت → موجودی → تاریخچه → آخرین واریز C2C | توضیح فارسی: `واریز کارت‌به‌کارت: ...` (نه انگلیسی) | pending |
 
 ## Sign-off
 

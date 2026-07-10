@@ -17,7 +17,9 @@ CYRILLIC_RE = re.compile(r'[А-Яа-яЁё]')
 CONNECT_CHOOSER_KEYS = (
     'CONNECT_CHOOSER_TITLE',
     'CONNECT_CHOOSER_BTN_SELF',
-    'CONNECT_CHOOSER_BTN_SHARE',
+    'CONNECT_CHOOSER_BTN_CONFIG',
+    'CONNECT_CONFIG_TITLE',
+    'CONNECT_CONFIG_QR_HINT',
 )
 
 CONNECT_SHARE_KEYS = (
@@ -63,11 +65,11 @@ def test_new_connect_keys_have_no_cyrillic(key: str) -> None:
     assert match is None, f'{key} contains Cyrillic: {match.group()!r}'
 
 
-def test_purchase_py_registers_sl_self_and_sl_share_callbacks() -> None:
+def test_purchase_py_registers_connect_callback_paths() -> None:
     source = PURCHASE_PATH.read_text(encoding='utf-8')
     assert "F.data.startswith('sl_self:')" in source, (
         'purchase.py must register sl_self: callbacks for connect chooser self path'
     )
-    assert "F.data.startswith('sl_share:')" in source, (
-        'purchase.py must register sl_share: callbacks for connect chooser share path'
+    assert "F.data.startswith('sl_config:')" in source, (
+        'purchase.py must register sl_config: callbacks for config QR delivery'
     )
