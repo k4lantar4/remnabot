@@ -1259,6 +1259,10 @@ input[type='range'] {
   }
 }
 
+.purchase-range {
+  direction: ltr;
+}
+
 .purchase-range::-webkit-slider-runnable-track {
   height: 12px;
   border-radius: 6px;

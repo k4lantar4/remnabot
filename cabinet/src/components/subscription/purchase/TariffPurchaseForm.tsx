@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +51,7 @@ export function TariffPurchaseForm({
   );
   const [customDays, setCustomDays] = useState<number>(30);
   const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 1);
+  const deferredTrafficGb = useDeferredValue(customTrafficGb);
   const [useCustomDays, setUseCustomDays] = useState(false);
   const [partnerCheckout, setPartnerCheckout] = useState<PartnerCheckoutValues>({
     purchaseNote: '',
@@ -69,11 +70,11 @@ export function TariffPurchaseForm({
     : useCustomDays
       ? customDays
       : selectedTariffPeriod?.days;
-  const quoteTrafficGb = hasCustomTrafficSection ? customTrafficGb : undefined;
+  const quoteTrafficGb = hasCustomTrafficSection ? deferredTrafficGb : undefined;
   const quoteEnabled =
     !isDailyTariff && periodDays != null && (selectedTariffPeriod != null || useCustomDays);
 
-  const { data: quote } = useQuery({
+  const { data: quote, isFetching: isQuoteFetching } = useQuery({
     queryKey: ['tariff-purchase-quote', tariff.id, periodDays, quoteTrafficGb, subscriptionId],
     queryFn: () =>
       subscriptionApi.getTariffPurchaseQuote(
@@ -83,13 +84,15 @@ export function TariffPurchaseForm({
         subscriptionId ?? undefined,
       ),
     enabled: quoteEnabled,
+    placeholderData: (previousData) => previousData,
   });
 
   const trafficPackages = quote?.traffic_packages ?? [];
+  const quoteMatchesSlider = quoteTrafficGb === customTrafficGb;
 
   const perGbKopeks =
-    quoteTrafficGb && quoteTrafficGb > 0 && quote?.traffic_kopeks
-      ? Math.round(quote.traffic_kopeks / quoteTrafficGb)
+    customTrafficGb > 0 && quote?.traffic_kopeks && quoteMatchesSlider
+      ? Math.round(quote.traffic_kopeks / customTrafficGb)
       : (tariff.traffic_price_per_gb_kopeks ?? 0);
 
   const originalTrafficKopeks =
@@ -100,7 +103,7 @@ export function TariffPurchaseForm({
   const purchaseMutation = useMutation({
     mutationFn: () => {
       const days = periodDays ?? 30;
-      const trafficGb = quoteTrafficGb ?? undefined;
+      const trafficGb = hasCustomTrafficSection ? customTrafficGb : undefined;
       return subscriptionApi.purchaseTariff(
         tariff.id,
         days,
@@ -344,6 +347,7 @@ export function TariffPurchaseForm({
                     <div className="flex items-center gap-4">
                       <input
                         type="range"
+                        dir="ltr"
                         min={tariff.min_days ?? 1}
                         max={tariff.max_days ?? 365}
                         value={customDays}
@@ -418,6 +422,7 @@ export function TariffPurchaseForm({
                       <div className="flex items-center gap-4">
                         <input
                           type="range"
+                          dir="ltr"
                           min={tariff.min_traffic_gb ?? 1}
                           max={tariff.max_traffic_gb ?? 1000}
                           value={customTrafficGb}
@@ -454,7 +459,10 @@ export function TariffPurchaseForm({
                           {t('subscription.customTraffic.perGb', 'هر 1 گیگ')}: {formatPrice(perGbKopeks)}
                         </span>
                         <span className="font-medium text-accent-400">
-                          +{formatPrice(quote?.traffic_kopeks ?? 0)}
+                          +
+                          {quoteMatchesSlider && quote?.traffic_kopeks != null
+                            ? formatPrice(quote.traffic_kopeks)
+                            : formatPrice(customTrafficGb * (tariff.traffic_price_per_gb_kopeks ?? 0))}
                         </span>
                       </div>
                     </div>
@@ -480,7 +488,7 @@ export function TariffPurchaseForm({
                     {(quote.traffic_kopeks ?? 0) > 0 && (
                       <div className="flex items-start justify-between text-sm">
                         <span className="text-dark-300">
-                          {t('subscription.summary.traffic', { gb: quoteTrafficGb ?? customTrafficGb })}
+                          {t('subscription.summary.traffic', { gb: customTrafficGb })}
                         </span>
                         <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
                           {originalTrafficKopeks > quote.traffic_kopeks && (
@@ -578,7 +586,8 @@ export function TariffPurchaseForm({
                     onClick={() => purchaseMutation.mutate()}
                     disabled={
                       purchaseMutation.isPending ||
-                      !isPartnerBrandPrefixValid(partnerCheckout.panelBrandPrefix)
+                      !isPartnerBrandPrefixValid(partnerCheckout.panelBrandPrefix) ||
+                      (hasCustomTrafficSection && (!quoteMatchesSlider || isQuoteFetching))
                     }
                     className="btn-primary w-full py-3"
                   >
