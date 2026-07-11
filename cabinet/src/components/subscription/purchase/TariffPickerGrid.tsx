@@ -26,6 +26,8 @@ export interface TariffPickerGridProps {
   isTariffsMode: boolean;
   isMultiTariff: boolean;
   pinnedSubscriptionId?: number;
+  /** When `new`, show purchase labels and skip legacy/renew branches. */
+  purchaseIntent?: 'new' | 'renew';
   onSelectTariff: (tariff: Tariff) => void;
   onSwitchTariff: (tariffId: number) => void;
 }
@@ -37,6 +39,7 @@ export function TariffPickerGrid({
   isTariffsMode,
   isMultiTariff,
   pinnedSubscriptionId,
+  purchaseIntent,
   onSelectTariff,
   onSwitchTariff,
 }: TariffPickerGridProps) {
@@ -99,16 +102,21 @@ export function TariffPickerGrid({
             return 0;
           })
           .map((tariff) => {
-            const isRenewPin = pinnedSubscriptionId != null;
+            const isNewPurchase = purchaseIntent === 'new';
+            const isRenewPin = pinnedSubscriptionId != null && !isNewPurchase;
             const isMultiRebuy = isMultiTariff && tariff.is_purchased && !isRenewPin;
             const isCurrentTariff =
-              isRenewPin && (tariff.is_current || tariff.id === subscription?.tariff_id);
+              !isNewPurchase &&
+              isRenewPin &&
+              (tariff.is_current || tariff.id === subscription?.tariff_id);
             const isSubscriptionExpired =
+              !isNewPurchase &&
               isTariffsMode &&
               purchaseOptions &&
               'subscription_is_expired' in purchaseOptions &&
               purchaseOptions.subscription_is_expired === true;
             const canSwitch =
+              !isNewPurchase &&
               !isMultiTariff &&
               subscription &&
               subscription.tariff_id &&
@@ -117,7 +125,7 @@ export function TariffPickerGrid({
               !isSubscriptionExpired &&
               (subscription.is_active || subscription.is_limited);
             const isLegacySubscription =
-              subscription && !subscription.is_trial && !subscription.tariff_id;
+              !isNewPurchase && subscription && !subscription.is_trial && !subscription.tariff_id;
 
             return (
               <div

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Navigate, Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { subscriptionApi } from '../api/subscription';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../constants/devices';
 import { WebBackButton } from '../components/WebBackButton';
@@ -17,6 +17,7 @@ import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCloseOnSuccessNotification } from '../store/successNotification';
 import PurchaseCTAButton from '../components/subscription/PurchaseCTAButton';
+import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
 import {
   CopyIcon,
   CheckIcon,
@@ -1252,8 +1253,19 @@ export default function Subscription() {
         </div>
       )}
 
-      {/* Purchase / Renewal CTA */}
-      <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+      {/* Purchase / Renewal CTAs */}
+      <div className="space-y-3">
+        <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+        {isMultiTariff && subscription && !subscription.is_trial && (
+          <Link
+            to={NEW_PURCHASE_PATH}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/10 px-5 py-3.5 text-sm font-semibold text-accent-400 transition-colors hover:bg-accent-500/20"
+          >
+            <span className="text-base">+</span>
+            {t('subscriptions.buyAnother')}
+          </Link>
+        )}
+      </div>
 
       {/* Delete expired subscription */}
       {isMultiTariff &&

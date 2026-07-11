@@ -17,6 +17,7 @@ import { getGlassColors } from '../utils/glassTheme';
 import { useAuthStore } from '../store/auth';
 import SubscriptionListCard from '../components/subscription/SubscriptionListCard';
 import TrialOfferCard from '../components/dashboard/TrialOfferCard';
+import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
 
 const PAGE_LIMIT = 10;
 
@@ -152,7 +153,7 @@ export default function Subscriptions() {
         </h1>
         {!isLoading && hasActivePaid && (
           <button
-            onClick={() => navigate('/subscription/purchase')}
+            onClick={() => navigate(NEW_PURCHASE_PATH)}
             className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
             style={{
               background: 'rgba(var(--color-accent-400), 0.1)',
@@ -212,7 +213,7 @@ export default function Subscriptions() {
 
       {!isLoading && accountTotal > 0 && !hasActivePaid && (
         <button
-          onClick={() => navigate('/subscription/purchase')}
+          onClick={() => navigate(NEW_PURCHASE_PATH)}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 p-3.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
         >
           <PlusIcon className="h-5 w-5" />
@@ -242,7 +243,7 @@ export default function Subscriptions() {
             trialError={trialError}
           />
           <button
-            onClick={() => navigate('/subscription/purchase')}
+            onClick={() => navigate(NEW_PURCHASE_PATH)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
           >
             <PlusIcon className="h-5 w-5" />
@@ -251,7 +252,7 @@ export default function Subscriptions() {
         </div>
       )}
       {hasNoSubscriptions && !trialLoading && !trialInfo?.is_available && (
-        <EmptyState onBuy={() => navigate('/subscription/purchase')} />
+        <EmptyState onBuy={() => navigate(NEW_PURCHASE_PATH)} />
       )}
 
       {accountTotal > 0 && subscriptions.length === 0 && debouncedSearch.trim() && !isLoading && (

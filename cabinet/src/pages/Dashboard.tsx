@@ -20,6 +20,7 @@ import { giftApi } from '../api/gift';
 import { promoApi } from '../api/promo';
 import PendingGiftCard from '../components/dashboard/PendingGiftCard';
 import SubscriptionListCard from '../components/subscription/SubscriptionListCard';
+import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
 import { API } from '../config/constants';
 import { ChevronRightIcon, StarIcon } from '@/components/icons';
 
@@ -307,22 +308,22 @@ export default function Dashboard() {
           {(multiSubData.total ?? 0) > 3 && (
             <Link
               to="/subscriptions"
-              className="flex w-full items-center justify-center rounded-2xl border border-dashed border-white/15 p-3 text-xs opacity-50 transition-opacity hover:opacity-80"
+              className="flex w-full items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/10 p-3 text-sm font-medium text-accent-400 transition-colors hover:bg-accent-500/20"
             >
               {t('dashboard.showAll', 'Показать все')} ({multiSubData.total})
             </Link>
           )}
           {hasActivePaid ? (
             <Link
-              to="/subscription/purchase"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500/15 p-3.5 text-sm font-medium text-accent-400 transition-all hover:bg-accent-500/25"
+              to={NEW_PURCHASE_PATH}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 p-3.5 text-sm font-semibold text-white shadow-lg shadow-accent-500/20 transition-colors hover:bg-accent-600"
             >
               <span className="text-base">+</span>{' '}
               {t('subscriptions.buyAnother', 'Купить ещё тариф')}
             </Link>
           ) : (
             <Link
-              to="/subscription/purchase"
+              to={NEW_PURCHASE_PATH}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 p-3.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
             >
               <span className="text-base">+</span>{' '}
@@ -385,7 +386,7 @@ export default function Dashboard() {
             />
           )}
           <Link
-            to="/subscription/purchase"
+            to={NEW_PURCHASE_PATH}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 p-3.5 text-sm font-semibold text-white transition-colors hover:bg-accent-600"
           >
             <span className="text-base">+</span>{' '}
