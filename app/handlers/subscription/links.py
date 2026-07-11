@@ -140,15 +140,6 @@ async def handle_connect_config(
                 )
             ]
         )
-    if getattr(db_user, 'is_partner', False):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('CONNECT_CHOOSER_BTN_SHARE', '📋 Конфиг для клиента'),
-                    callback_data=f'sl_share:{sub_id}',
-                )
-            ]
-        )
     rows.append([InlineKeyboardButton(text=texts.BACK, callback_data=_connect_back_cb(sub_id))])
     keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -235,10 +226,7 @@ async def handle_connect_subscription(
         return
 
     if callback.data and callback.data.startswith('sl:'):
-        if db_user.is_partner:
-            await _show_connect_chooser(callback, db_user, subscription, sub_id)
-        else:
-            await handle_connect_config(callback, db_user, db, state)
+        await _show_connect_chooser(callback, db_user, subscription, sub_id)
         return
 
     connect_mode = settings.CONNECT_BUTTON_MODE

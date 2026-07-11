@@ -76,16 +76,12 @@ def test_purchase_py_registers_connect_callback_paths() -> None:
     )
 
 
-def test_sl_callback_partner_only_chooser() -> None:
-    """Non-partners must route sl:{id} to direct config, not the chooser."""
+def test_sl_callback_routes_to_chooser_for_all_users() -> None:
+    """All users (partner and non-partner) see the connect chooser on sl:{id}."""
     source = LINKS_PATH.read_text(encoding='utf-8')
     assert "callback.data.startswith('sl:')" in source
-    assert 'if db_user.is_partner:' in source
     assert '_show_connect_chooser' in source
-    assert 'handle_connect_config' in source
     sl_block_start = source.index("callback.data.startswith('sl:')")
-    sl_block = source[sl_block_start : sl_block_start + 400]
-    assert 'handle_connect_config' in sl_block, 'sl: path must call handle_connect_config for non-partners'
-    assert sl_block.index('if db_user.is_partner:') < sl_block.index('_show_connect_chooser'), (
-        'Partner check must precede chooser'
-    )
+    sl_block = source[sl_block_start : sl_block_start + 200]
+    assert '_show_connect_chooser' in sl_block, 'sl: path must call _show_connect_chooser'
+    assert 'if db_user.is_partner:' not in sl_block, 'sl: path must not gate on is_partner'
