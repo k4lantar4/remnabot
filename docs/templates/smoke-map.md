@@ -1,3 +1,36 @@
+# Smoke map — Post-purchase connect parity Phase 2 (Tasks 6, 9–12) Jul 2026
+
+> Branch `fix/post-purchase-connect-parity-phase2`; unified connect chooser (reverted partner gate), first-connect checklist, broadcast forward via copy_message.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/post-purchase-connect-parity-phase2` |
+| Worktree | `.worktrees/post-purchase-connect-parity-phase2` |
+| Commits | `2c407774a` connect revert + `00845c209` broadcast copy_message |
+| Migration | `0102` (already applied on staging) |
+| Deploy | `./tools/deploy-staging.sh` from worktree |
+| Bot | `@mrj7_bot` |
+| Cabinet | `https://staging-host-cabinet.rookari.com` |
+
+## User smoke checklist
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 3 | Any user: «دریافت کانفیگ» from detail or post-purchase | Chooser first (راهنما / دریافت QR و کانفیگ), then QR on config button | pending |
+| 4 | Partner and non-partner | **Same** chooser flow — no partner-only share shortcut | pending |
+| 9 | Cabinet subscription detail, 0 GB used | 3-step first-connect checklist visible; hides after traffic > 0 | pending |
+| 7 | Admin → broadcast → forward channel post | Preview shows copy_message with channel header; premium emoji intact on send | pending |
+| 8 | Admin broadcast button toggles | «💎 خرید سرویس» toggle keeps emoji; default buttons include connect + subscription + home | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Cabinet UX polish + Phase 1–2 (Jul 2026)
 
 > Branch `fix/cabinet-ux-polish` (includes `fix/post-purchase-cabinet-routing` Phase 1–2).
