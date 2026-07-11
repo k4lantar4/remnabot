@@ -1,12 +1,77 @@
-# Smoke map — Post-purchase connect parity Jul 2026
+# Smoke map — Cabinet UX polish + Phase 1–2 (Jul 2026)
 
-> Branch `fix/post-purchase-connect-parity`; QR+config delivery at purchase, re-fetch from subscription detail and chooser.
+> Branch `fix/cabinet-ux-polish` (includes `fix/post-purchase-cabinet-routing` Phase 1–2).
 
 ## Branch & deploy
 
 | Item | Value |
 |------|--------|
-| Branch | `fix/post-purchase-connect-parity` |
+| Branch | `fix/cabinet-ux-polish` |
+| Files | `ConfigDeliverySheet`, `postPurchaseRedirect`, wizards, `purchaseRoutes`, `TariffPickerGrid`, `Dashboard`, `Subscription`, `globals.css`, `cabinet/src/locales/fa.json` |
+| Guard | cabinet docker build OK |
+| Deploy | staging cabinet-frontend rebuilt |
+| Surfaces | staging cabinet (`3021`) |
+
+## User smoke checklist (staging cabinet)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| A | Post-purchase buy | `/subscriptions/:id?openConfig=1` + config sheet | pending |
+| B | Config sheet QR | Soft gray `#ececec` surface, scannable | pending |
+| C | Traffic slider | Thumb centered on track | pending |
+| D | Dashboard → خرید اشتراک دیگر | Cards show «خرید» / «خرید اکانت جدید», not «انتخاب برای تمدید» | pending |
+| E | Complete buyAnother | New subscription row (not extend) | pending |
+| F | Dashboard home | Max 3 cards + accent «مشاهده همه» | pending |
+| G | Nav + referral page | «نمایندگی» label | pending |
+| H | Subscription detail | Renew CTA + «خرید اشتراک دیگر» row | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
+# Smoke map — Cabinet post-purchase routing (Phase 1–2) Jul 2026
+
+> Branch `fix/post-purchase-cabinet-routing`; cabinet detail redirect + ConfigDeliverySheet + guide intro.
+> Bot QR/partner/C2C parity already on `main` (PR #100).
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/post-purchase-cabinet-routing` |
+| Files | `postPurchaseRedirect.ts`, wizards, `SuccessNotificationModal`, `ConfigDeliverySheet.tsx`, `Subscription.tsx`, `InstallationGuide.tsx`, `cabinet/src/locales/fa.json` |
+| Guard | cabinet `npm run build` |
+| Deploy | `make staging-rebuild` (cabinet-frontend) |
+| Surfaces | staging cabinet + `@mrj7_bot` (bot already shipped) |
+
+## User smoke checklist (staging cabinet)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 5 | Cabinet buy (classic or tariff) → success | Navigate to `/subscriptions/:id?openConfig=1`; config sheet auto-opens with copy + QR | pending |
+| 6 | Guide: `/connection?sub=` or sheet «راهنمای اتصال» | Intro text above app chips; labeled QR button (not icon-only) | pending |
+| 5b | Detail page CTAs | «دریافت کانفیگ» opens sheet; «راهنمای اتصال» → `/connection?sub=` | pending |
+| 5c | WS success modal (if fired) | CTA goes to detail + openConfig, not list | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
+# Smoke map — Post-purchase connect parity Jul 2026
+
+> Branch `fix/post-purchase-connect-parity`; QR+config delivery at purchase, re-fetch from subscription detail and chooser. **Merged** PR #100 → `main`.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/post-purchase-connect-parity` (merged) |
 | Files | `purchase_success_delivery.py`, `links.py`, `my_subscriptions.py`, `tariff_purchase.py`, `purchase.py`, `subscription_auto_purchase_service.py`, `fa.json` |
 | Guard | `uv run pytest tests/handlers/test_connect_chooser.py tests/utils/test_subscription_qr.py tests/services/test_subscription_auto_purchase_service.py -q` |
 | Deploy | `cp app/localization/locales/fa.json ./locales/fa.json` + `make staging-rebuild` |

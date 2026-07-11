@@ -1259,6 +1259,30 @@ input[type='range'] {
   }
 }
 
+/* QR config delivery: theme-aware frame + standard white QR tile for scan reliability */
+.qr-scan-frame {
+  background: rgb(var(--color-dark-800) / 0.45);
+  border: 1px solid rgb(var(--color-dark-600) / 0.65);
+}
+
+.light .qr-scan-frame {
+  background: rgb(var(--color-dark-50));
+  border: 1px solid rgb(var(--color-dark-200));
+}
+
+.qr-scan-surface {
+  background-color: #ffffff;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08),
+    inset 0 0 0 1px rgb(var(--color-dark-200) / 0.35);
+}
+
+.light .qr-scan-surface {
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.06),
+    inset 0 0 0 1px rgb(var(--color-dark-200) / 0.6);
+}
+
 .purchase-range {
   direction: ltr;
 }
@@ -1309,6 +1333,10 @@ input[type='range']::-webkit-slider-thumb {
     box-shadow 0.15s ease;
 }
 
+.purchase-range::-webkit-slider-thumb {
+  margin-top: calc((12px - 24px) / 2);
+}
+
 input[type='range']::-webkit-slider-thumb:hover {
   transform: scale(1.1);
   box-shadow:
@@ -1325,6 +1353,10 @@ input[type='range']::-webkit-slider-thumb:active {
   input[type='range']::-webkit-slider-thumb {
     width: 18px;
     height: 18px;
+  }
+
+  .purchase-range::-webkit-slider-thumb {
+    margin-top: calc((8px - 18px) / 2);
   }
 }
 

@@ -219,6 +219,47 @@ class PricingEngine:
             return None
         return traffic_gb
 
+    async def tariff_traffic_from_price(
+        self,
+        tariff: Tariff,
+        *,
+        user: User | None = None,
+        period_days_hint: int | None = None,
+    ) -> tuple[int, int | None]:
+        """Traffic-only 'from' price (min GB) for custom-traffic tariffs."""
+        can_custom_fn = getattr(tariff, 'can_purchase_custom_traffic', None)
+        if not callable(can_custom_fn) or not can_custom_fn():
+            return 0, None
+        if not (tariff.traffic_price_per_gb_kopeks or 0):
+            return 0, None
+
+        min_gb = tariff.min_traffic_gb or 1
+        if period_days_hint is None:
+            prices = tariff.period_prices or {}
+            period_days_hint = int(min(prices.keys(), key=int)) if prices else 30
+
+        result = await self._calculate_tariff_core(
+            tariff,
+            period_days_hint,
+            tariff.device_limit or 0,
+            custom_traffic_gb=min_gb,
+            user=user,
+        )
+        traffic_original = result.breakdown.get('traffic_kopeks')
+        if not isinstance(traffic_original, int) or traffic_original <= 0:
+            return 0, None
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            from_kopeks, _ = PricingEngine.apply_wholesale_discount(traffic_original, user)
+        else:
+            from_kopeks = result.traffic_price
+            offer_pct = result.breakdown.get('offer_discount_pct', 0)
+            if isinstance(offer_pct, int) and offer_pct > 0 and from_kopeks > 0:
+                from_kopeks = self.apply_discount(from_kopeks, offer_pct)
+
+        original: int | None = traffic_original if isinstance(traffic_original, int) and traffic_original > from_kopeks else None
+        return from_kopeks, original
+
     @staticmethod
     def get_addon_discount_percent(
         user: User | None,

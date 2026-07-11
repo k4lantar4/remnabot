@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Navigate, Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { subscriptionApi } from '../api/subscription';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../constants/devices';
 import { WebBackButton } from '../components/WebBackButton';
 import { useDestructiveConfirm } from '../platform/hooks/useNativeDialog';
 import { TrafficUsageText } from '../components/subscription/TrafficUsageText';
 import TrafficProgressBar from '../components/dashboard/TrafficProgressBar';
-import { HoverBorderGradient } from '../components/ui/hover-border-gradient';
 import { useTrafficZone } from '../hooks/useTrafficZone';
 import { formatUserDate } from '../utils/formatDate';
 import { getGlassColors } from '../utils/glassTheme';
@@ -18,13 +17,13 @@ import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCloseOnSuccessNotification } from '../store/successNotification';
 import PurchaseCTAButton from '../components/subscription/PurchaseCTAButton';
+import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
 import {
   CopyIcon,
   CheckIcon,
   PauseIcon,
   CalendarIcon,
   RefreshIcon,
-  DevicesIcon,
   DownloadIcon,
   TrashIcon,
 } from '../components/icons';
@@ -41,6 +40,7 @@ import { DeviceReductionSheet } from '../components/subscription/sheets/DeviceRe
 import { TrafficTopupSheet } from '../components/subscription/sheets/TrafficTopupSheet';
 import { ServerManagementSheet } from '../components/subscription/sheets/ServerManagementSheet';
 import { DeleteSubscriptionSheet } from '../components/subscription/sheets/DeleteSubscriptionSheet';
+import { ConfigDeliverySheet } from '../components/subscription/ConfigDeliverySheet';
 
 /** Isolated countdown so 1s interval doesn't re-render the whole page */
 const CountdownTimer = memo(function CountdownTimer({
@@ -188,6 +188,7 @@ export default function Subscription() {
   const queryClient = useQueryClient();
   const { formatAmount, currencySymbol } = useCurrency();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { subscriptionId: subIdParam } = useParams<{ subscriptionId?: string }>();
   const subscriptionId = subIdParam ? parseInt(subIdParam, 10) : undefined;
   const { isDark } = useTheme();
@@ -195,6 +196,8 @@ export default function Subscription() {
   const haptic = useHaptic();
   const [copied, setCopied] = useState(false);
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+  const [showConfigSheet, setShowConfigSheet] = useState(false);
+  const openConfigHandledRef = useRef(false);
   const destructiveConfirm = useDestructiveConfirm();
 
   // Helper to format price from kopeks
@@ -274,6 +277,23 @@ export default function Subscription() {
   );
   const shouldHideConnectionLink =
     subscription?.hide_subscription_link || connectionLink?.hide_link;
+
+  const handleCloseConfigSheet = useCallback(() => {
+    setShowConfigSheet(false);
+    if (searchParams.get('openConfig') === '1') {
+      const next = new URLSearchParams(searchParams);
+      next.delete('openConfig');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (openConfigHandledRef.current) return;
+    if (searchParams.get('openConfig') !== '1') return;
+    if (!subscription || shouldHideConnectionLink || !displayedConnectionUrl) return;
+    openConfigHandledRef.current = true;
+    setShowConfigSheet(true);
+  }, [searchParams, subscription, shouldHideConnectionLink, displayedConnectionUrl]);
 
   // Traffic zone (theme-aware) — called unconditionally at top level
   const usedPercent = trafficData?.traffic_used_percent ?? subscription?.traffic_used_percent ?? 0;
@@ -823,45 +843,43 @@ export default function Subscription() {
                 />
               </div>
 
-              {/* ─── Connect Device Button ─── */}
-              {subscription.subscription_url && (
-                <HoverBorderGradient
-                  as="button"
-                  accentColor={zone.mainHex}
-                  disabled={isAtDeviceLimit}
-                  onClick={() => {
-                    if (isAtDeviceLimit) {
-                      haptic.notification('error');
-                      return;
-                    }
-                    navigate(subscriptionId ? `/connection?sub=${subscriptionId}` : '/connection');
-                  }}
-                  className={`mb-5 flex w-full items-center gap-3.5 rounded-[14px] p-3.5 text-left transition-shadow duration-300${isAtDeviceLimit ? 'cursor-not-allowed opacity-50' : ''}`}
-                  style={{ fontFamily: 'inherit' }}
-                >
-                  <div
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] transition-colors duration-500"
-                    style={{ background: `${zone.mainHex}12`, color: zone.mainHex }}
+              {/* ─── Config delivery + connection guide ─── */}
+              {subscription.subscription_url && !shouldHideConnectionLink && displayedConnectionUrl && (
+                <div className="mb-5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigSheet(true)}
+                    className="flex items-center justify-center gap-2 rounded-[14px] px-3 py-3.5 text-sm font-semibold text-dark-50 transition-colors"
+                    style={{
+                      background: `${zone.mainHex}12`,
+                      border: `1px solid ${zone.mainHex}30`,
+                      color: zone.mainHex,
+                    }}
                   >
-                    <DevicesIcon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold tracking-tight text-dark-50">
-                      {t('dashboard.connectGuideTitle')}
-                    </div>
-                    <div className="mt-0.5 text-[11px]" style={{ color: g.textMuted }}>
-                      {t('dashboard.connectGuideSubtitle')}
-                    </div>
-                    {isAtDeviceLimit && (
-                      <div
-                        className="mt-1 text-[10px] font-medium"
-                        style={{ color: 'rgb(var(--color-warning-400))' }}
-                      >
-                        {t('dashboard.deviceLimitReached')}
-                      </div>
-                    )}
-                  </div>
-                </HoverBorderGradient>
+                    {t('subscription.configDelivery.getConfig')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isAtDeviceLimit}
+                    onClick={() => {
+                      if (isAtDeviceLimit) {
+                        haptic.notification('error');
+                        return;
+                      }
+                      navigate(subscriptionId ? `/connection?sub=${subscriptionId}` : '/connection');
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-[14px] border px-3 py-3.5 text-sm font-semibold transition-colors ${
+                      isAtDeviceLimit ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
+                    style={{
+                      background: g.innerBg,
+                      borderColor: g.innerBorder,
+                      color: g.text,
+                    }}
+                  >
+                    {t('subscription.configDelivery.openGuide')}
+                  </button>
+                </div>
               )}
 
               {/* ─── Subscription URL ─── */}
@@ -1235,8 +1253,19 @@ export default function Subscription() {
         </div>
       )}
 
-      {/* Purchase / Renewal CTA */}
-      <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+      {/* Purchase / Renewal CTAs */}
+      <div className="space-y-3">
+        <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+        {isMultiTariff && subscription && !subscription.is_trial && (
+          <Link
+            to={NEW_PURCHASE_PATH}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/10 px-5 py-3.5 text-sm font-semibold text-accent-400 transition-colors hover:bg-accent-500/20"
+          >
+            <span className="text-base">+</span>
+            {t('subscriptions.buyAnother')}
+          </Link>
+        )}
+      </div>
 
       {/* Delete expired subscription */}
       {isMultiTariff &&
@@ -1662,6 +1691,13 @@ export default function Subscription() {
           )}
         </div>
       )}
+
+      <ConfigDeliverySheet
+        open={showConfigSheet}
+        onClose={handleCloseConfigSheet}
+        configUrl={shouldHideConnectionLink ? null : displayedConnectionUrl}
+        subscriptionId={subscriptionId}
+      />
     </div>
   );
 }

@@ -6,6 +6,10 @@ import packageJson from './package.json';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+  },
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },

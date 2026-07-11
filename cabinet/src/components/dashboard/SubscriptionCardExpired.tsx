@@ -8,6 +8,7 @@ import { subscriptionApi } from '../../api/subscription';
 import { useTheme } from '../../hooks/useTheme';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useHapticFeedback } from '../../platform/hooks/useHaptic';
+import { NEW_PURCHASE_PATH } from '../subscription/purchase/purchaseRoutes';
 import { getGlassColors } from '../../utils/glassTheme';
 import { getInsufficientBalanceError } from '../../utils/subscriptionHelpers';
 import { ClockIcon, ExclamationIcon, PlusIcon, SubscriptionIcon } from '@/components/icons';
@@ -300,7 +301,7 @@ export default function SubscriptionCardExpired({
 
             {/* Tariffs (go to purchase page) — full-width for trials */}
             <Link
-              to="/subscription/purchase"
+              to={NEW_PURCHASE_PATH}
               className={`flex items-center justify-center rounded-[14px] px-5 py-3.5 text-[15px] font-semibold tracking-tight transition-colors duration-200 ${
                 subscription.is_trial ? 'flex-1 text-white' : 'text-dark-50/50'
               }`}

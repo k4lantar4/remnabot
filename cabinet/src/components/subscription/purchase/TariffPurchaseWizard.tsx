@@ -10,6 +10,7 @@ import type { Tariff } from '../../../types';
 import { ConfirmStep } from './steps/ConfirmStep';
 import { PeriodStep } from './steps/PeriodStep';
 import { TrafficPlanStep } from './steps/TrafficPlanStep';
+import { getPostPurchasePath } from './postPurchaseRedirect';
 
 type WizardStep = 'traffic' | 'period' | 'confirm';
 
@@ -64,11 +65,16 @@ export function TariffPurchaseWizard({
         selectedTrafficGb,
         subscriptionId ?? undefined,
       ),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-options'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
-      navigate('/subscriptions', { replace: true });
+      const purchasedSubId = data.subscription?.id ?? subscriptionId;
+      if (purchasedSubId) {
+        navigate(getPostPurchasePath(purchasedSubId), { replace: true });
+      } else {
+        navigate('/subscriptions', { replace: true });
+      }
     },
   });
 

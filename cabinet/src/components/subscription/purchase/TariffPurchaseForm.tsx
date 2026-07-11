@@ -14,6 +14,7 @@ import {
   PartnerCheckoutFields,
   type PartnerCheckoutValues,
 } from './PartnerCheckoutFields';
+import { getPostPurchasePath } from './postPurchaseRedirect';
 
 // ──────────────────────────────────────────────────────────────────
 // TariffPurchaseForm
@@ -115,11 +116,16 @@ export function TariffPurchaseForm({
         },
       );
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-options'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
-      navigate('/subscriptions', { replace: true });
+      const purchasedSubId = data.subscription?.id ?? subscriptionId;
+      if (purchasedSubId) {
+        navigate(getPostPurchasePath(purchasedSubId), { replace: true });
+      } else {
+        navigate('/subscriptions', { replace: true });
+      }
     },
   });
 

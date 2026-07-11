@@ -110,6 +110,23 @@ export default function RenewSubscription() {
     ? canAffordCatalog(balanceKopeks, selectedOption.price_kopeks)
     : false;
 
+  const renewalTrafficGb =
+    options?.[0]?.traffic_limit_gb ?? subscription?.traffic_limit_gb ?? null;
+  const renewalUnlimited =
+    options?.[0]?.is_unlimited_traffic ?? subscription?.traffic_limit_gb === 0;
+
+  const formatRenewalTraffic = () => {
+    if (renewalUnlimited) {
+      return t('subscription.unlimitedTraffic', 'ترافیک نامحدود');
+    }
+    if (renewalTrafficGb != null && renewalTrafficGb > 0) {
+      return t('subscription.summary.traffic', 'حجم: {{gb}} گیگ', { gb: renewalTrafficGb });
+    }
+    return null;
+  };
+
+  const renewalTrafficLabel = formatRenewalTraffic();
+
   return (
     <div className="space-y-5">
       {/* Title */}
@@ -122,6 +139,7 @@ export default function RenewSubscription() {
           {subscription?.tariff_name && (
             <p className="mt-1 text-sm" style={{ color: g.textSecondary }}>
               {subscription.tariff_name}
+              {renewalTrafficLabel ? ` · ${renewalTrafficLabel}` : ''}
             </p>
           )}
         </div>
@@ -182,6 +200,11 @@ export default function RenewSubscription() {
                     <span className="text-base font-semibold" style={{ color: g.text }}>
                       {option.period_days} {t('common.units.days', 'дней')}
                     </span>
+                    {renewalTrafficLabel && (
+                      <p className="mt-0.5 text-xs" style={{ color: g.textSecondary }}>
+                        {renewalTrafficLabel}
+                      </p>
+                    )}
                     {option.discount_percent > 0 && (
                       <span className="ml-2 rounded-full bg-success-400/15 px-2 py-0.5 text-[10px] font-semibold text-success-400">
                         -{option.discount_percent}%

@@ -1,4 +1,4 @@
-"""Cabinet tariff list: from_price includes minimum traffic when custom traffic enabled."""
+"""Cabinet tariff list: from_price is minimum traffic-only when custom traffic enabled."""
 
 from __future__ import annotations
 
@@ -38,12 +38,15 @@ class _TariffWithCustomTraffic:
     def can_purchase_custom_traffic(self) -> bool:
         return True
 
+    def resolve_purchase_traffic_price(self, gb: int) -> tuple[int, str]:
+        return gb * self.traffic_price_per_gb_kopeks, 'linear'
+
     def get_traffic_topup_packages(self):
         return {30: 30_000_000}
 
 
 @pytest.mark.asyncio
-async def test_from_price_includes_min_traffic(monkeypatch):
+async def test_from_price_is_traffic_only(monkeypatch):
     monkeypatch.setattr(
         'app.cabinet.routes.subscription_modules.purchase.get_server_squad_by_uuid',
         AsyncMock(return_value=None),
@@ -54,5 +57,6 @@ async def test_from_price_includes_min_traffic(monkeypatch):
 
     result = await _build_tariff_response(object(), tariff, language='fa', user=user)
 
-    assert result['from_price_kopeks'] == 900_000 + 1_000_000
+    assert result['from_price_kopeks'] == 1_000_000
+    assert result.get('from_original_price_kopeks') is None
     assert 'from_price_label' in result

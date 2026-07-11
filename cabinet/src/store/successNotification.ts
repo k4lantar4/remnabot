@@ -31,6 +31,8 @@ export interface SuccessNotificationData {
   trafficGbAdded?: number;
   /** New total traffic limit in GB */
   newTrafficLimitGb?: number;
+  /** Subscription ID for deep-link navigation */
+  subscriptionId?: number;
 }
 
 interface SuccessNotificationState {

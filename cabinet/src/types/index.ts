@@ -186,6 +186,8 @@ export interface RenewalOption {
   price_rubles: number;
   discount_percent: number;
   original_price_kopeks: number | null;
+  traffic_limit_gb?: number | null;
+  is_unlimited_traffic?: boolean;
 }
 
 export interface TrafficPackage {
