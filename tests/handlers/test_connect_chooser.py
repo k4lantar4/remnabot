@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 FA_PATH = ROOT / 'app' / 'localization' / 'locales' / 'fa.json'
 PURCHASE_PATH = ROOT / 'app' / 'handlers' / 'subscription' / 'purchase.py'
+LINKS_PATH = ROOT / 'app' / 'handlers' / 'subscription' / 'links.py'
 
 CYRILLIC_RE = re.compile(r'[А-Яа-яЁё]')
 
@@ -72,4 +73,19 @@ def test_purchase_py_registers_connect_callback_paths() -> None:
     )
     assert "F.data.startswith('sl_config:')" in source, (
         'purchase.py must register sl_config: callbacks for config QR delivery'
+    )
+
+
+def test_sl_callback_partner_only_chooser() -> None:
+    """Non-partners must route sl:{id} to direct config, not the chooser."""
+    source = LINKS_PATH.read_text(encoding='utf-8')
+    assert "callback.data.startswith('sl:')" in source
+    assert 'if db_user.is_partner:' in source
+    assert '_show_connect_chooser' in source
+    assert 'handle_connect_config' in source
+    sl_block_start = source.index("callback.data.startswith('sl:')")
+    sl_block = source[sl_block_start : sl_block_start + 400]
+    assert 'handle_connect_config' in sl_block, 'sl: path must call handle_connect_config for non-partners'
+    assert sl_block.index('if db_user.is_partner:') < sl_block.index('_show_connect_chooser'), (
+        'Partner check must precede chooser'
     )
