@@ -44,7 +44,7 @@
     "dashboard": "داشبورد",
     "subscription": "اشتراک",
     "balance": "موجودی",
-    "referral": "معرفی",
+    "referral": "نمایندگی",
     "support": "پشتیبانی",
     "profile": "پروفایل",
     "logout": "خروج",
@@ -927,7 +927,7 @@
     "top_up": "افزایش موجودی"
   },
   "referral": {
-    "title": "برنامه معرفی",
+    "title": "نمایندگی",
     "yourLink": "لینک‌های معرفی شما",
     "botLink": "لینک ربات",
     "cabinetLink": "لینک کابینت",
