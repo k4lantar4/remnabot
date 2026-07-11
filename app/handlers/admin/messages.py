@@ -487,7 +487,12 @@ async def process_pinned_message_update(
             media_file_id=media_file_id,
         )
     except ValueError as validation_error:
-        await message.answer(f'❌ {validation_error}')
+        await message.answer(
+            texts.t(
+                'ADMIN_MSG_VALIDATION_ERROR',
+                '❌ {error}',
+            ).format(error=validation_error)
+        )
         return
 
     # Сообщение сохранено, спрашиваем о рассылке

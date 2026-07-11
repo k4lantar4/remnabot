@@ -4873,5 +4873,6 @@
   "ADMIN_REMNA_CFG_SAVE_ERR": "خطا در ذخیره",
   "ADMIN_REMNA_CFG_CLEAR_ERR": "خطا در پاک‌سازی",
   "ADMIN_REMNA_CFG_SELECTED": "✅ پیکربندی انتخاب شد",
-  "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد"
+  "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد",
+  "ADMIN_MSG_VALIDATION_ERROR": "❌ {error}"
 }
