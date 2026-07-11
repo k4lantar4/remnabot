@@ -82,6 +82,8 @@ class RenewalOptionResponse(BaseModel):
     price_rubles: float
     discount_percent: int = 0
     original_price_kopeks: int | None = None
+    traffic_limit_gb: int | None = None
+    is_unlimited_traffic: bool = False
 
 
 class RenewalRequest(BaseModel):

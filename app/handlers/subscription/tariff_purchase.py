@@ -270,15 +270,12 @@ async def format_tariffs_list_text(
             if prices:
                 min_period = int(min(prices.keys(), key=int))
                 if tariff.can_purchase_custom_traffic():
-                    result = await pricing_engine.calculate_tariff_purchase_price(
+                    min_price, traffic_original = await pricing_engine.tariff_traffic_from_price(
                         tariff,
-                        min_period,
-                        device_limit=tariff.device_limit,
-                        custom_traffic_gb=tariff.min_traffic_gb,
                         user=db_user,
+                        period_days_hint=min_period,
                     )
-                    min_price = result.final_total
-                    if result.final_total < result.original_total and result.original_total > 0:
+                    if traffic_original and traffic_original > min_price:
                         discount_icon = '🔥'
                 else:
                     min_price = prices.get(str(min_period), prices.get(min_period, 0))
@@ -3600,7 +3597,7 @@ async def confirm_tariff_extend(
 # ==================== Переключение тарифов ====================
 
 
-def format_tariff_switch_list_text(
+async def format_tariff_switch_list_text(
     tariffs: list[Tariff],
     current_tariff_id: int | None,
     current_tariff_name: str,
@@ -3608,6 +3605,8 @@ def format_tariff_switch_list_text(
     has_period_discounts: bool = False,
 ) -> str:
     """Форматирует текст со списком тарифов для переключения."""
+    from app.services.pricing_engine import pricing_engine
+
     texts = get_texts(db_user.language)
     lines = [
         texts.t('TARIFF_SWITCH_LIST_TITLE', '📦 <b>Смена тарифа</b>'),
@@ -3648,13 +3647,22 @@ def format_tariff_switch_list_text(
             prices = tariff.period_prices or {}
             if prices:
                 min_period = min(prices.keys(), key=int)
-                min_price = prices[min_period]
-                group_pct, offer_pct, discount_percent = 0, 0, 0
-                if db_user:
-                    group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, int(min_period))
-                if discount_percent > 0:
-                    min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
-                    discount_icon = '🔥'
+                if tariff.can_purchase_custom_traffic():
+                    min_price, traffic_original = await pricing_engine.tariff_traffic_from_price(
+                        tariff,
+                        user=db_user,
+                        period_days_hint=int(min_period),
+                    )
+                    if traffic_original and traffic_original > min_price:
+                        discount_icon = '🔥'
+                else:
+                    min_price = prices[min_period]
+                    group_pct, offer_pct, discount_percent = 0, 0, 0
+                    if db_user:
+                        group_pct, offer_pct, discount_percent = _get_user_period_discount(db_user, int(min_period))
+                    if discount_percent > 0:
+                        min_price = _apply_promo_discount(min_price, group_pct, offer_pct, user=db_user)
+                        discount_icon = '🔥'
                 price_text = texts.t('TARIFF_PRICE_FROM', 'от {price}{icon}').format(
                     price=format_price_kopeks(min_price, compact=True), icon=discount_icon
                 )
@@ -3826,7 +3834,7 @@ async def show_tariff_switch_list(
             has_period_discounts = True
 
     # Формируем текст со списком тарифов
-    switch_text = format_tariff_switch_list_text(
+    switch_text = await format_tariff_switch_list_text(
         available_tariffs, current_tariff_id, current_tariff_name, db_user, has_period_discounts
     )
 

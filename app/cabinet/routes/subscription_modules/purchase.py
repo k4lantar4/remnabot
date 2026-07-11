@@ -317,19 +317,16 @@ async def _build_tariff_response(
 
     min_period_price = periods[0]['price_kopeks'] if periods else 0
     min_period_original = periods[0].get('original_price_kopeks') if periods else None
-    traffic_price_per_gb = tariff.traffic_price_per_gb_kopeks or 0
+    period_hint = periods[0]['days'] if periods else None
     from_price_kopeks = 0
     from_original_price_kopeks: int | None = None
 
-    if tariff.can_purchase_custom_traffic() and traffic_price_per_gb > 0:
-        min_gb = tariff.min_traffic_gb or 1
-        traffic_min_kopeks = min_gb * traffic_price_per_gb
-        if periods:
-            from_price_kopeks = min_period_price + traffic_min_kopeks
-            if min_period_original is not None:
-                from_original_price_kopeks = min_period_original + traffic_min_kopeks
-        else:
-            from_price_kopeks = traffic_min_kopeks
+    if tariff.can_purchase_custom_traffic() and (tariff.traffic_price_per_gb_kopeks or 0) > 0:
+        from_price_kopeks, from_original_price_kopeks = await pricing_engine.tariff_traffic_from_price(
+            tariff,
+            user=user,
+            period_days_hint=period_hint,
+        )
     elif periods:
         from_price_kopeks = min_period_price
         from_original_price_kopeks = min_period_original

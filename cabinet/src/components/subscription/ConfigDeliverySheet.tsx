@@ -11,8 +11,8 @@ import {
 } from '@/components/primitives/Sheet';
 import { copyToClipboard } from '@/utils/clipboard';
 import { CheckIcon, CopyIcon } from '@/components/icons';
-
-const QR_SCAN_BG = '#b0b0b0';
+import { useTheme } from '@/hooks/useTheme';
+import { getGlassColors } from '@/utils/glassTheme';
 
 export interface ConfigDeliverySheetProps {
   open: boolean;
@@ -29,6 +29,8 @@ export function ConfigDeliverySheet({
 }: ConfigDeliverySheetProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const g = getGlassColors(isDark);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -67,7 +69,12 @@ export function ConfigDeliverySheet({
           {configUrl ? (
             <>
               <code
-                className="block break-all rounded-xl bg-dark-800/60 px-3 py-2 font-mono text-xs text-dark-100"
+                className="block break-all rounded-xl px-3 py-2 font-mono text-xs"
+                style={{
+                  background: g.codeBg,
+                  color: g.text,
+                  border: `1px solid ${g.codeBorder}`,
+                }}
                 title={configUrl}
               >
                 {configUrl}
@@ -88,24 +95,44 @@ export function ConfigDeliverySheet({
                   : t('subscription.configDelivery.copyConfig')}
               </button>
 
-              <div className="qr-scan-frame flex flex-col items-center rounded-2xl p-4">
-                <div className="qr-scan-surface rounded-xl p-3">
+              <div
+                className="flex flex-col items-center rounded-2xl p-4"
+                style={{
+                  background: isDark
+                    ? 'rgb(var(--color-dark-800) / 0.45)'
+                    : 'rgb(var(--color-dark-50))',
+                  border: `1px solid ${
+                    isDark ? 'rgb(var(--color-dark-600) / 0.65)' : 'rgb(var(--color-dark-200))'
+                  }`,
+                }}
+              >
+                <div
+                  className="rounded-xl p-3"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    boxShadow: isDark
+                      ? '0 1px 2px rgb(0 0 0 / 0.08), inset 0 0 0 1px rgb(var(--color-dark-200) / 0.35)'
+                      : '0 1px 3px rgb(0 0 0 / 0.06), inset 0 0 0 1px rgb(var(--color-dark-200) / 0.6)',
+                  }}
+                >
                   <QRCodeSVG
                     value={configUrl}
                     size={200}
                     level="M"
                     includeMargin={false}
-                    bgColor={QR_SCAN_BG}
-                    fgColor="#000000"
+                    bgColor="#ffffff"
+                    fgColor="#111111"
                   />
                 </div>
-                <p className="mt-3 text-center text-xs text-dark-400">
+                <p className="mt-3 text-center text-xs" style={{ color: g.textSecondary }}>
                   {t('subscription.configDelivery.qrHint')}
                 </p>
               </div>
             </>
           ) : (
-            <p className="text-sm text-dark-400">{t('subscription.connection.noSubscription')}</p>
+            <p className="text-sm" style={{ color: g.textSecondary }}>
+              {t('subscription.connection.noSubscription')}
+            </p>
           )}
 
           <button

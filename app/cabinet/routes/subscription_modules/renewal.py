@@ -94,6 +94,8 @@ async def get_renewal_options(
         periods = settings.get_available_renewal_periods()
 
     options = []
+    traffic_limit_gb = subscription.traffic_limit_gb
+    is_unlimited_traffic = traffic_limit_gb == 0
 
     for period in periods:
         pricing = await pricing_engine.calculate_renewal_price(db, subscription, period, user=user)
@@ -113,6 +115,8 @@ async def get_renewal_options(
                 price_rubles=pricing.final_total / 100,
                 discount_percent=combined_discount,
                 original_price_kopeks=original_price if combined_discount > 0 else None,
+                traffic_limit_gb=traffic_limit_gb,
+                is_unlimited_traffic=is_unlimited_traffic,
             )
         )
 
