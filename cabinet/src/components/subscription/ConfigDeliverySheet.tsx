@@ -12,7 +12,7 @@ import {
 import { copyToClipboard } from '@/utils/clipboard';
 import { CheckIcon, CopyIcon } from '@/components/icons';
 
-const QR_SCAN_BG = '#ececec';
+const QR_SCAN_BG = '#b0b0b0';
 
 export interface ConfigDeliverySheetProps {
   open: boolean;
@@ -76,7 +76,11 @@ export function ConfigDeliverySheet({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-dark-800 py-3 font-semibold text-dark-100 transition-colors hover:bg-dark-700"
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold transition-colors ${
+                  copied
+                    ? 'border border-success-500/40 bg-success-500/15 text-success-400'
+                    : 'bg-accent-500 text-white hover:bg-accent-400'
+                }`}
               >
                 {copied ? <CheckIcon className="h-5 w-5" /> : <CopyIcon className="h-5 w-5" />}
                 {copied
@@ -84,16 +88,18 @@ export function ConfigDeliverySheet({
                   : t('subscription.configDelivery.copyConfig')}
               </button>
 
-              <div className="qr-scan-surface flex flex-col items-center rounded-2xl p-5 ring-1 ring-white/10">
-                <QRCodeSVG
-                  value={configUrl}
-                  size={200}
-                  level="M"
-                  includeMargin
-                  bgColor={QR_SCAN_BG}
-                  fgColor="#000000"
-                />
-                <p className="mt-3 text-center text-xs text-neutral-600">
+              <div className="qr-scan-frame flex flex-col items-center rounded-2xl p-4">
+                <div className="qr-scan-surface rounded-xl p-3">
+                  <QRCodeSVG
+                    value={configUrl}
+                    size={200}
+                    level="M"
+                    includeMargin={false}
+                    bgColor={QR_SCAN_BG}
+                    fgColor="#000000"
+                  />
+                </div>
+                <p className="mt-3 text-center text-xs text-dark-400">
                   {t('subscription.configDelivery.qrHint')}
                 </p>
               </div>
