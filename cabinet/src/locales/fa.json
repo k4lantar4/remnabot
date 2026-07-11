@@ -503,6 +503,15 @@
       "qrButton": "کد QR",
       "openQr": "باز کردن کد QR"
     },
+    "configDelivery": {
+      "title": "کانفیگ شما آماده است",
+      "subtitle": "لینک را کپی کنید یا QR را اسکن کنید",
+      "copyConfig": "کپی کانفیگ",
+      "copied": "کانفیگ کپی شد!",
+      "getConfig": "دریافت کانفیگ",
+      "qrHint": "با دوربین گوشی اسکن کنید",
+      "openGuide": "راهنمای اتصال (نصب برنامه)"
+    },
     "additionalOptions": {
       "title": "گزینه‌های اضافی",
       "buyDevices": "افزودن کاربر بیشتر",
