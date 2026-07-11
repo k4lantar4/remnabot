@@ -46,6 +46,7 @@ from app.services.pinned_message_service import (
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
 from app.utils.miniapp_buttons import BUTTON_KEY_TO_CABINET_PATH, build_miniapp_or_callback_button
+from app.utils.telegram_entities import extract_forwardable_content, caption_send_kwargs, message_send_kwargs
 
 
 logger = structlog.get_logger(__name__)
@@ -470,7 +471,10 @@ async def process_pinned_message_update(
         media_type = 'video'
         media_file_id = message.video.file_id
 
-    pinned_text = message.html_text or message.caption_html or message.text or message.caption or ''
+    pinned_text = message.text or message.caption or message.html_text or message.caption_html or ''
+    draft = extract_forwardable_content(message)
+    if draft.text:
+        pinned_text = draft.text
 
     if not pinned_text and not media_file_id:
         await message.answer(
@@ -485,6 +489,7 @@ async def process_pinned_message_update(
             db_user.id,
             media_type=media_type,
             media_file_id=media_file_id,
+            entities_json=draft.entities_json,
         )
     except ValueError as validation_error:
         await message.answer(
@@ -766,14 +771,19 @@ async def select_custom_criteria(callback: types.CallbackQuery, db_user: User, s
         texts.t(
             'ADMIN_MSG_CREATE_BROADCAST',
             '📨 <b>Создание рассылки</b>\n\n🎯 <b>Критерий:</b> {target}\n👥 <b>Получателей:</b> {count}\n\nВведите текст сообщения для рассылки:\n\n<i>Поддерживается HTML разметка</i>',
-        ).format(target=criteria_names.get(criteria, criteria), count=user_count),
+        ).format(target=criteria_names.get(criteria, criteria), count=user_count)
+        + '\n\n'
+        + texts.t(
+            'ADMIN_MSG_BROADCAST_FORWARD_HINT',
+            '📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_messages')]]
         ),
         parse_mode='HTML',
     )
 
-    await state.set_state(AdminStates.waiting_for_broadcast_message)
+    await state.set_state(AdminStates.broadcast_waiting_forward)
     await callback.answer()
 
 
@@ -803,14 +813,19 @@ async def select_broadcast_target(callback: types.CallbackQuery, db_user: User, 
         texts.t(
             'ADMIN_MSG_CREATE_AUDIENCE',
             '📨 <b>Создание рассылки</b>\n\n🎯 <b>Аудитория:</b> {target}\n👥 <b>Получателей:</b> {count}\n\nВведите текст сообщения для рассылки:\n\n<i>Поддерживается HTML разметка</i>',
-        ).format(target=target_name, count=user_count),
+        ).format(target=target_name, count=user_count)
+        + '\n\n'
+        + texts.t(
+            'ADMIN_MSG_BROADCAST_FORWARD_HINT',
+            '📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_messages')]]
         ),
         parse_mode='HTML',
     )
 
-    await state.set_state(AdminStates.waiting_for_broadcast_message)
+    await state.set_state(AdminStates.broadcast_waiting_forward)
     await callback.answer()
 
 
@@ -818,13 +833,41 @@ async def select_broadcast_target(callback: types.CallbackQuery, db_user: User, 
 @error_handler
 async def process_broadcast_message(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
     texts = get_texts(db_user.language)
-    broadcast_text = message.text
+    draft = extract_forwardable_content(message)
+    broadcast_text = draft.text
 
-    if len(broadcast_text) > 4000:
+    if not broadcast_text and not draft.media_file_id:
+        await message.answer(
+            texts.t(
+                'ADMIN_PINNED_NO_CONTENT',
+                '❌ Не удалось прочитать текст или медиа в сообщении, попробуйте снова.',
+            )
+        )
+        return
+
+    if broadcast_text and len(broadcast_text) > 4000:
         await message.answer(texts.t('ADMIN_MSG_TOO_LONG', '❌ Сообщение слишком длинное (максимум 4000 символов)'))
         return
 
-    await state.update_data(broadcast_message=broadcast_text)
+    state_update: dict = {
+        'broadcast_message': broadcast_text,
+        'broadcast_entities_json': draft.entities_json,
+    }
+    if draft.media_file_id and draft.media_type:
+        state_update.update(
+            has_media=True,
+            media_type=draft.media_type,
+            media_file_id=draft.media_file_id,
+            waiting_for_media=False,
+        )
+    else:
+        state_update['has_media'] = False
+
+    await state.update_data(**state_update)
+
+    if draft.media_file_id:
+        await show_button_selector(message, db_user, state)
+        return
 
     await message.answer(
         texts.t('ADMIN_MSG_MEDIA_STEP', '🖼️ <b>Добавление медиафайла</b>\n\nВы можете добавить к сообщению фото, видео или документ.\nИли пропустить этот шаг.\n\nВыберите тип медиа:'),
@@ -1192,6 +1235,7 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
     data = await state.get_data()
     target = data.get('broadcast_target')
     message_text = data.get('broadcast_message')
+    broadcast_entities_json = data.get('broadcast_entities_json')
     selected_buttons = data.get('selected_buttons')
     if selected_buttons is None:
         selected_buttons = list(DEFAULT_SELECTED_BUTTONS)
@@ -1239,6 +1283,7 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
         media_type=media_type,
         media_file_id=media_file_id,
         media_caption=media_caption,
+        entities_json=broadcast_entities_json,
         total_count=total_users_count,
         sent_count=0,
         failed_count=0,
@@ -1308,9 +1353,11 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
                             await send_method(
                                 chat_id=telegram_id,
                                 **{media_kwarg: media_file_id},
-                                caption=message_text,
-                                parse_mode='HTML',
                                 reply_markup=broadcast_keyboard,
+                                **caption_send_kwargs(
+                                    caption=message_text,
+                                    entities_json=broadcast_entities_json,
+                                ),
                             )
                         else:
                             # Медиа без caption + текст отдельным сообщением
@@ -1320,24 +1367,30 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
                             )
                             await callback.bot.send_message(
                                 chat_id=telegram_id,
-                                text=message_text,
-                                parse_mode='HTML',
                                 reply_markup=broadcast_keyboard,
+                                **message_send_kwargs(
+                                    text=message_text,
+                                    entities_json=broadcast_entities_json,
+                                ),
                             )
                     else:
                         # Неизвестный media_type — отправляем как текст
                         await callback.bot.send_message(
                             chat_id=telegram_id,
-                            text=message_text,
-                            parse_mode='HTML',
                             reply_markup=broadcast_keyboard,
+                            **message_send_kwargs(
+                                text=message_text,
+                                entities_json=broadcast_entities_json,
+                            ),
                         )
                 else:
                     await callback.bot.send_message(
                         chat_id=telegram_id,
-                        text=message_text,
-                        parse_mode='HTML',
                         reply_markup=broadcast_keyboard,
+                        **message_send_kwargs(
+                            text=message_text,
+                            entities_json=broadcast_entities_json,
+                        ),
                     )
                 return 'sent'
 
@@ -2099,6 +2152,7 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(handle_media_selection, F.data == 'skip_media')
     dp.callback_query.register(handle_media_confirmation, F.data.in_(['confirm_media', 'replace_media']))
     dp.callback_query.register(handle_change_media, F.data == 'change_media')
+    dp.message.register(process_broadcast_message, AdminStates.broadcast_waiting_forward)
     dp.message.register(process_broadcast_message, AdminStates.waiting_for_broadcast_message)
     dp.message.register(process_broadcast_media, AdminStates.waiting_for_broadcast_media)
     dp.message.register(process_pinned_message_update, AdminStates.editing_pinned_message)

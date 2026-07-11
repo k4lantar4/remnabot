@@ -4874,5 +4874,6 @@
   "ADMIN_REMNA_CFG_CLEAR_ERR": "خطا در پاک‌سازی",
   "ADMIN_REMNA_CFG_SELECTED": "✅ پیکربندی انتخاب شد",
   "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد",
-  "ADMIN_MSG_VALIDATION_ERROR": "❌ {error}"
+  "ADMIN_MSG_VALIDATION_ERROR": "❌ {error}",
+  "ADMIN_MSG_BROADCAST_FORWARD_HINT": "📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)"
 }

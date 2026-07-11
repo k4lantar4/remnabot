@@ -25,6 +25,7 @@ from app.handlers.admin.messages import (
     get_custom_users,
     get_target_users,
 )
+from app.utils.telegram_entities import caption_send_kwargs, message_send_kwargs
 
 
 if TYPE_CHECKING:
@@ -69,6 +70,7 @@ class BroadcastConfig:
     initiator_name: str | None = None
     custom_buttons: list[dict] | None = None
     category: str = 'system'  # system|news|promo
+    entities_json: str | None = None
 
 
 @dataclass
@@ -429,20 +431,19 @@ class BroadcastService:
                 'document': ('document', self._bot.send_document),
             }
             kwarg_name, send_method = media_methods[config.media.type]
+            caption_kwargs = caption_send_kwargs(caption=caption or '', entities_json=config.entities_json)
             await send_method(
                 chat_id=telegram_id,
                 **{kwarg_name: config.media.file_id},
-                caption=caption,
-                parse_mode='HTML',
                 reply_markup=keyboard,
+                **caption_kwargs,
             )
             return
 
         await self._bot.send_message(
             chat_id=telegram_id,
-            text=config.message_text,
-            parse_mode='HTML',
             reply_markup=keyboard,
+            **message_send_kwargs(text=config.message_text, entities_json=config.entities_json),
         )
 
     async def _mark_finished(

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.crud.user import get_users_list
 from app.database.database import AsyncSessionLocal
 from app.database.models import PinnedMessage, User, UserStatus
+from app.utils.telegram_entities import caption_send_kwargs, message_send_kwargs
 from app.utils.validators import sanitize_html, validate_html_tags
 
 
@@ -38,11 +39,15 @@ async def set_active_pinned_message(
     media_file_id: str | None = None,
     send_before_menu: bool | None = None,
     send_on_every_start: bool | None = None,
+    entities_json: str | None = None,
 ) -> PinnedMessage:
-    sanitized_content = sanitize_html(content or '')
-    is_valid, error_message = validate_html_tags(sanitized_content)
-    if not is_valid:
-        raise ValueError(error_message)
+    if entities_json:
+        sanitized_content = content or ''
+    else:
+        sanitized_content = sanitize_html(content or '')
+        is_valid, error_message = validate_html_tags(sanitized_content)
+        if not is_valid:
+            raise ValueError(error_message)
 
     if media_type not in {None, 'photo', 'video'}:
         raise ValueError('Поддерживаются только фото или видео в закрепленном сообщении')
@@ -60,6 +65,7 @@ async def set_active_pinned_message(
         content=sanitized_content,
         media_type=media_type,
         media_file_id=media_file_id,
+        entities_json=entities_json,
         is_active=True,
         created_by=creator_id,
         send_before_menu=(
@@ -320,29 +326,27 @@ async def _send_and_pin_message(bot: Bot, chat_id: int, pinned_message: PinnedMe
             pass
 
     try:
+        entities_json = getattr(pinned_message, 'entities_json', None)
         if pinned_message.media_type == 'photo' and pinned_message.media_file_id:
             sent_message = await bot.send_photo(
                 chat_id=chat_id,
                 photo=pinned_message.media_file_id,
-                caption=pinned_message.content or None,
-                parse_mode='HTML' if pinned_message.content else None,
                 disable_notification=True,
+                **caption_send_kwargs(caption=pinned_message.content or '', entities_json=entities_json),
             )
         elif pinned_message.media_type == 'video' and pinned_message.media_file_id:
             sent_message = await bot.send_video(
                 chat_id=chat_id,
                 video=pinned_message.media_file_id,
-                caption=pinned_message.content or None,
-                parse_mode='HTML' if pinned_message.content else None,
                 disable_notification=True,
+                **caption_send_kwargs(caption=pinned_message.content or '', entities_json=entities_json),
             )
         else:
             sent_message = await bot.send_message(
                 chat_id=chat_id,
-                text=pinned_message.content,
-                parse_mode='HTML',
                 disable_web_page_preview=True,
                 disable_notification=True,
+                **message_send_kwargs(text=pinned_message.content, entities_json=entities_json),
             )
         await bot.pin_chat_message(
             chat_id=chat_id,
