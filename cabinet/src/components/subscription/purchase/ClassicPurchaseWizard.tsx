@@ -12,6 +12,7 @@ import { getErrorMessage, type PurchaseStep } from '../../../utils/subscriptionH
 import { CheckIcon } from '../../icons';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import Twemoji from 'react-twemoji';
+import { getPostPurchasePath } from './postPurchaseRedirect';
 import type {
   ClassicPurchaseOptions,
   PeriodOption,
@@ -150,12 +151,17 @@ export function ClassicPurchaseWizard({
 
   const purchaseMutation = useMutation({
     mutationFn: () => subscriptionApi.submitPurchase(currentSelection, subscriptionId),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
       queryClient.invalidateQueries({ queryKey: ['purchase-options', subscriptionId] });
       queryClient.invalidateQueries({ queryKey: ['balance'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
-      navigate('/subscriptions', { replace: true });
+      const purchasedSubId = data.subscription?.id ?? subscriptionId;
+      if (purchasedSubId) {
+        navigate(getPostPurchasePath(purchasedSubId), { replace: true });
+      } else {
+        navigate('/subscriptions', { replace: true });
+      }
     },
   });
 
