@@ -2237,7 +2237,7 @@ def get_welcome_text_keyboard(language: str = 'ru', is_enabled: bool = True) -> 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-DEFAULT_BROADCAST_BUTTONS = ('home',)
+DEFAULT_BROADCAST_BUTTONS = ('connect', 'subscription', 'home')
 
 BROADCAST_BUTTONS = {
     'balance': {
