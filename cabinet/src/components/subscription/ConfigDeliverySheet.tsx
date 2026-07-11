@@ -12,6 +12,8 @@ import {
 import { copyToClipboard } from '@/utils/clipboard';
 import { CheckIcon, CopyIcon } from '@/components/icons';
 
+const QR_SCAN_BG = '#ececec';
+
 export interface ConfigDeliverySheetProps {
   open: boolean;
   onClose: () => void;
@@ -82,9 +84,16 @@ export function ConfigDeliverySheet({
                   : t('subscription.configDelivery.copyConfig')}
               </button>
 
-              <div className="flex flex-col items-center rounded-2xl bg-white p-5">
-                <QRCodeSVG value={configUrl} size={200} level="M" includeMargin />
-                <p className="mt-3 text-center text-xs text-dark-500">
+              <div className="qr-scan-surface flex flex-col items-center rounded-2xl p-5 ring-1 ring-white/10">
+                <QRCodeSVG
+                  value={configUrl}
+                  size={200}
+                  level="M"
+                  includeMargin
+                  bgColor={QR_SCAN_BG}
+                  fgColor="#000000"
+                />
+                <p className="mt-3 text-center text-xs text-neutral-600">
                   {t('subscription.configDelivery.qrHint')}
                 </p>
               </div>
