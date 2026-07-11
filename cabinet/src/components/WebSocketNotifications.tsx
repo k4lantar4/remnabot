@@ -79,6 +79,7 @@ export default function WebSocketNotifications() {
         // Show prominent success modal for subscription activation
         showSuccessModal({
           type: 'subscription_activated',
+          subscriptionId: message.subscription_id,
           expiresAt: message.expires_at,
           tariffName: message.tariff_name,
         });
@@ -97,6 +98,7 @@ export default function WebSocketNotifications() {
         // Show prominent success modal for subscription renewal
         showSuccessModal({
           type: 'subscription_renewed',
+          subscriptionId: message.subscription_id,
           amountKopeks: message.amount_kopeks,
           expiresAt: message.new_expires_at,
         });

@@ -13,6 +13,7 @@ import { useTelegramSDK } from '../hooks/useTelegramSDK';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useHaptic } from '@/platform';
 import { formatUserDate } from '../utils/formatDate';
+import { getPostPurchasePath } from './subscription/purchase/postPurchaseRedirect';
 import {
   CheckCircleIcon,
   CloseIcon,
@@ -139,6 +140,10 @@ export default function SuccessNotificationModal() {
 
   const handleGoToSubscription = () => {
     hide();
+    if (data?.subscriptionId) {
+      navigate(getPostPurchasePath(data.subscriptionId));
+      return;
+    }
     navigate('/subscriptions');
   };
 
