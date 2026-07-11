@@ -98,12 +98,8 @@ export function ConfigDeliverySheet({
               <div
                 className="flex flex-col items-center rounded-2xl p-4"
                 style={{
-                  background: isDark
-                    ? 'rgb(var(--color-dark-800) / 0.45)'
-                    : 'rgb(var(--color-dark-50))',
-                  border: `1px solid ${
-                    isDark ? 'rgb(var(--color-dark-600) / 0.65)' : 'rgb(var(--color-dark-200))'
-                  }`,
+                  background: g.innerBg,
+                  border: `1px solid ${g.innerBorder}`,
                 }}
               >
                 <div
