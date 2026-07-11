@@ -46,7 +46,7 @@ from app.services.pinned_message_service import (
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
 from app.utils.miniapp_buttons import BUTTON_KEY_TO_CABINET_PATH, build_miniapp_or_callback_button
-from app.utils.telegram_entities import extract_forwardable_content, caption_send_kwargs, message_send_kwargs
+from app.utils.telegram_entities import extract_forwardable_content, caption_send_kwargs, message_send_kwargs, forward_copy_ref
 
 
 logger = structlog.get_logger(__name__)
@@ -833,6 +833,28 @@ async def select_broadcast_target(callback: types.CallbackQuery, db_user: User, 
 @error_handler
 async def process_broadcast_message(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
     texts = get_texts(db_user.language)
+
+    copy_ref = forward_copy_ref(message)
+    if copy_ref is not None:
+        summary = texts.t(
+            'ADMIN_MSG_FORWARD_SUMMARY',
+            'فوروارد از {channel}',
+        ).format(channel=copy_ref.channel_label)
+        await state.update_data(
+            broadcast_is_forward=True,
+            broadcast_copy_chat_id=copy_ref.from_chat_id,
+            broadcast_copy_message_id=copy_ref.message_id,
+            broadcast_forward_label=copy_ref.channel_label,
+            broadcast_message=summary,
+            broadcast_entities_json=None,
+            has_media=False,
+            media_type=None,
+            media_file_id=None,
+            waiting_for_media=False,
+        )
+        await show_button_selector(message, db_user, state)
+        return
+
     draft = extract_forwardable_content(message)
     broadcast_text = draft.text
 
@@ -852,6 +874,10 @@ async def process_broadcast_message(message: types.Message, db_user: User, state
     state_update: dict = {
         'broadcast_message': broadcast_text,
         'broadcast_entities_json': draft.entities_json,
+        'broadcast_is_forward': False,
+        'broadcast_copy_chat_id': None,
+        'broadcast_copy_message_id': None,
+        'broadcast_forward_label': None,
     }
     if draft.media_file_id and draft.media_type:
         state_update.update(
@@ -1152,10 +1178,10 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
     else:
         buttons_info = texts.t('ADMIN_MSG_PREVIEW_NO_BUTTONS', '📘 <b>Кнопки:</b> отсутствуют')
 
-    preview_text = texts.t(
-        'ADMIN_MSG_PREVIEW_TITLE',
-        '📨 <b>Предварительный просмотр рассылки</b>\n\n🎯 <b>Аудитория:</b> {target}\n👥 <b>Получателей:</b> {count}\n\n📝 <b>Сообщение:</b>\n{message}{media_info}\n\n{buttons_info}\n\nПодтвердить отправку?',
-    ).format(target=target_display, count=user_count, message=message_text, media_info=media_info, buttons_info=buttons_info)
+    broadcast_is_forward = data.get('broadcast_is_forward', False)
+    copy_chat_id = data.get('broadcast_copy_chat_id')
+    copy_message_id = data.get('broadcast_copy_message_id')
+    forward_label = data.get('broadcast_forward_label') or ''
 
     keyboard = [
         [
@@ -1168,7 +1194,7 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
         ]
     ]
 
-    if has_media:
+    if has_media and not broadcast_is_forward:
         keyboard.append(
             [
                 types.InlineKeyboardButton(
@@ -1180,6 +1206,45 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
     keyboard.append(
         [types.InlineKeyboardButton(text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data='admin_messages')]
     )
+    reply_markup = types.InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+    if broadcast_is_forward and copy_chat_id and copy_message_id:
+        preview_meta = texts.t(
+            'ADMIN_MSG_PREVIEW_FORWARD',
+            '📨 <b>پیش‌نمایش ریلای (فوروارد کانال)</b>\n\n'
+            '🎯 <b>مخاطب:</b> {target}\n'
+            '👥 <b>گیرندگان:</b> {count}\n'
+            '📢 <b>منبع:</b> {channel}\n\n'
+            '{buttons_info}\n\n'
+            'پیام زیر همان‌طور که برای کاربران ارسال می‌شود (با هدر فوروارد کانال):',
+        ).format(
+            target=target_display,
+            count=user_count,
+            channel=forward_label,
+            buttons_info=buttons_info,
+        )
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=preview_meta,
+            reply_markup=reply_markup,
+            parse_mode='HTML',
+        )
+        await callback.bot.copy_message(
+            chat_id=callback.message.chat.id,
+            from_chat_id=copy_chat_id,
+            message_id=copy_message_id,
+        )
+        await callback.answer()
+        return
+
+    preview_text = texts.t(
+        'ADMIN_MSG_PREVIEW_TITLE',
+        '📨 <b>Предварительный просмотр рассылки</b>\n\n🎯 <b>Аудитория:</b> {target}\n👥 <b>Получателей:</b> {count}\n\n📝 <b>Сообщение:</b>\n{message}{media_info}\n\n{buttons_info}\n\nПодтвердить отправку?',
+    ).format(target=target_display, count=user_count, message=message_text, media_info=media_info, buttons_info=buttons_info)
 
     # Если есть медиа, показываем его с загруженным фото, иначе обычное текстовое сообщение
     if has_media and media_type == 'photo':
@@ -1196,7 +1261,7 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
                     chat_id=callback.message.chat.id,
                     photo=media_file_id,
                     caption=preview_text,
-                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
+                    reply_markup=reply_markup,
                     parse_mode='HTML',
                 )
             else:
@@ -1208,7 +1273,7 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
                 await callback.bot.send_message(
                     chat_id=callback.message.chat.id,
                     text=preview_text,
-                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
+                    reply_markup=reply_markup,
                     parse_mode='HTML',
                 )
         else:
@@ -1216,13 +1281,13 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
             await safe_edit_or_send_text(
                 callback,
                 preview_text,
-                reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard),
+                reply_markup=reply_markup,
                 parse_mode='HTML',
             )
     else:
         # Для текстовых сообщений или других типов медиа используем safe редактирование
         await safe_edit_or_send_text(
-            callback, preview_text, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode='HTML'
+            callback, preview_text, reply_markup=reply_markup, parse_mode='HTML'
         )
 
     await callback.answer()
@@ -1236,6 +1301,9 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
     target = data.get('broadcast_target')
     message_text = data.get('broadcast_message')
     broadcast_entities_json = data.get('broadcast_entities_json')
+    broadcast_is_forward = data.get('broadcast_is_forward', False)
+    copy_chat_id = data.get('broadcast_copy_chat_id')
+    copy_message_id = data.get('broadcast_copy_message_id')
     selected_buttons = data.get('selected_buttons')
     if selected_buttons is None:
         selected_buttons = list(DEFAULT_SELECTED_BUTTONS)
@@ -1279,11 +1347,11 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
     broadcast_history = BroadcastHistory(
         target_type=target,
         message_text=message_text,
-        has_media=has_media,
-        media_type=media_type,
-        media_file_id=media_file_id,
+        has_media=has_media and not broadcast_is_forward,
+        media_type=media_type if not broadcast_is_forward else None,
+        media_file_id=media_file_id if not broadcast_is_forward else None,
         media_caption=media_caption,
-        entities_json=broadcast_entities_json,
+        entities_json=None if broadcast_is_forward else broadcast_entities_json,
         total_count=total_users_count,
         sent_count=0,
         failed_count=0,
@@ -1336,6 +1404,15 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
                 await asyncio.sleep(flood_wait_until - now)
 
             try:
+                if broadcast_is_forward and copy_chat_id and copy_message_id:
+                    await callback.bot.copy_message(
+                        chat_id=telegram_id,
+                        from_chat_id=copy_chat_id,
+                        message_id=copy_message_id,
+                        reply_markup=broadcast_keyboard,
+                    )
+                    return 'sent'
+
                 if has_media and media_file_id:
                     send_method = {
                         'photo': callback.bot.send_photo,

@@ -71,6 +71,8 @@ class BroadcastConfig:
     custom_buttons: list[dict] | None = None
     category: str = 'system'  # system|news|promo
     entities_json: str | None = None
+    copy_from_chat_id: int | None = None
+    copy_message_id: int | None = None
 
 
 @dataclass
@@ -422,6 +424,15 @@ class BroadcastService:
         """
         if not self._bot:
             raise RuntimeError('Телеграм-бот не инициализирован')
+
+        if config.copy_from_chat_id is not None and config.copy_message_id is not None:
+            await self._bot.copy_message(
+                chat_id=telegram_id,
+                from_chat_id=config.copy_from_chat_id,
+                message_id=config.copy_message_id,
+                reply_markup=keyboard,
+            )
+            return
 
         if config.media and config.media.type in VALID_MEDIA_TYPES:
             caption = config.media.caption or config.message_text

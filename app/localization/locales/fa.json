@@ -4875,5 +4875,7 @@
   "ADMIN_REMNA_CFG_SELECTED": "✅ پیکربندی انتخاب شد",
   "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد",
   "ADMIN_MSG_VALIDATION_ERROR": "❌ {error}",
-  "ADMIN_MSG_BROADCAST_FORWARD_HINT": "📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)"
+  "ADMIN_MSG_BROADCAST_FORWARD_HINT": "📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)",
+  "ADMIN_MSG_FORWARD_SUMMARY": "فوروارد از {channel}",
+  "ADMIN_MSG_PREVIEW_FORWARD": "📨 <b>پیش‌نمایش ریلای (فوروارد کانال)</b>\n\n🎯 <b>مخاطب:</b> {target}\n👥 <b>گیرندگان:</b> {count}\n📢 <b>منبع:</b> {channel}\n\n{buttons_info}\n\nپیام زیر همان‌طور که برای کاربران ارسال می‌شود (با هدر فوروارد کانال):"
 }
