@@ -1,3 +1,37 @@
+# Smoke map — Cabinet UX polish + Phase 1–2 (Jul 2026)
+
+> Branch `fix/cabinet-ux-polish` (includes `fix/post-purchase-cabinet-routing` Phase 1–2).
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/cabinet-ux-polish` |
+| Files | `ConfigDeliverySheet`, `postPurchaseRedirect`, wizards, `purchaseRoutes`, `TariffPickerGrid`, `Dashboard`, `Subscription`, `globals.css`, `cabinet/src/locales/fa.json` |
+| Guard | cabinet docker build OK |
+| Deploy | staging cabinet-frontend rebuilt |
+| Surfaces | staging cabinet (`3021`) |
+
+## User smoke checklist (staging cabinet)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| A | Post-purchase buy | `/subscriptions/:id?openConfig=1` + config sheet | pending |
+| B | Config sheet QR | Soft gray `#ececec` surface, scannable | pending |
+| C | Traffic slider | Thumb centered on track | pending |
+| D | Dashboard → خرید اشتراک دیگر | Cards show «خرید» / «خرید اکانت جدید», not «انتخاب برای تمدید» | pending |
+| E | Complete buyAnother | New subscription row (not extend) | pending |
+| F | Dashboard home | Max 3 cards + accent «مشاهده همه» | pending |
+| G | Nav + referral page | «نمایندگی» label | pending |
+| H | Subscription detail | Renew CTA + «خرید اشتراک دیگر» row | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Cabinet post-purchase routing (Phase 1–2) Jul 2026
 
 > Branch `fix/post-purchase-cabinet-routing`; cabinet detail redirect + ConfigDeliverySheet + guide intro.
