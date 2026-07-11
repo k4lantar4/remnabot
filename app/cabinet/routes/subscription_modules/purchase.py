@@ -1100,6 +1100,7 @@ async def purchase_tariff(
                 traffic_limit_gb=traffic_limit_gb,
                 device_limit=effective_device_limit,
                 connected_squads=squads,
+                reset_period=True,
             )
         else:
             # Create new subscription

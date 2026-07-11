@@ -1836,6 +1836,7 @@ async def handle_custom_confirm(
                 traffic_limit_gb=traffic_limit,
                 device_limit=effective_device_limit,
                 connected_squads=squads,
+                reset_period=True,
             )
         else:
             if settings.is_multi_tariff_enabled():
@@ -2320,6 +2321,7 @@ async def confirm_tariff_purchase(
                     traffic_limit_gb=purchase_traffic_gb,
                     device_limit=effective_device_limit,
                     connected_squads=squads,
+                    reset_period=True,
                 )
             else:
                 active_count = len(await get_active_subscriptions_by_user_id(db, db_user.id))
@@ -2383,6 +2385,7 @@ async def confirm_tariff_purchase(
                 traffic_limit_gb=purchase_traffic_gb,
                 device_limit=effective_device_limit,
                 connected_squads=squads,
+                reset_period=True,
             )
         else:
             # Создаем новую подписку
@@ -3467,7 +3470,7 @@ async def confirm_tariff_extend(
         renewal_traffic_gb = None
         if tariff.can_purchase_custom_traffic() and custom_traffic_gb:
             renewal_traffic_gb = int(custom_traffic_gb)
-        elif was_trial:
+        else:
             renewal_traffic_gb = tariff.traffic_limit_gb
 
         # Продлеваем подписку; для триала передаём tariff_id чтобы сбросить is_trial
@@ -3478,6 +3481,7 @@ async def confirm_tariff_extend(
             tariff_id=tariff.id if was_trial else None,
             traffic_limit_gb=renewal_traffic_gb,
             device_limit=actual_device_limit if was_trial else None,
+            reset_period=True,
         )
 
         from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options

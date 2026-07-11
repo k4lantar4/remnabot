@@ -31,6 +31,19 @@ from app.utils.price_display import catalog_price_in_toman
 logger = structlog.get_logger(__name__)
 
 
+def _renewal_traffic_gb(subscription: Subscription) -> int | None:
+    """Base traffic GB to apply on paid renewal (custom or fixed tariff)."""
+    tariff = getattr(subscription, 'tariff', None)
+    if tariff is None or subscription.tariff_id is None:
+        return None
+    from app.services.pricing_engine import PricingEngine
+
+    custom = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
+    if custom is not None:
+        return custom
+    return tariff.traffic_limit_gb
+
+
 class SubscriptionRenewalError(Exception):
     """Base class for subscription renewal related errors."""
 
@@ -421,7 +434,13 @@ class SubscriptionRenewalService:
         )
 
         try:
-            subscription_after = await extend_subscription(db, subscription_before, period_days)
+            subscription_after = await extend_subscription(
+                db,
+                subscription_before,
+                period_days,
+                traffic_limit_gb=_renewal_traffic_gb(subscription_before),
+                reset_period=True,
+            )
         except Exception:
             # Session may be in a failed state after a broken commit — rollback first
             await db.rollback()

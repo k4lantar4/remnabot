@@ -744,6 +744,7 @@ async def extend_subscription(
     connected_squads: list[str] | None = None,
     convert_trial: bool = True,
     commit: bool = True,
+    reset_period: bool = False,
 ) -> Subscription:
     """Продлевает подписку на указанное количество дней.
 
@@ -760,6 +761,8 @@ async def extend_subscription(
             False для бесплатного релейбла/смены тарифа без оплаты, иначе триал
             превратится в фантомную платную подписку и попадёт в авто-продление
             (баг #629889).
+        reset_period: при оплаченном продлении того же тарифа — начать новый
+            период с текущей даты (не добавлять дни к end_date).
     """
     current_time = datetime.now(UTC)
 
@@ -820,6 +823,10 @@ async def extend_subscription(
             days=days,
             remaining_seconds=int(remaining_seconds),
         )
+    elif reset_period:
+        subscription.end_date = current_time + timedelta(days=days)
+        subscription.start_date = current_time
+        logger.info('📅 Продление: новый период с текущей даты', days=days)
     elif subscription.end_date > current_time:
         # Подписка активна - просто добавляем дни к текущей дате окончания
         # БЕЗ бонусных дней (они уже учтены в end_date)

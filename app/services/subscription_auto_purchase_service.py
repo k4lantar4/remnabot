@@ -517,8 +517,9 @@ async def _auto_extend_subscription(
             subscription,
             prepared.period_days,
             tariff_id=prepared.tariff_id if is_tariff_change else None,
-            traffic_limit_gb=prepared.traffic_limit_gb if is_tariff_change else None,
+            traffic_limit_gb=prepared.traffic_limit_gb,
             device_limit=prepared.device_limit if is_tariff_change else None,
+            reset_period=True,
         )
 
         # Конвертируем триал в платную подписку ТОЛЬКО после успешного продления
@@ -910,6 +911,7 @@ async def _auto_purchase_tariff(
                 traffic_limit_gb=purchase_traffic_gb,
                 device_limit=effective_device_limit,
                 connected_squads=squads,
+                reset_period=True,
             )
             was_trial_conversion = existing_subscription.is_trial
             if was_trial_conversion:
@@ -2335,9 +2337,17 @@ async def try_auto_extend_expired_after_topup(
     old_end_date = subscription.end_date
     was_trial = subscription.is_trial
 
+    from app.services.subscription_renewal_service import _renewal_traffic_gb
+
     # Extend subscription
     try:
-        updated_subscription = await extend_subscription(db, subscription, period_days)
+        updated_subscription = await extend_subscription(
+            db,
+            subscription,
+            period_days,
+            traffic_limit_gb=_renewal_traffic_gb(subscription),
+            reset_period=True,
+        )
 
         # Convert trial to paid if needed
         if was_trial and subscription.is_trial:

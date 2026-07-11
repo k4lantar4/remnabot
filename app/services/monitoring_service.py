@@ -1412,7 +1412,7 @@ class MonitoringService:
                                 )
                             old_end_date = subscription.end_date
                             try:
-                                await extend_subscription(db, subscription, autopay_period)
+                                await extend_subscription(db, subscription, autopay_period, reset_period=True)
                             except Exception as extend_exc:
                                 # Баланс уже списан и закоммичен в subtract_user_balance выше.
                                 # Само продление упало → компенсирующий возврат, иначе деньги
