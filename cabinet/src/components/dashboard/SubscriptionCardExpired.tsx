@@ -66,6 +66,9 @@ export default function SubscriptionCardExpired({
         // (user_id, tariff_id) re-lookup that races with concurrent
         // panel webhooks (would surface as "Тариф уже активен" + refund).
         await subscriptionApi.purchaseTariff(subscription.tariff_id, 1, undefined, subscription.id);
+      } else if (subscription.tariff_id) {
+        navigate(`/subscriptions/${subscription.id}/renew`);
+        return;
       } else {
         await subscriptionApi.renewSubscription(30, subscription.id);
       }

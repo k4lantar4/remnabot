@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { getErrorMessage, getFlagEmoji } from '../../../utils/subscriptionHelpers';
+import { canAffordCatalog, missingCatalogToman } from '../../../utils/priceUnits';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import { ChevronRightIcon } from '../../icons';
 import type { PurchaseOptions, Subscription } from '../../../types';
@@ -237,8 +238,11 @@ export function ServerManagementSheet({
             const addedServers = countriesData.countries.filter((c) => added.includes(c.uuid));
             const totalCost = addedServers.reduce((sum, s) => sum + s.price_kopeks, 0);
             const hasEnoughBalance =
-              !purchaseOptions || totalCost <= purchaseOptions.balance_kopeks;
-            const missingAmount = purchaseOptions ? totalCost - purchaseOptions.balance_kopeks : 0;
+              !purchaseOptions ||
+              canAffordCatalog(purchaseOptions.balance_kopeks, totalCost);
+            const missingAmountToman = purchaseOptions
+              ? missingCatalogToman(purchaseOptions.balance_kopeks, totalCost)
+              : 0;
 
             return hasChanges ? (
               <div
@@ -278,8 +282,12 @@ export function ServerManagementSheet({
                   </div>
                 )}
 
-                {totalCost > 0 && !hasEnoughBalance && missingAmount > 0 && (
-                  <InsufficientBalancePrompt missingAmountKopeks={missingAmount} compact />
+                {totalCost > 0 && !hasEnoughBalance && missingAmountToman > 0 && (
+                  <InsufficientBalancePrompt
+                    missingAmountKopeks={missingAmountToman}
+                    missingAmountToman={missingAmountToman}
+                    compact
+                  />
                 )}
 
                 <button

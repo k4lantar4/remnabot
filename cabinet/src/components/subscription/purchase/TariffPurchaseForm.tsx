@@ -28,6 +28,8 @@ export interface TariffPurchaseFormProps {
   subscriptionId: number | undefined;
   balanceKopeks: number | undefined;
   onBack: () => void;
+  /** Pre-fill traffic GB on renewal (defaults to tariff min). */
+  initialTrafficGb?: number;
 }
 
 export function TariffPurchaseForm({
@@ -35,6 +37,7 @@ export function TariffPurchaseForm({
   subscriptionId,
   balanceKopeks,
   onBack,
+  initialTrafficGb,
 }: TariffPurchaseFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -51,7 +54,9 @@ export function TariffPurchaseForm({
     tariff.periods[0] || null,
   );
   const [customDays, setCustomDays] = useState<number>(30);
-  const [customTrafficGb, setCustomTrafficGb] = useState<number>(tariff.min_traffic_gb ?? 1);
+  const [customTrafficGb, setCustomTrafficGb] = useState<number>(
+    initialTrafficGb ?? tariff.min_traffic_gb ?? 1,
+  );
   const deferredTrafficGb = useDeferredValue(customTrafficGb);
   const [useCustomDays, setUseCustomDays] = useState(false);
   const [partnerCheckout, setPartnerCheckout] = useState<PartnerCheckoutValues>({

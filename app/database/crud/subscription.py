@@ -878,7 +878,7 @@ async def extend_subscription(
         if is_tariff_change:
             if settings.RESET_TRAFFIC_ON_TARIFF_SWITCH:
                 subscription.traffic_used_gb = 0.0
-        else:
+        elif settings.RESET_TRAFFIC_ON_PAYMENT:
             subscription.traffic_used_gb = 0.0
 
         if is_tariff_change or was_expired:

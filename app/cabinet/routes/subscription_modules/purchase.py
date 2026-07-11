@@ -993,6 +993,14 @@ async def purchase_tariff(
         if settings.is_multi_tariff_enabled() and request.subscription_id is None:
             subscription = None
 
+        _now = datetime.now(UTC)
+        _is_renewal = subscription is not None
+        _was_expired = False
+        if subscription:
+            _was_expired = subscription.status in ('expired', 'disabled', 'limited') or (
+                subscription.end_date is not None and subscription.end_date <= _now
+            )
+
         # Get server squads from tariff
         squads = tariff.allowed_squads or []
 
@@ -1185,11 +1193,15 @@ async def purchase_tariff(
                     detail=str(exc),
                 ) from exc
 
+            _panel_reset_traffic = (
+                settings.RESET_TRAFFIC_ON_PAYMENT or _was_expired if _is_renewal else True
+            )
+
             if not _should_create:
                 await service.update_remnawave_user(
                     db,
                     subscription,
-                    reset_traffic=True,
+                    reset_traffic=_panel_reset_traffic,
                     reset_reason='покупка тарифа (cabinet)',
                     sync_squads=True,
                 )

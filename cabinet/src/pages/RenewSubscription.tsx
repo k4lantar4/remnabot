@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { subscriptionApi } from '../api/subscription';
 import { useTheme } from '../hooks/useTheme';
 import { getGlassColors } from '../utils/glassTheme';
 import { useCurrency } from '../hooks/useCurrency';
-import { useHaptic } from '../platform';
-import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { WebBackButton } from '../components/WebBackButton';
-import { canAffordCatalog, catalogKopeksToToman, missingCatalogToman } from '../utils/priceUnits';
+import { TariffPurchaseForm } from '../components/subscription/purchase/TariffPurchaseForm';
+import type { TariffsPurchaseOptions } from '../types';
 
 export default function RenewSubscription() {
   const { subscriptionId } = useParams<{ subscriptionId: string }>();
@@ -17,17 +15,11 @@ export default function RenewSubscription() {
 
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const g = getGlassColors(isDark);
   const { formatAmount, currencySymbol } = useCurrency();
-  const { impact } = useHaptic();
 
-  const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load subscription detail for tariff name
-  const { data: subscriptionResponse } = useQuery({
+  const { data: subscriptionResponse, isLoading: subscriptionLoading } = useQuery({
     queryKey: ['subscription', subId],
     queryFn: () => subscriptionApi.getSubscription(subId),
     enabled: !!subId,
@@ -35,54 +27,15 @@ export default function RenewSubscription() {
   });
   const subscription = subscriptionResponse?.subscription ?? null;
 
-  // Load renewal options
-  const { data: options, isLoading } = useQuery({
-    queryKey: ['renewal-options', subId],
-    queryFn: () => subscriptionApi.getRenewalOptions(subId),
-    enabled: !!subId,
+  const { data: purchaseOptions, isLoading: optionsLoading } = useQuery({
+    queryKey: ['purchase-options', subId],
+    queryFn: () => subscriptionApi.getPurchaseOptions(subId),
     staleTime: 0,
     refetchOnMount: 'always',
   });
 
-  // Load balance
-  const { data: purchaseOptions } = useQuery({
-    queryKey: ['purchase-options', subId],
-    queryFn: () => subscriptionApi.getPurchaseOptions(subId),
-    staleTime: 0,
-  });
   const balanceKopeks = purchaseOptions?.balance_kopeks ?? 0;
-
-  const renewMutation = useMutation({
-    mutationFn: (periodDays: number) => subscriptionApi.renewSubscription(periodDays, subId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription', subId] });
-      queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
-      queryClient.invalidateQueries({ queryKey: ['renewal-options', subId] });
-      queryClient.invalidateQueries({ queryKey: ['balance'] });
-      navigate(`/subscriptions/${subId}`, { replace: true });
-    },
-    onError: (err: unknown) => {
-      const detail =
-        err && typeof err === 'object' && 'response' in err
-          ? ((err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail ?? null)
-          : null;
-
-      if (detail && typeof detail === 'object' && 'code' in (detail as Record<string, unknown>)) {
-        const typed = detail as { code: string; missing_amount?: number };
-        if (typed.code === 'insufficient_funds' && typed.missing_amount) {
-          setError(`insufficient:${typed.missing_amount}`);
-          return;
-        }
-      }
-      setError(typeof detail === 'string' ? detail : t('common.error'));
-    },
-  });
-
-  const handleRenew = (periodDays: number) => {
-    impact('medium');
-    setError(null);
-    renewMutation.mutate(periodDays);
-  };
+  const isLoading = subscriptionLoading || optionsLoading;
 
   if (!subId) {
     return <Navigate to="/subscriptions" replace />;
@@ -96,40 +49,32 @@ export default function RenewSubscription() {
     );
   }
 
-  const insufficientMatch = error?.match(/^insufficient:(\d+)$/);
-  const missingAmount = insufficientMatch ? Number(insufficientMatch[1]) : null;
+  if (subscription && !subscription.tariff_id) {
+    return <Navigate to={`/subscription/purchase?subscriptionId=${subId}`} replace />;
+  }
 
-  const formatCatalogPrice = (priceKopeks: number) =>
-    formatAmount(
-      i18n.language === 'fa' ? catalogKopeksToToman(priceKopeks) : priceKopeks / 100,
-      0,
-    );
+  const isTariffsMode = purchaseOptions?.sales_mode === 'tariffs';
+  const tariffs =
+    isTariffsMode && purchaseOptions
+      ? (purchaseOptions as TariffsPurchaseOptions).tariffs
+      : [];
+  const tariff = subscription?.tariff_id
+    ? tariffs.find((item) => item.id === subscription.tariff_id)
+    : undefined;
 
-  const selectedOption = options?.find((o) => o.period_days === selectedPeriod);
-  const canAffordSelected = selectedOption
-    ? canAffordCatalog(balanceKopeks, selectedOption.price_kopeks)
-    : false;
+  const renewalTrafficGb = subscription?.traffic_limit_gb;
+  const renewalUnlimited = renewalTrafficGb === 0;
+  const renewalTrafficLabel = renewalUnlimited
+    ? t('subscription.unlimitedTraffic', 'ترافیک نامحدود')
+    : renewalTrafficGb != null && renewalTrafficGb > 0
+      ? t('subscription.summary.traffic', 'حجم: {{gb}} گیگ', { gb: renewalTrafficGb })
+      : null;
 
-  const renewalTrafficGb =
-    options?.[0]?.traffic_limit_gb ?? subscription?.traffic_limit_gb ?? null;
-  const renewalUnlimited =
-    options?.[0]?.is_unlimited_traffic ?? subscription?.traffic_limit_gb === 0;
-
-  const formatRenewalTraffic = () => {
-    if (renewalUnlimited) {
-      return t('subscription.unlimitedTraffic', 'ترافیک نامحدود');
-    }
-    if (renewalTrafficGb != null && renewalTrafficGb > 0) {
-      return t('subscription.summary.traffic', 'حجم: {{gb}} گیگ', { gb: renewalTrafficGb });
-    }
-    return null;
-  };
-
-  const renewalTrafficLabel = formatRenewalTraffic();
+  const initialTrafficGb =
+    renewalTrafficGb != null && renewalTrafficGb > 0 ? renewalTrafficGb : undefined;
 
   return (
     <div className="space-y-5">
-      {/* Title */}
       <div className="flex items-center gap-3">
         <WebBackButton to={`/subscriptions/${subId}`} />
         <div>
@@ -145,7 +90,6 @@ export default function RenewSubscription() {
         </div>
       </div>
 
-      {/* Balance */}
       <div
         className="flex items-center justify-between rounded-2xl p-4"
         style={{ background: g.cardBg, border: `1px solid ${g.cardBorder}` }}
@@ -159,120 +103,30 @@ export default function RenewSubscription() {
         </span>
       </div>
 
-      {/* Period options */}
-      {!options || options.length === 0 ? (
+      {!tariff ? (
         <div
           className="rounded-2xl p-6 text-center"
           style={{ background: g.cardBg, border: `1px solid ${g.cardBorder}` }}
         >
-          <p style={{ color: g.textSecondary }}>
+          <p className="mb-4" style={{ color: g.textSecondary }}>
             {t('subscription.noRenewalOptions', 'Нет доступных вариантов продления')}
           </p>
+          <Link
+            to={`/subscription/purchase?subscriptionId=${subId}`}
+            className="inline-block rounded-xl bg-accent-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600"
+          >
+            {t('subscription.getSubscription', 'Получить подписку')}
+          </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {options.map((option) => {
-            const isSelected = selectedPeriod === option.period_days;
-            const canAfford = canAffordCatalog(balanceKopeks, option.price_kopeks);
-            const months = Math.max(1, Math.round(option.period_days / 30));
-            const perMonthKopeks = option.price_kopeks / months;
-
-            return (
-              <button
-                key={option.period_days}
-                onClick={() => {
-                  impact('light');
-                  setSelectedPeriod(option.period_days);
-                  setError(null);
-                }}
-                className="w-full rounded-2xl border p-4 text-left transition-all duration-200"
-                style={{
-                  background: isSelected
-                    ? isDark
-                      ? 'rgba(var(--color-accent-400), 0.08)'
-                      : 'rgba(var(--color-accent-400), 0.05)'
-                    : g.cardBg,
-                  borderColor: isSelected ? 'rgb(var(--color-accent-400))' : g.cardBorder,
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-base font-semibold" style={{ color: g.text }}>
-                      {option.period_days} {t('common.units.days', 'дней')}
-                    </span>
-                    {renewalTrafficLabel && (
-                      <p className="mt-0.5 text-xs" style={{ color: g.textSecondary }}>
-                        {renewalTrafficLabel}
-                      </p>
-                    )}
-                    {option.discount_percent > 0 && (
-                      <span className="ml-2 rounded-full bg-success-400/15 px-2 py-0.5 text-[10px] font-semibold text-success-400">
-                        -{option.discount_percent}%
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-base font-semibold" style={{ color: g.text }}>
-                      {option.price_kopeks === 0
-                        ? t('subscription.free', 'Бесплатно')
-                        : `${formatCatalogPrice(option.price_kopeks)} ${currencySymbol}`}
-                    </div>
-                    {months > 1 && (
-                      <div className="text-[11px]" style={{ color: g.textSecondary }}>
-                        {formatCatalogPrice(perMonthKopeks)} {currencySymbol}/
-                        {t('common.units.mo', 'мес')}
-                      </div>
-                    )}
-                    {option.original_price_kopeks && (
-                      <div className="text-[11px] line-through" style={{ color: g.textSecondary }}>
-                        {formatCatalogPrice(option.original_price_kopeks)} {currencySymbol}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {!canAfford && (
-                  <div className="mt-2 text-[11px] text-error-400">
-                    {t('subscription.insufficientBalance', {
-                      missing: formatAmount(
-                        missingCatalogToman(balanceKopeks, option.price_kopeks),
-                        0,
-                      ),
-                    })}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Insufficient balance prompt */}
-      {missingAmount && (
-        <InsufficientBalancePrompt
-          missingAmountKopeks={missingAmount}
-          missingAmountToman={missingAmount}
-          compact
+        <TariffPurchaseForm
+          key={`${tariff.id}-${initialTrafficGb ?? 'default'}`}
+          tariff={tariff}
+          subscriptionId={subId}
+          balanceKopeks={purchaseOptions?.balance_kopeks}
+          initialTrafficGb={initialTrafficGb}
+          onBack={() => navigate(`/subscriptions/${subId}`)}
         />
-      )}
-
-      {/* Error */}
-      {error && !missingAmount && (
-        <div className="rounded-xl bg-error-400/10 p-3 text-center text-sm text-error-400">
-          {error}
-        </div>
-      )}
-
-      {/* Renew button */}
-      {selectedPeriod && (
-        <button
-          onClick={() => handleRenew(selectedPeriod)}
-          disabled={renewMutation.isPending || !canAffordSelected}
-          className="w-full rounded-2xl bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {renewMutation.isPending
-            ? t('common.processing', 'Обработка...')
-            : t('subscription.extend', 'Продлить подписку')}
-        </button>
       )}
     </div>
   );

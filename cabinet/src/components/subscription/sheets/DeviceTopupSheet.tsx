@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscriptionApi } from '../../../api/subscription';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { getErrorMessage } from '../../../utils/subscriptionHelpers';
+import { canAffordCatalog, missingCatalogToman } from '../../../utils/priceUnits';
 import InsufficientBalancePrompt from '../../InsufficientBalancePrompt';
 import { ChevronRightIcon } from '../../icons';
 import type { PurchaseOptions, Subscription } from '../../../types';
@@ -203,11 +204,16 @@ export function DeviceTopupSheet({
           {devicePriceData?.available &&
             purchaseOptions &&
             devicePriceData.total_price_kopeks &&
-            devicePriceData.total_price_kopeks > purchaseOptions.balance_kopeks && (
+            !canAffordCatalog(purchaseOptions.balance_kopeks, devicePriceData.total_price_kopeks) && (
               <InsufficientBalancePrompt
-                missingAmountKopeks={
-                  devicePriceData.total_price_kopeks - purchaseOptions.balance_kopeks
-                }
+                missingAmountKopeks={missingCatalogToman(
+                  purchaseOptions.balance_kopeks,
+                  devicePriceData.total_price_kopeks,
+                )}
+                missingAmountToman={missingCatalogToman(
+                  purchaseOptions.balance_kopeks,
+                  devicePriceData.total_price_kopeks,
+                )}
                 compact
                 onBeforeTopUp={async () => {
                   await subscriptionApi.saveDevicesCart(devicesToAdd, subscriptionId);
@@ -223,7 +229,7 @@ export function DeviceTopupSheet({
               !!(
                 devicePriceData?.total_price_kopeks &&
                 purchaseOptions &&
-                devicePriceData.total_price_kopeks > purchaseOptions.balance_kopeks
+                !canAffordCatalog(purchaseOptions.balance_kopeks, devicePriceData.total_price_kopeks)
               )
             }
             className="btn-primary w-full py-3"
