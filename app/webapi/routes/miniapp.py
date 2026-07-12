@@ -6669,11 +6669,27 @@ async def purchase_tariff_endpoint(
     # Списываем баланс
     charge_toman = catalog_price_in_toman(price_kopeks)
     if is_daily_tariff:
-        description = f"Активация суточного тарифа '{tariff.name}' (первый день)"
-    elif discount_percent > 0:
-        description = f"Покупка тарифа '{tariff.name}' на {payload.period_days} дней (скидка {discount_percent}%)"
+        description = _t(
+            user,
+            'TARIFF_DAILY_ACTIVATION_LEDGER_DESC',
+            "Активация суточного тарифа '{name}' (первый день)",
+            name=tariff.name,
+        )
     else:
-        description = f"Покупка тарифа '{tariff.name}' на {payload.period_days} дней"
+        description = _t(
+            user,
+            'TARIFF_PURCHASE_LEDGER_DESC',
+            "Покупка тарифа '{name}' на {days} дней",
+            name=tariff.name,
+            days=payload.period_days,
+        )
+        if discount_percent > 0:
+            description += _t(
+                user,
+                'TARIFF_LEDGER_DISCOUNT_SUFFIX',
+                ' (скидка {percent}%)',
+                percent=discount_percent,
+            )
     success = await subtract_user_balance(
         db,
         user,
@@ -7526,11 +7542,17 @@ async def toggle_daily_subscription_pause_endpoint(
                 from app.database.crud.user import subtract_user_balance
 
                 charge_toman = catalog_price_in_toman(daily_price)
+                daily_resume_desc = _t(
+                    user,
+                    'DAILY_TARIFF_RENEW_LEDGER_DESC',
+                    'Суточная оплата тарифа «{name}» (возобновление)',
+                    name=tariff.name,
+                )
                 deducted = await subtract_user_balance(
                     db,
                     user,
                     charge_toman,
-                    f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
+                    daily_resume_desc,
                     mark_as_paid_subscription=True,
                     commit=False,
                 )
@@ -7553,7 +7575,7 @@ async def toggle_daily_subscription_pause_endpoint(
                     user_id=user.id,
                     type=TransactionType.SUBSCRIPTION_PAYMENT,
                     amount_kopeks=daily_price,
-                    description=f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
+                    description=daily_resume_desc,
                     commit=False,
                 )
 
@@ -7588,7 +7610,7 @@ async def toggle_daily_subscription_pause_endpoint(
                 amount_kopeks=daily_price,
                 user_id=user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
-                description=f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
+                description=resume_transaction.description,
             )
         except Exception as exc:
             logger.warning('Failed to emit resume transaction side effects (miniapp)', error=exc)
