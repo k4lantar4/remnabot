@@ -1087,7 +1087,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
             charged_amount = await charge_trial_activation_if_required(
                 db,
                 db_user,
-                description='Активация триала через бота',
+                description=texts.t('TRIAL_ACTIVATION_LEDGER_DESC', 'Активация триала через бота'),
             )
         except TrialPaymentInsufficientFunds as error:
             rollback_success = await rollback_trial_subscription_activation(db, subscription)
@@ -2022,7 +2022,7 @@ async def confirm_extend_subscription(
             period_days=days,
             total_price=price,
             user_id=db_user.id,
-            description=f'Продление подписки на {days} дней',
+            description=texts.t('CLASSIC_SUB_RENEW_LEDGER_DESC', 'Продление подписки на {days} дней').format(days=days),
             consume_promo_offer=bool(promo_offer_discount > 0),
             device_limit=device_limit,
             devices=device_limit,
@@ -2046,7 +2046,7 @@ async def confirm_extend_subscription(
         return
 
     old_traffic_gb = subscription.traffic_limit_gb
-    renewal_description = f'Продление подписки на {days} дней ({months_in_period} мес)'
+    renewal_description = texts.t('CLASSIC_SUB_RENEW_LEDGER_DESC', 'Продление подписки на {days} дней').format(days=days)
 
     try:
         renewal_service = SubscriptionRenewalService()
@@ -2724,7 +2724,10 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             user_id=db_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=final_price,
-            description=f'Подписка на {period_days} дней ({months_in_period} мес)',
+            description=texts.t(
+                'CLASSIC_SUB_PURCHASE_LEDGER_DESC',
+                'Подписка на {days} дней ({months} мес)',
+            ).format(days=period_days, months=months_in_period),
         )
 
         try:
@@ -3103,7 +3106,10 @@ async def handle_toggle_daily_subscription_pause(
                 db,
                 db_user,
                 catalog_price_in_toman(daily_price),
-                f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
+                texts.t(
+                    'DAILY_TARIFF_RENEW_LEDGER_DESC',
+                    'Суточная оплата тарифа «{name}» (возобновление)',
+                ).format(name=tariff.name),
                 mark_as_paid_subscription=True,
             )
             if not deducted:
@@ -3125,7 +3131,10 @@ async def handle_toggle_daily_subscription_pause(
                     user_id=db_user.id,
                     type=TransactionType.SUBSCRIPTION_PAYMENT,
                     amount_kopeks=daily_price,
-                    description=f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
+                    description=texts.t(
+                        'DAILY_TARIFF_RENEW_LEDGER_DESC',
+                        'Суточная оплата тарифа «{name}» (возобновление)',
+                    ).format(name=tariff.name),
                 )
             except Exception as tx_error:
                 logger.warning('Не удалось создать транзакцию при возобновлении', error=tx_error)
@@ -4640,7 +4649,9 @@ async def _extend_existing_subscription(
             period_days=period_days,
             total_price=price_kopeks,
             user_id=db_user.id,
-            description=f'Продление подписки на {period_days} дней',
+            description=texts.t('CLASSIC_SUB_RENEW_LEDGER_DESC', 'Продление подписки на {days} дней').format(
+                days=period_days
+            ),
             device_limit=device_limit,
             devices=device_limit,
             traffic_limit_gb=traffic_limit_gb,
@@ -4669,7 +4680,7 @@ async def _extend_existing_subscription(
         db,
         db_user,
         catalog_price_in_toman(price_kopeks),
-        f'Продление подписки на {period_days} дней',
+        texts.t('CLASSIC_SUB_RENEW_LEDGER_DESC', 'Продление подписки на {days} дней').format(days=period_days),
         consume_promo_offer=consume_promo,
         mark_as_paid_subscription=True,
     )
@@ -4775,7 +4786,9 @@ async def _extend_existing_subscription(
         user_id=db_user.id,
         type=TransactionType.SUBSCRIPTION_PAYMENT,
         amount_kopeks=price_kopeks,
-        description=f'Продление подписки на {period_days} дней',
+        description=texts.t('CLASSIC_SUB_RENEW_LEDGER_DESC', 'Продление подписки на {days} дней').format(
+            days=period_days
+        ),
     )
 
     # Отправляем уведомление админу
