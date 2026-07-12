@@ -14,7 +14,7 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramServerError,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import MissingGreenlet
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,7 @@ from app.database.models import (
     PromoGroup,
     Subscription,
     Transaction,
+    TransactionType,
     User,
 )
 from app.utils.message_patch import caption_exceeds_telegram_limit
@@ -576,6 +577,25 @@ class AdminNotificationService:
             logger.error('Ошибка отправки уведомления о триале', error=e)
             return False
 
+    async def _is_returning_purchaser(self, db: AsyncSession, user: User) -> bool:
+        """True when the user already had paid subscriptions before this notification."""
+        sub_count = await db.scalar(
+            select(func.count()).select_from(Subscription).where(Subscription.user_id == user.id)
+        )
+        if (sub_count or 0) > 1:
+            return True
+
+        txn_count = await db.scalar(
+            select(func.count())
+            .select_from(Transaction)
+            .where(
+                Transaction.user_id == user.id,
+                Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
+                Transaction.is_completed.is_(True),
+            )
+        )
+        return (txn_count or 0) > 1
+
     async def _get_tariff_name(self, db: AsyncSession, subscription: Subscription) -> str | None:
         """Получает название тарифа подписки, если он есть."""
         if not subscription.tariff_id:
@@ -656,17 +676,24 @@ class AdminNotificationService:
                 return False
 
             notify_texts = _admin_notify_texts()
+
+            effective_purchase_type = purchase_type
+            if purchase_type in (None, 'first_purchase') and await self._is_returning_purchaser(db, user):
+                effective_purchase_type = 'renewal'
+
             # Определяем тип операции и заголовок
-            if purchase_type == 'tariff_switch':
+            if effective_purchase_type == 'tariff_switch':
                 event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_SWITCH', '🔄 СМЕНА ТАРИФА')
                 user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_SWITCH', 'Смена тарифа')
             elif was_trial_conversion:
                 event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_TRIAL', '🔄 КОНВЕРСИЯ ИЗ ТРИАЛА')
                 user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_TRIAL', 'Конверсия')
-            elif purchase_type == 'first_purchase':
+            elif effective_purchase_type == 'first_purchase':
                 event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_FIRST', '💎 ПОКУПКА ПОДПИСКИ')
                 user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_FIRST', 'Первая покупка')
-            elif purchase_type == 'renewal' or (purchase_type is None and user.has_had_paid_subscription):
+            elif effective_purchase_type == 'renewal' or (
+                effective_purchase_type is None and user.has_had_paid_subscription
+            ):
                 event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_RENEWAL', '💎 ПРОДЛЕНИЕ ПОДПИСКИ')
                 user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_RENEWAL', 'Продление')
             else:
@@ -754,8 +781,8 @@ class AdminNotificationService:
             )
 
             # Маршрутизация по категориям (зеркалит логику заголовков выше)
-            if purchase_type == 'renewal' or (
-                not was_trial_conversion and purchase_type is None and user.has_had_paid_subscription
+            if effective_purchase_type == 'renewal' or (
+                not was_trial_conversion and effective_purchase_type is None and user.has_had_paid_subscription
             ):
                 cat = NotificationCategory.RENEWALS
             else:

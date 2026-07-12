@@ -23,17 +23,45 @@ Read **`autonomous-dev-workflow.mdc`** first — it is always applied.
 
 Topology: `docs/ops/staging-dev.md`
 
-## Agent loop (automatic)
+## Deploy scope (automatic)
+
+```bash
+make deploy-scope   # fa | bot | cabinet | bot+cabinet | none
+```
+
+| Scope | Staging action |
+|-------|----------------|
+| `fa` | sync locales + restart bot |
+| `bot` | build bot + up bot |
+| `cabinet` | `staging-cabinet-sync` (host npm build + dist mount) |
+| **`bot+cabinet`** | parallel bot build + cabinet sync (default parity sprint) |
+| `none` | skip deploy |
+
+Override: `make staging-rebuild-bot`, `staging-rebuild-cabinet`, `staging-rebuild-both`.
+
+## Agent loop (automatic — do not block chat)
 
 After implementation commits:
 
 ```bash
 make smoke
-make staging-rebuild      # or make staging-migrate
+make deploy-scope
+make staging-rebuild      # background; log in /tmp/remnabot-deploy-staging-*.log
+# when log shows success:
 make staging-health
 ```
 
-Fill `docs/templates/smoke-map.md`, then ask user to smoke **staging only**.
+**Never** await a 10–25 min rebuild inline unless the user asks. Report log path + PID.
+
+Foreground escape hatch: `make staging-deploy STAGING_FLAGS='--both --no-cabinet-sync'`
+
+Alembic: `make staging-migrate` (foreground migrate flag).
+
+## Staging cabinet fast path
+
+`tools/staging-cabinet-sync.sh` — host `npm run build`, nginx serves `./cabinet/dist` mount (staging only).
+
+~30s–2min vs full Docker cabinet build. Prod cabinet stays image-only.
 
 ## After user approves (`تایید`)
 
@@ -41,7 +69,9 @@ Fill `docs/templates/smoke-map.md`, then ask user to smoke **staging only**.
 CONFIRM_SHIP=1 make ship BRANCH=<branch>
 gh pr merge <n> -R k4lantar4/remnabot --merge
 git checkout main && git pull remnabot main
-CONFIRM_PROD_DEPLOY=1 make prod-deploy
+CONFIRM_PROD_DEPLOY=1 make prod-deploy   # auto scope, background
+# or scoped:
+CONFIRM_PROD_DEPLOY=1 make prod-deploy-bot
 ```
 
 Agent must **not** set `CONFIRM_*` before user staging smoke approval.

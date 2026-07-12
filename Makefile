@@ -6,11 +6,17 @@ COMPOSE_PROD    := docker compose
 COMPOSE_STAGING := docker compose -f docker-compose.staging.yml --env-file .env.staging -p remnawave-staging
 STAGING_DEPLOY  := ./tools/deploy-staging.sh
 PROD_DEPLOY     := ./tools/deploy-production.sh
+DEPLOY_BG       := ./tools/deploy-bg.sh
+DEPLOY_SCOPE    := ./tools/deploy-scope.sh
+STAGING_CAB_SYNC := ./tools/staging-cabinet-sync.sh
 SHIP            := ./tools/ship-after-smoke.sh
 
-.PHONY: help smoke sync-fa sync-fa-staging check-admin-texts setup-cursor \
-	prod-ps prod-logs prod-build prod-up prod-deploy \
-	staging-ps staging-logs staging-down staging-deploy staging-rebuild \
+export DOCKER_BUILDKIT := 1
+
+.PHONY: help smoke sync-fa sync-fa-staging check-admin-texts setup-cursor deploy-scope \
+	prod-ps prod-logs prod-build prod-up prod-deploy prod-deploy-bot prod-deploy-cabinet prod-deploy-both \
+	staging-ps staging-logs staging-down staging-deploy staging-rebuild staging-rebuild-bot \
+	staging-rebuild-cabinet staging-rebuild-both staging-cabinet-sync \
 	staging-migrate staging-health staging-cabinet-build \
 	ship up up-follow down reload reload-follow \
 	test lint format fix migrate migration migrate-stamp migrate-history
@@ -22,7 +28,8 @@ help: ## Show all targets
 	@awk -F':.*## ' '/^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Typical i18n sprint:"
-	@echo "  make smoke && make staging-rebuild && make staging-health"
+	@echo "  make smoke && make deploy-scope && make staging-rebuild"
+	@echo "  tail deploy log; then make staging-health"
 	@echo "  (user smoke) CONFIRM_SHIP=1 make ship BRANCH=i18n/foo"
 	@echo "  CONFIRM_PROD_DEPLOY=1 make prod-deploy"
 	@echo ""
@@ -51,6 +58,10 @@ sync-fa-staging: ## Copy all locale JSON → ./locales-staging/
 	@cp app/localization/locales/*.json locales-staging/
 	@echo "Synced locales → ./locales-staging/"
 
+deploy-scope: ## Print deploy scope from working tree vs main
+	@chmod +x tools/deploy-scope.sh 2>/dev/null || true
+	@$(DEPLOY_SCOPE)
+
 # --- Production ---
 
 prod-ps: ## Production container status
@@ -67,8 +78,25 @@ prod-up: sync-fa ## Build + up production bot + cabinet (sync fa.json first)
 	$(COMPOSE_PROD) up -d bot cabinet-frontend
 	$(COMPOSE_PROD) ps
 
-prod-deploy: ## Production deploy (requires CONFIRM_PROD_DEPLOY=1)
-	$(PROD_DEPLOY)
+prod-deploy: ## Production deploy — auto scope, background (CONFIRM_PROD_DEPLOY=1)
+	@chmod +x tools/deploy-bg.sh tools/deploy-production.sh tools/deploy-scope.sh 2>/dev/null || true
+	@test "$${CONFIRM_PROD_DEPLOY:-}" = "1" || (echo "Set CONFIRM_PROD_DEPLOY=1" >&2; exit 1)
+	CONFIRM_PROD_DEPLOY=1 $(DEPLOY_BG) prod --scope auto
+
+prod-deploy-bot: ## Production bot-only deploy (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-production.sh 2>/dev/null || true
+	@test "$${CONFIRM_PROD_DEPLOY:-}" = "1" || (echo "Set CONFIRM_PROD_DEPLOY=1" >&2; exit 1)
+	CONFIRM_PROD_DEPLOY=1 $(DEPLOY_BG) prod --bot-only
+
+prod-deploy-cabinet: ## Production cabinet-only deploy (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-production.sh 2>/dev/null || true
+	@test "$${CONFIRM_PROD_DEPLOY:-}" = "1" || (echo "Set CONFIRM_PROD_DEPLOY=1" >&2; exit 1)
+	CONFIRM_PROD_DEPLOY=1 $(DEPLOY_BG) prod --cabinet-only
+
+prod-deploy-both: ## Production bot + cabinet deploy (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-production.sh 2>/dev/null || true
+	@test "$${CONFIRM_PROD_DEPLOY:-}" = "1" || (echo "Set CONFIRM_PROD_DEPLOY=1" >&2; exit 1)
+	CONFIRM_PROD_DEPLOY=1 $(DEPLOY_BG) prod --both
 
 # --- Staging (parallel stack, ports 8081 / 3021) ---
 
@@ -81,10 +109,29 @@ staging-logs: ## Tail staging bot logs
 staging-down: ## Stop staging stack (keeps volumes)
 	$(COMPOSE_STAGING) down --remove-orphans
 
-staging-deploy: smoke ## Full staging deploy: smoke + build + up + sync locales
-	$(STAGING_DEPLOY)
+staging-deploy: smoke ## Full staging deploy (foreground; explicit scope via STAGING_FLAGS=)
+	@chmod +x tools/deploy-staging.sh tools/deploy-scope.sh tools/staging-cabinet-sync.sh 2>/dev/null || true
+	$(STAGING_DEPLOY) $(STAGING_FLAGS)
 
-staging-rebuild: staging-deploy ## Alias: rebuild staging bot + cabinet after code/locale changes
+staging-rebuild: smoke ## Auto scope + background deploy (cabinet-sync when cabinet in scope)
+	@chmod +x tools/deploy-bg.sh tools/deploy-staging.sh tools/deploy-scope.sh tools/staging-cabinet-sync.sh 2>/dev/null || true
+	@$(DEPLOY_BG) staging --scope auto --cabinet-sync
+
+staging-rebuild-bot: smoke ## Staging bot-only (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-staging.sh 2>/dev/null || true
+	@$(DEPLOY_BG) staging --bot-only
+
+staging-rebuild-cabinet: smoke ## Staging cabinet fast path (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-staging.sh tools/staging-cabinet-sync.sh 2>/dev/null || true
+	@$(DEPLOY_BG) staging --cabinet-only --cabinet-sync
+
+staging-rebuild-both: smoke ## Staging bot + cabinet parity sprint (background)
+	@chmod +x tools/deploy-bg.sh tools/deploy-staging.sh tools/staging-cabinet-sync.sh 2>/dev/null || true
+	@$(DEPLOY_BG) staging --both --cabinet-sync
+
+staging-cabinet-sync: ## Fast staging cabinet: host npm build + dist mount (foreground)
+	@chmod +x tools/staging-cabinet-sync.sh 2>/dev/null || true
+	$(STAGING_CAB_SYNC)
 
 staging-migrate: smoke ## Staging deploy + alembic upgrade (fresh DB / new revision)
 	$(STAGING_DEPLOY) --migrate

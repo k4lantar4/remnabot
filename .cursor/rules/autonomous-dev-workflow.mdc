@@ -40,11 +40,14 @@ Skill: `.cursor/skills/staging-workflow/SKILL.md`
    # if cabinet touched: docker compose run --rm --no-deps -w /app/cabinet node:20-alpine sh -c "npm ci && npm run build"
    ```
 5. **Commit** when a slice is done (user must ask for commit only if they use that policy; otherwise commit per `delivery-cycle.mdc`).
-6. **End of slice or sprint** — deploy **staging automatically** (do not wait for user to say “build staging”):
+6. **End of slice or sprint** — deploy **staging in background** (do not block chat on rebuilds):
    ```bash
-   make staging-rebuild    # or make staging-migrate if new Alembic revision
+   make deploy-scope
+   make staging-rebuild    # background → /tmp/remnabot-deploy-staging-*.log
+   # when log shows success:
    make staging-health
    ```
+   Use `make staging-migrate` if new Alembic revision (foreground).
 7. **Smoke map** — fill `docs/templates/smoke-map.md` (keys, handlers, Telegram path on `@mrj7_bot`).
 8. **Tell user** — short checklist: what to tap in Telegram / which staging URL; ask for smoke sign-off (`تایید` / “approved”).
 
@@ -78,10 +81,14 @@ Use `GITHUB_REPO=k4lantar4/remnabot` for all `gh` commands (default `gh` remote 
 ## Makefile quick reference
 
 ```bash
-make smoke && make staging-rebuild && make staging-health   # after implementation
-CONFIRM_SHIP=1 make ship BRANCH=i18n/foo                      # after user تایید staging
-CONFIRM_PROD_DEPLOY=1 make prod-deploy                        # after merge to main
+make smoke && make deploy-scope && make staging-rebuild   # background staging deploy
+make staging-health                                       # after deploy log succeeds
+CONFIRM_SHIP=1 make ship BRANCH=i18n/foo                    # after user تایید staging
+CONFIRM_PROD_DEPLOY=1 make prod-deploy                      # auto scope, background
+CONFIRM_PROD_DEPLOY=1 make prod-deploy-bot                  # explicit bot-only
 ```
+
+**Agent policy:** always use background deploy (`make staging-rebuild`, `make prod-deploy*`) unless the user asks to wait inline.
 
 ## MCP caution
 
