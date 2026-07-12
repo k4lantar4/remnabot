@@ -69,19 +69,20 @@ def _with_post_purchase_onboarding(
     body: str,
     subscription=None,
     *,
-    include_onboarding: bool = True,
+    include_link_block: bool = False,
+    include_onboarding: bool = False,
 ) -> str:
+    """Build post-purchase caption body. QR delivery adds config link separately."""
     parts = [body]
-    subscription_link = None
-    if subscription and not settings.should_hide_subscription_link():
+    if include_link_block and subscription and not settings.should_hide_subscription_link():
         subscription_link = get_display_subscription_link(subscription)
-    if subscription_link:
-        parts.append(
-            texts.t(
-                'CONNECT_SHARE_LINK_BLOCK',
-                '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
-            ).format(link=subscription_link)
-        )
+        if subscription_link:
+            parts.append(
+                texts.t(
+                    'CONNECT_SHARE_LINK_BLOCK',
+                    '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
+                ).format(link=subscription_link)
+            )
     if include_onboarding:
         onboarding = texts.t(
             'POST_PURCHASE_ONBOARDING',
@@ -3587,7 +3588,6 @@ async def confirm_tariff_extend(
                 period=format_period(period, db_user.language),
                 charged=format_price_kopeks(final_price),
             ),
-            include_onboarding=False,
         )
         await send_purchase_success_delivery(
             callback.message,
