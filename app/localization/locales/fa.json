@@ -748,6 +748,7 @@
   "ADMIN_NOTIFY_SERVERS_WITH_NAMES": "{count} عدد ({names})",
   "ADMIN_NOTIFY_SERVER_DEFAULT": "پیش‌فرض",
   "ADMIN_NOTIFY_STATUS_FIRST": "اولین خرید",
+  "ADMIN_NOTIFY_STATUS_NEW_SUB": "خرید اشتراک جدید",
   "ADMIN_NOTIFY_STATUS_RENEWAL": "تمدید",
   "ADMIN_NOTIFY_STATUS_SWITCH": "تعویض تعرفه",
   "ADMIN_NOTIFY_STATUS_TRIAL": "تبدیل",
