@@ -24,6 +24,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import settings
 from app.utils.remnawave_panel_identity import parse_purchase_note_from_panel_description
+from app.database.crud.notification import clear_notification_by_type
 from app.database.crud.subscription import (
     deactivate_subscription,
     decrement_subscription_server_counts,
@@ -1132,6 +1133,7 @@ class RemnaWaveWebhookService:
 
         self._stamp_webhook_update(subscription)
         await update_subscription_usage(db, subscription, 0.0)
+        await clear_notification_by_type(db, subscription.id, 'traffic_warn', commit=False)
         # Re-enable if was disabled/limited due to traffic limit
         if subscription.status in (SubscriptionStatus.DISABLED.value, SubscriptionStatus.LIMITED.value):
             await reactivate_subscription(db, subscription)
@@ -1168,9 +1170,12 @@ class RemnaWaveWebhookService:
         used_traffic_bytes = data.get('usedTrafficBytes')
         if used_traffic_bytes is not None:
             try:
+                old_used_gb = subscription.traffic_used_gb or 0.0
                 new_used_gb = round(int(used_traffic_bytes) / (1024**3), 2)
                 subscription.traffic_used_gb = new_used_gb
                 changed = True
+                if new_used_gb < old_used_gb - 0.01:
+                    await clear_notification_by_type(db, subscription.id, 'traffic_warn', commit=False)
             except (ValueError, TypeError):
                 pass
 
