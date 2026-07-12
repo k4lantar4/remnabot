@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.crud.subscription import get_subscription_by_user_id
 from app.database.crud.user import add_user_balance
+from app.localization.texts import get_texts
 from app.database.crud.wheel import (
     create_wheel_spin,
     get_or_create_wheel_config,
@@ -386,6 +387,8 @@ class FortuneWheelService:
         Возвращает промокод (если приз - промокод), иначе None.
         """
         prize_type = prize.prize_type
+        texts = get_texts(getattr(user, 'language', None))
+        user_language = getattr(user, 'language', None)
 
         if prize_type == WheelPrizeType.NOTHING.value:
             logger.info('🎰 Пустой приз для user_id', user_id=user.id)
@@ -397,7 +400,10 @@ class FortuneWheelService:
                 db,
                 user,
                 prize.prize_value,
-                description=f'Выигрыш в колесе удачи: {prize.prize_value / 100:.2f}₽',
+                description=texts.t(
+                    'WHEEL_WIN_BALANCE_LEDGER_DESC',
+                    'Выигрыш в колесе удачи: {amount}',
+                ).format(amount=settings.format_balance(prize.prize_value, language=user_language)),
                 create_transaction=True,
                 commit=False,
             )
@@ -415,7 +421,10 @@ class FortuneWheelService:
                         db,
                         user,
                         prize.prize_value_kopeks,
-                        description=f'Выигрыш в колесе удачи: {prize.prize_value} дней (на баланс, мульти-тариф)',
+                        description=texts.t(
+                            'WHEEL_WIN_DAYS_BALANCE_MULTI_LEDGER_DESC',
+                            'Выигрыш в колесе удачи: {days} дней (на баланс, мульти-тариф)',
+                        ).format(days=prize.prize_value),
                         create_transaction=True,
                         commit=False,
                     )
@@ -444,7 +453,13 @@ class FortuneWheelService:
                             db,
                             user,
                             balance_bonus,
-                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней → {balance_bonus / 100:.2f}₽',
+                            description=texts.t(
+                                'WHEEL_WIN_DAYS_CONVERTED_LEDGER_DESC',
+                                'Выигрыш в колесе удачи: {days} дней → {amount}',
+                            ).format(
+                                days=prize.prize_value,
+                                amount=settings.format_balance(balance_bonus, language=user_language),
+                            ),
                             create_transaction=True,
                             commit=False,
                         )
@@ -460,7 +475,10 @@ class FortuneWheelService:
                             db,
                             user,
                             prize.prize_value_kopeks,
-                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней (на баланс)',
+                            description=texts.t(
+                                'WHEEL_WIN_DAYS_BALANCE_LEDGER_DESC',
+                                'Выигрыш в колесе удачи: {days} дней (на баланс)',
+                            ).format(days=prize.prize_value),
                             create_transaction=True,
                             commit=False,
                         )
@@ -484,7 +502,10 @@ class FortuneWheelService:
                     db,
                     user,
                     prize.prize_value_kopeks,
-                    description=f'Выигрыш в колесе удачи: {prize.prize_value} дней (на баланс)',
+                    description=texts.t(
+                        'WHEEL_WIN_DAYS_BALANCE_LEDGER_DESC',
+                        'Выигрыш в колесе удачи: {days} дней (на баланс)',
+                    ).format(days=prize.prize_value),
                     create_transaction=True,
                     commit=False,
                 )
@@ -500,7 +521,10 @@ class FortuneWheelService:
                         db,
                         user,
                         prize.prize_value_kopeks,
-                        description=f'Выигрыш в колесе удачи: {prize.prize_value}GB (на баланс, мульти-тариф)',
+                        description=texts.t(
+                            'WHEEL_WIN_TRAFFIC_BALANCE_MULTI_LEDGER_DESC',
+                            'Выигрыш в колесе удачи: {gb}GB (на баланс, мульти-тариф)',
+                        ).format(gb=prize.prize_value),
                         create_transaction=True,
                         commit=False,
                     )
@@ -529,7 +553,10 @@ class FortuneWheelService:
                     db,
                     user,
                     prize.prize_value_kopeks,
-                    description=f'Выигрыш в колесе удачи: {prize.prize_value}GB (на баланс)',
+                    description=texts.t(
+                        'WHEEL_WIN_TRAFFIC_BALANCE_LEDGER_DESC',
+                        'Выигрыш в колесе удачи: {gb}GB (на баланс)',
+                    ).format(gb=prize.prize_value),
                     create_transaction=True,
                     commit=False,
                 )
