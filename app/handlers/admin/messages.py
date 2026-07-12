@@ -1216,7 +1216,7 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
             '👥 <b>گیرندگان:</b> {count}\n'
             '📢 <b>منبع:</b> {channel}\n\n'
             '{buttons_info}\n\n'
-            'پیام زیر همان‌طور که برای کاربران ارسال می‌شود (با هدر فوروارد کانال):',
+            'پست فورواردشده در پیام بالاتر نمایش داده شده — همان برای کاربران ارسال می‌شود.',
         ).format(
             target=target_display,
             count=user_count,
@@ -1232,11 +1232,6 @@ async def confirm_button_selection(callback: types.CallbackQuery, db_user: User,
             text=preview_meta,
             reply_markup=reply_markup,
             parse_mode='HTML',
-        )
-        await callback.bot.copy_message(
-            chat_id=callback.message.chat.id,
-            from_chat_id=copy_chat_id,
-            message_id=copy_message_id,
         )
         await callback.answer()
         return
@@ -1340,7 +1335,13 @@ async def confirm_broadcast(callback: types.CallbackQuery, db_user: User, state:
 
     # Извлекаем только telegram_id - это всё что нужно для отправки
     # Фильтруем None (email-only пользователи)
-    recipient_telegram_ids: list[int] = [user.telegram_id for user in users_orm if user.telegram_id is not None]
+    recipient_telegram_ids: list[int] = [
+        user.telegram_id for user in users_orm if user.telegram_id is not None
+    ]
+    if broadcast_is_forward and admin_telegram_id is not None:
+        recipient_telegram_ids = [
+            tid for tid in recipient_telegram_ids if tid != admin_telegram_id
+        ]
     total_users_count = len(users_orm)
 
     # Создаём запись истории рассылки
