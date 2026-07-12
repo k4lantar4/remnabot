@@ -64,6 +64,31 @@ export const subscriptionApi = {
     return response.data;
   },
 
+  updatePurchaseNote: async (
+    subscriptionId: number,
+    purchaseNote: string | null,
+  ): Promise<SubscriptionListItem> => {
+    const response = await apiClient.patch<SubscriptionListItem>(
+      `/cabinet/subscriptions/${subscriptionId}/note`,
+      { purchase_note: purchaseNote },
+    );
+    return response.data;
+  },
+
+  disableSubscription: async (
+    subscriptionId: number,
+  ): Promise<{ success: boolean; status: string; user_disabled: boolean }> => {
+    const response = await apiClient.post(`/cabinet/subscriptions/${subscriptionId}/disable`);
+    return response.data;
+  },
+
+  enableSubscription: async (
+    subscriptionId: number,
+  ): Promise<{ success: boolean; status: string; user_disabled: boolean }> => {
+    const response = await apiClient.post(`/cabinet/subscriptions/${subscriptionId}/enable`);
+    return response.data;
+  },
+
   // ── Legacy single-subscription status ───────────────────────────────
 
   getSubscription: async (subscriptionId?: number): Promise<SubscriptionStatusResponse> => {

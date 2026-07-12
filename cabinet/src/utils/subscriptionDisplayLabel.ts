@@ -37,6 +37,9 @@ export function subscriptionMatchesSearch(
   const tariffName = (sub.tariff_name ?? '').trim().toLowerCase();
   if (tariffName && tariffName.includes(q)) return true;
 
+  const note = (sub.purchase_note ?? '').trim().toLowerCase();
+  if (note && note.includes(q)) return true;
+
   return false;
 }
 

@@ -24,12 +24,19 @@ from app.database.crud.subscription import (
 from app.database.models import Subscription, SubscriptionStatus, User
 from app.keyboards.inline import get_pagination_keyboard
 from app.localization.texts import get_texts
+from app.services.partner_checkout import sanitize_purchase_note
 from app.services.subscription_service import SubscriptionService
+from app.services.subscription_user_toggle_service import (
+    SubscriptionToggleError,
+    disable_user_subscription,
+    enable_user_subscription,
+)
 from app.states import SubscriptionStates
 from app.utils.formatting import format_traffic
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.message_edit import edit_bot_message_text_or_caption
 from app.utils.photo_message import edit_or_answer_photo
+from app.utils.remnawave_panel_identity import MAX_PURCHASE_NOTE_LEN
 from app.utils.subscription_display import subscription_account_label
 
 
@@ -75,6 +82,8 @@ def _status_label(sub, texts) -> str:
 
 
 def _subscription_status_display(sub, texts) -> str:
+    if bool(getattr(sub, 'user_disabled', False)):
+        return texts.t('SUBSCRIPTION_STATUS_USER_DISABLED', 'Выключена пользователем')
     actual = sub.actual_status
     if actual == 'limited':
         return texts.t('SUBSCRIPTION_STATUS_LIMITED', 'Трафик исчерпан')
@@ -124,6 +133,61 @@ def _format_detail_time_remaining(sub, texts) -> str:
 
 def _account_display_name(sub, texts) -> str:
     return subscription_account_label(sub, texts)
+
+
+def _build_subscription_detail_text(subscription, texts, language: str) -> str:
+    display_name = _account_display_name(subscription, texts)
+
+    if subscription.traffic_limit_gb == 0:
+        traffic = '∞'
+    else:
+        used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
+        traffic = f'{used} / {format_traffic(subscription.traffic_limit_gb, language)}'
+
+    end_date = (
+        format_user_datetime(subscription.end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
+        if subscription.end_date
+        else '—'
+    )
+    start_date = (
+        format_user_datetime(subscription.start_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
+        if subscription.start_date
+        else '—'
+    )
+    status = _subscription_status_display(subscription, texts)
+    time_remaining = _format_detail_time_remaining(subscription, texts)
+
+    text = (
+        f'📋 {texts.t("MY_SUB_DETAIL_HEADER", "<b>{label}</b>").format(label=display_name)}\n\n'
+        f'{texts.t("MY_SUB_DETAIL_STATUS", "Статус: {status}").format(status=status)}\n'
+        f'{texts.t("MY_SUB_DETAIL_TRAFFIC", "📊 Трафик: {traffic}").format(traffic=traffic)}\n'
+        f'{texts.t("MY_SUB_DETAIL_DEVICES", "📱 Устройства: {devices}").format(devices=subscription.device_limit)}\n'
+        f'{texts.t("MY_SUB_DETAIL_PURCHASE_DATE", "🛒 Дата покупки: {start_date}").format(start_date=start_date)}\n'
+        f'{texts.t("MY_SUB_DETAIL_UNTIL", "📅 До: {end_date}").format(end_date=end_date)}\n'
+        f'{time_remaining}\n'
+    )
+
+    is_user_disabled = bool(getattr(subscription, 'user_disabled', False))
+    is_connectable = subscription.actual_status in ('active', 'trial', 'limited') and not is_user_disabled
+    if is_connectable:
+        text += (
+            '\n\n'
+            + texts.t(
+                'MY_SUB_DETAIL_CONNECT_HINT',
+                '💡 برای اتصال «🔗 دریافت لینک» → راهنمای نصب (خودم) یا لینک برای مشتری/فروش',
+            )
+        )
+
+    purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
+    if purchase_note:
+        text += (
+            '\n\n'
+            + texts.t('MY_SUB_DETAIL_PURCHASE_NOTE', '📝 Note: {note}').format(
+                note=html.escape(purchase_note)
+            )
+        )
+
+    return text
 
 
 def _subscription_matches_search(sub, query: str, texts) -> bool:
@@ -224,30 +288,29 @@ def _build_subscriptions_keyboard(
 
     if show_search:
         if search_query:
-            buttons.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_SUB_SEARCH_RESET', '❌ Сбросить поиск'),
-                        callback_data='my_subs_search_reset',
-                    )
-                ]
+            search_button = types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_SEARCH_RESET', '❌ Сбросить поиск'),
+                callback_data='my_subs_search_reset',
             )
         else:
-            buttons.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_SUB_BTN_SEARCH', '🔍 Поиск'),
-                        callback_data='my_subs_search',
-                    )
-                ]
+            search_button = types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_SEARCH', '🔍 Поиск'),
+                callback_data='my_subs_search',
             )
-
-    buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
-    buttons.append(
-        [
-            types.InlineKeyboardButton(text=f'➕ {buy_text}', callback_data='menu_buy'),
-        ]
-    )
+        buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
+        buttons.append(
+            [
+                search_button,
+                types.InlineKeyboardButton(text=f'➕ {buy_text}', callback_data='menu_buy'),
+            ]
+        )
+    else:
+        buy_text = texts.t('MY_SUB_BTN_BUY_ANOTHER', 'Купить ещё тариф')
+        buttons.append(
+            [
+                types.InlineKeyboardButton(text=f'➕ {buy_text}', callback_data='menu_buy'),
+            ]
+        )
     buttons.append(
         [
             types.InlineKeyboardButton(
@@ -266,86 +329,126 @@ async def _build_subscription_detail_keyboard(
     from app.utils.subscription_utils import resolve_connect_webapp_url
 
     texts = get_texts(language)
-    """Build keyboard for single subscription management.
+    buttons: list[list[types.InlineKeyboardButton]] = []
 
-    For expired/disabled subscriptions, only 'Renew' and 'Back' are shown —
-    connection link and traffic/device management are irrelevant.
-    """
-    is_inactive = sub is not None and sub.actual_status in ('expired', 'disabled')
-
-    buttons = []
-
-    if not is_inactive:
-        setup_guide_url = await resolve_connect_webapp_url(sub, sub_id) if sub else None
-        buttons.append(
-            [
-                types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить QR и ссылку'),
-                    callback_data=f'sl_config:{sub_id}',
-                )
-            ]
-        )
-        if setup_guide_url:
-            buttons.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-                        web_app=types.WebAppInfo(url=setup_guide_url),
-                    )
-                ]
-            )
-        else:
-            buttons.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
-                        callback_data=f'sl_self:{sub_id}',
-                    )
-                ]
-            )
-
-    buttons.append(
-        [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_RENEW', '🔄 Продлить'), callback_data=f'se:{sub_id}')]
+    is_user_disabled = bool(sub is not None and getattr(sub, 'user_disabled', False))
+    actual_status = getattr(sub, 'actual_status', 'active') if sub is not None else 'active'
+    is_expired_or_system_disabled = sub is not None and (
+        actual_status == 'expired' or (actual_status == 'disabled' and not is_user_disabled)
     )
 
-    if not is_inactive:
+    if is_user_disabled:
         buttons.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'), callback_data='subscription_autopay'
+                    text=texts.t('MY_SUB_BTN_ENABLE', '🟢 روشن کردن اشتراک'),
+                    callback_data=f'sub_enable:{sub_id}',
                 )
             ]
         )
         buttons.append(
-            [types.InlineKeyboardButton(text=texts.t('MY_SUB_BTN_TRAFFIC', '📊 Трафик'), callback_data=f'st:{sub_id}')]
-        )
-        buttons.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'), callback_data=f'sd:{sub_id}'
+                    text=texts.t('MY_SUB_BTN_BACK_TO_LIST', '◀️ К списку подписок'),
+                    callback_data='my_subscriptions',
                 )
             ]
         )
+        return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    if is_inactive:
+    if is_expired_or_system_disabled:
         buttons.append(
             [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_RENEW', '🔄 Продлить'),
+                    callback_data=f'se:{sub_id}',
+                ),
                 types.InlineKeyboardButton(
                     text=texts.t('MY_SUB_BTN_DELETE', '🗑 Удалить подписку'),
                     callback_data=f'sub_del:{sub_id}',
-                )
+                ),
             ]
         )
-
-    if not is_inactive and settings.is_subscription_revoke_enabled():
         buttons.append(
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('MY_SUB_BTN_REISSUE', '🔄 Перевыпустить'),
-                    callback_data=f'sr:{sub_id}',
+                    text=texts.t('MY_SUB_BTN_BACK_TO_LIST', '◀️ К списку подписок'),
+                    callback_data='my_subscriptions',
                 )
             ]
         )
+        return types.InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    setup_guide_url = await resolve_connect_webapp_url(sub, sub_id) if sub else None
+    connect_row = [
+        types.InlineKeyboardButton(
+            text=texts.t('MY_SUB_BTN_GET_CONFIG', '📋 Получить QR и ссылку'),
+            callback_data=f'sl_config:{sub_id}',
+        ),
+    ]
+    if setup_guide_url:
+        connect_row.append(
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+                web_app=types.WebAppInfo(url=setup_guide_url),
+            )
+        )
+    else:
+        connect_row.append(
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_SETUP_GUIDE', '📖 Инструкция по настройке'),
+                callback_data=f'sl_self:{sub_id}',
+            )
+        )
+    buttons.append(connect_row)
+
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_RENEW', '🔄 Продлить'),
+                callback_data=f'se:{sub_id}',
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_AUTOPAY', '💳 Автоплатеж'),
+                callback_data='subscription_autopay',
+            ),
+        ]
+    )
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_TRAFFIC', '📊 Трафик'),
+                callback_data=f'st:{sub_id}',
+            ),
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_DEVICES', '📱 Устройства'),
+                callback_data=f'sd:{sub_id}',
+            ),
+        ]
+    )
+    buttons.append(
+        [
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_EDIT_NOTE', '📝 ویرایش یادداشت'),
+                callback_data=f'sub_edit_note:{sub_id}',
+            )
+        ]
+    )
+
+    disable_row: list[types.InlineKeyboardButton] = [
+        types.InlineKeyboardButton(
+            text=texts.t('MY_SUB_BTN_DISABLE', '🔴 خاموش کردن اشتراک'),
+            callback_data=f'sub_disable:{sub_id}',
+        )
+    ]
+    if settings.is_subscription_revoke_enabled():
+        disable_row.append(
+            types.InlineKeyboardButton(
+                text=texts.t('MY_SUB_BTN_REISSUE', '🔄 Перевыпустить'),
+                callback_data=f'sr:{sub_id}',
+            )
+        )
+    buttons.append(disable_row)
 
     buttons.append(
         [
@@ -675,58 +778,7 @@ async def show_subscription_detail(
 
     await callback.answer()
 
-    is_inactive = subscription.actual_status in ('expired', 'disabled')
-
-    display_name = _account_display_name(subscription, texts)
-
-    # Traffic
-    if subscription.traffic_limit_gb == 0:
-        traffic = '∞'
-    else:
-        used = f'{subscription.traffic_used_gb:.1f}' if subscription.traffic_used_gb else '0'
-        traffic = f'{used} / {format_traffic(subscription.traffic_limit_gb, db_user.language)}'
-
-    end_date = (
-        format_user_datetime(subscription.end_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
-        if subscription.end_date
-        else '—'
-    )
-    start_date = (
-        format_user_datetime(subscription.start_date, language=texts.language, fmt='%d.%m.%Y %H:%M')
-        if subscription.start_date
-        else '—'
-    )
-    status = _subscription_status_display(subscription, texts)
-    time_remaining = _format_detail_time_remaining(subscription, texts)
-
-    text = (
-        f'📋 {texts.t("MY_SUB_DETAIL_HEADER", "<b>{label}</b>").format(label=display_name)}\n\n'
-        f'{texts.t("MY_SUB_DETAIL_STATUS", "Статус: {status}").format(status=status)}\n'
-        f'{texts.t("MY_SUB_DETAIL_TRAFFIC", "📊 Трафик: {traffic}").format(traffic=traffic)}\n'
-        f'{texts.t("MY_SUB_DETAIL_DEVICES", "📱 Устройства: {devices}").format(devices=subscription.device_limit)}\n'
-        f'{texts.t("MY_SUB_DETAIL_PURCHASE_DATE", "🛒 Дата покупки: {start_date}").format(start_date=start_date)}\n'
-        f'{texts.t("MY_SUB_DETAIL_UNTIL", "📅 До: {end_date}").format(end_date=end_date)}\n'
-        f'{time_remaining}\n'
-    )
-
-    if not is_inactive:
-        text += (
-            '\n\n'
-            + texts.t(
-                'MY_SUB_DETAIL_CONNECT_HINT',
-                '💡 برای اتصال «🔗 دریافت لینк» → راهنمای نصب (خودم) یا لینک برای مشتری/فروش',
-            )
-        )
-
-    purchase_note = (getattr(subscription, 'purchase_note', None) or '').strip()
-    if purchase_note:
-        text += (
-            '\n\n'
-            + texts.t('MY_SUB_DETAIL_PURCHASE_NOTE', '📝 Note: {note}').format(
-                note=html.escape(purchase_note)
-            )
-        )
-
+    text = _build_subscription_detail_text(subscription, texts, db_user.language)
     keyboard = await _build_subscription_detail_keyboard(sub_id, sub=subscription, language=db_user.language)
 
     if callback.message:
@@ -1047,6 +1099,243 @@ async def handle_subscription_delete_execute(
 
     # Return to subscriptions list
     await show_my_subscriptions(callback, db_user, db, state)
+
+
+async def handle_subscription_edit_note_start(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    sub_id = _extract_sub_id(callback)
+    if sub_id is None:
+        await callback.answer(texts.t('CB_INVALID_FORMAT', 'Неверный формат'), show_alert=True)
+        return
+
+    subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+    if not subscription:
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    await callback.answer()
+    await state.update_data(
+        editing_subscription_note_sub_id=sub_id,
+        editing_subscription_note_chat_id=callback.message.chat.id if callback.message else None,
+        editing_subscription_note_message_id=callback.message.message_id if callback.message else None,
+    )
+    await state.set_state(SubscriptionStates.editing_subscription_note)
+    if callback.message:
+        await callback.message.edit_text(
+            texts.t(
+                'MY_SUB_EDIT_NOTE_PROMPT',
+                '📝 یادداشت اشتراک را بنویسید (حداکثر {max} کاراکتر).\nبرای پاک کردن /skip را بفرستید.',
+            ).format(max=MAX_PURCHASE_NOTE_LEN),
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.BACK,
+                            callback_data=f'sm:{sub_id}',
+                        )
+                    ]
+                ]
+            ),
+        )
+
+
+async def handle_subscription_edit_note_input(
+    message: types.Message,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    state_data = await state.get_data()
+    sub_id = state_data.get('editing_subscription_note_sub_id')
+    if not sub_id:
+        await state.set_state(None)
+        return
+
+    raw = (message.text or '').strip()
+    if raw.lower() in ('/skip', 'skip', '-'):
+        note = None
+    elif not raw:
+        await message.answer(
+            texts.t(
+                'MY_SUB_EDIT_NOTE_PROMPT',
+                '📝 یادداشت اشتراک را بنویسید (حداکثر {max} کاراکتر).\nبرای پاک کردن /skip را بفرستید.',
+            ).format(max=MAX_PURCHASE_NOTE_LEN)
+        )
+        return
+    else:
+        note = sanitize_purchase_note(raw)
+
+    subscription = await get_subscription_by_id_for_user(db, int(sub_id), db_user.id)
+    if not subscription:
+        await state.set_state(None)
+        await message.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'))
+        return
+
+    subscription.purchase_note = note
+    await db.commit()
+    await db.refresh(subscription)
+
+    chat_id = state_data.get('editing_subscription_note_chat_id')
+    message_id = state_data.get('editing_subscription_note_message_id')
+    await state.set_state(None)
+
+    if chat_id and message_id:
+        text = _build_subscription_detail_text(subscription, texts, db_user.language)
+        keyboard = await _build_subscription_detail_keyboard(
+            int(sub_id), sub=subscription, language=db_user.language
+        )
+        await state.update_data(
+            active_subscription_id=int(sub_id),
+            target_subscription_id=int(sub_id),
+        )
+        await edit_bot_message_text_or_caption(
+            message.bot,
+            int(chat_id),
+            int(message_id),
+            text,
+            keyboard,
+            fallback_message=message,
+        )
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+
+async def handle_subscription_disable_confirm(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    sub_id = _extract_sub_id(callback)
+    if sub_id is None:
+        await callback.answer(texts.t('CB_INVALID_FORMAT', 'Неверный формат'), show_alert=True)
+        return
+
+    subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+    if not subscription:
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    if subscription.actual_status not in ('active', 'trial', 'limited'):
+        await callback.answer(
+            texts.t('MY_SUB_DISABLE_NOT_ACTIVE', 'فقط اشتراک فعال قابل خاموش کردن است'),
+            show_alert=True,
+        )
+        return
+
+    display_name = _account_display_name(subscription, texts)
+    text = texts.t(
+        'MY_SUB_DISABLE_CONFIRM',
+        '🔴 <b>اشتراک «{name}» خاموش شود؟</b>\n\n'
+        'دسترسی VPN قطع می‌شود. هر زمان با دکمهٔ روشن کردن می‌توانید دوباره فعال کنید — بدون نیاز به تمدید.',
+    ).format(name=html.escape(display_name))
+
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('MY_SUB_BTN_DISABLE_YES', '🔴 بله، خاموش کن'),
+                    callback_data=f'sub_disable_yes:{sub_id}',
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
+                    text=texts.BACK,
+                    callback_data=f'sm:{sub_id}',
+                )
+            ],
+        ]
+    )
+
+    await callback.answer()
+    if callback.message:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+
+
+async def handle_subscription_disable_execute(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    sub_id = _extract_sub_id(callback)
+    if sub_id is None:
+        await callback.answer(texts.t('CB_INVALID_FORMAT', 'Неверный формат'), show_alert=True)
+        return
+
+    subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+    if not subscription:
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    try:
+        await disable_user_subscription(db, subscription, db_user)
+    except SubscriptionToggleError as exc:
+        error_key = (
+            'MY_SUB_DISABLE_PANEL_ERROR'
+            if exc.code == 'panel_error'
+            else 'MY_SUB_DISABLE_NOT_ACTIVE'
+        )
+        error_default = (
+            '❌ خطا در قطع دسترسی روی پنل'
+            if exc.code == 'panel_error'
+            else exc.message
+        )
+        await callback.answer(texts.t(error_key, error_default), show_alert=True)
+        return
+
+    try:
+        await callback.answer(texts.t('MY_SUB_DISABLE_SUCCESS', '🔴 اشتراک خاموش شد'))
+    except Exception:
+        pass
+    await show_subscription_detail(callback, db_user, db, state)
+
+
+async def handle_subscription_enable(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext,
+) -> None:
+    texts = get_texts(db_user.language)
+    sub_id = _extract_sub_id(callback)
+    if sub_id is None:
+        await callback.answer(texts.t('CB_INVALID_FORMAT', 'Неверный формат'), show_alert=True)
+        return
+
+    subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+    if not subscription:
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    try:
+        await enable_user_subscription(db, subscription, db_user)
+    except SubscriptionToggleError as exc:
+        if exc.code == 'panel_error':
+            msg = texts.t('MY_SUB_ENABLE_PANEL_ERROR', '❌ خطا در فعال‌سازی روی پنل')
+        elif exc.code == 'expired':
+            msg = texts.t('MY_SUB_ENABLE_EXPIRED', 'اشتراک منقضی شده — تمدید کنید')
+        else:
+            msg = exc.message
+        await callback.answer(msg, show_alert=True)
+        return
+
+    try:
+        await callback.answer(texts.t('MY_SUB_ENABLE_SUCCESS', '🟢 اشتراک روشن شد'))
+    except Exception:
+        pass
+    await show_subscription_detail(callback, db_user, db, state)
 
 
 def _extract_sub_id(callback: types.CallbackQuery) -> int | None:

@@ -40,17 +40,23 @@ import { DeviceReductionSheet } from '../components/subscription/sheets/DeviceRe
 import { TrafficTopupSheet } from '../components/subscription/sheets/TrafficTopupSheet';
 import { ServerManagementSheet } from '../components/subscription/sheets/ServerManagementSheet';
 import { DeleteSubscriptionSheet } from '../components/subscription/sheets/DeleteSubscriptionSheet';
+import { DisableSubscriptionSheet } from '../components/subscription/sheets/DisableSubscriptionSheet';
 import { ConfigDeliverySheet } from '../components/subscription/ConfigDeliverySheet';
+import { SubscriptionNoteCard } from '../components/subscription/SubscriptionNoteCard';
 
 /** Isolated countdown so 1s interval doesn't re-render the whole page */
 const CountdownTimer = memo(function CountdownTimer({
   endDate,
   isActive,
   glassColors: g,
+  accentHex,
+  userDisabled = false,
 }: {
   endDate: string;
   isActive: boolean;
   glassColors: ReturnType<typeof getGlassColors>;
+  accentHex: string;
+  userDisabled?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -72,7 +78,13 @@ const CountdownTimer = memo(function CountdownTimer({
   }, [endDate]);
 
   const isExpired = !isActive;
-  const isUrgent = countdown.days <= 3;
+  const isUrgent = !isExpired && countdown.days <= 3 && !userDisabled;
+  const daysColor = isExpired
+    ? 'rgb(var(--color-critical-500))'
+    : isUrgent
+      ? 'rgb(var(--color-urgent-400))'
+      : accentHex;
+  const timeColor = isUrgent ? 'rgb(var(--color-urgent-400))' : g.text;
 
   const formattedDate = formatUserDate(endDate, i18n.language);
 
@@ -82,14 +94,18 @@ const CountdownTimer = memo(function CountdownTimer({
       style={{
         background: isExpired
           ? 'rgba(255,59,92,0.06)'
-          : isUrgent
-            ? 'rgba(255,184,0,0.06)'
-            : g.innerBg,
+          : userDisabled
+            ? `${accentHex}08`
+            : isUrgent
+              ? 'rgba(255,184,0,0.06)'
+              : g.innerBg,
         border: isExpired
           ? '1px solid rgba(255,59,92,0.15)'
-          : isUrgent
-            ? '1px solid rgba(255,184,0,0.15)'
-            : `1px solid ${g.innerBorder}`,
+          : userDisabled
+            ? `1px solid ${accentHex}25`
+            : isUrgent
+              ? '1px solid rgba(255,184,0,0.15)'
+              : `1px solid ${g.innerBorder}`,
       }}
     >
       <div
@@ -101,18 +117,22 @@ const CountdownTimer = memo(function CountdownTimer({
           style={{
             background: isExpired
               ? 'rgba(255,59,92,0.1)'
-              : isUrgent
-                ? 'rgba(255,184,0,0.1)'
-                : g.hoverBg,
+              : userDisabled
+                ? `${accentHex}12`
+                : isUrgent
+                  ? 'rgba(255,184,0,0.1)'
+                  : g.hoverBg,
           }}
         >
           <span
             style={{
               color: isExpired
                 ? 'rgb(var(--color-critical-500))'
-                : isUrgent
-                  ? 'rgb(var(--color-urgent-400))'
-                  : g.textSecondary,
+                : userDisabled
+                  ? accentHex
+                  : isUrgent
+                    ? 'rgb(var(--color-urgent-400))'
+                    : g.textSecondary,
             }}
           >
             <CalendarIcon className="h-[13px] w-[13px]" />
@@ -129,50 +149,26 @@ const CountdownTimer = memo(function CountdownTimer({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-baseline gap-1 font-mono tabular-nums">
-            {countdown.days > 0 && (
-              <>
-                <span
-                  className="text-[20px] font-bold tracking-tight"
-                  style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-                >
-                  {countdown.days}
-                </span>
-                <span className="mr-1 text-[10px] font-medium" style={{ color: g.textMuted }}>
-                  {t('subscription.daysShort')}
-                </span>
-              </>
-            )}
-            <span
-              className="text-[20px] font-bold tracking-tight"
-              style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-            >
-              {String(countdown.hours).padStart(2, '0')}
-            </span>
-            <span
-              className="mx-[-1px] text-[16px] font-bold opacity-30"
-              style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-            >
-              :
-            </span>
-            <span
-              className="text-[20px] font-bold tracking-tight"
-              style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-            >
-              {String(countdown.minutes).padStart(2, '0')}
-            </span>
-            <span
-              className="mx-[-1px] text-[16px] font-bold opacity-30"
-              style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-            >
-              :
-            </span>
-            <span
-              className="text-[20px] font-bold tracking-tight"
-              style={{ color: isUrgent ? 'rgb(var(--color-urgent-400))' : g.text }}
-            >
-              {String(countdown.seconds).padStart(2, '0')}
-            </span>
+          <div dir="ltr" className="flex items-baseline justify-start gap-2 font-mono tabular-nums">
+            <div className="flex items-baseline gap-1">
+              <span className="text-[24px] font-bold tracking-tight" style={{ color: daysColor }}>
+                {countdown.days}
+              </span>
+              <span className="text-[11px] font-semibold" style={{ color: g.textMuted }}>
+                {t('subscription.daysShort')}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-0.5 text-[18px] font-bold tracking-tight">
+              <span style={{ color: timeColor }}>{String(countdown.hours).padStart(2, '0')}</span>
+              <span className="mx-[-1px] text-[14px] font-bold opacity-30" style={{ color: timeColor }}>
+                :
+              </span>
+              <span style={{ color: timeColor }}>{String(countdown.minutes).padStart(2, '0')}</span>
+              <span className="mx-[-1px] text-[14px] font-bold opacity-30" style={{ color: timeColor }}>
+                :
+              </span>
+              <span style={{ color: timeColor }}>{String(countdown.seconds).padStart(2, '0')}</span>
+            </div>
           </div>
           <div className="text-[11px] font-medium" style={{ color: g.textSecondary }}>
             {t('subscription.expiresAt')}: {formattedDate}
@@ -196,6 +192,7 @@ export default function Subscription() {
   const haptic = useHaptic();
   const [copied, setCopied] = useState(false);
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+  const [showDisableSheet, setShowDisableSheet] = useState(false);
   const [showConfigSheet, setShowConfigSheet] = useState(false);
   const openConfigHandledRef = useRef(false);
   const destructiveConfirm = useDestructiveConfirm();
@@ -470,6 +467,18 @@ export default function Subscription() {
     },
   });
 
+  const enableSubscriptionMutation = useMutation({
+    mutationFn: () => subscriptionApi.enableSubscription(subscription!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
+      queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+      haptic.notification('success');
+    },
+    onError: () => {
+      haptic.notification('error');
+    },
+  });
+
   // Auto-refresh traffic on mount (with 30s caching)
   useEffect(() => {
     if (!subscription) return;
@@ -629,30 +638,38 @@ export default function Subscription() {
                   style={{
                     background: subscription.is_active
                       ? `${zone.mainHex}15`
-                      : subscription.is_limited
-                        ? 'rgba(255,184,0,0.12)'
-                        : 'rgba(255,59,92,0.12)',
+                      : subscription.user_disabled
+                        ? `${zone.mainHex}10`
+                        : subscription.is_limited
+                          ? 'rgba(255,184,0,0.12)'
+                          : 'rgba(255,59,92,0.12)',
                     border: subscription.is_active
                       ? `1px solid ${zone.mainHex}30`
-                      : subscription.is_limited
-                        ? '1px solid rgba(255,184,0,0.25)'
-                        : '1px solid rgba(255,59,92,0.25)',
+                      : subscription.user_disabled
+                        ? `1px solid ${zone.mainHex}28`
+                        : subscription.is_limited
+                          ? '1px solid rgba(255,184,0,0.25)'
+                          : '1px solid rgba(255,59,92,0.25)',
                     color: subscription.is_active
                       ? zone.mainHex
-                      : subscription.is_limited
-                        ? 'rgb(var(--color-urgent-400))'
-                        : 'rgb(var(--color-critical-500))',
+                      : subscription.user_disabled
+                        ? zone.mainHex
+                        : subscription.is_limited
+                          ? 'rgb(var(--color-urgent-400))'
+                          : 'rgb(var(--color-critical-500))',
                   }}
                 >
                   {subscription.is_active
                     ? subscription.is_trial
                       ? t('subscription.trialStatus')
                       : t('subscription.active')
-                    : subscription.is_limited
-                      ? t('subscription.trafficLimited')
-                      : subscription.status === 'disabled'
-                        ? t('subscription.pause.suspended')
-                        : t('subscription.expired')}
+                    : subscription.user_disabled
+                      ? t('subscription.statusUserDisabled')
+                      : subscription.is_limited
+                        ? t('subscription.trafficLimited')
+                        : subscription.status === 'disabled'
+                          ? t('subscription.pause.suspended')
+                          : t('subscription.expired')}
                 </span>
               </div>
 
@@ -946,8 +963,10 @@ export default function Subscription() {
               <div className="mb-5">
                 <CountdownTimer
                   endDate={subscription.end_date}
-                  isActive={subscription.is_active || subscription.is_limited}
+                  isActive={!subscription.is_expired}
                   glassColors={g}
+                  accentHex={zone.mainHex}
+                  userDisabled={subscription.user_disabled}
                 />
               </div>
 
@@ -1131,11 +1150,13 @@ export default function Subscription() {
               <div className="mt-1 text-[12px] text-dark-50/35">
                 {subscription.is_limited
                   ? t('subscription.trafficLimited')
-                  : subscription.status === 'disabled'
-                    ? t('subscription.pause.suspended')
-                    : subscription.is_daily_paused
-                      ? t('subscription.pause.paused')
-                      : t('subscription.pause.active')}
+                  : subscription.user_disabled
+                    ? t('subscription.statusUserDisabled')
+                    : subscription.status === 'disabled'
+                      ? t('subscription.pause.suspended')
+                      : subscription.is_daily_paused
+                        ? t('subscription.pause.paused')
+                        : t('subscription.pause.active')}
               </div>
             </div>
             <button
@@ -1282,9 +1303,33 @@ export default function Subscription() {
         </div>
       )}
 
+      {isMultiTariff && subscription && (
+        <SubscriptionNoteCard
+          subscriptionId={subscription.id}
+          purchaseNote={subscription.purchase_note}
+          textSecondary={g.textSecondary}
+          innerBg={g.innerBg}
+          innerBorder={g.innerBorder}
+        />
+      )}
+
       {/* Purchase / Renewal CTAs */}
       <div className="space-y-3">
-        <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+        {isMultiTariff && subscription?.user_disabled && (
+          <button
+            type="button"
+            onClick={() => enableSubscriptionMutation.mutate()}
+            disabled={enableSubscriptionMutation.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-success-400/30 bg-success-400/10 px-5 py-3.5 text-sm font-semibold text-success-400 transition-colors hover:bg-success-400/20 disabled:opacity-50"
+          >
+            {enableSubscriptionMutation.isPending
+              ? t('common.processing', 'در حال پردازش...')
+              : t('subscription.enable.btn', 'روشن کردن اشتراک')}
+          </button>
+        )}
+        {!(subscription?.user_disabled) && (
+          <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
+        )}
         {isMultiTariff && subscription && !subscription.is_trial && (
           <Link
             to={NEW_PURCHASE_PATH}
@@ -1296,9 +1341,31 @@ export default function Subscription() {
         )}
       </div>
 
+      {isMultiTariff &&
+        subscription &&
+        (subscription.is_active || subscription.is_limited) &&
+        !subscription.user_disabled &&
+        !subscription.is_trial && (
+          <div className="space-y-3">
+            <DisableSubscriptionSheet
+              subscriptionId={subscription.id}
+              open={showDisableSheet}
+              onOpen={() => setShowDisableSheet(true)}
+              onClose={() => setShowDisableSheet(false)}
+              textSecondary={g.textSecondary}
+              onDisabled={() => {
+                queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
+                queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+                setShowDisableSheet(false);
+              }}
+            />
+          </div>
+        )}
+
       {/* Delete expired subscription */}
       {isMultiTariff &&
         subscription &&
+        !subscription.user_disabled &&
         !subscription.is_active &&
         !subscription.is_trial &&
         !subscription.is_limited && (

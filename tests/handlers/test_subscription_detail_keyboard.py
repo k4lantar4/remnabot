@@ -41,10 +41,19 @@ def _callbacks(keyboard) -> list[str]:
     return [button.callback_data for row in keyboard.inline_keyboard for button in row]
 
 
-def test_autopay_button_present_for_active_subscription() -> None:
-    sub = SimpleNamespace(actual_status='active')
+@pytest.fixture
+def mock_connect_url(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        'app.utils.subscription_utils.resolve_connect_webapp_url',
+        AsyncMock(return_value=None),
+    )
 
-    keyboard = _build_subscription_detail_keyboard(sub_id=42, sub=sub)
+
+@pytest.mark.anyio('asyncio')
+async def test_autopay_button_present_for_active_subscription(mock_connect_url) -> None:
+    sub = SimpleNamespace(actual_status='active', user_disabled=False)
+
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=sub)
 
     callbacks = _callbacks(keyboard)
     assert 'subscription_autopay' in callbacks, (
@@ -53,52 +62,68 @@ def test_autopay_button_present_for_active_subscription() -> None:
     )
 
 
-def test_autopay_button_uses_legacy_callback_without_sub_id() -> None:
-    """The button intentionally uses the existing `subscription_autopay` exact-match
-    callback rather than a sub_id-encoded variant. Sub_id resolution flows through
-    FSM `active_subscription_id`, set by show_subscription_detail. Changing this
-    callback to e.g. `apm:{sub_id}` would require rewiring the entire autopay
-    flow (toggle/days/period handlers + back buttons) — keep it as-is.
-
-    Uses an unlikely sub_id (99999937) so a regression to substring-bake-in
-    (`subscription_autopay_99999937`) cannot accidentally pass an exact-match
-    check the way `'42' not in callback` could when the literal `42` doesn't
-    appear in `subscription_autopay`."""
+@pytest.mark.anyio('asyncio')
+async def test_autopay_button_uses_legacy_callback_without_sub_id(mock_connect_url) -> None:
     sub_id = 99999937
-    sub = SimpleNamespace(actual_status='active')
+    sub = SimpleNamespace(actual_status='active', user_disabled=False)
 
-    keyboard = _build_subscription_detail_keyboard(sub_id=sub_id, sub=sub)
+    keyboard = await _build_subscription_detail_keyboard(sub_id=sub_id, sub=sub)
 
     autopay_buttons = [
         button for row in keyboard.inline_keyboard for button in row if button.callback_data == 'subscription_autopay'
     ]
     assert len(autopay_buttons) == 1
-    # Exact match — refactor to `subscription_autopay_{id}` / `apm:{id}` must fail here.
     assert autopay_buttons[0].callback_data == 'subscription_autopay'
     assert str(sub_id) not in autopay_buttons[0].callback_data
 
 
-def test_autopay_button_hidden_on_expired_subscription() -> None:
-    sub = SimpleNamespace(actual_status='expired')
+@pytest.mark.anyio('asyncio')
+async def test_autopay_button_hidden_on_expired_subscription(mock_connect_url) -> None:
+    sub = SimpleNamespace(actual_status='expired', user_disabled=False)
 
-    keyboard = _build_subscription_detail_keyboard(sub_id=42, sub=sub)
-
-    assert 'subscription_autopay' not in _callbacks(keyboard)
-
-
-def test_autopay_button_hidden_on_disabled_subscription() -> None:
-    sub = SimpleNamespace(actual_status='disabled')
-
-    keyboard = _build_subscription_detail_keyboard(sub_id=42, sub=sub)
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=sub)
 
     assert 'subscription_autopay' not in _callbacks(keyboard)
 
 
-def test_autopay_button_present_when_status_unknown() -> None:
-    """When sub=None, the keyboard treats the subscription as active (is_inactive=False).
-    The autopay button must be there too — symmetry with traffic/devices buttons that
-    appear under the same condition."""
-    keyboard = _build_subscription_detail_keyboard(sub_id=42, sub=None)
+@pytest.mark.anyio('asyncio')
+async def test_autopay_button_hidden_on_disabled_subscription(mock_connect_url) -> None:
+    sub = SimpleNamespace(actual_status='disabled', user_disabled=False)
+
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=sub)
+
+    assert 'subscription_autopay' not in _callbacks(keyboard)
+
+
+@pytest.mark.anyio('asyncio')
+async def test_user_disabled_keyboard_has_enable_not_renew(mock_connect_url) -> None:
+    sub = SimpleNamespace(actual_status='disabled', user_disabled=True)
+
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=sub)
+
+    callbacks = _callbacks(keyboard)
+    assert 'sub_enable:42' in callbacks
+    assert 'se:42' not in callbacks
+    assert 'subscription_autopay' not in callbacks
+
+
+@pytest.mark.anyio('asyncio')
+async def test_active_keyboard_has_two_column_rows(mock_connect_url) -> None:
+    sub = SimpleNamespace(actual_status='active', user_disabled=False)
+
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=sub)
+
+    assert len(keyboard.inline_keyboard[0]) == 2
+    assert len(keyboard.inline_keyboard[1]) == 2
+    assert len(keyboard.inline_keyboard[2]) == 2
+    assert len(keyboard.inline_keyboard[3]) == 1
+    assert 'sub_edit_note:42' in _callbacks(keyboard)
+    assert 'sub_disable:42' in _callbacks(keyboard)
+
+
+@pytest.mark.anyio('asyncio')
+async def test_autopay_button_present_when_status_unknown(mock_connect_url) -> None:
+    keyboard = await _build_subscription_detail_keyboard(sub_id=42, sub=None)
 
     assert 'subscription_autopay' in _callbacks(keyboard)
 
@@ -145,7 +170,8 @@ async def test_show_subscription_detail_writes_active_subscription_id_to_fsm(
         pass
 
     # The contract: active_subscription_id MUST be written with the resolved sub_id.
-    state.update_data.assert_any_call(active_subscription_id=sub_id)
+    state.update_data.assert_awaited()
+    assert state.update_data.await_args.kwargs.get('active_subscription_id') == sub_id
 
 
 @pytest.mark.anyio('asyncio')

@@ -1,3 +1,77 @@
+# Smoke map — Subscription detail UX polish Jul 2026
+
+> Branch `feat/subscription-detail-ux`; UX polish: renew copy dedupe, note-edit cleanup, user-disabled labels, countdown LTR, note card moved.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/subscription-detail-ux` |
+| Migration | `0103` (`user_disabled`) — applied on staging |
+| Deploy | `cp app/localization/locales/fa.json ./locales/fa.json` + `make staging-rebuild` |
+| Bot | `@mrj7_bot` |
+| Cabinet | staging cabinet `:3021` |
+
+## User smoke checklist (polish)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| P1 | Renew tariff (balance) | QR caption: stats + کانفیگ شما only — **no** duplicate گام بعدی / onboarding | pending |
+| P2 | `sm:{id}` → ویرایش یادداشت | saves in-place; **no** extra «یادداشت ذخیره شد» message | pending |
+| P3 | خاموش کردن اشتراک | badge «خاموش شده» (not معلق/موجودی ناکافی); countdown shows days LTR | pending |
+| P4 | روشن کردن | enable without renew; status active again | pending |
+| P5 | Cabinet `/subscriptions/:id` | note card **below** main card; countdown days left-prominent | pending |
+
+## User smoke checklist (base feature)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | `menu_subscription` list | جستجو چپ + خرید سرویس جدید راست در یک ردیف | pending |
+| 2 | Active sub detail `sm:{id}` | کیبورد ۲تایی؛ ویرایش یادداشت؛ خاموش کردن ردیف ۵ | pending |
+| 3 | Disable → confirm | دکمه «روشن کردن» — **بدون تمدید** | pending |
+| 4 | Enable | VPN برمی‌گردد؛ اعتبار حفظ | pending |
+| 5 | Note edit (bot + cabinet) | FSM `/skip` پاک می‌کند؛ کابینت باکس یادداشت | pending |
+| 6 | Expired / system disabled | تمدید+حذف؛ **بدون** روشن کردن | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
+# Smoke map — Subscription detail UX (note + disable/enable) Jul 2026
+
+> Branch `feat/subscription-detail-ux`; note edit, user disable/enable toggle, 2-col keyboards.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/subscription-detail-ux` |
+| Migration | `0103` (`user_disabled`) — applied on staging |
+| Deploy | `make staging-migrate` + `make staging-rebuild` |
+| Bot | `@mrj7_bot` |
+| Cabinet | staging cabinet `:3021` |
+
+## User smoke checklist
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | `menu_subscription` list | جستجو چپ + خرید سرویس جدید راست در یک ردیف | pending |
+| 2 | Active sub detail `sm:{id}` | کیبورد ۲تایی؛ ویرایش یادداشت؛ خاموش کردن ردیف ۵ | pending |
+| 3 | Disable → confirm | دکمه «روشن کردن» — **بدون تمدید** | pending |
+| 4 | Enable | VPN برمی‌گردد؛ اعتبار حفظ | pending |
+| 5 | Note edit (bot + cabinet) | FSM `/skip` پاک می‌کند؛ کابینت باکس یادداشت | pending |
+| 6 | Expired / system disabled | تمدید+حذف؛ **بدون** روشن کردن | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Post-purchase connect parity Phase 2 (Tasks 6, 9–12) Jul 2026
 
 > Branch `fix/post-purchase-connect-parity-phase2`; unified connect chooser (reverted partner gate), first-connect checklist, broadcast forward via copy_message.
