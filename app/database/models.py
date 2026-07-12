@@ -2205,6 +2205,7 @@ class Subscription(Base):
     account_sequence = Column(Integer, nullable=False, default=1)
     panel_username = Column(String(64), nullable=True)  # Display cache from RemnaWave panel; never pushed on update
     purchase_note = Column(Text, nullable=True)
+    user_disabled = Column(Boolean, default=False, nullable=False)
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)

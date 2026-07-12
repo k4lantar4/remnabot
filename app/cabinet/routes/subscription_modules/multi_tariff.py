@@ -2,13 +2,18 @@
 
 GET /subscriptions — list all user subscriptions (multi-tariff)
 GET /subscriptions/{id} — get specific subscription details
+PATCH /subscriptions/{id}/note — update purchase note
+POST /subscriptions/{id}/disable — user-initiated disable
+POST /subscriptions/{id}/enable — user-initiated enable (no payment)
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -18,6 +23,12 @@ from app.database.crud.subscription import (
     get_subscription_by_id_for_user,
 )
 from app.database.models import SubscriptionStatus, User
+from app.services.partner_checkout import sanitize_purchase_note
+from app.services.subscription_user_toggle_service import (
+    SubscriptionToggleError,
+    disable_user_subscription,
+    enable_user_subscription,
+)
 from app.utils.autopay_utils import effective_autopay_enabled
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -46,6 +57,8 @@ class SubscriptionListItem(BaseModel):
     is_daily_paused: bool = False
     autopay_enabled: bool = False
     connected_squads: list[str] | None = None
+    purchase_note: str | None = None
+    user_disabled: bool = False
 
 
 class SubscriptionsListResponse(BaseModel):
@@ -54,8 +67,18 @@ class SubscriptionsListResponse(BaseModel):
     total: int = 0
 
 
+class PurchaseNoteUpdateRequest(BaseModel):
+    purchase_note: str | None = Field(None, max_length=500)
+
+
+class SubscriptionToggleResponse(BaseModel):
+    success: bool = True
+    status: str
+    user_disabled: bool
+
+
 def _subscription_matches_search(sub, search: str) -> bool:
-    """Match panel_username, tariff name, or subscription id."""
+    """Match panel_username, tariff name, subscription id, or purchase note."""
     q = search.strip().lower()
     if not q:
         return True
@@ -65,7 +88,10 @@ def _subscription_matches_search(sub, search: str) -> bool:
     if q in panel_username:
         return True
     tariff_name = (sub.tariff.name if sub.tariff else '').lower()
-    return q in tariff_name
+    if q in tariff_name:
+        return True
+    note = (getattr(sub, 'purchase_note', None) or '').strip().lower()
+    return bool(note and q in note)
 
 
 def _subscription_to_list_item(sub) -> SubscriptionListItem:
@@ -91,6 +117,36 @@ def _subscription_to_list_item(sub) -> SubscriptionListItem:
         is_daily_paused=bool(getattr(sub, 'is_daily_paused', False)),
         autopay_enabled=effective_autopay_enabled(sub),
         connected_squads=sub.connected_squads,
+        purchase_note=getattr(sub, 'purchase_note', None),
+        user_disabled=bool(getattr(sub, 'user_disabled', False)),
+    )
+
+
+async def _get_owned_subscription(
+    db: AsyncSession,
+    subscription_id: int,
+    user: User,
+):
+    subscription = await get_subscription_by_id_for_user(db, subscription_id, user.id)
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Subscription not found',
+        )
+    return subscription
+
+
+def _toggle_http_error(exc: SubscriptionToggleError) -> HTTPException:
+    code_map = {
+        'not_active': status.HTTP_400_BAD_REQUEST,
+        'not_user_disabled': status.HTTP_400_BAD_REQUEST,
+        'not_disabled': status.HTTP_400_BAD_REQUEST,
+        'expired': status.HTTP_400_BAD_REQUEST,
+        'panel_error': status.HTTP_502_BAD_GATEWAY,
+    }
+    return HTTPException(
+        status_code=code_map.get(exc.code, status.HTTP_400_BAD_REQUEST),
+        detail=exc.message,
     )
 
 
@@ -130,6 +186,58 @@ async def get_subscription_detail(
             detail='Subscription not found',
         )
     return _subscription_to_list_item(subscription)
+
+
+@router.patch('/{subscription_id}/note', response_model=SubscriptionListItem)
+async def update_subscription_note(
+    subscription_id: int,
+    body: PurchaseNoteUpdateRequest,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> SubscriptionListItem:
+    """Update purchase note on a subscription (all users)."""
+    subscription = await _get_owned_subscription(db, subscription_id, user)
+    subscription.purchase_note = sanitize_purchase_note(body.purchase_note)
+    subscription.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(subscription)
+    return _subscription_to_list_item(subscription)
+
+
+@router.post('/{subscription_id}/disable', response_model=SubscriptionToggleResponse)
+async def disable_subscription(
+    subscription_id: int,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> SubscriptionToggleResponse:
+    """Disable an active subscription (user toggle)."""
+    subscription = await _get_owned_subscription(db, subscription_id, user)
+    try:
+        subscription = await disable_user_subscription(db, subscription, user)
+    except SubscriptionToggleError as exc:
+        raise _toggle_http_error(exc) from exc
+    return SubscriptionToggleResponse(
+        status=subscription.actual_status,
+        user_disabled=bool(subscription.user_disabled),
+    )
+
+
+@router.post('/{subscription_id}/enable', response_model=SubscriptionToggleResponse)
+async def enable_subscription(
+    subscription_id: int,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> SubscriptionToggleResponse:
+    """Re-enable a user-disabled subscription without payment."""
+    subscription = await _get_owned_subscription(db, subscription_id, user)
+    try:
+        subscription = await enable_user_subscription(db, subscription, user)
+    except SubscriptionToggleError as exc:
+        raise _toggle_http_error(exc) from exc
+    return SubscriptionToggleResponse(
+        status=subscription.actual_status,
+        user_disabled=bool(subscription.user_disabled),
+    )
 
 
 @router.delete('/{subscription_id}')

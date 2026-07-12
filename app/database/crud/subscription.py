@@ -2657,7 +2657,9 @@ async def deactivate_user_trial_subscriptions(
 async def get_all_subscriptions_by_user_id(db: AsyncSession, user_id: int) -> list[Subscription]:
     """Get all subscriptions for a user (any status).
 
-    Ordering: active first, then trial, then everything else — newest first within each group.
+    Ordering: active/trial/user-disabled first (newest purchase first within tier),
+    then expired/system-disabled — newest first within each tier.
+    User-disabled subs stay on the first pages by purchase date, not pushed with expired.
     """
     result = await db.execute(
         select(Subscription)
@@ -2670,6 +2672,7 @@ async def get_all_subscriptions_by_user_id(db: AsyncSession, user_id: int) -> li
             case(
                 (Subscription.status == SubscriptionStatus.ACTIVE.value, 0),
                 (Subscription.status == SubscriptionStatus.TRIAL.value, 1),
+                (Subscription.user_disabled.is_(True), 0),
                 else_=2,
             ),
             Subscription.created_at.desc(),

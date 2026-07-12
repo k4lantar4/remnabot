@@ -58,6 +58,8 @@ class SubscriptionData(BaseModel):
     tariff_id: int | None = None
     tariff_name: str | None = None
     traffic_reset_mode: str | None = None
+    purchase_note: str | None = None
+    user_disabled: bool = False
 
     class Config:
         from_attributes = True

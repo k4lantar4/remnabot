@@ -124,9 +124,10 @@ def test_keyboard_shows_search_when_no_active_query() -> None:
     callbacks = _callbacks(keyboard)
     assert 'my_subs_search' in callbacks
     assert 'my_subs_search_reset' not in callbacks
-    search_idx = callbacks.index('my_subs_search')
-    back_idx = callbacks.index('back_to_menu')
-    assert search_idx < back_idx
+    assert 'menu_buy' in callbacks
+    search_row = next(row for row in keyboard.inline_keyboard if any(b.callback_data == 'my_subs_search' for b in row))
+    assert len(search_row) == 2
+    assert any(b.callback_data == 'menu_buy' for b in search_row)
 
 
 @pytest.mark.asyncio
@@ -175,3 +176,8 @@ def test_keyboard_shows_reset_when_query_active() -> None:
     callbacks = _callbacks(keyboard)
     assert 'my_subs_search_reset' in callbacks
     assert 'my_subs_search' not in callbacks
+    search_row = next(
+        row for row in keyboard.inline_keyboard if any(b.callback_data == 'my_subs_search_reset' for b in row)
+    )
+    assert len(search_row) == 2
+    assert any(b.callback_data == 'menu_buy' for b in search_row)

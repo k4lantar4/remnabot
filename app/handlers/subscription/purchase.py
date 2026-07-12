@@ -4169,6 +4169,19 @@ def register_handlers(dp: Dispatcher):
     # Multi-tariff: "My subscriptions" list and detail views
     from app.handlers.subscription.my_subscriptions import (
         cancel_my_subscriptions_search,
+        handle_change_devices_menu,
+        handle_device_management_menu,
+        handle_subscription_delete_confirm,
+        handle_subscription_delete_execute,
+        handle_subscription_devices,
+        handle_subscription_disable_confirm,
+        handle_subscription_disable_execute,
+        handle_subscription_edit_note_input,
+        handle_subscription_edit_note_start,
+        handle_subscription_enable,
+        handle_subscription_extend,
+        handle_subscription_link,
+        handle_subscription_traffic,
         process_my_subscriptions_search,
         reset_my_subscriptions_search,
         show_my_subscriptions,
@@ -4187,18 +4200,13 @@ def register_handlers(dp: Dispatcher):
         SubscriptionStates.searching_my_subscriptions,
         F.text,
     )
+    dp.message.register(
+        handle_subscription_edit_note_input,
+        SubscriptionStates.editing_subscription_note,
+        F.text,
+    )
 
     # Multi-tariff delegation handlers from subscription detail view
-    from app.handlers.subscription.my_subscriptions import (
-        handle_change_devices_menu,
-        handle_device_management_menu,
-        handle_subscription_delete_confirm,
-        handle_subscription_delete_execute,
-        handle_subscription_devices,
-        handle_subscription_extend,
-        handle_subscription_link,
-        handle_subscription_traffic,
-    )
 
     dp.callback_query.register(
         handle_subscription_link,
@@ -4211,6 +4219,10 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(handle_subscription_delete_execute, F.data.startswith('sub_del_yes:'))
     dp.callback_query.register(handle_change_devices_menu, F.data.startswith('change_devices_menu:'))
     dp.callback_query.register(handle_device_management_menu, F.data.startswith('device_management:'))
+    dp.callback_query.register(handle_subscription_edit_note_start, F.data.startswith('sub_edit_note:'))
+    dp.callback_query.register(handle_subscription_disable_execute, F.data.startswith('sub_disable_yes:'))
+    dp.callback_query.register(handle_subscription_disable_confirm, F.data.startswith('sub_disable:'))
+    dp.callback_query.register(handle_subscription_enable, F.data.startswith('sub_enable:'))
 
     # Subscription revoke (reissue)
     from app.handlers.subscription.revoke import (

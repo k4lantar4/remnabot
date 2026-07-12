@@ -64,15 +64,13 @@ def _affordance_context(texts, user_balance: int, final_price_kopeks: int) -> di
     }
 
 
-def _with_post_purchase_onboarding(texts, body: str, subscription=None) -> str:
-    onboarding = texts.t(
-        'POST_PURCHASE_ONBOARDING',
-        '✅ <b>3 шага до подключения:</b>\n'
-        '1️⃣ Меню → <b>Моя подписка</b>\n'
-        '2️⃣ Кнопка <b>🔗 Получить ссылку</b>\n'
-        '3️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)\n\n'
-        '💬 Вопросы? Напишите в поддержку.',
-    )
+def _with_post_purchase_onboarding(
+    texts,
+    body: str,
+    subscription=None,
+    *,
+    include_onboarding: bool = True,
+) -> str:
     parts = [body]
     subscription_link = None
     if subscription and not settings.should_hide_subscription_link():
@@ -84,7 +82,16 @@ def _with_post_purchase_onboarding(texts, body: str, subscription=None) -> str:
                 '🔗 <b>Ссылка сервиса:</b>\n<code>{link}</code>',
             ).format(link=subscription_link)
         )
-    parts.append(onboarding)
+    if include_onboarding:
+        onboarding = texts.t(
+            'POST_PURCHASE_ONBOARDING',
+            '✅ <b>3 шага до подключения:</b>\n'
+            '1️⃣ Меню → <b>Моя подписка</b>\n'
+            '2️⃣ Кнопка <b>🔗 Получить ссылку</b>\n'
+            '3️⃣ Вставьте ссылку в VPN-приложение (v2rayNG, Happ)\n\n'
+            '💬 Вопросы? Напишите в поддержку.',
+        )
+        parts.append(onboarding)
     return '\n\n'.join(parts)
 
 
@@ -3580,6 +3587,7 @@ async def confirm_tariff_extend(
                 period=format_period(period, db_user.language),
                 charged=format_price_kopeks(final_price),
             ),
+            include_onboarding=False,
         )
         await send_purchase_success_delivery(
             callback.message,

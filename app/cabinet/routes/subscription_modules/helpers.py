@@ -232,4 +232,6 @@ def _subscription_to_response(
         tariff_id=tariff_id,
         tariff_name=tariff_name,
         traffic_reset_mode=traffic_reset_mode,
+        purchase_note=getattr(subscription, 'purchase_note', None),
+        user_disabled=bool(getattr(subscription, 'user_disabled', False)),
     )

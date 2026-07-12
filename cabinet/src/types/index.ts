@@ -102,6 +102,8 @@ export interface Subscription {
   tariff_id?: number;
   tariff_name?: string;
   traffic_reset_mode?: string;
+  purchase_note?: string | null;
+  user_disabled?: boolean;
 }
 
 // Response wrapper for subscription status endpoint
@@ -129,6 +131,8 @@ export interface SubscriptionListItem {
   is_daily_paused?: boolean;
   autopay_enabled: boolean;
   connected_squads: string[] | null;
+  purchase_note?: string | null;
+  user_disabled?: boolean;
 }
 
 // Response from GET /cabinet/subscriptions (multi-tariff)

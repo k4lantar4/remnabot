@@ -712,6 +712,21 @@
     "defaultName": "اشتراک",
     "delete": "حذف",
     "deleteTitle": "حذف اشتراک",
+    "disable": {
+      "btn": "خاموش کردن اشتراک",
+      "confirmBtn": "بله، خاموش کن",
+      "title": "خاموش کردن اشتراک؟",
+      "warning": "دسترسی VPN قطع می‌شود. هر زمان با دکمهٔ روشن کردن می‌توانید دوباره فعال کنید — بدون نیاز به تمدید."
+    },
+    "enable": {
+      "btn": "روشن کردن اشتراک",
+      "success": "اشتراک روشن شد"
+    },
+    "noteClear": "پاک کردن یادداشت",
+    "noteEdit": "ویرایش",
+    "noteLabel": "یادداشت",
+    "notePlaceholder": "یادداشت اختیاری برای این اشتراک",
+    "noteSave": "ذخیره",
     "get_config": "دریافت پیکربندی",
     "loadError": "بارگذاری اشتراک ناموفق بود",
     "newTariff": "تعرفه جدید",
@@ -724,6 +739,7 @@
     "statusExpired": "منقضی شده",
     "statusLimited": "محدود",
     "statusTrial": "آزمایشی",
+    "statusUserDisabled": "خاموش شده",
     "daysShort": "روز",
     "expiredBanner": {
       "selectTariff": "تعرفه را انتخاب کنید",
