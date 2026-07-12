@@ -57,15 +57,24 @@ Your job is to keep every change on the mandatory ship cycle and prevent repeate
 ## Deploy checklist (when user asks to deploy)
 
 ```bash
-# if fa.json changed
-cp app/localization/locales/fa.json ./locales/fa.json
-docker compose run --rm --no-deps bot python -c "import main"
-docker compose build bot   # when code changed
-docker compose restart bot
+make smoke
+make deploy-scope
+# Staging (background, default):
+make staging-rebuild
+# Production after merge (background):
+CONFIRM_PROD_DEPLOY=1 make prod-deploy          # auto scope
+CONFIRM_PROD_DEPLOY=1 make prod-deploy-bot      # explicit bot-only
 grep -r get_admin_texts app/  # must be 0
 ```
 
-Cabinet changes: `npm run build` in cabinet frontend when applicable.
+| Scope | Staging | Prod |
+|-------|---------|------|
+| `fa` | locales sync + bot restart | `cp fa.json` + bot up |
+| `bot` | `staging-rebuild-bot` | `prod-deploy-bot` |
+| `cabinet` | `staging-rebuild-cabinet` (fast dist mount) | `prod-deploy-cabinet` |
+| `bot+cabinet` | `staging-rebuild-both` | `prod-deploy-both` |
+
+Do **not** block chat waiting for rebuild — check `/tmp/remnabot-deploy-*.log`.
 
 ## Delegate to specialists
 

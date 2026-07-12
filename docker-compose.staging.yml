@@ -108,6 +108,9 @@ services:
       - .env.staging
     ports:
       - '3021:80'
+    volumes:
+      # Fast iteration: host npm run build → nginx serves dist (staging only)
+      - ./cabinet/dist:/usr/share/nginx/html:ro
     networks:
       - staging_network
       - remnawave-network

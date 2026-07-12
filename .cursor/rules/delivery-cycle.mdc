@@ -48,32 +48,35 @@ docker compose run --rm --no-deps -w /app/cabinet node:20-alpine sh -c "npm ci &
 
 ## Deploy for user smoke (running containers)
 
-| What changed | Required action |
-|--------------|-----------------|
-| `app/localization/locales/fa.json` only | `cp app/localization/locales/fa.json ./locales/fa.json` then `docker compose up -d bot` |
-| Bot Python (`app/**`, deps) | `docker compose build bot && docker compose up -d bot` |
-| Cabinet UI/locales (`cabinet/src/**`) | `docker compose build cabinet-frontend && docker compose up -d cabinet-frontend` |
-| Bot + cabinet in same sprint | `cp … fa.json` + `docker compose build bot cabinet-frontend && docker compose up -d bot cabinet-frontend` |
-| Alembic migration | run migration on **target** Postgres **before** `up -d bot` |
-| `.env` / secrets | restart only affected services |
+Use **`make deploy-scope`** then scoped deploy. Staging defaults to **background** (`make staging-rebuild`).
 
-**Postgres / Redis:** no image rebuild for locale/copy work. Use **separate volumes** per environment (prod vs staging).
+| Scope | Staging | Production |
+|-------|---------|------------|
+| `fa` only | sync locales-staging + `up -d bot` | `cp fa.json` + `up -d bot` |
+| `bot` | `make staging-rebuild-bot` | `make prod-deploy-bot` |
+| `cabinet` | `make staging-rebuild-cabinet` (host npm + dist mount) | `make prod-deploy-cabinet` |
+| **`bot+cabinet`** | `make staging-rebuild-both` (parallel bot build + cabinet sync) | `make prod-deploy-both` |
+| Alembic migration | `make staging-migrate` before/with `up -d bot` | migrate prod Postgres before `up -d bot` |
+| `.env` / secrets | restart affected services only | same |
 
-**Typical i18n deploy (so user sees strings in Telegram + cabinet):**
+**Staging cabinet fast path:** `make staging-cabinet-sync` — host `npm run build`, nginx serves `./cabinet/dist` mount (~30s–2min). Prod cabinet: Docker image only (BuildKit npm cache).
+
+**Never block chat** on long rebuilds — deploy runs in background; log at `/tmp/remnabot-deploy-*.log`.
+
+**Typical parity sprint (staging):**
 
 ```bash
-cp app/localization/locales/fa.json ./locales/fa.json
-docker compose build bot cabinet-frontend
-docker compose up -d bot cabinet-frontend
-docker compose ps   # healthy
+make smoke && make deploy-scope && make staging-rebuild
+tail -f /tmp/remnabot-deploy-staging-*.log   # when needed
+make staging-health
 ```
 
-Smoke on **staging** bot + staging cabinet — not production bot while iterating (§ Staging).
+Smoke on **staging** (`@mrj7_bot`) — not production bot while iterating.
 
 **Staging deploy (parallel stack, same host):**
 
 ```bash
-./tools/deploy-staging.sh
+./tools/deploy-staging.sh --scope auto --cabinet-sync --bg
 ./tools/deploy-staging.sh --migrate   # first boot or new Alembic revision
 ```
 

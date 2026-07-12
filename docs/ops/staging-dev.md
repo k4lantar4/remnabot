@@ -1,6 +1,6 @@
 # Staging & ship workflow (same host as production)
 
-Agent default: **`autonomous-dev-workflow.mdc`** — plan, implement, `make staging-rebuild`, ship after user `تایید`.
+Agent default: **`autonomous-dev-workflow.mdc`** — plan, implement, `make staging-rebuild` (background), ship after user `تایید`.
 
 ## Topology — one server, two stacks
 
@@ -52,25 +52,48 @@ Prod domains (`hooks`, `cabinet`, …) unchanged — same IP, different Caddy ro
 ## Daily sprint loop (Makefile)
 
 ```
-branch → commits → make smoke
-  → make staging-rebuild && make staging-health
+branch → commits → make smoke && make deploy-scope
+  → make staging-rebuild (background; log /tmp/remnabot-deploy-staging-*.log)
+  → make staging-health (when deploy log succeeds)
   → smoke-map.md → user smokes @mrj7_bot
   → (user تایید) CONFIRM_SHIP=1 make ship BRANCH=…
   → gh pr merge -R k4lantar4/remnabot
   → git pull remnabot main
-  → CONFIRM_PROD_DEPLOY=1 make prod-deploy
+  → CONFIRM_PROD_DEPLOY=1 make prod-deploy (background, auto scope)
   → short prod smoke
 ```
+
+## Deploy scope
+
+`make deploy-scope` prints: `fa` | `bot` | `cabinet` | `bot+cabinet` | `none`
+
+When both `app/**` and `cabinet/src/**` change → **`bot+cabinet`** (parity default).
+
+## Timing expectations
+
+| Path | Typical duration |
+|------|------------------|
+| Staging `fa` only | ~30s |
+| Staging bot rebuild | 2–5 min |
+| Staging cabinet sync (host npm + dist mount) | 30s–2 min |
+| Staging bot+cabinet (parallel) | ~max(bot, cabinet sync) |
+| Prod cabinet Docker (BuildKit warm) | ~5–8 min |
+| Prod cabinet Docker (cold) | ~10–15 min |
+
+Agent must **not** block chat on these — use background deploy.
 
 ## Scripts
 
 | Command | Stack |
 |---------|--------|
-| `make staging-rebuild` | Full staging deploy |
+| `make deploy-scope` | Print scope from git diff vs main |
+| `make staging-rebuild` | Auto scope + background deploy |
+| `make staging-rebuild-bot` / `-cabinet` / `-both` | Explicit scoped background deploy |
+| `make staging-cabinet-sync` | Fast cabinet (foreground; agent smoke helper) |
 | `make staging-health` | localhost + HTTPS health |
-| `make staging-cabinet-build` | Cabinet only (VITE / username) |
 | `CONFIRM_SHIP=1 make ship BRANCH=…` | Push + PR (after user smoke) |
-| `CONFIRM_PROD_DEPLOY=1 make prod-deploy` | Production after merge |
+| `CONFIRM_PROD_DEPLOY=1 make prod-deploy` | Production auto scope (background) |
+| `CONFIRM_PROD_DEPLOY=1 make prod-deploy-bot` | Bot-only prod (background) |
 
 ## Resources
 
