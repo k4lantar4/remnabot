@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.cabinet.utils.device_ownership import verify_hwid_belongs_to_user
 from app.config import settings
+from app.localization.texts import get_texts
 from app.database.crud.campaign import get_campaign_registration_by_user
 from app.database.crud.subscription import (
     extend_subscription,
@@ -129,6 +130,11 @@ from ..schemas.users import (
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix='/admin/users', tags=['Cabinet Admin Users'])
+
+
+def _t(user: User, key: str, fallback: str, **fmt) -> str:
+    text = get_texts(user.language).t(key, fallback)
+    return text.format(**fmt) if fmt else text
 
 
 def _build_user_list_item(user: User, spending_stats: dict = None) -> UserListItem:
@@ -1438,7 +1444,12 @@ async def update_user_subscription(
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=0,
-            description=f"Смена тарифа администратором на '{tariff.name}'",
+            description=_t(
+                user,
+                'ADMIN_LEDGER_SWITCH_TARIFF',
+                "Смена тарифа администратором на '{name}'",
+                name=tariff.name,
+            ),
             commit=False,
         )
 
