@@ -3060,6 +3060,7 @@ class BroadcastHistory(Base):
     channel = Column(String(20), default='telegram', nullable=False)  # telegram|email|both
     email_subject = Column(String(255), nullable=True)
     email_html_content = Column(Text, nullable=True)
+    entities_json = Column(Text, nullable=True)
 
     admin = relationship('User', back_populates='broadcasts')
 
@@ -3281,6 +3282,7 @@ class PinnedMessage(Base):
     content = Column(Text, nullable=False, default='')
     media_type = Column(String(32), nullable=True)
     media_file_id = Column(String(255), nullable=True)
+    entities_json = Column(Text, nullable=True)
     send_before_menu = Column(Boolean, nullable=False, server_default='1', default=True)
     send_on_every_start = Column(Boolean, nullable=False, server_default='1', default=True)
     is_active = Column(Boolean, default=True)

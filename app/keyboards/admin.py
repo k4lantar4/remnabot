@@ -2237,7 +2237,7 @@ def get_welcome_text_keyboard(language: str = 'ru', is_enabled: bool = True) -> 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-DEFAULT_BROADCAST_BUTTONS = ('home',)
+DEFAULT_BROADCAST_BUTTONS = ('connect', 'subscription', 'home')
 
 BROADCAST_BUTTONS = {
     'balance': {
@@ -2374,10 +2374,8 @@ def get_updated_message_buttons_selector_keyboard_with_media(
             button_config = button_config_map[button_key]
             base_text = button_config['text']
             if button_key in selected_buttons:
-                if ' ' in base_text:
-                    toggle_text = f'✅ {base_text.split(" ", 1)[1]}'
-                else:
-                    toggle_text = f'✅ {base_text}'
+                label = base_text.removeprefix('✅ ').strip()
+                toggle_text = f'✅ {label}'
             else:
                 toggle_text = base_text
             row_buttons.append(InlineKeyboardButton(text=toggle_text, callback_data=f'btn_{button_key}'))

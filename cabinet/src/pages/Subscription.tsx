@@ -564,6 +564,12 @@ export default function Subscription() {
           const connectedDevices = devicesData?.total ?? 0;
           const isAtDeviceLimit =
             subscription.device_limit > 0 && connectedDevices >= subscription.device_limit;
+          const showFirstConnectChecklist =
+            subscription.is_active &&
+            !subscription.is_limited &&
+            usedGb === 0 &&
+            !shouldHideConnectionLink &&
+            !!displayedConnectionUrl;
 
           return (
             <div
@@ -842,6 +848,29 @@ export default function Subscription() {
                   compact
                 />
               </div>
+
+              {/* ─── First-connect checklist (zero traffic usage) ─── */}
+              {showFirstConnectChecklist && (
+                <div
+                  className="mb-5 rounded-[14px] p-4"
+                  style={{
+                    background: `${zone.mainHex}08`,
+                    border: `1px solid ${zone.mainHex}20`,
+                  }}
+                >
+                  <div
+                    className="mb-2.5 text-[12px] font-semibold"
+                    style={{ color: zone.mainHex }}
+                  >
+                    {t('subscription.firstConnectChecklist.title')}
+                  </div>
+                  <ol className="space-y-1.5 text-[11px] leading-relaxed" style={{ color: g.textSecondary }}>
+                    <li>{t('subscription.firstConnectChecklist.step1')}</li>
+                    <li>{t('subscription.firstConnectChecklist.step2')}</li>
+                    <li>{t('subscription.firstConnectChecklist.step3')}</li>
+                  </ol>
+                </div>
+              )}
 
               {/* ─── Config delivery + connection guide ─── */}
               {subscription.subscription_url && !shouldHideConnectionLink && displayedConnectionUrl && (

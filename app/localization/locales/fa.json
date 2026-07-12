@@ -2813,7 +2813,7 @@
   "CONFIRM": "✅ تأیید",
   "CONFIRM_CHANGE_BUTTON": "✅ تأیید تغییر",
   "CONNECT_BUTTON": "🔗 اتصال",
-  "CONNECT_CHOOSER_BTN_CONFIG": "📋 دریافت QR و لینک اتصال",
+  "CONNECT_CHOOSER_BTN_CONFIG": "📋 دریافت QR و کانفیگ",
   "CONNECT_CHOOSER_BTN_SELF": "📱 راهنمای نصب (خودم)",
   "CONNECT_CHOOSER_BTN_SHARE": "📋 کانفیگ برای مشتری / فروش",
   "CONNECT_CHOOSER_TITLE": "📱 <b>چطور وصل می‌شوید؟</b>\n\nیکی از گزینه‌ها را انتخاب کنید 👇",
@@ -3208,7 +3208,7 @@
   "MY_SUB_DELETE_CONFIRM": "🗑 <b>اشتراک «{name}» حذف شود؟</b>\n\n⚠️ اشتراک برای همیشه حذف می‌شود.\nهمه داده‌ها، اتصال‌ها و تنظیمات از بین می‌روند.\nاین عمل قابل بازگشت نیست.",
   "MY_SUB_DETAIL_DEVICES": "👥 تعداد کاربر: {devices}",
   "MY_SUB_DETAIL_CONNECT_HINT": "💡 برای اتصال: «📋 دریافت QR و لینک» یا «📖 راهنمای اتصال»",
-  "MY_SUB_DETAIL_FIRST_CONNECT": "هنوز وصل نشده‌اید؟ دکمهٔ «دریافت کانفیگ» را بزنید و یکی از دو گزینه را انتخاب کنید 👇",
+  "MY_SUB_DETAIL_FIRST_CONNECT": "📋 <b>اولین اتصال:</b>\n۱. «دریافت کانفیگ» را بزنید (QR همین‌جا)\n۲. «راهنمای اتصال» → برنامه را انتخاب و نصب کنید\n۳. وصل شوید ✅",
   "MY_SUB_DETAIL_HEADER": "نام اشتراک: <b>{label}</b>",
   "MY_SUB_DETAIL_LINK_COPY_HINT": "💡 برای کپی روی لینک بالا ضربه بزنید",
   "MY_SUB_DETAIL_ONBOARDING": "💡 دکمهٔ «📋 دریافت کانفیگ» را بزنید\n👇 راهنمای نصب (خودم) یا کانفیگ برای مشتری/فروش",
@@ -4873,5 +4873,9 @@
   "ADMIN_REMNA_CFG_SAVE_ERR": "خطا در ذخیره",
   "ADMIN_REMNA_CFG_CLEAR_ERR": "خطا در پاک‌سازی",
   "ADMIN_REMNA_CFG_SELECTED": "✅ پیکربندی انتخاب شد",
-  "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد"
+  "ADMIN_REMNA_CFG_CLEARED": "✅ پیکربندی پاک شد",
+  "ADMIN_MSG_VALIDATION_ERROR": "❌ {error}",
+  "ADMIN_MSG_BROADCAST_FORWARD_HINT": "📎 یا پست کانال را <b>فوروارد</b> کنید (ایموجی پریمیوم حفظ می‌شود)",
+  "ADMIN_MSG_FORWARD_SUMMARY": "فوروارد از {channel}",
+  "ADMIN_MSG_PREVIEW_FORWARD": "📨 <b>پیش‌نمایش ریلای (فوروارد کانال)</b>\n\n🎯 <b>مخاطب:</b> {target}\n👥 <b>گیرندگان:</b> {count}\n📢 <b>منبع:</b> {channel}\n\n{buttons_info}\n\nپست فورواردشده در پیام بالاتر نمایش داده شده — همان برای کاربران ارسال می‌شود."
 }

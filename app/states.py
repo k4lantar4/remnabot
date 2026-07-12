@@ -94,6 +94,7 @@ class AdminStates(StatesGroup):
     editing_campaign_tariff_days = State()
 
     waiting_for_broadcast_message = State()
+    broadcast_waiting_forward = State()
     waiting_for_broadcast_media = State()
     confirming_broadcast = State()
 

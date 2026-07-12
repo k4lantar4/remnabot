@@ -672,7 +672,13 @@
     "statusActive": "Active",
     "statusExpired": "Expired",
     "statusLimited": "Limited",
-    "statusTrial": "Trial"
+    "statusTrial": "Trial",
+    "firstConnectChecklist": {
+      "title": "First connection guide",
+      "step1": "1. Tap «Get config» (QR is right here)",
+      "step2": "2. «Connection guide» → pick and install the app",
+      "step3": "3. Connect ✅"
+    }
   },
   "balance": {
     "title": "Balance",
