@@ -256,20 +256,28 @@ async def purchase_devices_legacy(
         )
 
     # Deduct balance and create transaction
+    from app.database.crud.transaction import create_transaction
     from app.database.crud.user import subtract_user_balance
     from app.database.models import PaymentMethod
 
     description = _device_purchase_description(user, request.devices, days_left, devices_discount_percent)
+    charge_toman = catalog_price_in_toman(total_price)
 
     success = await subtract_user_balance(
         db=db,
         user=user,
-        amount_kopeks=catalog_price_in_toman(total_price),
+        amount_kopeks=charge_toman,
         description=description,
-        create_transaction=True,
-        payment_method=PaymentMethod.BALANCE,
-        transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
     )
+    if success:
+        await create_transaction(
+            db=db,
+            user_id=user.id,
+            type=TransactionType.SUBSCRIPTION_PAYMENT,
+            amount_kopeks=total_price,
+            description=description,
+            payment_method=PaymentMethod.BALANCE,
+        )
     if not success:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -548,20 +556,28 @@ async def purchase_devices(
             )
 
         # Deduct balance and create transaction
+        from app.database.crud.transaction import create_transaction
         from app.database.crud.user import subtract_user_balance
         from app.database.models import PaymentMethod
 
         description = _device_purchase_description(user, request.devices, days_left, devices_discount_percent)
+        charge_toman = catalog_price_in_toman(price_kopeks)
 
         success = await subtract_user_balance(
             db=db,
             user=user,
-            amount_kopeks=catalog_price_in_toman(price_kopeks),
+            amount_kopeks=charge_toman,
             description=description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
         )
+        if success:
+            await create_transaction(
+                db=db,
+                user_id=user.id,
+                type=TransactionType.SUBSCRIPTION_PAYMENT,
+                amount_kopeks=price_kopeks,
+                description=description,
+                payment_method=PaymentMethod.BALANCE,
+            )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
