@@ -84,13 +84,16 @@ async def _send_c2c_card_instructions(
     texts = get_texts(db_user.language)
     card = get_card_by_index(receipt.card_index)
     if card:
-        card_text = format_card_message(card, receipt.amount_kopeks, settings.C2C_GUIDE_TEXT)
+        card_text = format_card_message(card, receipt.amount_kopeks, settings.C2C_GUIDE_TEXT, texts)
         body = texts.t(
             'C2C_SEND_RECEIPT',
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',
         ).format(card_info=card_text)
     else:
-        card_info = f'💳 Pending transfer #{receipt.id}\n💰 {settings.format_balance(receipt.amount_kopeks)}'
+        card_info = texts.t(
+            'C2C_PENDING_TRANSFER_FALLBACK',
+            '💳 Pending transfer #{id}\n💰 {amount}',
+        ).format(id=receipt.id, amount=settings.format_balance(receipt.amount_kopeks))
         body = texts.t(
             'C2C_SEND_RECEIPT',
             '{card_info}\n\n📎 Send a photo, document, or text receipt after transfer.',

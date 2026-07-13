@@ -52,15 +52,19 @@ async def get_next_card() -> tuple[C2cCard, int]:
     )
 
 
-def format_card_message(card: C2cCard, amount_kopeks: int, guide_text: str) -> str:
+def format_card_message(card: C2cCard, amount_kopeks: int, guide_text: str, texts) -> str:
     """Build user-facing card transfer instructions."""
-    holder_line = f'\n👤 <b>Holder:</b> {card["holder"]}' if card.get('holder') else ''
+    card_number_label = texts.t('C2C_CARD_NUMBER_LABEL', '🔢 <b>Номер карты:</b>')
+    holder_label = texts.t('C2C_CARD_HOLDER_LABEL', '👤 <b>Держатель:</b>')
+    amount_label = texts.t('C2C_AMOUNT_TO_TRANSFER_LABEL', '💰 <b>Сумма к переводу:</b>')
+
+    holder_line = f'\n{holder_label} {card["holder"]}' if card.get('holder') else ''
     guide = (guide_text or '').strip()
     guide_block = f'\n\n{guide}' if guide else ''
     return (
         f'💳 <b>{card["label"]}</b>\n\n'
-        f'🔢 <b>Card number:</b> <code>{card["number"]}</code>'
+        f'{card_number_label} <code>{card["number"]}</code>'
         f'{holder_line}\n\n'
-        f'💰 <b>Amount to transfer:</b> {settings.format_balance(amount_kopeks)}'
+        f'{amount_label} {settings.format_balance(amount_kopeks)}'
         f'{guide_block}'
     )
