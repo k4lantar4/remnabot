@@ -115,7 +115,7 @@ export function AppShell({ children }: AppShellProps) {
     { path: '/', label: t('nav.dashboard'), icon: HomeIcon },
     { path: '/subscriptions', label: t('nav.subscription'), icon: SubscriptionIcon },
     { path: '/balance', label: t('nav.balance'), icon: CreditCardIcon },
-    ...(referralEnabled ? [{ path: '/referral', label: t('nav.referral'), icon: UsersIcon }] : []),
+    ...(referralEnabled ? [{ path: '/referral', label: t('nav.earn'), icon: UsersIcon }] : []),
     ...(giftEnabled ? [{ path: '/gift', label: t('nav.gift'), icon: GiftIcon }] : []),
     { path: '/support', label: t('nav.support'), icon: ChatIcon },
     { path: '/info', label: t('nav.info'), icon: InfoIcon },
