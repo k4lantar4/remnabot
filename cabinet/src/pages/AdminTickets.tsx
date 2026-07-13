@@ -302,8 +302,8 @@ export default function AdminTickets() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Ticket List */}
-        <div className="card lg:col-span-1">
+        {/* Ticket List — hidden on mobile when a ticket is open */}
+        <div className={`card lg:col-span-1 ${selectedTicketId ? 'hidden lg:block' : ''}`}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-dark-100">{t('admin.tickets.list')}</h2>
             <select
@@ -331,14 +331,24 @@ export default function AdminTickets() {
           ) : (
             <div className="scrollbar-hide max-h-[500px] space-y-2 overflow-y-auto">
               {ticketsData?.items.map((ticket) => (
-                <button
+                <div
                   key={ticket.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setSelectedTicketId(ticket.id);
                     setReplyText('');
                     clearAttachments();
                   }}
-                  className={`w-full rounded-xl border p-4 text-left transition-all ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedTicketId(ticket.id);
+                      setReplyText('');
+                      clearAttachments();
+                    }
+                  }}
+                  className={`w-full cursor-pointer rounded-xl border p-4 text-left transition-all ${
                     selectedTicketId === ticket.id
                       ? 'border-accent-500 bg-accent-500/10'
                       : 'border-dark-700/50 bg-dark-800/30 hover:border-dark-600'
@@ -358,6 +368,7 @@ export default function AdminTickets() {
                     {formatUser(ticket)}
                     {ticket.user?.telegram_id && (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           copyToClipboard(String(ticket.user!.telegram_id));
@@ -383,7 +394,7 @@ export default function AdminTickets() {
                           : '...'}
                     </div>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -411,8 +422,22 @@ export default function AdminTickets() {
           )}
         </div>
 
-        {/* Ticket Detail */}
-        <div className="card lg:col-span-2">
+        {/* Ticket Detail — full width on mobile when selected */}
+        <div className={`card lg:col-span-2 ${!selectedTicketId ? 'hidden lg:block' : ''}`}>
+          {selectedTicketId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTicketId(null);
+                setReplyText('');
+                clearAttachments();
+              }}
+              className="mb-4 flex items-center gap-2 text-sm text-dark-400 transition-colors hover:text-dark-200 lg:hidden"
+            >
+              <BackIcon />
+              {t('common.back')}
+            </button>
+          ) : null}
           {!selectedTicketId ? (
             <div className="flex h-64 flex-col items-center justify-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-dark-800">
