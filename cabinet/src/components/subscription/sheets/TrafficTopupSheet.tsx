@@ -27,6 +27,8 @@ export interface TrafficTopupSheetProps {
   onSelectedTrafficPackageChange: (gb: number | null) => void;
   purchaseOptions: PurchaseOptions | undefined;
   isDark: boolean;
+  /** Parent renders the trigger (e.g. green grid button). */
+  hideDefaultTrigger?: boolean;
 }
 
 export function TrafficTopupSheet({
@@ -39,6 +41,7 @@ export function TrafficTopupSheet({
   onSelectedTrafficPackageChange,
   purchaseOptions,
   isDark,
+  hideDefaultTrigger = false,
 }: TrafficTopupSheetProps) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -68,6 +71,7 @@ export function TrafficTopupSheet({
   });
 
   if (!open) {
+    if (hideDefaultTrigger) return null;
     return (
       <button
         onClick={onOpen}

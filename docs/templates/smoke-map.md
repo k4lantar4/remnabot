@@ -1,3 +1,36 @@
+# Smoke map — Subscription detail UX (Cabinet) Jul 2026
+
+> Branch `feat/cabinet-subscription-detail-ux`; multi-tariff detail page: panel username title, details box, action grid.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/cabinet-subscription-detail-ux` |
+| Files | `Subscription.tsx`, `SubscriptionRemainingDetails.tsx`, `SubscriptionDetailActions.tsx`, `SubscriptionNoteSheet.tsx`, `DisableSubscriptionSheet.tsx`, `cabinet/src/locales/fa.json` |
+| Guard | cabinet `npm run build` OK |
+| Deploy | staging cabinet dist sync + `cabinet-frontend` up |
+| Surfaces | staging cabinet (`https://staging-host-cabinet.rookari.com`) |
+
+## User smoke checklist (staging cabinet)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | `/subscriptions` → tap a card | List unchanged; card shows panel username | pending |
+| 2 | Detail page title | `Hgf_1126`-style panel username (not tariff name); copy button works | pending |
+| 3 | Card header | Username + status badge inline; muted note preview below | pending |
+| 4 | Details box | Expiry, remaining (days+hours), traffic used/remaining, purchase date, service name, users/connections — **no live countdown** | pending |
+| 5 | Action grid below details | Note, renew, green traffic, buy-new below, danger row (reissue/disconnect/disable), autopay 🟢/🔴 at bottom | pending |
+| 6 | Autopay toggle | If ENABLE_AUTOPAY=false expect error message; if true toggles with haptic | pending |
+| 7 | Subscriptions list + dashboard | «خرید اشتراک جدید» label (not «دیگر») | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Earn tab redesign Jul 2026
 
 > Branch `feat/earn-tab-redesign`; cabinet `/referral` → two-tab «کسب درآمد» (نمایندگی | دعوت); withdrawal UI removed.

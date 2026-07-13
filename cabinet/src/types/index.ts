@@ -87,6 +87,8 @@ export interface Subscription {
   servers: ServerInfo[];
   autopay_enabled: boolean;
   autopay_days_before: number;
+  /** False when ENABLE_AUTOPAY is off server-side — hide autopay UI */
+  autopay_available?: boolean;
   subscription_url: string | null;
   hide_subscription_link: boolean;
   is_active: boolean;
