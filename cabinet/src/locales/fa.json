@@ -45,6 +45,7 @@
     "subscription": "اشتراک",
     "balance": "موجودی",
     "referral": "نمایندگی",
+    "earn": "کسب درآمد",
     "support": "پشتیبانی",
     "profile": "پروفایل",
     "logout": "خروج",
@@ -947,6 +948,53 @@
       "tryAgain": "تلاش مجدد"
     },
     "top_up": "افزایش موجودی"
+  },
+  "earn": {
+    "title": "کسب درآمد",
+    "tabs": {
+      "partner": "نمایندگی",
+      "invite": "دعوت"
+    },
+    "invite": {
+      "referralCredit": "پورسانت معرفی",
+      "referralCreditHint": "قابل استفاده در خرید بعدی",
+      "botLink": "لینک دعوت ربات",
+      "copyLink": "کپی",
+      "copied": "کپی شد!",
+      "shareButton": "اشتراک‌گذاری",
+      "explainer": "با هر خرید دوستت، {{percent}}٪ پورسانت به اعتبار معرفی‌ات اضافه می‌شود.",
+      "shareMessage": "از طریق لینک من به {{botName}} بپیوند!",
+      "yourInvitees": "دعوت‌شده‌ها",
+      "noInvitees": "هنوز کسی را دعوت نکرده‌اید. لینک را برای دوستان بفرستید!",
+      "anonymousUser": "کاربر #{{id}}",
+      "status": {
+        "paid": "پرداخت شده",
+        "pending": "در انتظار"
+      }
+    },
+    "partner": {
+      "heroTitle": "درخواست نمایندگی",
+      "heroDesc": "با نمایندگی، با تخفیف عمده خرید کنید و برای مشتریان خود مدیریت اشتراک داشته باشید.",
+      "benefitDiscount": "تخفیف خرید عمده",
+      "benefitBrand": "برند اختصاصی در پنل",
+      "benefitStats": "آمار فروش و مدیریت مشتریان",
+      "applyButton": "درخواست نمایندگی",
+      "activeStatus": "نماینده فعال",
+      "discountLabel": "درصد تخفیف نمایندگی",
+      "brandLabel": "برند",
+      "statsTitle": "آمار شما",
+      "statRegistrations": "ثبت‌نام",
+      "statReferrals": "دعوت موفق",
+      "statEarnings": "درآمد از معرفی",
+      "goToInvite": "دعوت دوستان",
+      "sectionDisabled": "بخش نمایندگی در حال حاضر غیرفعال است.",
+      "underReview": "درخواست در حال بررسی",
+      "underReviewDesc": "درخواست نمایندگی شما بررسی می‌شود. پس از تصمیم به شما اطلاع می‌دهیم.",
+      "submittedAt": "ارسال شده در {{date}}",
+      "rejected": "درخواست رد شد",
+      "reapplyButton": "درخواست مجدد",
+      "yourCampaigns": "کمپین‌های شما"
+    }
   },
   "referral": {
     "title": "نمایندگی",
