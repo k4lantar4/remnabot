@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Navigate, Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { subscriptionApi } from '../api/subscription';
 import { DEVICE_ALIAS_MAX_LENGTH } from '../constants/devices';
 import { WebBackButton } from '../components/WebBackButton';
@@ -17,17 +17,15 @@ import InsufficientBalancePrompt from '../components/InsufficientBalancePrompt';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCloseOnSuccessNotification } from '../store/successNotification';
 import PurchaseCTAButton from '../components/subscription/PurchaseCTAButton';
-import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
 import {
   CopyIcon,
   CheckIcon,
   PauseIcon,
-  CalendarIcon,
   RefreshIcon,
   DownloadIcon,
   TrashIcon,
 } from '../components/icons';
-import { useHaptic } from '../platform';
+import { useHaptic, usePlatform } from '../platform';
 import { resolveConnectionUrlForUi } from '../utils/connectionLink';
 import {
   getErrorMessage,
@@ -40,144 +38,18 @@ import { DeviceReductionSheet } from '../components/subscription/sheets/DeviceRe
 import { TrafficTopupSheet } from '../components/subscription/sheets/TrafficTopupSheet';
 import { ServerManagementSheet } from '../components/subscription/sheets/ServerManagementSheet';
 import { DeleteSubscriptionSheet } from '../components/subscription/sheets/DeleteSubscriptionSheet';
-import { DisableSubscriptionSheet } from '../components/subscription/sheets/DisableSubscriptionSheet';
 import { ConfigDeliverySheet } from '../components/subscription/ConfigDeliverySheet';
-import { SubscriptionNoteCard } from '../components/subscription/SubscriptionNoteCard';
+import { SubscriptionNoteSheet } from '../components/subscription/SubscriptionNoteSheet';
+import { SubscriptionRemainingDetails } from '../components/subscription/SubscriptionRemainingDetails';
+import { SubscriptionDetailActions } from '../components/subscription/SubscriptionDetailActions';
+import { getSubscriptionDisplayLabel } from '../utils/subscriptionDisplayLabel';
+import {
+  getSubscriptionStatusLabel,
+  getSubscriptionStatusStyle,
+} from '../utils/subscriptionStatusDisplay';
+import { NEW_PURCHASE_PATH } from '../components/subscription/purchase/purchaseRoutes';
+import { ChevronRightIcon } from '@/components/icons';
 
-/** Isolated countdown so 1s interval doesn't re-render the whole page */
-const CountdownTimer = memo(function CountdownTimer({
-  endDate,
-  isActive,
-  glassColors: g,
-  accentHex,
-  userDisabled = false,
-}: {
-  endDate: string;
-  isActive: boolean;
-  glassColors: ReturnType<typeof getGlassColors>;
-  accentHex: string;
-  userDisabled?: boolean;
-}) {
-  const { t, i18n } = useTranslation();
-  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-
-  useEffect(() => {
-    const endTime = new Date(endDate).getTime();
-    const tick = () => {
-      const diff = Math.max(0, endTime - Date.now());
-      setCountdown({
-        days: Math.floor(diff / 86_400_000),
-        hours: Math.floor((diff % 86_400_000) / 3_600_000),
-        minutes: Math.floor((diff % 3_600_000) / 60_000),
-        seconds: Math.floor((diff % 60_000) / 1_000),
-      });
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [endDate]);
-
-  const isExpired = !isActive;
-  const isUrgent = !isExpired && countdown.days <= 3 && !userDisabled;
-  const daysColor = isExpired
-    ? 'rgb(var(--color-critical-500))'
-    : isUrgent
-      ? 'rgb(var(--color-urgent-400))'
-      : accentHex;
-  const timeColor = isUrgent ? 'rgb(var(--color-urgent-400))' : g.text;
-
-  const formattedDate = formatUserDate(endDate, i18n.language);
-
-  return (
-    <div
-      className="min-w-0 overflow-hidden rounded-[14px] p-3.5"
-      style={{
-        background: isExpired
-          ? 'rgba(255,59,92,0.06)'
-          : userDisabled
-            ? `${accentHex}08`
-            : isUrgent
-              ? 'rgba(255,184,0,0.06)'
-              : g.innerBg,
-        border: isExpired
-          ? '1px solid rgba(255,59,92,0.15)'
-          : userDisabled
-            ? `1px solid ${accentHex}25`
-            : isUrgent
-              ? '1px solid rgba(255,184,0,0.15)'
-              : `1px solid ${g.innerBorder}`,
-      }}
-    >
-      <div
-        className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider"
-        style={{ color: g.textSecondary }}
-      >
-        <div
-          className="flex h-6 w-6 items-center justify-center rounded-[7px]"
-          style={{
-            background: isExpired
-              ? 'rgba(255,59,92,0.1)'
-              : userDisabled
-                ? `${accentHex}12`
-                : isUrgent
-                  ? 'rgba(255,184,0,0.1)'
-                  : g.hoverBg,
-          }}
-        >
-          <span
-            style={{
-              color: isExpired
-                ? 'rgb(var(--color-critical-500))'
-                : userDisabled
-                  ? accentHex
-                  : isUrgent
-                    ? 'rgb(var(--color-urgent-400))'
-                    : g.textSecondary,
-            }}
-          >
-            <CalendarIcon className="h-[13px] w-[13px]" />
-          </span>
-        </div>
-        {t('dashboard.remaining')}
-      </div>
-      {isExpired ? (
-        <div
-          className="text-[18px] font-bold tracking-tight"
-          style={{ color: 'rgb(var(--color-critical-500))' }}
-        >
-          {t('subscription.expired')}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <div dir="ltr" className="flex items-baseline justify-start gap-2 font-mono tabular-nums">
-            <div className="flex items-baseline gap-1">
-              <span className="text-[24px] font-bold tracking-tight" style={{ color: daysColor }}>
-                {countdown.days}
-              </span>
-              <span className="text-[11px] font-semibold" style={{ color: g.textMuted }}>
-                {t('subscription.daysShort')}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-0.5 text-[18px] font-bold tracking-tight">
-              <span style={{ color: timeColor }}>{String(countdown.hours).padStart(2, '0')}</span>
-              <span className="mx-[-1px] text-[14px] font-bold opacity-30" style={{ color: timeColor }}>
-                :
-              </span>
-              <span style={{ color: timeColor }}>{String(countdown.minutes).padStart(2, '0')}</span>
-              <span className="mx-[-1px] text-[14px] font-bold opacity-30" style={{ color: timeColor }}>
-                :
-              </span>
-              <span style={{ color: timeColor }}>{String(countdown.seconds).padStart(2, '0')}</span>
-            </div>
-          </div>
-          <div className="text-[11px] font-medium" style={{ color: g.textSecondary }}>
-            {t('subscription.expiresAt')}: {formattedDate}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
 
 export default function Subscription() {
   const { t, i18n } = useTranslation();
@@ -190,10 +62,13 @@ export default function Subscription() {
   const { isDark } = useTheme();
   const g = getGlassColors(isDark);
   const haptic = useHaptic();
+  const { platform } = usePlatform();
   const [copied, setCopied] = useState(false);
+  const [copiedUsername, setCopiedUsername] = useState(false);
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
   const [showDisableSheet, setShowDisableSheet] = useState(false);
   const [showConfigSheet, setShowConfigSheet] = useState(false);
+  const [showNoteSheet, setShowNoteSheet] = useState(false);
   const openConfigHandledRef = useRef(false);
   const destructiveConfirm = useDestructiveConfirm();
 
@@ -231,6 +106,17 @@ export default function Subscription() {
     staleTime: 60_000,
   });
   const isMultiTariff = multiSubData?.multi_tariff_enabled ?? false;
+  const currentListItem = useMemo(() => {
+    if (!isMultiTariff || !multiSubData?.subscriptions || !subscriptionId) return null;
+    return multiSubData.subscriptions.find((s) => s.id === subscriptionId) ?? null;
+  }, [isMultiTariff, multiSubData?.subscriptions, subscriptionId]);
+
+  const { data: listItemFallback } = useQuery({
+    queryKey: ['subscription-list-item', subscriptionId],
+    queryFn: () => subscriptionApi.getSubscriptionById(subscriptionId!),
+    enabled: isMultiTariff && !!subscriptionId && !currentListItem,
+    staleTime: 60_000,
+  });
 
   const { data: subscriptionResponse, isLoading } = useQuery({
     queryKey: ['subscription', subscriptionId],
@@ -248,6 +134,11 @@ export default function Subscription() {
 
   // Extract subscription from response (null if no subscription)
   const subscription = subscriptionResponse?.subscription ?? null;
+  const usernameLabel = useMemo(() => {
+    const item = currentListItem ?? listItemFallback;
+    if (!isMultiTariff || !item) return null;
+    return getSubscriptionDisplayLabel(item, t, true);
+  }, [currentListItem, isMultiTariff, listItemFallback, t]);
   const displayedConnectionUrl = useMemo(
     () =>
       resolveConnectionUrlForUi({
@@ -312,6 +203,11 @@ export default function Subscription() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+      haptic.notification('success');
+    },
+    onError: (error) => {
+      haptic.notification('error');
+      console.error('Autopay toggle failed', error);
     },
   });
 
@@ -509,6 +405,46 @@ export default function Subscription() {
     }
   };
 
+  const copyUsername = () => {
+    if (!usernameLabel) return;
+    void copyToClipboard(usernameLabel);
+    setCopiedUsername(true);
+    setTimeout(() => setCopiedUsername(false), 2000);
+  };
+
+  const handleDisableRequest = useCallback(async () => {
+    if (!subscription) return;
+    if (platform === 'telegram') {
+      const confirmed = await destructiveConfirm(
+        t(
+          'subscription.disable.warning',
+          'دسترسی VPN قطع می‌شود. هر زمان با دکمهٔ روشن کردن می‌توانید دوباره فعال کنید — بدون نیاز به تمدید.',
+        ),
+        t('subscription.disable.confirmBtn', 'بله، خاموش کن'),
+        t('subscription.disable.title', 'خاموش کردن اشتراک؟'),
+      );
+      if (!confirmed) return;
+      try {
+        await subscriptionApi.disableSubscription(subscription.id);
+        queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
+        queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+        haptic.notification('success');
+      } catch {
+        haptic.notification('error');
+      }
+    } else {
+      setShowDisableSheet(true);
+    }
+  }, [
+    subscription,
+    platform,
+    destructiveConfirm,
+    t,
+    queryClient,
+    subscriptionId,
+    haptic,
+  ]);
+
   const handleRevoke = async () => {
     const confirmed = await destructiveConfirm(
       t('subscription.revoke.warning'),
@@ -557,11 +493,29 @@ export default function Subscription() {
       {/* Page title */}
       <div className="flex items-center gap-3">
         <WebBackButton to={isMultiTariff ? '/subscriptions' : '/'} />
-        <h1 className="text-2xl font-bold text-dark-50 sm:text-3xl">
-          {isMultiTariff && subscription?.tariff_name
-            ? subscription.tariff_name
-            : t('subscription.title')}
-        </h1>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <h1 className="truncate text-2xl font-bold text-dark-50 sm:text-3xl">
+            {isMultiTariff && usernameLabel ? usernameLabel : t('subscription.title')}
+          </h1>
+          {isMultiTariff && usernameLabel && (
+            <button
+              type="button"
+              onClick={copyUsername}
+              className="flex h-9 shrink-0 items-center rounded-[10px] px-2.5 transition-colors duration-300"
+              style={{
+                background: copiedUsername ? 'rgba(var(--color-accent-400), 0.12)' : g.innerBorder,
+                border: copiedUsername
+                  ? '1px solid rgba(var(--color-accent-400), 0.2)'
+                  : `1px solid ${g.trackBg}`,
+                color: copiedUsername ? 'rgb(var(--color-accent-400))' : g.textMuted,
+              }}
+              aria-label={t('subscription.copyUsername', 'کپی یوزرنیم')}
+              title={t('subscription.copyUsername', 'کپی یوزرنیم')}
+            >
+              {copiedUsername ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Current Subscription */}
@@ -605,72 +559,44 @@ export default function Subscription() {
                   header badge. */}
 
               {/* ─── Header ─── */}
-              <div className="mb-6 flex items-start justify-between">
-                <div>
-                  {/* Zone indicator */}
-                  <div className="mb-1 flex items-center gap-2">
-                    <div
-                      className="h-2 w-2 rounded-full"
-                      style={{
-                        background: zone.mainHex,
-                        boxShadow: `0 0 8px ${zone.mainHex}80`,
-                        transition: 'all 0.6s ease',
-                      }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className="font-mono text-[11px] font-semibold uppercase tracking-widest"
-                      style={{ color: zone.mainHex, transition: 'color 0.6s ease' }}
-                    >
-                      {isUnlimited ? t('dashboard.unlimited') : t(zone.labelKey)}
-                    </span>
-                  </div>
-
-                  {/* Plan name */}
-                  <h2 className="text-lg font-bold tracking-tight text-dark-50">
-                    {subscription.tariff_name || t('subscription.currentPlan')}
-                  </h2>
+              <div className="mb-6">
+                <div className="mb-1 flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{
+                      background: zone.mainHex,
+                      boxShadow: `0 0 8px ${zone.mainHex}80`,
+                      transition: 'all 0.6s ease',
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="font-mono text-[11px] font-semibold uppercase tracking-widest"
+                    style={{ color: zone.mainHex, transition: 'color 0.6s ease' }}
+                  >
+                    {isUnlimited ? t('dashboard.unlimited') : t(zone.labelKey)}
+                  </span>
                 </div>
 
-                {/* Status badge */}
-                <span
-                  className="max-w-[55%] shrink-0 rounded-full px-3 py-1 text-center font-mono text-[10px] font-semibold uppercase tracking-wider"
-                  style={{
-                    background: subscription.is_active
-                      ? `${zone.mainHex}15`
-                      : subscription.user_disabled
-                        ? `${zone.mainHex}10`
-                        : subscription.is_limited
-                          ? 'rgba(255,184,0,0.12)'
-                          : 'rgba(255,59,92,0.12)',
-                    border: subscription.is_active
-                      ? `1px solid ${zone.mainHex}30`
-                      : subscription.user_disabled
-                        ? `1px solid ${zone.mainHex}28`
-                        : subscription.is_limited
-                          ? '1px solid rgba(255,184,0,0.25)'
-                          : '1px solid rgba(255,59,92,0.25)',
-                    color: subscription.is_active
-                      ? zone.mainHex
-                      : subscription.user_disabled
-                        ? zone.mainHex
-                        : subscription.is_limited
-                          ? 'rgb(var(--color-urgent-400))'
-                          : 'rgb(var(--color-critical-500))',
-                  }}
-                >
-                  {subscription.is_active
-                    ? subscription.is_trial
-                      ? t('subscription.trialStatus')
-                      : t('subscription.active')
-                    : subscription.user_disabled
-                      ? t('subscription.statusUserDisabled')
-                      : subscription.is_limited
-                        ? t('subscription.trafficLimited')
-                        : subscription.status === 'disabled'
-                          ? t('subscription.pause.suspended')
-                          : t('subscription.expired')}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-bold tracking-tight text-dark-50">
+                    {usernameLabel || subscription.tariff_name || t('subscription.currentPlan')}
+                  </h2>
+                  <span
+                    className="inline-flex shrink-0 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider"
+                    style={getSubscriptionStatusStyle(subscription, zone.mainHex)}
+                  >
+                    {getSubscriptionStatusLabel(subscription, t)}
+                  </span>
+                </div>
+
+                {isMultiTariff && (
+                  <div className="mt-1 line-clamp-2 text-[12px]" style={{ color: g.textMuted }}>
+                    {(subscription.purchase_note ?? '').trim()
+                      ? (subscription.purchase_note ?? '').trim()
+                      : t('subscription.notePlaceholder', 'یادداشت اختیاری برای این اشتراک')}
+                  </div>
+                )}
               </div>
 
               {/* ─── Traffic Limited Banner ─── */}
@@ -959,14 +885,46 @@ export default function Subscription() {
                 </div>
               )}
 
-              {/* ─── Countdown ─── */}
-              <div className="mb-5">
-                <CountdownTimer
-                  endDate={subscription.end_date}
-                  isActive={!subscription.is_expired}
+              {/* ─── Remaining details + actions ─── */}
+              <div className="mb-5 space-y-2.5">
+                <SubscriptionRemainingDetails
+                  subscription={subscription}
+                  usedGb={usedGb}
+                  isUnlimited={isUnlimited}
+                  connectedDevices={connectedDevices}
                   glassColors={g}
                   accentHex={zone.mainHex}
-                  userDisabled={subscription.user_disabled}
+                />
+                <SubscriptionDetailActions
+                  subscription={subscription}
+                  isMultiTariff={isMultiTariff}
+                  glassColors={g}
+                  accentHex={zone.mainHex}
+                  onOpenNote={() => setShowNoteSheet(true)}
+                  onToggleAutopay={() => autopayMutation.mutate(!subscription.autopay_enabled)}
+                  autopayPending={autopayMutation.isPending}
+                  autopayError={
+                    autopayMutation.isError ? getErrorMessage(autopayMutation.error) : null
+                  }
+                  onOpenTrafficTopup={() => setShowTrafficTopup(true)}
+                  showTrafficTopup={
+                    (subscription.is_active || subscription.is_limited) &&
+                    subscription.traffic_limit_gb > 0 &&
+                    !subscription.is_trial
+                  }
+                  onRevoke={handleRevoke}
+                  revokePending={revokeMutation.isPending}
+                  revokeCooldown={revokeCooldown}
+                  onEnable={() => enableSubscriptionMutation.mutate()}
+                  enablePending={enableSubscriptionMutation.isPending}
+                  showDisableSheet={showDisableSheet}
+                  onOpenDisableSheet={handleDisableRequest}
+                  onCloseDisableSheet={() => setShowDisableSheet(false)}
+                  onDisabled={() => {
+                    queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
+                    queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
+                    setShowDisableSheet(false);
+                  }}
                 />
               </div>
 
@@ -1064,51 +1022,7 @@ export default function Subscription() {
                 </div>
               )}
 
-              {/* ─── Autopay Toggle ─── */}
-              {!subscription.is_trial && !subscription.is_daily && (
-                <div
-                  className="flex items-center justify-between rounded-[14px] p-3.5"
-                  style={{
-                    background: g.innerBg,
-                    border: `1px solid ${g.innerBorder}`,
-                  }}
-                >
-                  <div>
-                    <div className="text-sm font-semibold text-dark-50">
-                      {t('subscription.autoRenewal')}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-dark-50/30">
-                      {t('subscription.daysBeforeExpiry', {
-                        count: subscription.autopay_days_before,
-                      })}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => autopayMutation.mutate(!subscription.autopay_enabled)}
-                    disabled={autopayMutation.isPending}
-                    role="switch"
-                    aria-checked={subscription.autopay_enabled}
-                    aria-label={t('subscription.autopay', 'Auto-payment')}
-                    className="relative h-7 w-[52px] rounded-full transition-colors duration-300"
-                    style={{
-                      background: subscription.autopay_enabled ? zone.mainHex : g.textGhost,
-                    }}
-                  >
-                    {/* translateX (compositor) instead of left (layout-thrash).
-                        Resting position pinned at left:3px; on toggles a 23px
-                        slide on the GPU. */}
-                    <span
-                      className="absolute left-[3px] top-[3px] h-[22px] w-[22px] rounded-full bg-white transition-transform duration-300"
-                      style={{
-                        transform: subscription.autopay_enabled
-                          ? 'translateX(23px)'
-                          : 'translateX(0)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                      }}
-                    />
-                  </button>
-                </div>
-              )}
+              {/* Autopay + disable moved into SubscriptionDetailActions */}
             </div>
           );
         })()
@@ -1303,64 +1217,25 @@ export default function Subscription() {
         </div>
       )}
 
-      {isMultiTariff && subscription && (
-        <SubscriptionNoteCard
-          subscriptionId={subscription.id}
-          purchaseNote={subscription.purchase_note}
-          textSecondary={g.textSecondary}
-          innerBg={g.innerBg}
-          innerBorder={g.innerBorder}
-        />
+      {/* Purchase CTAs for single-tariff (multi-tariff actions live in SubscriptionDetailActions) */}
+      {!isMultiTariff && subscription && (
+        <div className="space-y-3">
+          {subscription.user_disabled ? (
+            <button
+              type="button"
+              onClick={() => enableSubscriptionMutation.mutate()}
+              disabled={enableSubscriptionMutation.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-success-400/30 bg-success-400/10 px-5 py-3.5 text-sm font-semibold text-success-400 transition-colors hover:bg-success-400/20 disabled:opacity-50"
+            >
+              {enableSubscriptionMutation.isPending
+                ? t('common.processing', 'در حال پردازش...')
+                : t('subscription.enable.btn', 'روشن کردن اشتراک')}
+            </button>
+          ) : (
+            <PurchaseCTAButton subscription={subscription} isMultiTariff={false} />
+          )}
+        </div>
       )}
-
-      {/* Purchase / Renewal CTAs */}
-      <div className="space-y-3">
-        {isMultiTariff && subscription?.user_disabled && (
-          <button
-            type="button"
-            onClick={() => enableSubscriptionMutation.mutate()}
-            disabled={enableSubscriptionMutation.isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-success-400/30 bg-success-400/10 px-5 py-3.5 text-sm font-semibold text-success-400 transition-colors hover:bg-success-400/20 disabled:opacity-50"
-          >
-            {enableSubscriptionMutation.isPending
-              ? t('common.processing', 'در حال پردازش...')
-              : t('subscription.enable.btn', 'روشن کردن اشتراک')}
-          </button>
-        )}
-        {!(subscription?.user_disabled) && (
-          <PurchaseCTAButton subscription={subscription} isMultiTariff={isMultiTariff} />
-        )}
-        {isMultiTariff && subscription && !subscription.is_trial && (
-          <Link
-            to={NEW_PURCHASE_PATH}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/10 px-5 py-3.5 text-sm font-semibold text-accent-400 transition-colors hover:bg-accent-500/20"
-          >
-            <span className="text-base">+</span>
-            {t('subscriptions.buyAnother')}
-          </Link>
-        )}
-      </div>
-
-      {isMultiTariff &&
-        subscription &&
-        (subscription.is_active || subscription.is_limited) &&
-        !subscription.user_disabled &&
-        !subscription.is_trial && (
-          <div className="space-y-3">
-            <DisableSubscriptionSheet
-              subscriptionId={subscription.id}
-              open={showDisableSheet}
-              onOpen={() => setShowDisableSheet(true)}
-              onClose={() => setShowDisableSheet(false)}
-              textSecondary={g.textSecondary}
-              onDisabled={() => {
-                queryClient.invalidateQueries({ queryKey: ['subscription', subscriptionId] });
-                queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
-                setShowDisableSheet(false);
-              }}
-            />
-          </div>
-        )}
 
       {/* Delete expired subscription */}
       {isMultiTariff &&
@@ -1384,11 +1259,8 @@ export default function Subscription() {
           </div>
         )}
 
-      {/* Additional Options (Buy Devices) */}
-      {subscription &&
-        (subscription.is_active || subscription.is_limited) &&
-        !subscription.is_trial &&
-        subscription.device_limit !== 0 && (
+      {/* Additional Options */}
+      {subscription && !subscription.is_trial && (
           <div
             className="relative overflow-hidden rounded-3xl"
             style={{
@@ -1402,6 +1274,28 @@ export default function Subscription() {
               {t('subscription.additionalOptions.title')}
             </h2>
 
+            {isMultiTariff && (
+              <Link
+                to={NEW_PURCHASE_PATH}
+                className={`mb-4 block w-full rounded-xl border p-4 text-start transition-colors ${isDark ? 'border-dark-700/50 bg-dark-800/50 hover:border-dark-600' : 'border-champagne-300/60 bg-champagne-200/40 hover:border-champagne-400'}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-dark-100">
+                      + {t('subscriptions.buyAnother')}
+                    </div>
+                    <div className="mt-1 text-sm text-dark-400">
+                      {t('subscription.additionalOptions.buyAnotherHint', 'خرید اشتراک جدید از کاتالوگ سرویس‌ها')}
+                    </div>
+                  </div>
+                  <ChevronRightIcon className="shrink-0 text-dark-400" />
+                </div>
+              </Link>
+            )}
+
+            {(subscription.is_active || subscription.is_limited) &&
+              subscription.device_limit !== 0 && (
+              <>
             {/* Buy Devices */}
             <DeviceTopupSheet
               open={showDeviceTopup}
@@ -1429,8 +1323,8 @@ export default function Subscription() {
               />
             </div>
 
-            {/* Buy Traffic */}
-            {subscription.traffic_limit_gb > 0 && (
+            {/* Buy Traffic — trigger in SubscriptionDetailActions when multi-tariff */}
+            {subscription.traffic_limit_gb > 0 && !isMultiTariff && (
               <div className="mt-4">
                 <TrafficTopupSheet
                   open={showTrafficTopup}
@@ -1462,11 +1356,14 @@ export default function Subscription() {
                 />
               </div>
             )}
+              </>
+            )}
           </div>
         )}
 
-      {/* Reissue Subscription — standalone block, not dependent on device_limit */}
+      {/* Reissue link — single-tariff only (multi-tariff uses action grid) */}
       {subscription &&
+        !isMultiTariff &&
         (subscription.is_active || subscription.is_limited) &&
         !subscription.is_trial && (
           <div
@@ -1539,7 +1436,7 @@ export default function Subscription() {
             <h2 className="text-base font-bold tracking-tight text-dark-50">
               {t('subscription.myDevices')}
             </h2>
-            {devicesData && devicesData.devices.length > 0 && (
+            {devicesData && devicesData.devices.length > 0 && !isMultiTariff && (
               <button
                 onClick={async () => {
                   // Platform-aware destructive confirm: Telegram native popup
@@ -1794,6 +1691,30 @@ export default function Subscription() {
         configUrl={shouldHideConnectionLink ? null : displayedConnectionUrl}
         subscriptionId={subscriptionId}
       />
+
+      {isMultiTariff && subscription && (
+        <SubscriptionNoteSheet
+          subscriptionId={subscription.id}
+          purchaseNote={subscription.purchase_note}
+          open={showNoteSheet}
+          onClose={() => setShowNoteSheet(false)}
+        />
+      )}
+
+      {isMultiTariff && subscription && subscription.traffic_limit_gb > 0 && (
+        <TrafficTopupSheet
+          open={showTrafficTopup}
+          onOpen={() => setShowTrafficTopup(true)}
+          onClose={() => setShowTrafficTopup(false)}
+          subscription={subscription}
+          subscriptionId={subscriptionId}
+          selectedTrafficPackage={selectedTrafficPackage}
+          onSelectedTrafficPackageChange={setSelectedTrafficPackage}
+          purchaseOptions={purchaseOptions}
+          isDark={isDark}
+          hideDefaultTrigger
+        />
+      )}
     </div>
   );
 }

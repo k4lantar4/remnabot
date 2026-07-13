@@ -11,6 +11,8 @@ export interface DisableSubscriptionSheetProps {
   onClose: () => void;
   onDisabled: () => void;
   textSecondary: string;
+  /** When true, parent renders the trigger button (e.g. action grid). */
+  hideDefaultTrigger?: boolean;
 }
 
 export function DisableSubscriptionSheet({
@@ -20,6 +22,7 @@ export function DisableSubscriptionSheet({
   onClose,
   onDisabled,
   textSecondary,
+  hideDefaultTrigger = false,
 }: DisableSubscriptionSheetProps) {
   const { t } = useTranslation();
   const { platform } = usePlatform();
@@ -55,6 +58,7 @@ export function DisableSubscriptionSheet({
   };
 
   if (!open) {
+    if (hideDefaultTrigger) return null;
     return (
       <button
         type="button"
