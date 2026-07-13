@@ -315,7 +315,7 @@ class ReportingService:
             texts.t(
                 'ADMIN_REPORT_DEPOSITS_TOTAL',
                 '• Поступления всего (только пополнения): <b>{amount}</b>',
-            ).format(amount=self._format_amount(stats['deposits_amount'])),
+            ).format(amount=self._format_amount(stats['deposits_amount'], 'deposit')),
         )
         lines.append('')
 
@@ -339,7 +339,7 @@ class ReportingService:
                 '• Оплаты подписок: {count} на сумму {amount}',
             ).format(
                 count=stats['subscription_payments_count'],
-                amount=self._format_amount(stats['subscription_payments_amount']),
+                amount=self._format_amount(stats['subscription_payments_amount'], 'subscription_payment'),
             ),
         )
         lines.append(
@@ -665,8 +665,12 @@ class ReportingService:
         end_label = format_user_datetime(end - timedelta(seconds=1), language=lang, fmt='%d.%m.%Y')
         return f'{start_label} - {end_label}'
 
-    def _format_amount(self, amount_kopeks: int) -> str:
+    def _format_amount(self, amount_kopeks: int, tx_type: str = 'deposit') -> str:
+        from app.utils.price_display import is_balance_scale_transaction, storage_sum_to_display_toman
+
         texts = _admin_notify_texts()
+        if is_balance_scale_transaction(tx_type):
+            return texts.format_balance(storage_sum_to_display_toman(amount_kopeks, tx_type))
         return texts.format_price(amount_kopeks)
 
 

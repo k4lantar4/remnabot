@@ -1,11 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.models import PaymentMethod, Transaction, TransactionType, User
+from app.utils.price_display import _BALANCE_SCALE_TRANSACTION_TYPES
 
 
 logger = structlog.get_logger(__name__)
@@ -61,6 +62,15 @@ def device_addon_clause(description_column):
 def addon_description_clause(description_column):
     """SQL-условие: транзакция — любой доп (трафик или устройства), не продажа/продление."""
     return or_(*(description_column.ilike(p) for p in ADDON_DESCRIPTION_PATTERNS))
+
+
+def _display_toman_amount_sql():
+    """SQL expression: stored amount_kopeks → display Toman by transaction type."""
+    balance_types = list(_BALANCE_SCALE_TRANSACTION_TYPES)
+    return case(
+        (Transaction.type.in_(balance_types), func.abs(Transaction.amount_kopeks)),
+        else_=func.abs(Transaction.amount_kopeks) // 100,
+    )
 
 
 async def create_transaction(
@@ -321,8 +331,9 @@ async def get_transactions_statistics(
         end_date = datetime.now(UTC)
 
     # Доход считаем по реальным платежам + прямые покупки подписок (лендинги)
+    display_toman = _display_toman_amount_sql()
     income_result = await db.execute(
-        select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+        select(func.coalesce(func.sum(display_toman), 0)).where(
             and_(
                 Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
                 Transaction.is_completed == True,
@@ -381,7 +392,7 @@ async def get_transactions_statistics(
         select(
             Transaction.payment_method,
             func.count(Transaction.id).label('count'),
-            func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('total_amount'),
+            func.coalesce(func.sum(display_toman), 0).label('total_amount'),
         )
         .where(
             and_(
@@ -407,7 +418,7 @@ async def get_transactions_statistics(
 
     # Доход за сегодня — реальные платежи + прямые покупки подписок (лендинги)
     today_income_result = await db.execute(
-        select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+        select(func.coalesce(func.sum(display_toman), 0)).where(
             and_(
                 Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
                 Transaction.is_completed == True,
@@ -439,7 +450,7 @@ async def get_revenue_by_period(db: AsyncSession, days: int = 30) -> list[dict]:
     result = await db.execute(
         select(
             func.date(Transaction.created_at).label('date'),
-            func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
+            func.coalesce(func.sum(_display_toman_amount_sql()), 0).label('amount'),
         )
         .where(
             and_(

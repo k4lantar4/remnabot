@@ -33,6 +33,12 @@ def _stats_nav_keyboard(texts, refresh_cb: str, back_cb: str = 'admin_statistics
     )
 
 
+def _format_display_toman(amount: int, texts=None) -> str:
+    """Format aggregated display-Toman totals (deposits, mixed income, withdrawals)."""
+    formatter = texts.format_balance if texts else settings.format_balance
+    return formatter(int(amount))
+
+
 @admin_required
 @error_handler
 async def show_statistics_menu(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
@@ -176,20 +182,20 @@ async def show_revenue_statistics(callback: types.CallbackQuery, db_user: User, 
         '- Общая прибыль: {all_profit}\n\n'
         '<b>Способы оплаты:</b>\n',
     ).format(
-        month_income=settings.format_price(month_stats['totals']['income_kopeks']),
-        month_expenses=settings.format_price(month_stats['totals']['expenses_kopeks']),
-        month_profit=settings.format_price(month_stats['totals']['profit_kopeks']),
+        month_income=_format_display_toman(month_stats['totals']['income_kopeks'], texts),
+        month_expenses=_format_display_toman(month_stats['totals']['expenses_kopeks'], texts),
+        month_profit=_format_display_toman(month_stats['totals']['profit_kopeks'], texts),
         month_subs=settings.format_price(abs(month_stats['totals']['subscription_income_kopeks'])),
         today_count=month_stats['today']['transactions_count'],
-        today_income=settings.format_price(month_stats['today']['income_kopeks']),
-        all_income=settings.format_price(all_time_stats['totals']['income_kopeks']),
-        all_profit=settings.format_price(all_time_stats['totals']['profit_kopeks']),
+        today_income=_format_display_toman(month_stats['today']['income_kopeks'], texts),
+        all_income=_format_display_toman(all_time_stats['totals']['income_kopeks'], texts),
+        all_profit=_format_display_toman(all_time_stats['totals']['profit_kopeks'], texts),
     )
 
     for method, data in month_stats['by_payment_method'].items():
         if method and data['count'] > 0:
             text += texts.t('ADMIN_STATS_PAYMENT_ROW', '• {method}: {count} ({amount})\n').format(
-                method=method, count=data['count'], amount=settings.format_price(data['amount'])
+                method=method, count=data['count'], amount=_format_display_toman(data['amount'], texts)
             )
 
     text += texts.t('ADMIN_STATS_UPDATED_LINE', '\n<b>Обновлено:</b> {updated}').format(updated=current_time)
@@ -235,17 +241,17 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
     ).format(
         with_refs=stats['users_with_referrals'],
         active_refs=stats['active_referrers'],
-        total_paid=settings.format_price(stats['total_paid_kopeks']),
-        today=settings.format_price(stats['today_earnings_kopeks']),
-        week=settings.format_price(stats['week_earnings_kopeks']),
-        month=settings.format_price(stats['month_earnings_kopeks']),
-        avg=settings.format_price(int(avg_per_referrer)),
+        total_paid=settings.format_balance(stats['total_paid_kopeks']),
+        today=settings.format_balance(stats['today_earnings_kopeks']),
+        week=settings.format_balance(stats['week_earnings_kopeks']),
+        month=settings.format_balance(stats['month_earnings_kopeks']),
+        avg=settings.format_balance(int(avg_per_referrer)),
     )
 
     if stats['top_referrers']:
         for i, referrer in enumerate(stats['top_referrers'][:5], 1):
             name = referrer['display_name']
-            earned = settings.format_price(referrer['total_earned_kopeks'])
+            earned = settings.format_balance(referrer['total_earned_kopeks'])
             count = referrer['referrals_count']
             text += texts.t('ADMIN_STATS_REFERRER_ROW', '{i}. {name}: {earned} ({count} реф.)\n').format(
                 i=i, name=name, earned=earned, count=count
@@ -367,15 +373,15 @@ async def show_revenue_by_period(callback: types.CallbackQuery, db_user: User, d
         '<b>По дням:</b>\n',
     ).format(
         period=period,
-        total=settings.format_price(total_revenue),
+        total=_format_display_toman(total_revenue, texts),
         days=len(revenue_data),
-        avg=settings.format_price(int(avg_daily)),
+        avg=_format_display_toman(int(avg_daily), texts),
     )
 
     for revenue in revenue_data[-10:]:
         text += texts.t('ADMIN_STATS_REVENUE_DAY', '• {date}: {amount}\n').format(
             date=revenue['date'].strftime('%d.%m'),
-            amount=settings.format_price(revenue['amount_kopeks']),
+            amount=_format_display_toman(revenue['amount_kopeks'], texts),
         )
 
     if len(revenue_data) > 10:
