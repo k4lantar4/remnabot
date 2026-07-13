@@ -6,6 +6,7 @@ import { CheckIcon, CopyIcon } from '@/components/icons';
 import type { PartnerCampaignInfo } from '../../api/partners';
 import { PARTNER_STATS } from '../../constants/partner';
 import { useCurrency } from '../../hooks/useCurrency';
+import { displayCatalogKopeks, displayReferralEarnings } from '../../utils/referralAmount';
 import { useHaptic } from '../../platform';
 import { copyToClipboard } from '../../utils/clipboard';
 import { CampaignDetailStats } from './CampaignDetailStats';
@@ -88,7 +89,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
         />
         <StatCard
           label={t('referral.partner.stats.earnings')}
-          value={formatPositive(campaign.earnings_kopeks / PARTNER_STATS.KOPEKS_DIVISOR)}
+          value={formatPositive(displayReferralEarnings(campaign.earnings_kopeks))}
           valueClassName="text-success-400"
         />
       </div>
@@ -103,7 +104,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
             {campaign.bonus_type === 'balance' &&
               t('referral.partner.campaignBonus.balanceDesc', {
                 amount: formatWithCurrency(
-                  campaign.balance_bonus_kopeks / PARTNER_STATS.KOPEKS_DIVISOR,
+                  displayCatalogKopeks(campaign.balance_bonus_kopeks),
                   0,
                 ),
               })}
@@ -130,7 +131,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               type="text"
               readOnly
               value={campaign.deep_link}
-              className="input flex-1 text-xs"
+              className="input url-ltr flex-1 text-xs"
             />
             <button
               onClick={() => handleCopy(campaign.deep_link!, botKey)}
@@ -155,7 +156,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               type="text"
               readOnly
               value={campaign.web_link}
-              className="input flex-1 text-xs"
+              className="input url-ltr flex-1 text-xs"
             />
             <button
               onClick={() => handleCopy(campaign.web_link!, webKey)}

@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next';
 
+import type { PartnerCampaignInfo } from '../../api/partners';
 import { usePlatform } from '../../platform';
 import { useCurrency } from '../../hooks/useCurrency';
 import { formatUserDate } from '../../utils/formatDate';
 import type { PaginatedResponse } from '../../types';
-import { CheckIcon, CopyIcon, ShareIcon, TelegramIcon, UsersIcon } from '@/components/icons';
+import { CampaignCard } from '../partner/CampaignCard';
+import { CheckIcon, CopyIcon, LinkIcon, ShareIcon, TelegramIcon, UsersIcon } from '@/components/icons';
 
 interface ReferralListItem {
   id: number;
@@ -20,6 +22,7 @@ export interface InviteTabProps {
   commissionPercent: number;
   brandingName: string;
   referralList: PaginatedResponse<ReferralListItem> | undefined;
+  campaigns: PartnerCampaignInfo[] | undefined;
   onCopy: (link: string) => void;
   copied: boolean;
 }
@@ -30,6 +33,7 @@ export function InviteTab({
   commissionPercent,
   brandingName,
   referralList,
+  campaigns,
   onCopy,
   copied,
 }: InviteTabProps) {
@@ -77,7 +81,12 @@ export function InviteTab({
             {t('earn.invite.botLink')}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input type="text" readOnly value={botReferralLink} className="input flex-1 text-sm" />
+            <input
+              type="text"
+              readOnly
+              value={botReferralLink}
+              className="input url-ltr flex-1 text-sm"
+            />
             <div className="flex gap-2">
               <button
                 type="button"
@@ -106,6 +115,21 @@ export function InviteTab({
           </p>
         </div>
       ) : null}
+
+      {/* Campaigns — invite/referral tools */}
+      {campaigns && campaigns.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-accent-400">
+              <LinkIcon />
+            </div>
+            <h2 className="text-lg font-semibold text-dark-100">{t('earn.invite.yourCampaigns')}</h2>
+          </div>
+          {campaigns.map((campaign) => (
+            <CampaignCard key={campaign.id} campaign={campaign} />
+          ))}
+        </div>
+      )}
 
       {/* Invitees list */}
       <div className="bento-card">

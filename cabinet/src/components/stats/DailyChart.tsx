@@ -13,6 +13,7 @@ import {
 import type { DailyStatItem } from './types';
 import { PARTNER_STATS } from '../../constants/partner';
 import { useCurrency } from '../../hooks/useCurrency';
+import { displayReferralEarnings } from '../../utils/referralAmount';
 import { useChartColors } from '../../hooks/useChartColors';
 
 interface DailyChartProps {
@@ -41,7 +42,7 @@ export function DailyChart({ data, chartId, title, earningsLabel, countLabel }: 
     () =>
       data.map((item) => ({
         ...item,
-        earnings_display: item.earnings_kopeks / PARTNER_STATS.KOPEKS_DIVISOR,
+        earnings_display: displayReferralEarnings(item.earnings_kopeks),
         label: new Date(item.date + 'T00:00:00').toLocaleDateString(i18n.language, {
           month: 'short',
           day: 'numeric',

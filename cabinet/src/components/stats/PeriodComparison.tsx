@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next';
 
 import type { PeriodComparison as PeriodComparisonType } from './types';
 import { TREND_STYLES } from './constants';
-import { PARTNER_STATS } from '../../constants/partner';
 import { useCurrency } from '../../hooks/useCurrency';
+import { displayReferralEarnings } from '../../utils/referralAmount';
 
 interface PeriodComparisonProps {
   data: PeriodComparisonType;
@@ -66,7 +66,7 @@ export function PeriodComparison({
           <div className="text-xs text-dark-500">{resolvedEarningsLabel}</div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-base font-semibold text-success-400 sm:text-lg">
-              {formatWithCurrency(data.current.earnings_kopeks / PARTNER_STATS.KOPEKS_DIVISOR)}
+              {formatWithCurrency(displayReferralEarnings(data.current.earnings_kopeks))}
             </span>
             <TrendBadge trend={data.earnings_change.trend} percent={data.earnings_change.percent} />
           </div>
