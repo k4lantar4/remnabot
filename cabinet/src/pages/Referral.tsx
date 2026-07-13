@@ -565,7 +565,7 @@ export default function Referral() {
                 <div className="col-span-2 rounded-xl bg-dark-800/30 p-4 md:col-span-1">
                   <div className="text-sm text-dark-500">{t('referral.withdrawal.available')}</div>
                   <div className="mt-1 text-2xl font-bold text-success-400">
-                    {formatWithCurrency(withdrawalBalance.available_total / 100)}
+                    {formatWithCurrency(withdrawalBalance.available_total)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-dark-800/30 p-3">
@@ -573,25 +573,25 @@ export default function Referral() {
                     {t('referral.withdrawal.totalEarned')}
                   </div>
                   <div className="mt-1 text-lg font-semibold text-dark-100">
-                    {formatWithCurrency(withdrawalBalance.total_earned / 100)}
+                    {formatWithCurrency(withdrawalBalance.total_earned)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-dark-800/30 p-3">
                   <div className="text-sm text-dark-500">{t('referral.withdrawal.withdrawn')}</div>
                   <div className="mt-1 text-lg font-semibold text-dark-100">
-                    {formatWithCurrency(withdrawalBalance.withdrawn / 100)}
+                    {formatWithCurrency(withdrawalBalance.withdrawn)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-dark-800/30 p-3">
                   <div className="text-sm text-dark-500">{t('referral.withdrawal.spent')}</div>
                   <div className="mt-1 text-lg font-semibold text-dark-100">
-                    {formatWithCurrency(withdrawalBalance.referral_spent / 100)}
+                    {formatWithCurrency(withdrawalBalance.referral_spent)}
                   </div>
                 </div>
                 <div className="rounded-xl bg-dark-800/30 p-3">
                   <div className="text-sm text-dark-500">{t('referral.withdrawal.pending')}</div>
                   <div className="mt-1 text-lg font-semibold text-warning-400">
-                    {formatWithCurrency(withdrawalBalance.pending / 100)}
+                    {formatWithCurrency(withdrawalBalance.pending)}
                   </div>
                 </div>
               </div>
@@ -614,7 +614,7 @@ export default function Referral() {
                   withdrawalBalance.min_amount_kopeks > 0 && (
                     <p className="mt-2 text-xs text-dark-500">
                       {t('referral.withdrawal.minAmount', {
-                        amount: formatWithCurrency(withdrawalBalance.min_amount_kopeks / 100),
+                        amount: formatWithCurrency(withdrawalBalance.min_amount_kopeks),
                       })}
                     </p>
                   )

@@ -232,9 +232,12 @@ class ReferralWithdrawalService:
                 reason = texts.t(
                     'REFERRAL_WITHDRAWAL_REASON_MIN_AMOUNT',
                     'Минимальная сумма вывода: {min}. Доступно: {available}',
-                ).format(min=texts.format_price(min_amount), available=texts.format_price(available))
+                ).format(min=texts.format_balance(min_amount), available=texts.format_balance(available))
             else:
-                reason = f'Минимальная сумма вывода: {min_amount / 100:.0f}₽. Доступно: {available / 100:.0f}₽'
+                reason = (
+                    f'Минимальная сумма вывода: {settings.format_balance(min_amount)}. '
+                    f'Доступно: {settings.format_balance(available)}'
+                )
             return False, reason, stats
 
         # Проверяем cooldown (пропускаем в тестовом режиме)
@@ -290,10 +293,15 @@ class ReferralWithdrawalService:
 
         if own_deposits > 0 and spending == 0:
             analysis['risk_score'] += 40
-            analysis['flags'].append(f'🔴 Пополнил {own_deposits / 100:.0f}₽, но ничего не покупал!')
+            analysis['flags'].append(
+                f'🔴 Пополнил {settings.format_balance(own_deposits)}, но ничего не покупал!'
+            )
         elif own_deposits > spending * ratio_threshold and spending > 0:
             analysis['risk_score'] += 25
-            analysis['flags'].append(f'🟠 Пополнил {own_deposits / 100:.0f}₽, потратил только {spending / 100:.0f}₽')
+            analysis['flags'].append(
+                f'🟠 Пополнил {settings.format_balance(own_deposits)}, '
+                f'потратил только {settings.format_balance(spending)}'
+            )
 
         # 2. Получаем информацию о рефералах
         referrals = await db.execute(select(User).where(User.referred_by_id == user_id))
@@ -347,7 +355,7 @@ class ReferralWithdrawalService:
 
                 if deposit_total > min_suspicious:
                     analysis['risk_score'] += 10
-                    suspicious_flags.append(f'сумма {deposit_total / 100:.0f}₽')
+                    suspicious_flags.append(f'сумма {settings.format_balance(deposit_total)}')
 
                 if suspicious_flags:
                     suspicious_referrals.append(
@@ -414,7 +422,9 @@ class ReferralWithdrawalService:
 
         if recent_count > 20:
             analysis['risk_score'] += 15
-            analysis['flags'].append(f'⚠️ {recent_count} начислений за неделю ({recent_amount / 100:.0f}₽)')
+            analysis['flags'].append(
+                f'⚠️ {recent_count} начислений за неделю ({settings.format_balance(recent_amount)})'
+            )
 
         analysis['details']['recent_activity'] = {
             'week_earnings_count': recent_count,
@@ -479,9 +489,9 @@ class ReferralWithdrawalService:
                 error = texts.t(
                     'REFERRAL_WITHDRAWAL_REASON_INSUFFICIENT',
                     'Недостаточно средств. Доступно: {available}',
-                ).format(available=texts.format_price(available))
+                ).format(available=texts.format_balance(available))
             else:
-                error = f'Недостаточно средств. Доступно: {available / 100:.0f}₽'
+                error = f'Недостаточно средств. Доступно: {settings.format_balance(available)}'
             return None, error
 
         # В режиме "только реф. баланс" проверяем реф. баланс
@@ -493,9 +503,12 @@ class ReferralWithdrawalService:
                     error = texts.t(
                         'REFERRAL_WITHDRAWAL_REASON_INSUFFICIENT_REFERRAL',
                         'Недостаточно реферального баланса. Доступно: {available}',
-                    ).format(available=texts.format_price(available_referral))
+                    ).format(available=texts.format_balance(available_referral))
                 else:
-                    error = f'Недостаточно реферального баланса. Доступно: {available_referral / 100:.0f}₽'
+                    error = (
+                        f'Недостаточно реферального баланса. Доступно: '
+                        f'{settings.format_balance(available_referral)}'
+                    )
                 return None, error
 
         # Анализируем на отмывание
@@ -557,7 +570,7 @@ class ReferralWithdrawalService:
 
         # Списываем с баланса
         if user.balance_kopeks < request.amount_kopeks:
-            return False, f'Недостаточно средств на балансе. Баланс: {user.balance_kopeks / 100:.0f}₽'
+            return False, f'Недостаточно средств на балансе. Баланс: {settings.format_balance(user.balance_kopeks)}'
 
         user.balance_kopeks -= request.amount_kopeks
 
@@ -631,21 +644,21 @@ class ReferralWithdrawalService:
         text = ''
         text += (
             texts.t('REFERRAL_WITHDRAWAL_STATS_EARNED', '📈 Всего заработано с рефералов: <b>{amount}</b>').format(
-                amount=texts.format_price(stats['total_earned'])
+                amount=texts.format_balance(stats['total_earned'])
             )
             + '\n'
         )
 
         text += (
             texts.t('REFERRAL_WITHDRAWAL_STATS_SPENT', '💳 Потрачено на подписки: <b>{amount}</b>').format(
-                amount=texts.format_price(stats['referral_spent'])
+                amount=texts.format_balance(stats['referral_spent'])
             )
             + '\n'
         )
 
         text += (
             texts.t('REFERRAL_WITHDRAWAL_STATS_WITHDRAWN', '💸 Выведено: <b>{amount}</b>').format(
-                amount=texts.format_price(stats['withdrawn'])
+                amount=texts.format_balance(stats['withdrawn'])
             )
             + '\n'
         )
@@ -653,7 +666,7 @@ class ReferralWithdrawalService:
         if stats['pending'] > 0:
             text += (
                 texts.t('REFERRAL_WITHDRAWAL_STATS_PENDING', '⏳ На рассмотрении: <b>{amount}</b>').format(
-                    amount=texts.format_price(stats['pending'])
+                    amount=texts.format_balance(stats['pending'])
                 )
                 + '\n'
             )
@@ -661,7 +674,7 @@ class ReferralWithdrawalService:
         text += '\n'
         text += (
             texts.t('REFERRAL_WITHDRAWAL_STATS_AVAILABLE', '✅ <b>Доступно к выводу: {amount}</b>').format(
-                amount=texts.format_price(stats['available_total'])
+                amount=texts.format_balance(stats['available_total'])
             )
             + '\n'
         )
@@ -696,10 +709,10 @@ class ReferralWithdrawalService:
         if 'balance_stats' in details:
             bs = details['balance_stats']
             text += '\n💰 <b>Баланс:</b>\n'
-            text += f'• Заработано с рефералов: {bs["total_earned"] / 100:.0f}₽\n'
-            text += f'• Собственные пополнения: {bs["own_deposits"] / 100:.0f}₽\n'
-            text += f'• Потрачено: {bs["spending"] / 100:.0f}₽\n'
-            text += f'• Уже выведено: {bs["withdrawn"] / 100:.0f}₽\n'
+            text += f'• Заработано с рефералов: {settings.format_balance(bs["total_earned"])}\n'
+            text += f'• Собственные пополнения: {settings.format_balance(bs["own_deposits"])}\n'
+            text += f'• Потрачено: {settings.format_balance(bs["spending"])}\n'
+            text += f'• Уже выведено: {settings.format_balance(bs["withdrawn"])}\n'
 
         # Статистика по рефералам
         if 'referral_deposits' in details:
@@ -707,7 +720,10 @@ class ReferralWithdrawalService:
             text += '\n👥 <b>Рефералы:</b>\n'
             text += f'• Всего: {details.get("referral_count", 0)}\n'
             text += f'• Платящих: {rd["paying_referrals"]}\n'
-            text += f'• Всего пополнений: {rd["total_deposits"]} ({rd["total_amount"] / 100:.0f}₽)\n'
+            text += (
+                f'• Всего пополнений: {rd["total_deposits"]} '
+                f'({settings.format_balance(rd["total_amount"])})\n'
+            )
 
         # Подозрительные рефералы
         if details.get('suspicious_referrals'):

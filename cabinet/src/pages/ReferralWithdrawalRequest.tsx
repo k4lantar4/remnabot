@@ -42,7 +42,7 @@ export default function ReferralWithdrawalRequest() {
     if (form.payment_details.length < 5) return;
     if (form.amount_rubles <= 0) return;
     withdrawMutation.mutate({
-      amount_kopeks: Math.round(form.amount_rubles * 100),
+      amount_kopeks: Math.round(form.amount_rubles),
       payment_details: form.payment_details,
     });
   };
@@ -52,7 +52,7 @@ export default function ReferralWithdrawalRequest() {
       <h1 className="text-2xl font-bold text-dark-50">{t('referral.withdrawal.requestTitle')}</h1>
       <p className="text-sm text-dark-400">
         {t('referral.withdrawal.requestDesc', {
-          available: balance ? formatWithCurrency(balance.available_total / 100) : '',
+          available: balance ? formatWithCurrency(balance.available_total) : '',
         })}
       </p>
 
@@ -65,8 +65,8 @@ export default function ReferralWithdrawalRequest() {
             <input
               id="rw-amount"
               type="number"
-              min={balance ? Math.ceil(balance.min_amount_kopeks / 100) : 0}
-              max={balance ? Math.floor(balance.available_total / 100) : 0}
+              min={balance ? Math.ceil(balance.min_amount_kopeks) : 0}
+              max={balance ? Math.floor(balance.available_total) : 0}
               className="input w-full"
               value={form.amount_rubles || ''}
               onChange={(e) =>
@@ -81,7 +81,7 @@ export default function ReferralWithdrawalRequest() {
             />
             <p className="mt-1 text-xs text-dark-500">
               {t('referral.withdrawal.fields.amountHint', {
-                min: balance ? Math.ceil(balance.min_amount_kopeks / 100) : 0,
+                min: balance ? Math.ceil(balance.min_amount_kopeks) : 0,
                 currency: currencySymbol,
               })}
             </p>
