@@ -11,6 +11,7 @@ from app.database.crud.subscription import (
     add_subscription_traffic,
     reactivate_subscription,
 )
+from app.database.crud.notification import clear_notification_by_type
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.models import TransactionType, User
@@ -457,6 +458,7 @@ async def confirm_reset_traffic(
         subscription.traffic_used_gb = 0.0
         subscription.updated_at = datetime.now(UTC)
         await db.commit()
+        await clear_notification_by_type(db, subscription.id, 'traffic_warn')
 
         SubscriptionService()
         remnawave_service = RemnaWaveService()

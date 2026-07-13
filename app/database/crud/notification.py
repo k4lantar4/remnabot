@@ -1,5 +1,7 @@
+from datetime import datetime
+
 import structlog
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import SentNotification
@@ -72,3 +74,45 @@ async def clear_notification_by_type(
     )
     if commit:
         await db.commit()
+
+
+async def count_notifications(
+    db: AsyncSession,
+    subscription_id: int,
+    notification_type: str,
+    *,
+    since: datetime | None = None,
+) -> int:
+    query = (
+        select(func.count())
+        .select_from(SentNotification)
+        .where(
+            SentNotification.subscription_id == subscription_id,
+            SentNotification.notification_type == notification_type,
+        )
+    )
+    if since is not None:
+        query = query.where(SentNotification.created_at >= since)
+    result = await db.execute(query)
+    return int(result.scalar() or 0)
+
+
+async def count_user_notifications_since(
+    db: AsyncSession,
+    user_id: int,
+    *,
+    since: datetime,
+    types: tuple[str, ...] | None = None,
+) -> int:
+    query = (
+        select(func.count())
+        .select_from(SentNotification)
+        .where(
+            SentNotification.user_id == user_id,
+            SentNotification.created_at >= since,
+        )
+    )
+    if types:
+        query = query.where(SentNotification.notification_type.in_(types))
+    result = await db.execute(query)
+    return int(result.scalar() or 0)

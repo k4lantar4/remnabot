@@ -17,6 +17,7 @@ from app.database.crud.discount_offer import (
 )
 from app.database.crud.notification import (
     clear_notification_by_type,
+    count_notifications,
     notification_sent,
     record_notification,
 )
@@ -52,6 +53,7 @@ from app.external.remnawave_api import (
     UserStatus as RemnaWaveUserStatus,
 )
 from app.localization.texts import get_texts
+from app.services.monitoring_notify_limiter import MonitoringNotifyLimiter
 from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
@@ -130,6 +132,7 @@ class MonitoringService:
         self._sla_task = None
         # In-memory fallback для cooldown автоплатежей (на случай недоступности Redis)
         self._autopay_fail_notified_at: dict[int, datetime] = {}
+        self._notify_limiter = MonitoringNotifyLimiter()
 
     async def _send_message_with_logo(
         self,
@@ -395,6 +398,12 @@ class MonitoringService:
             from app.database.crud.subscription import is_recently_updated_by_webhook
 
             expired_subscriptions = await get_expired_subscriptions(db)
+            expired_subscriptions = sorted(
+                expired_subscriptions,
+                key=lambda sub: sub.end_date or datetime.min.replace(tzinfo=UTC),
+                reverse=True,
+            )
+            deferred_by_user: dict[int, int] = {}
 
             for subscription in expired_subscriptions:
                 if is_recently_updated_by_webhook(subscription):
@@ -412,10 +421,28 @@ class MonitoringService:
 
                 user = await get_user_by_id(db, subscription.user_id)
                 if user and self.bot:
-                    await self._send_subscription_expired_notification(user, subscription, tariff_name=_tariff_name)
+                    if await notification_sent(db, user.id, subscription.id, 'expired_instant'):
+                        continue
+                    if not await self._notify_limiter.can_send_to_user(user.id):
+                        deferred_by_user[user.id] = deferred_by_user.get(user.id, 0) + 1
+                        continue
+                    success = await self._send_subscription_expired_notification(
+                        user, subscription, tariff_name=_tariff_name
+                    )
+                    if success:
+                        await record_notification(db, user.id, subscription.id, 'expired_instant')
+                        await self._notify_limiter.record_send(user.id)
 
                 logger.info(
                     "🔴 Подписка пользователя истекла и статус изменен на 'expired'", user_id=subscription.user_id
+                )
+
+            for user_id, deferred_count in deferred_by_user.items():
+                logger.info(
+                    'monitoring notify deferred',
+                    user_id=user_id,
+                    reason='daily_cap',
+                    deferred_count=deferred_count,
                 )
 
             if expired_subscriptions:
@@ -562,7 +589,7 @@ class MonitoringService:
                     is_subscription_expiry_enabled,
                 )
 
-                for subscription in expiring_subscriptions:
+                for subscription in sorted(expiring_subscriptions, key=lambda sub: sub.end_date or datetime.max.replace(tzinfo=UTC)):
                     user = await get_user_by_id(db, subscription.user_id)
                     if not user:
                         continue
@@ -610,6 +637,16 @@ class MonitoringService:
                     if not should_send:
                         continue
 
+                    if not await self._notify_limiter.can_send_to_user(user.id):
+                        logger.info(
+                            'monitoring notify deferred',
+                            user_id=user.id,
+                            reason='daily_cap',
+                            deferred_count=1,
+                            notification_type='expiring',
+                        )
+                        continue
+
                     # Handle email-only users via notification delivery service
                     if not user.telegram_id:
                         success = await notification_delivery_service.notify_subscription_expiring(
@@ -619,6 +656,7 @@ class MonitoringService:
                         )
                         if success:
                             await record_notification(db, user.id, subscription.id, 'expiring', days)
+                            await self._notify_limiter.record_send(user.id)
                             all_processed_users.add(sub_key)
                             sent_count += 1
                             logger.info(
@@ -634,6 +672,7 @@ class MonitoringService:
                         )
                         if success:
                             await record_notification(db, user.id, subscription.id, 'expiring', days)
+                            await self._notify_limiter.record_send(user.id)
                             all_processed_users.add(sub_key)
                             sent_count += 1
                             logger.info(
@@ -1017,8 +1056,8 @@ class MonitoringService:
         try:
             now = datetime.now(UTC)
 
-            # Lookback window — don't re-check subscriptions expired more than 30 days ago
-            lookback = now - timedelta(days=30)
+            # Lookback window — don't re-check subscriptions expired more than N days ago
+            lookback = now - timedelta(days=settings.MONITORING_EXPIRED_LOOKBACK_DAYS)
 
             result = await db.execute(
                 select(Subscription)
@@ -1044,10 +1083,17 @@ class MonitoringService:
             subscriptions = [
                 sub for sub in all_subscriptions if not (sub.tariff and getattr(sub.tariff, 'is_daily', False))
             ]
+            subscriptions = sorted(
+                subscriptions,
+                key=lambda sub: (
+                    (now - sub.end_date).total_seconds() if sub.end_date else float('inf'),
+                ),
+            )
 
             sent_day1 = 0
             sent_wave2 = 0
             sent_wave3 = 0
+            deferred_by_user: dict[int, int] = {}
 
             for subscription in subscriptions:
                 user = subscription.user
@@ -1066,50 +1112,28 @@ class MonitoringService:
                 # Day 1 reminder
                 if NotificationSettingsService.is_expired_1d_enabled() and 1 <= days_since < 2:
                     if not await notification_sent(db, user.id, subscription.id, 'expired_1d'):
-                        success = await self._send_expired_day1_notification(db, user, subscription)
-                        if success:
-                            await record_notification(db, user.id, subscription.id, 'expired_1d')
-                            sent_day1 += 1
+                        if not await self._notify_limiter.can_send_to_user(user.id):
+                            deferred_by_user[user.id] = deferred_by_user.get(user.id, 0) + 1
+                        else:
+                            success = await self._send_expired_day1_notification(db, user, subscription)
+                            if success:
+                                await record_notification(db, user.id, subscription.id, 'expired_1d')
+                                await self._notify_limiter.record_send(user.id)
+                                sent_day1 += 1
 
                 # Second wave (2-3 days) discount
                 if NotificationSettingsService.is_second_wave_enabled() and 2 <= days_since < 4:
                     if not await notification_sent(db, user.id, subscription.id, 'expired_discount_wave2'):
-                        percent = NotificationSettingsService.get_second_wave_discount_percent()
-                        valid_hours = NotificationSettingsService.get_second_wave_valid_hours()
-                        offer = await upsert_discount_offer(
-                            db,
-                            user_id=user.id,
-                            subscription_id=subscription.id,
-                            notification_type='expired_discount_wave2',
-                            discount_percent=percent,
-                            bonus_amount_kopeks=0,
-                            valid_hours=valid_hours,
-                            effect_type='percent_discount',
-                        )
-                        success = await self._send_expired_discount_notification(
-                            user,
-                            subscription,
-                            percent,
-                            offer.expires_at,
-                            offer.id,
-                            'second',
-                        )
-                        if success:
-                            await record_notification(db, user.id, subscription.id, 'expired_discount_wave2')
-                            sent_wave2 += 1
-
-                # Third wave (N days) discount
-                if NotificationSettingsService.is_third_wave_enabled():
-                    trigger_days = NotificationSettingsService.get_third_wave_trigger_days()
-                    if trigger_days <= days_since < trigger_days + 1:
-                        if not await notification_sent(db, user.id, subscription.id, 'expired_discount_wave3'):
-                            percent = NotificationSettingsService.get_third_wave_discount_percent()
-                            valid_hours = NotificationSettingsService.get_third_wave_valid_hours()
+                        if not await self._notify_limiter.can_send_to_user(user.id):
+                            deferred_by_user[user.id] = deferred_by_user.get(user.id, 0) + 1
+                        else:
+                            percent = NotificationSettingsService.get_second_wave_discount_percent()
+                            valid_hours = NotificationSettingsService.get_second_wave_valid_hours()
                             offer = await upsert_discount_offer(
                                 db,
                                 user_id=user.id,
                                 subscription_id=subscription.id,
-                                notification_type='expired_discount_wave3',
+                                notification_type='expired_discount_wave2',
                                 discount_percent=percent,
                                 bonus_amount_kopeks=0,
                                 valid_hours=valid_hours,
@@ -1121,12 +1145,54 @@ class MonitoringService:
                                 percent,
                                 offer.expires_at,
                                 offer.id,
-                                'third',
-                                trigger_days=trigger_days,
+                                'second',
                             )
                             if success:
-                                await record_notification(db, user.id, subscription.id, 'expired_discount_wave3')
-                                sent_wave3 += 1
+                                await record_notification(db, user.id, subscription.id, 'expired_discount_wave2')
+                                await self._notify_limiter.record_send(user.id)
+                                sent_wave2 += 1
+
+                # Third wave (N days) discount
+                if NotificationSettingsService.is_third_wave_enabled():
+                    trigger_days = NotificationSettingsService.get_third_wave_trigger_days()
+                    if trigger_days <= days_since < trigger_days + 1:
+                        if not await notification_sent(db, user.id, subscription.id, 'expired_discount_wave3'):
+                            if not await self._notify_limiter.can_send_to_user(user.id):
+                                deferred_by_user[user.id] = deferred_by_user.get(user.id, 0) + 1
+                            else:
+                                percent = NotificationSettingsService.get_third_wave_discount_percent()
+                                valid_hours = NotificationSettingsService.get_third_wave_valid_hours()
+                                offer = await upsert_discount_offer(
+                                    db,
+                                    user_id=user.id,
+                                    subscription_id=subscription.id,
+                                    notification_type='expired_discount_wave3',
+                                    discount_percent=percent,
+                                    bonus_amount_kopeks=0,
+                                    valid_hours=valid_hours,
+                                    effect_type='percent_discount',
+                                )
+                                success = await self._send_expired_discount_notification(
+                                    user,
+                                    subscription,
+                                    percent,
+                                    offer.expires_at,
+                                    offer.id,
+                                    'third',
+                                    trigger_days=trigger_days,
+                                )
+                                if success:
+                                    await record_notification(db, user.id, subscription.id, 'expired_discount_wave3')
+                                    await self._notify_limiter.record_send(user.id)
+                                    sent_wave3 += 1
+
+            for user_id, deferred_count in deferred_by_user.items():
+                logger.info(
+                    'monitoring notify deferred',
+                    user_id=user_id,
+                    reason='daily_cap',
+                    deferred_count=deferred_count,
+                )
 
             if sent_day1 or sent_wave2 or sent_wave3:
                 await self._log_monitoring_event(
@@ -2236,8 +2302,16 @@ class MonitoringService:
                 )
             )
             subscriptions = result.scalars().all()
+            subscriptions = sorted(
+                subscriptions,
+                key=lambda sub: (sub.traffic_used_gb or 0.0) / max(sub.traffic_limit_gb or 1, 1),
+                reverse=True,
+            )
 
             sent_count = 0
+            deferred_by_user: dict[int, int] = {}
+            max_warns_per_sub = settings.TRAFFIC_WARNING_MAX_PER_SUB
+
             for subscription in subscriptions:
                 user = subscription.user
                 if not user or not user.telegram_id:
@@ -2258,7 +2332,12 @@ class MonitoringService:
                 if current_percent < user_threshold:
                     continue
 
-                # Rate-limit: 1 notification per subscription per 24 hours
+                if max_warns_per_sub > 0:
+                    warn_count = await count_notifications(db, subscription.id, 'traffic_warn')
+                    if warn_count >= max_warns_per_sub:
+                        continue
+
+                # Rate-limit: 1 notification per subscription per 24 hours (secondary throttle)
                 cache_key_str = f'traffic_warn:{subscription.id}'
                 try:
                     already_sent = await cache.get(cache_key_str)
@@ -2266,6 +2345,10 @@ class MonitoringService:
                         continue
                 except Exception:
                     pass
+
+                if not await self._notify_limiter.can_send_to_user(user.id):
+                    deferred_by_user[user.id] = deferred_by_user.get(user.id, 0) + 1
+                    continue
 
                 try:
                     language = getattr(user, 'language', 'ru') or 'ru'
@@ -2288,6 +2371,8 @@ class MonitoringService:
                         message,
                         parse_mode='HTML',
                     )
+                    await record_notification(db, user.id, subscription.id, 'traffic_warn')
+                    await self._notify_limiter.record_send(user.id)
                     try:
                         await cache.set(cache_key_str, '1', expire=86400)
                     except Exception:
@@ -2300,6 +2385,15 @@ class MonitoringService:
                         subscription_id=subscription.id,
                         error=send_error,
                     )
+
+            for user_id, deferred_count in deferred_by_user.items():
+                logger.info(
+                    'monitoring notify deferred',
+                    user_id=user_id,
+                    reason='daily_cap',
+                    deferred_count=deferred_count,
+                    notification_type='traffic_warn',
+                )
 
             if sent_count > 0:
                 logger.info('Traffic warnings sent', sent_count=sent_count)

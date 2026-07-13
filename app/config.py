@@ -380,6 +380,9 @@ class Settings(BaseSettings):
     SUBSCRIPTION_RENEWAL_BALANCE_THRESHOLD_KOPEKS: int = 20000
 
     MONITORING_INTERVAL: int = 60
+    MONITORING_NOTIFY_MAX_PER_USER_DAY: int = 5
+    TRAFFIC_WARNING_MAX_PER_SUB: int = 3
+    MONITORING_EXPIRED_LOOKBACK_DAYS: int = 30
     LOW_BALANCE_ALERT_EXPIRY_DAYS: int = 3  # Only alert when subscription expires within N days
     # Months of inactivity before a user row is soft-deleted (status=DELETED).
     # 12 months is conservative — VPN users are highly seasonal (vacations,
