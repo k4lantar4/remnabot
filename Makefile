@@ -13,7 +13,7 @@ SHIP            := ./tools/ship-after-smoke.sh
 
 export DOCKER_BUILDKIT := 1
 
-.PHONY: help smoke sync-fa sync-fa-staging check-admin-texts setup-cursor deploy-scope \
+.PHONY: help smoke sync-fa sync-fa-staging check-admin-texts audit-db-ru setup-cursor deploy-scope \
 	prod-ps prod-logs prod-build prod-up prod-deploy prod-deploy-bot prod-deploy-cabinet prod-deploy-both \
 	staging-ps staging-logs staging-down staging-deploy staging-rebuild staging-rebuild-bot \
 	staging-rebuild-cabinet staging-rebuild-both staging-cabinet-sync \
@@ -42,6 +42,9 @@ smoke: ## import main (production image, no deps)
 check-admin-texts: ## Must be 0 — no get_admin_texts in app/
 	@! grep -r get_admin_texts app/ || (echo "FAIL: get_admin_texts found" >&2; exit 1)
 	@echo "OK: no get_admin_texts"
+
+audit-db-ru: ## Fail if Cyrillic rows in user-facing DB columns exceed threshold (needs postgres)
+	$(COMPOSE_PROD) run --rm bot python tools/audit_db_user_facing_ru.py --threshold 58
 
 setup-cursor: ## Bootstrap .cursor/mcp.json + pull MCP Docker images
 	@chmod +x tools/setup-cursor-mcp.sh .cursor/hooks/session-start.sh 2>/dev/null || true

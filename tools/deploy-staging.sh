@@ -67,7 +67,6 @@ if [[ "$BG" -eq 1 ]]; then
   [[ "$BUILD" -eq 0 ]] && REARGS+=(--no-build)
   [[ "$MIGRATE" -eq 1 ]] && REARGS+=(--migrate)
   [[ "$CABINET_SYNC" -eq 0 ]] && REARGS+=(--no-cabinet-sync) || REARGS+=(--cabinet-sync)
-  [[ -n "$FORCE_SCOPE" ]] && REARGS+=("--$FORCE_SCOPE" 2>/dev/null || true)
   if [[ -n "$FORCE_SCOPE" ]]; then
     case "$FORCE_SCOPE" in
       bot) REARGS+=(--bot-only) ;;

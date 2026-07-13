@@ -1004,7 +1004,10 @@ class MiniAppSubscriptionPurchaseService:
                 )
             )
 
-        description = f'Покупка подписки на {pricing.selection.period.days} дней'
+        description = texts.t(
+            'CLASSIC_SUB_PURCHASE_LEDGER_DESC',
+            'Подписка на {days} дней ({months} мес)',
+        ).format(days=pricing.selection.period.days, months=pricing.months)
         success = await subtract_user_balance(
             db,
             user,
@@ -1206,7 +1209,10 @@ class MiniAppSubscriptionPurchaseService:
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=pricing.final_total,
-            description=f'Подписка на {pricing.selection.period.days} дней ({pricing.months} мес)',
+            description=texts.t(
+                'CLASSIC_SUB_PURCHASE_LEDGER_DESC',
+                'Подписка на {days} дней ({months} мес)',
+            ).format(days=pricing.selection.period.days, months=pricing.months),
             payment_method=PaymentMethod.BALANCE,
         )
 

@@ -2653,13 +2653,28 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
             )
             return
 
-        user_service = UserService()
+        target_user = await get_user_by_id(db, user_id)
+        if not target_user:
+            await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
+            await state.clear()
+            return
 
-        description = f'Изменение баланса администратором {db_user.full_name}'
+        user_service = UserService()
+        ledger_texts = get_texts(target_user.language)
+        amount_label = settings.format_balance(abs(amount_kopeks), language=target_user.language)
+
         if amount_kopeks > 0:
-            description = f'Пополнение администратором: +{settings.format_balance(abs(amount_kopeks))}'
+            description = ledger_texts.t(
+                'ADMIN_LEDGER_TOPUP',
+                'Пополнение администратором: +{amount}',
+            ).format(amount=amount_label)
+        elif amount_kopeks < 0:
+            description = ledger_texts.t(
+                'ADMIN_LEDGER_DEBIT',
+                'Списание администратором: {amount}',
+            ).format(amount=amount_label)
         else:
-            description = f'Списание администратором: {settings.format_balance(abs(amount_kopeks))}'
+            description = f'Изменение баланса администратором {db_user.full_name}'
 
         success = await user_service.update_user_balance(
             db, user_id, amount_kopeks, description, db_user.id, bot=message.bot, admin_name=db_user.full_name
@@ -5666,7 +5681,10 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                 user_id=target_user.id,
                 type=TransactionType.SUBSCRIPTION_PAYMENT,
                 amount_kopeks=price_kopeks,
-                description=f'Продление подписки на {period_days} дней (администратор)',
+                description=get_texts(target_user.language).t(
+                    'ADMIN_LEDGER_EXTEND',
+                    'Продление подписки на {days} дней (администратор)',
+                ).format(days=period_days),
             )
 
             try:
@@ -6258,7 +6276,10 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
             user_id=target_user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=price_kopeks,
-            description=f'Покупка тарифа {tariff.name} на {period} дней (администратор)',
+            description=get_texts(target_user.language).t(
+                'ADMIN_LEDGER_BUY_TARIFF',
+                'Покупка тарифа {name} на {days} дней (администратор)',
+            ).format(name=tariff.name, days=period),
         )
 
         target_user_link = user_html_link(target_user)
@@ -6711,12 +6732,16 @@ async def confirm_admin_tariff_change(callback: types.CallbackQuery, db_user: Us
         # Записываем транзакцию о смене тарифа
         from app.database.crud.transaction import create_transaction
 
+        ledger_texts = get_texts(user.language)
         await create_transaction(
             db=db,
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=0,
-            description=f"Смена тарифа администратором на '{tariff.name}'",
+            description=ledger_texts.t(
+                'ADMIN_LEDGER_SWITCH_TARIFF',
+                "Смена тарифа администратором на '{name}'",
+            ).format(name=tariff.name),
             commit=False,
         )
 

@@ -803,3 +803,49 @@ Payment provider test buttons: optional (providers disabled in `.env`).
 
 - [ ] User smoke on staging (`تایید`)
 - [ ] PR → merge → prod deploy (after approval)
+
+---
+
+# Smoke map — Ledger descriptions remainder (Tasks 18–23) Jul 2026
+
+> Branch `i18n/ledger-descriptions-remainder`; Persian `transactions.description` for classic/miniapp/wheel/admin paths.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `i18n/ledger-descriptions-remainder` |
+| Keys | `CLASSIC_SUB_*`, `ADMIN_LEDGER_*`, `WHEEL_WIN_*`, `DAILY_TARIFF_RENEW_LEDGER_DESC` |
+| Deploy | `cp app/localization/locales/fa.json ./locales/fa.json` + `make staging-rebuild` |
+| Bot | `@mrj7_bot` |
+| Cabinet | staging cabinet `:3021` |
+
+## User smoke checklist
+
+| # | Path | Expected |
+|---|------|----------|
+| 10 | C2C top-up (regression) | `واریز کارت‌به‌کارت` — unchanged |
+| 11 | Cabinet tariff buy | `خرید سرویس «…»` — unchanged |
+| L1 | Classic bot purchase | `اشتراک برای … روز` not `Подписка на` |
+| L2 | Miniapp tariff buy | Persian ledger row |
+| L3 | Wheel balance prize | `جایزه گردونه:` not `Выигрыш` |
+| L4 | Admin credit balance | `شارژ توسط ادمین` in user balance history |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet balance history
+- [ ] Reply **تایید** before ship
+
+---
+
+# Smoke map — Monitoring notify caps (Task 24) Jul 2026
+
+> Branch `fix/monitoring-notification-caps`; per-user daily cap + traffic lifetime cap.
+
+| # | Path | Expected |
+|---|------|----------|
+| 12 | User with 2+ expired subs | ≤5 monitoring msgs in 24h (not N×subs) |
+| 13 | Sub at 90%+ traffic | ≤3 traffic warnings total, then silence |
+| 14 | After renew / traffic reset | traffic warnings allowed again |
+
+Branch: `fix/monitoring-notification-caps` @ `6782a6a7b`

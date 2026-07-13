@@ -596,6 +596,16 @@ class AdminNotificationService:
         )
         return (txn_count or 0) > 1
 
+    async def _resolve_effective_purchase_type(
+        self,
+        db: AsyncSession,
+        user: User,
+        purchase_type: str | None,
+    ) -> str | None:
+        if purchase_type in (None, 'first_purchase') and await self._is_returning_purchaser(db, user):
+            return 'new_subscription'
+        return purchase_type
+
     async def _get_tariff_name(self, db: AsyncSession, subscription: Subscription) -> str | None:
         """Получает название тарифа подписки, если он есть."""
         if not subscription.tariff_id:
@@ -677,9 +687,7 @@ class AdminNotificationService:
 
             notify_texts = _admin_notify_texts()
 
-            effective_purchase_type = purchase_type
-            if purchase_type in (None, 'first_purchase') and await self._is_returning_purchaser(db, user):
-                effective_purchase_type = 'renewal'
+            effective_purchase_type = await self._resolve_effective_purchase_type(db, user, purchase_type)
 
             # Определяем тип операции и заголовок
             if effective_purchase_type == 'tariff_switch':
@@ -691,6 +699,9 @@ class AdminNotificationService:
             elif effective_purchase_type == 'first_purchase':
                 event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_FIRST', '💎 ПОКУПКА ПОДПИСКИ')
                 user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_FIRST', 'Первая покупка')
+            elif effective_purchase_type == 'new_subscription':
+                event_title = notify_texts.t('ADMIN_NOTIFY_PURCHASE_TITLE_FIRST', '💎 ПОКУПКА ПОДПИСКИ')
+                user_status = notify_texts.t('ADMIN_NOTIFY_STATUS_NEW_SUB', 'خرید اشتراک جدید')
             elif effective_purchase_type == 'renewal' or (
                 effective_purchase_type is None and user.has_had_paid_subscription
             ):
