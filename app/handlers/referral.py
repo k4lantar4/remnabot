@@ -599,7 +599,7 @@ async def show_withdrawal_info(callback: types.CallbackQuery, db_user: User, db:
 
     text += (
         texts.t('REFERRAL_WITHDRAWAL_MIN_AMOUNT', '📊 Минимальная сумма: <b>{amount}</b>').format(
-            amount=texts.format_price(min_amount)
+            amount=texts.format_balance(min_amount)
         )
         + '\n'
     )
@@ -649,14 +649,14 @@ async def start_withdrawal_request(callback: types.CallbackQuery, db_user: User,
 
     text = texts.t(
         'REFERRAL_WITHDRAWAL_ENTER_AMOUNT', '💸 Введите сумму для вывода в рублях\n\nДоступно: <b>{amount}</b>'
-    ).format(amount=texts.format_price(available))
+    ).format(amount=texts.format_balance(available))
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
                     text=texts.t('REFERRAL_WITHDRAWAL_ALL', 'Вывести всё ({amount})').format(
-                        amount=texts.format_price(available)
+                        amount=texts.format_balance(available)
                     ),
                     callback_data=f'referral_withdrawal_amount_{available}',
                 )
@@ -683,7 +683,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
         # Парсим сумму (в рублях)
         amount_text = message.text.strip().replace(',', '.').replace('₽', '').replace(' ', '')
         amount_rubles = float(amount_text)
-        amount_kopeks = int(amount_rubles * 100)
+        amount_kopeks = int(round(amount_rubles))
 
         if amount_kopeks <= 0:
             await message.answer(texts.t('REFERRAL_WITHDRAWAL_INVALID_AMOUNT', '❌ Введите положительную сумму'))
@@ -693,7 +693,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
         if amount_kopeks < min_amount:
             await message.answer(
                 texts.t('REFERRAL_WITHDRAWAL_MIN_ERROR', '❌ Минимальная сумма: {amount}').format(
-                    amount=texts.format_price(min_amount)
+                    amount=texts.format_balance(min_amount)
                 )
             )
             return
@@ -701,7 +701,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
         if amount_kopeks > available:
             await message.answer(
                 texts.t('REFERRAL_WITHDRAWAL_INSUFFICIENT', '❌ Недостаточно средств. Доступно: {amount}').format(
-                    amount=texts.format_price(available)
+                    amount=texts.format_balance(available)
                 )
             )
             return
@@ -781,7 +781,7 @@ async def process_payment_details(message: types.Message, db_user: User, db: Asy
     text = texts.t('REFERRAL_WITHDRAWAL_CONFIRM_TITLE', '📋 <b>Подтверждение заявки</b>') + '\n\n'
     text += (
         texts.t('REFERRAL_WITHDRAWAL_CONFIRM_AMOUNT', '💰 Сумма: <b>{amount}</b>').format(
-            amount=texts.format_price(amount_kopeks)
+            amount=texts.format_balance(amount_kopeks)
         )
         + '\n\n'
     )
@@ -895,7 +895,7 @@ async def confirm_withdrawal_request(callback: types.CallbackQuery, db_user: Use
         'Сумма: <b>{amount}</b>\n\n'
         'Ваша заявка будет рассмотрена администрацией. '
         'Мы уведомим вас о результате.',
-    ).format(id=request.id, amount=texts.format_price(amount_kopeks))
+    ).format(id=request.id, amount=texts.format_balance(amount_kopeks))
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_referrals')]]

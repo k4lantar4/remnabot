@@ -15,6 +15,7 @@ from app.database.models import (
     WithdrawalRequestStatus,
 )
 from app.services.referral_withdrawal_service import referral_withdrawal_service
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.withdrawals import (
@@ -101,7 +102,7 @@ async def list_withdrawals(
                 first_name=user.first_name if user else None,
                 telegram_id=user.telegram_id if user else None,
                 amount_kopeks=w.amount_kopeks,
-                amount_rubles=w.amount_kopeks / 100,
+                amount_rubles=display_balance_from_storage(w.amount_kopeks),
                 status=w.status,
                 risk_score=w.risk_score or 0,
                 risk_level=_get_risk_level(w.risk_score or 0),
@@ -161,7 +162,7 @@ async def get_withdrawal_detail(
         first_name=user.first_name if user else None,
         telegram_id=user.telegram_id if user else None,
         amount_kopeks=withdrawal.amount_kopeks,
-        amount_rubles=withdrawal.amount_kopeks / 100,
+        amount_rubles=display_balance_from_storage(withdrawal.amount_kopeks),
         status=withdrawal.status,
         risk_score=withdrawal.risk_score or 0,
         risk_level=_get_risk_level(withdrawal.risk_score or 0),

@@ -1594,16 +1594,23 @@ async def _auto_add_devices(
 
     # Списываем баланс
     description = f'Покупка {devices_to_add} доп. устройств'
+    charge_toman = catalog_price_in_toman(price_kopeks)
     try:
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            charge_toman,
             description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
         )
+        if success:
+            await create_transaction(
+                db=db,
+                user_id=user.id,
+                type=TransactionType.SUBSCRIPTION_PAYMENT,
+                amount_kopeks=price_kopeks,
+                description=description,
+                payment_method=PaymentMethod.BALANCE,
+            )
         if not success:
             logger.warning(
                 '❌ Автопокупка устройств: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)
@@ -1953,16 +1960,23 @@ async def _auto_add_traffic(
 
     # Deduct balance
     description = f'Докупка {traffic_gb} ГБ трафика'
+    charge_toman = catalog_price_in_toman(price_kopeks)
     try:
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            charge_toman,
             description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
         )
+        if success:
+            await create_transaction(
+                db=db,
+                user_id=user.id,
+                type=TransactionType.SUBSCRIPTION_PAYMENT,
+                amount_kopeks=price_kopeks,
+                description=description,
+                payment_method=PaymentMethod.BALANCE,
+            )
         if not success:
             logger.warning(
                 '❌ Автопокупка трафика: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)

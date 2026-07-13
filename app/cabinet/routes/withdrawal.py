@@ -9,6 +9,7 @@ from app.config import settings
 from app.database.models import User, WithdrawalRequest, WithdrawalRequestStatus
 from app.localization.texts import get_texts
 from app.services.referral_withdrawal_service import referral_withdrawal_service
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.withdrawals import (
@@ -123,7 +124,7 @@ async def get_withdrawal_history(
         WithdrawalItemResponse(
             id=r.id,
             amount_kopeks=r.amount_kopeks,
-            amount_rubles=r.amount_kopeks / 100,
+            amount_rubles=display_balance_from_storage(r.amount_kopeks),
             status=r.status,
             payment_details=r.payment_details,
             admin_comment=r.admin_comment,

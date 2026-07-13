@@ -48,7 +48,7 @@ export default function WebSocketNotifications() {
       }
 
       if (type === 'balance.change') {
-        const amount = message.amount_rubles ?? (message.amount_kopeks ?? 0) / 100;
+        const amount = message.amount_rubles ?? 0;
         const isPositive = amount >= 0;
         showToast({
           type: isPositive ? 'success' : 'info',
@@ -153,7 +153,7 @@ export default function WebSocketNotifications() {
       }
 
       if (type === 'subscription.daily_debit') {
-        const amount = message.amount_rubles ?? (message.amount_kopeks ?? 0) / 100;
+        const amount = message.amount_rubles ?? 0;
         showToast({
           type: 'info',
           title: t('wsNotifications.subscription.dailyDebitTitle', 'Daily charge'),
@@ -235,7 +235,7 @@ export default function WebSocketNotifications() {
 
       // Autopay events
       if (type === 'autopay.success') {
-        const amount = message.amount_rubles ?? (message.amount_kopeks ?? 0) / 100;
+        const amount = message.amount_rubles ?? 0;
         showToast({
           type: 'success',
           title: t('wsNotifications.autopay.successTitle', 'Auto-renewal successful'),
@@ -277,8 +277,8 @@ export default function WebSocketNotifications() {
       }
 
       if (type === 'autopay.insufficient_funds') {
-        const required = message.required_rubles ?? (message.required_kopeks ?? 0) / 100;
-        const balance = message.balance_rubles ?? (message.balance_kopeks ?? 0) / 100;
+        const required = message.required_rubles ?? 0;
+        const balance = message.balance_rubles ?? 0;
         showToast({
           type: 'warning',
           title: t('wsNotifications.autopay.insufficientTitle', 'Insufficient funds'),
@@ -340,7 +340,7 @@ export default function WebSocketNotifications() {
 
       // Referral events
       if (type === 'referral.bonus') {
-        const bonus = message.bonus_rubles ?? (message.bonus_kopeks ?? 0) / 100;
+        const bonus = message.bonus_rubles ?? 0;
         showToast({
           type: 'success',
           title: t('wsNotifications.referral.bonusTitle', 'Referral bonus'),
@@ -397,7 +397,7 @@ export default function WebSocketNotifications() {
 
       // Payment received
       if (type === 'payment.received') {
-        const amount = message.amount_rubles ?? (message.amount_kopeks ?? 0) / 100;
+        const amount = message.amount_rubles ?? 0;
         showToast({
           type: 'success',
           title: t('wsNotifications.payment.receivedTitle', 'Payment received'),

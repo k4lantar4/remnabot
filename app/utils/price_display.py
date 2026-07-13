@@ -50,6 +50,20 @@ def is_balance_scale_transaction(tx_type: str) -> bool:
     return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES
 
 
+def storage_sum_to_display_toman(raw_sum: int, tx_type: str) -> int:
+    """Convert a per-type raw amount sum to display Toman integer."""
+    if is_balance_scale_transaction(tx_type):
+        return abs(raw_sum)
+    return abs(raw_sum) // 100
+
+
+def format_transaction_amount_for_display(amount_kopeks: int, tx_type: str, format_balance, format_price) -> str:
+    """Format a single transaction row amount using the correct scale helper."""
+    if is_balance_scale_transaction(tx_type):
+        return format_balance(abs(amount_kopeks))
+    return format_price(abs(amount_kopeks))
+
+
 def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) -> float:
     """
     User-facing amount_rubles for a transaction row.
