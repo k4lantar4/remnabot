@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { partnerApi } from '../../api/partners';
 import { PARTNER_STATS } from '../../constants/partner';
 import { useCurrency } from '../../hooks/useCurrency';
+import { displayReferralEarnings } from '../../utils/referralAmount';
 import { DailyChart } from '../stats/DailyChart';
 import { PeriodComparison } from '../stats/PeriodComparison';
 import { StatCard } from '../stats/StatCard';
@@ -54,17 +55,17 @@ export function CampaignDetailStats({ campaignId }: CampaignDetailStatsProps) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <StatCard
           label={t('referral.partner.stats.today')}
-          value={formatWithCurrency(data.earnings_today / PARTNER_STATS.KOPEKS_DIVISOR)}
+          value={formatWithCurrency(displayReferralEarnings(data.earnings_today))}
           valueClassName="text-success-400"
         />
         <StatCard
           label={t('referral.partner.stats.week')}
-          value={formatWithCurrency(data.earnings_week / PARTNER_STATS.KOPEKS_DIVISOR)}
+          value={formatWithCurrency(displayReferralEarnings(data.earnings_week))}
           valueClassName="text-success-400"
         />
         <StatCard
           label={t('referral.partner.stats.month')}
-          value={formatWithCurrency(data.earnings_month / PARTNER_STATS.KOPEKS_DIVISOR)}
+          value={formatWithCurrency(displayReferralEarnings(data.earnings_month))}
           valueClassName="text-success-400"
         />
       </div>

@@ -46,7 +46,7 @@ export function MobileBottomNav({
     ...(wheelEnabled
       ? [{ path: '/wheel', label: t('nav.wheel'), icon: WheelIcon }]
       : referralEnabled
-        ? [{ path: '/referral', label: t('nav.referral'), icon: UsersIcon }]
+        ? [{ path: '/referral', label: t('nav.earn'), icon: UsersIcon }]
         : []),
     { path: '/support', label: t('nav.support'), icon: ChatIcon },
   ];

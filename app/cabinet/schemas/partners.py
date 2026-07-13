@@ -67,6 +67,23 @@ class PartnerStatusResponse(BaseModel):
     campaigns: list[PartnerCampaignInfo] = []
 
 
+class PartnerInventoryStatsResponse(BaseModel):
+    """Wholesale partner subscription inventory for earn tab."""
+
+    total_subscriptions: int = 0
+    active_subscriptions: int = 0
+    expired_subscriptions: int = 0
+    near_expiry_subscriptions: int = 0
+    total_spent_kopeks: int = 0
+    total_spent_rubles: float = 0.0
+    spent_week_kopeks: int = 0
+    spent_week_rubles: float = 0.0
+    spent_month_kopeks: int = 0
+    spent_month_rubles: float = 0.0
+    online_users: int = 0
+    near_expiry_days: int = 7
+
+
 # ==================== Campaign detailed stats ====================
 
 

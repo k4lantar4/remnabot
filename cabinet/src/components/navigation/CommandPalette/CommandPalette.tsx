@@ -80,7 +80,7 @@ export function CommandPalette({
     { label: t('nav.dashboard'), icon: HomeIcon, path: '/' },
     { label: t('nav.subscription'), icon: SubscriptionIcon, path: '/subscriptions' },
     { label: t('nav.balance'), icon: WalletIcon, path: '/balance' },
-    ...(referralEnabled ? [{ label: t('nav.referral'), icon: UsersIcon, path: '/referral' }] : []),
+    ...(referralEnabled ? [{ label: t('nav.earn'), icon: UsersIcon, path: '/referral' }] : []),
     { label: t('nav.support'), icon: ChatIcon, path: '/support' },
     ...(hasContests ? [{ label: t('nav.contests'), icon: GamepadIcon, path: '/contests' }] : []),
     ...(hasPolls ? [{ label: t('nav.polls'), icon: ClipboardIcon, path: '/polls' }] : []),

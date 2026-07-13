@@ -45,6 +45,7 @@
     "subscription": "Subscription",
     "balance": "Balance",
     "referral": "Referrals",
+    "earn": "Earn",
     "support": "Support",
     "profile": "Profile",
     "logout": "Logout",
@@ -860,6 +861,61 @@
       "tryAgain": "Try Again"
     },
     "top_up": "Top up balance"
+  },
+  "earn": {
+    "title": "Earn",
+    "tabs": {
+      "partner": "Partnership",
+      "invite": "Invite"
+    },
+    "invite": {
+      "referralCredit": "Referral credit",
+      "referralCreditHint": "Usable on your next purchase",
+      "botLink": "Bot invite link",
+      "copyLink": "Copy",
+      "copied": "Copied!",
+      "shareButton": "Share",
+      "explainer": "When a friend makes a purchase, {{percent}}% is added to your referral credit.",
+      "shareMessage": "Join {{botName}} through my link!",
+      "yourInvitees": "Your invitees",
+      "noInvitees": "You haven't invited anyone yet. Share your link with friends!",
+      "anonymousUser": "User #{{id}}",
+      "status": {
+        "paid": "Paid",
+        "pending": "Pending"
+      },
+      "yourCampaigns": "Invite campaigns"
+    },
+    "partner": {
+      "heroTitle": "Apply for partnership",
+      "heroDesc": "As a partner, buy subscriptions at wholesale discount and manage them for your customers.",
+      "benefitDiscount": "Wholesale purchase discount",
+      "benefitBrand": "Custom brand in panel",
+      "benefitStats": "Manage customer subscriptions",
+      "applyButton": "Apply for partnership",
+      "activeStatus": "Congratulations, you are a partner",
+      "discountLabel": "Partnership discount rate",
+      "discountBadge": "Partnership discount: {{percent}}%",
+      "brandLabel": "Brand",
+      "statsTitle": "Subscription inventory",
+      "statTotal": "Total subscriptions",
+      "statActive": "Active",
+      "statExpired": "Expired",
+      "statNearExpiry": "Near expiry",
+      "statWalletSpent": "Your total purchases",
+      "statPurchaseWeek": "This week",
+      "statPurchaseMonth": "This month",
+      "statPurchaseAll": "All time",
+      "statOnline": "Online now",
+      "statOnlineHint": "of {{active}} active subscriptions",
+      "buySubscription": "Buy new subscription",
+      "sectionDisabled": "The partnership section is currently disabled.",
+      "underReview": "Application under review",
+      "underReviewDesc": "Your partnership application is being reviewed. We will notify you once a decision is made.",
+      "submittedAt": "Submitted on {{date}}",
+      "rejected": "Application rejected",
+      "reapplyButton": "Reapply"
+    }
   },
   "referral": {
     "title": "Referral Program",

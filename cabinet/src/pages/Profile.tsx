@@ -341,7 +341,7 @@ export default function Profile() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="flex-1">
-                <input type="text" readOnly value={referralLink} className="input w-full text-sm" />
+                <input type="text" readOnly value={referralLink} className="input url-ltr w-full text-sm" />
               </div>
               <div className="flex gap-2">
                 <Button

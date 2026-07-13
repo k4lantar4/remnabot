@@ -608,6 +608,22 @@ img.twemoji {
     @apply input border-error-500/50 focus:border-error-500 focus:ring-error-500/20;
   }
 
+  /* URL / deep-link fields in RTL (fa) UI — show https:// start, not the tail */
+  .url-ltr {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+  }
+
+  .url-ltr-truncate {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* Remove tap highlight and focus outline on mobile */
   button,
   a,
