@@ -219,6 +219,7 @@ def _subscription_to_response(
         servers=servers or [],
         autopay_enabled=effective_autopay_enabled(subscription),
         autopay_days_before=subscription.autopay_days_before or 3,
+        autopay_available=settings.is_autopay_globally_enabled(),
         subscription_url=subscription.subscription_url,
         hide_subscription_link=hide_link,
         is_active=is_active,

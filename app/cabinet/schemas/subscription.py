@@ -44,6 +44,7 @@ class SubscriptionData(BaseModel):
     servers: list[ServerInfo] = []  # Server display info
     autopay_enabled: bool
     autopay_days_before: int
+    autopay_available: bool = False
     subscription_url: str | None = None
     hide_subscription_link: bool = False  # Скрывать ли отображение ссылки (но кнопки работают)
     is_active: bool
