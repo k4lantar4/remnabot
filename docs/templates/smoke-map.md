@@ -1,3 +1,35 @@
+# Smoke map — Phase 6 numeric display units Jul 2026
+
+> Branch `fix/amount-display-units`; Tasks 15, 17, 14, 16 — referral withdrawal, WS toasts, subscription_payment storage, admin report scale.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/amount-display-units` |
+| Commits | `a251f5dd` (15), `abb3eb56` (17), `f9a92371` (14), `d1131568` (16) |
+| Deploy | `make staging-rebuild-both` |
+| Bot | `@mrj7_bot` |
+| Cabinet | staging cabinet `:3021` |
+
+## User smoke checklist
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | Cabinet Referral → برداشت | Available/earned show full Toman (e.g. 12,500 not 125) | pending |
+| 2 | Submit withdrawal request | Stored amount 1:1 with displayed Toman | pending |
+| 3 | WS balance top-up / daily debit toast | Correct تومان (not ÷100 again) | pending |
+| 4 | Cabinet buy extra devices → Balance history | Amount matches charge (not 100× small) | pending |
+| 5 | Admin report / stats deposit total | Order-of-magnitude matches user top-ups | pending |
+| 6 | Admin stats referral earnings | Full Toman (format_balance, not ÷100) | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Subscription detail UX polish Jul 2026
 
 > Branch `feat/subscription-detail-ux`; UX polish: renew copy dedupe, note-edit cleanup, user-disabled labels, countdown LTR, note card moved.
