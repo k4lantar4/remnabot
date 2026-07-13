@@ -1,3 +1,37 @@
+# Smoke map — Earn tab redesign Jul 2026
+
+> Branch `feat/earn-tab-redesign`; cabinet `/referral` → two-tab «کسب درآمد» (نمایندگی | دعوت); withdrawal UI removed.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `feat/earn-tab-redesign` |
+| Scope | Cabinet-only Phase 1 — no backend/API changes |
+| Deploy | `make smoke && make deploy-scope && make staging-rebuild` |
+| Bot | `@mrj7_bot` (unchanged hot path) |
+| Cabinet | staging cabinet `:3021` |
+
+## User smoke checklist
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | Nav (sidebar / bottom / header) | Label «کسب درآمد»; route still `/referral` | pending |
+| 2 | `/referral` default tab | «نمایندگی» active; non-partner sees apply CTA at top without scroll | pending |
+| 3 | Tab «دعوت» | پورسانت معرفی (`available_balance_rubles`); bot link copy/share only | pending |
+| 4 | Approved partner | ✅ نماینده فعال + wholesale % + stats + «دعوت دوستان» switches tab | pending |
+| 5 | Pending application | Review card on partner tab; no apply CTA | pending |
+| 6 | Rejected application | Rejection card + reapply button | pending |
+| 7 | Withdrawal section | **Absent** on earn page (no balance/history/request UI) | pending |
+| 8 | Removed clutter | No top stats grid, no cabinet `/login?ref=` link, no 4-card terms grid | pending |
+
+## Sign-off
+
+- [ ] User smoke on `@mrj7_bot` + staging cabinet
+- [ ] Reply **تایید** before ship
+
+---
+
 # Smoke map — Phase 6 numeric display units Jul 2026
 
 > Branch `fix/amount-display-units`; Tasks 15, 17, 14, 16 — referral withdrawal, WS toasts, subscription_payment storage, admin report scale.
