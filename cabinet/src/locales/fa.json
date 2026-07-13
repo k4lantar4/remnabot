@@ -970,30 +970,38 @@
       "status": {
         "paid": "پرداخت شده",
         "pending": "در انتظار"
-      }
+      },
+      "yourCampaigns": "کمپین‌های دعوت"
     },
     "partner": {
       "heroTitle": "درخواست نمایندگی",
-      "heroDesc": "با نمایندگی، با تخفیف عمده خرید کنید و برای مشتریان خود مدیریت اشتراک داشته باشید.",
+      "heroDesc": "با نمایندگی، با تخفیف عمده اشتراک بخرید و برای مشتریان خود مدیریت کنید.",
       "benefitDiscount": "تخفیف خرید عمده",
       "benefitBrand": "برند اختصاصی در پنل",
-      "benefitStats": "آمار فروش و مدیریت مشتریان",
+      "benefitStats": "مدیریت اشتراک‌های مشتریان",
       "applyButton": "درخواست نمایندگی",
-      "activeStatus": "نماینده فعال",
+      "activeStatus": "تبریک! تخفیف نمایندگی شما با موفقیت فعال شد",
       "discountLabel": "درصد تخفیف نمایندگی",
+      "discountBadge": "درصد تخفیف نمایندگی: {{percent}}٪",
       "brandLabel": "برند",
-      "statsTitle": "آمار شما",
-      "statRegistrations": "ثبت‌نام",
-      "statReferrals": "دعوت موفق",
-      "statEarnings": "درآمد از معرفی",
-      "goToInvite": "دعوت دوستان",
+      "statsTitle": "موجودی اشتراک",
+      "statTotal": "کل اشتراک‌ها",
+      "statActive": "فعال",
+      "statExpired": "منقضی",
+      "statNearExpiry": "نزدیک انقضا",
+      "statWalletSpent": "مجموع خرید شما",
+      "statPurchaseWeek": "این هفته",
+      "statPurchaseMonth": "این ماه",
+      "statPurchaseAll": "کل",
+      "statOnline": "آنلاین الان",
+      "statOnlineHint": "از {{active}} اشتراک فعال",
+      "buySubscription": "خرید اشتراک جدید",
       "sectionDisabled": "بخش نمایندگی در حال حاضر غیرفعال است.",
       "underReview": "درخواست در حال بررسی",
       "underReviewDesc": "درخواست نمایندگی شما بررسی می‌شود. پس از تصمیم به شما اطلاع می‌دهیم.",
       "submittedAt": "ارسال شده در {{date}}",
       "rejected": "درخواست رد شد",
-      "reapplyButton": "درخواست مجدد",
-      "yourCampaigns": "کمپین‌های شما"
+      "reapplyButton": "درخواست مجدد"
     }
   },
   "referral": {

@@ -1,33 +1,33 @@
 import { useTranslation } from 'react-i18next';
 
+import type { PartnerInventoryStats } from '../../api/partners';
 import type { PartnerStatusResponse } from '../../api/partners';
-import { CampaignCard } from '../partner/CampaignCard';
-import { aggregatePartnerStats } from '../../utils/earnStats';
 import { formatUserDate } from '../../utils/formatDate';
 import {
   ClockIcon,
   ExclamationIcon,
-  LinkIcon,
 } from '@/components/icons';
 
 export interface PartnerTabProps {
   partnerSectionVisible: boolean;
   partnerStatus: PartnerStatusResponse | undefined;
-  aggregatedStats: ReturnType<typeof aggregatePartnerStats>;
+  inventoryStats: PartnerInventoryStats | undefined;
+  inventoryLoading: boolean;
   wholesalePercent: number;
   onApply: () => void;
-  onGoToInvite: () => void;
-  formatEarnings: (kopeks: number) => string;
+  onBuySubscription: () => void;
+  formatAmount: (amount: number) => string;
 }
 
 export function PartnerTab({
   partnerSectionVisible,
   partnerStatus,
-  aggregatedStats,
+  inventoryStats,
+  inventoryLoading,
   wholesalePercent,
   onApply,
-  onGoToInvite,
-  formatEarnings,
+  onBuySubscription,
+  formatAmount,
 }: PartnerTabProps) {
   const { t, i18n } = useTranslation();
 
@@ -115,73 +115,104 @@ export function PartnerTab({
   }
 
   if (partnerStatusValue === 'approved') {
+    const stats = inventoryStats;
+
     return (
       <div className="space-y-6">
         <div className="bento-card border-success-500/20">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-success-500/10 text-2xl">
-              ✅
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-success-500/10 text-2xl">
+                ✅
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-dark-100">
+                  {t('earn.partner.activeStatus')}
+                </h2>
+                {partnerStatus?.panel_brand_prefix && (
+                  <p className="mt-2 text-sm text-dark-300">
+                    🏷 {t('earn.partner.brandLabel')}: {partnerStatus.panel_brand_prefix}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-dark-100">
-                {t('earn.partner.activeStatus')}
-              </h2>
-              {partnerStatus?.panel_brand_prefix && (
-                <p className="mt-2 text-sm text-dark-300">
-                  🏷 {t('earn.partner.brandLabel')}: {partnerStatus.panel_brand_prefix}
-                </p>
-              )}
-              {wholesalePercent > 0 && (
-                <p className="mt-1 text-sm text-dark-300">
-                  💰 {t('earn.partner.discountLabel')}: {wholesalePercent}%
-                </p>
-              )}
-            </div>
+            {wholesalePercent > 0 && (
+              <span className="btn-secondary shrink-0 self-start px-4 py-2 text-sm font-medium">
+                {t('earn.partner.discountBadge', { percent: wholesalePercent })}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="bento-card">
           <h3 className="mb-4 text-lg font-semibold text-dark-100">{t('earn.partner.statsTitle')}</h3>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <div className="rounded-xl bg-dark-800/30 p-3">
-              <div className="text-sm text-dark-500">{t('earn.partner.statRegistrations')}</div>
-              <div className="mt-1 text-lg font-semibold text-dark-100">
-                {aggregatedStats.registrations}
-              </div>
+          {inventoryLoading ? (
+            <div className="flex min-h-24 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
             </div>
-            <div className="rounded-xl bg-dark-800/30 p-3">
-              <div className="text-sm text-dark-500">{t('earn.partner.statReferrals')}</div>
-              <div className="mt-1 text-lg font-semibold text-dark-100">
-                {aggregatedStats.referrals}
+          ) : (
+            <>
+              <div className="mb-4 rounded-xl bg-dark-800/30 p-4">
+                <div className="text-sm text-dark-500">{t('earn.partner.statTotal')}</div>
+                <div className="stat-value mt-1">{stats?.total_subscriptions ?? 0}</div>
               </div>
-            </div>
-            <div className="rounded-xl bg-dark-800/30 p-3">
-              <div className="text-sm text-dark-500">{t('earn.partner.statEarnings')}</div>
-              <div className="mt-1 text-lg font-semibold text-success-400">
-                {formatEarnings(aggregatedStats.earningsKopeks)}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-xl bg-dark-800/30 p-3">
+                  <div className="text-sm text-dark-500">🟢 {t('earn.partner.statActive')}</div>
+                  <div className="mt-1 text-lg font-semibold text-success-400">
+                    {stats?.active_subscriptions ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-dark-800/30 p-3">
+                  <div className="text-sm text-dark-500">🔴 {t('earn.partner.statExpired')}</div>
+                  <div className="mt-1 text-lg font-semibold text-dark-100">
+                    {stats?.expired_subscriptions ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-dark-800/30 p-3">
+                  <div className="text-sm text-dark-500">🟡 {t('earn.partner.statNearExpiry')}</div>
+                  <div className="mt-1 text-lg font-semibold text-warning-400">
+                    {stats?.near_expiry_subscriptions ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-dark-800/30 p-3">
+                  <div className="text-sm text-dark-500">🟢 {t('earn.partner.statOnline')}</div>
+                  <div className="mt-1 text-lg font-semibold text-accent-400">
+                    {stats?.online_users ?? 0}
+                  </div>
+                  <div className="mt-0.5 text-xs text-dark-500">
+                    {t('earn.partner.statOnlineHint', {
+                      active: stats?.active_subscriptions ?? 0,
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <button type="button" onClick={onGoToInvite} className="btn-secondary mt-4 px-6">
-            {t('earn.partner.goToInvite')} ←
+              <div className="mt-4 rounded-xl bg-dark-800/30 p-4">
+                <div className="text-sm font-medium text-dark-300">{t('earn.partner.statWalletSpent')}</div>
+                <div className="mt-2 text-2xl font-bold text-dark-100">
+                  {formatAmount(stats?.total_spent_rubles ?? 0)}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-dark-800/50 p-3">
+                    <div className="text-xs text-dark-500">{t('earn.partner.statPurchaseWeek')}</div>
+                    <div className="mt-1 text-sm font-semibold text-dark-200">
+                      {formatAmount(stats?.spent_week_rubles ?? 0)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-dark-800/50 p-3">
+                    <div className="text-xs text-dark-500">{t('earn.partner.statPurchaseMonth')}</div>
+                    <div className="mt-1 text-sm font-semibold text-dark-200">
+                      {formatAmount(stats?.spent_month_rubles ?? 0)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          <button type="button" onClick={onBuySubscription} className="btn-primary mt-4 w-full px-6 sm:w-auto">
+            {t('earn.partner.buySubscription')}
           </button>
         </div>
-
-        {partnerStatus?.campaigns && partnerStatus.campaigns.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-accent-400">
-                <LinkIcon />
-              </div>
-              <h2 className="text-lg font-semibold text-dark-100">
-                {t('earn.partner.yourCampaigns')}
-              </h2>
-            </div>
-            {partnerStatus.campaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
-            ))}
-          </div>
-        )}
       </div>
     );
   }

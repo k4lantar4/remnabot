@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -10,8 +10,6 @@ import { EarnTabs, type EarnTabId } from '../components/earn/EarnTabs';
 import { InviteTab } from '../components/earn/InviteTab';
 import { PartnerTab } from '../components/earn/PartnerTab';
 import { useCurrency } from '../hooks/useCurrency';
-import { aggregatePartnerStats } from '../utils/earnStats';
-import { PARTNER_STATS } from '../constants/partner';
 import { UsersIcon } from '@/components/icons';
 
 export default function Referral() {
@@ -56,14 +54,14 @@ export default function Referral() {
     queryFn: partnerApi.getStatus,
   });
 
-  const aggregatedStats = useMemo(
-    () =>
-      aggregatePartnerStats(partnerStatus?.campaigns ?? [], {
-        total_referrals: info?.total_referrals ?? 0,
-        total_earnings_rubles: info?.total_earnings_rubles ?? 0,
-      }),
-    [partnerStatus?.campaigns, info],
-  );
+  const isPartner = partnerStatus?.partner_status === 'approved';
+
+  const { data: inventoryStats, isLoading: inventoryLoading } = useQuery({
+    queryKey: ['partner-inventory'],
+    queryFn: partnerApi.getInventoryStats,
+    enabled: isPartner,
+    staleTime: 60_000,
+  });
 
   const wholesalePercent = Math.round((partnerStatus?.wholesale_discount_bps ?? 0) / 100);
   const partnerSectionVisible = terms?.partner_section_visible !== false;
@@ -113,13 +111,12 @@ export default function Referral() {
         <PartnerTab
           partnerSectionVisible={partnerSectionVisible}
           partnerStatus={partnerStatus}
-          aggregatedStats={aggregatedStats}
+          inventoryStats={inventoryStats}
+          inventoryLoading={inventoryLoading}
           wholesalePercent={wholesalePercent}
           onApply={() => navigate('/referral/partner/apply')}
-          onGoToInvite={() => setActiveTab('invite')}
-          formatEarnings={(kopeks) =>
-            formatWithCurrency(kopeks / PARTNER_STATS.KOPEKS_DIVISOR)
-          }
+          onBuySubscription={() => navigate('/subscription/purchase')}
+          formatAmount={formatWithCurrency}
         />
       ) : (
         <InviteTab
@@ -128,6 +125,7 @@ export default function Referral() {
           commissionPercent={terms?.commission_percent ?? info?.commission_percent ?? 0}
           brandingName={brandingName}
           referralList={referralList}
+          campaigns={isPartner ? partnerStatus?.campaigns : undefined}
           onCopy={copyLink}
           copied={copied}
         />

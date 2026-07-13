@@ -42,6 +42,21 @@ export interface PartnerStatusResponse {
   campaigns: PartnerCampaignInfo[];
 }
 
+export interface PartnerInventoryStats {
+  total_subscriptions: number;
+  active_subscriptions: number;
+  expired_subscriptions: number;
+  near_expiry_subscriptions: number;
+  total_spent_kopeks: number;
+  total_spent_rubles: number;
+  spent_week_kopeks: number;
+  spent_week_rubles: number;
+  spent_month_kopeks: number;
+  spent_month_rubles: number;
+  online_users: number;
+  near_expiry_days: number;
+}
+
 export interface PartnerApplicationRequest {
   company_name?: string;
   website_url?: string;
@@ -207,6 +222,13 @@ export const partnerApi = {
   // User endpoints
   getStatus: async (): Promise<PartnerStatusResponse> => {
     const response = await apiClient.get<PartnerStatusResponse>('/cabinet/referral/partner/status');
+    return response.data;
+  },
+
+  getInventoryStats: async (): Promise<PartnerInventoryStats> => {
+    const response = await apiClient.get<PartnerInventoryStats>(
+      '/cabinet/referral/partner/inventory',
+    );
     return response.data;
   },
 

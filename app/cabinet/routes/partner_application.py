@@ -9,6 +9,7 @@ from app.cabinet.utils.links import get_campaign_deep_link, get_campaign_web_lin
 from app.config import settings
 from app.database.models import AdvertisingCampaign, User
 from app.services.partner_application_service import partner_application_service
+from app.services.partner_inventory_service import get_partner_inventory_stats
 from app.services.partner_stats_service import PartnerStatsService
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
@@ -19,6 +20,7 @@ from ..schemas.partners import (
     PartnerApplicationRequest,
     PartnerCampaignDetailedStats,
     PartnerCampaignInfo,
+    PartnerInventoryStatsResponse,
     PartnerStatusResponse,
     PeriodChange,
     PeriodComparison,
@@ -104,6 +106,22 @@ async def get_partner_status(
         latest_application=app_info,
         campaigns=campaigns,
     )
+
+
+@router.get('/inventory', response_model=PartnerInventoryStatsResponse)
+async def get_partner_inventory(
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """Wholesale inventory stats for approved partners (subscriptions, spend, online)."""
+    if not user.is_partner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Partner status required',
+        )
+
+    raw = await get_partner_inventory_stats(db, user)
+    return PartnerInventoryStatsResponse(**raw)
 
 
 @router.get('/campaigns/{campaign_id}/stats', response_model=PartnerCampaignDetailedStats)
