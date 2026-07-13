@@ -69,7 +69,7 @@ export function ConfigDeliverySheet({
           {configUrl ? (
             <>
               <code
-                className="block break-all rounded-xl px-3 py-2 font-mono text-xs"
+                className="url-ltr block break-all rounded-xl px-3 py-2 font-mono text-xs"
                 style={{
                   background: g.codeBg,
                   color: g.text,

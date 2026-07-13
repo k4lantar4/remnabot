@@ -179,7 +179,7 @@ export default function GiftClaim() {
               <p className="text-sm text-dark-300">
                 {t('landing.giftClaim.connectDesc', 'Use this link to connect:')}
               </p>
-              <p className="w-full select-all truncate rounded-lg bg-dark-900/60 px-3 py-2 text-sm text-accent-400">
+              <p className="url-ltr-truncate w-full select-all rounded-lg bg-dark-900/60 px-3 py-2 text-sm text-accent-400">
                 {result.subscription_url}
               </p>
               <button
