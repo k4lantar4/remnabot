@@ -61,7 +61,7 @@ services:
       POSTGRES_USER: '${POSTGRES_USER:-remnawave_user}'
       POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-secure_password_123}'
       REDIS_URL: 'redis://redis:6379/0'
-      TZ: 'Europe/Moscow'
+      TZ: 'Asia/Tehran'
       LOCALES_PATH: '${LOCALES_PATH:-/app/locales}'
     volumes:
       - ./logs:/app/logs:rw
@@ -71,9 +71,6 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./uploads:/app/uploads:rw
       - ./vpn_logo.png:/app/vpn_logo.png:ro
-      - /opt/rookari_db.json:/opt/rookari_db.json:ro
-      - /opt/old_bot/bcp:/opt/old_bot/bcp:ro
-      - /opt/migration-backups:/opt/migration-backups:rw
     ports:
       - '${WEB_API_PORT:-8080}:8080'
     networks:
