@@ -1,5 +1,6 @@
 import math
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -658,13 +659,19 @@ async def _apply_base_limit_preserving_active_purchases(
     base_limit_gb: int,
     *,
     now: datetime,
+    reset_purchased: bool = False,
 ) -> tuple[int, int]:
     """Пересобирает `traffic_limit_gb` инвариант после смены базового лимита.
 
     Истёкшие `TrafficPurchase` (expires_at <= now) удаляются — это нормальный housekeeping.
-    Активные пакеты (expires_at > now) **сохраняются**: они куплены отдельно за деньги,
-    у каждого свой срок жизни, и renewal/смена тарифа основной подписки не должна их
-    обнулять. Без этого юзер видит «трафик слетел после продления».
+    Активные пакеты (expires_at > now) **сохраняются по умолчанию**: они куплены отдельно
+    за деньги, у каждого свой срок жизни, и renewal/смена тарифа основной подписки не должна
+    их обнулять. Без этого юзер видит «трафик слетел после продления».
+
+    Если `reset_purchased=True` — **все** активные TrafficPurchase удаляются перед пересчётом.
+    Используется когда пользователь ЯВНО выбрал новый трафик для продления (custom_traffic_gb
+    введён руками или передан из renewal UI) — в этом случае пользователь платит именно за
+    `base_limit_gb` и не ожидает «прицепом» старые докупки за пределами продлеваемого периода.
 
     Если `base_limit_gb == 0` (безлимит) — total остаётся 0, докупки не складываются с
     безлимитом (это семантически не имеет смысла). Истёкшие пакеты всё равно подчищаем.
@@ -707,24 +714,53 @@ async def _apply_base_limit_preserving_active_purchases(
         subscription.traffic_reset_at = None
         return 0, 0
 
-    await db.execute(
-        delete(TrafficPurchase)
-        .where(
-            TrafficPurchase.subscription_id == subscription.id,
-            TrafficPurchase.expires_at <= now,
+    # ЯВНОЕ обнуление докупок: пользователь ввёл новый трафик для продления вручную
+    # (custom_traffic_gb / traffic_first_mode). Удаляем ВСЕ активные пакеты — иначе
+    # «40 ГБ за деньги → 60 ГБ из-за старой докупки на 20 ГБ». Логируем для аудита.
+    if reset_purchased:
+        all_active_q = await db.execute(
+            select(TrafficPurchase).where(
+                TrafficPurchase.subscription_id == subscription.id,
+                TrafficPurchase.expires_at > now,
+            )
         )
-        .execution_options(synchronize_session='fetch')
-    )
-    active_result = await db.execute(
-        select(TrafficPurchase).where(
-            TrafficPurchase.subscription_id == subscription.id,
-            TrafficPurchase.expires_at > now,
+        dropped = all_active_q.scalars().all()
+        if dropped:
+            logger.info(
+                '🧹 Renewal с явным трафиком — активные TrafficPurchase сброшены',
+                subscription_id=subscription.id,
+                user_id=subscription.user_id,
+                base_limit_gb=base_limit_gb,
+                dropped_count=len(dropped),
+                dropped_total_gb=sum(p.traffic_gb for p in dropped),
+                dropped_ids=[p.id for p in dropped],
+            )
+        await db.execute(
+            delete(TrafficPurchase)
+            .where(TrafficPurchase.subscription_id == subscription.id)
+            .execution_options(synchronize_session='fetch')
         )
-    )
-    active_packages = active_result.scalars().all()
+        purchased_gb = 0
+        nearest_expiry = None
+    else:
+        await db.execute(
+            delete(TrafficPurchase)
+            .where(
+                TrafficPurchase.subscription_id == subscription.id,
+                TrafficPurchase.expires_at <= now,
+            )
+            .execution_options(synchronize_session='fetch')
+        )
+        active_result = await db.execute(
+            select(TrafficPurchase).where(
+                TrafficPurchase.subscription_id == subscription.id,
+                TrafficPurchase.expires_at > now,
+            )
+        )
+        active_packages = active_result.scalars().all()
 
-    purchased_gb = sum(p.traffic_gb for p in active_packages) if active_packages else 0
-    nearest_expiry = min((p.expires_at for p in active_packages), default=None)
+        purchased_gb = sum(p.traffic_gb for p in active_packages) if active_packages else 0
+        nearest_expiry = min((p.expires_at for p in active_packages), default=None)
 
     subscription.traffic_limit_gb = base_limit_gb + purchased_gb
     subscription.purchased_traffic_gb = purchased_gb
@@ -745,6 +781,7 @@ async def extend_subscription(
     convert_trial: bool = True,
     commit: bool = True,
     reset_period: bool = False,
+    reset_purchased_traffic: bool = False,
 ) -> Subscription:
     """Продлевает подписку на указанное количество дней.
 
@@ -763,6 +800,12 @@ async def extend_subscription(
             (баг #629889).
         reset_period: при оплаченном продлении того же тарифа — начать новый
             период с текущей даты (не добавлять дни к end_date).
+        reset_purchased_traffic: если True — ВСЕ активные TrafficPurchase удаляются
+            ПЕРЕД расчётом нового лимита. Используется когда пользователь ЯВНО
+            указал новый `traffic_limit_gb` для продления (ввёл число вручную в
+            traffic_first_mode или custom_traffic_gb). Без этого докупки из
+            прошлого периода суммируются с новым базовым лимитом → 40 ГБ за деньги
+            превращаются в 60 ГБ из-за старой докупки на 20 ГБ.
     """
     current_time = datetime.now(UTC)
 
@@ -890,11 +933,12 @@ async def extend_subscription(
 
         if is_tariff_change or was_expired:
             # Базовый лимит обновляется (новый тариф или подписка истекала). Истёкшие
-            # TrafficPurchase убираем, ЕЩЁ АКТИВНЫЕ — сохраняем: их купили отдельно
-            # за деньги, у них собственный срок жизни. Раньше тут был хардкод DELETE
-            # ВСЕХ пакетов — отсюда юзерский баг «трафик слетел после продления».
+            # TrafficPurchase убираем, ЕЩЁ АКТИВНЫЕ — сохраняем по умолчанию: их
+            # купили отдельно за деньги, у них собственный срок жизни. Если вызывающий
+            # передал `reset_purchased_traffic=True` — все пакеты удаляются (явный
+            # custom_traffic_gb от пользователя).
             purchased, new_total = await _apply_base_limit_preserving_active_purchases(
-                db, subscription, traffic_limit_gb, now=current_time
+                db, subscription, traffic_limit_gb, now=current_time, reset_purchased=reset_purchased_traffic
             )
             reason = 'смена тарифа' if is_tariff_change else 'подписка была истёкшей'
             logger.info(
@@ -903,20 +947,23 @@ async def extend_subscription(
                 new_total=new_total,
                 preserved_purchased=purchased,
                 reason=reason,
+                reset_purchased=reset_purchased_traffic,
             )
             _housekeeping_done = True
         else:
-            # Подписка активна, тот же тариф — сохраняем докупленный трафик.
+            # Подписка активна, тот же тариф — сохраняем докупленный трафик по умолчанию.
             # Также проводим housekeeping: истёкшие TrafficPurchase удаляются,
-            # purchased_traffic_gb пересчитывается из активных.
+            # purchased_traffic_gb пересчитывается из активных. Если вызывающий передал
+            # `reset_purchased_traffic=True` (явный custom_traffic_gb) — все пакеты сбрасываем.
             purchased, new_total = await _apply_base_limit_preserving_active_purchases(
-                db, subscription, traffic_limit_gb, now=current_time
+                db, subscription, traffic_limit_gb, now=current_time, reset_purchased=reset_purchased_traffic
             )
             logger.info(
                 '📊 Обновлен лимит трафика (активные докупки сохранены)',
                 old_traffic=old_traffic,
                 new_total=new_total,
                 preserved_purchased=purchased,
+                reset_purchased=reset_purchased_traffic,
             )
             _housekeeping_done = True
     elif settings.RESET_TRAFFIC_ON_PAYMENT:
@@ -1066,10 +1113,18 @@ async def add_subscription_traffic(db: AsyncSession, subscription: Subscription,
     subscription.add_traffic(gb)
     subscription.updated_at = datetime.now(UTC)
 
-    # Создаём новую запись докупки с индивидуальной датой истечения (30 дней)
+    # Создаём новую запись докупки.
+    # Срок жизни докупки — 30 дней, но НЕ ДОЛЖЕН превышать subscription.end_date
+    # текущего периода. Иначе докупка «перепрыгивает» в следующий период продления
+    # и там суммируется с новым базовым лимитом (баг «40→60 ГБ»).
     from app.database.models import TrafficPurchase
 
-    new_expires_at = datetime.now(UTC) + timedelta(days=30)
+    now = datetime.now(UTC)
+    raw_expires_at = now + timedelta(days=30)
+    if subscription.end_date is not None and subscription.end_date > now:
+        new_expires_at = min(raw_expires_at, subscription.end_date)
+    else:
+        new_expires_at = raw_expires_at
     new_purchase = TrafficPurchase(subscription_id=subscription.id, traffic_gb=gb, expires_at=new_expires_at)
     db.add(new_purchase)
 
@@ -1078,7 +1133,6 @@ async def add_subscription_traffic(db: AsyncSession, subscription: Subscription,
     subscription.purchased_traffic_gb = current_purchased + gb
 
     # Устанавливаем traffic_reset_at на ближайшую дату истечения из всех активных докупок
-    now = datetime.now(UTC)
     active_purchases_query = (
         select(TrafficPurchase)
         .where(TrafficPurchase.subscription_id == subscription.id)
@@ -2679,3 +2733,110 @@ async def get_all_subscriptions_by_user_id(db: AsyncSession, user_id: int) -> li
         )
     )
     return list(result.scalars().all())
+
+
+# ---------------------------------------------------------------------------
+# Migration-style one-shot cleanup for the "40→60 GB" bug
+#
+# BUG: before the fix, `add_subscription_traffic` created TrafficPurchase rows
+# with expires_at = now + 30d without considering subscription.end_date. This
+# meant a top-up bought near period END leaked "purchased_gb" across the
+# renewal boundary — the NEXT renewal would see the old addon still "active"
+# and add it to the new base, producing «40 GB paid → 60 GB activated».
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class ClampStats:
+    """Audit-friendly summary from a _clamp_traffic_purchase_expiries run."""
+
+    rows_scanned: int
+    rows_updated: int
+    total_gb_updated: int
+    rows_skipped_end_date_null: int
+
+
+async def _clamp_traffic_purchase_expiries(
+    db: AsyncSession,
+    *,
+    commit: bool = True,
+) -> ClampStats:
+    """One-shot cleanup: clamp TrafficPurchase.expires_at → subscription.end_date.
+
+    Safe properties:
+      * Idempotent: rows already at-or-below end_date are never touched
+        (running twice produces rows_updated=0 on the 2nd pass).
+      * No-op for end_date=None subscriptions (legacy mode without tariff
+        periods — these never enter renewal flow anyway).
+      * Audit-logged: warning per clamped row plus aggregated summary.
+
+    Returns ClampStats with scanned/updated counts for safety review.
+    """
+    from app.database.models import TrafficPurchase
+
+    now = datetime.now(UTC)
+
+    # Scan candidate rows: ANY TrafficPurchase with a matching subscription
+    # whose end_date is known. We compare in-Python to avoid corner cases
+    # around timezone-aware < vs raw SQL tz semantics on different backends.
+    joined = await db.execute(
+        select(
+            TrafficPurchase.id,
+            TrafficPurchase.traffic_gb,
+            TrafficPurchase.expires_at,
+            Subscription.id.label('sub_id'),
+            Subscription.end_date,
+        )
+        .join(Subscription, Subscription.id == TrafficPurchase.subscription_id)
+        .order_by(TrafficPurchase.id)
+    )
+    rows = list(joined.all())
+
+    scanned = len(rows)
+    updated_count = 0
+    total_gb = 0
+    skipped_null = 0
+
+    for tp_id, traffic_gb, tp_expires_at, sub_id, end_date in rows:
+        if end_date is None:
+            skipped_null += 1
+            continue
+        if tp_expires_at <= end_date:
+            # Already inside the boundary — leave alone (idempotency).
+            continue
+        # — Apply the clamp —
+        logger.warning(
+            '🧹 Clamping TrafficPurchase.expires_at past subscription.end_date',
+            traffic_purchase_id=tp_id,
+            subscription_id=sub_id,
+            traffic_gb=traffic_gb,
+            old_expires_at=tp_expires_at.isoformat(),
+            new_expires_at=end_date.isoformat(),
+            drift_days=round((tp_expires_at - end_date).total_seconds() / 86400, 2),
+        )
+        await db.execute(
+            TrafficPurchase.__table__.update()
+            .where(TrafficPurchase.id == tp_id)
+            .values(expires_at=end_date)
+        )
+        updated_count += 1
+        total_gb += int(traffic_gb or 0)
+
+    stats = ClampStats(
+        rows_scanned=scanned,
+        rows_updated=updated_count,
+        total_gb_updated=total_gb,
+        rows_skipped_end_date_null=skipped_null,
+    )
+    logger.info(
+        '🧹 TrafficPurchase expiry clamp complete',
+        scanned=stats.rows_scanned,
+        updated=stats.rows_updated,
+        total_gb_updated=stats.total_gb_updated,
+        skipped_end_date_null=stats.rows_skipped_end_date_null,
+        now_utc=now.isoformat(),
+    )
+    if commit:
+        await db.commit()
+    return stats
+

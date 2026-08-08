@@ -6,7 +6,7 @@ from typing import Any
 
 import structlog
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, inspect as sa_inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -29,6 +29,7 @@ from app.database.crud.subscription import (
     get_subscriptions_for_autopay,
     reactivate_subscription,
 )
+from app.database.crud.transaction import addon_description_clause
 from app.database.crud.user import (
     cleanup_expired_promo_offer_discounts,
     delete_user,
@@ -40,9 +41,12 @@ from app.database.database import AsyncSessionLocal
 from app.database.models import (
     MonitoringLog,
     Subscription,
+    SubscriptionEvent,
     SubscriptionStatus,
     Ticket,
     TicketStatus,
+    Transaction,
+    TransactionType,
     User,
     UserPromoGroup,
     UserStatus,
@@ -212,6 +216,22 @@ class MonitoringService:
 
         return False
 
+    @staticmethod
+    def _resolve_tariff_label(subscription: Subscription | None, *, tariff_name: str | None = None) -> str:
+        if not settings.is_multi_tariff_enabled():
+            return ''
+        if tariff_name:
+            return f' «{tariff_name}»'
+        if subscription is None:
+            return ''
+        loaded_tariff = sa_inspect(subscription).dict.get('tariff')
+        if loaded_tariff is None:
+            return ''
+        name = getattr(loaded_tariff, 'name', None)
+        if not name:
+            return ''
+        return f' «{name}»'
+
     async def start_monitoring(self):
         if self.is_running:
             logger.warning('Мониторинг уже запущен')
@@ -293,6 +313,7 @@ class MonitoringService:
                 await self._cleanup_expired_refresh_tokens(db)
                 await self._cleanup_inactive_users(db)
                 await self._sync_with_remnawave(db)
+                await self._check_recent_payment_mismatches(db)
 
                 await self._log_monitoring_event(
                     db,
@@ -315,6 +336,121 @@ class MonitoringService:
                 except Exception:
                     pass
                 await db.rollback()
+
+    async def _check_recent_payment_mismatches(self, db: AsyncSession) -> None:
+        if not self.bot:
+            return
+
+        from app.services.admin_notification_service import (
+            AdminNotificationService,
+            NotificationCategory,
+        )
+        from app.services.remnawave_retry_queue import remnawave_retry_queue
+
+        admin_notify = AdminNotificationService(self.bot)
+        if not admin_notify.is_enabled:
+            return
+
+        now = datetime.now(UTC)
+        since = now - timedelta(hours=6)
+
+        stmt = (
+            select(
+                Transaction.id.label('txn_id'),
+                Transaction.user_id.label('user_id'),
+                User.telegram_id.label('telegram_id'),
+                Transaction.created_at.label('created_at'),
+                func.abs(Transaction.amount_kopeks).label('amount_kopeks'),
+                func.max(Subscription.id).label('active_sub_id'),
+                func.max(Subscription.subscription_url).label('active_sub_url'),
+                func.max(Subscription.remnawave_uuid).label('active_sub_uuid'),
+                func.max(Subscription.remnawave_short_uuid).label('active_sub_short'),
+                func.left(Transaction.description, 120).label('description'),
+            )
+            .select_from(Transaction)
+            .join(User, User.id == Transaction.user_id)
+            .outerjoin(
+                Subscription,
+                and_(
+                    Subscription.user_id == Transaction.user_id,
+                    Subscription.status == SubscriptionStatus.ACTIVE.value,
+                ),
+            )
+            .outerjoin(SubscriptionEvent, SubscriptionEvent.transaction_id == Transaction.id)
+            .where(
+                Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
+                Transaction.is_completed.is_(True),
+                Transaction.created_at >= since,
+                ~addon_description_clause(Transaction.description),
+            )
+            .group_by(
+                Transaction.id,
+                Transaction.user_id,
+                User.telegram_id,
+                Transaction.created_at,
+                Transaction.description,
+            )
+            .having(
+                or_(
+                    func.max(Subscription.id).is_(None),
+                    func.max(Subscription.subscription_url).is_(None),
+                    func.max(Subscription.remnawave_uuid).is_(None),
+                )
+            )
+            .order_by(Transaction.created_at.desc())
+            .limit(30)
+        )
+
+        rows = (await db.execute(stmt)).all()
+        if not rows:
+            return
+
+        enqueued = 0
+        lines: list[str] = []
+        for row in rows:
+            active_sub_id = row.active_sub_id
+            reason_parts: list[str] = []
+            if active_sub_id is None:
+                reason_parts.append('no_active_sub')
+            if row.active_sub_url is None:
+                reason_parts.append('no_url')
+            if row.active_sub_uuid is None:
+                reason_parts.append('no_panel_uuid')
+
+            reason = ','.join(reason_parts) if reason_parts else 'unknown'
+
+            if active_sub_id is not None and (row.active_sub_url is None or row.active_sub_uuid is None):
+                try:
+                    remnawave_retry_queue.enqueue(
+                        subscription_id=int(active_sub_id),
+                        user_id=int(row.user_id),
+                        action='create',
+                    )
+                    enqueued += 1
+                except Exception as enqueue_error:
+                    logger.warning(
+                        'Failed to enqueue remnawave retry from monitoring',
+                        error=enqueue_error,
+                        sub_id=active_sub_id,
+                    )
+
+            when = format_user_datetime(row.created_at, getattr(settings, 'DEFAULT_TIMEZONE', 'Asia/Tehran'))
+            amount_toman = int((row.amount_kopeks or 0) // 100)
+            sub_display = f'sub:{row.active_sub_short}' if row.active_sub_short else 'sub:—'
+            lines.append(f'• txn:{row.txn_id} tg:{row.telegram_id} {amount_toman}t {when} {sub_display} [{reason}]')
+
+        header = (
+            '⚠️ <b>Payment → Subscription mismatch</b>\n'
+            f'window: last 6h\n'
+            f'suspects: <b>{len(rows)}</b>\n'
+        )
+        if enqueued:
+            header += f'enqueued_remnawave_retry: <b>{enqueued}</b>\n'
+
+        await admin_notify.send_admin_notification(
+            f'{header}\n' + '\n'.join(lines[:25]),
+            category=NotificationCategory.ERRORS,
+        )
 
     async def _cleanup_notification_cache(self):
         current_time = datetime.now(UTC)
@@ -1662,13 +1798,17 @@ class MonitoringService:
     ) -> bool:
         try:
             texts = get_texts(user.language)
+            tariff_label = self._resolve_tariff_label(subscription, tariff_name=tariff_name)
             notify_ctx = format_subscription_notify_card(subscription, user, texts)
             message = texts.t(
                 'SUBSCRIPTION_EXPIRED_NOTIFY',
                 '⛔ <b>Подписка истекла</b>{subscription_card}\n\n'
                 'Ваша подписка истекла. Для восстановления доступа продлите подписку.\n\n'
                 '🔧 Доступ к серверам заблокирован до продления.',
-            ).format(subscription_card=notify_ctx['subscription_card'])
+            ).format(
+                subscription_card=notify_ctx['subscription_card'],
+                tariff_label=tariff_label,
+            )
 
             from aiogram.types import InlineKeyboardMarkup
 
@@ -1721,6 +1861,7 @@ class MonitoringService:
 
             texts = get_texts(user.language)
             days_text = format_days_declension(days, user.language)
+            tariff_label = self._resolve_tariff_label(subscription)
 
             if subscription.autopay_enabled and has_saved_card:
                 autopay_status = texts.t(
@@ -1766,7 +1907,17 @@ class MonitoringService:
                 days_text=days_text,
                 autopay_status=autopay_status,
                 action_text=action_text,
+                end_date=(
+                    format_user_datetime(
+                        subscription.end_date,
+                        language=user.language,
+                        fmt='%d.%m.%Y %H:%M',
+                    )
+                    if getattr(subscription, 'end_date', None)
+                    else ''
+                ),
                 subscription_card=notify_ctx['subscription_card'],
+                tariff_label=tariff_label,
             )
 
             from aiogram.types import InlineKeyboardMarkup
@@ -1968,7 +2119,8 @@ class MonitoringService:
     async def _send_expired_day1_notification(self, db: AsyncSession, user: User, subscription: Subscription) -> bool:
         try:
             texts = get_texts(user.language)
-            tariff = getattr(subscription, 'tariff', None)
+            tariff = sa_inspect(subscription).dict.get('tariff')
+            tariff_label = self._resolve_tariff_label(subscription)
 
             renewal_period = (tariff.get_shortest_period() if tariff else None) or 30
             try:
@@ -2001,6 +2153,7 @@ class MonitoringService:
                 ),
                 price=settings.format_price(renewal_price_kopeks),
                 subscription_card=notify_ctx['subscription_card'],
+                tariff_label=tariff_label,
             )
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -2069,6 +2222,7 @@ class MonitoringService:
     ) -> bool:
         try:
             texts = get_texts(user.language)
+            tariff_label = self._resolve_tariff_label(subscription)
 
             notify_ctx = format_subscription_notify_card(subscription, user, texts)
 
@@ -2100,6 +2254,7 @@ class MonitoringService:
                 ),
                 trigger_days=trigger_days or '',
                 subscription_card=notify_ctx['subscription_card'],
+                tariff_label=tariff_label,
             )
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup

@@ -366,6 +366,12 @@ class Settings(BaseSettings):
     DAILY_SUBSCRIPTIONS_ENABLED: bool = True  # Включить автоматическое списание для суточных тарифов
     DAILY_SUBSCRIPTIONS_CHECK_INTERVAL_MINUTES: int = 30  # Интервал проверки в минутах
 
+    WAVE2_AUTOFIX_ENABLED: bool = False
+    WAVE2_AUTOFIX_INTERVAL_MINUTES: int = 10
+    WAVE2_AUTOFIX_MAX_GROUPS_PER_RUN: int = 200
+    WAVE2_AUTOFIX_MAX_CHANGES_PER_RUN: int = 50
+    WAVE2_AUTOFIX_REPORT_DIR: str = 'var/wave2_autofix'
+
     AUTOPAY_WARNING_DAYS: str = '3,1'
 
     ENABLE_AUTOPAY: bool = False

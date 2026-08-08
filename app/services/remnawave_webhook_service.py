@@ -751,8 +751,15 @@ class RemnaWaveWebhookService:
 
         # Multi-tariff: try finding user through subscription's remnawave_uuid
         if not user and remnawave_uuid and settings.is_multi_tariff_enabled():
-            from sqlalchemy import select as sa_select
+            from sqlalchemy import case as sa_case, select as sa_select
             from sqlalchemy.orm import selectinload as sa_selectinload
+
+            status_priority = sa_case(
+                (Subscription.status == SubscriptionStatus.ACTIVE.value, 0),
+                (Subscription.status == SubscriptionStatus.LIMITED.value, 1),
+                (Subscription.status == SubscriptionStatus.TRIAL.value, 2),
+                else_=3,
+            )
 
             sub_result = await db.execute(
                 sa_select(Subscription)
@@ -763,6 +770,13 @@ class RemnaWaveWebhookService:
                     sa_selectinload(Subscription.tariff),
                 )
                 .where(Subscription.remnawave_uuid == remnawave_uuid)
+                .order_by(
+                    status_priority.asc(),
+                    Subscription.end_date.desc().nulls_last(),
+                    Subscription.updated_at.desc().nulls_last(),
+                    Subscription.created_at.desc(),
+                    Subscription.id.desc(),
+                )
                 .limit(1)
             )
             found_sub = sub_result.scalar_one_or_none()
@@ -774,8 +788,15 @@ class RemnaWaveWebhookService:
 
         # In multi-tariff mode, find subscription by remnawave_uuid (per-subscription)
         if settings.is_multi_tariff_enabled() and remnawave_uuid:
-            from sqlalchemy import select
+            from sqlalchemy import case, select
             from sqlalchemy.orm import selectinload
+
+            status_priority = case(
+                (Subscription.status == SubscriptionStatus.ACTIVE.value, 0),
+                (Subscription.status == SubscriptionStatus.LIMITED.value, 1),
+                (Subscription.status == SubscriptionStatus.TRIAL.value, 2),
+                else_=3,
+            )
 
             result = await db.execute(
                 select(Subscription)
@@ -784,6 +805,14 @@ class RemnaWaveWebhookService:
                     Subscription.remnawave_uuid == remnawave_uuid,
                     Subscription.user_id == user.id,
                 )
+                .order_by(
+                    status_priority.asc(),
+                    Subscription.end_date.desc().nulls_last(),
+                    Subscription.updated_at.desc().nulls_last(),
+                    Subscription.created_at.desc(),
+                    Subscription.id.desc(),
+                )
+                .limit(1)
             )
             subscription = result.scalar_one_or_none()
             if subscription:
@@ -801,6 +830,13 @@ class RemnaWaveWebhookService:
                 select(Subscription)
                 .options(selectinload(Subscription.tariff))
                 .where(Subscription.remnawave_uuid == remnawave_uuid)
+                .order_by(
+                    status_priority.asc(),
+                    Subscription.end_date.desc().nulls_last(),
+                    Subscription.updated_at.desc().nulls_last(),
+                    Subscription.created_at.desc(),
+                    Subscription.id.desc(),
+                )
                 .limit(1)
             )
             fallback1_sub = fallback1_result.scalar_one_or_none()

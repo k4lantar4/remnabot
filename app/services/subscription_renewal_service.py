@@ -434,12 +434,18 @@ class SubscriptionRenewalService:
         )
 
         try:
+            renewal_gb = _renewal_traffic_gb(subscription_before)
             subscription_after = await extend_subscription(
                 db,
                 subscription_before,
                 period_days,
-                traffic_limit_gb=_renewal_traffic_gb(subscription_before),
+                traffic_limit_gb=renewal_gb,
                 reset_period=True,
+                # renewal_gb берётся из subscription.traffic_limit_gb, который УЖЕ
+                # включает purchased_traffic_gb (инвариант total = base + purchased).
+                # Поэтому повторно складывать активные TrafficPurchase нельзя — иначе
+                # «60 ГБ оплачено → 80 ГБ начислено» из-за старой докупки на 20 ГБ.
+                reset_purchased_traffic=renewal_gb is not None,
             )
         except Exception:
             # Session may be in a failed state after a broken commit — rollback first

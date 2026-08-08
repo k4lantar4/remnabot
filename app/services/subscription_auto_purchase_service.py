@@ -511,7 +511,10 @@ async def _auto_extend_subscription(
     is_tariff_change = prepared.tariff_id is not None and old_tariff_id != prepared.tariff_id
 
     try:
-        # При смене тарифа передаём traffic_limit_gb для сброса трафика в БД
+        # При смене тарифа передаём traffic_limit_gb для сброса трафика в БД.
+        # Если traffic_limit_gb явно передан из корзины — он обычно взят с
+        # subscription.traffic_limit_gb (УЖЕ включает purchased), поэтому
+        # старые активные TrafficPurchase нужно сбросить, иначе сумма удвоится.
         updated_subscription = await extend_subscription(
             db,
             subscription,
@@ -520,6 +523,7 @@ async def _auto_extend_subscription(
             traffic_limit_gb=prepared.traffic_limit_gb,
             device_limit=prepared.device_limit if is_tariff_change else None,
             reset_period=True,
+            reset_purchased_traffic=prepared.traffic_limit_gb is not None,
         )
 
         # Конвертируем триал в платную подписку ТОЛЬКО после успешного продления
@@ -903,6 +907,8 @@ async def _auto_purchase_tariff(
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
             else:
                 effective_device_limit = tariff.device_limit
+            # Явный custom_traffic_gb из корзины — сбрасываем старые докупки,
+            # иначе «40 ГБ за деньги → 60 ГБ» из-за старого TrafficPurchase.
             subscription = await extend_subscription(
                 db,
                 existing_subscription,
@@ -912,6 +918,7 @@ async def _auto_purchase_tariff(
                 device_limit=effective_device_limit,
                 connected_squads=squads,
                 reset_period=True,
+                reset_purchased_traffic=custom_traffic_gb is not None,
             )
             was_trial_conversion = existing_subscription.is_trial
             if was_trial_conversion:

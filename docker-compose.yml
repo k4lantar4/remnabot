@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: remnawave_bot_db
+    extra_hosts:
+      - "panel.rookari.com:172.18.0.3"
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-remnawave_bot}
@@ -27,6 +29,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: remnawave_bot_redis
+    extra_hosts:
+      - "panel.rookari.com:172.18.0.3"
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
@@ -43,6 +47,8 @@ services:
   bot:
     build: .
     container_name: remnawave_bot
+    extra_hosts:
+      - "panel.rookari.com:172.18.0.3"
     restart: unless-stopped
     depends_on:
       postgres:

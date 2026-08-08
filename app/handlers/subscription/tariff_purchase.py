@@ -2315,12 +2315,15 @@ async def confirm_tariff_purchase(
     # Reuse existing_sub fetched above for device pricing
     existing_subscription = existing_sub
     purchase_traffic_gb = custom_traffic_gb if custom_traffic_gb else tariff.traffic_limit_gb
+    explicit_custom_traffic = bool(custom_traffic_gb and _state_data.get('custom_traffic_gb') is not None)
 
     try:
         if settings.is_multi_tariff_enabled():
             _state_data = await state.get_data() if state else {}
             if should_extend_multi_tariff(_state_data, existing_sub=existing_subscription) and existing_subscription:
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
+                # Если пользователь ЯВНО указал custom_traffic_gb — сбрасываем старые докупки
+                # при продлении, иначе 40 ГБ за деньги → 60 ГБ из-за старого TrafficPurchase.
                 subscription = await extend_subscription(
                     db,
                     existing_subscription,
@@ -2330,6 +2333,7 @@ async def confirm_tariff_purchase(
                     device_limit=effective_device_limit,
                     connected_squads=squads,
                     reset_period=True,
+                    reset_purchased_traffic=explicit_custom_traffic,
                 )
             else:
                 active_count = len(await get_active_subscriptions_by_user_id(db, db_user.id))
@@ -2385,6 +2389,8 @@ async def confirm_tariff_purchase(
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
             else:
                 effective_device_limit = tariff.device_limit
+            # Явный custom_traffic_gb — сбрасываем старые TrafficPurchase, иначе
+            # «40 ГБ оплачено → 60 ГБ начислено» из-за докупки в прошлом периоде.
             subscription = await extend_subscription(
                 db,
                 existing_subscription,
@@ -2394,6 +2400,7 @@ async def confirm_tariff_purchase(
                 device_limit=effective_device_limit,
                 connected_squads=squads,
                 reset_period=True,
+                reset_purchased_traffic=explicit_custom_traffic,
             )
         else:
             # Создаем новую подписку
@@ -3476,12 +3483,19 @@ async def confirm_tariff_extend(
         was_trial = subscription.is_trial
 
         renewal_traffic_gb = None
+        explicit_custom_gb = False
         if tariff.can_purchase_custom_traffic() and custom_traffic_gb:
             renewal_traffic_gb = int(custom_traffic_gb)
+            explicit_custom_gb = (
+                _state.get('traffic_first_mode')
+                or _state.get('custom_traffic_gb') is not None
+            )
         else:
             renewal_traffic_gb = tariff.traffic_limit_gb
 
-        # Продлеваем подписку; для триала передаём tariff_id чтобы сбросить is_trial
+        # Продлеваем подписку; для триала передаём tariff_id чтобы сбросить is_trial.
+        # Если пользователь ЯВНО ввёл объём трафика вручную — сбрасываем старые докупки,
+        # иначе 40 ГБ за деньги превратятся в 60 ГБ из-за старого TrafficPurchase на 20 ГБ.
         subscription = await extend_subscription(
             db,
             subscription,
@@ -3490,6 +3504,7 @@ async def confirm_tariff_extend(
             traffic_limit_gb=renewal_traffic_gb,
             device_limit=actual_device_limit if was_trial else None,
             reset_period=True,
+            reset_purchased_traffic=explicit_custom_gb,
         )
 
         from app.handlers.subscription.tariff_purchase_partner import checkout_partner_options

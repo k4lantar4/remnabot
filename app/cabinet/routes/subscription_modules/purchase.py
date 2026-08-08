@@ -1091,7 +1091,9 @@ async def purchase_tariff(
             await db.flush()
 
         if subscription:
-            # Extend/change tariff — сохраняем докупленные устройства при продлении того же тарифа
+            # Extend/change tariff — сохраняем докупленные устройства при продлении того же тарифа.
+            # Если пользователь ЯВНО указал traffic_gb в запросе — сбрасываем старые докупки,
+            # иначе «40 ГБ оплачено → 60 ГБ начислено» из-за старого TrafficPurchase.
             subscription = await extend_subscription(
                 db=db,
                 subscription=subscription,
@@ -1101,6 +1103,7 @@ async def purchase_tariff(
                 device_limit=effective_device_limit,
                 connected_squads=squads,
                 reset_period=True,
+                reset_purchased_traffic=custom_traffic_gb is not None,
             )
         else:
             # Create new subscription

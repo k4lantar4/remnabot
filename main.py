@@ -41,6 +41,7 @@ from app.services.riopay_service import riopay_service
 from app.services.system_settings_service import bot_configuration_service
 from app.services.traffic_monitoring_service import traffic_monitoring_scheduler
 from app.services.version_service import version_service
+from app.services.wave2_autofix_service import wave2_autofix_service
 from app.services.web_api_token_service import ensure_default_web_api_token
 from app.utils.log_handlers import ExcludePaymentFilter, LevelFilterHandler
 from app.utils.payment_logger import configure_payment_logger
@@ -305,6 +306,7 @@ async def main():
         ban_notification_service.set_bot(bot)
         traffic_monitoring_scheduler.set_bot(bot)
         daily_subscription_service.set_bot(bot)
+        wave2_autofix_service.set_bot(bot)
         telegram_notifier.set_bot(bot)
 
         from app.services.channel_subscription_service import channel_subscription_service
@@ -440,6 +442,24 @@ async def main():
             except Exception as e:
                 stage.warning(f'Ошибка запуска автосинхронизации: {e}')
                 logger.error('❌ Ошибка запуска автосинхронизации RemnaWave', error=e)
+
+        async with timeline.stage(
+            'Wave2 автоисправление',
+            '🧹',
+            success_message='Wave2 автоисправление готово',
+        ) as stage:
+            try:
+                await wave2_autofix_service.start()
+                if wave2_autofix_service.is_enabled():
+                    stage.log(f'Интервал: {wave2_autofix_service.get_interval_minutes()} мин')
+                    stage.log(f'Лимит групп/запуск: {wave2_autofix_service.get_max_groups_per_run()}')
+                    stage.log(f'Лимит изменений/запуск: {wave2_autofix_service.get_max_changes_per_run()}')
+                    stage.success('Фоновая проверка включена')
+                else:
+                    stage.skip('Wave2 автоисправление отключено настройками')
+            except Exception as e:
+                stage.warning(f'Ошибка запуска Wave2 автоисправления: {e}')
+                logger.error('❌ Ошибка запуска Wave2 автоисправления', error=e)
 
         # Разовая фоновая чистка накопившихся дублей тарифных подписок (multi-tariff):
         # лишние истёкшие дубли удаляются из БД и панели вместе, как штатное удаление.
