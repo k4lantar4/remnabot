@@ -1288,6 +1288,7 @@
   "MY_BALANCE_BUTTON": "💰 موجودی من",
   "MY_SUBSCRIPTION_BUTTON": "📱 اشتراک من",
   "MY_SUBSCRIPTIONS_BUTTON": "📱 اشتراک‌های من",
+  "MY_SUB_ACCOUNT_LABEL": "{tariff} #{seq}",
   "MY_SUB_BACK": "◀️ قبلی",
   "MY_SUB_BTN_AUTOPAY": "🔄 تمدید خودکار از اعتبار",
   "MY_SUB_BTN_BACK_TO_LIST": "◀️ به فهرست اشتراک‌ها",

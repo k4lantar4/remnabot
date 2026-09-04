@@ -29,15 +29,24 @@ def _status_label(sub: Any, texts: Any) -> str:
     return ''
 
 
+USER_UNKNOWN_PREFIX = 'user_unknown_'
+
+
 def subscription_list_identity(sub: Any, user: Any, texts: Any) -> str:
-    brand = (getattr(user, 'panel_brand_prefix', None) or '').strip()
-    serial = (getattr(sub, 'remnawave_short_id', '') or '').strip()
-    if getattr(user, 'is_partner', False) and brand and serial:
-        return f'{brand}_{serial}'
+    del user  # identity A does not use partner brand
+    panel = (getattr(sub, 'panel_username', None) or '').strip()
+    if panel.startswith(USER_UNKNOWN_PREFIX):
+        panel = ''
+    if panel:
+        return panel
     tariff = getattr(sub, 'tariff', None)
-    if tariff and getattr(tariff, 'name', None):
-        return str(tariff.name)
-    return texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    tariff_name = (
+        str(getattr(tariff, 'name', None))
+        if tariff and getattr(tariff, 'name', None)
+        else texts.t('MY_SUB_DEFAULT_NAME', 'Подписка')
+    )
+    seq = getattr(sub, 'account_sequence', 1) or 1
+    return texts.t('MY_SUB_ACCOUNT_LABEL', '{tariff} #{seq}').format(tariff=tariff_name, seq=seq)
 
 
 def format_subscription_list_line(
@@ -79,10 +88,13 @@ def _matches(sub: Any, query: str, texts: Any, user: Any) -> bool:
     identity = subscription_list_identity(sub, user, texts).lower()
     if q in identity:
         return True
+    panel = (getattr(sub, 'panel_username', None) or '').strip().lower()
+    if panel and q in panel:
+        return True
     if q in str(getattr(sub, 'id', '')):
         return True
     serial = (getattr(sub, 'remnawave_short_id', '') or '').strip().lower()
-    if serial and q in serial:
+    if serial and q == serial:
         return True
     note = (getattr(sub, 'purchase_note', None) or '').strip().lower()
     if note and q in note:

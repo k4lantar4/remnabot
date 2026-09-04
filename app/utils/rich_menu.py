@@ -394,10 +394,11 @@ def _build_subscriptions_table(subscriptions, texts) -> str:
         f'<th>{_rich_text(texts.t("MAIN_MENU_RICH_TABLE_UNTIL", "Действует до"))}</th>'
         '</tr>'
     )
-    tariff_fallback = texts.t('MAIN_MENU_RICH_TARIFF_FALLBACK', 'Подписка')
     rows = [header]
     for subscription in subscriptions:
-        tariff_name = html.escape(subscription.tariff.name) if subscription.tariff else _rich_text(tariff_fallback)
+        from app.utils.subscription_list_display import subscription_list_identity
+
+        label = html.escape(subscription_list_identity(subscription, None, texts))
         actual_status = (subscription.actual_status or '').lower()
         status_label = _rich_status_label(texts, actual_status, bool(getattr(subscription, 'is_trial', False)))
 
@@ -423,7 +424,7 @@ def _build_subscriptions_table(subscriptions, texts) -> str:
             until_cell = '—'
 
         rows.append(
-            f'<tr><td>{tariff_name}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>'
+            f'<tr><td>{label}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>'
         )
 
         # Нижняя строка ряда: расход + «кнопки» действий. Отдельная узкая колонка
