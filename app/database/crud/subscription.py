@@ -28,6 +28,14 @@ from app.utils.timezone import format_local_datetime
 
 logger = structlog.get_logger(__name__)
 
+
+async def get_next_account_sequence(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(
+        select(func.coalesce(func.max(Subscription.account_sequence), 0)).where(Subscription.user_id == user_id)
+    )
+    return int(result.scalar_one()) + 1
+
+
 # Статусы, при которых подписка считается «живой» (индекс uq_subscriptions_user_tariff_active
 # защищает именно эти статусы). Используется в нескольких местах модуля.
 ALIVE_SUBSCRIPTION_STATUSES: frozenset[str] = frozenset(
@@ -630,6 +638,8 @@ async def create_paid_subscription(
 
     short_id = await generate_unique_short_id(db)
 
+    account_sequence = await get_next_account_sequence(db, user_id)
+
     subscription = Subscription(
         user_id=user_id,
         status=SubscriptionStatus.ACTIVE.value,
@@ -643,6 +653,7 @@ async def create_paid_subscription(
         autopay_days_before=settings.DEFAULT_AUTOPAY_DAYS_BEFORE,
         tariff_id=tariff_id,
         remnawave_short_id=short_id,
+        account_sequence=account_sequence,
     )
 
     db.add(subscription)
