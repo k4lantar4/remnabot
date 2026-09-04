@@ -2349,13 +2349,6 @@ class Subscription(Base):
         Index('ix_subscriptions_user_tariff_status', 'user_id', 'tariff_id', 'status'),
         Index('ix_subscriptions_grace_expiry_scan', 'status', 'is_trial', 'end_date'),
         Index('ix_subscriptions_grace_candidate', 'grace_candidate_at', 'grace_candidate_reason'),
-        Index(
-            'uq_subscriptions_user_tariff_active',
-            'user_id',
-            'tariff_id',
-            unique=True,
-            postgresql_where=text("tariff_id IS NOT NULL AND status IN ('active', 'trial', 'limited')"),
-        ),
         # Панельная идентичность подписки. Уникальность частичная: непривязанных
         # подписок (remnawave_id IS NULL) может быть сколько угодно, а вот две
         # подписки на одного панельного пользователя — всегда ошибка. Код это и
@@ -2428,6 +2421,8 @@ class Subscription(Base):
     )  # Permanent short ID for username suffix
     purchase_note = Column(Text, nullable=True)
     user_disabled = Column(Boolean, default=False, nullable=False)
+    account_sequence = Column(Integer, nullable=False, default=1)
+    panel_username = Column(String(64), nullable=True)
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)

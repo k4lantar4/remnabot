@@ -13,6 +13,7 @@ from app.database.crud.server_squad import get_all_server_squads
 from app.database.crud.user import get_user_by_id
 from app.database.models import Subscription, SubscriptionStatus, User
 from app.custom.identity.persist import persist_identity
+from app.custom.identity.panel_username import cache_panel_username
 from app.external.remnawave_api import (
     RemnaWaveAPI,
     RemnaWaveAPIError,
@@ -277,6 +278,7 @@ class SubscriptionService:
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 if await self._panel_id_is_free_for(db, subscription, updated_user.id):
                     persist_identity(subscription=subscription, panel_user=updated_user)
+                    cache_panel_username(subscription, updated_user)
                 else:
                     # `uq_subscriptions_remnawave_id` частично-уникален. В
                     # single-tariff соседняя подписка того же человека уже держит
@@ -407,6 +409,7 @@ class SubscriptionService:
                 )
                 return None
             persist_identity(subscription=subscription, panel_user=adopted)
+            cache_panel_username(subscription, adopted)
         else:
             # Только на User: в single-tariff все подписки одного пользователя
             # указывают на ОДИН панельный аккаунт, а `uq_subscriptions_remnawave_id`
@@ -504,6 +507,7 @@ class SubscriptionService:
             # то есть панель изменена, а транзакция отката.
             if db is None or await self._panel_id_is_free_for(db, subscription, adopted.id):
                 persist_identity(subscription=subscription, panel_user=adopted)
+                cache_panel_username(subscription, adopted)
             else:
                 logger.warning(
                     '⚠️ Панельный id уже закреплён за другой подпиской — колонку не трогаем',
@@ -1363,6 +1367,7 @@ class SubscriptionService:
                     # запись падала бы здесь на IntegrityError.
                     if await self._panel_id_is_free_for(db, subscription, panel_user.id):
                         persist_identity(subscription=subscription, panel_user=panel_user)
+                        cache_panel_username(subscription, panel_user)
                     else:
                         logger.warning(
                             '⚠️ Панельный id уже закреплён за другой подпиской — адресуем через пользователя',
