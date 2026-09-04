@@ -870,7 +870,7 @@ EOF
 
 - [ ] **Step 1: Port search UI from donor Subscriptions.tsx (do not replace the 1.67 file wholesale)**
 
-From `/opt/remnabot/cabinet/src/pages/Subscriptions.tsx` take: `searchQuery` / debounce / `showSearch` when `accountTotal >= 2` / input + clear / `NEW_PURCHASE_PATH` for empty/buy-another/browse CTAs / optional pagination if donor `PAGE_LIMIT` is already used.
+From `/opt/remnabot/cabinet/src/pages/Subscriptions.tsx` copy these behaviors into the 1.67 page: `searchQuery` + 300ms debounce, `showSearch` when `accountTotal >= 2`, search input + clear + no-results, `PAGE_LIMIT = 10` with offset pagination, and `NEW_PURCHASE_PATH` for empty/buy-another/browse CTAs. Use donor `getSubscriptions({ offset, limit, search })` plus a summary query (`limit: 100`) for `accountTotal` / `hasActivePaid`.
 
 Keep 1.67 glass/skeleton imports. Replace every `navigate('/subscription/purchase')` with `navigate(NEW_PURCHASE_PATH)`.
 
