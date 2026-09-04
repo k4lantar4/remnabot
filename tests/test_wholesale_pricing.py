@@ -122,3 +122,45 @@ class TestWholesaleDisplayParity:
         assert final == 9000
         assert primary == 1000
         assert secondary == 0
+
+
+class TestSalesEdgeMatrix:
+    @pytest.mark.asyncio
+    async def test_purchase_partner_cheaper_than_retail(self):
+        engine = PricingEngine()
+        tariff = MagicMock()
+        tariff.id = 1
+        tariff.is_daily = False
+        tariff.period_prices = {'30': 100000}
+        tariff.device_limit = 1
+        tariff.device_price_kopeks = 0
+        tariff.custom_traffic_enabled = False
+        tariff.can_purchase_custom_traffic = MagicMock(return_value=False)
+        tariff.is_available_for_promo_group = MagicMock(return_value=True)
+        retail = MagicMock(is_partner=False, wholesale_discount_bps=0, partner_status=None)
+        retail.get_primary_promo_group = MagicMock(return_value=None)
+        retail.promo_group = None
+        retail.promo_offer_discount_percent = 0
+        retail.promo_offer_discount_expires_at = None
+        partner = _partner_user(bps=2500)
+        partner.get_primary_promo_group = MagicMock(return_value=None)
+        partner.promo_group = None
+        r = await engine.calculate_tariff_purchase_price(tariff, 30, device_limit=1, user=retail)
+        p = await engine.calculate_tariff_purchase_price(tariff, 30, device_limit=1, user=partner)
+        assert p.final_total < r.final_total
+
+    def test_traffic_partner_cheaper_than_retail(self):
+        retail = MagicMock(is_partner=False, wholesale_discount_bps=0)
+        retail.get_primary_promo_group = MagicMock(return_value=None)
+        retail.promo_group = None
+        partner = _partner_user(bps=2000)
+        p, _, _ = PricingEngine.calculate_traffic_discount(50000, partner)
+        r, _, _ = PricingEngine.calculate_traffic_discount(50000, retail)
+        assert p < r
+
+    def test_devices_addon_uses_engine(self):
+        partner = _partner_user(bps=2500)
+        partner.get_primary_promo_group = MagicMock(return_value=None)
+        partner.promo_group = None
+        pct = PricingEngine.get_addon_discount_percent(partner, 'devices', 30)
+        assert pct >= 0
