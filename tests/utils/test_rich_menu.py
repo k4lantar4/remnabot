@@ -676,17 +676,19 @@ async def test_multi_tariff_table_is_fully_localized(monkeypatch):
             end_date=now + timedelta(days=5),
             start_date=now,
             tariff_id=None,
-            tariff=None,  # тарифless-подписка использует локализованный fallback
+            tariff=None,  # тарифless-подписка: identity A → MY_SUB_ACCOUNT_LABEL
             traffic_used_gb=0,
             traffic_limit_gb=0,
             device_limit=1,
+            panel_username=None,
+            account_sequence=1,
         ),
     ]
 
     html_out = rich_menu._build_subscriptions_table(subs, MarkerTexts())
 
     assert '[MAIN_MENU_RICH_DAYS_LEFT]' in html_out
-    assert '[MAIN_MENU_RICH_TARIFF_FALLBACK]' in html_out
+    assert '[MY_SUB_ACCOUNT_LABEL]' in html_out
     assert 'дн.' not in html_out
     assert 'Подписка' not in html_out
 
