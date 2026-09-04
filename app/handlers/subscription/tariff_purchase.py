@@ -30,6 +30,7 @@ from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
 from app.utils.promo_offer import get_user_active_promo_discount_percent
+from app.utils.subscription_purchase_intent import should_extend_multi_tariff
 
 
 logger = structlog.get_logger(__name__)
@@ -968,13 +969,13 @@ async def _proceed_with_selected_tariff(
         else:
             missing = daily_price - user_balance
 
-            # Ищем существующую подписку для передачи subscription_id в корзину
+            # Pin only: empty pin → new row; never look up by (user, tariff).
             if settings.is_multi_tariff_enabled():
-                from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-                _daily_existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
+                _daily_state = await state.get_data() if state else {}
+                _daily_sub_id = _daily_state.get('target_subscription_id')
             else:
                 _daily_existing_sub = await get_subscription_by_user_id(db, db_user.id)
+                _daily_sub_id = _daily_existing_sub.id if _daily_existing_sub else None
 
             # Сохраняем данные корзины для автопокупки суточного тарифа
             cart_data = {
@@ -991,7 +992,7 @@ async def _proceed_with_selected_tariff(
                 'traffic_limit_gb': tariff.traffic_limit_gb,
                 'device_limit': tariff.device_limit,
                 'allowed_squads': tariff.allowed_squads or [],
-                'subscription_id': _daily_existing_sub.id if _daily_existing_sub else None,
+                'subscription_id': _daily_sub_id,
             }
             await user_cart_service.save_user_cart(db_user.id, cart_data)
 
@@ -1633,12 +1634,16 @@ async def select_tariff_period(
         await callback.answer(texts.t('TARIFF_PURCHASE_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
-    # Существующая подписка этого тарифа нужна ДО расчёта цены: confirm передаёт
-    # её device_limit в движок, и превью обязано считать так же.
+    # Pin only: if FSM has a target_subscription_id, load that row for
+    # device pricing. Empty pin → new purchase; do not look up by tariff.
     if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-        _existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
+        _state_data = await state.get_data() if state else {}
+        _pinned_sub_id = _state_data.get('target_subscription_id')
+        _existing_sub = None
+        if _pinned_sub_id:
+            _existing_sub = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
+            if _existing_sub and _existing_sub.tariff_id != tariff_id:
+                _existing_sub = None
     else:
         _existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
@@ -1811,42 +1816,23 @@ async def confirm_tariff_purchase(
     # Calculate price via PricingEngine (single source of truth)
     from app.services.pricing_engine import pricing_engine
 
-    # In multi-tariff mode, prefer the subscription_id pinned in FSM at
-    # preview time — that's the EXACT row the user clicked Renew/Buy on.
-    # Re-querying by ``(user_id, tariff_id)`` here is race-vulnerable:
-    # if a concurrent panel webhook briefly flips the active sub's
-    # status between preview and confirm, this query returns None,
-    # the code falls through to ``create_paid_subscription``, and the
-    # partial UNIQUE ``uq_subscriptions_user_tariff_active`` raises
-    # IntegrityError → user sees "Тариф уже активен" in logs, money
-    # debited then refunded, subscription not extended.
-    #
-    # We fall back to the tariff-level lookup only if FSM has no
-    # pinned ID (old session / direct deep-link / state lost) so
-    # legacy flows continue to work.
+    # In multi-tariff mode, load by FSM pin only. Empty pin → create a
+    # new row; never ``get_subscription_by_user_and_tariff``.
     if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
         _state_data = await state.get_data() if state else {}
         _pinned_sub_id = _state_data.get('target_subscription_id')
-
         existing_sub = None
         if _pinned_sub_id:
             existing_sub = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
-            # Defence: if admin/user switched tariff between preview
-            # and confirm, the pinned sub may no longer match —
-            # ignore it and fall back to fresh tariff lookup.
             if existing_sub and existing_sub.tariff_id != tariff_id:
                 logger.warning(
-                    'FSM-pinned subscription tariff diverged from confirm tariff; falling back',
+                    'FSM-pinned subscription tariff diverged from confirm tariff; ignoring pin',
                     pinned_sub_id=_pinned_sub_id,
                     pinned_tariff_id=existing_sub.tariff_id,
                     confirm_tariff_id=tariff_id,
                     user_id=db_user.id,
                 )
                 existing_sub = None
-        if existing_sub is None:
-            existing_sub = await get_subscription_by_user_and_tariff(db, db_user.id, tariff_id)
     else:
         existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
@@ -1921,7 +1907,7 @@ async def confirm_tariff_purchase(
 
     try:
         if settings.is_multi_tariff_enabled():
-            if existing_subscription and existing_subscription.tariff_id == tariff.id:
+            if should_extend_multi_tariff(_state_data, existing_sub=existing_subscription) and existing_subscription and existing_subscription.tariff_id == tariff.id:
                 # Extend existing subscription for this tariff
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
                 subscription = await extend_subscription(

@@ -17,13 +17,14 @@ the partial UNIQUE ``uq_subscriptions_user_tariff_active`` raises
 ``IntegrityError`` → "Тариф уже активен" log + refund.
 
 Fix shape:
-  1. ``select_tariff_period`` (preview handler) resolves the target
-     subscription at preview time and pins ``target_subscription_id``
-     in FSM.
-  2. ``confirm_tariff_purchase`` reads that pinned id first via
-     ``get_subscription_by_id_for_user`` (ownership-checked), and only
-     falls back to the tariff-level lookup if the pinned id is absent
-     or its tariff has diverged.
+  1. ``select_tariff_period`` (preview handler) reads
+     ``target_subscription_id`` from FSM. If pinned, it loads that row
+     via ``get_subscription_by_id_for_user`` for device pricing; if the
+     pin is empty, ``_existing_sub`` is None (new row — never a
+     tariff-level lookup).
+  2. ``confirm_tariff_purchase`` loads by pin only via
+     ``get_subscription_by_id_for_user`` (ownership-checked). Empty pin
+     → create a new row. Never ``get_subscription_by_user_and_tariff``.
 
 These tests pin the SOURCE-LEVEL contract — a full integration test
 would need a real DB + Redis + aiogram FSM dispatcher, which is heavy.
@@ -64,21 +65,27 @@ def _function_source(source: str, func: ast.AsyncFunctionDef) -> str:
 
 
 def test_select_tariff_period_resolves_and_pins_target_subscription_id() -> None:
-    """REGRESSION: ``select_tariff_period`` must resolve the existing
-    subscription for this tariff and write its id to FSM under
-    ``target_subscription_id``. Without this pin,
-    ``confirm_tariff_purchase`` falls back to a race-vulnerable
-    tariff-level lookup.
+    """REGRESSION: ``select_tariff_period`` must honor the FSM pin.
+    Pinned id → load that row for device pricing. Empty pin →
+    ``_existing_sub = None`` (create a new row). Never look up by
+    ``(user, tariff)``.
     """
     source = TARIFF_PURCHASE_PATH.read_text(encoding='utf-8')
     tree = ast.parse(source)
     func = _find_async_function(tree, 'select_tariff_period')
     body = _function_source(source, func)
 
-    # Must look up the existing sub by (user, tariff) inside the preview.
-    assert 'get_subscription_by_user_and_tariff' in body, (
-        'select_tariff_period must resolve the target subscription at preview time '
-        'so confirm_tariff_purchase can pin it'
+    assert 'target_subscription_id' in body, (
+        'select_tariff_period must read target_subscription_id from FSM — empty pin '
+        'means create a new row, not look up by tariff'
+    )
+    assert 'get_subscription_by_id_for_user' in body, (
+        'select_tariff_period must load a pinned subscription via '
+        'get_subscription_by_id_for_user (IDOR-safe), not by (user, tariff)'
+    )
+    assert 'get_subscription_by_user_and_tariff' not in body, (
+        'select_tariff_period must not look up by (user, tariff) when the pin is empty — '
+        'that re-extends an existing row from catalog buy'
     )
 
     # Must store target_subscription_id in FSM. Pin the literal kwarg
@@ -97,9 +104,8 @@ def test_select_tariff_period_resolves_and_pins_target_subscription_id() -> None
 
 
 def test_confirm_tariff_purchase_reads_target_subscription_id_from_fsm() -> None:
-    """REGRESSION: ``confirm_tariff_purchase`` must read
-    ``target_subscription_id`` from FSM state BEFORE falling back to
-    ``get_subscription_by_user_and_tariff``.
+    """REGRESSION: ``confirm_tariff_purchase`` must load by FSM pin only.
+    Empty pin → create a new row. Never ``get_subscription_by_user_and_tariff``.
     """
     source = TARIFF_PURCHASE_PATH.read_text(encoding='utf-8')
     tree = ast.parse(source)
@@ -121,20 +127,17 @@ def test_confirm_tariff_purchase_reads_target_subscription_id_from_fsm() -> None
         'get_subscription_by_id_for_user (IDOR-safe), not the unscoped variant'
     )
 
-    # The order must be: pinned-id FIRST, fallback SECOND. We compare
-    # the index of the .get('target_subscription_id') READ against the
-    # actual CALL to get_subscription_by_user_and_tariff (with paren —
-    # not the import line, which mentions the name without calling it).
-    pinned_idx = body.find("'target_subscription_id'")
-    if pinned_idx < 0:
-        pinned_idx = body.find('"target_subscription_id"')
+    assert 'should_extend_multi_tariff' in body, (
+        'confirm_tariff_purchase must gate extend vs create on should_extend_multi_tariff '
+        'so an empty pin never extends an existing row of the same tariff'
+    )
+
+    # Pin-only: the tariff-level CALL must be gone. A comment that names
+    # the helper is allowed; a call with paren is the old fallback.
     fallback_call_idx = body.find('get_subscription_by_user_and_tariff(')
-    assert pinned_idx >= 0, 'target_subscription_id read not found in confirm body'
-    assert fallback_call_idx >= 0, 'tariff-level fallback CALL not found in confirm body'
-    assert pinned_idx < fallback_call_idx, (
-        f'confirm_tariff_purchase must READ target_subscription_id from FSM '
-        f'BEFORE calling get_subscription_by_user_and_tariff. Reversing the '
-        f'order re-introduces the race. (pinned_idx={pinned_idx}, call_idx={fallback_call_idx})'
+    assert fallback_call_idx < 0, (
+        'confirm_tariff_purchase must not call get_subscription_by_user_and_tariff '
+        'when the pin is empty — that re-extends an existing row from catalog buy'
     )
 
 
