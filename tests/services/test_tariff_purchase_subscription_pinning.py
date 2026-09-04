@@ -34,7 +34,13 @@ The bug class is "drop the pin", which is grep-detectable.
 from __future__ import annotations
 
 import ast
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+from app.config import Settings
+from app.handlers.subscription import tariff_purchase as m
 
 
 TARIFF_PURCHASE_PATH = Path(__file__).resolve().parents[2] / 'app' / 'handlers' / 'subscription' / 'tariff_purchase.py'
@@ -184,3 +190,140 @@ def test_confirm_tariff_purchase_does_not_use_only_tariff_lookup() -> None:
         'this re-opens the race-condition bug fixed by commit handling the '
         'two-subscriptions-same-tariff renewal scenario'
     )
+
+
+# ---------------------------------------------------------------------------
+# Catalog already-active gate must not fire when the pin is empty.
+# ---------------------------------------------------------------------------
+
+
+def test_proceed_already_active_alert_is_gated_on_pin() -> None:
+    """REGRESSION: empty pin (catalog / menu_buy) must not pop
+    ``TARIFF_PURCHASE_ALREADY_ACTIVE``. Keep the alert only when a pin
+    is present (renew accidentally on this handler).
+    """
+    source = TARIFF_PURCHASE_PATH.read_text(encoding='utf-8')
+    tree = ast.parse(source)
+    func = _find_async_function(tree, '_proceed_with_selected_tariff')
+    body = _function_source(source, func)
+
+    assert 'TARIFF_PURCHASE_ALREADY_ACTIVE' in body, (
+        '_proceed_with_selected_tariff must still carry the already-active alert '
+        'for the pinned renew-misroute path'
+    )
+    pin_idx = body.find("get('target_subscription_id')")
+    alert_idx = body.find('TARIFF_PURCHASE_ALREADY_ACTIVE')
+    assert pin_idx >= 0, (
+        '_proceed_with_selected_tariff must read target_subscription_id from FSM '
+        'before deciding whether to show TARIFF_PURCHASE_ALREADY_ACTIVE'
+    )
+    assert alert_idx > pin_idx, (
+        'TARIFF_PURCHASE_ALREADY_ACTIVE must be gated on the FSM pin — empty pin '
+        'is catalog buy and must create a new row even if the user already has '
+        'that tariff'
+    )
+    assert 'if _pinned_sub_id:' in body, (
+        'the already-active return must sit inside a non-empty pin check so '
+        'catalog / menu_buy (cleared pin) can buy a second account of the same tariff'
+    )
+
+
+def _proceed_callback():
+    return SimpleNamespace(
+        data='tariff_select:77',
+        message=SimpleNamespace(edit_text=AsyncMock()),
+        answer=AsyncMock(),
+    )
+
+
+def _proceed_state(pin):
+    state = MagicMock()
+    state.clear = AsyncMock()
+    state.update_data = AsyncMock()
+    data = {} if pin is None else {'target_subscription_id': pin}
+    state.get_data = AsyncMock(return_value=data)
+    return state
+
+
+def _proceed_user():
+    user = MagicMock()
+    user.id = 1
+    user.language = 'ru'
+    user.promo_group_id = None
+    user.balance_kopeks = 100_000
+    user.get_primary_promo_group = MagicMock(return_value=None)
+    return user
+
+
+def _proceed_period_tariff(tariff_id: int = 77):
+    tariff = MagicMock()
+    tariff.id = tariff_id
+    tariff.name = 'Owned'
+    tariff.is_active = True
+    tariff.is_daily = False
+    tariff.can_purchase_custom_days = MagicMock(return_value=False)
+    tariff.can_purchase_custom_traffic = MagicMock(return_value=False)
+    tariff.period_prices = {'30': 10000}
+    tariff.device_limit = 1
+    tariff.traffic_limit_gb = 0
+    return tariff
+
+
+async def test_proceed_allows_catalog_buy_when_pin_empty_and_tariff_owned(monkeypatch):
+    """Empty pin + already-owned tariff → period keyboard, not the already-active alert."""
+    tariff = _proceed_period_tariff(77)
+    periods_kb = MagicMock(name='periods_kb')
+    owned = SimpleNamespace(
+        tariff_id=77,
+        is_trial=False,
+        end_date=datetime.now(UTC) + timedelta(days=10),
+    )
+    list_active = AsyncMock(return_value=[owned])
+
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    monkeypatch.setattr(m, 'get_tariff_by_id', AsyncMock(return_value=tariff))
+    monkeypatch.setattr(m, 'format_tariff_info_for_user', MagicMock(return_value='INFO'))
+    monkeypatch.setattr(m, 'get_tariff_periods_keyboard', MagicMock(return_value=periods_kb))
+
+    import app.database.crud.subscription as sub_crud
+
+    monkeypatch.setattr(sub_crud, 'get_active_subscriptions_by_user_id', list_active)
+
+    callback = _proceed_callback()
+    await m._proceed_with_selected_tariff(callback, _proceed_user(), AsyncMock(), _proceed_state(None), 77)
+
+    list_active.assert_not_awaited()
+    alert_calls = [c for c in callback.answer.await_args_list if c.kwargs.get('show_alert')]
+    assert alert_calls == [], 'catalog buy must not pop TARIFF_PURCHASE_ALREADY_ACTIVE'
+    callback.message.edit_text.assert_awaited_once()
+    assert callback.message.edit_text.await_args.kwargs['reply_markup'] is periods_kb
+
+
+async def test_proceed_alerts_already_active_when_pin_present(monkeypatch):
+    """Pinned renew misroute + already-owned tariff → keep the already-active popup."""
+    tariff = _proceed_period_tariff(77)
+    owned = SimpleNamespace(
+        tariff_id=77,
+        is_trial=False,
+        end_date=datetime.now(UTC) + timedelta(days=10),
+    )
+    list_active = AsyncMock(return_value=[owned])
+
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    monkeypatch.setattr(m, 'get_tariff_by_id', AsyncMock(return_value=tariff))
+    monkeypatch.setattr(m, 'format_tariff_info_for_user', MagicMock(return_value='INFO'))
+    monkeypatch.setattr(m, 'get_tariff_periods_keyboard', MagicMock(return_value=MagicMock()))
+
+    import app.database.crud.subscription as sub_crud
+
+    monkeypatch.setattr(sub_crud, 'get_active_subscriptions_by_user_id', list_active)
+
+    callback = _proceed_callback()
+    await m._proceed_with_selected_tariff(callback, _proceed_user(), AsyncMock(), _proceed_state(99), 77)
+
+    list_active.assert_awaited_once()
+    callback.message.edit_text.assert_not_awaited()
+    callback.answer.assert_awaited_once()
+    assert callback.answer.await_args.kwargs.get('show_alert') is True
+    answered = callback.answer.await_args.args[0]
+    assert 'уже активен' in answered or 'Owned' in answered

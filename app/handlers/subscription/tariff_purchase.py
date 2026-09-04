@@ -905,22 +905,27 @@ async def _proceed_with_selected_tariff(
         await callback.answer(texts.t('TARIFF_PURCHASE_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
         return
 
-    # В мульти-тарифе проверяем не куплен ли уже этот тариф
+    # Catalog / menu_buy clears the pin: allow a new row, including a
+    # second account of the same tariff. Popup only if a pin is present
+    # (renew accidentally landing on this handler).
     if settings.is_multi_tariff_enabled():
-        from app.database.crud.subscription import get_active_subscriptions_by_user_id
+        _state_data = await state.get_data() if state else {}
+        _pinned_sub_id = _state_data.get('target_subscription_id')
+        if _pinned_sub_id:
+            from app.database.crud.subscription import get_active_subscriptions_by_user_id
 
-        _active = await get_active_subscriptions_by_user_id(db, db_user.id)
-        _existing = next((s for s in _active if s.tariff_id == tariff_id and not s.is_trial), None)
-        if _existing:
-            days_left = max(0, (_existing.end_date - datetime.now(UTC)).days) if _existing.end_date else 0
-            await callback.answer(
-                texts.t(
-                    'TARIFF_PURCHASE_ALREADY_ACTIVE',
-                    'Тариф «{name}» уже активен ({days} дн.). Продлите через "Мои подписки".',
-                ).format(name=tariff.name, days=days_left),
-                show_alert=True,
-            )
-            return
+            _active = await get_active_subscriptions_by_user_id(db, db_user.id)
+            _existing = next((s for s in _active if s.tariff_id == tariff_id and not s.is_trial), None)
+            if _existing:
+                days_left = max(0, (_existing.end_date - datetime.now(UTC)).days) if _existing.end_date else 0
+                await callback.answer(
+                    texts.t(
+                        'TARIFF_PURCHASE_ALREADY_ACTIVE',
+                        'Тариф «{name}» уже активен ({days} дн.). Продлите через "Мои подписки".',
+                    ).format(name=tariff.name, days=days_left),
+                    show_alert=True,
+                )
+                return
 
     # Проверяем, суточный ли это тариф
     is_daily = getattr(tariff, 'is_daily', False)
@@ -1764,13 +1769,8 @@ async def select_tariff_period(
             parse_mode='HTML',
         )
 
-    # Pin the resolved subscription_id in FSM (resolved above, before pricing).
-    # Without this, ``confirm_tariff_purchase`` re-queries by
-    # ``(user_id, tariff_id)`` and can race with concurrent panel
-    # webhooks that briefly flip the active sub's status — falling
-    # through to ``create_paid_subscription`` and hitting the partial
-    # UNIQUE ``uq_subscriptions_user_tariff_active`` (logs "Тариф уже
-    # активен", refunds, leaves user confused).
+    # Pin is the resolved ``_existing_sub`` (pin-only load above). Confirm
+    # uses this id; it does not look up by (user_id, tariff_id).
     target_subscription_id: int | None = None
     if settings.is_multi_tariff_enabled():
         target_subscription_id = _existing_sub.id if _existing_sub else None
