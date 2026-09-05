@@ -25,10 +25,12 @@ from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
+from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
 from app.utils.formatting import format_period, format_price_kopeks, format_traffic
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.subscription_purchase_intent import should_extend_multi_tariff
 
@@ -776,16 +778,17 @@ async def format_custom_tariff_preview(
     text += texts.t(
         'TARIFF_PURCHASE_TOTAL_AND_BALANCE',
         '\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}',
-    ).format(total=format_price_kopeks(total_price), balance=format_price_kopeks(user_balance))
+    ).format(total=format_price_kopeks(total_price), balance=texts.format_balance(user_balance))
 
-    if user_balance < total_price:
-        missing = total_price - user_balance
+    if not user_can_afford(user_balance, total_price):
+        missing = calculate_missing_amount(user_balance, total_price)
         text += texts.t('TARIFF_PURCHASE_MISSING_LINE', '\n⚠️ <b>Не хватает: {amount}</b>').format(
-            amount=format_price_kopeks(missing)
+            amount=texts.format_balance(missing)
         )
     else:
+        remaining = user_balance - catalog_price_in_toman(total_price)
         text += texts.t('TARIFF_PURCHASE_AFTER_PAYMENT_LINE', '\nПосле оплаты: {amount}').format(
-            amount=format_price_kopeks(user_balance - total_price)
+            amount=texts.format_balance(remaining)
         )
 
     return text
@@ -964,7 +967,7 @@ async def _proceed_with_selected_tariff(
                     devices=tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=texts.format_balance(user_balance),
                 ),
                 reply_markup=get_daily_tariff_confirm_keyboard(
                     tariff_id, db_user.language, back_callback=back_callback
@@ -972,7 +975,7 @@ async def _proceed_with_selected_tariff(
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
+            missing = calculate_missing_amount(user_balance, daily_price)
 
             # Pin only: empty pin → new row; never look up by (user, tariff).
             if settings.is_multi_tariff_enabled():
@@ -1014,8 +1017,8 @@ async def _proceed_with_selected_tariff(
                     name=html.escape(tariff.name),
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 )
                 + texts.t(
                     'TARIFF_PURCHASE_CART_SAVED_HINT',
@@ -1296,7 +1299,7 @@ async def handle_custom_confirm(
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     user_balance = db_user.balance_kopeks or 0
-    if total_price > 0 and user_balance < total_price:
+    if total_price > 0 and not user_can_afford(user_balance, total_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -1320,7 +1323,7 @@ async def handle_custom_confirm(
         success = await subtract_user_balance(
             db,
             db_user,
-            total_price,
+            catalog_price_in_toman(total_price),
             f'Покупка тарифа {tariff.name} на {custom_days} дней',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1397,7 +1400,7 @@ async def handle_custom_confirm(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                total_price,
+                catalog_price_in_toman(total_price),
                 'Возврат: ошибка покупки кастомного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1406,7 +1409,7 @@ async def handle_custom_confirm(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=total_price,
+                    amount_kopeks=catalog_price_in_toman(total_price),
                     reason='Возврат: ошибка покупки кастомного тарифа',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -1708,7 +1711,7 @@ async def select_tariff_period(
                 period=format_period(period),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
+                balance=texts.format_balance(user_balance),
                 after=format_price_kopeks(user_balance - final_price),
             ),
             reply_markup=get_tariff_confirm_keyboard(
@@ -1722,7 +1725,7 @@ async def select_tariff_period(
         )
     else:
         # Недостаточно средств - сохраняем корзину для автопокупки
-        missing = final_price - user_balance
+        missing = calculate_missing_amount(user_balance, final_price)
 
         # Сохраняем данные корзины для автопокупки после пополнения
         cart_data = {
@@ -1756,8 +1759,8 @@ async def select_tariff_period(
                 name=html.escape(tariff.name),
                 period=format_period(period),
                 price=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=texts.format_balance(user_balance),
+                missing=texts.format_balance(missing),
             )
             + texts.t(
                 'TARIFF_PURCHASE_CART_SAVED_HINT',
@@ -1850,7 +1853,7 @@ async def confirm_tariff_purchase(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -1873,7 +1876,7 @@ async def confirm_tariff_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             f'Покупка тарифа {tariff.name} на {period} дней',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1933,7 +1936,7 @@ async def confirm_tariff_purchase(
                     refund_success = await add_user_balance(
                         db,
                         db_user,
-                        final_price,
+                        catalog_price_in_toman(final_price),
                         'Возврат: превышен лимит подписок',
                         create_transaction=True,
                         transaction_type=TransactionType.REFUND,
@@ -1942,7 +1945,7 @@ async def confirm_tariff_purchase(
                     if not refund_success:
                         await _persist_failed_refund(
                             user_id=db_user.id,
-                            amount_kopeks=final_price,
+                            amount_kopeks=catalog_price_in_toman(final_price),
                             reason='Возврат: превышен лимит подписок',
                             error=Exception('add_user_balance returned False'),
                         )
@@ -2009,7 +2012,7 @@ async def confirm_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: тариф уже активен',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2018,7 +2021,7 @@ async def confirm_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_price,
+                    amount_kopeks=catalog_price_in_toman(final_price),
                     reason='Возврат: тариф уже активен (add_user_balance returned False)',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -2032,7 +2035,7 @@ async def confirm_tariff_purchase(
             logger.critical('CRITICAL: не удалось вернуть средства', user_id=db_user.id, refund_error=refund_error)
             await _persist_failed_refund(
                 user_id=db_user.id,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 reason='Возврат: тариф уже активен',
                 error=refund_error,
             )
@@ -2053,7 +2056,7 @@ async def confirm_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка покупки тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2062,7 +2065,7 @@ async def confirm_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_price,
+                    amount_kopeks=catalog_price_in_toman(final_price),
                     reason='Возврат: ошибка покупки тарифа (add_user_balance returned False)',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -2081,7 +2084,7 @@ async def confirm_tariff_purchase(
             )
             await _persist_failed_refund(
                 user_id=db_user.id,
-                amount_kopeks=final_price,
+                amount_kopeks=catalog_price_in_toman(final_price),
                 reason='Возврат: ошибка покупки тарифа',
                 error=refund_error,
             )
@@ -2267,7 +2270,7 @@ async def confirm_daily_tariff_purchase(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_daily_price > 0 and user_balance < final_daily_price:
+    if final_daily_price > 0 and not user_can_afford(user_balance, final_daily_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -2285,7 +2288,7 @@ async def confirm_daily_tariff_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_daily_price,
+            catalog_price_in_toman(final_daily_price),
             f'Покупка суточного тарифа {tariff.name} (первый день)',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -2386,7 +2389,7 @@ async def confirm_daily_tariff_purchase(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_daily_price,
+                catalog_price_in_toman(final_daily_price),
                 'Возврат: ошибка покупки суточного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2395,7 +2398,7 @@ async def confirm_daily_tariff_purchase(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_daily_price,
+                    amount_kopeks=catalog_price_in_toman(final_daily_price),
                     reason='Возврат: ошибка покупки суточного тарифа',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -2888,14 +2891,14 @@ async def select_tariff_extend_period(
                 period=format_period(period),
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
+                balance=texts.format_balance(user_balance),
                 after=format_price_kopeks(user_balance - final_price),
             ),
             reply_markup=get_tariff_extend_confirm_keyboard(subscription.id, tariff_id, period, db_user.language),
             parse_mode='HTML',
         )
     else:
-        missing = final_price - user_balance
+        missing = calculate_missing_amount(user_balance, final_price)
 
         # Сохраняем данные корзины для автопокупки после пополнения
         cart_data = {
@@ -2929,8 +2932,8 @@ async def select_tariff_extend_period(
                 name=html.escape(tariff.name),
                 period=format_period(period),
                 price=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=texts.format_balance(user_balance),
+                missing=texts.format_balance(missing),
             )
             + texts.t(
                 'TARIFF_RENEW_CART_SAVED_HINT',
@@ -3032,7 +3035,7 @@ async def confirm_tariff_extend(
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -3050,7 +3053,7 @@ async def confirm_tariff_extend(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             f'Продление тарифа {tariff.name} на {period} дней',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -3565,7 +3568,7 @@ async def select_tariff_switch(
                     devices=tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=texts.format_balance(user_balance),
                     warning=days_warning,
                 ),
                 reply_markup=InlineKeyboardMarkup(
@@ -3582,7 +3585,7 @@ async def select_tariff_switch(
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
+            missing = calculate_missing_amount(user_balance, daily_price)
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_PURCHASE_DAILY_INSUFFICIENT',
@@ -3596,8 +3599,8 @@ async def select_tariff_switch(
                     name=html.escape(tariff.name),
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 )
                 + days_warning,
                 reply_markup=InlineKeyboardMarkup(
@@ -3722,14 +3725,14 @@ async def select_tariff_switch_period(
                 time_info=time_info,
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
+                balance=texts.format_balance(user_balance),
                 after=format_price_kopeks(user_balance - final_price),
             ),
             reply_markup=get_tariff_switch_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
         )
     else:
-        missing = final_price - user_balance
+        missing = calculate_missing_amount(user_balance, final_price)
         await callback.message.edit_text(
             texts.t(
                 'TARIFF_PURCHASE_INSUFFICIENT',
@@ -3743,8 +3746,8 @@ async def select_tariff_switch_period(
                 name=html.escape(tariff.name),
                 period=format_period(period),
                 price=format_price_kopeks(final_price),
-                balance=format_price_kopeks(user_balance),
-                missing=format_price_kopeks(missing),
+                balance=texts.format_balance(user_balance),
+                missing=texts.format_balance(missing),
             ),
             reply_markup=get_tariff_switch_insufficient_balance_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -3824,7 +3827,7 @@ async def confirm_tariff_switch(
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
-    if final_price > 0 and user_balance < final_price:
+    if final_price > 0 and not user_can_afford(user_balance, final_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -3842,7 +3845,7 @@ async def confirm_tariff_switch(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_price,
+            catalog_price_in_toman(final_price),
             f'Смена тарифа на {tariff.name} ({period} дней)',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -4080,7 +4083,7 @@ async def confirm_daily_tariff_switch(
 
     # Проверяем баланс (user already locked, balance is fresh)
     user_balance = db_user.balance_kopeks or 0
-    if final_daily_price > 0 and user_balance < final_daily_price:
+    if final_daily_price > 0 and not user_can_afford(user_balance, final_daily_price):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -4121,7 +4124,7 @@ async def confirm_daily_tariff_switch(
         success = await subtract_user_balance(
             db,
             db_user,
-            final_daily_price,
+            catalog_price_in_toman(final_daily_price),
             f'Смена на суточный тариф {tariff.name} (первый день)',
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -4315,7 +4318,7 @@ async def confirm_daily_tariff_switch(
             refund_success = await add_user_balance(
                 db,
                 db_user,
-                final_daily_price,
+                catalog_price_in_toman(final_daily_price),
                 'Возврат: ошибка смены на суточный тариф',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -4324,7 +4327,7 @@ async def confirm_daily_tariff_switch(
             if not refund_success:
                 await _persist_failed_refund(
                     user_id=db_user.id,
-                    amount_kopeks=final_daily_price,
+                    amount_kopeks=catalog_price_in_toman(final_daily_price),
                     reason='Возврат: ошибка смены на суточный тариф',
                     error=Exception('add_user_balance returned False'),
                 )
@@ -4752,14 +4755,14 @@ async def preview_instant_switch(
                     devices=new_tariff.device_limit,
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
+                    balance=texts.format_balance(user_balance),
                     warning=daily_warning,
                 ),
                 reply_markup=get_instant_switch_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
             )
         else:
-            missing = daily_price - user_balance
+            missing = calculate_missing_amount(user_balance, daily_price)
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_PURCHASE_DAILY_INSUFFICIENT',
@@ -4773,8 +4776,8 @@ async def preview_instant_switch(
                     name=html.escape(new_tariff.name),
                     price=format_price_kopeks(daily_price),
                     discount=discount_text,
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 )
                 + daily_warning,
                 reply_markup=get_instant_switch_insufficient_balance_keyboard(tariff_id, db_user.language),
@@ -4817,14 +4820,14 @@ async def preview_instant_switch(
                     devices=new_tariff.device_limit,
                     days=remaining_days,
                     cost=format_price_kopeks(upgrade_cost),
-                    balance=format_price_kopeks(user_balance),
+                    balance=texts.format_balance(user_balance),
                     after=format_price_kopeks(user_balance - upgrade_cost),
                 ),
                 reply_markup=get_instant_switch_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
             )
         else:
-            missing = upgrade_cost - user_balance
+            missing = calculate_missing_amount(user_balance, upgrade_cost)
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_SWITCH_UPGRADE_INSUFFICIENT',
@@ -4836,8 +4839,8 @@ async def preview_instant_switch(
                 ).format(
                     name=html.escape(new_tariff.name),
                     cost=format_price_kopeks(upgrade_cost),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 ),
                 reply_markup=get_instant_switch_insufficient_balance_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
@@ -4999,7 +5002,7 @@ async def confirm_instant_switch(
 
     # Проверяем баланс если это upgrade (use locked user's fresh balance)
     user_balance = db_user.balance_kopeks or 0
-    if is_upgrade and user_balance < upgrade_cost:
+    if is_upgrade and not user_can_afford(user_balance, upgrade_cost):
         await callback.answer(
             texts.t('MINIAPP_PURCHASE_STATUS_INSUFFICIENT', 'Недостаточно средств на балансе'), show_alert=True
         )
@@ -5019,7 +5022,7 @@ async def confirm_instant_switch(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                upgrade_cost,
+                catalog_price_in_toman(upgrade_cost),
                 f'Переключение на тариф {new_tariff.name}',
                 consume_promo_offer=consume_promo,
                 mark_as_paid_subscription=True,
@@ -5091,7 +5094,7 @@ async def confirm_instant_switch(
                     success = await subtract_user_balance(
                         db,
                         db_user,
-                        daily_price,
+                        catalog_price_in_toman(daily_price),
                         f'Переключение на суточный тариф {new_tariff.name} (первый день)',
                         consume_promo_offer=consume_promo_for_daily,
                         mark_as_paid_subscription=True,
@@ -5352,8 +5355,8 @@ async def return_to_saved_tariff_cart(
     traffic = format_traffic(tariff.traffic_limit_gb)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if total_price > 0 and user_balance < total_price:
-        missing = total_price - user_balance
+    if total_price > 0 and not user_can_afford(user_balance, total_price):
+        missing = calculate_missing_amount(user_balance, total_price)
 
         if cart_mode == 'daily_tariff_purchase':
             await callback.message.edit_text(
@@ -5368,8 +5371,8 @@ async def return_to_saved_tariff_cart(
                 ).format(
                     name=html.escape(tariff.name),
                     price=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 ),
                 reply_markup=get_daily_tariff_insufficient_balance_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
@@ -5395,8 +5398,8 @@ async def return_to_saved_tariff_cart(
                     name=html.escape(tariff.name),
                     period=format_period(period),
                     price=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 ),
                 reply_markup=get_tariff_extend_insufficient_balance_keyboard(
                     tariff_id,
@@ -5422,8 +5425,8 @@ async def return_to_saved_tariff_cart(
                     name=html.escape(tariff.name),
                     period=format_period(period),
                     price=format_price_kopeks(total_price),
-                    balance=format_price_kopeks(user_balance),
-                    missing=format_price_kopeks(missing),
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(missing),
                 ),
                 reply_markup=get_tariff_insufficient_balance_keyboard(
                     tariff_id, period, db_user.language, missing_kopeks=missing
@@ -5471,7 +5474,7 @@ async def return_to_saved_tariff_cart(
                 traffic=traffic,
                 devices=tariff.device_limit,
                 price=format_price_kopeks(daily_price),
-                balance=format_price_kopeks(user_balance),
+                balance=texts.format_balance(user_balance),
                 after=format_price_kopeks(user_balance - daily_price),
             ),
             reply_markup=get_daily_tariff_confirm_keyboard(tariff_id, db_user.language),
@@ -5509,8 +5512,8 @@ async def return_to_saved_tariff_cart(
                 period=format_period(period),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - total_price),
+                balance=texts.format_balance(user_balance),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(total_price)),
             ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -5558,8 +5561,8 @@ async def return_to_saved_tariff_cart(
                 period=format_period(period),
                 discount=discount_text,
                 total=format_price_kopeks(total_price),
-                balance=format_price_kopeks(user_balance),
-                after=format_price_kopeks(user_balance - total_price),
+                balance=texts.format_balance(user_balance),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(total_price)),
             ),
             reply_markup=get_tariff_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',

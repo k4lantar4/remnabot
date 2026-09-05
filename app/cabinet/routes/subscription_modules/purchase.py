@@ -45,8 +45,10 @@ from app.services.subscription_purchase_service import (
     PurchaseBalanceError,
     PurchaseValidationError,
 )
+from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import calculate_price_per_month, format_period_description
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -288,8 +290,8 @@ async def _build_tariff_response(
         'price_per_day_kopeks': price_per_day,
         'min_days': tariff.min_days,
         'max_days': tariff.max_days,
-        # Произвольный трафик при покупке
-        'custom_traffic_enabled': tariff.custom_traffic_enabled,
+        # Произвольный трафик при покупке (скрываем слайдер когда глобальный режим fixed)
+        'custom_traffic_enabled': bool(tariff.custom_traffic_enabled) and not settings.is_traffic_fixed(),
         'traffic_price_per_gb_kopeks': tariff.traffic_price_per_gb_kopeks,
         'min_traffic_gb': tariff.min_traffic_gb,
         'max_traffic_gb': tariff.max_traffic_gb,
@@ -810,9 +812,9 @@ async def purchase_tariff(
                 detail='Invalid tariff period or pricing configuration',
             )
 
-        # Check balance
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-            missing = price_kopeks - user.balance_kopeks
+        # Check balance (Toman 1:1 vs catalog price_kopeks)
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+            missing = calculate_missing_amount(user.balance_kopeks, price_kopeks)
 
             # Save cart for auto-purchase after balance top-up
             if is_daily_tariff:
@@ -864,7 +866,7 @@ async def purchase_tariff(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                    'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
                     'missing_amount': missing,
                     'cart_saved': True,
                     'cart_mode': cart_data['cart_mode'],
@@ -892,10 +894,11 @@ async def purchase_tariff(
             description += f' (скидка {discount_percent}%)'
         if promo_offer_discount_value > 0:
             description += f' (промо -{promo_offer_discount_percent}%)'
+        charge_toman = catalog_price_in_toman(price_kopeks)
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            charge_toman,
             description,
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -937,7 +940,7 @@ async def purchase_tariff(
                         user_id=refund_user_id,
                         price_kopeks=price_kopeks,
                     )
-                    await _persist_failed_refund(refund_user_id, price_kopeks, reason, 'user not found for refund')
+                    await _persist_failed_refund(refund_user_id, charge_toman, reason, 'user not found for refund')
                     return
                 # add_user_balance swallows its own errors and returns False rather than
                 # raising, so the return value — not just an exception — must be checked;
@@ -945,7 +948,7 @@ async def purchase_tariff(
                 refund_success = await add_user_balance(
                     db,
                     refund_user,
-                    price_kopeks,
+                    charge_toman,
                     reason,
                     create_transaction=True,
                     transaction_type=TransactionType.REFUND,
@@ -957,13 +960,13 @@ async def purchase_tariff(
                         price_kopeks=price_kopeks,
                     )
                     await _persist_failed_refund(
-                        refund_user_id, price_kopeks, reason, 'add_user_balance returned False'
+                        refund_user_id, charge_toman, reason, 'add_user_balance returned False'
                     )
                     return
                 logger.info(
                     'Cabinet purchase: средства возвращены после ошибки покупки тарифа',
                     user_id=refund_user_id,
-                    refund_kopeks=price_kopeks,
+                    refund_kopeks=charge_toman,
                 )
             except Exception as refund_error:
                 logger.critical(
@@ -972,7 +975,7 @@ async def purchase_tariff(
                     price_kopeks=price_kopeks,
                     refund_error=refund_error,
                 )
-                await _persist_failed_refund(refund_user_id, price_kopeks, reason, refund_error)
+                await _persist_failed_refund(refund_user_id, charge_toman, reason, refund_error)
 
         # С этого места деньги уже списаны и закоммичены (subtract_user_balance +
         # create_transaction). Любая ошибка до успешного сохранения подписки без
