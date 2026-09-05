@@ -11,15 +11,15 @@ This file is the Task 13 checklist. Fill the **Result** column after smoke. Do n
 
 | Component | Identity | Status |
 |---|---|---|
-| Bot commits | remnabot1 `97b4aa88` → `882771dc` (`prod-cutover`, local, not pushed) | `rehearsal_bot` rebuilt 2026-09-05; healthy; `/health` 200 `4.2.0` |
-| Cabinet commits | cabinet `0173edae` → `d6aed5db` (`prod-cutover`, local, not pushed) | `cabinet_frontend` rebuilt 2026-09-05; healthy; `intent=new` in `index-MwCk3kax.js` |
+| Bot commits | remnabot1 `97b4aa88` → `046bd24a` (`prod-cutover`, local, not pushed). Overlay `882771dc` + smoke A4 follow-up `6ce6d779`…`046bd24a` | `rehearsal_bot` rebuilt 2026-09-05 after A4 extras; healthy; `/health` 200 `4.2.0`; `TRAFFIC_SELECTION_MODE=fixed` |
+| Cabinet commits | cabinet `0173edae` → `9e26174c` (`prod-cutover`, local, not pushed). Overlay `d6aed5db` + A4 extras `949341c6`…`9e26174c` | `cabinet_frontend` rebuilt 2026-09-05; healthy; `intent=new` in `index-Bt3U_RlQ.js`; fa chunk has `موجودی ناکافی. کسری` |
 | Telegram RC | test token, polling (`@mrj7_bot` / rehearsal_bot) | healthy |
 | Cabinet RC | `https://panel.rookari.com` | HTTP 200 |
 | Mini-app | same panel host, fa `dir=rtl` | hard-refresh after rebuild |
 
 Do not use production bot token or production C2C admin chat.
 
-Cabinet JS is hashed (`index-MwCk3kax.js`). After rebuild, open panel in a **private window** or hard-refresh so the old bundle is not cached.
+Cabinet JS is hashed (`index-Bt3U_RlQ.js`). After rebuild, open panel in a **private window** or hard-refresh so the old bundle is not cached.
 
 ### Agent gate (already run)
 
@@ -50,7 +50,7 @@ Use a test account that **already has an active subscription**. Period picker on
 
 ## B — Cabinet (`https://panel.rookari.com`)
 
-Private/incognito if language cache is dirty. After RC cabinet rebuild from `d6aed5db`.
+Private/incognito if language cache is dirty. After RC cabinet rebuild from `9e26174c`.
 
 | ID | Path | Expect | Result |
 |---|---|---|---|
