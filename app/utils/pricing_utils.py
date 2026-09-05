@@ -274,7 +274,18 @@ def _pluralize_days_ru(n: int) -> str:
 
 def format_period_description(days: int, language: str = 'ru') -> str:
     language_code = (language or 'ru').split('-')[0].lower()
-    if language_code in {'ru', 'fa'}:
+    if language_code == 'fa':
+        fa_months = {
+            30: '1 ماه',
+            60: '2 ماه',
+            90: '3 ماه',
+            180: '6 ماه',
+            360: '12 ماه',
+        }
+        if days in fa_months:
+            return fa_months[days]
+        return f'{days} روز'
+    if language_code == 'ru':
         if days == 30:
             return '1 месяц'
         if days == 60:

@@ -8,7 +8,7 @@
 from unittest.mock import MagicMock, patch
 
 from app.localization.texts import _build_dynamic_values
-from app.utils.pricing_utils import calculate_price_per_month
+from app.utils.pricing_utils import calculate_price_per_month, format_period_description
 
 
 # DEPRECATED: format_period_option_label tests removed - function replaced with unified price_display system
@@ -38,6 +38,18 @@ class TestCalculatePricePerMonth:
         assert calculate_price_per_month(0, 90) == 0
         assert calculate_price_per_month(10000, 0) == 10000
         assert calculate_price_per_month(-100, 30) == 0
+
+
+class TestFormatPeriodDescription:
+    def test_fa_uses_persian_month_labels_with_english_digits(self) -> None:
+        assert format_period_description(30, 'fa') == '1 ماه'
+        assert format_period_description(90, 'fa-IR') == '3 ماه'
+        assert format_period_description(7, 'fa') == '7 روز'
+        assert 'месяц' not in format_period_description(30, 'fa')
+
+    def test_ru_keeps_cyrillic_months(self) -> None:
+        assert format_period_description(30, 'ru') == '1 месяц'
+        assert format_period_description(90, 'ru') == '3 месяца'
 
 
 class TestBuildDynamicValues:
