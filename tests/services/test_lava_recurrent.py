@@ -445,8 +445,41 @@ async def test_enabling_lava_cancels_live_platega_binding(monkeypatch):
         assert subscription.autopay_enabled is False
 
 
+async def test_shift_next_charge_skips_when_lava_disabled(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.config import settings
+    from app.services.payment.lava import shift_lava_next_charge_after_manual_extension
+
+    monkeypatch.setattr(type(settings), 'is_lava_enabled', lambda self: False)
+    db = AsyncMock()
+    await shift_lava_next_charge_after_manual_extension(db, 1, 30)
+    db.execute.assert_not_awaited()
+    db.rollback.assert_not_awaited()
+
+
+async def test_shift_next_charge_rollbacks_after_query_error(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.config import settings
+    from app.database.crud import lava_subscription as sub_crud
+    from app.services.payment.lava import shift_lava_next_charge_after_manual_extension
+
+    monkeypatch.setattr(type(settings), 'is_lava_enabled', lambda self: True)
+    db = AsyncMock()
+    db.rollback = AsyncMock()
+    monkeypatch.setattr(
+        sub_crud,
+        'get_active_lava_subscription_by_subscription',
+        AsyncMock(side_effect=RuntimeError('relation "lava_subscriptions" does not exist')),
+    )
+    await shift_lava_next_charge_after_manual_extension(db, 1, 30)
+    db.rollback.assert_awaited()
+
+
 async def test_manual_extension_shifts_next_charge(monkeypatch):
     """Ручное продление при живой привязке двигает автосписание Lava."""
+    monkeypatch.setattr(type(settings), 'is_lava_enabled', lambda self: True)
     async with memory_session(monkeypatch, TABLES) as db:
         user, tariff, subscription = await _seed(db)
         agent, service = _agent(monkeypatch)
@@ -480,6 +513,7 @@ async def test_manual_extension_shifts_next_charge(monkeypatch):
 
 async def test_shift_next_charge_swallows_provider_errors(monkeypatch):
     """Продление уже закоммичено — сбой Lava не должен всплывать."""
+    monkeypatch.setattr(type(settings), 'is_lava_enabled', lambda self: True)
     async with memory_session(monkeypatch, TABLES) as db:
         user, tariff, subscription = await _seed(db)
         agent, service = _agent(monkeypatch)
