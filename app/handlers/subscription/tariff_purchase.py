@@ -1357,13 +1357,17 @@ async def handle_custom_confirm(
 
     # Проверяем есть ли уже подписка
     if settings.is_multi_tariff_enabled():
-        active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
-        existing_subscription = next((s for s in active_subs if s.tariff_id == tariff.id), None)
+        _pinned_sub_id = state_data.get('target_subscription_id')
+        existing_subscription = None
+        if _pinned_sub_id:
+            existing_subscription = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
+            if existing_subscription and existing_subscription.tariff_id != tariff.id:
+                existing_subscription = None
     else:
         existing_subscription = await get_subscription_by_user_id(db, db_user.id)
 
     try:
-        if existing_subscription:
+        if should_extend_multi_tariff(state_data, existing_sub=existing_subscription) and existing_subscription:
             # Продлеваем существующую подписку и обновляем параметры тарифа
             # Сохраняем докупленные устройства при продлении того же тарифа
             if existing_subscription.tariff_id == tariff.id:
@@ -2318,14 +2322,19 @@ async def confirm_daily_tariff_purchase(
         squads = [s.squad_uuid for s in all_servers if s.squad_uuid]
 
     # Проверяем есть ли уже подписка
+    _state_data = await state.get_data() if state else {}
     if settings.is_multi_tariff_enabled():
-        active_subs = await get_active_subscriptions_by_user_id(db, db_user.id)
-        existing_subscription = next((s for s in active_subs if s.tariff_id == tariff.id), None)
+        _pinned_sub_id = _state_data.get('target_subscription_id')
+        existing_subscription = None
+        if _pinned_sub_id:
+            existing_subscription = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
+            if existing_subscription and existing_subscription.tariff_id != tariff.id:
+                existing_subscription = None
     else:
         existing_subscription = await get_subscription_by_user_id(db, db_user.id)
 
     try:
-        if existing_subscription:
+        if should_extend_multi_tariff(_state_data, existing_sub=existing_subscription) and existing_subscription:
             # Обновляем существующую подписку на суточный тариф
             # Сбрасываем лимит устройств на базу нового тарифа (докупленные не переносятся)
             from app.database.crud.subscription import calc_device_limit_on_tariff_switch

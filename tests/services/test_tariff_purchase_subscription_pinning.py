@@ -327,3 +327,27 @@ async def test_proceed_alerts_already_active_when_pin_present(monkeypatch):
     assert callback.answer.await_args.kwargs.get('show_alert') is True
     answered = callback.answer.await_args.args[0]
     assert 'уже активен' in answered or 'Owned' in answered
+
+
+def test_handle_custom_confirm_uses_pin_not_tariff_lookup() -> None:
+    source = TARIFF_PURCHASE_PATH.read_text(encoding='utf-8')
+    tree = ast.parse(source)
+    func = _find_async_function(tree, 'handle_custom_confirm')
+    body = _function_source(source, func)
+    assert 'target_subscription_id' in body
+    assert 'should_extend_multi_tariff' in body
+    assert 'get_subscription_by_id_for_user' in body
+    assert body.find('get_subscription_by_user_and_tariff(') < 0
+    assert 's.tariff_id == tariff.id' not in body
+
+
+def test_confirm_daily_tariff_purchase_uses_pin_not_tariff_lookup() -> None:
+    source = TARIFF_PURCHASE_PATH.read_text(encoding='utf-8')
+    tree = ast.parse(source)
+    func = _find_async_function(tree, 'confirm_daily_tariff_purchase')
+    body = _function_source(source, func)
+    assert 'target_subscription_id' in body
+    assert 'should_extend_multi_tariff' in body
+    assert 'get_subscription_by_id_for_user' in body
+    assert body.find('get_subscription_by_user_and_tariff(') < 0
+    assert 's.tariff_id == tariff.id' not in body
