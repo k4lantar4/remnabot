@@ -1,7 +1,7 @@
 # Sales buy-new isolation + panel sync
 
 **Date:** 2026-09-07  
-**Status:** Design locked in chat (operator تایید architecture, components, data flow, errors, tests). Awaiting spec file review before `writing-plans`.  
+**Status:** Design locked (operator تایید 2026-09-07). Plan: `docs/superpowers/plans/2026-09-07-sales-buy-new-panel-sync.md`. Implementation not started.  
 **Does not execute:** M7-T1, M8, DNS, `MAIN_MENU_MODE=cabinet`, catalog price-model rewrite  
 **Trees:** `/opt/remnabot1` (bot API + Telegram handlers) · `/opt/cabinet` (UI already has `?intent=new`; **no React files** in this spec)  
 **Donor:** `/opt/remnabot` production behavior (read-only)
