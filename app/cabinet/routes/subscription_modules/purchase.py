@@ -756,8 +756,7 @@ async def purchase_tariff(
                 existing_subscription = await get_subscription_by_id_for_user(db, request.subscription_id, user.id)
                 # If the pinned sub points to a different tariff than
                 # the request carries (admin swap, stale client state),
-                # ignore it and fall back to tariff-level lookup so the
-                # purchase doesn't extend a sub of the wrong tariff.
+                # ignore it — do not extend a sub of the wrong tariff.
                 if existing_subscription and existing_subscription.tariff_id != tariff.id:
                     logger.warning(
                         'Cabinet purchase: explicit subscription_id has divergent tariff_id; falling back',
@@ -767,16 +766,6 @@ async def purchase_tariff(
                         user_id=user.id,
                     )
                     existing_subscription = None
-            if existing_subscription is None:
-                from app.database.crud.subscription import get_subscription_by_user_and_tariff
-
-                # include_inactive=True so an EXPIRED (or disabled) trial of THIS
-                # tariff is found and converted in place via the extend branch
-                # below (same Remnawave user → same link). Without it the expired
-                # trial is invisible → killed → re-created with a new link.
-                existing_subscription = await get_subscription_by_user_and_tariff(
-                    db, user.id, tariff.id, include_inactive=True
-                )
         else:
             existing_subscription = await get_subscription_by_user_id(db, user.id)
         device_limit = None
@@ -874,6 +863,8 @@ async def purchase_tariff(
             )
 
         subscription = existing_subscription
+        if settings.is_multi_tariff_enabled() and request.subscription_id is None:
+            subscription = None
 
         # Get server squads from tariff
         squads = tariff.allowed_squads or []
