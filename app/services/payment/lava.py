@@ -1328,6 +1328,11 @@ async def shift_lava_next_charge_after_manual_extension(
     if days <= 0:
         return
 
+    from app.config import settings
+
+    if not settings.is_lava_enabled():
+        return
+
     from app.database.crud import lava_subscription as sub_crud
 
     try:
@@ -1356,3 +1361,7 @@ async def shift_lava_next_charge_after_manual_extension(
             days=days,
             error=str(error),
         )
+        try:
+            await db.rollback()
+        except Exception:
+            pass

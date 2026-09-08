@@ -44,6 +44,7 @@ from app.services.gift_purchase_service import (
     quote_gift_purchase,
 )
 from app.services.pricing_engine import PricingEngine, pricing_engine
+from app.utils.price_display import user_can_afford
 from app.services.subscription_checkout_service import clear_subscription_checkout_draft
 from app.services.subscription_purchase_service import (
     MiniAppSubscriptionPurchaseService,

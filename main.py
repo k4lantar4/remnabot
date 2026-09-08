@@ -60,6 +60,14 @@ class GracefulExit:
 
 
 async def main():
+    from app.custom.safety.token_guard import assert_not_production_token
+
+    assert_not_production_token(
+        os.getenv('BOT_TOKEN', ''),
+        os.getenv('PRODUCTION_BOT_TOKEN_FINGERPRINT'),
+        os.getenv('ALLOW_PRODUCTION_BOT_TOKEN', 'false').lower() in ('1', 'true', 'yes'),
+    )
+
     file_formatter, console_formatter, telegram_notifier = setup_logging()
 
     log_handlers = []

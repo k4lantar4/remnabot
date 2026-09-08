@@ -79,7 +79,8 @@ async def test_save_cart_and_redirect_to_topup(mock_callback_query, mock_state, 
 
         # Подготовим тексты
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f'{x / 100:.0f} ₽'
+        mock_texts.format_price = lambda x, **_kw: f'{x / 100:.0f} ₽'
+        mock_texts.format_balance = lambda x, **_kw: f'{x:,}'
         mock_get_texts.return_value = mock_texts
 
         missing_amount = 40000  # 50000 - 10000 = 40000
@@ -220,7 +221,7 @@ async def test_return_to_saved_cart_skips_edit_when_message_matches(
             '📊 Трафик: 40 ГБ\n'
             '🌍 Страны: Russia, USA\n'
             '📱 Устройства: 3\n\n'
-            '💎 Общая стоимость: 440 ₽\n\n'
+            '💎 Общая стоимость: 440 تومان\n\n'
             'Подтверждаете покупку?'
         )
 
@@ -323,7 +324,7 @@ async def test_return_to_saved_cart_insufficient_funds(mock_callback_query, mock
         'countries': ['ru', 'us'],
         'devices': 3,
         'traffic_gb': 20,
-        'total_price': 50000,  # Больше, чем баланс пользователя (10000)
+        'total_price': 5_000_000,  # 50,000 Toman catalog; balance 10,000 cannot cover
         'saved_cart': True,
         'user_id': mock_user.id,
     }
@@ -338,7 +339,7 @@ async def test_return_to_saved_cart_insufficient_funds(mock_callback_query, mock
         # Подготовим моки
         mock_cart_service.get_user_cart = AsyncMock(return_value=cart_data)
         mock_cart_service.save_user_cart = AsyncMock(return_value=True)
-        mock_prepare_summary.return_value = ('summary', {'total_price': 50000})
+        mock_prepare_summary.return_value = ('summary', {'total_price': 5_000_000})
         mock_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text='Пополнить', callback_data='topup')]]
         )
@@ -346,8 +347,9 @@ async def test_return_to_saved_cart_insufficient_funds(mock_callback_query, mock
 
         # Подготовим тексты
         mock_texts = AsyncMock()
-        mock_texts.format_price = lambda x: f'{x / 100:.0f} ₽'
-        mock_texts.t = lambda key, default: default
+        mock_texts.format_price = lambda x, **_kw: f'{x / 100:.0f} ₽'
+        mock_texts.format_balance = lambda x, **_kw: f'{x:,}'
+        mock_texts.t = lambda key, default='', **_kw: default
         mock_get_texts.return_value = mock_texts
 
         # Баланс пользователя меньше стоимости подписки

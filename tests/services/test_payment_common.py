@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.types import InlineKeyboardMarkup
@@ -96,3 +97,42 @@ async def test_send_payment_success_notification_recovers_missing_greenlet(monke
     assert 'Тестовый метод' in message['text']
     assert service.keyboard_user is not None
     assert isinstance(service.keyboard_user, SimpleNamespace)
+
+
+@pytest.mark.anyio
+async def test_send_payment_success_notification_accepts_cart_autopurchase_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C2C finalize_approved_topup passes this kwarg; 4.2 mixin must accept it."""
+    service = _PaymentServiceStub()
+    user = SimpleNamespace(id=42, telegram_id=777, language='fa', balance_kopeks=50000)
+    captured_keys: list[str] = []
+
+    class _Texts:
+        def t(self, key, fallback='', **_kw):  # type: ignore[no-untyped-def]
+            captured_keys.append(key)
+            return fallback
+
+        def format_balance(self, amount):  # type: ignore[no-untyped-def]
+            return str(amount)
+
+    monkeypatch.setattr('app.services.payment.common.get_texts', lambda _lang: _Texts())
+    monkeypatch.setattr(
+        'app.cabinet.routes.websocket.notify_user_balance_topup',
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        'app.services.payment.common.user_cart_service.has_topup_intent',
+        AsyncMock(return_value=False),
+    )
+
+    await service._send_payment_success_notification(
+        user.telegram_id,
+        12300,
+        user=user,
+        payment_method_title='C2C',
+        cart_autopurchase_failed=True,
+    )
+
+    assert captured_keys[0] == 'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED'
+    assert service.bot.messages

@@ -139,6 +139,10 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
 
     dp = Dispatcher(storage=storage)
 
+    from app.plugins.c2c.middleware import register_c2c_admin_middlewares
+
+    register_c2c_admin_middlewares(dp)
+
     dp.message.middleware(ContextVarsMiddleware())
     dp.callback_query.middleware(ContextVarsMiddleware())
     dp.pre_checkout_query.middleware(ContextVarsMiddleware())
@@ -186,6 +190,9 @@ async def setup_bot() -> tuple[Bot, Dispatcher]:
     start.register_handlers(dp)
     menu.register_handlers(dp)
     subscription.register_handlers(dp)
+    from app.plugins.c2c import register_c2c_plugin
+
+    register_c2c_plugin(dp)
     register_gift_handlers(dp)
     balance.register_balance_handlers(dp)
     promocode.register_handlers(dp)

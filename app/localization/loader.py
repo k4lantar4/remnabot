@@ -16,6 +16,10 @@ from app.config import settings
 _logger = structlog.get_logger(__name__)
 
 _FALLBACK_LANGUAGE = 'ru'
+# Upstream-complete locale used when the active user language lacks a key.
+UPSTREAM_FALLBACK_LOCALE = _FALLBACK_LANGUAGE
+# Intermediate fallback for fa users before upstream Russian.
+SECONDARY_FALLBACK_LOCALE = 'en'
 
 _BASE_DIR = Path(__file__).resolve().parent
 _DEFAULT_LOCALES_DIR = _BASE_DIR / 'locales'

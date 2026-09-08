@@ -51,6 +51,7 @@ from app.utils.miniapp_buttons import build_miniapp_startapp_url
 from app.utils.promo_offer import build_promo_offer_hint, build_test_access_hint
 from app.utils.rich_buttons import render_keyboard_as_rich_html
 from app.utils.subscription_utils import get_happ_cryptolink_redirect_link
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.timezone import format_local_datetime
 from app.utils.validators import sanitize_html
 
@@ -393,15 +394,26 @@ def _build_subscriptions_table(subscriptions, texts) -> str:
         f'<th>{_rich_text(texts.t("MAIN_MENU_RICH_TABLE_UNTIL", "Действует до"))}</th>'
         '</tr>'
     )
-    tariff_fallback = texts.t('MAIN_MENU_RICH_TARIFF_FALLBACK', 'Подписка')
     rows = [header]
     for subscription in subscriptions:
-        tariff_name = html.escape(subscription.tariff.name) if subscription.tariff else _rich_text(tariff_fallback)
+        from app.utils.subscription_list_display import subscription_list_identity
+
+        label = html.escape(subscription_list_identity(subscription, None, texts))
         actual_status = (subscription.actual_status or '').lower()
         status_label = _rich_status_label(texts, actual_status, bool(getattr(subscription, 'is_trial', False)))
 
         end_date = getattr(subscription, 'end_date', None)
-        end_date_text = format_local_datetime(end_date, '%d.%m.%Y') if end_date else ''
+        if end_date:
+            try:
+                end_date_text = format_user_datetime(
+                    end_date,
+                    language=getattr(texts, 'language', 'ru'),
+                    fmt='%d.%m.%Y',
+                )
+            except Exception:
+                end_date_text = format_local_datetime(end_date, '%d.%m.%Y')
+        else:
+            end_date_text = ''
         if end_date and end_date > current_time and actual_status in {'active', 'trial', 'limited'}:
             days_left = (end_date - current_time).days
             days_text = texts.t('MAIN_MENU_RICH_DAYS_LEFT', 'осталось {days} дн.').replace('{days}', str(days_left))
@@ -412,7 +424,7 @@ def _build_subscriptions_table(subscriptions, texts) -> str:
             until_cell = '—'
 
         rows.append(
-            f'<tr><td>{tariff_name}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>'
+            f'<tr><td>{label}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>'
         )
 
         # Нижняя строка ряда: расход + «кнопки» действий. Отдельная узкая колонка
@@ -538,7 +550,7 @@ async def build_main_menu_rich_html(user: User, texts, db: AsyncSession) -> str:
         blocks.append(f'<p>{trial_link}</p>')
 
     balance_template = texts.t('MAIN_MENU_RICH_BALANCE', '💰 Баланс: {balance}')
-    balance_value = f'<b>{html.escape(settings.format_price(user.balance_kopeks))}</b>'
+    balance_value = f'<b>{html.escape(texts.format_balance(user.balance_kopeks, round_kopeks=False))}</b>'
     blocks.append(f'<p>{_rich_text(balance_template).replace("{balance}", balance_value)}</p>')
 
     hint_sections: list[str] = []

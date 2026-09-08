@@ -12,6 +12,8 @@ from app.config import settings
 from app.database.crud.server_squad import get_all_server_squads
 from app.database.crud.user import get_user_by_id
 from app.database.models import Subscription, SubscriptionStatus, User
+from app.custom.identity.persist import persist_identity
+from app.custom.identity.panel_username import cache_panel_username
 from app.external.remnawave_api import (
     RemnaWaveAPI,
     RemnaWaveAPIError,
@@ -275,7 +277,8 @@ class SubscriptionService:
                 subscription.subscription_url = updated_user.subscription_url
                 subscription.subscription_crypto_link = updated_user.happ_crypto_link
                 if await self._panel_id_is_free_for(db, subscription, updated_user.id):
-                    subscription.remnawave_id = updated_user.id
+                    persist_identity(subscription=subscription, panel_user=updated_user)
+                    cache_panel_username(subscription, updated_user)
                 else:
                     # `uq_subscriptions_remnawave_id` частично-уникален. В
                     # single-tariff соседняя подписка того же человека уже держит
@@ -290,7 +293,7 @@ class SubscriptionService:
                     )
                 # Legacy field — keep in sync for single-mode backward compat
                 if not settings.is_multi_tariff_enabled():
-                    user.remnawave_id = updated_user.id
+                    persist_identity(user=user, panel_user=updated_user)
 
                 await db.commit()
 
@@ -405,13 +408,14 @@ class SubscriptionService:
                     remnawave_id=adopted.id,
                 )
                 return None
-            subscription.remnawave_id = adopted.id
+            persist_identity(subscription=subscription, panel_user=adopted)
+            cache_panel_username(subscription, adopted)
         else:
             # Только на User: в single-tariff все подписки одного пользователя
             # указывают на ОДИН панельный аккаунт, а `uq_subscriptions_remnawave_id`
             # частично-уникален — записав id второй строке, мы бы словили
             # IntegrityError и откатили вместе с ним уже применённое пополнение.
-            user.remnawave_id = adopted.id
+            persist_identity(user=user, panel_user=adopted)
         await db.flush((subscription, user))
         return adopted.id
 
@@ -502,7 +506,8 @@ class SubscriptionService:
             # писателях: иначе IntegrityError прилетал бы уже ПОСЛЕ update_user,
             # то есть панель изменена, а транзакция отката.
             if db is None or await self._panel_id_is_free_for(db, subscription, adopted.id):
-                subscription.remnawave_id = adopted.id
+                persist_identity(subscription=subscription, panel_user=adopted)
+                cache_panel_username(subscription, adopted)
             else:
                 logger.warning(
                     '⚠️ Панельный id уже закреплён за другой подпиской — колонку не трогаем',
@@ -1361,7 +1366,8 @@ class SubscriptionService:
                     # штатно держит этот аккаунт после бэкфила, и безусловная
                     # запись падала бы здесь на IntegrityError.
                     if await self._panel_id_is_free_for(db, subscription, panel_user.id):
-                        subscription.remnawave_id = panel_user.id
+                        persist_identity(subscription=subscription, panel_user=panel_user)
+                        cache_panel_username(subscription, panel_user)
                     else:
                         logger.warning(
                             '⚠️ Панельный id уже закреплён за другой подпиской — адресуем через пользователя',
@@ -1369,7 +1375,7 @@ class SubscriptionService:
                             remnawave_id=panel_user.id,
                         )
                     if not settings.is_multi_tariff_enabled() and not user.remnawave_id:
-                        user.remnawave_id = panel_user.id
+                        persist_identity(user=user, panel_user=panel_user)
                     await db.flush((subscription, user))
                     return True
 

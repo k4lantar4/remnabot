@@ -19,8 +19,10 @@ from app.services.pricing_engine import pricing_engine
 from app.services.subscription_renewal_service import (
     SubscriptionRenewalChargeError,
     SubscriptionRenewalService,
+    calculate_missing_amount,
 )
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -180,9 +182,9 @@ async def renew_subscription(
 
     tariff = subscription.tariff if subscription.tariff_id else None
 
-    # Check balance (skip for 100% discount)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-        missing = price_kopeks - user.balance_kopeks
+    # Check balance (Toman 1:1 vs catalog price_kopeks)
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+        missing = calculate_missing_amount(user.balance_kopeks, price_kopeks)
 
         # Get tariff info for cart
         tariff_id = subscription.tariff_id
@@ -236,7 +238,7 @@ async def renew_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
                 'missing_amount': missing,
                 'cart_saved': True,
                 'cart_mode': 'extend',
@@ -254,6 +256,7 @@ async def renew_subscription(
             user,
             subscription,
             pricing,
+            charge_balance_amount=catalog_price_in_toman(price_kopeks),
             description=renewal_description,
             payment_method=PaymentMethod.BALANCE,
         )

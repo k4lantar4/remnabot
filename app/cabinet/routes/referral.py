@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database.crud.referral import not_referee_directed
 from app.database.crud.referral_reward_level import normalize_reward_preference
+from app.utils.price_display import display_balance_from_storage
 from app.database.models import (
     AdvertisingCampaign,
     ReferralEarning,
@@ -112,11 +113,11 @@ async def get_referral_info(
         total_referrals=total_referrals,
         active_referrals=active_referrals,
         total_earnings_kopeks=total_earnings,
-        total_earnings_rubles=total_earnings / 100,
+        total_earnings_rubles=display_balance_from_storage(total_earnings),
         total_earnings_days=int(total_earning_days or 0),
         commission_percent=commission_percent,
         available_balance_kopeks=available_balance,
-        available_balance_rubles=available_balance / 100,
+        available_balance_rubles=display_balance_from_storage(available_balance),
         withdrawn_kopeks=withdrawn,
     )
 
@@ -243,7 +244,7 @@ async def get_referral_earnings(
             ReferralEarningResponse(
                 id=e.id,
                 amount_kopeks=e.amount_kopeks,
-                amount_rubles=e.amount_kopeks / 100,
+                amount_rubles=display_balance_from_storage(e.amount_kopeks),
                 reason=e.reason or 'Referral commission',
                 reward_type=getattr(e, 'reward_type', 'money') or 'money',
                 level=int(getattr(e, 'level', 1) or 1),
@@ -263,7 +264,7 @@ async def get_referral_earnings(
         items=items,
         total=total,
         total_amount_kopeks=total_amount,
-        total_amount_rubles=total_amount / 100,
+        total_amount_rubles=display_balance_from_storage(total_amount),
         total_days_granted=int(total_days or 0),
         page=page,
         per_page=per_page,

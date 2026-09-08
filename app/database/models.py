@@ -174,6 +174,7 @@ class PaymentMethod(Enum):
     CISPAY = 'cispay'
     DONUT = 'donut'
     LAVA = 'lava'
+    C2C = 'c2c'
     MANUAL = 'manual'
     BALANCE = 'balance'
 
@@ -1039,6 +1040,54 @@ class RioPayPayment(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f'<RioPayPayment(id={self.id}, order_id={self.order_id}, amount={self.amount_rubles}₽, status={self.status})>'
+
+
+class C2cReceiptStatus(str, Enum):
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+    EXPIRED = 'expired'
+    CANCELLED = 'cancelled'
+
+
+class C2cReceipt(Base):
+    """Manual card-to-card top-up receipt awaiting admin review."""
+
+    __tablename__ = 'c2c_receipts'
+    __table_args__ = (Index('ix_c2c_receipts_status_created_at', 'status', 'created_at'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    amount_kopeks = Column(Integer, nullable=False)
+    status = Column(String(32), nullable=False, default=C2cReceiptStatus.PENDING.value, index=True)
+
+    receipt_type = Column(String(32), nullable=True)
+    receipt_file_id = Column(String(512), nullable=True)
+    receipt_text = Column(Text, nullable=True)
+    user_receipt_message_id = Column(BigInteger, nullable=True)
+
+    card_index = Column(Integer, nullable=False, default=0)
+    card_label = Column(String(128), nullable=True)
+
+    admin_chat_id = Column(BigInteger, nullable=True)
+    admin_message_id = Column(BigInteger, nullable=True)
+    reviewed_by_telegram_id = Column(BigInteger, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    rejection_reason_key = Column(String(32), nullable=True)
+    approved_amount_kopeks = Column(Integer, nullable=True)
+
+    transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=True)
+
+    created_at = Column(AwareDateTime(), default=func.now(), nullable=False)
+    updated_at = Column(AwareDateTime(), default=func.now(), onupdate=func.now(), nullable=False)
+    expires_at = Column(AwareDateTime(), nullable=True)
+    processed_at = Column(AwareDateTime(), nullable=True)
+
+    user = relationship('User', backref='c2c_receipts')
+    transaction = relationship('Transaction', backref='c2c_receipt')
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f'<C2cReceipt(id={self.id}, user_id={self.user_id}, status={self.status})>'
 
 
 class SeverPayPayment(Base):
@@ -2200,11 +2249,21 @@ class User(Base):
 
     # Партнёрская система
     partner_status = Column(String(20), default=PartnerStatus.NONE.value, nullable=False, index=True)
+    wholesale_discount_bps = Column(Integer, default=0, nullable=False)
+    panel_brand_prefix = Column(String(24), nullable=True)
 
     @property
     def is_partner(self) -> bool:
         """Проверить, является ли пользователь одобренным партнёром."""
         return self.partner_status == PartnerStatus.APPROVED.value
+
+    @property
+    def effective_wholesale_discount_bps(self) -> int:
+        """Partner wholesale BPS (0–10000) when approved; otherwise 0."""
+        if not self.is_partner:
+            return 0
+        bps = int(self.wholesale_discount_bps or 0)
+        return max(0, min(10000, bps))
 
     @property
     def has_restrictions(self) -> bool:
@@ -2213,7 +2272,8 @@ class User(Base):
 
     @property
     def balance_rubles(self) -> float:
-        return self.balance_kopeks / 100
+        """Display Toman: balance_kopeks column stores integer Toman 1:1 (Phase B)."""
+        return float(self.balance_kopeks)
 
     @property
     def full_name(self) -> str:
@@ -2289,13 +2349,6 @@ class Subscription(Base):
         Index('ix_subscriptions_user_tariff_status', 'user_id', 'tariff_id', 'status'),
         Index('ix_subscriptions_grace_expiry_scan', 'status', 'is_trial', 'end_date'),
         Index('ix_subscriptions_grace_candidate', 'grace_candidate_at', 'grace_candidate_reason'),
-        Index(
-            'uq_subscriptions_user_tariff_active',
-            'user_id',
-            'tariff_id',
-            unique=True,
-            postgresql_where=text("tariff_id IS NOT NULL AND status IN ('active', 'trial', 'limited')"),
-        ),
         # Панельная идентичность подписки. Уникальность частичная: непривязанных
         # подписок (remnawave_id IS NULL) может быть сколько угодно, а вот две
         # подписки на одного панельного пользователя — всегда ошибка. Код это и
@@ -2366,6 +2419,10 @@ class Subscription(Base):
     remnawave_short_id = Column(
         String(16), nullable=False, unique=True, server_default=''
     )  # Permanent short ID for username suffix
+    purchase_note = Column(Text, nullable=True)
+    user_disabled = Column(Boolean, default=False, nullable=False)
+    account_sequence = Column(Integer, nullable=False, default=1)
+    panel_username = Column(String(64), nullable=True)
 
     # Тариф (для режима продаж "Тарифы")
     tariff_id = Column(Integer, ForeignKey('tariffs.id', ondelete='RESTRICT'), nullable=True, index=True)

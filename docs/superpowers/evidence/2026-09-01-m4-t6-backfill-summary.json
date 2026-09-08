@@ -1,0 +1,44 @@
+{
+  "task": "M4-T6",
+  "dry_run": {
+    "panel_users": 3181,
+    "subscriptions_total": 3173,
+    "subscriptions_resolved": 3170,
+    "users_resolved": 0,
+    "grace_sessions_resolved": 0,
+    "by_strategy": {"short_uuid": 3170},
+    "unresolved": 3,
+    "conflicts": 0,
+    "committed": false
+  },
+  "apply": {
+    "panel_users": 3181,
+    "subscriptions_total": 3173,
+    "subscriptions_resolved": 3170,
+    "users_resolved": 0,
+    "grace_sessions_resolved": 0,
+    "by_strategy": {"short_uuid": 3170},
+    "unresolved": 3,
+    "conflicts": 0,
+    "committed": true
+  },
+  "g6": {
+    "matches": 3170,
+    "mismatches": 0,
+    "null_id": 3,
+    "users_with_id": 0
+  },
+  "idempotent_reapply": {
+    "subscriptions_total": 3,
+    "subscriptions_resolved": 0,
+    "applied": 0,
+    "unresolved": 3,
+    "conflicts": 0,
+    "with_id_unchanged": 3170
+  },
+  "unresolved": [
+    {"kind": "subscription", "row_id": 4553, "reason": "short_uuid_not_found_in_panel", "remnawave_short_uuid": "tZs8JsY8oUU49fRS"},
+    {"kind": "subscription", "row_id": 81779, "reason": "sibling_shares_panel_account", "remnawave_short_uuid": "y-eU-AqbG0KqSqZh"},
+    {"kind": "subscription", "row_id": 82454, "reason": "short_uuid_not_found_in_panel", "remnawave_short_uuid": "zSv1uK71P2_4vVDS"}
+  ]
+}

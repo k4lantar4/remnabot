@@ -11,6 +11,7 @@
 !Dockerfile
 !docker-compose.yml
 !docker-compose.local.yml
+!docker-compose.rehearsal.yml
 !Makefile
 !pyproject.toml
 !uv.lock
@@ -44,12 +45,19 @@
 !scripts/**
 !docs/
 !docs/**
+!deploy/
+!deploy/**
 !assets/
 !assets/**
 !locales/
 !locales/**
 !.github/
 !.github/**
+
+# Migration governance (whitelist single rule; legacy 10-remnabot.mdc stays local)
+!.cursor/
+!.cursor/rules/
+!.cursor/rules/10-remnabot-migration.mdc
 
 # ========== BLACKLIST: игнорируемые внутри папок ==========
 
@@ -90,6 +98,9 @@ docker-compose.override.yml
 .env
 .env.local
 .env.*.local
+.env.rehearsal
+.env.rehearsal-rw
+.env.cutover
 
 # Runtime data
 logs/

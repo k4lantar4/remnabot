@@ -170,6 +170,7 @@ class PaymentCommonMixin:
         *,
         db: AsyncSession | None = None,
         payment_method_title: str | None = None,
+        cart_autopurchase_failed: bool = False,
     ) -> None:
         """Отправляет пользователю уведомление об успешном платеже."""
         if not settings.is_notifications_enabled():
@@ -212,16 +213,44 @@ class PaymentCommonMixin:
         )
 
         try:
-            payment_method = payment_method_title or 'Банковская карта (YooKassa)'
-
-            # Стандартное сообщение с полной клавиатурой
-            keyboard = await self.build_topup_success_keyboard(user_snapshot)
-            message = (
-                '✅ <b>Платеж успешно завершен!</b>\n\n'
-                f'💰 Сумма: {settings.format_price(amount_kopeks)}\n'
-                f'💳 Способ: {payment_method}\n\n'
-                'Средства зачислены на ваш баланс!'
+            texts = get_texts(user_snapshot.language if user_snapshot else settings.DEFAULT_LANGUAGE)
+            amount_str = texts.format_balance(amount_kopeks)
+            if payment_method_title and payment_method_title.strip() == settings.get_c2c_display_name().strip():
+                method_display = texts.t('PAYMENT_C2C', payment_method_title)
+            elif payment_method_title:
+                method_display = payment_method_title
+            else:
+                method_display = texts.t('PAYMENT_CARD_YOOKASSA', '💳 Карта (YooKassa)')
+            snapshot_user_id = getattr(user_snapshot, 'id', None) if user_snapshot else None
+            has_cart_intent = bool(
+                snapshot_user_id and await user_cart_service.has_topup_intent(snapshot_user_id)
             )
+            if cart_autopurchase_failed:
+                message = texts.t(
+                    'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED',
+                    '✅ <b>Balance topped up!</b>\n\n'
+                    '💰 Amount: {amount}\n'
+                    '💳 Method: {method}\n\n'
+                    '⚠️ To complete your purchase, tap «Return to checkout».',
+                ).format(amount=amount_str, method=method_display)
+            elif has_cart_intent:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS_WITH_CART',
+                    '✅ <b>Платеж подтверждён!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Активируем сервис…',
+                ).format(amount=amount_str, method=method_display)
+            else:
+                message = texts.t(
+                    'PAYMENT_TOPUP_SUCCESS',
+                    '✅ <b>Платеж успешно завершен!</b>\n\n'
+                    '💰 Сумма: {amount}\n'
+                    '💳 Способ: {method}\n\n'
+                    'Средства зачислены на ваш баланс!',
+                ).format(amount=amount_str, method=method_display)
+
+            keyboard = await self.build_topup_success_keyboard(user_snapshot)
 
             await self.bot.send_message(
                 chat_id=telegram_id,

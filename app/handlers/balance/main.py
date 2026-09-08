@@ -1,4 +1,5 @@
 import html
+from decimal import InvalidOperation
 
 import structlog
 from aiogram import Dispatcher, F, types
@@ -20,6 +21,7 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
+from app.utils.price_display import balance_from_display_amount, is_balance_scale_transaction
 
 
 logger = structlog.get_logger(__name__)
@@ -226,6 +228,13 @@ async def route_payment_by_method(
             await process_riopay_payment_amount(message, db_user, db, amount_kopeks, state)
         return True
 
+    if payment_method == 'c2c':
+        from app.plugins.c2c.integration import route_c2c_payment
+
+        async with AsyncSessionLocal() as db:
+            await route_c2c_payment(message, db_user, db, amount_kopeks, state)
+        return True
+
     return False
 
 
@@ -238,7 +247,7 @@ async def show_balance_menu(callback: types.CallbackQuery, db_user: User, db: As
 
     texts = get_texts(db_user.language)
 
-    balance_text = texts.BALANCE_INFO.format(balance=texts.format_price(db_user.balance_kopeks))
+    balance_text = texts.BALANCE_INFO.format(balance=texts.format_balance(db_user.balance_kopeks))
 
     reply_markup = get_balance_keyboard(db_user.language)
 
@@ -298,11 +307,12 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
     for transaction in unique_transactions:
         is_credit = transaction.type in CREDIT_TRANSACTION_TYPES
         emoji = '💰' if is_credit else '💸'
-        amount_text = (
-            f'+{texts.format_price(transaction.amount_kopeks)}'
-            if is_credit
-            else f'-{texts.format_price(abs(transaction.amount_kopeks))}'
-        )
+        abs_amount = abs(transaction.amount_kopeks)
+        if is_balance_scale_transaction(transaction.type):
+            formatted = texts.format_balance(abs_amount)
+        else:
+            formatted = texts.format_price(abs_amount)
+        amount_text = f'+{formatted}' if is_credit else f'-{formatted}'
 
         text += f'{emoji} {amount_text}\n'
         text += f'📝 {html.escape(transaction.description or "")}\n'
@@ -355,22 +365,74 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
 
     payment_text = get_payment_methods_text(db_user.language)
 
+    hide_c2c_payment = False
+    pending_receipt = None
+    c2c_integration = None
+    if settings.is_c2c_enabled():
+        from app.plugins.c2c import integration as c2c_integration
+
+        pending_receipt = await c2c_integration.get_reviewable_pending_receipt(db, db_user.id)
+        if pending_receipt:
+            hide_c2c_payment = True
+
     # Проверяем сохранённую корзину для автоподстановки суммы пополнения
     amount_kopeks = 0
     try:
         from app.services.user_cart_service import user_cart_service
+        from app.utils.topup_suggestion import resolve_suggested_topup_from_cart
 
         cart_data = await user_cart_service.get_user_cart(db_user.id)
         if cart_data and cart_data.get('saved_cart'):
-            missing = cart_data.get('missing_amount', 0)
-            if missing > 0:
-                amount_kopeks = missing
+            amount_kopeks = resolve_suggested_topup_from_cart(cart_data)
     except Exception:
         pass
 
+    from app.utils.cart_checkout_keyboard import user_has_checkout_cart
+
+    has_checkout_cart = await user_has_checkout_cart(db_user.id)
+
+    if pending_receipt and c2c_integration:
+        probe_keyboard = get_payment_methods_keyboard(
+            amount_kopeks,
+            db_user.language,
+            hide_c2c_payment=True,
+        )
+        if not c2c_integration.payment_keyboard_has_selectable_method(probe_keyboard):
+            full_text, keyboard = c2c_integration.build_pending_receipt_topup_screen(
+                pending_receipt,
+                db_user.language,
+                show_return_to_checkout=has_checkout_cart,
+            )
+            if isinstance(callback.message, InaccessibleMessage):
+                await callback.message.answer(full_text, reply_markup=keyboard, parse_mode='HTML')
+            else:
+                try:
+                    await callback.message.edit_text(full_text, reply_markup=keyboard, parse_mode='HTML')
+                except TelegramBadRequest:
+                    try:
+                        await callback.message.edit_caption(full_text, reply_markup=keyboard, parse_mode='HTML')
+                    except TelegramBadRequest:
+                        try:
+                            await callback.message.delete()
+                        except TelegramBadRequest:
+                            pass
+                        await callback.message.answer(full_text, reply_markup=keyboard, parse_mode='HTML')
+            await callback.answer()
+            return
+
+        payment_text = (
+            c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language)
+            + '\n\n'
+            + payment_text
+        )
+
     full_text = payment_text
 
-    keyboard = get_payment_methods_keyboard(amount_kopeks, db_user.language)
+    keyboard = get_payment_methods_keyboard(
+        amount_kopeks,
+        db_user.language,
+        hide_c2c_payment=hide_c2c_payment,
+    )
 
     # Если сообщение недоступно, отправляем новое
     if isinstance(callback.message, InaccessibleMessage):
@@ -538,25 +600,50 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
             await message.answer(texts.INVALID_AMOUNT, reply_markup=get_back_keyboard(db_user.language))
             return
 
-        amount_rubles = float(amount_text.replace(',', '.'))
-
-        if amount_rubles < 1:
-            await message.answer(
-                'Минимальная сумма пополнения: 1 ₽',
-                reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
-            )
-            return
-
-        if amount_rubles > 50000:
-            await message.answer(
-                'Максимальная сумма пополнения: 50,000 ₽',
-                reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
-            )
-            return
-
-        amount_kopeks = int(amount_rubles * 100)
         data = await state.get_data()
         payment_method = data.get('payment_method', 'stars')
+
+        if payment_method == 'c2c':
+            amount_kopeks = balance_from_display_amount(amount_text)
+        else:
+            amount_rubles = float(amount_text.replace(',', '.'))
+            amount_kopeks = int(amount_rubles * 100)
+
+        if payment_method != 'c2c':
+            if amount_rubles < 1:
+                await message.answer(
+                    'Минимальная сумма пополнения: 1 ₽',
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+            if amount_rubles > 50000:
+                await message.answer(
+                    'Максимальная сумма пополнения: 50,000 ₽',
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+        if payment_method == 'c2c':
+            if amount_kopeks < settings.C2C_MIN_AMOUNT_KOPEKS:
+                await message.answer(
+                    texts.t(
+                        'C2C_AMOUNT_TOO_LOW',
+                        '❌ Minimum amount for card-to-card: {min}',
+                    ).format(min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS)),
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
+
+            if amount_kopeks > settings.C2C_MAX_AMOUNT_KOPEKS:
+                await message.answer(
+                    texts.t(
+                        'C2C_AMOUNT_TOO_HIGH',
+                        '❌ Maximum amount for card-to-card: {max}',
+                    ).format(max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS)),
+                    reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+                )
+                return
 
         if payment_method in ['yookassa', 'yookassa_sbp']:
             if amount_kopeks < settings.YOOKASSA_MIN_AMOUNT_KOPEKS:
@@ -578,7 +665,7 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
         if not await route_payment_by_method(message, db_user, amount_kopeks, state, payment_method):
             await message.answer('Неизвестный способ оплаты')
 
-    except ValueError:
+    except (ValueError, InvalidOperation):
         await message.answer(texts.INVALID_AMOUNT, reply_markup=get_back_keyboard(db_user.language))
 
 

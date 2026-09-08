@@ -28,6 +28,14 @@ from app.utils.timezone import format_local_datetime
 
 logger = structlog.get_logger(__name__)
 
+
+async def get_next_account_sequence(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(
+        select(func.coalesce(func.max(Subscription.account_sequence), 0)).where(Subscription.user_id == user_id)
+    )
+    return int(result.scalar_one()) + 1
+
+
 # Статусы, при которых подписка считается «живой» (индекс uq_subscriptions_user_tariff_active
 # защищает именно эти статусы). Используется в нескольких местах модуля.
 ALIVE_SUBSCRIPTION_STATUSES: frozenset[str] = frozenset(
@@ -630,6 +638,8 @@ async def create_paid_subscription(
 
     short_id = await generate_unique_short_id(db)
 
+    account_sequence = await get_next_account_sequence(db, user_id)
+
     subscription = Subscription(
         user_id=user_id,
         status=SubscriptionStatus.ACTIVE.value,
@@ -643,6 +653,7 @@ async def create_paid_subscription(
         autopay_days_before=settings.DEFAULT_AUTOPAY_DAYS_BEFORE,
         tariff_id=tariff_id,
         remnawave_short_id=short_id,
+        account_sequence=account_sequence,
     )
 
     db.add(subscription)
@@ -3054,6 +3065,7 @@ async def get_subscription_by_id_for_user(db: AsyncSession, subscription_id: int
             Subscription.id == subscription_id,
             Subscription.user_id == user_id,
         )
+        .execution_options(populate_existing=True)
     )
     return result.scalar_one_or_none()
 
@@ -3194,7 +3206,10 @@ async def deactivate_user_trial_subscriptions(
 async def get_all_subscriptions_by_user_id(db: AsyncSession, user_id: int) -> list[Subscription]:
     """Get all subscriptions for a user (any status).
 
-    Ordering: active first, then trial, then everything else — newest first within each group.
+    Ordering: active/trial/user-disabled first (newest purchase first within tier),
+    then expired/system-disabled — newest first within each tier.
+    User-disabled (paused) subs stay on the first pages by purchase date, not
+    pushed to the end with expired rows.
     """
     result = await db.execute(
         select(Subscription)
@@ -3207,6 +3222,7 @@ async def get_all_subscriptions_by_user_id(db: AsyncSession, user_id: int) -> li
             case(
                 (Subscription.status == SubscriptionStatus.ACTIVE.value, 0),
                 (Subscription.status == SubscriptionStatus.TRIAL.value, 1),
+                (Subscription.user_disabled.is_(True), 0),
                 else_=2,
             ),
             Subscription.created_at.desc(),

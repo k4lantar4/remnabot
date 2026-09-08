@@ -283,6 +283,38 @@ class UserCartService:
         except Exception as e:
             logger.error('🛒 Ошибка удаления метки намерения пополнения', user_id=user_id, error=e)
 
+    async def refresh_topup_intent(self, user_id: int) -> None:
+        """Extend cart_topup_intent TTL while async payment (e.g. C2C) is pending."""
+        client = self._get_redis_client()
+        if client is None:
+            return
+        ttl = max(
+            settings.CART_AUTOPURCHASE_INTENT_TTL_SECONDS,
+            settings.C2C_RECEIPT_TTL_HOURS * 3600,
+        )
+        key = self._topup_intent_key(user_id)
+        try:
+            cart = await self.get_user_cart(user_id)
+            if not cart or not cart.get('return_to_cart'):
+                if await client.exists(key):
+                    await client.expire(key, ttl)
+                return
+
+            await client.setex(key, ttl, '1')
+            cart_key = f'user_cart:{user_id}'
+            json_data = json.dumps(cart, ensure_ascii=False)
+            await client.setex(cart_key, ttl, json_data)
+
+            subscription_id = cart.get('subscription_id')
+            if subscription_id is not None:
+                try:
+                    sub_key = self._subscription_cart_key(user_id, int(subscription_id))
+                    await client.setex(sub_key, ttl, json_data)
+                except (TypeError, ValueError):
+                    pass
+        except Exception as e:
+            logger.warning('Failed to refresh topup intent', user_id=user_id, error=e)
+
     async def save_subscription_cart(
         self,
         user_id: int,

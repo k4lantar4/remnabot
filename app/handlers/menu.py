@@ -25,6 +25,10 @@ from app.keyboards.inline import (
     get_main_menu_keyboard_async,
 )
 from app.localization.texts import get_rules, get_texts
+from app.localization.user_language import (
+    apply_forced_user_language,
+    mark_user_language_synced,
+)
 from app.services.faq_service import FaqService
 from app.services.main_menu_button_service import MainMenuButtonService
 from app.services.privacy_policy_service import PrivacyPolicyService
@@ -193,6 +197,9 @@ async def show_main_menu(
             show_alert=True,
         )
         return
+
+    if apply_forced_user_language(db_user):
+        mark_user_language_synced(db_user)
 
     texts = get_texts(db_user.language)
 

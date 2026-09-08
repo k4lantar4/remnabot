@@ -343,9 +343,9 @@ def _get_balance_text(cached_styles: dict, language: str, texts, balance_kopeks:
     if custom_bal:
         return custom_bal
     if hasattr(texts, 'BALANCE_BUTTON') and safe_balance > 0:
-        return texts.BALANCE_BUTTON.format(balance=texts.format_price(safe_balance))
+        return texts.BALANCE_BUTTON.format(balance=texts.format_balance(safe_balance))
     return texts.t('BALANCE_BUTTON_DEFAULT', '💰 Баланс: {balance}').format(
-        balance=texts.format_price(safe_balance),
+        balance=texts.format_balance(safe_balance),
     )
 
 
@@ -606,12 +606,12 @@ def get_main_menu_keyboard(
 
     safe_balance = balance_kopeks or 0
     if hasattr(texts, 'BALANCE_BUTTON') and safe_balance > 0:
-        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_price(safe_balance))
+        balance_button_text = texts.BALANCE_BUTTON.format(balance=texts.format_balance(safe_balance))
     else:
         balance_button_text = texts.t(
             'BALANCE_BUTTON_DEFAULT',
             '💰 Баланс: {balance}',
-        ).format(balance=texts.format_price(safe_balance))
+        ).format(balance=texts.format_balance(safe_balance))
 
     keyboard: list[list[InlineKeyboardButton]] = []
     paired_buttons: list[InlineKeyboardButton] = []
@@ -1645,7 +1645,12 @@ def _apply_payment_name_overrides(keyboard: list[list[InlineKeyboardButton]]) ->
                 row[idx] = button.model_copy(update={'text': override})
 
 
-def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LANGUAGE) -> InlineKeyboardMarkup:
+def get_payment_methods_keyboard(
+    amount_kopeks: int,
+    language: str = DEFAULT_LANGUAGE,
+    *,
+    hide_c2c_payment: bool = False,
+) -> InlineKeyboardMarkup:
     texts = get_texts(language)
     keyboard = []
     has_direct_payment_methods = False
@@ -2227,6 +2232,16 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
                 )
             ]
         )
+        has_direct_payment_methods = True
+
+    from app.plugins.c2c import integration as c2c_integration
+
+    if c2c_integration.append_payment_button(
+        keyboard,
+        texts,
+        _build_callback,
+        hide_c2c_payment=hide_c2c_payment,
+    ):
         has_direct_payment_methods = True
 
     if settings.is_support_topup_enabled():

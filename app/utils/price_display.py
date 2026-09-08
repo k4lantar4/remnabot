@@ -5,9 +5,12 @@ This module provides a centralized way to:
 - Calculate prices with all applicable discounts (promo groups, promo offers)
 - Format price buttons consistently across all flows
 - Ensure uniform discount display throughout the application
+- Convert between stored kopeks and user-facing display amounts (÷100 / ×100)
 """
 
+import re
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import structlog
 
@@ -16,6 +19,154 @@ from app.database.models import User
 
 
 logger = structlog.get_logger(__name__)
+
+
+def display_amount_from_kopeks(kopeks: int) -> float:
+    """User-facing display unit for catalog prices (kopeks ÷ 100)."""
+    return kopeks / 100
+
+
+def display_balance_from_storage(amount_toman: int) -> float:
+    """API balance_rubles: stored integer is Toman 1:1 (Phase B)."""
+    return float(amount_toman)
+
+
+# Balance movements stored 1:1 with balance_kopeks after Phase B.
+# Catalog charges (subscription/gift) stay on price_kopeks scale until Phase C.
+_BALANCE_SCALE_TRANSACTION_TYPES = frozenset(
+    {
+        'deposit',
+        'withdrawal',
+        'refund',
+        'failed_refund',
+        'referral_reward',
+        'poll_reward',
+    }
+)
+
+
+def is_balance_scale_transaction(tx_type: str) -> bool:
+    """True when transaction.amount_kopeks uses balance Toman 1:1 storage."""
+    return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES
+
+
+def storage_sum_to_display_toman(raw_sum: int, tx_type: str) -> int:
+    """Convert a per-type raw amount sum to display Toman integer."""
+    if is_balance_scale_transaction(tx_type):
+        return abs(raw_sum)
+    return abs(raw_sum) // 100
+
+
+def format_transaction_amount_for_display(amount_kopeks: int, tx_type: str, format_balance, format_price) -> str:
+    """Format a single transaction row amount using the correct scale helper."""
+    if is_balance_scale_transaction(tx_type):
+        return format_balance(abs(amount_kopeks))
+    return format_price(abs(amount_kopeks))
+
+
+def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) -> float:
+    """
+    User-facing amount_rubles for a transaction row.
+
+    Balance-scale types: 1:1 Toman (Phase B). Catalog-scale types: ÷100 (Phase C).
+    """
+    abs_amount = abs(amount_kopeks)
+    if is_balance_scale_transaction(tx_type):
+        value = float(abs_amount)
+    else:
+        value = abs_amount / 100
+    return -value if amount_kopeks < 0 else value
+
+
+def catalog_price_in_toman(price_kopeks: int) -> int:
+    """Convert catalog price_kopeks to Toman for balance comparison/charge."""
+    return price_kopeks // 100
+
+
+def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
+    """True when stored balance (Toman) covers catalog price."""
+    return balance_toman >= catalog_price_in_toman(price_kopeks)
+
+
+def render_addon_insufficient_funds(texts, *, price_kopeks: int, balance_toman: int) -> tuple[str, int]:
+    """Persian/HTML insufficient-funds copy with Toman missing for C2C top-up.
+
+    Catalog price stays on ``format_price`` (÷100). Balance and shortfall use
+    ``format_balance`` (1:1) so the C2C card amount matches the کسری line.
+    """
+    missing_toman = max(0, catalog_price_in_toman(price_kopeks) - int(balance_toman or 0))
+    message = texts.t(
+        'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
+        (
+            '⚠️ <b>Недостаточно средств</b>\n\n'
+            'Стоимость услуги: {required}\n'
+            'На балансе: {balance}\n'
+            'Не хватает: {missing}\n\n'
+            'Выберите способ пополнения. Сумма подставится автоматически.'
+        ),
+    ).format(
+        required=texts.format_price(price_kopeks, round_kopeks=False),
+        balance=texts.format_balance(balance_toman, round_kopeks=False),
+        missing=texts.format_balance(missing_toman, round_kopeks=False),
+    )
+    return message, missing_toman
+
+
+_PERSIAN_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
+_ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+_CURRENCY_SUFFIX_RE = re.compile(r'(?i)(تومان|toman|rial|₽)\s*$')
+
+
+def normalize_display_amount_text(raw: str) -> str:
+    """Normalize user-typed balance/top-up text (fa digits, separators, suffixes)."""
+    text = raw.strip().translate(_PERSIAN_DIGITS).translate(_ARABIC_DIGITS)
+    text = _CURRENCY_SUFFIX_RE.sub('', text).strip()
+    text = text.replace('\u066c', '').replace(' ', '').replace(',', '')
+    # European thousands: 10.000 → 10000 (single dot, exactly 3 fractional digits)
+    if re.fullmatch(r'-?\d+\.\d{3}', text):
+        text = text.replace('.', '')
+    return text
+
+
+def balance_from_display_amount(amount: float | Decimal | str) -> int:
+    """
+    Convert admin/display input to balance_kopeks (Toman integer, ROUND_HALF_UP).
+
+    Preserves sign (e.g. -50 display → -50 stored).
+    """
+    if isinstance(amount, str):
+        amount = normalize_display_amount_text(amount)
+        if not amount:
+            raise ValueError('Invalid display amount')
+    try:
+        decimal_amount = Decimal(str(amount))
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    sign = -1 if decimal_amount < 0 else 1
+    decimal_amount = abs(decimal_amount)
+    try:
+        decimal_amount = decimal_amount.quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    toman = int(decimal_amount.to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * toman
+
+
+def kopeks_from_display_amount(amount: float | Decimal) -> int:
+    """
+    Convert display unit to kopeks (single ×100, ROUND_HALF_UP).
+
+    Preserves sign for negative adjustments (e.g. -50 display → -5000 kopeks).
+    """
+    try:
+        decimal_amount = Decimal(str(amount))
+        sign = -1 if decimal_amount < 0 else 1
+        decimal_amount = abs(decimal_amount)
+        decimal_amount = decimal_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError('Invalid display amount') from exc
+    kopeks = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    return sign * kopeks
 
 
 @dataclass
@@ -63,13 +214,31 @@ def calculate_user_price(user: User | None, base_price: int, period_days: int, c
     if not base_price or base_price <= 0:
         return PriceInfo(base_price=base_price or 0, final_price=base_price or 0, discount_percent=0)
 
-    # Step 1: Get promo group discount
+    # Step 1: Wholesale partners bypass retail promo stack
+    from app.services.pricing_engine import PricingEngine
+
+    if user and PricingEngine.uses_wholesale_pricing(user):
+        final_price, discount_value = PricingEngine.apply_wholesale_discount(base_price, user)
+        discount_percent = PricingEngine.checkout_display_discount_percent(base_price, final_price)
+        logger.debug(
+            'calculate_user_price',
+            telegram_id=user.telegram_id,
+            base_price=base_price,
+            final_price=final_price,
+            wholesale_discount_bps=PricingEngine.get_wholesale_discount_bps(user),
+            discount_percent=discount_percent,
+            category=category,
+            period_days=period_days,
+        )
+        return PriceInfo(base_price=base_price, final_price=final_price, discount_percent=discount_percent)
+
+    # Step 2: Get promo group discount
     if user:
         group_discount = user.get_promo_discount(category, period_days)
     else:
         group_discount = settings.get_base_promo_group_period_discount(period_days)
 
-    # Step 2: Get promo offer discount (stacking)
+    # Step 3: Get promo offer discount (stacking)
     promo_offer_discount = 0
     if user:
         from app.utils.promo_offer import get_user_active_promo_discount_percent
@@ -77,8 +246,6 @@ def calculate_user_price(user: User | None, base_price: int, period_days: int, c
         promo_offer_discount = get_user_active_promo_discount_percent(user)
 
     # Apply both discounts sequentially via PricingEngine
-    from app.services.pricing_engine import PricingEngine
-
     final_price, _, _ = PricingEngine.apply_stacked_discounts(base_price, group_discount, promo_offer_discount)
 
     # Effective combined discount percent

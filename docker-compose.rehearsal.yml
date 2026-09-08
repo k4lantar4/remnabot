@@ -1,0 +1,133 @@
+# Isolated rehearsal stack (bot DB/redis/bot + cabinet).
+# Project name is pinned so a bare compose in this directory cannot prefix
+# remnabot1_* volumes. Do not join remnawave-network.
+#
+# M5-T2: cabinet frontend source is /opt/cabinet only. Do not mount
+# /opt/remnabot/cabinet (legacy production embed) or grow remnabot1/cabinet/.
+#
+# Pass condition for M1-T1: `docker compose -p rehearsal -f docker-compose.rehearsal.yml config`
+# Do not `compose up` rehearsal_bot until M4-T0 PASS. Restore uses only rehearsal_* volumes.
+
+name: rehearsal
+
+services:
+  rehearsal_bot_db:
+    image: postgres:15-alpine@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f
+    container_name: rehearsal_bot_db
+    hostname: rehearsal_bot_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: remnawave_bot
+      POSTGRES_USER: remnawave_user
+      POSTGRES_PASSWORD: rehearsal_bot_pg_placeholder
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    volumes:
+      - rehearsal_bot_pg15:/var/lib/postgresql/data
+    ports:
+      - '127.0.0.1:6061:5432'
+    networks:
+      - rehearsal_net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U remnawave_user -d remnawave_bot']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  rehearsal_bot_redis:
+    image: redis:7-alpine
+    container_name: rehearsal_bot_redis
+    hostname: rehearsal_bot_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - rehearsal_bot_redis:/data
+    networks:
+      - rehearsal_net
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Defined but not started by a bare `compose up`. Enable with
+  # `--profile bot-app` only after M4-T0 PASS. SKIP_MIGRATION is set anyway.
+  rehearsal_bot:
+    profiles:
+      - bot-app
+    build:
+      context: /opt/remnabot1
+      dockerfile: Dockerfile
+    container_name: rehearsal_bot
+    hostname: rehearsal_bot
+    restart: 'no'
+    depends_on:
+      rehearsal_bot_db:
+        condition: service_healthy
+      rehearsal_bot_redis:
+        condition: service_healthy
+    env_file:
+      - .env.rehearsal
+    environment:
+      FORCE_COLOR: '1'
+      DOCKER_ENV: 'true'
+      DATABASE_MODE: 'auto'
+      SKIP_MIGRATION: 'true'
+      POSTGRES_HOST: rehearsal_bot_db
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: remnawave_bot
+      POSTGRES_USER: remnawave_user
+      POSTGRES_PASSWORD: rehearsal_bot_pg_placeholder
+      REDIS_URL: 'redis://rehearsal_bot_redis:6379/0'
+      WEB_API_ALLOWED_ORIGINS: '*'
+    ports:
+      - '127.0.0.1:8081:8080'
+    networks:
+      - rehearsal_net
+
+  cabinet_frontend:
+    # Canonical frontend tree. Not /opt/remnabot/cabinet. Not ./cabinet.
+    build:
+      context: /opt/cabinet
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_TELEGRAM_BOT_USERNAME: mrj7_bot
+        VITE_APP_NAME: Rehearsal Cabinet
+        VITE_APP_LOGO: V
+    container_name: rehearsal_cabinet_frontend
+    hostname: cabinet_frontend
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3021:80'
+    networks:
+      - rehearsal_net
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:80/',
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  rehearsal_bot_pg15:
+    name: rehearsal_bot_pg15
+    driver: local
+  rehearsal_bot_redis:
+    name: rehearsal_bot_redis
+    driver: local
+
+networks:
+  rehearsal_net:
+    name: rehearsal_net
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1350

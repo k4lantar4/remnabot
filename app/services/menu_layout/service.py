@@ -796,8 +796,9 @@ class MenuLayoutService:
 
         # show_buy
         if conditions.get('show_buy') is True:
-            if context.has_active_subscription and context.subscription_is_active:
-                return False
+            if not settings.is_multi_tariff_enabled():
+                if context.has_active_subscription and context.subscription_is_active:
+                    return False
 
         # has_saved_cart
         if conditions.get('has_saved_cart') is True:

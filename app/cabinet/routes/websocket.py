@@ -12,6 +12,7 @@ from app.cabinet.auth.jwt_handler import get_token_payload
 from app.config import settings
 from app.database.crud.user import get_user_by_id
 from app.database.database import AsyncSessionLocal
+from app.utils.price_display import display_amount_from_kopeks, display_balance_from_storage
 
 
 logger = structlog.get_logger(__name__)
@@ -282,9 +283,9 @@ async def notify_user_balance_topup(
         {
             'type': 'balance.topup',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
             'description': description,
         },
     )
@@ -302,9 +303,9 @@ async def notify_user_balance_change(
         {
             'type': 'balance.change',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
             'description': description,
         },
     )
@@ -373,7 +374,7 @@ async def notify_user_subscription_renewed(
             'subscription_id': subscription_id,
             'new_expires_at': new_expires_at,
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
         },
     )
 
@@ -392,7 +393,7 @@ async def notify_user_devices_purchased(
             'devices_added': devices_added,
             'new_device_limit': new_device_limit,
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
         },
     )
 
@@ -411,7 +412,7 @@ async def notify_user_traffic_purchased(
             'traffic_gb_added': traffic_gb_added,
             'new_traffic_limit_gb': new_traffic_limit_gb,
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
         },
     )
 
@@ -432,7 +433,7 @@ async def notify_user_autopay_success(
         {
             'type': 'autopay.success',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
             'new_expires_at': new_expires_at,
         },
     )
@@ -463,9 +464,9 @@ async def notify_user_autopay_insufficient_funds(
         {
             'type': 'autopay.insufficient_funds',
             'required_kopeks': required_kopeks,
-            'required_rubles': required_kopeks / 100,
+            'required_rubles': display_amount_from_kopeks(required_kopeks),
             'balance_kopeks': balance_kopeks,
-            'balance_rubles': balance_kopeks / 100,
+            'balance_rubles': display_balance_from_storage(balance_kopeks),
         },
     )
 
@@ -523,7 +524,7 @@ async def notify_user_referral_bonus(
         {
             'type': 'referral.bonus',
             'bonus_kopeks': bonus_kopeks,
-            'bonus_rubles': bonus_kopeks / 100,
+            'bonus_rubles': display_balance_from_storage(bonus_kopeks),
             'referral_name': referral_name,
         },
     )
@@ -559,9 +560,9 @@ async def notify_user_daily_debit(
         {
             'type': 'subscription.daily_debit',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
         },
     )
 
@@ -587,7 +588,7 @@ async def notify_user_payment_received(
         {
             'type': 'payment.received',
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
             'payment_method': payment_method,
         },
     )

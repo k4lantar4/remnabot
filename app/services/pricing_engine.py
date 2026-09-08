@@ -8,6 +8,7 @@ import structlog
 
 from app.config import CLASSIC_PERIOD_PRICES, PERIOD_PRICES, settings
 from app.database.crud.server_squad import get_server_squads_by_uuids
+from app.database.models import PartnerStatus
 from app.utils.pricing_utils import calculate_months_from_days
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 
@@ -124,6 +125,76 @@ class PricingEngine:
         return after_offer, group_discount_value, offer_discount_value
 
     @staticmethod
+    def _safe_wholesale_bps(user: User | None) -> int:
+        """Return wholesale BPS for approved partners; 0 for missing/invalid values."""
+        if user is None:
+            return 0
+        if getattr(user, 'partner_status', PartnerStatus.NONE.value) != PartnerStatus.APPROVED.value:
+            return 0
+        raw_bps = getattr(user, 'wholesale_discount_bps', 0)
+        try:
+            bps = int(raw_bps or 0)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, min(10000, bps))
+
+    @staticmethod
+    def uses_wholesale_pricing(user: User | None) -> bool:
+        """True when approved partner has a non-zero wholesale BPS rate."""
+        return PricingEngine._safe_wholesale_bps(user) > 0
+
+    @staticmethod
+    def get_wholesale_discount_bps(user: User | None) -> int:
+        """Return clamped wholesale BPS for an approved partner, else 0."""
+        if not PricingEngine.uses_wholesale_pricing(user):
+            return 0
+        return PricingEngine._safe_wholesale_bps(user)
+
+    @staticmethod
+    def apply_wholesale_discount(subtotal: int, user: User | None) -> tuple[int, int]:
+        """Apply partner wholesale discount (integer BPS, floor division).
+
+        Returns (final_total, discount_value_kopeks).
+        """
+        if subtotal <= 0:
+            return subtotal, 0
+        bps = PricingEngine.get_wholesale_discount_bps(user)
+        if bps <= 0:
+            return subtotal, 0
+        final_total = subtotal * (10000 - bps) // 10000
+        return final_total, subtotal - final_total
+
+    @staticmethod
+    def apply_checkout_discount(
+        subtotal: int,
+        user: User | None,
+        *,
+        group_pct: int = 0,
+        offer_pct: int | None = None,
+    ) -> tuple[int, int, int]:
+        """Apply wholesale OR retail stacked discounts for checkout/display parity.
+
+        Returns (final_amount, primary_discount_value, secondary_discount_value).
+        Wholesale path: (final, wholesale_discount, 0).
+        Retail path: stacked promo-group then promo-offer.
+        """
+        if subtotal <= 0:
+            return subtotal, 0, 0
+        if PricingEngine.uses_wholesale_pricing(user):
+            final, discount = PricingEngine.apply_wholesale_discount(subtotal, user)
+            return final, discount, 0
+        if offer_pct is None:
+            offer_pct = get_user_active_promo_discount_percent(user) if user else 0
+        return PricingEngine.apply_stacked_discounts(subtotal, group_pct, offer_pct)
+
+    @staticmethod
+    def checkout_display_discount_percent(subtotal: int, final: int) -> int:
+        """Effective discount percent for UI labels after checkout discount."""
+        if subtotal <= 0 or final >= subtotal:
+            return 0
+        return round((subtotal - final) * 100 / subtotal)
+
+    @staticmethod
     def resolve_promo_group(user: User | None):
         """Resolve primary promo group: get_primary_promo_group() first, fallback to user.promo_group."""
         if not user:
@@ -189,6 +260,11 @@ class PricingEngine:
         """
         if not user or base_price <= 0:
             return base_price, 0, 0
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            final, discount_value = PricingEngine.apply_wholesale_discount(base_price, user)
+            bps = PricingEngine.get_wholesale_discount_bps(user)
+            return final, discount_value, bps // 100
 
         pct = PricingEngine.get_addon_discount_percent(user, 'traffic', period_days_hint)
         if pct <= 0:
@@ -598,6 +674,35 @@ class PricingEngine:
             raw_traffic = tariff.get_price_for_custom_traffic(custom_traffic_gb)
             if raw_traffic and raw_traffic > 0:
                 traffic_price = int(raw_traffic)
+
+        undiscounted_subtotal = base_price + devices_price + traffic_price
+
+        if PricingEngine.uses_wholesale_pricing(user):
+            final_total, wholesale_discount = PricingEngine.apply_wholesale_discount(undiscounted_subtotal, user)
+            bps = PricingEngine.get_wholesale_discount_bps(user)
+            breakdown = dataclasses.asdict(
+                TariffBreakdown(
+                    tariff_id=tariff.id,
+                    extra_devices=extra_devices,
+                    group_discount_pct={'period': 0, 'devices': 0},
+                    offer_discount_pct=0,
+                    months_in_period=months,
+                )
+            )
+            breakdown['wholesale_applied'] = True
+            breakdown['wholesale_discount_bps'] = bps
+            return RenewalPricing(
+                base_price=base_price,
+                servers_price=0,
+                traffic_price=traffic_price,
+                devices_price=devices_price,
+                promo_group_discount=wholesale_discount,
+                promo_offer_discount=0,
+                final_total=max(0, final_total),
+                period_days=period_days,
+                is_tariff_mode=True,
+                breakdown=breakdown,
+            )
 
         # --- Per-category group discounts ---
         period_pct = 0

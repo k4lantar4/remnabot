@@ -8,6 +8,8 @@ import structlog
 from app.config import settings
 from app.localization.loader import (
     DEFAULT_LANGUAGE,
+    SECONDARY_FALLBACK_LOCALE,
+    UPSTREAM_FALLBACK_LOCALE,
     clear_locale_cache,
     load_locale,
 )
@@ -141,18 +143,61 @@ def _build_dynamic_values(language: str) -> dict[str, Any]:
     return values
 
 
+def _normalize_locale_code(language: str | None) -> str:
+    return (language or DEFAULT_LANGUAGE).strip().lower().split('-')[0]
+
+
+def _fallback_locales_for_language(language: str) -> tuple[str, ...]:
+    """Ordered locale chain for missing keys (active language is never merged)."""
+    normalized = _normalize_locale_code(language)
+    if normalized == 'fa':
+        return (SECONDARY_FALLBACK_LOCALE, UPSTREAM_FALLBACK_LOCALE)
+    if normalized == 'en':
+        return (UPSTREAM_FALLBACK_LOCALE,)
+    if normalized == UPSTREAM_FALLBACK_LOCALE:
+        return ()
+    return (DEFAULT_LANGUAGE, UPSTREAM_FALLBACK_LOCALE)
+
+
+def _resolve_locale_key(language: str, key: str) -> str:
+    locale = load_locale(language)
+    if key in locale:
+        return locale[key]
+    for fallback_locale in _fallback_locales_for_language(language):
+        fallback = load_locale(fallback_locale)
+        if key in fallback:
+            return fallback[key]
+    return ''
+
+
+def _merge_locale_fallback(
+    target: dict[str, Any],
+    primary: dict[str, Any],
+    locale_code: str,
+    *,
+    skip_locale: str,
+) -> None:
+    if _normalize_locale_code(locale_code) == _normalize_locale_code(skip_locale):
+        return
+    for key, value in load_locale(locale_code).items():
+        if key not in primary and key not in target:
+            target[key] = value
+
+
 class Texts:
     def __init__(self, language: str = DEFAULT_LANGUAGE):
         self.language = language or DEFAULT_LANGUAGE
         raw_data = load_locale(self.language)
         self._values = {key: value for key, value in raw_data.items()}
 
-        if self.language != DEFAULT_LANGUAGE:
-            fallback_data = load_locale(DEFAULT_LANGUAGE)
-        else:
-            fallback_data = self._values
-
-        self._fallback_values = {key: value for key, value in fallback_data.items() if key not in self._values}
+        self._fallback_values: dict[str, Any] = {}
+        for locale_code in _fallback_locales_for_language(self.language):
+            _merge_locale_fallback(
+                self._fallback_values,
+                self._values,
+                locale_code,
+                skip_locale=self.language,
+            )
 
         self._values.update(_build_dynamic_values(self.language))
 
@@ -161,11 +206,16 @@ class Texts:
             return super().__getattribute__(item)
         try:
             return self._get_value(item)
-        except KeyError as error:
-            raise AttributeError(item) from error
+        except KeyError:
+            _logger.warning('Missing localization attribute', item=item, language=self.language)
+            return item
 
     def __getitem__(self, item: str) -> Any:
-        return self._get_value(item)
+        try:
+            return self._get_value(item)
+        except KeyError:
+            _logger.warning('Missing localization key', item=item, language=self.language)
+            return item
 
     def get(self, item: str, default: Any = None) -> Any:
         try:
@@ -179,30 +229,33 @@ class Texts:
         except KeyError:
             if default is not None:
                 return default
-            raise
+            _logger.warning('Missing localization key', item=key, language=self.language)
+            return key
+
+    def _apply_display_currency(self, value: Any) -> Any:
+        if isinstance(value, str) and self.language.split('-')[0].lower() == 'fa':
+            return settings.apply_price_display_symbol(value)
+        return value
 
     def _get_value(self, item: str, warn: bool = True) -> Any:
         if item == 'RULES_TEXT':
             return _get_cached_rules_value(self.language)
 
         if item in self._values:
-            return self._values[item]
+            return self._apply_display_currency(self._values[item])
 
         if item in self._fallback_values:
-            return self._fallback_values[item]
+            return self._apply_display_currency(self._fallback_values[item])
 
-        # Предупреждаем только когда у вызова НЕТ запасного текста. t(key, default) и
-        # get(key, default) передают warn=False: для них отсутствие ключа штатно —
-        # показывается переданный fallback (часто это динамическая строка вроде
-        # настраиваемого названия платёжки), засорять логи warning'ами не нужно.
-        # Доступ через атрибут/[] без запасного варианта по-прежнему предупреждает.
         if warn:
             _logger.warning('Missing localization key', item=item, language=self.language)
         raise KeyError(item)
 
-    @staticmethod
-    def format_price(kopeks: int, round_kopeks: bool | None = None) -> str:
-        return settings.format_price(kopeks, round_kopeks=round_kopeks)
+    def format_price(self, kopeks: int, round_kopeks: bool | None = None) -> str:
+        return settings.format_price(kopeks, round_kopeks=round_kopeks, language=self.language)
+
+    def format_balance(self, amount_toman: int, *, round_kopeks: bool | None = None) -> str:
+        return settings.format_balance(amount_toman, language=self.language, round_kopeks=round_kopeks)
 
     @staticmethod
     def format_traffic(gb: float, is_limit: bool = True) -> str:
@@ -256,21 +309,11 @@ async def get_rules_from_db(language: str = DEFAULT_LANGUAGE) -> str:
 
 
 def _get_default_rules(language: str = DEFAULT_LANGUAGE) -> str:
-    default_key = 'RULES_TEXT_DEFAULT'
-    locale = load_locale(language)
-    if default_key in locale:
-        return locale[default_key]
-    fallback = load_locale(DEFAULT_LANGUAGE)
-    return fallback.get(default_key, '')
+    return _resolve_locale_key(language, 'RULES_TEXT_DEFAULT')
 
 
 def _get_default_privacy_policy(language: str = DEFAULT_LANGUAGE) -> str:
-    default_key = 'PRIVACY_POLICY_TEXT_DEFAULT'
-    locale = load_locale(language)
-    if default_key in locale:
-        return locale[default_key]
-    fallback = load_locale(DEFAULT_LANGUAGE)
-    return fallback.get(default_key, '')
+    return _resolve_locale_key(language, 'PRIVACY_POLICY_TEXT_DEFAULT')
 
 
 def get_privacy_policy(language: str = DEFAULT_LANGUAGE) -> str:

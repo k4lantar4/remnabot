@@ -38,6 +38,10 @@ from app.keyboards.inline import (
 )
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import get_privacy_policy, get_rules, get_texts
+from app.localization.user_language import (
+    apply_forced_user_language,
+    mark_user_language_synced,
+)
 from app.middlewares.channel_checker import (
     delete_pending_payload_from_redis,
     get_pending_payload_from_redis,
@@ -1542,6 +1546,10 @@ async def cmd_start(message: types.Message, state: FSMContext, db: AsyncSession,
 
         profile_updated = False
 
+        if apply_forced_user_language(user):
+            profile_updated = True
+            mark_user_language_synced(user)
+
         if user.username != message.from_user.username:
             old_username = user.username
             user.username = message.from_user.username
@@ -2253,6 +2261,9 @@ async def complete_registration_from_callback(callback: types.CallbackQuery, sta
 
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning('⚠️ Пользователь уже активен! Показываем главное меню.', from_user_id=callback.from_user.id)
+        if apply_forced_user_language(existing_user):
+            mark_user_language_synced(existing_user)
+            await db.commit()
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}
@@ -2611,6 +2622,9 @@ async def complete_registration(message: types.Message, state: FSMContext, db: A
 
     if existing_user and existing_user.status == UserStatus.ACTIVE.value:
         logger.warning('⚠️ Пользователь уже активен! Показываем главное меню.', from_user_id=message.from_user.id)
+        if apply_forced_user_language(existing_user):
+            mark_user_language_synced(existing_user)
+            await db.commit()
         texts = get_texts(existing_user.language)
 
         data = await state.get_data() or {}

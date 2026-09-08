@@ -34,6 +34,9 @@ class SubscriptionStates(StatesGroup):
     # передаются через state data, чтобы вернуться к ровно тому же списку.
     renaming_device = State()
 
+    searching_my_subscriptions = State()
+    waiting_for_purchase_note = State()
+
 
 class GiftPurchaseStates(StatesGroup):
     selecting_tariff = State()
@@ -238,6 +241,8 @@ class AdminStates(StatesGroup):
     editing_tariff_custom_traffic_min = State()
     editing_tariff_custom_traffic_max = State()
     editing_tariff_daily_price = State()
+
+    c2c_custom_amount = State()
 
 
 class SupportStates(StatesGroup):

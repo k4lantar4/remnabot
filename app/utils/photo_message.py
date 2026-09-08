@@ -148,7 +148,7 @@ async def edit_or_answer_photo(
     # Если режим логотипа выключен или требуется текстовое сообщение — работаем текстом
     if force_text or not settings.ENABLE_LOGO_MODE:
         try:
-            if callback.message.photo:
+            if getattr(callback.message, 'photo', None):
                 await callback.message.delete()
                 await _answer_text(callback, caption, keyboard, resolved_parse_mode)
             else:
@@ -170,7 +170,7 @@ async def edit_or_answer_photo(
     # Если текст слишком длинный для caption — отправим как текст
     if caption_exceeds_telegram_limit(caption):
         try:
-            if callback.message.photo:
+            if getattr(callback.message, 'photo', None):
                 await callback.message.delete()
             await _answer_text(callback, caption, keyboard, resolved_parse_mode)
         except TelegramForbiddenError:

@@ -2,7 +2,7 @@ import html
 import os
 import re
 from collections import defaultdict
-from datetime import time
+from datetime import UTC, datetime, time
 from pathlib import Path
 from typing import ClassVar, Literal
 from urllib.parse import quote as _url_quote, urlparse
@@ -624,6 +624,14 @@ class Settings(BaseSettings):
     YOOKASSA_RECURRENT_REQUIRED: bool = False
     YOOKASSA_TEST_MODE: bool = False
     SUPPORT_TOPUP_ENABLED: bool = True
+    C2C_ENABLED: bool = False
+    C2C_ADMIN_CHAT_ID: str | None = None
+    C2C_CARDS: str = '[]'
+    C2C_GUIDE_TEXT: str = 'Transfer the exact amount and send a receipt screenshot.'
+    C2C_MIN_AMOUNT_KOPEKS: int = 10000
+    C2C_MAX_AMOUNT_KOPEKS: int = 10000000
+    C2C_RECEIPT_TTL_HOURS: int = 24
+    C2C_DISPLAY_NAME: str = 'Card-to-Card 💳'
     PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED: bool = False
     PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES: int = 10
 
@@ -1168,6 +1176,8 @@ class Settings(BaseSettings):
 
     # Округление цен при отображении (≤50 коп вниз, >50 коп вверх)
     PRICE_ROUNDING_ENABLED: bool = True
+    PRICE_DISPLAY_SUFFIX: str = ' تومان'
+    BALANCE_TOMAN_CUTOFF_UTC: str = '2026-06-05T00:00:00Z'
 
     LOG_LEVEL: str = 'INFO'
     LOG_FILE: str = 'logs/bot.log'
@@ -2153,37 +2163,85 @@ class Settings(BaseSettings):
     def is_language_selection_enabled(self) -> bool:
         return bool(getattr(self, 'LANGUAGE_SELECTION_ENABLED', True))
 
-    def format_price(self, price_kopeks: int, round_kopeks: bool | None = None) -> str:
+    def _price_display_suffix(self) -> str:
+        suffix = (self.PRICE_DISPLAY_SUFFIX or ' تومان').strip()
+        return f' {suffix}' if suffix else ' تومان'
+
+    def apply_price_display_symbol(self, text: str) -> str:
+        """Last-layer override: ₽ → PRICE_DISPLAY_SUFFIX in user-visible strings."""
+        if '₽' not in text:
+            return text
+        spaced = self._price_display_suffix()
+        compact = spaced.lstrip()
+        return text.replace(' ₽', spaced).replace('₽', compact)
+
+    def format_price(
+        self,
+        price_kopeks: int,
+        round_kopeks: bool | None = None,
+        language: str | None = None,
+    ) -> str:
         """
         Форматирует цену в копейках для отображения пользователю.
 
         Args:
             price_kopeks: Сумма в копейках
-            round_kopeks: Если True, округляет копейки (≤50 вниз, >50 вверх).
+            round_kopeks: Если True, округляет копейки (≤50 вниз, >50 коп вверх).
                          Если None, использует настройку PRICE_ROUNDING_ENABLED.
+            language: Язык для группировки тысяч (fa/ru/en); None — без группировки.
 
         Returns:
-            Отформатированная строка цены (например, "150 ₽")
+            Отформатированная строка цены (например, "150 تومان")
         """
-        # Используем настройку если не передано явно
         should_round = round_kopeks if round_kopeks is not None else self.PRICE_ROUNDING_ENABLED
+        suffix = self._price_display_suffix()
 
         sign = '-' if price_kopeks < 0 else ''
         abs_kopeks = abs(price_kopeks)
         rubles, kopeks = divmod(abs_kopeks, 100)
 
         if should_round:
-            # Округление: ≤50 коп вниз, >50 коп вверх
             if kopeks > 50:
                 rubles += 1
-            return f'{sign}{rubles} ₽'
+            kopeks = 0
 
-        # Без округления - показываем точное значение
+        grouped_rubles = self._group_balance_digits(rubles, language)
+
         if kopeks:
-            value = f'{sign}{rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
-            return f'{value} ₽'
+            value = f'{sign}{grouped_rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
+            return f'{value}{suffix}'
 
-        return f'{sign}{rubles} ₽'
+        return f'{sign}{grouped_rubles}{suffix}'
+
+    def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
+        lang = (language or 'fa').split('-')[0].lower()
+        if lang in ('fa', 'en'):
+            return f'{abs_amount:,}'
+        if lang in ('ru', 'ua'):
+            return f'{abs_amount:,}'.replace(',', '\u00a0')
+        return f'{abs_amount:,}'
+
+    def format_balance(
+        self,
+        amount_toman: int,
+        language: str | None = None,
+        *,
+        round_kopeks: bool | None = None,
+    ) -> str:
+        """Format stored balance integer (Toman 1:1) for user display."""
+        _ = round_kopeks
+        sign = '-' if amount_toman < 0 else ''
+        suffix = self._price_display_suffix()
+        grouped = self._group_balance_digits(abs(amount_toman), language)
+        return f'{sign}{grouped}{suffix}'
+
+    @property
+    def balance_toman_cutoff(self) -> datetime:
+        """UTC datetime: transactions before this use pre-Phase-B storage scale."""
+        raw = self.BALANCE_TOMAN_CUTOFF_UTC.strip()
+        if raw.endswith('Z'):
+            raw = f'{raw[:-1]}+00:00'
+        return datetime.fromisoformat(raw).astimezone(UTC)
 
     def get_reports_chat_id(self) -> str | None:
         if self.ADMIN_REPORTS_CHAT_ID:
@@ -2516,6 +2574,60 @@ class Settings(BaseSettings):
 
     def is_support_topup_enabled(self) -> bool:
         return bool(self.SUPPORT_TOPUP_ENABLED)
+
+    def is_c2c_enabled(self) -> bool:
+        return self.C2C_ENABLED and bool(self.get_c2c_cards())
+
+    def admin_forum_topics_apply_to_chat(self, chat_id: int) -> bool:
+        """Forum topic IDs from ADMIN_NOTIFICATIONS_* are only valid in this supergroup."""
+        forum_chat_id = self.get_admin_notifications_chat_id()
+        return forum_chat_id is not None and chat_id == forum_chat_id
+
+    def get_c2c_admin_chat_id(self) -> int | None:
+        """Supergroup for C2C receipt review; falls back from invalid C2C_ADMIN_CHAT_ID."""
+        notifications_chat_id = self.get_admin_notifications_chat_id()
+        raw = (self.C2C_ADMIN_CHAT_ID or '').strip()
+        if not raw:
+            return notifications_chat_id
+        try:
+            parsed = int(raw)
+        except (ValueError, TypeError):
+            return notifications_chat_id
+        if parsed > 0:
+            return notifications_chat_id
+        return parsed
+
+    def get_c2c_cards(self) -> list[dict[str, str]]:
+        import json
+
+        raw = (self.C2C_CARDS or '').strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(parsed, list):
+            return []
+        cards: list[dict[str, str]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            number = str(item.get('number', '')).strip()
+            if not number:
+                continue
+            cards.append(
+                {
+                    'label': str(item.get('label', '')).strip() or 'Card',
+                    'number': number,
+                    'holder': str(item.get('holder', '')).strip(),
+                }
+            )
+        return cards
+
+    def get_c2c_display_name(self) -> str:
+        name = (self.C2C_DISPLAY_NAME or '').strip()
+        return name or 'Card-to-Card 💳'
 
     def get_yookassa_return_url(self) -> str:
         if self.YOOKASSA_RETURN_URL:

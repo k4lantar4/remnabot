@@ -19,6 +19,9 @@ class DummyTexts:
     def t(self, key, default=None):
         return default
 
+    def format_balance(self, amount_toman, *, round_kopeks=None):
+        return settings.format_balance(amount_toman, language=self.language, round_kopeks=round_kopeks)
+
     @staticmethod
     def format_traffic(gb, is_limit=True):
         if not gb and is_limit:
@@ -223,8 +226,35 @@ async def test_builder_single_subscription_structure(monkeypatch):
     assert 'format="r"' in html_out
     # Прогресс-бар остатка дней
     assert '<code>[' in html_out
-    # Баланс из format_price
-    assert '1250' in html_out
+    # Stored balance is Toman 1:1 — format_price would show 1,250 (÷100).
+    assert settings.format_balance(125_000, language='ru') in html_out
+    assert '1,250' not in html_out
+    assert 'تومان' in html_out
+
+
+async def test_builder_balance_matches_screenshot_toman_not_catalog_scale(monkeypatch):
+    """Main-menu rich balance must match subscription/balance pages (26,800 not 268).
+
+    The balance line is shared by single-sub and multi-tariff rich menus
+    (``is_multi_tariff_enabled`` only switches the subscription table).
+    """
+    _patch_content_sources(monkeypatch)
+    monkeypatch.setattr(type(settings), 'is_multi_tariff_enabled', lambda self: False)
+    monkeypatch.setattr(type(settings), 'is_tariffs_mode', lambda self: True)
+    monkeypatch.setattr(settings, 'PRICE_DISPLAY_SUFFIX', ' تومان', raising=False)
+
+    now = datetime.now(UTC)
+    user = _make_user(_make_subscription(now))
+    user.language = 'fa'
+    user.balance_kopeks = 26_800
+    texts = DummyTexts()
+    texts.language = 'fa'
+
+    html_out = await rich_menu.build_main_menu_rich_html(user, texts, AsyncMock())
+
+    assert '26,800' in html_out
+    assert settings.format_balance(26_800, language='fa') in html_out
+    assert settings.format_price(26_800, language='fa') not in html_out
 
 
 async def test_builder_links_username_used_instead_of_name(monkeypatch):
@@ -608,6 +638,17 @@ async def test_try_edit_photo_delete_failure_falls_back_to_classic(monkeypatch):
     assert rich_menu.is_rich_menu_enabled() is True
 
 
+def test_subscriptions_table_fa_fallback_is_jalali():
+    class FaTexts(DummyTexts):
+        language = 'fa'
+
+    now = datetime(2026, 7, 9, 12, 0, tzinfo=UTC)
+    sub = _make_subscription(now, tariff_name='Plan-A')
+    sub.end_date = datetime(2026, 7, 9, tzinfo=UTC)
+    html_out = rich_menu._build_subscriptions_table([sub], FaTexts())
+    assert '18.04.1405' in html_out
+
+
 async def test_multi_tariff_table_is_fully_localized(monkeypatch):
     """Все строки таблицы идут через texts.t — маркер-стаб не должен оставить
     захардкоженной кириллицы (кроме fallback-даты в tg-time)."""
@@ -635,17 +676,19 @@ async def test_multi_tariff_table_is_fully_localized(monkeypatch):
             end_date=now + timedelta(days=5),
             start_date=now,
             tariff_id=None,
-            tariff=None,  # тарифless-подписка использует локализованный fallback
+            tariff=None,  # тарифless-подписка: identity A → MY_SUB_ACCOUNT_LABEL
             traffic_used_gb=0,
             traffic_limit_gb=0,
             device_limit=1,
+            panel_username=None,
+            account_sequence=1,
         ),
     ]
 
     html_out = rich_menu._build_subscriptions_table(subs, MarkerTexts())
 
     assert '[MAIN_MENU_RICH_DAYS_LEFT]' in html_out
-    assert '[MAIN_MENU_RICH_TARIFF_FALLBACK]' in html_out
+    assert '[MY_SUB_ACCOUNT_LABEL]' in html_out
     assert 'дн.' not in html_out
     assert 'Подписка' not in html_out
 

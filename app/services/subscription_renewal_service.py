@@ -26,6 +26,7 @@ from app.services.admin_notification_service import AdminNotificationService
 from app.services.pricing_engine import RenewalPricing
 from app.services.remnawave_service import RemnaWaveConfigurationError
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import catalog_price_in_toman
 from app.utils.pricing_utils import calculate_price_per_month
 
 
@@ -613,9 +614,9 @@ class SubscriptionRenewalService:
         )
 
 
-def calculate_missing_amount(balance_kopeks: int, total_kopeks: int) -> int:
-    if total_kopeks <= 0:
+def calculate_missing_amount(balance_toman: int, price_kopeks: int) -> int:
+    """Missing Toman to cover a catalog-scale renewal price."""
+    price_toman = catalog_price_in_toman(price_kopeks)
+    if price_toman <= 0:
         return 0
-    if balance_kopeks <= 0:
-        return total_kopeks
-    return max(0, total_kopeks - min(balance_kopeks, total_kopeks))
+    return max(0, price_toman - balance_toman)

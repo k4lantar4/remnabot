@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
-from sqlalchemy import case, or_, select
+from sqlalchemy import case, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -528,7 +528,10 @@ async def backfill_remnawave_ids(db: AsyncSession, *, dry_run: bool = True) -> B
         taken_user_panel_ids,
         claimed_owner,
     )
-    await _backfill_grace_sessions(db, resolved_by_subscription, report, panel_id_by_uuid)
+    if await _grace_table_exists(db):
+        await _backfill_grace_sessions(db, resolved_by_subscription, report, panel_id_by_uuid)
+    else:
+        logger.info('backfill: grace_access_sessions absent — skip (table not created)')
 
     if dry_run:
         await db.rollback()
@@ -777,6 +780,21 @@ async def _backfill_users(
             )
         )
         users_by_id.setdefault(user_id, user)
+
+
+async def _grace_table_exists(db: AsyncSession) -> bool:
+    """True only if the table already exists. Never CREATE it.
+
+    M4-T1: grace_access_sessions is deferred on remnabot-lineage G1. Querying a
+    missing table aborts the identity backfill; creating it is out of MVP.
+    Inspect the session connection (not the Engine): sqlite :memory: is
+    per-connection, and a second connect would look at an empty database.
+    """
+
+    def _check(sync_session) -> bool:
+        return inspect(sync_session.connection()).has_table('grace_access_sessions')
+
+    return bool(await db.run_sync(_check))
 
 
 async def _backfill_grace_sessions(

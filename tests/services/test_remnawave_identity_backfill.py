@@ -952,3 +952,31 @@ def test_audit_filename_reflects_the_kind_of_run_not_the_commit_flag(tmp_path, m
     clashed = BackfillReport(dry_run=False)
     clashed.conflicts.append('sub#1 vs sub#2')
     assert 'conflicts' in cli._write_audit(clashed, committed=False)
+
+
+@pytest.mark.asyncio
+async def test_missing_grace_table_is_skipped_not_created(monkeypatch):
+    """M4-T1 deferred grace_access_sessions — G1 restore has no such table.
+
+    The 4.2 backfill imports GraceAccessSessionModel. Querying a missing table
+    would abort the whole identity pass. Skip the grace step; do not CREATE TABLE.
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    tables = [UserModel.__table__, SubModel.__table__]
+    async with memory_session(monkeypatch, tables) as db:
+        await _seed(db, subs=[(20, 'abc123', 'live-uuid')])
+        _patch_roster(monkeypatch, [panel_user(77, short_uuid='abc123', username='u', telegram_id=551)])
+
+        report = await backfill_remnawave_ids(db, dry_run=False)
+
+        db.expunge_all()
+        assert (await db.get(SubModel, 20)).remnawave_id == 77
+        assert report.conflicts == []
+        assert report.grace_sessions_resolved == 0
+
+        def _tables(sync_session):
+            return set(sa_inspect(sync_session.bind).get_table_names())
+
+        names = await db.run_sync(_tables)
+        assert 'grace_access_sessions' not in names

@@ -137,3 +137,27 @@ async def test_build_button_connect_direct_mode_fallback_to_callback():
         assert isinstance(button, InlineKeyboardButton)
         # Должен fallback на callback_data, так как URL не найден
         assert button.callback_data == 'subscription_connect'
+
+
+def test_show_buy_hidden_when_active_single_tariff():
+    conditions = {'show_buy': True}
+    context = MenuContext(
+        language='fa',
+        has_active_subscription=True,
+        subscription_is_active=True,
+    )
+    with patch('app.services.menu_layout.service.settings') as settings:
+        settings.is_multi_tariff_enabled.return_value = False
+        assert MenuLayoutService._evaluate_conditions(conditions, context) is False
+
+
+def test_show_buy_visible_when_active_multi_tariff():
+    conditions = {'show_buy': True}
+    context = MenuContext(
+        language='fa',
+        has_active_subscription=True,
+        subscription_is_active=True,
+    )
+    with patch('app.services.menu_layout.service.settings') as settings:
+        settings.is_multi_tariff_enabled.return_value = True
+        assert MenuLayoutService._evaluate_conditions(conditions, context) is True
