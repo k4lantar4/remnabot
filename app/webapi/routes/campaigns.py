@@ -45,7 +45,8 @@ def _serialize_campaign(campaign) -> CampaignResponse:
         start_parameter=campaign.start_parameter,
         bonus_type=campaign.bonus_type,
         balance_bonus_kopeks=campaign.balance_bonus_kopeks or 0,
-        balance_bonus_rubles=round((campaign.balance_bonus_kopeks or 0) / 100, 2),
+        # raw Toman amount post-Phase-B, not kopeks — don't divide by 100.
+        balance_bonus_rubles=campaign.balance_bonus_kopeks or 0,
         subscription_duration_days=campaign.subscription_duration_days,
         subscription_traffic_gb=campaign.subscription_traffic_gb,
         subscription_device_limit=campaign.subscription_device_limit,

@@ -33,6 +33,7 @@ from app.keyboards.admin import (
 from app.localization.texts import Texts, get_texts
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
+from app.utils.price_display import balance_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
@@ -45,7 +46,7 @@ def _format_campaign_summary(campaign, texts) -> str:
     status = '🟢 Активна' if campaign.is_active else '⚪️ Выключена'
 
     if campaign.is_balance_bonus:
-        bonus_text = texts.format_price(campaign.balance_bonus_kopeks)
+        bonus_text = texts.format_balance(campaign.balance_bonus_kopeks)
         bonus_info = f'💰 Бонус на баланс: <b>{bonus_text}</b>'
     elif campaign.is_subscription_bonus:
         traffic_text = texts.format_traffic(campaign.subscription_traffic_gb or 0)
@@ -161,7 +162,7 @@ async def show_campaigns_menu(
         f'Всего кампаний: <b>{overview["total"]}</b>\n'
         f'Активных: <b>{overview["active"]}</b> | Выключены: <b>{overview["inactive"]}</b>\n'
         f'Регистраций: <b>{overview["registrations"]}</b>\n'
-        f'Выдано баланса: <b>{texts.format_price(overview["balance_total"])}</b>\n'
+        f'Выдано баланса: <b>{texts.format_balance(overview["balance_total"])}</b>\n'
         f'Выдано подписок: <b>{overview["subscription_total"]}</b>'
     )
 
@@ -186,7 +187,7 @@ async def show_campaigns_overall_stats(
     text.append(f'Всего кампаний: <b>{overview["total"]}</b>')
     text.append(f'Активны: <b>{overview["active"]}</b>, выключены: <b>{overview["inactive"]}</b>')
     text.append(f'Всего регистраций: <b>{overview["registrations"]}</b>')
-    text.append(f'Суммарно выдано баланса: <b>{texts.format_price(overview["balance_total"])}</b>')
+    text.append(f'Суммарно выдано баланса: <b>{texts.format_balance(overview["balance_total"])}</b>')
     text.append(f'Выдано подписок: <b>{overview["subscription_total"]}</b>')
 
     await callback.message.edit_text(
@@ -246,7 +247,7 @@ async def show_campaigns_list(
         status = '🟢' if campaign.is_active else '⚪'
         line = (
             f'{status} <b>{html.escape(campaign.name)}</b> — <code>{html.escape(campaign.start_parameter)}</code>\n'
-            f'   Регистраций: {registrations}, баланс: {texts.format_price(total_balance)}'
+            f'   Регистраций: {registrations}, баланс: {texts.format_balance(total_balance)}'
         )
         if campaign.is_subscription_bonus:
             line += f', подписка: {campaign.subscription_duration_days or 0} д.'
@@ -304,7 +305,7 @@ async def show_campaign_detail(
     text.append(f'🔗 Ссылка: <code>{deep_link}</code>')
     text.append('\n📊 <b>Статистика</b>')
     text.append(f'• Регистраций: <b>{stats["registrations"]}</b>')
-    text.append(f'• Выдано баланса: <b>{texts.format_price(stats["balance_issued"])}</b>')
+    text.append(f'• Выдано баланса: <b>{texts.format_balance(stats["balance_issued"])}</b>')
     text.append(f'• Выдано подписок: <b>{stats["subscription_issued"]}</b>')
     text.append(f'• Доход: <b>{texts.format_price(stats["total_revenue_kopeks"])}</b>')
     text.append(f'• Получили триал: <b>{stats["trial_users_count"]}</b> (активно: {stats["active_trials_count"]})')
@@ -567,7 +568,7 @@ async def start_edit_campaign_balance_bonus(
     await callback.message.edit_text(
         (
             '💰 <b>Изменение бонуса на баланс</b>\n\n'
-            f'Текущий бонус: <b>{get_texts(db_user.language).format_price(campaign.balance_bonus_kopeks)}</b>\n'
+            f'Текущий бонус: <b>{get_texts(db_user.language).format_balance(campaign.balance_bonus_kopeks)}</b>\n'
             'Введите новую сумму в рублях (например, 100 или 99.5):'
         ),
         reply_markup=types.InlineKeyboardMarkup(
@@ -599,17 +600,18 @@ async def process_edit_campaign_balance_bonus(
         await state.clear()
         return
 
+    # balance_bonus_kopeks is a raw Toman amount post-Phase-B (add_user_balance credits it
+    # 1:1), so parse it the same way real balance top-ups do — no *100 (that convention only
+    # still applies to catalog/subscription price_kopeks fields).
     try:
-        amount_rubles = float(message.text.replace(',', '.'))
+        amount_kopeks = balance_from_display_amount(message.text)
     except ValueError:
         await message.answer('❌ Введите корректную сумму (например, 100 или 99.5)')
         return
 
-    if amount_rubles <= 0:
+    if amount_kopeks <= 0:
         await message.answer('❌ Сумма должна быть больше нуля')
         return
-
-    amount_kopeks = int(round(amount_rubles * 100))
 
     campaign = await get_campaign_by_id(db, campaign_id)
     if not campaign:
@@ -1148,7 +1150,7 @@ async def show_campaign_stats(
     text = ['📊 <b>Статистика кампании</b>\n']
     text.append(_format_campaign_summary(campaign, texts))
     text.append(f'Регистраций: <b>{stats["registrations"]}</b>')
-    text.append(f'Выдано баланса: <b>{texts.format_price(stats["balance_issued"])}</b>')
+    text.append(f'Выдано баланса: <b>{texts.format_balance(stats["balance_issued"])}</b>')
     text.append(f'Выдано подписок: <b>{stats["subscription_issued"]}</b>')
     if stats['last_registration']:
         text.append(f'Последняя регистрация: {stats["last_registration"].strftime("%d.%m.%Y %H:%M")}')
@@ -1383,17 +1385,18 @@ async def process_campaign_balance_value(
     state: FSMContext,
     db: AsyncSession,
 ):
+    # balance_bonus_kopeks is a raw Toman amount post-Phase-B (add_user_balance credits it
+    # 1:1), so parse it the same way real balance top-ups do — no *100 (that convention only
+    # still applies to catalog/subscription price_kopeks fields).
     try:
-        amount_rubles = float(message.text.replace(',', '.'))
+        amount_kopeks = balance_from_display_amount(message.text)
     except ValueError:
         await message.answer('❌ Введите корректную сумму (например, 100 или 99.5)')
         return
 
-    if amount_rubles <= 0:
+    if amount_kopeks <= 0:
         await message.answer('❌ Сумма должна быть больше нуля')
         return
-
-    amount_kopeks = int(round(amount_rubles * 100))
     data = await state.get_data()
 
     campaign = await create_campaign(
