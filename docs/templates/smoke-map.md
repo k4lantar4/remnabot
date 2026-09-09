@@ -1,4 +1,36 @@
+# Smoke map — Renew creates new account (CRITICAL) Sep 2026
+
+> Branch `fix/renewal-creates-new-account`. After tunnel tariff id=4 was deactivated (2026-09-04) and replaced by id=9, renew routed through purchase and created a new RemnaWave account.
+
+## Branch & deploy
+
+| Item | Value |
+|------|--------|
+| Branch | `fix/renewal-creates-new-account` @ `2c71ed0e1` |
+| Files | `renewal_pin.py`, `tariff_purchase.py`, cabinet `purchase.py`, `RenewSubscription.tsx` |
+| Deploy | staging bot+cabinet (background) — **not production** |
+| Surfaces | `@mrj7_bot` + staging cabinet |
+
+## User smoke checklist (`@mrj7_bot`)
+
+| # | Path | Expected | Status |
+|---|------|----------|--------|
+| 1 | User with sub still on **inactive** tunnel tariff → تمدید | Shows tariff picker with `tariff_renew_pick` (not «buy new» catalog) | pending |
+| 2 | Pick replacement tunnel + pay from balance | **Same** subscription row extended; `end_date` bumped; **no** new `subscriptions` row; same RemnaWave UUID/username | pending |
+| 3 | Staging cabinet `/subscriptions/:id/renew` for inactive-tariff sub | Message about replaced plan → choose plan → extends same id | pending |
+| 4 | Control: renew on **active** tariff (مستقیم) | Still extends (unchanged happy path) | pending |
+| 5 | Control: menu «خرید اشتراک جدید» without renew pin | Still creates new account (multi-tariff intentional) | pending |
+
+## Sign-off
+
+- [ ] User smoke on staging
+- [ ] Reply **تایید** before ship/prod
+- [ ] Data remediation for already-duplicated accounts — separate ops decision
+
+---
+
 # Smoke map — Subscription detail UX (Cabinet) Jul 2026
+
 
 > Branch `feat/cabinet-subscription-detail-ux`; multi-tariff detail page: panel username title, details box, action grid.
 
