@@ -264,7 +264,9 @@ class PricingEngine:
         if PricingEngine.uses_wholesale_pricing(user):
             final, discount_value = PricingEngine.apply_wholesale_discount(base_price, user)
             bps = PricingEngine.get_wholesale_discount_bps(user)
-            return final, discount_value, bps // 100
+            # round, not floor — a 175 bps (1.75%) partner discount must not display as
+            # "1%" while apply_wholesale_discount above charges the precise 1.75%.
+            return final, discount_value, round(bps / 100)
 
         pct = PricingEngine.get_addon_discount_percent(user, 'traffic', period_days_hint)
         if pct <= 0:

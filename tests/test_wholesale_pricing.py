@@ -59,6 +59,13 @@ class TestWholesaleTrafficDiscount:
         assert discount == 10000
         assert pct == 20
 
+    def test_fractional_bps_rounds_display_percent_not_floors(self):
+        # 175 bps = 1.75% — must round to 2%, not floor to 1% (the bug: a
+        # partner charged the precise 1.75% was shown "1%" on the addon screen).
+        user = _partner_user(bps=175)
+        _, _, pct = PricingEngine.calculate_traffic_discount(50000, user)
+        assert pct == 2
+
     def test_retail_user_unchanged_without_group(self):
         user = MagicMock(is_partner=False, wholesale_discount_bps=0)
         user.get_primary_promo_group = MagicMock(return_value=None)

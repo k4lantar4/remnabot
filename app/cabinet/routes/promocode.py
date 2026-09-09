@@ -65,8 +65,11 @@ async def activate_promocode(
         }
 
     if result['success']:
-        balance_before_rubles = result.get('balance_before_kopeks', 0) / 100
-        balance_after_rubles = result.get('balance_after_kopeks', 0) / 100
+        # balance_before/after_kopeks are user.balance_kopeks snapshots — a raw Toman
+        # amount post-Phase-B, not kopeks. Don't divide by 100 or the cabinet shows the
+        # user's real balance 100x too small right after a promo code redemption.
+        balance_before_rubles = result.get('balance_before_kopeks', 0)
+        balance_after_rubles = result.get('balance_after_kopeks', 0)
 
         # Send admin notification (same as bot handler)
         if getattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False):
