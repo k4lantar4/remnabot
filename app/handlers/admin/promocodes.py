@@ -91,12 +91,12 @@ async def show_promocodes_list(callback: types.CallbackQuery, db_user: User, db:
         text += f'📊 Использований: {promo.current_uses}/{promo.max_uses}\n'
 
         if promo.type == PromoCodeType.BALANCE.value:
-            text += f'💰 Бонус: {settings.format_price(promo.balance_bonus_kopeks)}\n'
+            text += f'💰 Бонус: {settings.format_balance(promo.balance_bonus_kopeks)}\n'
         elif promo.type == PromoCodeType.SUBSCRIPTION_DAYS.value:
             text += f'📅 Дней: {promo.subscription_days}\n'
         elif promo.type == PromoCodeType.BALANCE_AND_DAYS.value:
             if promo.balance_bonus_kopeks:
-                text += f'💰 Бонус: {settings.format_price(promo.balance_bonus_kopeks)}\n'
+                text += f'💰 Бонус: {settings.format_balance(promo.balance_bonus_kopeks)}\n'
             if promo.subscription_days:
                 text += f'📅 Дней: {promo.subscription_days}\n'
             if getattr(promo, 'traffic_gb', 0):
@@ -180,12 +180,12 @@ async def show_promocode_management(callback: types.CallbackQuery, db_user: User
 """
 
     if promo.type == PromoCodeType.BALANCE.value:
-        text += f'💰 <b>Бонус:</b> {settings.format_price(promo.balance_bonus_kopeks)}\n'
+        text += f'💰 <b>Бонус:</b> {settings.format_balance(promo.balance_bonus_kopeks)}\n'
     elif promo.type == PromoCodeType.SUBSCRIPTION_DAYS.value:
         text += f'📅 <b>Дней:</b> {promo.subscription_days}\n'
     elif promo.type == PromoCodeType.BALANCE_AND_DAYS.value:
         if promo.balance_bonus_kopeks:
-            text += f'💰 <b>Бонус:</b> {settings.format_price(promo.balance_bonus_kopeks)}\n'
+            text += f'💰 <b>Бонус:</b> {settings.format_balance(promo.balance_bonus_kopeks)}\n'
         if promo.subscription_days:
             text += f'📅 <b>Дней:</b> {promo.subscription_days}\n'
         if getattr(promo, 'traffic_gb', 0):
@@ -256,12 +256,12 @@ async def show_promocode_edit_menu(callback: types.CallbackQuery, db_user: User,
 """
 
     if promo.type == PromoCodeType.BALANCE.value:
-        text += f'• Бонус: {settings.format_price(promo.balance_bonus_kopeks)}\n'
+        text += f'• Бонус: {settings.format_balance(promo.balance_bonus_kopeks)}\n'
     elif promo.type in [PromoCodeType.SUBSCRIPTION_DAYS.value, PromoCodeType.TRIAL_SUBSCRIPTION.value]:
         text += f'• Дней: {promo.subscription_days}\n'
     elif promo.type == PromoCodeType.BALANCE_AND_DAYS.value:
         if promo.balance_bonus_kopeks:
-            text += f'• Бонус: {settings.format_price(promo.balance_bonus_kopeks)}\n'
+            text += f'• Бонус: {settings.format_balance(promo.balance_bonus_kopeks)}\n'
         if promo.subscription_days:
             text += f'• Дней: {promo.subscription_days}\n'
         if getattr(promo, 'traffic_gb', 0):
@@ -646,7 +646,9 @@ async def handle_edit_value(message: types.Message, db_user: User, state: FSMCon
                 await message.answer('❌ Сумма должна быть от 1 до 10,000 рублей')
                 return
 
-            await update_promocode(db, promo, balance_bonus_kopeks=value * 100)
+            # value is already Toman — balance_bonus_kopeks is credited 1:1 by
+            # add_user_balance post-Phase-B, don't rescale it here.
+            await update_promocode(db, promo, balance_bonus_kopeks=value)
             await message.answer(
                 f'✅ Сумма бонуса изменена на {value}₽',
                 reply_markup=types.InlineKeyboardMarkup(
@@ -809,10 +811,13 @@ async def process_promocode_expiry(message: types.Message, db_user: User, state:
         }
 
         if promo_type == 'combo':
-            balance_bonus_kopeks = value * 100
+            # balance_bonus_kopeks holds a raw Toman amount post-Phase-B (add_user_balance
+            # credits it 1:1) despite the legacy "kopeks" name — don't scale it here, that
+            # convention only still applies to catalog/subscription price_kopeks fields.
+            balance_bonus_kopeks = value
             subscription_days = data.get('promocode_combo_days', 0)
         else:
-            balance_bonus_kopeks = value * 100 if promo_type == 'balance' else 0
+            balance_bonus_kopeks = value if promo_type == 'balance' else 0
             subscription_days = value if promo_type in ['days', 'trial'] else 0
 
         promocode = await create_promocode(
@@ -843,11 +848,11 @@ async def process_promocode_expiry(message: types.Message, db_user: User, state:
 """
 
         if promo_type == 'balance':
-            summary_text += f'💰 <b>Сумма:</b> {settings.format_price(promocode.balance_bonus_kopeks)}\n'
+            summary_text += f'💰 <b>Сумма:</b> {settings.format_balance(promocode.balance_bonus_kopeks)}\n'
         elif promo_type in ['days', 'trial']:
             summary_text += f'📅 <b>Дней:</b> {promocode.subscription_days}\n'
         elif promo_type == 'combo':
-            summary_text += f'💰 <b>Сумма:</b> {settings.format_price(promocode.balance_bonus_kopeks)}\n'
+            summary_text += f'💰 <b>Сумма:</b> {settings.format_balance(promocode.balance_bonus_kopeks)}\n'
             summary_text += f'📅 <b>Дней:</b> {promocode.subscription_days}\n'
         elif promo_type == 'group' and promo_group_name:
             summary_text += f'🏷️ <b>Промогруппа:</b> {promo_group_name}\n'

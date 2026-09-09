@@ -348,7 +348,7 @@ class AdminNotificationService:
     def _format_campaign_bonus(self, campaign: AdvertisingCampaign, *, tariff_name: str | None = None) -> list[str]:
         if campaign.is_balance_bonus:
             return [
-                f'💰 Баланс: {settings.format_price(campaign.balance_bonus_kopeks or 0)}',
+                f'💰 Баланс: {settings.format_balance(campaign.balance_bonus_kopeks or 0)}',
             ]
 
         if campaign.is_subscription_bonus:
@@ -1118,7 +1118,9 @@ class AdminNotificationService:
                     message_lines.append('⏳ Срок действия скидки: до первой покупки')
             else:
                 if balance_bonus:
-                    message_lines.append(f'💰 Бонус на баланс: {settings.format_price(balance_bonus)}')
+                    # balance_bonus_kopeks is a raw Toman amount post-Phase-B, not kopeks —
+                    # format_price's implicit /100 would understate it 100x here.
+                    message_lines.append(f'💰 Бонус на баланс: {settings.format_balance(balance_bonus)}')
                 if subscription_days:
                     message_lines.append(f'📅 Доп. дни подписки: {subscription_days}')
 

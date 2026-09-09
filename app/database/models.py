@@ -3891,7 +3891,8 @@ class AdvertisingCampaignRegistration(Base):
 
     @property
     def balance_bonus_rubles(self) -> float:
-        return (self.balance_bonus_kopeks or 0) / 100
+        # raw Toman amount post-Phase-B, not kopeks — no /100.
+        return self.balance_bonus_kopeks or 0
 
 
 class TicketStatus(Enum):

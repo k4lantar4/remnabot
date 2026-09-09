@@ -92,7 +92,9 @@ async def get_overview(
             inactive=overview['inactive'],
             total_registrations=overview['registrations'],
             total_balance_issued_kopeks=overview['balance_total'],
-            total_balance_issued_rubles=_safe_div(overview['balance_total']),
+            # balance_total is a sum of balance_bonus_kopeks, a raw Toman amount
+            # post-Phase-B, not kopeks — divisor=1, don't divide by 100.
+            total_balance_issued_rubles=_safe_div(overview['balance_total'], divisor=1),
             total_subscription_issued=overview['subscription_total'],
             total_tariff_issued=tariff_count,
         )
@@ -236,7 +238,8 @@ async def get_campaign(
         bonus_type=campaign.bonus_type,
         is_active=campaign.is_active,
         balance_bonus_kopeks=campaign.balance_bonus_kopeks or 0,
-        balance_bonus_rubles=_safe_div(campaign.balance_bonus_kopeks),
+        # raw Toman amount post-Phase-B, not kopeks — divisor=1.
+        balance_bonus_rubles=_safe_div(campaign.balance_bonus_kopeks, divisor=1),
         subscription_duration_days=campaign.subscription_duration_days,
         subscription_traffic_gb=campaign.subscription_traffic_gb,
         subscription_device_limit=campaign.subscription_device_limit,
@@ -306,7 +309,9 @@ async def get_campaign_stats(
             is_active=campaign.is_active,
             registrations=stats['registrations'],
             balance_issued_kopeks=stats['balance_issued'],
-            balance_issued_rubles=_safe_div(stats['balance_issued']),
+            # raw Toman amount post-Phase-B, not kopeks — divisor=1 (unlike the
+            # revenue/payment fields below, which are genuinely kopek-scale).
+            balance_issued_rubles=_safe_div(stats['balance_issued'], divisor=1),
             subscription_issued=stats['subscription_issued'],
             last_registration=stats['last_registration'],
             total_revenue_kopeks=stats['total_revenue_kopeks'],

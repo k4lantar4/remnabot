@@ -265,7 +265,7 @@ class AdvertisingCampaignService:
         logger.info(
             '💰 Пользователю начислен бонус ₽ по кампании',
             format_user_log=_format_user_log(user),
-            amount=amount / 100,
+            amount=amount,
             campaign_id=campaign.id,
         )
 

@@ -188,7 +188,9 @@ async def _serialize_promocode(db: AsyncSession, promocode: PromoCode) -> PromoC
         code=promocode.code,
         type=promo_type,
         balance_bonus_kopeks=promocode.balance_bonus_kopeks,
-        balance_bonus_rubles=round(promocode.balance_bonus_kopeks / 100, 2),
+        # balance_bonus_kopeks is a raw Toman amount post-Phase-B, not kopeks — don't
+        # divide by 100 (field kept its legacy name, but holds a 1:1 Toman value).
+        balance_bonus_rubles=promocode.balance_bonus_kopeks,
         subscription_days=promocode.subscription_days,
         traffic_gb=getattr(promocode, 'traffic_gb', 0) or 0,
         max_uses=promocode.max_uses,
