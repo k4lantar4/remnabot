@@ -109,13 +109,16 @@ export default function RenewSubscription() {
           style={{ background: g.cardBg, border: `1px solid ${g.cardBorder}` }}
         >
           <p className="mb-4" style={{ color: g.textSecondary }}>
-            {t('subscription.noRenewalOptions', 'Нет доступных вариантов продления')}
+            {t(
+              'subscription.renewTariffReplaced',
+              'پلن قبلی دیگر در فروش نیست. پلن جایگزین را انتخاب کنید تا همان اشتراک تمدید شود (اکانت جدید ساخته نمی‌شود).',
+            )}
           </p>
           <Link
             to={`/subscription/purchase?subscriptionId=${subId}`}
             className="inline-block rounded-xl bg-accent-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600"
           >
-            {t('subscription.getSubscription', 'Получить подписку')}
+            {t('subscription.chooseRenewalTariff', 'انتخاب پلن برای تمدید')}
           </Link>
         </div>
       ) : (

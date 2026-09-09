@@ -111,6 +111,19 @@ def should_extend_multi_tariff(state_data: dict, *, existing_sub, renew_only: bo
     return False
 
 
+async def _resolve_pinned_renewal_sub(db, db_user, state_data: dict, tariff_id: int):
+    """Pinned renew target, including migrate-renew off an inactive tariff."""
+    from app.services.renewal_pin import resolve_renewal_target_subscription
+
+    pinned = state_data.get('target_subscription_id')
+    return await resolve_renewal_target_subscription(
+        db,
+        user_id=db_user.id,
+        pinned_subscription_id=pinned,
+        requested_tariff_id=tariff_id,
+    )
+
+
 async def _persist_failed_refund(
     user_id: int,
     amount_kopeks: int,
@@ -1821,12 +1834,7 @@ async def handle_custom_confirm(
 
     state_data = await state.get_data()
     if settings.is_multi_tariff_enabled():
-        _pinned_sub_id = state_data.get('target_subscription_id')
-        existing_subscription = None
-        if _pinned_sub_id:
-            existing_subscription = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
-            if existing_subscription and existing_subscription.tariff_id != tariff.id:
-                existing_subscription = None
+        existing_subscription = await _resolve_pinned_renewal_sub(db, db_user, state_data, tariff.id)
     else:
         existing_subscription = await get_subscription_by_user_id(db, db_user.id)
 
@@ -2218,22 +2226,17 @@ async def confirm_tariff_purchase(
 
     # In multi-tariff mode, prefer the subscription_id pinned in FSM at
     # preview time — that's the EXACT row the user clicked Renew/Buy on.
+    # Keep the pin when migrating off an inactive/replaced tariff.
     if settings.is_multi_tariff_enabled():
         _state_data = await state.get_data() if state else {}
-        _pinned_sub_id = _state_data.get('target_subscription_id')
-
-        existing_sub = None
-        if _pinned_sub_id:
-            existing_sub = await get_subscription_by_id_for_user(db, int(_pinned_sub_id), db_user.id)
-            if existing_sub and existing_sub.tariff_id != tariff_id:
-                logger.warning(
-                    'FSM-pinned subscription tariff diverged from confirm tariff; ignoring pin',
-                    pinned_sub_id=_pinned_sub_id,
-                    pinned_tariff_id=existing_sub.tariff_id,
-                    confirm_tariff_id=tariff_id,
-                    user_id=db_user.id,
-                )
-                existing_sub = None
+        existing_sub = await _resolve_pinned_renewal_sub(db, db_user, _state_data, tariff_id)
+        if _state_data.get('target_subscription_id') and existing_sub is None:
+            logger.warning(
+                'FSM-pinned subscription tariff diverged from confirm tariff; ignoring pin',
+                pinned_sub_id=_state_data.get('target_subscription_id'),
+                confirm_tariff_id=tariff_id,
+                user_id=db_user.id,
+            )
     else:
         existing_sub = await get_subscription_by_user_id(db, db_user.id)
 
@@ -2993,6 +2996,85 @@ def get_tariff_extend_confirm_keyboard(
     )
 
 
+async def select_tariff_for_renew(
+    callback: types.CallbackQuery,
+    db_user: User,
+    db: AsyncSession,
+    state: FSMContext | None = None,
+):
+    """Inactive/legacy renew: pick a replacement tariff but stay on extend path.
+
+    Callback: ``tariff_renew_pick:{subscription_id}:{tariff_id}``
+    """
+    texts = get_texts(db_user.language)
+    parts = (callback.data or '').split(':')
+    if len(parts) < 3:
+        await callback.answer(texts.t('CB_SELECT_SUBSCRIPTION', 'Выберите подписку'), show_alert=True)
+        return
+    try:
+        sub_id = int(parts[1])
+        tariff_id = int(parts[2])
+    except (TypeError, ValueError):
+        await callback.answer(texts.t('CB_SELECT_SUBSCRIPTION', 'Выберите подписку'), show_alert=True)
+        return
+
+    subscription = await get_subscription_by_id_for_user(db, sub_id, db_user.id)
+    if not subscription:
+        await callback.answer(texts.t('SUBSCRIPTION_NOT_FOUND', 'Подписка не найдена'), show_alert=True)
+        return
+
+    tariff = await get_tariff_by_id(db, tariff_id)
+    if not tariff or not tariff.is_active:
+        await callback.answer(texts.t('CB_TARIFF_UNAVAILABLE', 'Тариф недоступен'), show_alert=True)
+        return
+
+    if state is not None:
+        await state.update_data(
+            target_subscription_id=subscription.id,
+            active_subscription_id=subscription.id,
+            extend_flow=True,
+            selected_tariff_id=tariff.id,
+        )
+
+    await callback.answer()
+
+    if tariff.can_purchase_custom_traffic():
+        await show_traffic_first_step(
+            callback, db_user, db, state, tariff, flow='extend', subscription=subscription
+        )
+        return
+
+    from app.services.pricing_engine import PricingEngine
+
+    custom_traffic_gb = PricingEngine.renewal_custom_traffic_gb(tariff, subscription)
+    traffic_gb = subscription.traffic_limit_gb if custom_traffic_gb else tariff.traffic_limit_gb
+    traffic = format_traffic(traffic_gb)
+    actual_device_limit = subscription.device_limit or tariff.device_limit
+
+    await callback.message.edit_text(
+        texts.t(
+            'TARIFF_RENEW_PERIOD',
+            '🔄 <b>Продление подписки</b>{discount_hint}\n\n'
+            '📦 Тариф: <b>{name}</b>\n📊 Трафик: {traffic}\n📱 Устройств: {devices}\n\n'
+            'Выберите период продления:',
+        ).format(
+            discount_hint='',
+            name=html.escape(tariff.name),
+            traffic=traffic,
+            devices=actual_device_limit,
+        ),
+        reply_markup=await get_tariff_extend_keyboard(
+            tariff,
+            db_user.language,
+            db_user=db_user,
+            subscription_device_limit=actual_device_limit,
+            sub_id=subscription.id,
+            custom_traffic_gb=custom_traffic_gb,
+        ),
+        parse_mode='HTML',
+    )
+
+
 async def show_tariff_extend(
     callback: types.CallbackQuery,
     db_user: User,
@@ -3067,17 +3149,31 @@ async def show_tariff_extend(
         return
 
     if not subscription.tariff_id:
-        # Legacy user without tariff — show tariff selection for upgrade
+        # Legacy user without tariff — pick an active tariff but KEEP renew pin
         tariffs = await get_tariffs_for_user(db, user=db_user)
         if not tariffs:
             await callback.answer(texts.t('CB_NO_TARIFFS_AVAILABLE', 'Нет доступных тарифов'), show_alert=True)
             return
 
+        if state is not None:
+            await state.update_data(
+                target_subscription_id=subscription.id,
+                active_subscription_id=subscription.id,
+                extend_flow=True,
+            )
+
         keyboard = []
         for t in tariffs:
             if t.is_daily:
                 continue
-            keyboard.append([InlineKeyboardButton(text=f'📦 {t.name}', callback_data=f'tariff_select:{t.id}')])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text=f'📦 {t.name}',
+                        callback_data=f'tariff_renew_pick:{subscription.id}:{t.id}',
+                    )
+                ]
+            )
         if not keyboard:
             await callback.answer(
                 texts.t('CB_NO_RENEWAL_TARIFFS', 'Нет доступных тарифов для продления'), show_alert=True
@@ -3101,8 +3197,8 @@ async def show_tariff_extend(
         await callback.answer(texts.t('CB_TARIFF_NOT_FOUND', 'Тариф не найден'), show_alert=True)
         return
 
-    # Скрытый/неактивный тариф (например, триальный после промокода) —
-    # показываем список доступных тарифов вместо продления скрытого
+    # Скрытый/неактивный тариф (каталог заменён) — список активных тарифов,
+    # но через renew_pick (extend), НЕ через tariff_select (create new account).
     if not tariff.is_active:
         tariffs = await get_tariffs_for_user(db, user=db_user)
         active_tariffs = [t for t in tariffs if not t.is_daily]
@@ -3112,9 +3208,23 @@ async def show_tariff_extend(
             )
             return
 
+        if state is not None:
+            await state.update_data(
+                target_subscription_id=subscription.id,
+                active_subscription_id=subscription.id,
+                extend_flow=True,
+            )
+
         keyboard = []
         for t in active_tariffs:
-            keyboard.append([InlineKeyboardButton(text=f'📦 {t.name}', callback_data=f'tariff_select:{t.id}')])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text=f'📦 {t.name}',
+                        callback_data=f'tariff_renew_pick:{subscription.id}:{t.id}',
+                    )
+                ]
+            )
         keyboard.append([InlineKeyboardButton(text=texts.BACK, callback_data='back_to_menu')])
 
         await callback.message.edit_text(
@@ -5927,6 +6037,7 @@ def register_tariff_purchase_handlers(dp: Dispatcher):
     dp.message.register(handle_custom_traffic_input_message, F.text, AwaitingCustomTrafficFilter())
 
     # Продление по тарифу
+    dp.callback_query.register(select_tariff_for_renew, F.data.startswith('tariff_renew_pick:'))
     dp.callback_query.register(select_tariff_extend_period, F.data.startswith('tariff_extend:'))
     dp.callback_query.register(confirm_tariff_extend, F.data.startswith('tariff_ext_confirm:'))
 

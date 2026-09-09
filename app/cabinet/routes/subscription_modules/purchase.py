@@ -40,6 +40,7 @@ from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
 from app.services.pricing_engine import pricing_engine
+from app.services.renewal_pin import resolve_renewal_target_subscription
 from app.services.subscription_purchase_service import (
     MiniAppSubscriptionPurchaseService,
     PurchaseBalanceError,
@@ -708,9 +709,12 @@ async def tariff_purchase_quote(
     existing_subscription = None
     if settings.is_multi_tariff_enabled():
         if request.subscription_id is not None:
-            existing_subscription = await get_subscription_by_id_for_user(db, request.subscription_id, user.id)
-            if existing_subscription and existing_subscription.tariff_id != tariff.id:
-                existing_subscription = None
+            existing_subscription = await resolve_renewal_target_subscription(
+                db,
+                user_id=user.id,
+                pinned_subscription_id=request.subscription_id,
+                requested_tariff_id=tariff.id,
+            )
     else:
         existing_subscription = await get_subscription_by_user_id(db, user.id)
 
@@ -865,20 +869,19 @@ async def purchase_tariff(
         existing_subscription = None
         if settings.is_multi_tariff_enabled():
             if request.subscription_id is not None:
-                existing_subscription = await get_subscription_by_id_for_user(db, request.subscription_id, user.id)
-                # If the pinned sub points to a different tariff than
-                # the request carries (admin swap, stale client state),
-                # ignore it and fall back to tariff-level lookup so the
-                # purchase doesn't extend a sub of the wrong tariff.
-                if existing_subscription and existing_subscription.tariff_id != tariff.id:
+                existing_subscription = await resolve_renewal_target_subscription(
+                    db,
+                    user_id=user.id,
+                    pinned_subscription_id=request.subscription_id,
+                    requested_tariff_id=tariff.id,
+                )
+                if request.subscription_id and existing_subscription is None:
                     logger.warning(
-                        'Cabinet purchase: explicit subscription_id has divergent tariff_id; falling back',
+                        'Cabinet purchase: explicit subscription_id has divergent active tariff; ignoring pin',
                         request_subscription_id=request.subscription_id,
-                        pinned_tariff_id=existing_subscription.tariff_id,
                         request_tariff_id=tariff.id,
                         user_id=user.id,
                     )
-                    existing_subscription = None
         else:
             existing_subscription = await get_subscription_by_user_id(db, user.id)
         device_limit = None
