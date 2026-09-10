@@ -32,6 +32,29 @@ failing with HTTP 500. Admin-only; no B2C/partner difference.
   `app/database/crud/platega_subscription.py`, `app/handlers/admin/coupons.py`, `app/handlers/start.py`,
   `app/handlers/subscription/autopay.py`, `app/services/coupon_service.py`.
 
+### Full extent (added 2026-09-10 from the CI-green work — measured, not guessed)
+
+Diffing `Base.metadata` against `information_schema.columns` on the dev DB (alembic head `0112`)
+gives this complete list:
+
+- **Missing columns — likely user-facing breakage:** `guest_purchases.campaign_slug` and
+  `guest_purchases.idempotency_key` (upstream `0106`/`0107`, archived). Live code uses
+  `idempotency_key`: `app/cabinet/routes/gift.py` (~449–463) and `app/handlers/subscription/gift.py`
+  (~706, 904, 918). Any ORM `SELECT` of `GuestPurchase` names every mapped column, so **gift/guest
+  purchases on a migrated DB likely fail with `UndefinedColumn`**. Reproduce first; if confirmed,
+  this is the most urgent part of the plan and belongs in option 1 regardless of the coupon decision.
+- **Missing tables:** `coupons`, `coupon_batches` (above), `legal_consents`, `recurrent_payments`,
+  `cispay_payments`, `lava_subscriptions`, `platega_subscriptions` (the last four belong to deferred
+  gateways: create only to stop errors, never enable), `grace_access_sessions` (own plan:
+  `2026-09-10-grace-access-sessions-table.md`), `referral_reward_levels` (deliberately deferred:
+  `0112` docstring, `tests/database/test_0111_remnawave_id.py` `FORBIDDEN_TABLES`).
+- Fresh installs get all of them via `create_all`; only Alembic-migrated DBs are missing them.
+  The test suite can't see this (it builds schemas with `create_all`/SQLite). Add a guard test:
+  "after `alembic upgrade head` on an empty Postgres, every mapped column exists", with an explicit
+  allowlist for the deliberately deferred tables.
+- Re-measure in the picking-up session (the list above is a 2026-09-10 snapshot): compare
+  `Base.metadata.sorted_tables` against `information_schema.columns` (read-only).
+
 ## Design (decide first in the picking-up session)
 
 Two options — this is a migration, so the choice needs the user's approval before code:
