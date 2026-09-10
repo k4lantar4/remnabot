@@ -1,11 +1,10 @@
-# Selective upstream patches onto `prod-cutover` (remnabot)
+# Selective upstream patches onto `main` (remnabot)
 
 **Date:** 2026-09-09
 **Status:** live plan — not started
 **Repo:** `remnabot` (`origin` = `k4lantar4/remnabot.git`, `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot`)
-**Target branch:** **`main`** — not `prod-cutover`. Per `remnabot/CLAUDE.md`, `prod-cutover` was
-merged into `main` on 2026-09-08 (PR #2) and `main` is the production line now. Branch every task
-here off `main`. See "Branch reality" below for the two commits that have not landed there yet.
+**Target branch:** **`main`**. `prod-cutover` is fully merged into it and its local refs were
+deleted on 2026-09-10. Branch every task here off `main`.
 **Upstream basis:** re-verified against **v4.8.0** (`1fe2b47a`, 2026-09-09). Originally drafted
 against v4.7.1; see "Upstream moved" below — Plan A tasks 1-2 were rewritten as a result.
 
@@ -33,9 +32,9 @@ candidate table.
 - **No candidate carries a migration.** All 11 upstream commits considered touch zero files under
   `migrations/`. The known Alembic hazard (upstream's `system_error_events` migration also claiming
   `0111` with `down_revision='0110'`, while we never grafted upstream `0105`–`0110` and our `0111`
-  is a deliberate graft) is therefore **moot for this plan**. Our head stays
-  `migrations/alembic/versions/0111_remnawave_id_and_boot_extras.py`. Re-check this if any patch is
-  added to the plan later.
+  is a deliberate graft) is therefore **moot for this plan**. **Our head is now `0112`**
+  (`0112_referral_earnings_reward_columns.py`, PR #8, chain `… 0104 → 0111 → 0112`). Any patch
+  added to this plan later that brings a migration must chain onto `0112`, never `0111`.
 - **`968687ce` IS needed on our side.** The earlier finding ("our wholesale path short-circuits in
   `calculate_user_price`, so no equivalent needed") is correct but too narrow — it only clears the
   wholesale path. The daily-price path in `app/cabinet/routes/subscription_modules/helpers.py`
@@ -50,26 +49,17 @@ candidate table.
 - **`frontend` is already done.** `frontend` `prod-cutover` *is* commit `dc77a7d9` (BSCHEKER removal).
   Nothing to merge. Branch `worktree-agent-af3db50c4f08bf7cb` (`9712d786`) is 0 ahead / 24 behind
   `prod-cutover` — it contains nothing that isn't already there.
-- **Test baseline on `prod-cutover`: 20 failed / 7 errors, pre-existing** (documented in
-  `remnabot/CLAUDE.md`, verified identical before/after the abandoned merge). Also 23 files fail
-  `ruff format --check` (pre-existing formatting debt). Compare every failure against this baseline
-  before blaming your own change.
+- **Test baseline:** `main` is red at baseline. The current numbers live in exactly one place —
+  `remnabot/CLAUDE.md` → "CI baseline" — so they cannot drift between docs. Compare every failure
+  against that before blaming your own change.
 
-### Branch reality (measured 2026-09-09, after `git fetch origin`)
+### Branch reality (updated 2026-09-10)
 
-All code findings below were verified on `prod-cutover`. `origin/main` contains all of it except two
-commits, so they hold for `main` too — with one caveat noted.
-
-| Repo | `origin/main` lacks | Local `main` ref |
-|---|---|---|
-| `remnabot` | 2 commits: `1b594803 fix(currency): balance/combo promo codes and campaigns credited 100x`, `1da3083b chore: remove stale rehearsal/local compose files` | 98 behind `origin/main` — stale ref, just needs `git fetch && git pull --ff-only` |
-| `frontend` | 1 commit: `dc77a7d9 Remove BSCHEKER/reachability feature` | 26 behind `origin/main` — same, stale ref only |
-
-**Land those three commits before starting task work**, so every task branches off a `main` that is
-actually current. `1b594803` touches `app/services/pricing_engine.py`, which Plan B task 5 also
-edits — starting Plan B from a `main` without it means re-resolving that overlap later for no reason.
-
-Both prior merges are already done and merged: `remnabot` PR #2, `frontend` PR #1.
+Everything that was waiting has landed. `origin/main` in both repos contains all of `prod-cutover`
+(remnabot PR #5, frontend PR #4), and the recovered WIP is merged too: `0112` migration (#8),
+logo-prewarm gate (#9), loopback Postgres + `{balance}` test (#10), RU→EN docs (#11), runtime
+`locales/` tracked (#7). All code findings in this doc were verified on `prod-cutover`, which is
+now contained in `main`, so they hold for `main`.
 
 ### Upstream moved: v4.7.1 -> v4.8.0 (checked 2026-09-09)
 
