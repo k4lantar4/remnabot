@@ -1,6 +1,7 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — Plan A (Tasks 1–3) in PR #18 (bot) + the frontend PR linked from it; Plans B–E not started
+**Status:** active — **Plan A done** (bot #18; cabinet frontend #7; found during it and fixed: cabinet
+branding-cache crash, frontend #8). Plans B–E not started.
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -165,7 +166,7 @@ subscription); turning email login off in the cabinet actually closes the API. B
 
 **3. Email-auth gate with the correct parser — bot, then cabinet** (`23a58172` + `fdebcad1` as one
 bot commit; plus our own frontend commit).
-- Done (bot): `1e8b9963`, PR #18; cabinet: the frontend PR linked from #18.
+- Done: bot `1e8b9963` (PR #18); cabinet `40e7020e` (frontend PR #7).
 - Bot files: `app/cabinet/auth/email_auth_gate.py` (new), `app/cabinet/routes/auth.py` (all 8 of
   upstream's gated handlers, 1:1 by name — upstream gates 8, not 9; today zero routes check the
   flag), `app/cabinet/routes/branding.py` (fix the `.lower() == 'true'` parse in
