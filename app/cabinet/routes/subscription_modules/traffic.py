@@ -25,9 +25,11 @@ from app.database.crud.user import subtract_user_balance
 from app.database.models import TransactionType, User
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
+from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.cache import RateLimitCache, cache, cache_key
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -284,8 +286,8 @@ async def purchase_traffic(
         final_price = max(100, final_price)
 
     # Проверяем баланс
-    if final_price > 0 and user.balance_kopeks < final_price:
-        missing = final_price - user.balance_kopeks
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
+        missing = calculate_missing_amount(user.balance_kopeks, final_price)
 
         # Save cart for auto-purchase after balance top-up
         cart_data = {
@@ -314,7 +316,7 @@ async def purchase_traffic(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
                 'missing_amount': missing,
                 'cart_saved': True,
                 'cart_mode': 'add_traffic',
@@ -328,7 +330,7 @@ async def purchase_traffic(
         traffic_description = f'Докупка {request.gb} ГБ трафика'
 
     # Списываем баланс
-    success = await subtract_user_balance(db, user, final_price, traffic_description)
+    success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -620,15 +622,20 @@ async def switch_traffic_package(
         # Prorated calculation
         final_price, days_charged = calculate_prorated_price(price_diff, subscription.end_date)
 
-        if final_price > 0 and user.balance_kopeks < final_price:
+        if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
+            missing = calculate_missing_amount(user.balance_kopeks, final_price)
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f'Insufficient balance. Need {final_price / 100:.2f} RUB',
+                detail={
+                    'code': 'insufficient_funds',
+                    'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
+                    'missing_amount': missing,
+                },
             )
 
-        # Charge balance
+        # Charge the Toman amount; the payment row below stays on the catalog scale
         description = f'Traffic upgrade from {current_traffic}GB to {new_traffic}GB'
-        success = await subtract_user_balance(db, user, final_price, description)
+        success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), description)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -716,7 +723,7 @@ async def switch_traffic_package(
         'new_traffic_gb': new_traffic,
         'charged_kopeks': charged,
         'balance_kopeks': user.balance_kopeks,
-        'balance_label': settings.format_price(user.balance_kopeks),
+        'balance_label': settings.format_balance(user.balance_kopeks),
     }
 
 
