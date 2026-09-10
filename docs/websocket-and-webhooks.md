@@ -1,29 +1,29 @@
-# WebSocket и Webhooks для веб-админки
+# WebSocket and webhooks for the web admin
 
-## Обзор
+## Overview
 
-Реализованы две системы для real-time обновлений и интеграций:
+Two systems are implemented for real-time updates and integrations:
 
-1. **WebSocket** - для real-time обновлений в веб-админке
-2. **Webhooks** - для отправки событий во внешние системы
+1. **WebSocket** — real-time updates in the web admin
+2. **Webhooks** — sending events to external systems
 
 ## WebSocket
 
-### Подключение
+### Connection
 
-WebSocket endpoint доступен по адресу: `ws://your-api-host:port/ws`
+The WebSocket endpoint is available at: `ws://your-api-host:port/ws`
 
-Для подключения требуется токен API (передается через query параметр):
+An API token is required to connect (passed as a query parameter):
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8080/ws?token=YOUR_API_TOKEN');
-// или
+// or
 const ws = new WebSocket('ws://localhost:8080/ws?api_key=YOUR_API_TOKEN');
 ```
 
-### Формат сообщений
+### Message format
 
-#### Входящие сообщения (от сервера)
+#### Incoming messages (from the server)
 
 ```json
 {
@@ -49,34 +49,36 @@ const ws = new WebSocket('ws://localhost:8080/ws?api_key=YOUR_API_TOKEN');
 }
 ```
 
-#### Исходящие сообщения (от клиента)
+#### Outgoing messages (from the client)
 
-**Ping для keepalive:**
+**Keepalive ping:**
+
 ```json
 {
   "type": "ping"
 }
 ```
 
-Сервер ответит:
+The server replies:
+
 ```json
 {
   "type": "pong"
 }
 ```
 
-### Поддерживаемые события
+### Supported events
 
-- `user.created` - создан новый пользователь
-- `payment.completed` - завершен платеж (пополнение баланса)
-- `transaction.created` - создана транзакция
-- `ticket.created` - создан новый тикет
-- `ticket.status_changed` - изменен статус тикета
-- `ticket.message_added` - добавлено новое сообщение в тикет (от пользователя или админа)
+- `user.created` — a new user was created
+- `payment.completed` — a payment completed (balance top-up)
+- `transaction.created` — a transaction was created
+- `ticket.created` — a new ticket was created
+- `ticket.status_changed` — ticket status changed
+- `ticket.message_added` — a new message was added to a ticket (from the user or an admin)
 
 ## Webhooks
 
-### Создание webhook
+### Creating a webhook
 
 ```bash
 POST /webhooks
@@ -88,21 +90,21 @@ Content-Type: application/json
   "url": "https://example.com/webhook",
   "event_type": "user.created",
   "secret": "optional-secret-for-signing",
-  "description": "Webhook для новых пользователей"
+  "description": "Webhook for new users"
 }
 ```
 
-### Поддерживаемые типы событий
+### Supported event types
 
-- `user.created` - создан новый пользователь
-- `payment.completed` - завершен платеж
-- `transaction.created` - создана транзакция
-- `ticket.created` - создан новый тикет
-- `ticket.status_changed` - изменен статус тикета
+- `user.created` — a new user was created
+- `payment.completed` — a payment completed
+- `transaction.created` — a transaction was created
+- `ticket.created` — a new ticket was created
+- `ticket.status_changed` — ticket status changed
 
-### Формат payload
+### Payload format
 
-Webhook отправляет POST запрос с JSON payload:
+The webhook sends a POST request with a JSON payload:
 
 ```json
 {
@@ -116,16 +118,16 @@ Webhook отправляет POST запрос с JSON payload:
 }
 ```
 
-### Заголовки запроса
+### Request headers
 
 - `Content-Type: application/json`
-- `X-Webhook-Event: user.created` - тип события
-- `X-Webhook-Id: 1` - ID webhook
-- `X-Webhook-Signature: sha256=...` - подпись (если указан secret)
+- `X-Webhook-Event: user.created` — event type
+- `X-Webhook-Id: 1` — webhook ID
+- `X-Webhook-Signature: sha256=...` — signature (if a secret is set)
 
-### Подпись payload
+### Payload signature
 
-Если при создании webhook указан `secret`, payload подписывается с помощью HMAC-SHA256:
+If a `secret` is provided when creating the webhook, the payload is signed with HMAC-SHA256:
 
 ```python
 import hmac
@@ -138,9 +140,9 @@ signature = hmac.new(
 ).hexdigest()
 ```
 
-Заголовок: `X-Webhook-Signature: sha256={signature}`
+Header: `X-Webhook-Signature: sha256={signature}`
 
-### Проверка подписи (пример на Python)
+### Verifying the signature (Python example)
 
 ```python
 import hmac
@@ -154,24 +156,27 @@ def verify_webhook_signature(payload: dict, signature_header: str, secret: str) 
         payload_json.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
-    
+
     received_signature = signature_header.replace('sha256=', '')
     return hmac.compare_digest(expected_signature, received_signature)
 ```
 
-### API эндпоинты
+### API endpoints
 
-#### Список webhooks
+#### List webhooks
+
 ```
 GET /webhooks?event_type=user.created&is_active=true&limit=50&offset=0
 ```
 
-#### Получить webhook
+#### Get a webhook
+
 ```
 GET /webhooks/{webhook_id}
 ```
 
-#### Обновить webhook
+#### Update a webhook
+
 ```
 PATCH /webhooks/{webhook_id}
 {
@@ -180,43 +185,46 @@ PATCH /webhooks/{webhook_id}
 }
 ```
 
-#### Удалить webhook
+#### Delete a webhook
+
 ```
 DELETE /webhooks/{webhook_id}
 ```
 
-#### Статистика webhooks
+#### Webhook statistics
+
 ```
 GET /webhooks/stats
 ```
 
-#### История доставок
+#### Delivery history
+
 ```
 GET /webhooks/{webhook_id}/deliveries?status=failed&limit=50&offset=0
 ```
 
-### Статусы доставки
+### Delivery statuses
 
-- `pending` - ожидает отправки
-- `success` - успешно доставлен (HTTP 200-299)
-- `failed` - ошибка доставки
+- `pending` — waiting to be sent
+- `success` — delivered successfully (HTTP 200–299)
+- `failed` — delivery error
 
-### Retry логика
+### Retry logic
 
-В текущей реализации retry не реализован автоматически, но можно добавить через `next_retry_at` поле в `WebhookDelivery`.
+Automatic retry is not implemented in the current version, but it can be added via the `next_retry_at` field on `WebhookDelivery`.
 
-## Интеграция событий
+## Event integration
 
-События автоматически отправляются при:
+Events are sent automatically when:
 
-1. **Создании пользователя** (`app/database/crud/user.py::create_user`)
-2. **Создании транзакции** (`app/database/crud/transaction.py::create_transaction`)
-3. **Создании тикета** (`app/database/crud/ticket.py::create_ticket`)
-4. **Изменении статуса тикета** (`app/database/crud/ticket.py::update_ticket_status`)
+1. **A user is created** (`app/database/crud/user.py::create_user`)
+2. **A transaction is created** (`app/database/crud/transaction.py::create_transaction`)
+3. **A ticket is created** (`app/database/crud/ticket.py::create_ticket`)
+4. **Ticket status changes** (`app/database/crud/ticket.py::update_ticket_status`)
 
-## Примеры использования
+## Usage examples
 
-### JavaScript WebSocket клиент
+### JavaScript WebSocket client
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8080/ws?token=YOUR_TOKEN');
@@ -228,9 +236,9 @@ ws.onopen = () => {
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   console.log('Event:', data.type, data.payload);
-  
+
   if (data.type === 'user.created') {
-    // Обработка нового пользователя
+    // Handle the new user
     updateDashboard(data.payload);
   }
 };
@@ -243,7 +251,7 @@ ws.onclose = () => {
   console.log('Disconnected');
 };
 
-// Ping для keepalive
+// Keepalive ping
 setInterval(() => {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'ping' }));
@@ -251,7 +259,7 @@ setInterval(() => {
 }, 30000);
 ```
 
-### Python Webhook receiver
+### Python webhook receiver
 
 ```python
 from fastapi import FastAPI, Request, HTTPException
@@ -268,11 +276,11 @@ async def webhook(request: Request):
     event_type = request.headers.get('X-Webhook-Event')
     payload = await request.json()
 
-    # Проверка подписи
+    # Verify signature
     if not verify_signature(payload, signature, WEBHOOK_SECRET):
         raise HTTPException(status_code=401, detail='Invalid signature')
 
-    # Обработка события
+    # Handle the event
     if event_type == 'user.created':
         handle_new_user(payload)
     elif event_type == 'payment.completed':
@@ -290,18 +298,17 @@ def verify_signature(payload, signature, secret):
     return hmac.compare_digest(expected, signature.replace('sha256=', ''))
 ```
 
-## Безопасность
+## Security
 
-1. **WebSocket**: Требует валидный API токен
-2. **Webhooks**: 
-   - Используйте HTTPS для webhook URL
-   - Используйте secret для подписи payload
-   - Проверяйте подпись на стороне получателя
-   - Ограничьте IP адреса получателей (если возможно)
+1. **WebSocket:** requires a valid API token
+2. **Webhooks:**
+   - Use HTTPS for the webhook URL
+   - Use a secret to sign the payload
+   - Verify the signature on the receiver side
+   - Restrict recipient IP addresses when possible
 
-## Мониторинг
+## Monitoring
 
-- Проверяйте статистику webhooks через `/webhooks/stats`
-- Просматривайте историю доставок через `/webhooks/{id}/deliveries`
-- Мониторьте логи на наличие ошибок доставки
-
+- Check webhook statistics via `/webhooks/stats`
+- Review delivery history via `/webhooks/{id}/deliveries`
+- Watch logs for delivery errors
