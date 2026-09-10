@@ -5080,10 +5080,10 @@ async def confirm_instant_switch(
         subscription.purchased_traffic_gb = 0
         subscription.traffic_reset_at = None
 
-        # Счётчик трафика обнуляет только ОПЛАЧЕННОЕ переключение (см. tariff_switch_policy).
-        reset_used_traffic = should_reset_used_traffic(upgrade_cost)
-        if reset_used_traffic:
-            subscription.traffic_used_gb = 0.0
+        # Сколько реально списано за переключение: доплата либо (ниже) первый день
+        # суточного тарифа. Сброс трафика решается по этой сумме, а не по доплате:
+        # суточный → суточный стоит 0, но первый день нового тарифа оплачен.
+        charged_kopeks = upgrade_cost
 
         if is_new_daily:
             # Для суточного тарифа - сбрасываем на 1 день и настраиваем суточные параметры
@@ -5123,6 +5123,7 @@ async def confirm_instant_switch(
                         amount_kopeks=daily_price,
                         description=f'Переключение на суточный тариф {new_tariff.name} (первый день)',
                     )
+                    charged_kopeks = daily_price
 
                     # Уведомление админу о списании за первый день суточного тарифа
                     try:
@@ -5144,6 +5145,11 @@ async def confirm_instant_switch(
             subscription.is_trial = False
             subscription.is_daily_paused = False
             subscription.last_daily_charge_at = datetime.now(UTC)
+
+        # Счётчик трафика обнуляет только ОПЛАЧЕННОЕ переключение (см. tariff_switch_policy).
+        reset_used_traffic = should_reset_used_traffic(charged_kopeks)
+        if reset_used_traffic:
+            subscription.traffic_used_gb = 0.0
 
         await db.commit()
         await db.refresh(subscription)
