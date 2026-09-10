@@ -148,8 +148,8 @@ class SubscriptionRenewalPricing:
 class SubscriptionRenewalResult:
     subscription: Subscription
     transaction: Transaction | None
-    total_amount_kopeks: int
-    charged_from_balance_kopeks: int
+    total_amount_kopeks: int  # catalog scale (price_kopeks)
+    charged_from_balance_kopeks: int  # balance scale: Toman actually debited
     old_end_date: datetime | None
 
 
@@ -375,10 +375,14 @@ class SubscriptionRenewalService:
         final_total = max(final_total, 0)
 
         period_days = int(pricing.period_days)
+        # final_total is a catalog price (price_kopeks, Toman x 100); the balance is Toman 1:1, so
+        # the debit (and the compensating refund below) is always in Toman. Explicit callers
+        # (cabinet, CryptoBot webhook) already pass Toman; the transaction row keeps final_total.
+        final_total_toman = catalog_price_in_toman(final_total)
         charge_from_balance = charge_balance_amount
         if charge_from_balance is None:
-            charge_from_balance = final_total
-        charge_from_balance = max(0, min(charge_from_balance, final_total))
+            charge_from_balance = final_total_toman
+        charge_from_balance = max(0, min(charge_from_balance, final_total_toman))
 
         # Support both SubscriptionRenewalPricing and RenewalPricing
         if isinstance(pricing, SubscriptionRenewalPricing):
