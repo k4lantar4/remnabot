@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+
 MAX_PURCHASE_NOTE_LEN = 500
 BRAND_PREFIX_PATTERN = re.compile(r'^[A-Za-z0-9_-]{3,20}$')
 

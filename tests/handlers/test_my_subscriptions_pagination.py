@@ -21,7 +21,6 @@ from app.handlers.subscription.my_subscriptions import (
     MY_SUBS_PAGE_SIZE,
     _build_subscription_detail_keyboard,
     _build_subscriptions_keyboard,
-    _format_subscription_line,
     paginate_items,
     parse_my_subs_page,
     receive_my_subs_search,

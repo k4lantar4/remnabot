@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 ROOT = Path('app/cabinet/routes/subscription_modules')
 
 

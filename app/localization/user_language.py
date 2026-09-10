@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from app.config import settings
 from app.localization.loader import DEFAULT_LANGUAGE
 
+
 if TYPE_CHECKING:
     from app.database.models import User
 

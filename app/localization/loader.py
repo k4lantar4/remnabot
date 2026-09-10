@@ -265,6 +265,13 @@ def _load_user_locale(language: str) -> dict[str, Any]:
     return {}
 
 
+def _locale_file_exists(language: str) -> bool:
+    if (_DEFAULT_LOCALES_DIR / f'{language}.json').exists():
+        return True
+    user_dir = _resolve_user_locales_dir()
+    return any((user_dir / f'{language}{extension}').exists() for extension in ('.json', '.yml', '.yaml'))
+
+
 def _load_locale_file(path: Path) -> dict[str, Any]:
     suffix = path.suffix.lower()
     try:
@@ -303,7 +310,10 @@ def load_locale(language: str) -> dict[str, Any]:
     overrides = _load_user_locale(language)
     merged = _merge_dicts(defaults, overrides)
 
-    if not merged and language != DEFAULT_LANGUAGE:
+    # Only a locale with no file at all falls back wholesale. One that exists but is
+    # empty (or unparseable) stays empty, so Texts resolves it key by key through its
+    # own chain (fa -> en -> ru) instead of silently becoming DEFAULT_LANGUAGE.
+    if not merged and language != DEFAULT_LANGUAGE and not _locale_file_exists(language):
         _logger.warning(
             'Locale not found — falling back to default language', language=language, DEFAULT_LANGUAGE=DEFAULT_LANGUAGE
         )

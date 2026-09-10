@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.localization.texts import Texts
 
+
 C2C_REJECT_REASONS: dict[str, str | None] = {
     'amt_mismatch': 'C2C_REJECT_REASON_AMT_MISMATCH',
     'unclear': 'C2C_REJECT_REASON_UNCLEAR',

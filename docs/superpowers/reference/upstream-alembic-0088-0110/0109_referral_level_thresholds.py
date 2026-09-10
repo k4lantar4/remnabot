@@ -12,7 +12,8 @@ Create Date: 2026-08-27
 накруткой пустых регистраций, и уровень открывается, не принеся ничего.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op

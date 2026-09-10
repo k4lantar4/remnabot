@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from app.plugins.c2c.reject_reasons import (
@@ -15,9 +13,9 @@ from app.plugins.c2c.reject_reasons import (
 
 @pytest.fixture
 def fa_texts():
-  from app.localization.texts import get_texts
+    from app.localization.texts import get_texts
 
-  return get_texts('fa')
+    return get_texts('fa')
 
 
 def test_each_code_resolves_except_silent(fa_texts):

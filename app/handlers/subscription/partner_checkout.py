@@ -211,6 +211,4 @@ async def toggle_brand_prefix(
 def register_partner_checkout_handlers(dp: Dispatcher) -> None:
     dp.callback_query.register(prompt_purchase_note, F.data.startswith('pnote:'))
     dp.callback_query.register(toggle_brand_prefix, F.data.startswith('pbrand:'))
-    dp.message.register(
-        handle_purchase_note_input, SubscriptionStates.waiting_for_purchase_note, F.text
-    )
+    dp.message.register(handle_purchase_note_input, SubscriptionStates.waiting_for_purchase_note, F.text)

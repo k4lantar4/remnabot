@@ -222,9 +222,7 @@ class PaymentCommonMixin:
             else:
                 method_display = texts.t('PAYMENT_CARD_YOOKASSA', '💳 Карта (YooKassa)')
             snapshot_user_id = getattr(user_snapshot, 'id', None) if user_snapshot else None
-            has_cart_intent = bool(
-                snapshot_user_id and await user_cart_service.has_topup_intent(snapshot_user_id)
-            )
+            has_cart_intent = bool(snapshot_user_id and await user_cart_service.has_topup_intent(snapshot_user_id))
             if cart_autopurchase_failed:
                 message = texts.t(
                     'PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED',
@@ -236,10 +234,7 @@ class PaymentCommonMixin:
             elif has_cart_intent:
                 message = texts.t(
                     'PAYMENT_TOPUP_SUCCESS_WITH_CART',
-                    '✅ <b>Платеж подтверждён!</b>\n\n'
-                    '💰 Сумма: {amount}\n'
-                    '💳 Способ: {method}\n\n'
-                    'Активируем сервис…',
+                    '✅ <b>Платеж подтверждён!</b>\n\n💰 Сумма: {amount}\n💳 Способ: {method}\n\nАктивируем сервис…',
                 ).format(amount=amount_str, method=method_display)
             else:
                 message = texts.t(

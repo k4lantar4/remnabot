@@ -12,6 +12,7 @@ from sqlalchemy import BigInteger, Integer, String, Text
 
 from app.database.models import PaymentMethodConfig, PromoCode, Subscription, Tariff, User
 
+
 _0111_SUB_INDEXES = {
     'uq_subscriptions_remnawave_id',
     'ix_subscriptions_remnawave_short_uuid',
@@ -82,4 +83,4 @@ def test_0111_boot_extras_are_mapped() -> None:
     assert str(traffic.server_default.arg) == '0'
 
     names = {index.name for index in Subscription.__table__.indexes}
-    assert _0111_SUB_INDEXES <= names
+    assert names >= _0111_SUB_INDEXES

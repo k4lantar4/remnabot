@@ -17,6 +17,4 @@ def assert_not_production_token(
     if allow_override:
         return
     if token_fingerprint(bot_token) == prod_fingerprint:
-        raise RuntimeError(
-            'Refusing to start: production BOT_TOKEN matches PRODUCTION_BOT_TOKEN_FINGERPRINT'
-        )
+        raise RuntimeError('Refusing to start: production BOT_TOKEN matches PRODUCTION_BOT_TOKEN_FINGERPRINT')

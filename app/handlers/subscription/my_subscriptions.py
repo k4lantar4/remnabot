@@ -475,6 +475,7 @@ async def show_subscription_detail(
 
     await _render_subscription_detail(callback, db_user, db, state, sub_id, answer=True)
 
+
 async def _resolve_and_store_sub(
     callback: types.CallbackQuery,
     db_user: User,

@@ -18,6 +18,7 @@ from app.external.remnawave_api import (
     coerce_panel_user_id,
 )
 
+
 CLIENT_PATH = Path(__file__).resolve().parents[2] / 'app' / 'external' / 'remnawave_api.py'
 
 REMOVED_28_USER_PATH_PREFIXES = (

@@ -10,6 +10,7 @@ import pytest
 
 from app.localization.texts import Texts, clear_locale_cache
 
+
 _CYRILLIC = re.compile(r'[А-Яа-яЁё]')
 _LOCALES_DIR = Path(__file__).resolve().parents[2] / 'app' / 'localization' / 'locales'
 
@@ -43,7 +44,6 @@ def test_en_keys_resolve_before_ru_for_fa_users():
         if isinstance(value, str) and _CYRILLIC.search(value):
             cyrillic_from_ru.append(key)
 
-    assert not cyrillic_from_ru, (
-        'fa fallback returned Cyrillic for keys available in en: '
-        + ', '.join(cyrillic_from_ru[:10])
+    assert not cyrillic_from_ru, 'fa fallback returned Cyrillic for keys available in en: ' + ', '.join(
+        cyrillic_from_ru[:10]
     )

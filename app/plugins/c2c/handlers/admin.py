@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import structlog
 from aiogram import F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -24,8 +22,8 @@ from app.plugins.c2c.constants import (
     C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX,
     C2C_CALLBACK_REJECT_PREFIX,
     C2C_CALLBACK_REJECT_REASON_PREFIX,
-    C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
     C2C_CALLBACK_RESOLVED_PREFIX,
+    C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
 )
 from app.plugins.c2c.handlers.admin_inbox import send_inbox_list_message
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard, get_c2c_reject_reason_keyboard

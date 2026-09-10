@@ -106,6 +106,7 @@ from app.handlers.simple_subscription import (
     _get_simple_subscription_payment_keyboard,
 )
 from app.states import SubscriptionStates
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import (
     PriceInfo,
     catalog_price_in_toman,
@@ -113,7 +114,6 @@ from app.utils.price_display import (
     render_addon_insufficient_funds,
     user_can_afford,
 )
-from app.utils.topup_suggestion import build_cart_topup_metadata, suggest_topup_amount_toman
 from app.utils.pricing_utils import (
     calculate_months_from_days,
     format_period_description,
@@ -122,8 +122,8 @@ from app.utils.subscription_utils import (
     get_display_subscription_link,
     resolve_simple_subscription_device_limit,
 )
-from app.utils.jalali_datetime import format_user_datetime
 from app.utils.timezone import format_local_datetime
+from app.utils.topup_suggestion import build_cart_topup_metadata, suggest_topup_amount_toman
 
 from .autopay import (
     handle_autopay_menu,
@@ -552,9 +552,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                 bar = '▰' * filled + '▱' * (bar_length - filled)
 
                 # Форматируем дату истечения
-                expire_date = format_user_datetime(
-                    purchase.expires_at, language=db_user.language, fmt='%d.%m.%Y'
-                )
+                expire_date = format_user_datetime(purchase.expires_at, language=db_user.language, fmt='%d.%m.%Y')
 
                 # Формируем текст о времени
                 if days_remaining == 0:
@@ -4100,7 +4098,6 @@ def register_handlers(dp: Dispatcher):
         reset_my_subs_search,
         start_my_subs_search,
     )
-    from app.states import SubscriptionStates
 
     dp.callback_query.register(start_my_subs_search, F.data == 'my_subs_search')
     dp.callback_query.register(reset_my_subs_search, F.data == 'my_subs_search_reset')

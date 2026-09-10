@@ -15,7 +15,9 @@ Revises: 0087
 Create Date: 2026-06-02
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
 
 revision: str = '0088'
 down_revision: Union[str, None] = '0087'

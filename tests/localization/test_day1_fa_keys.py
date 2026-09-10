@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+
 FA = Path('app/localization/locales/fa.json')
 
 REQUIRED = (

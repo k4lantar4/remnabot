@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.config import Settings
 from app.database.models import C2cReceiptStatus
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.service import C2cPaymentService
 from app.services.subscription_auto_purchase_service import _auto_purchase_tariff
-from app.config import Settings
 
 
 @pytest.mark.asyncio
@@ -62,9 +62,7 @@ async def test_c2c_approve_uses_persian_ledger_description(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_auto_purchase_uses_persian_tariff_ledger_description(monkeypatch):
-    pytest.skip(
-        '4.2 auto-purchase still uses Russian ledger copy; FA purchase strings are M6, not M4-T7 C2C'
-    )
+    pytest.skip('4.2 auto-purchase still uses Russian ledger copy; FA purchase strings are M6, not M4-T7 C2C')
     db = AsyncMock()
     user = SimpleNamespace(
         id=5,

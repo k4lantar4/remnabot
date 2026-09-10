@@ -16,6 +16,7 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
+
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / 'migrations' / 'alembic' / 'versions'
 REVISION_FILE = VERSIONS / '0111_remnawave_id_and_boot_extras.py'

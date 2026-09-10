@@ -69,8 +69,8 @@ class FakePanel:
 
 
 def test_margins_cover_ordinary_clock_skew():
-    assert MINIMUM_FUTURE == timedelta(minutes=5)
-    assert SKEW_RETRY_MARGIN == timedelta(minutes=15)
+    assert timedelta(minutes=5) == MINIMUM_FUTURE
+    assert timedelta(minutes=15) == SKEW_RETRY_MARGIN
     # Our own retry date must also count as "already cleared", or the next sync moves it again.
     assert ALREADY_EXTINGUISHED > SKEW_RETRY_MARGIN
 

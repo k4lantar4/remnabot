@@ -175,4 +175,3 @@ def test_show_buy_visible_when_active_multi_tariff():
     with patch('app.services.menu_layout.service.settings') as settings:
         settings.is_multi_tariff_enabled.return_value = True
         assert MenuLayoutService._evaluate_conditions(conditions, context) is True
-

@@ -52,9 +52,7 @@ async def get_c2c_receipt_by_id(db: AsyncSession, receipt_id: int) -> C2cReceipt
 
 async def get_c2c_receipt_with_user(db: AsyncSession, receipt_id: int) -> C2cReceipt | None:
     result = await db.execute(
-        select(C2cReceipt)
-        .options(joinedload(C2cReceipt.user))
-        .where(C2cReceipt.id == receipt_id)
+        select(C2cReceipt).options(joinedload(C2cReceipt.user)).where(C2cReceipt.id == receipt_id)
     )
     return result.scalar_one_or_none()
 
@@ -92,11 +90,7 @@ def _reviewable_pending_filters():
 
 
 async def count_reviewable_pending_receipts(db: AsyncSession) -> int:
-    result = await db.execute(
-        select(func.count())
-        .select_from(C2cReceipt)
-        .where(*_reviewable_pending_filters())
-    )
+    result = await db.execute(select(func.count()).select_from(C2cReceipt).where(*_reviewable_pending_filters()))
     return int(result.scalar_one() or 0)
 
 
@@ -119,9 +113,7 @@ async def list_reviewable_pending_receipts(
 
 async def count_pending_receipts(db: AsyncSession) -> int:
     result = await db.execute(
-        select(func.count())
-        .select_from(C2cReceipt)
-        .where(C2cReceipt.status == C2cReceiptStatus.PENDING.value)
+        select(func.count()).select_from(C2cReceipt).where(C2cReceipt.status == C2cReceiptStatus.PENDING.value)
     )
     return int(result.scalar_one() or 0)
 

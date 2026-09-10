@@ -14,6 +14,7 @@ import pytest
 from app.custom.identity.persist import persist_identity
 from app.external.remnawave_api import RemnaWaveInvalidUserIdError
 
+
 SEAM = Path(__file__).resolve().parents[2] / 'app' / 'custom' / 'identity' / 'persist.py'
 
 

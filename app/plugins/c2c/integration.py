@@ -190,10 +190,7 @@ async def open_c2c_topup_from_message(
         )
         return False
 
-    if (
-        amount_kopeks is not None
-        and settings.C2C_MIN_AMOUNT_KOPEKS <= amount_kopeks <= settings.C2C_MAX_AMOUNT_KOPEKS
-    ):
+    if amount_kopeks is not None and settings.C2C_MIN_AMOUNT_KOPEKS <= amount_kopeks <= settings.C2C_MAX_AMOUNT_KOPEKS:
         from app.handlers.balance.topup_prompt import send_cart_topup_amount_prompt_message
 
         await send_cart_topup_amount_prompt_message(

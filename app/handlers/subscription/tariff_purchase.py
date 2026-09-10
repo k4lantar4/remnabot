@@ -1915,7 +1915,11 @@ async def confirm_tariff_purchase(
 
     try:
         if settings.is_multi_tariff_enabled():
-            if should_extend_multi_tariff(_state_data, existing_sub=existing_subscription) and existing_subscription and existing_subscription.tariff_id == tariff.id:
+            if (
+                should_extend_multi_tariff(_state_data, existing_sub=existing_subscription)
+                and existing_subscription
+                and existing_subscription.tariff_id == tariff.id
+            ):
                 # Extend existing subscription for this tariff
                 effective_device_limit = max(tariff.device_limit or 0, existing_subscription.device_limit or 0)
                 subscription = await extend_subscription(

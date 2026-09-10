@@ -19,8 +19,8 @@ from app.plugins.c2c.constants import (
     C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX,
     C2C_CALLBACK_REJECT_PREFIX,
     C2C_CALLBACK_REJECT_REASON_PREFIX,
-    C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
     C2C_CALLBACK_RESOLVED_PREFIX,
+    C2C_CALLBACK_RESTORE_REVIEW_PREFIX,
 )
 from app.plugins.c2c.handlers.admin import (
     _execute_c2c_custom_amount_input,

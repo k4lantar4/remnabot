@@ -4,9 +4,11 @@
 ``_format_numeric_with_unit`` считала любой ключ с подстрокой ``AMOUNT`` денежным
 и показывала его в рублях («3 ₽» вместо «3»). Все реальные денежные ключи содержат
 ``PRICE`` или оканчиваются на ``_KOPEKS``, поэтому голое ``AMOUNT`` из эвристики
-убрано. Тесты пинят обе стороны: счётчик устройств — без валюты, деньги — с ₽.
+убрано. Тесты пинят обе стороны: счётчик устройств — без валюты, деньги — с валютой.
 
-Regression cover for issue #1658.
+Regression cover for issue #1658. The fork displays Toman, so money keys must carry
+«تومان» (not upstream's ₽). Only the currency word is pinned: which scale each
+``_KOPEKS`` key uses is a Phase C question, not this test's.
 """
 
 from __future__ import annotations
@@ -36,4 +38,4 @@ def test_devices_selection_disabled_amount_zero_stays_plain() -> None:
     ],
 )
 def test_money_keys_keep_currency_formatting(key: str) -> None:
-    assert '₽' in svc.format_value_human(key, 5000)
+    assert 'تومان' in svc.format_value_human(key, 5000)

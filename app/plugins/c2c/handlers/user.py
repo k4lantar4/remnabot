@@ -13,10 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.models import C2cReceipt, C2cReceiptStatus, User
 from app.keyboards.inline import get_back_keyboard
-from app.utils.cart_checkout_keyboard import (
-    build_back_keyboard_with_checkout,
-    return_to_checkout_button,
-)
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.config_helpers import format_card_message, get_card_by_index, get_next_card
@@ -29,6 +25,10 @@ from app.plugins.c2c.integration import activate_c2c_topup_fsm, build_c2c_topup_
 from app.plugins.c2c.service import C2cPaymentService
 from app.plugins.c2c.states import C2cStates
 from app.services.user_cart_service import user_cart_service
+from app.utils.cart_checkout_keyboard import (
+    build_back_keyboard_with_checkout,
+    return_to_checkout_button,
+)
 from app.utils.decorators import error_handler
 
 

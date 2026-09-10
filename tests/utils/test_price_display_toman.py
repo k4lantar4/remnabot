@@ -49,9 +49,7 @@ def test_dual_scale_same_display_different_storage(toman_suffix) -> None:
     catalog_kopeks = 12_015_200
     balance_toman = 120_152
     assert catalog_price_in_toman(catalog_kopeks) == balance_toman
-    assert settings.format_price(catalog_kopeks, language='fa') == settings.format_balance(
-        balance_toman, language='fa'
-    )
+    assert settings.format_price(catalog_kopeks, language='fa') == settings.format_balance(balance_toman, language='fa')
     assert display_amount_from_kopeks(catalog_kopeks) == float(balance_toman)
     assert display_balance_from_storage(balance_toman) == float(balance_toman)
 
