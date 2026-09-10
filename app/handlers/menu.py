@@ -1541,8 +1541,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     from app.database.crud.transaction import create_transaction
     from app.database.crud.user import subtract_user_balance
     from app.database.models import PaymentMethod, TransactionType
-    from app.services.subscription_renewal_service import SubscriptionRenewalService
+    from app.services.subscription_renewal_service import SubscriptionRenewalService, calculate_missing_amount
     from app.services.subscription_service import SubscriptionService
+    from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
     if settings.is_multi_tariff_enabled():
         from app.database.crud.subscription import get_active_subscriptions_by_user_id
@@ -1587,7 +1588,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
 
     db_user = await lock_user_for_pricing(db, db_user.id)
 
-    balance = db_user.balance_kopeks
+    balance = db_user.balance_kopeks  # Toman 1:1; prices below are catalog price_kopeks
     available_periods = sorted(settings.get_available_subscription_periods(), reverse=True)
 
     subscription_service = SubscriptionService()
@@ -1617,7 +1618,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
                     user=db_user,
                 )
                 price = new_pricing.final_total
-            if price <= balance:
+            if user_can_afford(balance, price):
                 best_period = period
                 best_price = price
                 best_pricing = pricing_result if subscription else None
@@ -1639,18 +1640,18 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
                     user=db_user,
                 )
                 min_price = min_new_pricing.final_total
-            missing = min_price - balance
-            # texts.format_price(..., round_kopeks=False) показывает копейки, чтобы юзер видел
-            # «не хватает 0.40 ₽» вместо обрезанного «0 ₽» от integer division.
-            missing_label = texts.format_price(missing, round_kopeks=False)
+            missing_toman = calculate_missing_amount(balance, min_price)
+            missing_label = texts.format_balance(missing_toman, round_kopeks=False)
             await callback.answer(
-                texts.t('INSUFFICIENT_FUNDS_DETAILED', f'❌ Недостаточно средств. Не хватает {missing_label}'),
+                texts.t('INSUFFICIENT_FUNDS_DETAILED', '❌ Недостаточно средств. Не хватает {amount}').format(
+                    amount=missing_label
+                ),
                 show_alert=True,
             )
             return
     except Exception as e:
         logger.error('Ошибка расчёта стоимости при активации', error=e)
-        await callback.answer('❌ Ошибка расчёта стоимости', show_alert=True)
+        await callback.answer(texts.t('ACTIVATION_PRICE_ERROR', '❌ Ошибка расчёта стоимости'), show_alert=True)
         return
 
     try:
@@ -1671,9 +1672,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
 
             await callback.answer(
                 texts.t(
-                    'ACTIVATION_SUCCESS',
-                    f'✅ Подписка продлена на {best_period} дней за {pricing.final_total // 100} ₽!',
-                ),
+                    'ACTIVATION_RENEW_SUCCESS',
+                    '✅ Подписка продлена на {days} дн.\n💰 Списано: {amount}',
+                ).format(days=best_period, amount=texts.format_price(pricing.final_total)),
                 show_alert=True,
             )
         else:
@@ -1682,13 +1683,15 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             success = await subtract_user_balance(
                 db,
                 db_user,
-                best_price,
+                catalog_price_in_toman(best_price),
                 f'Активация подписки на {best_period} дней',
                 mark_as_paid_subscription=True,
                 consume_promo_offer=consume_promo,
             )
             if not success:
-                await callback.answer('❌ Недостаточно средств', show_alert=True)
+                await callback.answer(
+                    texts.t('ACTIVATION_INSUFFICIENT_FUNDS', '❌ Недостаточно средств'), show_alert=True
+                )
                 return
 
             # Создание новой подписки
@@ -1717,8 +1720,9 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
 
             await callback.answer(
                 texts.t(
-                    'ACTIVATION_SUCCESS', f'✅ Подписка активирована на {best_period} дней за {best_price // 100} ₽!'
-                ),
+                    'ACTIVATION_SUCCESS',
+                    '✅ Подписка активирована на {days} дн.\n💰 Списано: {amount}',
+                ).format(days=best_period, amount=texts.format_price(best_price)),
                 show_alert=True,
             )
 

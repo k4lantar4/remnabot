@@ -29,6 +29,7 @@ from app.services.subscription_renewal_service import (
     decode_payment_payload,
     encode_payment_payload,
 )
+from app.utils.price_display import catalog_price_in_toman
 from app.webapi.routes import miniapp
 from app.webapi.schemas.miniapp import (
     MiniAppPaymentCreateRequest,
@@ -158,7 +159,10 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
     captured: dict[str, Any] = {}
 
     async def fake_finalize(db, u, sub, pricing, *, charge_balance_amount=None, description=None, payment_method=None):
-        charge = charge_balance_amount if charge_balance_amount is not None else pricing.final_total
+        # mirrors finalize(): the default debit is the Toman price of the catalog final_total
+        charge = (
+            charge_balance_amount if charge_balance_amount is not None else catalog_price_in_toman(pricing.final_total)
+        )
         captured['charge'] = charge
         captured['description'] = description
         return SubscriptionRenewalResult(
@@ -189,7 +193,7 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
     assert response.subscription_id == 77
     assert response.renewed_until is not None
     assert 'Подписка' in (response.message or '')
-    assert captured['charge'] == 10000
+    assert captured['charge'] == 100  # 10,000 catalog kopeks = 100 Toman
 
 
 def _renewal_pricing(final_total_kopeks: int) -> RenewalPricing:

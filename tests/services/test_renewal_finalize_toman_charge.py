@@ -23,7 +23,7 @@ from sqlalchemy import select
 import app.services.subscription_renewal_service as renewal_module
 from app.config import Settings, settings
 from app.database.models import Base, PaymentMethod, Subscription, SubscriptionStatus, Transaction, User
-from app.services.pricing_engine import RenewalPricing
+from app.services.pricing_engine import PricingEngine, RenewalPricing
 from app.services.subscription_renewal_service import SubscriptionRenewalChargeError, SubscriptionRenewalService
 from tests.fixtures.sqlite_memory import memory_session
 
@@ -218,3 +218,186 @@ async def test_finalize_refunds_the_toman_charge_when_extension_fails(monkeypatc
         assert await _balance(db) == 1_000_000
         # the compensating refund is a balance-scale row of exactly the Toman charge
         assert await _payments(db) == [('refund', RENEWAL_TOMAN)]
+
+
+# ---------------------------------------------------------------- callers that rely on the default
+
+
+def _callback(data: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        data=data,
+        answer=AsyncMock(),
+        message=SimpleNamespace(edit_text=AsyncMock(), answer=AsyncMock()),
+    )
+
+
+def _alert_text(callback) -> str:
+    args, kwargs = callback.answer.await_args
+    return kwargs.get('text') or (args[0] if args else '')
+
+
+@pytest.mark.asyncio
+async def test_miniapp_balance_renewal_debits_the_toman_price(monkeypatch):
+    from app.webapi.routes import miniapp
+    from app.webapi.schemas.miniapp import MiniAppSubscriptionRenewalRequest
+
+    async def fake_calculate(self, db, subscription, period_days, *, user=None):
+        return _pricing(period_days=period_days)
+
+    monkeypatch.setattr(settings, 'SALES_MODE', 'classic', raising=False)
+    monkeypatch.setattr(Settings, 'get_available_renewal_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', fake_calculate)
+    monkeypatch.setattr(miniapp, '_validate_subscription_id', lambda *args, **kwargs: None)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        user, subscription = await _seed(db, balance_toman=250_000)
+
+        async def fake_authorize(init_data, session):
+            return user
+
+        monkeypatch.setattr(miniapp, '_authorize_miniapp_user', fake_authorize)
+        monkeypatch.setattr(miniapp, '_ensure_paid_subscription', lambda *args, **kwargs: subscription)
+
+        response = await miniapp.submit_subscription_renewal_endpoint(
+            MiniAppSubscriptionRenewalRequest(initData='init', subscriptionId=10, periodId='days:30'), db=db
+        )
+
+        assert await _balance(db) == 50_000
+        assert await _payments(db) == [('subscription_payment', RENEWAL_KOPEKS)]
+
+    assert response.balance_kopeks == 50_000
+    assert settings.format_price(RENEWAL_KOPEKS) in (response.message or '')
+
+
+@pytest.mark.asyncio
+async def test_bot_renewal_debits_the_toman_price(monkeypatch):
+    from app.database.crud.user import lock_user_for_pricing
+    from app.handlers.subscription import purchase
+
+    async def fake_calculate(self, db, subscription, period_days, *, user=None):
+        return _pricing(period_days=period_days)
+
+    monkeypatch.setattr(Settings, 'get_available_renewal_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', fake_calculate)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=250_000)
+        db_user = await lock_user_for_pricing(db, 1)
+        callback = _callback('extend_period_30')
+
+        await purchase.confirm_extend_subscription(callback, db_user, db)
+
+        assert await _balance(db) == 50_000
+        assert await _payments(db) == [('subscription_payment', RENEWAL_KOPEKS)]
+
+    success_text = callback.message.edit_text.await_args.args[0]
+    assert purchase.get_texts('fa').format_price(RENEWAL_KOPEKS) in success_text
+
+
+@pytest.mark.asyncio
+async def test_bot_renewal_precheck_reports_the_toman_shortfall(monkeypatch):
+    from app.database.crud.user import lock_user_for_pricing
+    from app.handlers.subscription import purchase
+
+    async def fake_calculate(self, db, subscription, period_days, *, user=None):
+        return _pricing(period_days=period_days)
+
+    monkeypatch.setattr(Settings, 'get_available_renewal_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', fake_calculate)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=150_000)
+        db_user = await lock_user_for_pricing(db, 1)
+        callback = _callback('extend_period_30')
+
+        await purchase.confirm_extend_subscription(callback, db_user, db)
+
+        assert await _balance(db) == 150_000
+        assert await _payments(db) == []
+
+    shortfall_text = callback.message.edit_text.await_args.args[0]
+    assert purchase.get_texts('fa').format_balance(50_000, round_kopeks=False) in shortfall_text
+
+
+@pytest.mark.asyncio
+async def test_activate_button_renews_for_the_toman_price(monkeypatch):
+    from app.database.crud.user import lock_user_for_pricing
+    from app.handlers import menu
+
+    async def fake_calculate(self, db, subscription, period_days, *, user=None):
+        return _pricing(period_days=period_days)
+
+    monkeypatch.setattr(Settings, 'get_available_subscription_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', fake_calculate)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=250_000, status=SubscriptionStatus.EXPIRED.value)
+        db_user = await lock_user_for_pricing(db, 1)
+        callback = _callback('activate_button')
+
+        await menu.handle_activate_button(callback, db_user, db)
+
+        assert await _balance(db) == 50_000
+        assert await _payments(db) == [('subscription_payment', RENEWAL_KOPEKS)]
+        assert await _end_date(db) > datetime.now(UTC) + timedelta(days=29)
+
+    text = _alert_text(callback)
+    assert menu.get_texts('fa').format_price(RENEWAL_KOPEKS) in text
+    assert '₽' not in text
+
+
+@pytest.mark.asyncio
+async def test_activate_button_reports_the_toman_shortfall(monkeypatch):
+    from app.database.crud.user import lock_user_for_pricing
+    from app.handlers import menu
+
+    async def fake_calculate(self, db, subscription, period_days, *, user=None):
+        return _pricing(period_days=period_days)
+
+    monkeypatch.setattr(Settings, 'get_available_subscription_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', fake_calculate)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=150_000, status=SubscriptionStatus.EXPIRED.value)
+        db_user = await lock_user_for_pricing(db, 1)
+        callback = _callback('activate_button')
+
+        await menu.handle_activate_button(callback, db_user, db)
+
+        assert await _balance(db) == 150_000
+        assert await _payments(db) == []
+
+    text = _alert_text(callback)
+    assert menu.get_texts('fa').format_balance(50_000, round_kopeks=False) in text
+    assert '₽' not in text
+
+
+@pytest.mark.asyncio
+async def test_activate_button_new_subscription_debits_the_toman_price(monkeypatch):
+    """Same handler, no subscription yet: the pre-check and the debit share the fix."""
+    import app.services.subscription_service as subscription_service_module
+    from app.database.crud.user import lock_user_for_pricing
+    from app.handlers import menu
+
+    async def fake_new_price(self, db, period_days, squads, traffic_gb, devices, *, user=None):
+        return SimpleNamespace(final_total=RENEWAL_KOPEKS)
+
+    monkeypatch.setattr(Settings, 'get_available_subscription_periods', lambda self: [30])
+    monkeypatch.setattr(PricingEngine, 'calculate_classic_new_subscription_price', fake_new_price)
+    monkeypatch.setattr(subscription_service_module, 'SubscriptionService', lambda: _FakePanelSync())
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=250_000)
+        await db.delete(await db.get(Subscription, 10))
+        await db.commit()
+        db_user = await lock_user_for_pricing(db, 1)
+        callback = _callback('activate_button')
+
+        await menu.handle_activate_button(callback, db_user, db)
+
+        assert await _balance(db) == 50_000
+        assert await _payments(db) == [('subscription_payment', RENEWAL_KOPEKS)]
+
+    text = _alert_text(callback)
+    assert menu.get_texts('fa').format_price(RENEWAL_KOPEKS) in text
+    assert '₽' not in text
