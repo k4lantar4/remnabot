@@ -1,10 +1,12 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — **Plans A, B and C done.** A: bot #18; cabinet frontend #7; found during it and
-fixed: cabinet branding-cache crash, frontend #8. B: bot #20, plus follow-up #21 (daily charges
+**Status:** active — **Plans A, B, C and D done.** A: bot #18; cabinet frontend #7; found during it
+and fixed: cabinet branding-cache crash, frontend #8. B: bot #20, plus follow-up #21 (daily charges
 100x off, open question 4). A and B are deployed to the dev bot as of 2026-09-10. C: bot #23
 (preflight re-run against upstream v4.9.0: the only later commit on its files, `89ea5d51` — an
-optional per-minute panel request ceiling — is a feature and was not taken). Plans D–E not started.
+optional per-minute panel request ceiling — is a feature and was not taken). D: bot #31, after its
+currency pre-check found every add-on purchase 100x off — fixed first as bot #27 + frontend #12.
+Plan E not started (re-checked against cabinet v1.73.0: unaffected).
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -68,6 +70,20 @@ with upstream (~192 commits behind `upstream/main`); the gap growing is expected
 | `a7d023c8` fix(reachability) | N/A | No reachability module in our fork |
 | `f06959ca`, `76c6385c`, `e17eb67f`, `06ae99af`, `1cb76d8c`, `cddbf296` | Rejected | Features (full-sync-to-panel with panel tags, tariff panel tag + migration `0119`, Telegram tariff editor, squad-name validation, activity trail) |
 | `46a7a1b5`, `d22b0d7e`, `4784029d`, `bd88997b`, `3b5c8d48` | Rejected | Tests/docs/lockfile for the above |
+
+### Upstream past the basis: bot v4.9.0 + `dev` to `d22e47c9`, cabinet v1.73.0 (triaged 2026-09-11)
+
+None of these touch the files of Plans D or E; both plans stand as written.
+
+| Commit | Decision | Why |
+|---|---|---|
+| `89ea5d51` feat(remnawave): own per-minute request ceiling to the panel | Not taken | Feature; the proper cure is excluding the bot's IP from the proxy rate limit |
+| `269d7b7d` fix(sync): a full sync doesn't start twice | Not taken — already covered | Our `remnawave_sync_service.py` holds `_sync_lock` and refuses a second run (`if self._sync_lock.locked()`) |
+| `1e612772` fix(admin): undelivered-message report names the user and reason | Deferred | Builds on `app/utils/telegram_delivery.py`, which our fork doesn't have; own task if wanted |
+| `d22e47c9` fix(sync): unlimited device limit no longer warns per subscription | Candidate — own tiny PR | Our `app/utils/subscription_utils.py` logs the same two warnings (`resolve_hwid_device_limit`, `…_for_payload`); log level only |
+| `85cbacbe`, `249ea848`, `c23697d5` | N/A | Tests/lockfile/release for the above |
+| cabinet `8b363311`, `90a3c68e` | N/A | "Highlighted period" on the tariff form — our bot never sends it |
+| cabinet `46be70ed`, `41181155`, `8c076d89`, `34701dae` | Rejected | Panel tag + trial days on the tariff form (backend half rejected with migration `0119`), admin activity trail, a button label |
 
 ### Upstream cabinet v1.71.1 → v1.72.0 (triaged 2026-09-10)
 
@@ -348,6 +364,13 @@ up, gets the add-on — automatically, or via "back to checkout" — instead of 
   balance. Confirm both keys are on the same scale relative to `balance_kopeks` before treating them
   as interchangeable. If they're not, stop and ask — that is Phase C territory, not something to
   paper over with a conversion here.
+  **Resolved 2026-09-11:** they were not — and worse, every add-on purchase compared and deducted
+  the catalog price against the Toman balance (100x off). The user chose a bounded fix first: bot
+  #27 + cabinet frontend #12 (`user_can_afford` / `catalog_price_in_toman` in all 15 add-on paths).
+  Carts keep the catalog `price_kopeks`; `common.py` only checks that a price exists (the balance
+  comparison lives in the auto-purchase, already Toman-correct after #27). Upstream's
+  `resume_addon_cart_from_button` compared `balance_kopeks < price_kopeks` as-is — ours uses
+  `user_can_afford` and the shared `render_addon_insufficient_funds` screen instead.
 
 ## Tasks
 
@@ -374,6 +397,15 @@ up, gets the add-on — automatically, or via "back to checkout" — instead of 
   under **both** `locales/` and `app/localization/locales/` (byte-identical). Write the Persian
   ourselves (upstream's is literal: e.g. «محدودیت جدید» reads better as «سقف جدید»); amounts via
   `format_price`, Latin digits. Add ru/ua/zh only if a parity test would otherwise newly fail.
+  **As done:** 4 keys — `ADDON_CART_STILL_INSUFFICIENT` dropped, the button reuses the existing
+  `ADDON_INSUFFICIENT_FUNDS_MESSAGE` screen. All five baked locales (ru/en/ua/fa/zh) plus the
+  runtime twins (ru/en/fa, byte-identical): `tests/test_locale_integrity.py` requires identical key
+  sets, so "en + fa only" would have turned `main` red (as #24 did).
+- Tests as adapted: upstream's numbers moved to the Toman scale (a 50-Toman cart vs. a 10/60-Toman
+  balance, including a test that 60 Toman is enough — the raw comparison said otherwise); balance
+  deltas asserted as `catalog_price_in_toman(price)` with transaction rows on the catalog scale;
+  the provider guard also requires the hook in the C2C plugin and the manual top-up; upstream's
+  exact-source-string test dropped (the real-purchase tests check the message text).
 
 ---
 
