@@ -538,7 +538,7 @@ async def _sync_subscription_to_panel(
                     changes['action'] = 'updated'
                     logger.info('Updated user in Remnawave panel', user_id=user.id)
                 except Exception as update_error:
-                    # «Пользователя нет» = только явный признак этого (404/A018/A063).
+                    # «Пользователя нет» = только явный признак этого (A025/A063).
                     # Непригодный локальный идентификатор даёт RemnaWaveInvalidUserIdError,
                     # который is_user_not_found_error намеренно не признаёт: иначе каждый
                     # промах идентификатора уходил бы в ветку создания и плодил дубли.
@@ -4420,7 +4420,7 @@ async def sync_user_to_panel(
                     await _record_panel_identity(db, sub, panel_user_id, changes)
                     action = 'updated'
                 except Exception as update_error:
-                    # «Пользователя нет» = только явный признак этого (404/A018/A063).
+                    # «Пользователя нет» = только явный признак этого (A025/A063).
                     # RemnaWaveInvalidUserIdError (битый локальный идентификатор) сюда
                     # намеренно не попадает: иначе промах идентификатора уходил бы в
                     # ветку создания и плодил дубли в панели.
