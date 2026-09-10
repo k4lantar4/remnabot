@@ -96,11 +96,9 @@ htmlcov/
 # Local overrides (не коммитить!)
 docker-compose.override.yml
 .env
+.env.dev
 .env.local
 .env.*.local
-.env.rehearsal
-.env.rehearsal-rw
-.env.cutover
 
 # Runtime data
 logs/
