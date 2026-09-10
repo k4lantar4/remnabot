@@ -139,6 +139,20 @@ async def test_build_button_connect_direct_mode_fallback_to_callback():
         assert button.callback_data == 'subscription_connect'
 
 
+def test_layout_balance_placeholder_uses_format_balance_not_price():
+    """Stored balance is Toman 1:1; format_price would show 100× too small on /start."""
+    texts = MagicMock()
+    texts.format_balance.return_value = '126,800 تومان'
+    texts.format_price.return_value = '1,268 تومان'
+    context = MenuContext(language='fa', balance_kopeks=126_800)
+
+    out = MenuLayoutService._format_dynamic_text('💰 موجودی: {balance}', context, texts)
+
+    assert out == '💰 موجودی: 126,800 تومان'
+    texts.format_balance.assert_called_once_with(126_800)
+    texts.format_price.assert_not_called()
+
+
 def test_show_buy_hidden_when_active_single_tariff():
     conditions = {'show_buy': True}
     context = MenuContext(
@@ -161,3 +175,4 @@ def test_show_buy_visible_when_active_multi_tariff():
     with patch('app.services.menu_layout.service.settings') as settings:
         settings.is_multi_tariff_enabled.return_value = True
         assert MenuLayoutService._evaluate_conditions(conditions, context) is True
+
