@@ -210,10 +210,17 @@ def ensure_locale_templates() -> None:
         _logger.debug('Default locales directory is missing', DEFAULT_LOCALES_DIR=_DEFAULT_LOCALES_DIR)
         return
 
-    if not _directory_is_writable(destination):
+    destination_has_files = any(destination.glob('*'))
+    needs_copy = not destination_has_files or any(
+        not (destination / f'{locale_code}.json').exists() for locale_code in ('ru', 'en', 'fa')
+    )
+    # Probe for write access only when something has to be copied: a populated, git-tracked
+    # locales/ may be mounted from a root-owned directory, and there is nothing to write.
+    if not needs_copy:
         return
 
-    destination_has_files = any(destination.glob('*'))
+    if not _directory_is_writable(destination):
+        return
 
     def _copy_locale(source: Path, target: Path) -> None:
         try:
