@@ -359,6 +359,8 @@ async def _sync_subscription_to_panel(
         return {'skipped': True, 'reason': 'Selected subscription has no panel user id'}
 
     try:
+        from functools import partial
+
         from app.config import settings
         from app.external.remnawave_api import (
             RemnaWaveAPIError,
@@ -369,6 +371,7 @@ async def _sync_subscription_to_panel(
             create_panel_user_grace_safe,
             update_panel_user_grace_safe,
         )
+        from app.services.panel_expiry import update_panel_user_with_expiry
         from app.services.remnawave_service import RemnaWaveService
         from app.services.subscription_service import get_traffic_reset_strategy
         from app.utils.subscription_utils import resolve_hwid_device_limit_for_payload
@@ -384,10 +387,6 @@ async def _sync_subscription_to_panel(
             and subscription.end_date > datetime.now(UTC)
         )
         panel_status = PanelUserStatus.ACTIVE if is_active else PanelUserStatus.DISABLED
-
-        expire_at = subscription.end_date
-        if expire_at and expire_at <= datetime.now(UTC):
-            expire_at = datetime.now(UTC) + timedelta(minutes=1)
 
         # При multi-tariff create-path ниже приклеивается `_<remnawave_short_id>`.
         # build_remnawave_subscription_username гарантирует, что итоговая строка
@@ -482,8 +481,6 @@ async def _sync_subscription_to_panel(
                     'traffic_limit_strategy': get_traffic_reset_strategy(subscription.tariff),
                     'description': description,
                 }
-                if expire_at:
-                    update_kwargs['expire_at'] = expire_at
                 if subscription.connected_squads:
                     update_kwargs['active_internal_squads'] = subscription.connected_squads
                 if hwid_limit is not None:
@@ -495,9 +492,10 @@ async def _sync_subscription_to_panel(
                     update_kwargs['external_squad_uuid'] = ext_squad_uuid
 
                 try:
-                    updated_panel_user = await update_panel_user_grace_safe(
-                        api,
-                        subscription.id,
+                    updated_panel_user = await update_panel_user_with_expiry(
+                        partial(update_panel_user_grace_safe, api, subscription.id),
+                        end_date=subscription.end_date,
+                        is_active=bool(is_active),
                         **update_kwargs,
                     )
                     subscription.subscription_url = updated_panel_user.subscription_url
@@ -519,7 +517,8 @@ async def _sync_subscription_to_panel(
                 # Create new user
                 create_kwargs = {
                     'username': username,
-                    'expire_at': expire_at or (datetime.now(UTC) + timedelta(days=30)),
+                    # Create accepts a past date: send the real one (app/services/panel_expiry.py).
+                    'expire_at': subscription.end_date or (datetime.now(UTC) + timedelta(days=30)),
                     'status': panel_status,
                     'traffic_limit_bytes': traffic_limit_bytes,
                     'traffic_limit_strategy': get_traffic_reset_strategy(subscription.tariff),
@@ -4237,6 +4236,8 @@ async def sync_user_to_panel(
         )
 
     try:
+        from functools import partial
+
         from app.config import settings
         from app.external.remnawave_api import (
             RemnaWaveAPIError,
@@ -4247,6 +4248,7 @@ async def sync_user_to_panel(
             create_panel_user_grace_safe,
             update_panel_user_grace_safe,
         )
+        from app.services.panel_expiry import update_panel_user_with_expiry
         from app.services.remnawave_service import RemnaWaveService
         from app.services.subscription_service import get_traffic_reset_strategy
         from app.utils.subscription_utils import resolve_hwid_device_limit_for_payload
@@ -4273,11 +4275,6 @@ async def sync_user_to_panel(
             and sub.end_date > datetime.now(UTC)
         )
         panel_status = PanelUserStatus.ACTIVE if is_active else PanelUserStatus.DISABLED
-
-        # Ensure expire_at is in future for panel
-        expire_at = sub.end_date
-        if expire_at and expire_at <= datetime.now(UTC):
-            expire_at = datetime.now(UTC) + timedelta(minutes=1)
 
         # Same precaution as the per-user sync above: multi-tariff create-path
         # appends `_<remnawave_short_id>`. Helper resрвирует место.
@@ -4353,9 +4350,8 @@ async def sync_user_to_panel(
                     update_kwargs['status'] = panel_status
                     changes['status'] = panel_status.value
 
-                if request.update_expire_date and expire_at:
-                    update_kwargs['expire_at'] = expire_at
-                    changes['expire_at'] = expire_at.isoformat()
+                if request.update_expire_date and sub.end_date:
+                    changes['expire_at'] = sub.end_date.isoformat()
 
                 if request.update_traffic_limit:
                     update_kwargs['traffic_limit_bytes'] = traffic_limit_bytes
@@ -4377,11 +4373,16 @@ async def sync_user_to_panel(
                     update_kwargs['external_squad_uuid'] = ext_squad_uuid
 
                 try:
-                    await update_panel_user_grace_safe(
-                        api,
-                        sub.id,
-                        **update_kwargs,
-                    )
+                    grace_safe_update = partial(update_panel_user_grace_safe, api, sub.id)
+                    if request.update_expire_date:
+                        await update_panel_user_with_expiry(
+                            grace_safe_update,
+                            end_date=sub.end_date,
+                            is_active=bool(is_active),
+                            **update_kwargs,
+                        )
+                    else:
+                        await grace_safe_update(**update_kwargs)
                     action = 'updated'
                 except Exception as update_error:
                     # «Пользователя нет» = только явный признак этого (404/A018/A063).
@@ -4398,7 +4399,8 @@ async def sync_user_to_panel(
                 # Create new user in panel
                 create_kwargs = {
                     'username': username,
-                    'expire_at': expire_at or (datetime.now(UTC) + timedelta(days=30)),
+                    # Create accepts a past date: send the real one (app/services/panel_expiry.py).
+                    'expire_at': sub.end_date or (datetime.now(UTC) + timedelta(days=30)),
                     'status': panel_status,
                     'traffic_limit_bytes': traffic_limit_bytes,
                     'traffic_limit_strategy': get_traffic_reset_strategy(sub.tariff),
