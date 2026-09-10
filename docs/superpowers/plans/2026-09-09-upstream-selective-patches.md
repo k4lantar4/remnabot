@@ -1,7 +1,8 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — **Plan A done** (bot #18; cabinet frontend #7; found during it and fixed: cabinet
-branding-cache crash, frontend #8). Plans B–E not started.
+**Status:** active — **Plans A and B done.** A: bot #18; cabinet frontend #7; found during it and
+fixed: cabinet branding-cache crash, frontend #8. B: bot #20, plus follow-up #21 (daily charges
+100x off, open question 4). Both are deployed to the dev bot as of 2026-09-10. Plans C–E not started.
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -204,7 +205,8 @@ resets traffic. B2C (partners on daily tariffs: see open question 2).
 
 ## Tasks
 
-**Done — branch `fix/daily-tariff-and-tariff-switch`, one PR.** Preflight 2026-09-10: upstream
+**Done — merged as #20 (`74c065e6`), deployed to the dev bot 2026-09-10 18:29 UTC; follow-up #21
+(`39ad24a5`, recurring daily charges now take the Toman amount) deployed 19:02 UTC.** Preflight 2026-09-10: upstream
 moved to **v4.9.0** (`4e6e9224`; `upstream/dev` = `249ea848`); `dc9a7ca7` is in it and no commit in
 `dc9a7ca7..v4.9.0` or `v4.9.0..upstream/dev` touches a Plan B file — basis still valid. Commit order
 5 → 4 → 6 as planned.
@@ -254,6 +256,17 @@ moved to **v4.9.0** (`4e6e9224`; `upstream/dev` = `249ea848`); `dc9a7ca7` is in 
   follow the reset policy, and all five daily charges price via `daily_group_price`.
   `9f9ccc83` — bot daily → daily switch: the reset is decided from the amount actually charged
   (the first day), not from `upgrade_cost == 0`.
+- Found while deploying #20/#21 (pre-existing, fixed on branch `fix/startup-dedup-and-locale-probe`):
+  - **The startup dedup pass failed on every start.** The Platega/Lava "cancel recurring by
+    subscription" lookups query `platega_subscriptions` / `lava_subscriptions`. Those tables were
+    never created here (upstream's migrations for them are archived, not grafted). On Postgres
+    the failed SELECT aborts the caller's whole transaction, and the helpers swallowed the error.
+    About 24 callers run them inside a larger transaction: dedup, admin and cabinet subscription
+    deletion, account merge, tariff switch, user deletion and others. The lookup now runs in a
+    SAVEPOINT. Creating the tables stays a separate migration decision.
+  - **The locale seeder probed write access on every start.** A populated, git-tracked
+    `locales/` mounted from a root-owned directory therefore logged "Locale directory is not
+    writable" each time. It now probes only when a template actually has to be copied.
 - Files: `app/services/tariff_switch_policy.py` (new),
   `app/cabinet/routes/subscription_modules/tariff_switch.py` (`.days` 139, 324; reset flag 485,
   514), `app/webapi/routes/miniapp.py` (`.days` 6570, 6954, 7088; reset flag 7185, 7233),
