@@ -89,14 +89,10 @@ async def toggle_subscription_pause(
 
     subscription.is_daily_paused = new_paused_state
 
-    # Apply group discount to daily price (consistent with DailySubscriptionService and miniapp resume)
+    # Group discount only — the same per-day price as every daily charge (PricingEngine.daily_group_price).
     from app.services.pricing_engine import PricingEngine
 
-    promo_group = PricingEngine.resolve_promo_group(user)
-    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-    daily_price = (
-        PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-    )
+    daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     # If resuming, check balance and charge
     if not new_paused_state:

@@ -7519,14 +7519,8 @@ async def toggle_daily_subscription_pause_endpoint(
         new_paused_state = not is_currently_paused
     subscription.is_daily_paused = new_paused_state
 
-    # Apply group discount to daily price (consistent with DailySubscriptionService and resume-after-topup)
-    from app.services.pricing_engine import PricingEngine
-
-    promo_group = PricingEngine.resolve_promo_group(user)
-    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-    daily_price = (
-        PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-    )
+    # Group discount only — the same per-day price as every daily charge (PricingEngine.daily_group_price).
+    daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     resume_transaction = None
 

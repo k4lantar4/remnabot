@@ -3043,11 +3043,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
         from app.services.pricing_engine import PricingEngine
 
         db_user = await lock_user_for_pricing(db, db_user.id)
-        promo_group = PricingEngine.resolve_promo_group(db_user)
-        daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-        daily_price = (
-            PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-        )
+        daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, db_user)
         if daily_price > 0 and db_user.balance_kopeks < daily_price:
             await callback.answer(
                 texts.t(
@@ -3060,6 +3056,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
     if needs_resume:
         resume_transaction = None
+        resume_charged = False
         # Списываем суточную оплату ДО активации (чтобы не было бесплатного дня)
         if daily_price > 0 and is_inactive:
             from app.database.crud.user import subtract_user_balance
@@ -3081,6 +3078,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
                 )
                 return
 
+            resume_charged = True
             from app.database.crud.transaction import create_transaction
             from app.database.models import TransactionType
 
@@ -3121,6 +3119,13 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
             from app.services.subscription_service import SubscriptionService
 
             subscription_service = SubscriptionService()
+            # Оплаченное возобновление — суточное списание: обнуление счётчика решает
+            # общая политика (traffic_reset_policy), как в кабинете и Mini App. Иначе
+            # LIMITED-подписка платила бы и оставалась в лимите.
+            from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+
+            reset_traffic = resume_charged and should_reset_traffic_on_daily_charge(tariff)
+            reset_reason = 'суточное списание (возобновление)' if reset_traffic else None
             # В multi-tariff панельная идентичность живёт на подписке, а
             # User.remnawave_id не заполняется вовсе. Гейт только по User здесь
             # означал бы новый панельный дубль на каждом возобновлении.
@@ -3133,16 +3138,16 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
                 await subscription_service.update_remnawave_user(
                     db,
                     subscription,
-                    reset_traffic=False,
-                    reset_reason=None,
+                    reset_traffic=reset_traffic,
+                    reset_reason=reset_reason,
                     sync_squads=True,
                 )
             else:
                 await subscription_service.create_remnawave_user(
                     db,
                     subscription,
-                    reset_traffic=False,
-                    reset_reason=None,
+                    reset_traffic=reset_traffic,
+                    reset_reason=reset_reason,
                 )
                 # POST может игнорировать activeInternalSquads — отправляем PATCH
                 await db.refresh(db_user)
@@ -3161,6 +3166,11 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
                         )
                     except Exception as patch_err:
                         logger.warning('Не удалось синхронизировать сквады после создания', error=patch_err)
+            if reset_traffic:
+                # Счётчик бота ведут по данным панели, но до ближайшего прохода
+                # мониторинга он показывал бы исчерпанный трафик.
+                subscription.traffic_used_gb = 0.0
+                await db.commit()
             logger.info(
                 '✅ Синхронизировано с Remnawave после возобновления суточной подписки', subscription_id=subscription.id
             )

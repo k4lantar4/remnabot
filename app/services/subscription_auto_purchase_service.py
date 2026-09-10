@@ -2723,14 +2723,8 @@ async def try_resume_disabled_daily_after_topup(
 
     user = await lock_user_for_pricing(db, user.id)
 
-    # Apply group discount to daily price (consistent with PricingEngine._calculate_switch_to_daily)
-    from app.services.pricing_engine import PricingEngine
-
-    promo_group = PricingEngine.resolve_promo_group(user)
-    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-    daily_price = (
-        PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-    )
+    # Group discount only — the same per-day price as every daily charge (PricingEngine.daily_group_price).
+    daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     # Check balance (при 100% скидке — пропускаем)
     if daily_price > 0 and user.balance_kopeks < daily_price:
@@ -2882,7 +2876,13 @@ async def try_resume_disabled_daily_after_topup(
             error=error,
         )
 
-    # Sync with RemnaWave
+    # Sync with RemnaWave. This resume is a daily charge, so whether the used-traffic
+    # counter resets follows the shared daily-charge policy — otherwise a LIMITED
+    # customer paid here and stayed limited, while the cabinet resume reset it.
+    from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+
+    reset_traffic = should_reset_traffic_on_daily_charge(tariff)
+    reset_reason = 'суточное списание (авто-возобновление)' if reset_traffic else None
     try:
         subscription_service = SubscriptionService()
         # Multi-tariff keeps panel identity on the subscription, not the user —
@@ -2897,16 +2897,16 @@ async def try_resume_disabled_daily_after_topup(
             await subscription_service.update_remnawave_user(
                 db,
                 subscription,
-                reset_traffic=False,
-                reset_reason=None,
+                reset_traffic=reset_traffic,
+                reset_reason=reset_reason,
                 sync_squads=True,
             )
         else:
             await subscription_service.create_remnawave_user(
                 db,
                 subscription,
-                reset_traffic=False,
-                reset_reason=None,
+                reset_traffic=reset_traffic,
+                reset_reason=reset_reason,
             )
             # POST may ignore activeInternalSquads — follow up with PATCH
             await db.refresh(user)
@@ -2929,6 +2929,11 @@ async def try_resume_disabled_daily_after_topup(
                         format_user_id=_format_user_id(user),
                         error=patch_err,
                     )
+        if reset_traffic:
+            # The bot mirrors the panel counter; until the next monitoring pass it
+            # would still show the exhausted quota.
+            subscription.traffic_used_gb = 0.0
+            await db.commit()
     except Exception as error:
         logger.error(
             '⚠️ Авто-возобновление daily: не удалось обновить RemnaWave',
