@@ -260,15 +260,10 @@ async def test_subscription_without_end_date_sends_no_date():
 #: The old formula. Every copy of it is one more place that overwrites the real date.
 OLD_FORMULA = re.compile(r'(now|current_time|datetime\.now\(UTC\))\s*\+\s*timedelta\(minutes=1\)')
 
-#: Converted in its own step (the grace reconciler builds its own target). Must only shrink.
-_NOT_YET_CONVERTED = frozenset({'app/services/grace_access_runtime.py'})
-
 
 def test_nobody_clamps_the_panel_date_by_hand():
     offenders = [
-        str(path)
-        for path in sorted(pathlib.Path('app').rglob('*.py'))
-        if str(path) not in _NOT_YET_CONVERTED and OLD_FORMULA.search(path.read_text('utf-8'))
+        str(path) for path in sorted(pathlib.Path('app').rglob('*.py')) if OLD_FORMULA.search(path.read_text('utf-8'))
     ]
 
     assert not offenders, f'panel end date clamped on the spot; use app/services/panel_expiry.py: {offenders}'
