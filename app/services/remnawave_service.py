@@ -36,6 +36,7 @@ from app.external.remnawave_api import (
     coerce_panel_user_id,
     is_user_not_found_error,
 )
+from app.services.panel_expiry import panel_expire_at, update_panel_user_with_expiry
 from app.services.subscription_service import get_traffic_reset_strategy
 from app.utils.subscription_utils import (
     coerce_panel_device_limit,
@@ -316,33 +317,6 @@ class RemnaWaveService:
         except Exception as e:
             logger.warning('⚠️ Не удалось распарсить дату . Используем дефолтную дату.', date_str=date_str, error=e)
             return self._now_utc() + timedelta(days=30)
-
-    def _safe_expire_at_for_panel(self, expire_at: datetime | None) -> datetime:
-        """Гарантирует, что дата окончания не в прошлом для панели.
-
-        Принимает naive UTC datetime, возвращает naive datetime в таймзоне панели.
-        """
-
-        now = self._now_utc()
-        minimum_expire = now + timedelta(minutes=1)
-
-        if not expire_at:
-            result = minimum_expire
-        else:
-            normalized_expire = expire_at
-
-            if normalized_expire < minimum_expire:
-                logger.debug(
-                    '⚙️ Коррекция даты истечения до минимально допустимой для панели',
-                    normalized_expire=normalized_expire,
-                    minimum_expire=minimum_expire,
-                )
-                result = minimum_expire
-            else:
-                result = normalized_expire
-
-        # Панель RemnaWave ожидает время в UTC
-        return result
 
     def _safe_panel_expire_date(self, panel_user: dict[str, Any]) -> datetime:
         """Парсит дату окончания подписки пользователя панели для сравнения."""
@@ -2474,7 +2448,7 @@ class RemnaWaveService:
 
                 # Обновляем end_date только если пользователь ACTIVE в панели.
                 # Для EXPIRED/DISABLED панель может содержать искусственную дату
-                # (установленную _safe_expire_at_for_panel при sync_users_to_panel),
+                # (прежние синки ставили «сейчас + минута», см. app/services/panel_expiry.py),
                 # которая не должна перезаписывать реальную дату окончания подписки.
                 if panel_status == 'ACTIVE':
                     # Конвертируем локальную дату из БД в UTC для корректного сравнения
@@ -2661,7 +2635,6 @@ class RemnaWaveService:
                             try:
                                 user = sub.user
                                 hwid_limit = resolve_hwid_device_limit_for_payload(sub)
-                                expire_at = self._safe_expire_at_for_panel(sub.end_date)
 
                                 # Определяем статус для панели
                                 is_subscription_active = sub.status in (
@@ -2689,7 +2662,10 @@ class RemnaWaveService:
 
                                 create_kwargs = dict(
                                     username=username,
-                                    expire_at=expire_at,
+                                    # Create accepts a past date: send the real one.
+                                    expire_at=panel_expire_at(
+                                        sub.end_date, is_active=is_subscription_active, creating=True
+                                    ),
                                     status=status,
                                     traffic_limit_bytes=sub.traffic_limit_gb * (1024**3)
                                     if sub.traffic_limit_gb > 0
@@ -2778,7 +2754,6 @@ class RemnaWaveService:
                                     update_kwargs = dict(
                                         user_id=panel_user_id,
                                         status=status,
-                                        expire_at=expire_at,
                                         traffic_limit_bytes=create_kwargs['traffic_limit_bytes'],
                                         traffic_limit_strategy=get_traffic_reset_strategy(sub.tariff),
                                         email=user.email,
@@ -2805,7 +2780,12 @@ class RemnaWaveService:
                                         update_kwargs['external_squad_uuid'] = sub.tariff.external_squad_uuid
 
                                     try:
-                                        await api.update_user(**update_kwargs)
+                                        await update_panel_user_with_expiry(
+                                            api.update_user,
+                                            end_date=sub.end_date,
+                                            is_active=is_subscription_active,
+                                            **update_kwargs,
+                                        )
                                         # Сохраняем панельный id если его не было
                                         if settings.is_multi_tariff_enabled():
                                             if not sub.remnawave_id:

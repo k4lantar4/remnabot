@@ -2,6 +2,7 @@ import asyncio
 import html
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,7 @@ from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
 from app.services.notification_settings_service import NotificationSettingsService
+from app.services.panel_expiry import update_panel_user_with_expiry
 from app.services.promo_offer_service import promo_offer_service
 from app.services.subscription_service import SubscriptionService, get_traffic_reset_strategy
 from app.utils.cache import cache
@@ -689,9 +691,6 @@ class MonitoringService:
                 update_kwargs = dict(
                     user_id=panel_user_id,
                     status=RemnaWaveUserStatus.ACTIVE if is_active else RemnaWaveUserStatus.DISABLED,
-                    expire_at=subscription.end_date
-                    if is_active
-                    else max(subscription.end_date, current_time + timedelta(minutes=1)),
                     # _gb_to_bytes живёт в SubscriptionService — у MonitoringService своего
                     # никогда не было, и self._gb_to_bytes ронял весь метод AttributeError-ом
                     # ещё до запроса в панель (молча гасился общим except → return None).
@@ -711,9 +710,11 @@ class MonitoringService:
                 # Внешний сквад НЕ пересылаем в рутинном sync — стейловый UUID
                 # вызывает FK violation → A039. Назначается при создании подписки.
 
-                updated_user = await update_panel_user_grace_safe(
-                    api,
-                    subscription.id,
+                updated_user = await update_panel_user_with_expiry(
+                    partial(update_panel_user_grace_safe, api, subscription.id),
+                    end_date=subscription.end_date,
+                    is_active=is_active,
+                    now=current_time,
                     **update_kwargs,
                 )
 
