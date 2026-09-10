@@ -5,6 +5,8 @@ on:
     branches: ['**']
   pull_request:
     branches: ['**']
+  # release.yml runs this workflow with `uses:`; without this trigger a v* tag run fails at startup.
+  workflow_call:
 
 jobs:
   lint:
