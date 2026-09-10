@@ -62,12 +62,46 @@ async def _bootstrap_fresh_db() -> None:
     logger.info('Свежая БД: все таблицы созданы из моделей')
 
 
+async def _drop_grace_delete_guard(conn, dialect: str) -> None:
+    """Drop a subscription delete-guard left behind without its ``grace_access_sessions`` table."""
+    if dialect == 'postgresql':
+        exists_sql = """
+            SELECT 1 FROM pg_trigger
+            WHERE tgname = 'trg_guard_open_grace_subscription_delete'
+              AND tgrelid = 'subscriptions'::regclass
+              AND NOT tgisinternal
+        """
+        drop_sql = 'DROP TRIGGER trg_guard_open_grace_subscription_delete ON subscriptions'
+    elif dialect == 'sqlite':
+        exists_sql = (
+            "SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = 'trg_guard_open_grace_subscription_delete'"
+        )
+        drop_sql = 'DROP TRIGGER trg_guard_open_grace_subscription_delete'
+    else:
+        return
+    # Check first: DROP TRIGGER takes ACCESS EXCLUSIVE on subscriptions (Postgres), so only pay
+    # for it once, when an orphaned guard is actually there.
+    if (await conn.execute(text(exists_sql))).scalar() is None:
+        return
+    await conn.execute(text(drop_sql))
+    logger.warning('Удалён guard удаления подписок: таблицы grace_access_sessions нет (отложена в 0111)')
+
+
 async def _ensure_runtime_schema_guards() -> None:
-    """Install DDL guards that ``metadata.create_all`` cannot express."""
+    """Install DDL guards that ``metadata.create_all`` cannot express.
+
+    The grace delete-guard reads ``grace_access_sessions``, which the remnabot lineage deliberately
+    defers (0111). A guard without its table makes every subscription delete fail, so the guard
+    exists only while the table does, and an orphaned one is dropped.
+    """
     from app.database.database import engine
 
     async with engine.begin() as conn:
         dialect = conn.dialect.name
+        has_grace_table = await conn.run_sync(lambda sync_conn: inspect(sync_conn).has_table('grace_access_sessions'))
+        if not has_grace_table:
+            await _drop_grace_delete_guard(conn, dialect)
+            return
         if dialect == 'postgresql':
             await conn.execute(
                 text(
