@@ -16,6 +16,7 @@ from app.config import settings
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.models import User
 from app.services.subscription_service import SubscriptionService
+from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from .helpers import resolve_subscription
@@ -88,14 +89,10 @@ async def toggle_subscription_pause(
 
     subscription.is_daily_paused = new_paused_state
 
-    # Apply group discount to daily price (consistent with DailySubscriptionService and miniapp resume)
+    # Group discount only — the same per-day price as every daily charge (PricingEngine.daily_group_price).
     from app.services.pricing_engine import PricingEngine
 
-    promo_group = PricingEngine.resolve_promo_group(user)
-    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-    daily_price = (
-        PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-    )
+    daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     # If resuming, check balance and charge
     if not new_paused_state:
@@ -158,14 +155,20 @@ async def toggle_subscription_pause(
 
     # Sync with RemnaWave only when resuming from DISABLED state
     if not new_paused_state and was_disabled:
+        # Возобновление списывает суточную оплату — значит, обнуление счётчика
+        # решает та же политика, что и в ночном списании (см. traffic_reset_policy).
+        reset_traffic = should_reset_traffic_on_daily_charge(tariff)
         try:
             subscription_service = SubscriptionService()
             await subscription_service.create_remnawave_user(
                 db,
                 subscription,
-                reset_traffic=False,
-                reset_reason=None,
+                reset_traffic=reset_traffic,
+                reset_reason='суточное списание (возобновление)' if reset_traffic else None,
             )
+            if reset_traffic:
+                subscription.traffic_used_gb = 0.0
+                await db.commit()
         except Exception as e:
             logger.error('Error syncing RemnaWave user on resume', error=e)
             from app.services.remnawave_retry_queue import remnawave_retry_queue

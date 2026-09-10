@@ -85,6 +85,7 @@ from app.services.subscription_renewal_service import (
     with_admin_notification_service,
 )
 from app.services.subscription_service import SubscriptionService
+from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
 from app.services.trial_activation_service import (
     TrialPaymentChargeFailed,
     TrialPaymentInsufficientFunds,
@@ -3459,16 +3460,9 @@ async def get_subscription_details(
             is_daily_tariff = True
             is_daily_paused = getattr(subscription, 'is_daily_paused', False)
             daily_tariff_name = tariff.name
-            daily_price_kopeks = getattr(tariff, 'daily_price_kopeks', 0)
-            # Применяем скидку промогруппы + promo-offer для отображения
-            if daily_price_kopeks > 0:
-                _promo_group = user.get_primary_promo_group() if hasattr(user, 'get_primary_promo_group') else None
-                _group_pct = _promo_group.get_discount_percent('period', 1) if _promo_group else 0
-                _offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-                if _group_pct > 0 or _offer_pct > 0:
-                    daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                        daily_price_kopeks, _group_pct, _offer_pct
-                    )
+            # Ровно то, что списывается каждый день: только скидка группы. Промокод —
+            # разовый, при активации (PricingEngine.daily_group_price).
+            daily_price_kopeks, _ = PricingEngine.daily_group_price(getattr(tariff, 'daily_price_kopeks', 0) or 0, user)
             daily_price_label = settings.format_price(daily_price_kopeks) + '/день' if daily_price_kopeks > 0 else None
             # Оставшееся время подписки (показываем даже при паузе)
             if subscription.end_date:
@@ -6493,14 +6487,9 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
     raw_daily_price_kopeks = getattr(tariff, 'daily_price_kopeks', 0) if is_daily else 0
     daily_price_kopeks = raw_daily_price_kopeks
 
-    # Применяем скидку промогруппы + promo-offer для суточного тарифа (period_hint=1)
+    # Текущий тариф — цена, которая списывается каждый день: только скидка группы.
     if is_daily and daily_price_kopeks > 0:
-        daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-        daily_offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-        if daily_group_pct > 0 or daily_offer_pct > 0:
-            daily_price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                raw_daily_price_kopeks, daily_group_pct, daily_offer_pct
-            )
+        daily_price_kopeks, _ = PricingEngine.daily_group_price(raw_daily_price_kopeks, user)
 
     daily_price_label = (
         settings.format_price(daily_price_kopeks) + '/день' if is_daily and daily_price_kopeks > 0 else None
@@ -6563,11 +6552,7 @@ async def get_tariffs_endpoint(
     current_tariff_model: MiniAppCurrentTariff | None = None
     current_tariff = None
 
-    # Вычисляем оставшиеся дни подписки
-    remaining_days = 0
-    if subscription and subscription.end_date:
-        delta = subscription.end_date - datetime.now(UTC)
-        remaining_days = max(0, delta.days)
+    remaining_days = remaining_days_for_switch(subscription.end_date if subscription else None)
 
     if current_tariff_id:
         current_tariff = await get_tariff_by_id(db, current_tariff_id)
@@ -6947,11 +6932,7 @@ async def preview_tariff_switch_endpoint(
             detail={'code': 'tariff_not_available', 'message': 'Tariff not available for your promo group'},
         )
 
-    # Рассчитываем оставшиеся дни
-    remaining_days = 0
-    if subscription.end_date and subscription.end_date > datetime.now(UTC):
-        delta = subscription.end_date - datetime.now(UTC)
-        remaining_days = max(0, delta.days)
+    remaining_days = remaining_days_for_switch(subscription.end_date)
 
     # Рассчитываем стоимость переключения (PricingEngine обрабатывает все случаи: periodic↔periodic, daily↔periodic)
     switch_result = _calculate_tariff_switch(current_tariff, new_tariff, remaining_days, user=user)
@@ -7081,11 +7062,7 @@ async def switch_tariff_endpoint(
 
     user = await lock_user_for_pricing(db, user.id)
 
-    # Рассчитываем оставшиеся дни
-    remaining_days = 0
-    if subscription.end_date and subscription.end_date > datetime.now(UTC):
-        delta = subscription.end_date - datetime.now(UTC)
-        remaining_days = max(0, delta.days)
+    remaining_days = remaining_days_for_switch(subscription.end_date)
 
     # Рассчитываем стоимость (PricingEngine обрабатывает все случаи)
     switch_result = _calculate_tariff_switch(current_tariff, new_tariff, remaining_days, user=user)
@@ -7182,7 +7159,9 @@ async def switch_tariff_endpoint(
     subscription.purchased_traffic_gb = 0
     subscription.traffic_reset_at = None
 
-    if settings.RESET_TRAFFIC_ON_TARIFF_SWITCH:
+    # Счётчик трафика обнуляет только ОПЛАЧЕННОЕ переключение (см. tariff_switch_policy).
+    reset_used_traffic = should_reset_used_traffic(upgrade_cost)
+    if reset_used_traffic:
         subscription.traffic_used_gb = 0.0
 
     # Обработка daily полей при смене тарифа
@@ -7230,7 +7209,7 @@ async def switch_tariff_endpoint(
     await db.refresh(user)
 
     # Синхронизируем с RemnaWave (опционально сбрасываем трафик по настройке)
-    should_reset_traffic = settings.RESET_TRAFFIC_ON_TARIFF_SWITCH
+    should_reset_traffic = reset_used_traffic
     try:
         service = SubscriptionService()
         await service.update_remnawave_user(
@@ -7540,14 +7519,8 @@ async def toggle_daily_subscription_pause_endpoint(
         new_paused_state = not is_currently_paused
     subscription.is_daily_paused = new_paused_state
 
-    # Apply group discount to daily price (consistent with DailySubscriptionService and resume-after-topup)
-    from app.services.pricing_engine import PricingEngine
-
-    promo_group = PricingEngine.resolve_promo_group(user)
-    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
-    daily_price = (
-        PricingEngine.apply_discount(raw_daily_price, daily_group_pct) if daily_group_pct > 0 else raw_daily_price
-    )
+    # Group discount only — the same per-day price as every daily charge (PricingEngine.daily_group_price).
+    daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     resume_transaction = None
 
@@ -7655,6 +7628,12 @@ async def toggle_daily_subscription_pause_endpoint(
             logger.warning('Failed to restore connected_squads (miniapp)', error=sq_err)
 
         # Sync with RemnaWave
+        # Возобновление списывает суточную оплату — обнуление счётчика решает
+        # общая политика суточного списания, а не жёсткая константа.
+        from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+
+        reset_traffic = should_reset_traffic_on_daily_charge(tariff)
+        reset_reason = 'суточное списание (возобновление)' if reset_traffic else None
         try:
             service = SubscriptionService()
             # Гейт «обновлять или создавать» обязан смотреть на ту же идентичность,
@@ -7670,16 +7649,16 @@ async def toggle_daily_subscription_pause_endpoint(
                 await service.update_remnawave_user(
                     db,
                     subscription,
-                    reset_traffic=False,
-                    reset_reason=None,
+                    reset_traffic=reset_traffic,
+                    reset_reason=reset_reason,
                     sync_squads=True,
                 )
             else:
                 await service.create_remnawave_user(
                     db,
                     subscription,
-                    reset_traffic=False,
-                    reset_reason=None,
+                    reset_traffic=reset_traffic,
+                    reset_reason=reset_reason,
                 )
                 # POST /api/users may ignore activeInternalSquads —
                 # follow up with PATCH to ensure internal squads are assigned
@@ -7692,6 +7671,8 @@ async def toggle_daily_subscription_pause_endpoint(
                 )
                 if _created_panel_user_id and subscription.connected_squads:
                     try:
+                        # Досыл сквадов — часть того же события оплаты:
+                        # счётчик уже обнулён вызовом выше, второй раз не надо.
                         await service.update_remnawave_user(
                             db,
                             subscription,
@@ -7700,6 +7681,12 @@ async def toggle_daily_subscription_pause_endpoint(
                         )
                     except Exception as squad_err:
                         logger.warning('Failed to sync squads after user creation (miniapp)', error=squad_err)
+
+            if reset_traffic:
+                # Счётчик бота ведут по данным панели, но до ближайшего прохода
+                # мониторинга он показывал бы исчерпанный трафик.
+                subscription.traffic_used_gb = 0.0
+                await db.commit()
         except Exception as e:
             logger.error('Ошибка синхронизации с RemnaWave при возобновлении', error=e)
             from app.services.remnawave_retry_queue import remnawave_retry_queue

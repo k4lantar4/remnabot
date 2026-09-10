@@ -204,7 +204,15 @@ resets traffic. B2C (partners on daily tariffs: see open question 2).
 
 ## Tasks
 
+**Done — branch `fix/daily-tariff-and-tariff-switch`, one PR.** Preflight 2026-09-10: upstream
+moved to **v4.9.0** (`4e6e9224`; `upstream/dev` = `249ea848`); `dc9a7ca7` is in it and no commit in
+`dc9a7ca7..v4.9.0` or `v4.9.0..upstream/dev` touches a Plan B file — basis still valid. Commit order
+5 → 4 → 6 as planned.
+
 **4. Daily charge resets the traffic counter; LIMITED subscriptions recover** (`564fec3e`).
+- Done: `e07f50f2`. Applied cleanly. Not taken: the reworded `RESET_TRAFFIC_ON_PAYMENT` hint in
+  `system_settings_service.py` (`SETTING_HINTS` is hard-coded Russian without en/fa keys). This
+  dev `.env` has `RESET_TRAFFIC_ON_PAYMENT=true`, so daily tariffs now reset on each daily charge.
 - Files: `app/services/traffic_reset_policy.py` (new), `app/services/daily_subscription_service.py`
   (`reset_traffic=False` hard-coded at 268, 276, 291; `process_auto_resume` loop 758-834 — DISABLED
   branch at 765, EXPIRED at 802, **no LIMITED branch**), `app/webapi/routes/miniapp.py` (7673, 7681,
@@ -216,6 +224,13 @@ resets traffic. B2C (partners on daily tariffs: see open question 2).
   user notifications, so a LIMITED→ACTIVE branch is log-only too.
 
 **5. `daily_group_price` as the single source of the daily price** (`968687ce`).
+- Done: `9d82c6da`. The offer is taken once, at activation (`pricing_engine.py:~652` with
+  `consume_promo_offer`); every later day is charged group-only. So the screens showing an
+  existing subscription's recurring price — bot `show_subscription_info`, Mini App
+  `get_subscription_details` and `_build_current_tariff_model` — now use `daily_group_price`
+  (upstream left them stacked). The Mini App purchase list `_build_tariff_model` keeps the offer:
+  that client never re-applies it, so it shows the activation price, as its periods do.
+  `daily_group_price` sits beside our wholesale methods (the only conflict).
 - Files: `app/services/pricing_engine.py` (add `daily_group_price`),
   `app/cabinet/routes/subscription_modules/helpers.py` (171-183, drop `_offer_pct` stacking),
   `app/cabinet/routes/subscription_modules/purchase.py` (232-245, same stacking),
@@ -231,6 +246,14 @@ resets traffic. B2C (partners on daily tariffs: see open question 2).
   in the smoke test, with and without an active promo offer.
 
 **6. `tariff_switch_policy.py` in all three switch flows** (`fd9b2ccc`).
+- Done: `5ef0bc61`. Applied cleanly, hot file included — no split needed. Checked by hand that
+  `final_price` / `final_daily_price` / `upgrade_cost` exist in our functions and are the charged
+  amounts; our direct readers of `RESET_TRAFFIC_ON_TARIFF_SWITCH` equal upstream's allowlist.
+- Review follow-ups (gaps upstream v4.9.0 shares): `3fcac274` — the bot resume button and the
+  resume after a top-up also charge the daily fee and still hard-coded "never reset"; both now
+  follow the reset policy, and all five daily charges price via `daily_group_price`.
+  `9f9ccc83` — bot daily → daily switch: the reset is decided from the amount actually charged
+  (the first day), not from `upgrade_cost == 0`.
 - Files: `app/services/tariff_switch_policy.py` (new),
   `app/cabinet/routes/subscription_modules/tariff_switch.py` (`.days` 139, 324; reset flag 485,
   514), `app/webapi/routes/miniapp.py` (`.days` 6570, 6954, 7088; reset flag 7185, 7233),
@@ -381,6 +404,12 @@ to 0. B2C UI + admin.
    answered.
 3. **Phase C for Plans B/D?** Default: out of scope (don't widen the dual scale, don't migrate
    inline).
+4. **Daily charges look 100x off (found during Plan B, pre-existing, latent).** The first-day
+   activation converts the catalog price with `catalog_price_in_toman` (÷100), but the recurring
+   charges — `daily_subscription_service._process_single_charge`, the cabinet / Mini App / bot
+   resumes and `try_resume_disabled_daily_after_topup` — compare `daily_price_kopeks` with the
+   Toman balance and pass it to `subtract_user_balance` unconverted. The dev DB has no daily tariff
+   and no daily transaction, so it has never fired here. Decide: fix now (own PR) or go Phase C.
 
 ## Smoke test
 
