@@ -248,6 +248,11 @@ moved to **v4.9.0** (`4e6e9224`; `upstream/dev` = `249ea848`); `dc9a7ca7` is in 
 - Done: `5ef0bc61`. Applied cleanly, hot file included — no split needed. Checked by hand that
   `final_price` / `final_daily_price` / `upgrade_cost` exist in our functions and are the charged
   amounts; our direct readers of `RESET_TRAFFIC_ON_TARIFF_SWITCH` equal upstream's allowlist.
+- Review follow-ups (gaps upstream v4.9.0 shares): `3fcac274` — the bot resume button and the
+  resume after a top-up also charge the daily fee and still hard-coded "never reset"; both now
+  follow the reset policy, and all five daily charges price via `daily_group_price`.
+  `9f9ccc83` — bot daily → daily switch: the reset is decided from the amount actually charged
+  (the first day), not from `upgrade_cost == 0`.
 - Files: `app/services/tariff_switch_policy.py` (new),
   `app/cabinet/routes/subscription_modules/tariff_switch.py` (`.days` 139, 324; reset flag 485,
   514), `app/webapi/routes/miniapp.py` (`.days` 6570, 6954, 7088; reset flag 7185, 7233),
@@ -398,6 +403,12 @@ to 0. B2C UI + admin.
    answered.
 3. **Phase C for Plans B/D?** Default: out of scope (don't widen the dual scale, don't migrate
    inline).
+4. **Daily charges look 100x off (found during Plan B, pre-existing, latent).** The first-day
+   activation converts the catalog price with `catalog_price_in_toman` (÷100), but the recurring
+   charges — `daily_subscription_service._process_single_charge`, the cabinet / Mini App / bot
+   resumes and `try_resume_disabled_daily_after_topup` — compare `daily_price_kopeks` with the
+   Toman balance and pass it to `subtract_user_balance` unconverted. The dev DB has no daily tariff
+   and no daily transaction, so it has never fired here. Decide: fix now (own PR) or go Phase C.
 
 ## Smoke test
 
