@@ -201,3 +201,20 @@ async def test_finalize_still_refuses_a_balance_below_the_toman_price(monkeypatc
 
         assert await _balance(db) == 150_000
         assert await _payments(db) == []
+
+
+@pytest.mark.asyncio
+async def test_finalize_refunds_the_toman_charge_when_extension_fails(monkeypatch):
+    async def broken_extend(db, subscription, days):
+        raise RuntimeError('panel down')
+
+    monkeypatch.setattr(renewal_module, 'extend_subscription', broken_extend)
+    async with memory_session(monkeypatch, TABLES) as db:
+        user, subscription = await _seed(db, balance_toman=1_000_000)
+
+        with pytest.raises(RuntimeError):
+            await SubscriptionRenewalService().finalize(db, user, subscription, _pricing())
+
+        assert await _balance(db) == 1_000_000
+        # the compensating refund is a balance-scale row of exactly the Toman charge
+        assert await _payments(db) == [('refund', RENEWAL_TOMAN)]

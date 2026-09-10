@@ -430,6 +430,10 @@ class SubscriptionRenewalService:
             subscription_before.end_date is not None and subscription_before.end_date <= now
         )
 
+        # rollback() below expires every loaded instance; reading user.id afterwards would lazy-load
+        # outside the async context (MissingGreenlet) and kill the refund before it starts.
+        user_id = user.id
+
         try:
             subscription_after = await extend_subscription(db, subscription_before, period_days)
         except Exception:
@@ -440,6 +444,8 @@ class SubscriptionRenewalService:
             if charge_from_balance > 0 or (consume_promo_offer and saved_promo_percent > 0):
                 try:
                     from app.database.crud.user import add_user_balance
+
+                    await db.refresh(user)
 
                     if charge_from_balance > 0:
                         refunded = await add_user_balance(
@@ -454,7 +460,7 @@ class SubscriptionRenewalService:
                             logger.critical(
                                 'CRITICAL: add_user_balance returned False during refund',
                                 charge_from_balance=charge_from_balance,
-                                user_id=user.id,
+                                user_id=user_id,
                             )
 
                     # Restore consumed promo offer fields
@@ -465,14 +471,14 @@ class SubscriptionRenewalService:
                         await db.commit()
                         logger.info(
                             'Restored promo offer after failed extension',
-                            user_id=user.id,
+                            user_id=user_id,
                             restored_percent=saved_promo_percent,
                         )
                 except Exception as refund_error:
                     logger.critical(
-                        'CRITICAL: Failed to refund kopeks to user after extension failure',
+                        'CRITICAL: Failed to refund Toman to user after extension failure',
                         charge_from_balance=charge_from_balance,
-                        user_id=user.id,
+                        user_id=user_id,
                         refund_error=refund_error,
                     )
             raise
