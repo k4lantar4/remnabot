@@ -1,6 +1,6 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — not started (no task has a commit yet)
+**Status:** active — Plan A (Tasks 1–3) in PR #18 (bot) + the frontend PR linked from it; Plans B–E not started
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -125,6 +125,8 @@ subscription); turning email login off in the cabinet actually closes the API. B
 ## Tasks
 
 **1. `app/services/panel_expiry.py` with the dev-`3513e1db` rule, used by all panel-write points.**
+- Done: `724e639d`, PR #18. Adapted: a clear still rejected after the 15-min retry is logged, not
+  raised (our update paths turn any exception into "create a new panel user").
 - Files: `app/services/panel_expiry.py` (new), `app/external/remnawave_api.py` (add
   `is_expire_in_past_error`), `app/services/subscription_service.py` (452, 648, 819),
   `app/services/monitoring_service.py:694`, `app/services/remnawave_service.py:320-327` (delete the
@@ -134,7 +136,7 @@ subscription); turning email login off in the cabinet actually closes the API. B
 - Interfaces produced: `panel_expire_at(...)` and `stale_panel_expire_at(...)` (upstream names and
   semantics from `git show dc9a7ca7:app/services/panel_sync/expiry.py`), constants
   `MINIMUM_FUTURE = 5 min`, `SKEW_RETRY_MARGIN = 15 min`, already-cleared window
-  `SKEW_RETRY_MARGIN + 4 min`; one async helper `update_panel_user_with_expiry(api, **update_kwargs)`
+  `SKEW_RETRY_MARGIN + 4 min`; one async helper `update_panel_user_with_expiry(update, *, end_date, is_active, panel_current=None, now=None, **update_kwargs)` (takes the write callable, e.g. the grace-safe updater)
   that owns the skew fallback so the six call sites don't each re-implement it;
   `is_expire_in_past_error(error) -> bool` (400 with `expireAt` in an error `path` or "past" in the
   message).
@@ -154,15 +156,18 @@ subscription); turning email login off in the cabinet actually closes the API. B
 - i18n: none (logs only).
 
 **2. Same rule in the grace path** (`664ecea7`).
+- Done: `338f92ca`, PR #18.
 - Files: `app/services/grace_access_runtime.py` (**1688, 1718** — moved from 1676/1706). Test in the
   existing grace test module.
-- Consumes: `panel_expire_at` / `update_panel_user_with_expiry` from Task 1.
+- Consumes nothing from Task 1 in the end: as upstream, a disabled grace target carries no date
+  (`_PanelTarget.expire_at` optional); Task 1's guard test now covers this module.
 - i18n: none.
 
 **3. Email-auth gate with the correct parser — bot, then cabinet** (`23a58172` + `fdebcad1` as one
 bot commit; plus our own frontend commit).
-- Bot files: `app/cabinet/auth/email_auth_gate.py` (new), `app/cabinet/routes/auth.py` (8 of
-  upstream's 9 routes — `/email/register/resend` doesn't exist here; today zero routes check the
+- Done (bot): `1e8b9963`, PR #18; cabinet: the frontend PR linked from #18.
+- Bot files: `app/cabinet/auth/email_auth_gate.py` (new), `app/cabinet/routes/auth.py` (all 8 of
+  upstream's gated handlers, 1:1 by name — upstream gates 8, not 9; today zero routes check the
   flag), `app/cabinet/routes/branding.py` (fix the `.lower() == 'true'` parse in
   `get_email_auth_enabled` at 1017, use the shared key; the admin PATCH at 1031-1037 writes the key
   and stays), `app/cabinet/routes/account_linking.py:88` (reads the config value, must read the
