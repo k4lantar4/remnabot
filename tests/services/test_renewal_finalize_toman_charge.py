@@ -401,3 +401,47 @@ async def test_activate_button_new_subscription_debits_the_toman_price(monkeypat
     text = _alert_text(callback)
     assert menu.get_texts('fa').format_price(RENEWAL_KOPEKS) in text
     assert '₽' not in text
+
+
+# ---------------------------------------------------------------- admin renewal notification
+
+
+@pytest.mark.asyncio
+async def test_admin_renewal_notification_shows_the_toman_balance(monkeypatch):
+    """«Баланс после операции» is the Toman balance; the payment line stays a catalog price."""
+    from app.services.admin_notification_service import AdminNotificationService
+
+    service = AdminNotificationService(SimpleNamespace())
+    sent: list[str] = []
+
+    async def capture(message, **kwargs):
+        sent.append(message)
+        return True
+
+    monkeypatch.setattr(service, '_record_subscription_event', AsyncMock())
+    monkeypatch.setattr(service, '_is_enabled', lambda: True)
+    monkeypatch.setattr(service, '_get_servers_info', AsyncMock(return_value='squad-1'))
+    monkeypatch.setattr(service, '_get_user_promo_group', AsyncMock(return_value=None))
+    monkeypatch.setattr(service, '_send_message', capture)
+
+    now = datetime.now(UTC)
+    user = SimpleNamespace(id=1, telegram_id=1001, email=None, username=None, first_name='U', last_name=None)
+    subscription = SimpleNamespace(
+        id=10, end_date=now + timedelta(days=30), connected_squads=['squad-1'], traffic_limit_gb=100, device_limit=1
+    )
+    transaction = SimpleNamespace(
+        id=501,
+        type='subscription_payment',
+        amount_kopeks=-RENEWAL_KOPEKS,
+        payment_method=PaymentMethod.BALANCE.value,
+        completed_at=now,
+        created_at=now,
+    )
+
+    await service.send_subscription_extension_notification(
+        None, user, subscription, transaction, 30, now, new_end_date=subscription.end_date, balance_after=50_000
+    )
+
+    (message,) = sent
+    assert f'Сумма: {settings.format_price(RENEWAL_KOPEKS)}' in message
+    assert f'Баланс после операции:</b> {settings.format_balance(50_000)}' in message

@@ -1028,7 +1028,7 @@ class AdminNotificationService:
 📱 Устройства: {subscription.device_limit}
 🌐 Серверы: {servers_info}
 
-💰 <b>Баланс после операции:</b> {settings.format_price(current_balance)}
+💰 <b>Баланс после операции:</b> {settings.format_balance(current_balance)}
 
 ⏰ <i>{format_local_datetime(datetime.now(UTC), '%d.%m.%Y %H:%M:%S')}</i>"""
 
