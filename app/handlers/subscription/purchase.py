@@ -3044,7 +3044,8 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
         db_user = await lock_user_for_pricing(db, db_user.id)
         daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, db_user)
-        if daily_price > 0 and db_user.balance_kopeks < daily_price:
+        # daily_price — цена каталога (×100), баланс — томаны.
+        if daily_price > 0 and not user_can_afford(db_user.balance_kopeks, daily_price):
             await callback.answer(
                 texts.t(
                     'INSUFFICIENT_BALANCE_FOR_RESUME',
@@ -3064,7 +3065,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
             deducted = await subtract_user_balance(
                 db,
                 db_user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                 mark_as_paid_subscription=True,
             )

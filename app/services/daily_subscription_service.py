@@ -32,6 +32,7 @@ from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
 from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -157,7 +158,9 @@ class DailySubscriptionService:
         daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
         # Проверяем баланс (при 100% скидке — пропускаем)
-        if daily_price > 0 and user.balance_kopeks < daily_price:
+        # daily_price — цена каталога (×100), баланс — томаны: сравниваем и списываем
+        # через catalog_price_in_toman, как при активации тарифа.
+        if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             # Недостаточно средств - приостанавливаем подписку
             await suspend_daily_subscription_insufficient_balance(db, subscription)
 
@@ -194,7 +197,7 @@ class DailySubscriptionService:
             deducted = await subtract_user_balance(
                 db,
                 user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 description,
                 mark_as_paid_subscription=True,
                 commit=False,
