@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.database.models import C2cReceiptStatus, PaymentMethod, TransactionType
+from app.database.models import C2cReceiptStatus
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.service import C2cPaymentService
 

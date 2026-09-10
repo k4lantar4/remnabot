@@ -40,16 +40,22 @@ async def test_submit_receipt_refreshes_expires_at_on_success():
 
     fixed_now = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
 
-    with patch('app.plugins.c2c.service.settings') as mock_settings, patch(
-        'app.plugins.c2c.service.datetime',
-    ) as mock_datetime, patch(
-        'app.plugins.c2c.service.send_with_admin_topic_fallback',
-        new=AsyncMock(return_value=admin_message),
-    ), patch(
-        'app.plugins.c2c.service.build_delivery_kwargs',
-        return_value={'chat_id': -100123},
-    ), patch(
-        'app.plugins.c2c.service.AdminNotificationService',
+    with (
+        patch('app.plugins.c2c.service.settings') as mock_settings,
+        patch(
+            'app.plugins.c2c.service.datetime',
+        ) as mock_datetime,
+        patch(
+            'app.plugins.c2c.service.send_with_admin_topic_fallback',
+            new=AsyncMock(return_value=admin_message),
+        ),
+        patch(
+            'app.plugins.c2c.service.build_delivery_kwargs',
+            return_value={'chat_id': -100123},
+        ),
+        patch(
+            'app.plugins.c2c.service.AdminNotificationService',
+        ),
     ):
         mock_datetime.now.return_value = fixed_now
         mock_datetime.UTC = UTC

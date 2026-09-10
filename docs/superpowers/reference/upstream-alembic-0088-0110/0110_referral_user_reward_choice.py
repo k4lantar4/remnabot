@@ -14,7 +14,8 @@ Create Date: 2026-08-27
 днями. NULL в обоих означает прежнее поведение: подбирает бот, выдаётся всё.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op

@@ -18,4 +18,3 @@ def test_subscription_has_identity_a_columns() -> None:
 def test_subscription_model_does_not_declare_user_tariff_unique() -> None:
     index_names = {idx.name for idx in Subscription.__table__.indexes}
     assert 'uq_subscriptions_user_tariff_active' not in index_names
-

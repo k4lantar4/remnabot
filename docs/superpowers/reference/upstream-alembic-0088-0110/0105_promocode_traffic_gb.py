@@ -10,8 +10,8 @@ Revision ID: 0105
 Revises: 0104
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 
 revision = '0105'

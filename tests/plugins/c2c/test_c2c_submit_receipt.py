@@ -36,14 +36,19 @@ async def test_submit_receipt_does_not_persist_attachment_when_admin_send_fails(
     bot = MagicMock()
     service = C2cPaymentService(bot)
 
-    with patch('app.plugins.c2c.service.settings') as mock_settings, patch(
-        'app.plugins.c2c.service.send_with_admin_topic_fallback',
-        new=AsyncMock(side_effect=RuntimeError('telegram down')),
-    ), patch(
-        'app.plugins.c2c.service.build_delivery_kwargs',
-        return_value={'chat_id': -100123},
-    ), patch(
-        'app.plugins.c2c.service.AdminNotificationService',
+    with (
+        patch('app.plugins.c2c.service.settings') as mock_settings,
+        patch(
+            'app.plugins.c2c.service.send_with_admin_topic_fallback',
+            new=AsyncMock(side_effect=RuntimeError('telegram down')),
+        ),
+        patch(
+            'app.plugins.c2c.service.build_delivery_kwargs',
+            return_value={'chat_id': -100123},
+        ),
+        patch(
+            'app.plugins.c2c.service.AdminNotificationService',
+        ),
     ):
         mock_settings.get_c2c_admin_chat_id.return_value = -100123
         mock_settings.C2C_ADMIN_CHAT_ID = ''

@@ -13,6 +13,7 @@ from app.config import settings
 from app.database.models import User
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
+from app.plugins.c2c.admin_messages import build_c2c_admin_scan_lines
 from app.plugins.c2c.constants import (
     C2C_CALLBACK_ADMIN_INBOX,
     C2C_CALLBACK_INBOX_PREFIX,
@@ -20,7 +21,6 @@ from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
-from app.plugins.c2c.admin_messages import build_c2c_admin_scan_lines
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard, get_c2c_inbox_list_keyboard
 from app.utils.decorators import admin_required, error_handler
 

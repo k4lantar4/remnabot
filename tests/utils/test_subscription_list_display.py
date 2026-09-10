@@ -87,7 +87,13 @@ def test_search_matches_username_and_id() -> None:
     user = SimpleNamespace(is_partner=False, panel_brand_prefix=None)
     subs = [
         _sub(id=1, panel_username='mobile_x_1001', account_sequence=1),
-        _sub(id=2, panel_username='mobile_x_1002', remnawave_short_id='1159', tariff=SimpleNamespace(name='دیگر'), account_sequence=2),
+        _sub(
+            id=2,
+            panel_username='mobile_x_1002',
+            remnawave_short_id='1159',
+            tariff=SimpleNamespace(name='دیگر'),
+            account_sequence=2,
+        ),
     ]
     hit = filter_subscriptions_by_query(subs, 'mobile_x_1001', DummyTexts(), user)
     assert [s.id for s in hit] == [1]

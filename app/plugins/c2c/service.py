@@ -17,12 +17,12 @@ from app.database.models import C2cReceipt, C2cReceiptStatus, PaymentMethod, Tra
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.admin_delivery import build_delivery_kwargs, send_with_admin_topic_fallback
+from app.plugins.c2c.admin_messages import build_c2c_admin_receipt_body
 from app.plugins.c2c.constants import (
     C2C_RECEIPT_TYPE_DOCUMENT,
     C2C_RECEIPT_TYPE_PHOTO,
     C2C_RECEIPT_TYPE_TEXT,
 )
-from app.plugins.c2c.admin_messages import build_c2c_admin_receipt_body
 from app.plugins.c2c.keyboards import get_c2c_admin_review_keyboard
 from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 from app.utils.user_utils import format_referrer_info

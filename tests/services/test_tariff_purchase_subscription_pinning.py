@@ -208,8 +208,7 @@ def test_proceed_already_active_alert_is_gated_on_pin() -> None:
     body = _function_source(source, func)
 
     assert 'TARIFF_PURCHASE_ALREADY_ACTIVE' in body, (
-        '_proceed_with_selected_tariff must still carry the already-active alert '
-        'for the pinned renew-misroute path'
+        '_proceed_with_selected_tariff must still carry the already-active alert for the pinned renew-misroute path'
     )
     pin_idx = body.find("get('target_subscription_id')")
     alert_idx = body.find('TARIFF_PURCHASE_ALREADY_ACTIVE')

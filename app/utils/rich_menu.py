@@ -47,11 +47,11 @@ from app.database.crud.user_message import get_random_active_message
 from app.database.models import User
 from app.localization.texts import Texts
 from app.utils.formatters import format_username_link
+from app.utils.jalali_datetime import format_user_datetime
 from app.utils.miniapp_buttons import build_miniapp_startapp_url
 from app.utils.promo_offer import build_promo_offer_hint, build_test_access_hint
 from app.utils.rich_buttons import render_keyboard_as_rich_html
 from app.utils.subscription_utils import get_happ_cryptolink_redirect_link
-from app.utils.jalali_datetime import format_user_datetime
 from app.utils.timezone import format_local_datetime
 from app.utils.validators import sanitize_html
 
@@ -423,9 +423,7 @@ def _build_subscriptions_table(subscriptions, texts) -> str:
         else:
             until_cell = '—'
 
-        rows.append(
-            f'<tr><td>{label}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>'
-        )
+        rows.append(f'<tr><td>{label}</td><td>{_rich_text(status_label)}</td><td align="right">{until_cell}</td></tr>')
 
         # Нижняя строка ряда: расход + «кнопки» действий. Отдельная узкая колонка
         # действий не влезает на мобильных (таблица уезжает за край экрана) —

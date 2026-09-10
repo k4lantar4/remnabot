@@ -69,9 +69,7 @@ def format_subscription_list_line(
         count = texts.t('MY_SUB_DEVICES_COUNT_SHORT', '{count} устр.').format(count=sub.device_limit)
         devices = count
     end_date = (
-        format_user_datetime(sub.end_date, language=language, fmt='%d.%m.%Y')
-        if getattr(sub, 'end_date', None)
-        else '—'
+        format_user_datetime(sub.end_date, language=language, fmt='%d.%m.%Y') if getattr(sub, 'end_date', None) else '—'
     )
     parts = [f'{emoji} <b>{idx}. {name}</b>{label}']
     parts.append(texts.t('MY_SUB_TRAFFIC_LINE', '   📊 Трафик: {traffic}').format(traffic=traffic))

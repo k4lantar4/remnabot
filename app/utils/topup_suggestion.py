@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
+
 TOPUP_SUGGESTION_STEP_TOMAN = 1000
 
 

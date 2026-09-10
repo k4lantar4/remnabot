@@ -19,6 +19,7 @@ import pytest
 from app.localization.loader import clear_locale_cache
 from app.localization.texts import Texts, get_texts
 
+
 _CYRILLIC = re.compile(r'[А-Яа-яЁё]')
 _PERSIAN_LETTER = re.compile(r'[\u0600-\u06FF]')
 _PERSIAN_DIGIT = re.compile(r'[۰-۹]')
@@ -104,7 +105,4 @@ def test_ported_c2c_fa_keys_use_english_digits():
             continue
         if isinstance(value, str) and _PERSIAN_DIGIT.search(value):
             offenders.append(f'{key}: {value[:80]}')
-    assert not offenders, (
-        'Persian digits in ported C2C fa keys (amounts must use 0-9):\n'
-        + '\n'.join(offenders)
-    )
+    assert not offenders, 'Persian digits in ported C2C fa keys (amounts must use 0-9):\n' + '\n'.join(offenders)

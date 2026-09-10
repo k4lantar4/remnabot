@@ -421,9 +421,7 @@ async def show_payment_methods(callback: types.CallbackQuery, db_user: User, db:
             return
 
         payment_text = (
-            c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language)
-            + '\n\n'
-            + payment_text
+            c2c_integration.format_pending_receipt_notice(pending_receipt, db_user.language) + '\n\n' + payment_text
         )
 
     full_text = payment_text

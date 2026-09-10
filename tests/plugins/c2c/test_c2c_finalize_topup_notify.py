@@ -27,13 +27,18 @@ async def test_finalize_skips_admin_balance_notification_when_disabled():
     bot = AsyncMock()
     service = C2cPaymentService(bot)
 
-    with patch('app.services.referral_service.process_referral_topup', new=AsyncMock()), patch(
-        'app.services.payment_service.PaymentService',
-    ) as payment_service_cls, patch(
-        'app.services.admin_notification_service.AdminNotificationService',
-    ) as admin_notify_cls, patch(
-        'app.services.payment.common.send_cart_notification_after_topup',
-        new=AsyncMock(return_value=False),
+    with (
+        patch('app.services.referral_service.process_referral_topup', new=AsyncMock()),
+        patch(
+            'app.services.payment_service.PaymentService',
+        ) as payment_service_cls,
+        patch(
+            'app.services.admin_notification_service.AdminNotificationService',
+        ) as admin_notify_cls,
+        patch(
+            'app.services.payment.common.send_cart_notification_after_topup',
+            new=AsyncMock(return_value=False),
+        ),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
@@ -72,19 +77,26 @@ async def test_finalize_passes_cart_autopurchase_failed_for_checkout_cart():
     service = C2cPaymentService(bot)
     checkout_cart = {'return_to_cart': True, 'cart_mode': 'tariff_purchase', 'total_price': 50000}
 
-    with patch('app.services.referral_service.process_referral_topup', new=AsyncMock()), patch(
-        'app.services.payment_service.PaymentService',
-    ) as payment_service_cls, patch(
-        'app.services.admin_notification_service.AdminNotificationService',
-    ) as admin_notify_cls, patch(
-        'app.services.payment.common.send_cart_notification_after_topup',
-        new=AsyncMock(return_value=False),
-    ), patch(
-        'app.services.user_cart_service.user_cart_service.get_user_cart',
-        new=AsyncMock(return_value=checkout_cart),
-    ), patch(
-        'app.services.user_cart_service.user_cart_service.refresh_topup_intent',
-        new=AsyncMock(),
+    with (
+        patch('app.services.referral_service.process_referral_topup', new=AsyncMock()),
+        patch(
+            'app.services.payment_service.PaymentService',
+        ) as payment_service_cls,
+        patch(
+            'app.services.admin_notification_service.AdminNotificationService',
+        ) as admin_notify_cls,
+        patch(
+            'app.services.payment.common.send_cart_notification_after_topup',
+            new=AsyncMock(return_value=False),
+        ),
+        patch(
+            'app.services.user_cart_service.user_cart_service.get_user_cart',
+            new=AsyncMock(return_value=checkout_cart),
+        ),
+        patch(
+            'app.services.user_cart_service.user_cart_service.refresh_topup_intent',
+            new=AsyncMock(),
+        ),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
@@ -119,13 +131,18 @@ async def test_finalize_sends_admin_balance_notification_by_default():
     bot = AsyncMock()
     service = C2cPaymentService(bot)
 
-    with patch('app.services.referral_service.process_referral_topup', new=AsyncMock()), patch(
-        'app.services.payment_service.PaymentService',
-    ) as payment_service_cls, patch(
-        'app.services.admin_notification_service.AdminNotificationService',
-    ) as admin_notify_cls, patch(
-        'app.services.payment.common.send_cart_notification_after_topup',
-        new=AsyncMock(return_value=False),
+    with (
+        patch('app.services.referral_service.process_referral_topup', new=AsyncMock()),
+        patch(
+            'app.services.payment_service.PaymentService',
+        ) as payment_service_cls,
+        patch(
+            'app.services.admin_notification_service.AdminNotificationService',
+        ) as admin_notify_cls,
+        patch(
+            'app.services.payment.common.send_cart_notification_after_topup',
+            new=AsyncMock(return_value=False),
+        ),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()
@@ -160,13 +177,18 @@ async def test_finalize_skips_topup_notification_when_autopurchase_succeeds():
     service = C2cPaymentService(bot)
     cart_notify = AsyncMock(return_value=True)
 
-    with patch('app.services.referral_service.process_referral_topup', new=AsyncMock()), patch(
-        'app.services.payment_service.PaymentService',
-    ) as payment_service_cls, patch(
-        'app.services.admin_notification_service.AdminNotificationService',
-    ) as admin_notify_cls, patch(
-        'app.services.payment.common.send_cart_notification_after_topup',
-        new=cart_notify,
+    with (
+        patch('app.services.referral_service.process_referral_topup', new=AsyncMock()),
+        patch(
+            'app.services.payment_service.PaymentService',
+        ) as payment_service_cls,
+        patch(
+            'app.services.admin_notification_service.AdminNotificationService',
+        ) as admin_notify_cls,
+        patch(
+            'app.services.payment.common.send_cart_notification_after_topup',
+            new=cart_notify,
+        ),
     ):
         payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
         admin_notify_cls.return_value.send_balance_topup_notification = AsyncMock()

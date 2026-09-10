@@ -11,7 +11,6 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database.crud.referral import not_referee_directed
 from app.database.crud.referral_reward_level import normalize_reward_preference
-from app.utils.price_display import display_balance_from_storage
 from app.database.models import (
     AdvertisingCampaign,
     ReferralEarning,
@@ -21,6 +20,7 @@ from app.database.models import (
     WithdrawalRequest,
     WithdrawalRequestStatus,
 )
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user, get_optional_cabinet_user
 from ..schemas.referral import (

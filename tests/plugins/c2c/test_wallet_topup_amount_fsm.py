@@ -1,6 +1,6 @@
 import pytest
-from aiogram.fsm.context import FSMContext
 from aiogram.types import Chat, Message, User as TgUser
+
 
 try:
     from app.handlers.subscription.tariff_purchase import AwaitingCustomTrafficFilter

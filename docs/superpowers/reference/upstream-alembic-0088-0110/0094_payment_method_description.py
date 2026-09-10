@@ -9,10 +9,12 @@ per-method description shown on the cabinet balance page. When empty, the
 cabinet falls back to its default localized description.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
+
 
 revision: str = '0094'
 down_revision: Union[str, None] = '0093'

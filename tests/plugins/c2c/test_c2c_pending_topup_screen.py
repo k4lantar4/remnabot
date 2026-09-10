@@ -11,10 +11,7 @@ from app.plugins.c2c import integration as c2c_integration
 
 def _keyboard(*rows: list[tuple[str, str]]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=label, callback_data=data) for label, data in row]
-            for row in rows
-        ],
+        inline_keyboard=[[InlineKeyboardButton(text=label, callback_data=data) for label, data in row] for row in rows],
     )
 
 
