@@ -44,9 +44,12 @@ def _load_revision():
     return module
 
 
-def test_0111_is_the_single_head() -> None:
-    heads = _script_directory().get_heads()
-    assert heads == ['0111'], heads
+def test_0111_is_on_the_linear_chain() -> None:
+    script = _script_directory()
+    revision = script.get_revision('0111')
+    assert revision is not None
+    assert revision.down_revision == '0104'
+    assert script.get_current_head() == '0112'
 
 
 def test_0111_revises_grafted_remnabot_0104() -> None:

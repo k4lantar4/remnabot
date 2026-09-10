@@ -106,7 +106,8 @@ async def get_main_menu_keyboard_async(
             from app.database.crud.referral import get_user_referral_stats
 
             if user and hasattr(user, 'id'):
-                referral_data = await get_user_referral_stats(db, user.id)
+                async with db.begin_nested():
+                    referral_data = await get_user_referral_stats(db, user.id)
                 if referral_data:
                     referral_count = referral_data.get('invited_count', 0)
                     referral_earnings_kopeks = referral_data.get('total_earned_kopeks', 0)
