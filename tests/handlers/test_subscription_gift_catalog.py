@@ -92,7 +92,10 @@ def mock_db() -> AsyncMock:
 
 
 @pytest.fixture
-def mock_callback(mock_db_user) -> AsyncMock:
+def mock_callback(mock_db_user, monkeypatch) -> AsyncMock:
+    # The screens under test render through edit_or_answer_photo; with logo mode on
+    # it edits media instead of text. These tests inspect the text keyboard.
+    monkeypatch.setattr('app.utils.photo_message.settings.ENABLE_LOGO_MODE', False)
     callback = AsyncMock(spec=CallbackQuery)
     callback.from_user = MagicMock(spec=TgUser)
     callback.from_user.id = mock_db_user.telegram_id

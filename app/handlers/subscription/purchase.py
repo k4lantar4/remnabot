@@ -4098,7 +4098,6 @@ def register_handlers(dp: Dispatcher):
         reset_my_subs_search,
         start_my_subs_search,
     )
-    from app.states import SubscriptionStates
 
     dp.callback_query.register(start_my_subs_search, F.data == 'my_subs_search')
     dp.callback_query.register(reset_my_subs_search, F.data == 'my_subs_search_reset')
