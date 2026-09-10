@@ -1,89 +1,88 @@
-# Интеграция веб-админки
+# Web admin integration
 
-Этот документ описывает запуск встроенного административного веб-API бота и типовой сценарий интеграции c внешней веб-админкой.
-API разворачивается вместе с ботом, использует FastAPI и защищено токенами доступа.
+This document describes how to run the bot’s built-in admin web API and a typical integration with an external web admin.
+The API is deployed with the bot, uses FastAPI, and is protected by access tokens.
 
-## 1. Обзор архитектуры
+## 1. Architecture overview
 
-- Веб-API запускается в том же процессе, что и бот, через встроенный `uvicorn` сервер.
-- Авторизация выполняется по токену: `X-API-Key` или `Authorization: Bearer <token>`.
-- Все эндпоинты работают поверх HTTPS/HTTP и возвращают структуры в формате JSON.
-- Встроенный механизм миграций создаёт таблицу `web_api_tokens` и бутстрап-токен, если указан в конфигурации.
+- The web API runs in the same process as the bot, through the embedded `uvicorn` server.
+- Authorization uses a token: `X-API-Key` or `Authorization: Bearer <token>`.
+- All endpoints work over HTTPS/HTTP and return JSON structures.
+- The built-in migration mechanism creates the `web_api_tokens` table and a bootstrap token if one is configured.
 
-## 2. Настройка окружения
+## 2. Environment setup
 
-Добавьте переменные в `.env` (или другую систему конфигурации):
+Add variables to `.env` (or another configuration system):
 
-| Переменная | Назначение | Значение по умолчанию / пример |
-|------------|------------|---------------------------------|
-| `WEB_API_ENABLED` | Включает веб-API. | `true`
-| `WEB_API_HOST` | IP/hostname, на котором слушает API. | `0.0.0.0`
-| `WEB_API_PORT` | Порт веб-API. | `8080`
-| `WEB_API_ALLOWED_ORIGINS` | Список доменов для CORS, через запятую. `*` разрешит всё. | `https://admin.example.com`
-| `WEB_API_DOCS_ENABLED` | Включить `/docs`, `/doc` (редирект), `/redoc` и `/openapi.json`. В проде лучше `false`. | `false`
-| `WEB_API_WORKERS` | Количество воркеров uvicorn. В embed-режиме всегда приводится к `1`. | `1`
-| `WEB_API_REQUEST_LOGGING` | Логировать каждый запрос API. | `true`
-| `WEB_API_DEFAULT_TOKEN` | Бутстрап-токен, который будет создан при миграции. | `super-secret-token`
-| `WEB_API_DEFAULT_TOKEN_NAME` | Отображаемое имя созданного токена. | `Bootstrap Token`
-| `WEB_API_TOKEN_HASH_ALGORITHM` | Алгоритм хеширования токенов (`sha256`, `sha512`, ...). | `sha256`
+| Variable | Purpose | Default / example |
+|----------|---------|-------------------|
+| `WEB_API_ENABLED` | Enables the web API. | `true`
+| `WEB_API_HOST` | IP/hostname the API listens on. | `0.0.0.0`
+| `WEB_API_PORT` | Web API port. | `8080`
+| `WEB_API_ALLOWED_ORIGINS` | Comma-separated CORS domain list. `*` allows everything. | `https://admin.example.com`
+| `WEB_API_DOCS_ENABLED` | Enable `/docs`, `/doc` (redirect), `/redoc`, and `/openapi.json`. Prefer `false` in production. | `false`
+| `WEB_API_WORKERS` | Number of uvicorn workers. In embed mode this is always forced to `1`. | `1`
+| `WEB_API_REQUEST_LOGGING` | Log every API request. | `true`
+| `WEB_API_DEFAULT_TOKEN` | Bootstrap token created during migration. | `super-secret-token`
+| `WEB_API_DEFAULT_TOKEN_NAME` | Display name of the created token. | `Bootstrap Token`
+| `WEB_API_TOKEN_HASH_ALGORITHM` | Token hashing algorithm (`sha256`, `sha512`, …). | `sha256`
 
-> ⚠️ Если вы храните конфигурацию в Kubernetes/Ansible/других системах — не забудьте обновить секреты, чтобы бот видел эти переменные.
+> If you store configuration in Kubernetes/Ansible/other systems, update the secrets so the bot sees these variables.
 
-### Включение Swagger (интерактивной документации)
+### Enabling Swagger (interactive docs)
 
-Чтобы открыть интерфейс Swagger UI на `/docs`, убедитесь, что одновременно заданы две переменные окружения:
+To open Swagger UI at `/docs`, set both environment variables:
 
-1. `WEB_API_ENABLED=true` — включает само веб-API.
-2. `WEB_API_DOCS_ENABLED=true` — публикует `/docs`, `/doc` (редирект для старых ссылок), `/redoc` и `/openapi.json`.
+1. `WEB_API_ENABLED=true` — enables the web API itself.
+2. `WEB_API_DOCS_ENABLED=true` — publishes `/docs`, `/doc` (redirect for old links), `/redoc`, and `/openapi.json`.
 
-После изменения значений перезапустите бота. Интерфейс будет доступен по адресу `http://<WEB_API_HOST>:<WEB_API_PORT>/docs`.
+Restart the bot after changing the values. The UI is available at `http://<WEB_API_HOST>:<WEB_API_PORT>/docs`.
 
-## 3. Подготовка базы данных
+## 3. Preparing the database
 
-1. Убедитесь, что настройки БД верны (`DATABASE_URL` или параметры PostgreSQL/SQLite).
-2. При старте бота автоматически запускаются Alembic-миграции (`alembic upgrade head`), которые создают все необходимые таблицы, включая `web_api_tokens`.
-3. Токен из `WEB_API_DEFAULT_TOKEN` активируется автоматически при запуске.
-4. Если нужно запустить миграцию вручную, выполните:
+1. Confirm the DB settings are correct (`DATABASE_URL` or PostgreSQL/SQLite parameters).
+2. On bot startup Alembic migrations run automatically (`alembic upgrade head`) and create all required tables, including `web_api_tokens`.
+3. The token from `WEB_API_DEFAULT_TOKEN` is activated automatically on startup.
+4. To run the migration manually:
 
 ```bash
-make migrate  # или: uv run alembic upgrade head
+make migrate  # or: uv run alembic upgrade head
 ```
 
-Или просто запустите `python main.py` — бот выполнит ту же процедуру автоматически.
+Or just run `python main.py` — the bot performs the same procedure automatically.
 
-## 4. Запуск веб-API
+## 4. Starting the web API
 
 ```bash
-# Создаём .env и включаем веб-API
+# Create .env and enable the web API
 cp .env.example .env
-nano .env  # проставьте WEB_API_* переменные и BOT_TOKEN
+nano .env  # set WEB_API_* variables and BOT_TOKEN
 
-# Запускаем бота (локально)
+# Start the bot (locally)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
 
-В Docker достаточно пробросить порт `WEB_API_PORT` из контейнера бота. После запуска API будет доступно по адресу `http://<WEB_API_HOST>:<WEB_API_PORT>`.
+In Docker it is enough to publish `WEB_API_PORT` from the bot container. After startup the API is available at `http://<WEB_API_HOST>:<WEB_API_PORT>`.
 
-## 5. Аутентификация и токены
+## 5. Authentication and tokens
 
-- Первый токен удобно задать через `WEB_API_DEFAULT_TOKEN`. Он появится в таблице при запуске миграции и будет автоматически
-  пересоздан/активирован после изменения значения через интерфейс настроек.
-- Для управления токенами используйте эндпоинты `/tokens`:
-  - `GET /tokens` — список токенов.
-  - `POST /tokens` — создать новый токен. Возвращает открытое значение один раз.
-  - `POST /tokens/{id}/revoke` и `/activate` — управление статусом.
-  - `DELETE /tokens/{id}` — удаление.
-- Заголовок авторизации можно передавать двумя способами:
+- The first token is conveniently set via `WEB_API_DEFAULT_TOKEN`. It appears in the table when the migration runs and is automatically recreated/activated after the value is changed through the settings UI.
+- Use the `/tokens` endpoints to manage tokens:
+  - `GET /tokens` — list tokens.
+  - `POST /tokens` — create a new token. Returns the plaintext value once.
+  - `POST /tokens/{id}/revoke` and `/activate` — status management.
+  - `DELETE /tokens/{id}` — delete.
+- The authorization header can be passed in two ways:
 
 ```http
-X-API-Key: <ваш_токен>
-# или
-Authorization: Bearer <ваш_токен>
+X-API-Key: <your_token>
+# or
+Authorization: Bearer <your_token>
 ```
 
-Пример запроса на создание токена:
+Example request to create a token:
 
 ```bash
 curl -X POST "http://127.0.0.1:8080/tokens" \
@@ -92,179 +91,175 @@ curl -X POST "http://127.0.0.1:8080/tokens" \
   -d '{"name": "Web admin", "description": "UI token"}'
 ```
 
-## 6. Основные эндпоинты
+## 6. Main endpoints
 
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| `GET` | `/health` | Статус API, версия бота, флаги включённых сервисов.
-| `GET` | `/stats/overview` | Сводная статистика по пользователям, подпискам, платежам и тикетам.
-| `GET` | `/settings/categories` | Категории системных настроек.
-| `GET` | `/settings` | Полный список настроек (с текущими и дефолтными значениями).
-| `GET` | `/settings/{key}` | Получить одну настройку.
-| `PUT` | `/settings/{key}` | Обновить значение настройки.
-| `DELETE` | `/settings/{key}` | Сбросить настройку к значению по умолчанию.
-| `GET` | `/users` | Список пользователей с фильтрами и пагинацией.
-| `GET` | `/users/{id}` | Детали пользователя. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
-| `POST` | `/users` | Создать пользователя (например, для ручной выдачи доступа).
-| `PATCH` | `/users/{id}` | Обновить профиль пользователя или статус. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
-| `POST` | `/users/{id}/balance` | Низкоуровневая корректировка баланса (можно и списать). Без идемпотентности и без уведомлений — для ручных правок, а не для автоматики. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
-| `POST` | `/users/{id}/deposit` | **Ручное пополнение** — полноценный аналог платежа от шлюза, с идемпотентностью. Для автоматических интеграций (агент поддержки). См. раздел ниже.
-| `GET` | `/subscriptions` | Список подписок с фильтрами.
-| `POST` | `/subscriptions` | Создать триальную или платную подписку.
-| `POST` | `/subscriptions/{id}/extend` | Продлить подписку на N дней.
-| `POST` | `/subscriptions/{id}/traffic` | Добавить трафик (ГБ).
-| `POST` | `/subscriptions/{id}/devices` | Добавить устройства.
-| `POST` | `/subscriptions/{id}/squads` | Привязать сквад.
-| `DELETE` | `/subscriptions/{id}/squads/{uuid}` | Удалить сквад.
-| `GET` | `/transactions` | История транзакций.
-| `GET` | `/tickets` | Список тикетов поддержки.
-| `GET` | `/tickets/{id}` | Тикет с перепиской.
-| `POST` | `/tickets/{id}/status` | Изменить статус тикета.
-| `POST` | `/tickets/{id}/priority` | Изменить приоритет.
-| `POST` | `/tickets/{id}/reply-block` | Заблокировать ответы пользователя.
-| `DELETE` | `/tickets/{id}/reply-block` | Снять блокировку.
-| `GET` | `/promo-groups` | Список промо-групп с количеством участников.
-| `POST` | `/promo-groups` | Создать промо-группу.
-| `PATCH` | `/promo-groups/{id}` | Обновить промо-группу.
-| `DELETE` | `/promo-groups/{id}` | Удалить промо-группу.
-| `GET` | `/promo-offers` | Список промо-предложений с фильтрами по пользователю, статусу и типу уведомления.
-| `POST` | `/promo-offers` | Создать или обновить персональное промо-предложение пользователю. ID может быть как внутренним (user.id), так и Telegram ID (user.telegram_id).
-| `GET` | `/promo-offers/{id}` | Детали конкретного промо-предложения.
-| `GET` | `/promo-offers/templates` | Список шаблонов промо-предложений.
-| `GET` | `/promo-offers/templates/{id}` | Получить данные шаблона промо-предложения.
-| `PATCH` | `/promo-offers/templates/{id}` | Обновить текст, кнопки и параметры шаблона.
-| `GET` | `/promo-offers/logs` | Журнал операций с промо-предложениями (активации, списания, выключения).
-| `GET` | `/tokens` | Управление токенами доступа.
-| `GET` | `/polls` | Список опросов с постраничной навигацией.
-| `GET` | `/polls/{id}` | Детали опроса с вопросами и вариантами ответов.
-| `POST` | `/polls` | Создать опрос: заголовок, описание, вопросы и варианты.
-| `DELETE` | `/polls/{id}` | Удалить опрос целиком.
-| `GET` | `/polls/{id}/stats` | Сводная статистика по ответам и начисленным наградам.
-| `GET` | `/polls/{id}/responses` | Ответы пользователей с детализацией по вопросам.
-| `GET` | `/logs/monitoring` | Логи мониторинга бота с пагинацией и фильтрами по типу события.
-| `GET` | `/logs/monitoring/event-types` | Справочник доступных типов событий мониторинга.
-| `GET` | `/logs/support` | Журнал действий модераторов поддержки (блокировки, закрытия тикетов).
-| `GET` | `/logs/support/actions` | Справочник возможных действий в аудите поддержки.
-| `GET` | `/logs/system` | Предпросмотр системного лог-файла бота с метаданными.
-| `GET` | `/logs/system/download` | Скачивание полного лог-файла бота (`text/plain`).
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/health` | API status, bot version, enabled-service flags.
+| `GET` | `/stats/overview` | Summary statistics for users, subscriptions, payments, and tickets.
+| `GET` | `/settings/categories` | System setting categories.
+| `GET` | `/settings` | Full settings list (with current and default values).
+| `GET` | `/settings/{key}` | Get one setting.
+| `PUT` | `/settings/{key}` | Update a setting value.
+| `DELETE` | `/settings/{key}` | Reset a setting to its default value.
+| `GET` | `/users` | User list with filters and pagination.
+| `GET` | `/users/{id}` | User details. ID may be internal (`user.id`) or Telegram ID (`user.telegram_id`).
+| `POST` | `/users` | Create a user (for example, for manual access grant).
+| `PATCH` | `/users/{id}` | Update user profile or status. ID may be internal (`user.id`) or Telegram ID (`user.telegram_id`).
+| `POST` | `/users/{id}/balance` | Low-level balance adjustment (can also debit). No idempotency and no notifications — for manual edits, not automation. ID may be internal (`user.id`) or Telegram ID (`user.telegram_id`).
+| `POST` | `/users/{id}/deposit` | **Manual top-up** — a full analogue of a gateway payment, with idempotency. For automatic integrations (support agent). See the section below.
+| `GET` | `/subscriptions` | Subscription list with filters.
+| `POST` | `/subscriptions` | Create a trial or paid subscription.
+| `POST` | `/subscriptions/{id}/extend` | Extend a subscription by N days.
+| `POST` | `/subscriptions/{id}/traffic` | Add traffic (GB).
+| `POST` | `/subscriptions/{id}/devices` | Add devices.
+| `POST` | `/subscriptions/{id}/squads` | Attach a squad.
+| `DELETE` | `/subscriptions/{id}/squads/{uuid}` | Remove a squad.
+| `GET` | `/transactions` | Transaction history.
+| `GET` | `/tickets` | Support ticket list.
+| `GET` | `/tickets/{id}` | Ticket with conversation.
+| `POST` | `/tickets/{id}/status` | Change ticket status.
+| `POST` | `/tickets/{id}/priority` | Change priority.
+| `POST` | `/tickets/{id}/reply-block` | Block user replies.
+| `DELETE` | `/tickets/{id}/reply-block` | Remove the block.
+| `GET` | `/promo-groups` | Promo-group list with member counts.
+| `POST` | `/promo-groups` | Create a promo group.
+| `PATCH` | `/promo-groups/{id}` | Update a promo group.
+| `DELETE` | `/promo-groups/{id}` | Delete a promo group.
+| `GET` | `/promo-offers` | Promo-offer list with filters by user, status, and notification type.
+| `POST` | `/promo-offers` | Create or update a personal promo offer for a user. ID may be internal (`user.id`) or Telegram ID (`user.telegram_id`).
+| `GET` | `/promo-offers/{id}` | Details of a specific promo offer.
+| `GET` | `/promo-offers/templates` | Promo-offer template list.
+| `GET` | `/promo-offers/templates/{id}` | Get promo-offer template data.
+| `PATCH` | `/promo-offers/templates/{id}` | Update template text, buttons, and parameters.
+| `GET` | `/promo-offers/logs` | Promo-offer operations log (activations, charges, disables).
+| `GET` | `/tokens` | Access-token management.
+| `GET` | `/polls` | Poll list with pagination.
+| `GET` | `/polls/{id}` | Poll details with questions and options.
+| `POST` | `/polls` | Create a poll: title, description, questions, and options.
+| `DELETE` | `/polls/{id}` | Delete an entire poll.
+| `GET` | `/polls/{id}/stats` | Summary statistics for answers and granted rewards.
+| `GET` | `/polls/{id}/responses` | User responses with per-question detail.
+| `GET` | `/logs/monitoring` | Bot monitoring logs with pagination and event-type filters.
+| `GET` | `/logs/monitoring/event-types` | Catalog of available monitoring event types.
+| `GET` | `/logs/support` | Support moderator action log (blocks, ticket closures).
+| `GET` | `/logs/support/actions` | Catalog of possible support-audit actions.
+| `GET` | `/logs/system` | Preview of the bot system log file with metadata.
+| `GET` | `/logs/system/download` | Download the full bot log file (`text/plain`).
 
-> Раздел **promo-offers** в Swagger объединяет работу с персональными предложениями: выдачу скидок/бонусов пользователям, настройку
-> текстов шаблонов и просмотр журнала операций (активации, автосписания, отключения просроченных акций).
+> The **promo-offers** Swagger section covers personal offers: granting discounts/bonuses to users, configuring template texts, and viewing the operations log (activations, auto-charges, disabling expired campaigns).
 
-### Логи бота
+### Bot logs
 
-В административном API появился раздел **logs**. Он позволяет:
+The admin API includes a **logs** section. It lets you:
 
-- Просматривать общие логи мониторинга (`GET /logs/monitoring`) с поддержкой пагинации (`limit`, `offset`) и фильтра по типу события (`event_type`).
-- Получать справочник доступных типов событий (`GET /logs/monitoring/event-types`). Это удобно для построения фильтров во внешней админке.
-- Отслеживать действия модераторов поддержки (`GET /logs/support`) с пагинацией и возможностью фильтровать по конкретному действию (`action`).
-- Запрашивать список возможных действий для UI (`GET /logs/support/actions`).
-- Просматривать системный лог-файл бота (`GET /logs/system`). Endpoint возвращает метаданные (путь, время изменения, размер в байтах/символах) и фрагмент конца файла, размер которого можно регулировать параметром `preview_limit` (от 500 до 20 000 символов).
-- Скачивать полный системный лог в текстовом формате (`GET /logs/system/download`).
+- View general monitoring logs (`GET /logs/monitoring`) with pagination (`limit`, `offset`) and an event-type filter (`event_type`).
+- Get a catalog of available event types (`GET /logs/monitoring/event-types`). Useful for building filters in an external admin.
+- Track support moderator actions (`GET /logs/support`) with pagination and an optional filter by a specific action (`action`).
+- Request the list of possible actions for the UI (`GET /logs/support/actions`).
+- Preview the bot system log file (`GET /logs/system`). The endpoint returns metadata (path, modification time, size in bytes/characters) and a tail fragment whose size can be controlled with `preview_limit` (from 500 to 20,000 characters).
+- Download the full system log as text (`GET /logs/system/download`).
 
-Все эндпоинты защищены токеном API и возвращают структуру с общим количеством записей, текущим `limit`/`offset` и массивом объектов. Это упрощает реализацию таблиц и постраничной навигации во внешних административных интерфейсах.
+All endpoints are protected by an API token and return a structure with the total record count, current `limit`/`offset`, and an array of objects. That simplifies tables and pagination in external admin UIs.
 
-### Управление опросами
+### Poll management
 
-Раздел **polls** в административном API позволяет создавать и анализировать опросы, которые бот рассылает пользователям.
+The **polls** section of the admin API lets you create and analyze polls that the bot sends to users.
 
-#### Список и детали
+#### List and details
 
-- `GET /polls` — возвращает массив объектов с базовой информацией: название, описание, флаги награды, количество вопросов и ответов.
-- `GET /polls/{id}` — раскрывает структуру конкретного опроса, включая упорядоченные вопросы и варианты ответов. Подходит для предпросмотра перед публикацией.
+- `GET /polls` — returns an array of objects with basic information: title, description, reward flags, question count, and response count.
+- `GET /polls/{id}` — expands the structure of a specific poll, including ordered questions and options. Suitable for preview before publication.
 
-#### Создание опроса
+#### Creating a poll
 
-Для создания опроса отправьте JSON, соответствующий схеме:
+To create a poll, send JSON matching this schema:
 
 ```json
 {
-  "title": "Оценка нового тарифа",
-  "description": "Помогите улучшить продукт — ответ займет до 2 минут",
+  "title": "New tariff feedback",
+  "description": "Help us improve the product — it takes up to 2 minutes",
   "reward_enabled": true,
   "reward_amount_kopeks": 1000,
   "questions": [
     {
-      "text": "Насколько вы довольны скоростью соединения?",
+      "text": "How satisfied are you with connection speed?",
       "options": [
-        { "text": "Очень доволен" },
-        { "text": "Скорее доволен" },
-        { "text": "Нейтрально" },
-        { "text": "Скорее недоволен" },
-        { "text": "Очень недоволен" }
+        { "text": "Very satisfied" },
+        { "text": "Somewhat satisfied" },
+        { "text": "Neutral" },
+        { "text": "Somewhat dissatisfied" },
+        { "text": "Very dissatisfied" }
       ]
     },
     {
-      "text": "Какие улучшения вы ждёте?",
+      "text": "What improvements do you expect?",
       "options": [
-        { "text": "Стабильность" },
-        { "text": "Скорость" },
-        { "text": "Поддержка" }
+        { "text": "Stability" },
+        { "text": "Speed" },
+        { "text": "Support" }
       ]
     }
   ]
 }
 ```
 
-Требования валидации:
+Validation requirements:
 
-- Заголовок (`title`) — от 1 до 255 символов, не пустой после обрезки пробелов.
-- Описание (`description`) — до 4000 символов, пробелы по краям удаляются.
-- Если `reward_enabled=true`, сумма вознаграждения (`reward_amount_kopeks`) должна быть положительной. При `false` значение автоматически сбрасывается в `0`.
-- Каждый вопрос содержит минимум два уникальных варианта ответа.
+- Title (`title`) — 1 to 255 characters, not empty after trimming whitespace.
+- Description (`description`) — up to 4000 characters; leading/trailing whitespace is stripped.
+- If `reward_enabled=true`, the reward amount (`reward_amount_kopeks`) must be positive. When `false`, the value is automatically reset to `0`.
+- Each question contains at least two unique answer options.
 
-В ответ API вернёт созданный опрос с назначенными идентификаторами и полем `reward_amount_rubles`, которое удобно показывать в интерфейсе.
+The API returns the created poll with assigned identifiers and a `reward_amount_rubles` field that is convenient to show in the UI.
 
-#### Удаление и статистика
+#### Deletion and statistics
 
-- `DELETE /polls/{id}` — удаляет опрос и связанные с ним вопросы/ответы. Используйте с осторожностью, операция необратима.
-- `GET /polls/{id}/stats` — агрегированная статистика: общее количество ответов, завершённых прохождений и сумма выданных наград. Для каждого вопроса возвращается количество выборов по вариантам.
-- `GET /polls/{id}/responses` — список ответов пользователей с пагинацией (`limit`, `offset`). Каждый элемент содержит временные метки (`sent_at`, `started_at`, `completed_at`), данные пользователя (ID, username, Telegram ID), информацию о выданной награде и массив ответов с текстами вопросов/вариантов.
+- `DELETE /polls/{id}` — deletes the poll and its related questions/answers. Use with care; the operation is irreversible.
+- `GET /polls/{id}/stats` — aggregated statistics: total answers, completed submissions, and the sum of granted rewards. For each question it returns choice counts per option.
+- `GET /polls/{id}/responses` — user responses with pagination (`limit`, `offset`). Each item contains timestamps (`sent_at`, `started_at`, `completed_at`), user data (ID, username, Telegram ID), reward information, and an array of answers with question/option texts.
 
-Такой формат позволяет без дополнительного запроса показать детализацию на фронтенде или выгрузить данные в CSV.
+This format lets the frontend show detail or export CSV without extra requests.
 
-### RemnaWave интеграция
+### RemnaWave integration
 
-После включения веб-API в Swagger (`WEB_API_DOCS_ENABLED=true`) появится раздел **remnawave**. Он объединяет эндпоинты для управления панелью RemnaWave и синхронизации данных бота:
+After enabling the web API in Swagger (`WEB_API_DOCS_ENABLED=true`), a **remnawave** section appears. It groups endpoints for RemnaWave panel management and bot data sync:
 
-| Метод | Путь | Назначение |
-|-------|------|------------|
-| `GET` | `/remnawave/status` | Проверка конфигурации и доступности RemnaWave API. |
-| `GET` | `/remnawave/system` | Агрегированная статистика по пользователям, нодам и трафику. |
-| `GET` | `/remnawave/nodes` | Список нод и их текущее состояние. |
-| `GET` | `/remnawave/nodes/realtime` | Текущая загрузка нод (realtime-метрики RemnaWave). |
-| `GET` | `/remnawave/nodes/{uuid}` | Детальная информация по конкретной ноде. |
-| `GET` | `/remnawave/nodes/{uuid}/statistics` | Агрегированная статистика и история нагрузок по ноде. |
-| `GET` | `/remnawave/nodes/{uuid}/usage` | История использования ноды пользователями за выбранный период. |
-| `POST` | `/remnawave/nodes/{uuid}/actions` | Включение, отключение или перезапуск ноды. |
-| `POST` | `/remnawave/nodes/restart` | Массовый перезапуск всех нод в RemnaWave. |
-| `GET` | `/remnawave/squads` | Список внутренних сквадов с составом и статистикой. |
-| `GET` | `/remnawave/squads/{uuid}` | Детали выбранного сквада. |
-| `POST` | `/remnawave/squads` | Создание нового сквада и привязка inbounds. |
-| `PATCH` | `/remnawave/squads/{uuid}` | Обновление имени или состава inbounds сквада. |
-| `POST` | `/remnawave/squads/{uuid}/actions` | Массовые операции: добавить/удалить всех, переименовать, обновить inbounds, удалить. |
-| `GET` | `/remnawave/inbounds` | Список доступных inbounds в панели RemnaWave. |
-| `GET` | `/remnawave/users/{telegram_id}/traffic` | Использование трафика конкретного пользователя RemnaWave. |
-| `POST` | `/remnawave/sync/from-panel` | Синхронизация пользователей и подписок из панели в бота. |
-| `POST` | `/remnawave/sync/to-panel` | Обратная синхронизация данных бота в панель. |
-| `POST` | `/remnawave/sync/subscriptions/validate` | Проверка и восстановление подписок в RemnaWave. |
-| `POST` | `/remnawave/sync/subscriptions/cleanup` | Очистка «осиротевших» подписок и пользователей в RemnaWave. |
-| `POST` | `/remnawave/sync/subscriptions/statuses` | Приведение статусов подписок в боте и панели к единому виду. |
-| `GET` | `/remnawave/sync/recommendations` | Рекомендации по синхронизации: что добавить, обновить или удалить. |
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/remnawave/status` | Check RemnaWave API configuration and availability. |
+| `GET` | `/remnawave/system` | Aggregated statistics for users, nodes, and traffic. |
+| `GET` | `/remnawave/nodes` | Node list and current state. |
+| `GET` | `/remnawave/nodes/realtime` | Current node load (RemnaWave realtime metrics). |
+| `GET` | `/remnawave/nodes/{uuid}` | Detailed information for a specific node. |
+| `GET` | `/remnawave/nodes/{uuid}/statistics` | Aggregated statistics and load history for a node. |
+| `GET` | `/remnawave/nodes/{uuid}/usage` | Node usage history by users for a selected period. |
+| `POST` | `/remnawave/nodes/{uuid}/actions` | Enable, disable, or restart a node. |
+| `POST` | `/remnawave/nodes/restart` | Bulk restart of all nodes in RemnaWave. |
+| `GET` | `/remnawave/squads` | Internal squad list with membership and statistics. |
+| `GET` | `/remnawave/squads/{uuid}` | Details of the selected squad. |
+| `POST` | `/remnawave/squads` | Create a new squad and attach inbounds. |
+| `PATCH` | `/remnawave/squads/{uuid}` | Update the squad name or inbound membership. |
+| `POST` | `/remnawave/squads/{uuid}/actions` | Bulk operations: add/remove all, rename, update inbounds, delete. |
+| `GET` | `/remnawave/inbounds` | List of available inbounds in the RemnaWave panel. |
+| `GET` | `/remnawave/users/{telegram_id}/traffic` | Traffic usage of a specific RemnaWave user. |
+| `POST` | `/remnawave/sync/from-panel` | Sync users and subscriptions from the panel into the bot. |
+| `POST` | `/remnawave/sync/to-panel` | Reverse sync of bot data into the panel. |
+| `POST` | `/remnawave/sync/subscriptions/validate` | Check and restore subscriptions in RemnaWave. |
+| `POST` | `/remnawave/sync/subscriptions/cleanup` | Clean up orphaned subscriptions and users in RemnaWave. |
+| `POST` | `/remnawave/sync/subscriptions/statuses` | Align subscription statuses in the bot and the panel. |
+| `GET` | `/remnawave/sync/recommendations` | Sync recommendations: what to add, update, or delete. |
 
+> All list endpoints support pagination (`limit`, `offset`) and the filters described in the OpenAPI specification. If `WEB_API_DOCS_ENABLED=true`, docs are available at `/docs`. In `/settings` responses the `choices` field is always an array: an empty list means there are no predefined values.
 
-> Все списковые эндпоинты поддерживают пагинацию (`limit`, `offset`) и фильтры, описанные в OpenAPI спецификации. Если `WEB_API_DOCS_ENABLED=true`, документация доступна по `/docs`. В ответах `/settings` поле `choices` всегда массив: пустой список означает отсутствие предопределённых значений.
+### Manual balance top-up (`POST /users/{id}/deposit`)
 
-### Ручное пополнение баланса (`POST /users/{id}/deposit`)
-
-Эндпоинт для «начислить человеку деньги руками»: компенсация, потерявшийся платёж,
-приз за конкурс. Рассчитан на автоматического вызывающего — например, AI-агента в
-поддержке.
+Endpoint for “credit a person by hand”: compensation, a lost payment, a contest prize. Designed for an automatic caller — for example a support AI agent.
 
 ```bash
 curl -X POST https://bot.example.com/users/123456789/deposit \
   -H "X-API-Key: $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"amount_kopeks": 50000, "idempotency_key": "ticket-8471", "description": "Компенсация по тикету 8471"}'
+  -d '{"amount_kopeks": 50000, "idempotency_key": "ticket-8471", "description": "Compensation for ticket 8471"}'
 ```
 
 ```json
@@ -276,61 +271,44 @@ curl -X POST https://bot.example.com/users/123456789/deposit \
 }
 ```
 
-Что важно знать интегратору:
+What the integrator needs to know:
 
-- **`idempotency_key` — передавайте всегда.** Повторный запрос с тем же ключом ничего
-  не начислит и вернёт исходную транзакцию с `duplicate: true`. Без ключа обычный
-  сетевой таймаут и ретрай агента дадут двойное начисление. Ключ подойдёт любой
-  стабильный: номер тикета, uuid попытки. Ключи глобальные — тот же ключ с другой
-  суммой ИЛИ для другого пользователя это ошибка вызывающего, ответ `409 Conflict`
-  (иначе переиспользованный номер тикета «зачислил» бы деньги чужому — в ответе, но
-  не в реальности).
-- **Это полноценное пополнение, а не правка числа.** Запускается тот же конвейер, что
-  и у платежа от шлюза: реферальная комиссия, отметка первого пополнения, уведомление
-  пользователю, возобновление приостановленной суточной подписки, автопокупка
-  сохранённой корзины. Отключается флагом `apply_topup_bonuses: false`, уведомление —
-  `notify_user: false`.
-- **Только зачисление.** Списывать нечем — для этого остаётся
-  `POST /users/{id}/balance` (низкоуровневая корректировка, без идемпотентности и без
-  уведомлений).
-- **Потолок одной операции** — `WEB_API_MANUAL_DEPOSIT_MAX_KOPEKS` (по умолчанию
-  1 000 000 копеек = 10 000 ₽, `0` снимает ограничение). Предохранитель от агента,
-  ошибшегося на два нуля; превышение — `400`.
-- **Кого пополнили — проверяйте по ответу.** `{id}` в пути трактуется сначала как
-  Telegram ID, затем как внутренний `user.id`; в ответе возвращаются оба.
-- **Токен API — полный доступ.** Отдельных прав на операцию нет: тот же токен умеет
-  всё остальное в этом API. Для агента поддержки заведите отдельный токен, храните его
-  вне промпта модели и ревизируйте `/tokens`.
+- **Always send `idempotency_key`.** A repeat request with the same key credits nothing and returns the original transaction with `duplicate: true`. Without a key, a normal network timeout plus an agent retry produces a double credit. Any stable key works: ticket number, attempt UUID. Keys are global — the same key with a different amount **or** for a different user is a caller error, response `409 Conflict` (otherwise a reused ticket number would “credit” money to someone else — in the response, though not in reality).
+- **This is a full top-up, not a number edit.** The same pipeline as a gateway payment runs: referral commission, first-top-up mark, user notification, resume of a paused daily subscription, auto-purchase of a saved cart. Disable bonuses with `apply_topup_bonuses: false`, notification with `notify_user: false`.
+- **Credit only.** There is nothing to debit with — that remains `POST /users/{id}/balance` (low-level adjustment, no idempotency and no notifications).
+- **Per-operation ceiling** — `WEB_API_MANUAL_DEPOSIT_MAX_KOPEKS` (default 1,000,000 kopeks = 10,000 ₽; `0` removes the limit). A safeguard against an agent adding two extra zeros; exceeding it returns `400`.
+- **Verify who was credited from the response.** `{id}` in the path is treated first as Telegram ID, then as internal `user.id`; the response returns both.
+- **The API token is full access.** There are no separate operation permissions: the same token can do everything else in this API. For a support agent, create a separate token, keep it out of the model prompt, and audit `/tokens`.
 
-## 7. Сценарий интеграции веб-админки
+## 7. Web admin integration scenario
 
-1. **Health-check** — перед авторизацией UI вызывает `GET /health`, чтобы отобразить статус и версию бота.
-2. **Настройки UI** — подгружает категории через `GET /settings/categories`, далее выводит форму со значениями из `GET /settings`.
-3. **Статистика дашборда** — `GET /stats/overview` для карточек с показателями.
-4. **Раздел пользователи** — `GET /users` с поиском (`search`), фильтрами по статусу или промо-группе. Для детальной карточки использовать `GET /users/{id}` (в качестве ID можно использовать как внутренний user.id, так и telegram_id пользователя).
-5. **Операции с подпиской** — использовать `POST /subscriptions/{id}/...` эндпоинты для продления, выдачи трафика и устройств.
-6. **Поддержка** — список тикетов (`GET /tickets`), изменение статуса (`POST /tickets/{id}/status`), блокировка ответов (`POST /tickets/{id}/reply-block`).
-7. **История операций** — `GET /transactions` с фильтрами по пользователю, типу и периоду.
+1. **Health-check** — before authorization the UI calls `GET /health` to show bot status and version.
+2. **UI settings** — loads categories via `GET /settings/categories`, then renders a form from `GET /settings`.
+3. **Dashboard statistics** — `GET /stats/overview` for metric cards.
+4. **Users section** — `GET /users` with search (`search`) and filters by status or promo group. For a detail card use `GET /users/{id}` (ID may be internal `user.id` or the user’s `telegram_id`).
+5. **Subscription operations** — use `POST /subscriptions/{id}/...` endpoints for extension, traffic, and devices.
+6. **Support** — ticket list (`GET /tickets`), status change (`POST /tickets/{id}/status`), reply block (`POST /tickets/{id}/reply-block`).
+7. **Operation history** — `GET /transactions` with filters by user, type, and period.
 
-## 8. CORS, безопасность и логирование
+## 8. CORS, security, and logging
 
-- Разрешённые домены указываются в `WEB_API_ALLOWED_ORIGINS`. Для нескольких доменов перечислите их через запятую.
-- Для продакшена рекомендуется отключить публичную документацию (`WEB_API_DOCS_ENABLED=false`).
-- `WEB_API_REQUEST_LOGGING=true` добавляет middleware, которое логирует метод, путь и статус ответа. Используйте его для аудита или отключите в продакшене, если хватает reverse-proxy логов.
-- Все токены хранятся в базе в хешированном виде. Не храните открытые значения в коде.
+- Allowed domains are set in `WEB_API_ALLOWED_ORIGINS`. For several domains, list them comma-separated.
+- In production, disable public documentation (`WEB_API_DOCS_ENABLED=false`).
+- `WEB_API_REQUEST_LOGGING=true` adds middleware that logs method, path, and response status. Use it for audit, or disable it in production if reverse-proxy logs are enough.
+- All tokens are stored in the database hashed. Do not store plaintext values in code.
 
-## 9. Диагностика проблем
+## 9. Troubleshooting
 
-| Симптом | Возможная причина | Что проверить |
-|---------|------------------|---------------|
-| 401 Unauthorized | Неверный или просроченный токен. | Пересоздайте токен через `/tokens` и обновите UI. |
-| 403/404 при работе с настройками | Неверный ключ настройки. | Получите список доступных ключей через `GET /settings`. |
-| 422 Unprocessable Entity | Неверный тип данных в теле запроса. | Проверьте типы (числа, булевы, строки) и формат JSON. |
-| API не стартует | Порт занят или неверные переменные окружения. | Проверьте логи контейнера бота и значения `WEB_API_HOST/PORT`. |
+| Symptom | Possible cause | What to check |
+|---------|----------------|---------------|
+| 401 Unauthorized | Invalid or expired token. | Recreate the token via `/tokens` and update the UI. |
+| 403/404 when working with settings | Wrong setting key. | Get the list of available keys via `GET /settings`. |
+| 422 Unprocessable Entity | Wrong data type in the request body. | Check types (numbers, booleans, strings) and JSON format. |
+| API does not start | Port in use or invalid environment variables. | Check the bot container logs and `WEB_API_HOST`/`PORT` values. |
 
-## 10. Рекомендации по эксплуатации
+## 10. Operations recommendations
 
-- Регулярно ревизируйте список активных токенов и отключайте неиспользуемые.
-- Для внешних админок размещайте API за reverse-proxy (nginx, Caddy, Traefik) с TLS.
-- Включите мониторинг доступности (например, curl на `/health`) в систему наблюдения.
-- Обновляйте бота и админку синхронно, чтобы использовать новые поля API.
+- Regularly review the list of active tokens and disable unused ones.
+- For external admins, place the API behind a reverse proxy (nginx, Caddy, Traefik) with TLS.
+- Enable availability monitoring (for example curl on `/health`) in the observability system.
+- Update the bot and the admin together so new API fields are used.

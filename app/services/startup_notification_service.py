@@ -377,9 +377,10 @@ async def send_bot_startup_notification(bot: Bot) -> bool:
         bool: True если уведомление отправлено успешно
     """
     service = StartupNotificationService(bot)
-    # Прогреваем file_id логотипа до первых рассылок, чтобы ~700КБ файл не
-    # перезаливался на каждой первой отправке (см. баг зависания мониторинга).
-    await service.prewarm_logo()
+    # Прогрев шлёт фото в ЛС админа и сразу удаляет — только когда логотип
+    # реально используется. При ENABLE_LOGO_MODE=false это спам на каждый рестарт.
+    if settings.ENABLE_LOGO_MODE:
+        await service.prewarm_logo()
     return await service.send_startup_notification()
 
 
