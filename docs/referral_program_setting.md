@@ -1,29 +1,34 @@
-# Включение/отключение реферальной программы
+# Enabling and disabling the referral program
 
-## Описание
-Добавлена возможность включать и отключать реферальную программу (партнерку) через переменную окружения.
+## Description
 
-## Настройка
-В файле `.env` установите значение переменной:
+The referral (partner) program can be enabled and disabled through an environment variable.
 
-- `REFERRAL_PROGRAM_ENABLED=true` - реферальная программа включена
-- `REFERRAL_PROGRAM_ENABLED=false` - реферальная программа отключена
+## Configuration
 
-## Поведение
-- При отключенной программе кнопки "Партнерка", "Рефералы" и другие связанные элементы скрываются из главного меню бота
-- Обычные (не реферальные) кнопки продолжают отображаться независимо от настройки
-- Административные функции реферальной программы остаются доступными в админ-панели для управления
-- Настройка также учитывается в API и других сервисах, использующих информацию о реферальной программе
+In `.env`, set:
 
-## Примеры скрываемых элементов
-- Кнопка "🤝 Партнерка" в главном меню
-- Кнопка "👥 Мои рефералы" 
-- Кнопка "🤝 Referral program" (английская версия)
-- Другие элементы, содержащие слова "partner", "referr", "партнер", "реферал"
+- `REFERRAL_PROGRAM_ENABLED=true` — referral program enabled
+- `REFERRAL_PROGRAM_ENABLED=false` — referral program disabled
 
-## Технические детали
-- Новая переменная `REFERRAL_PROGRAM_ENABLED` добавлена в `app/config.py`
-- Метод `is_referral_program_enabled()` проверяет состояние настройки
-- Функция `get_main_menu_keyboard` в `app/keyboards/inline.py` скрывает кнопку "Партнерка" при отключенной программе
-- Сервис `MainMenuButtonService` в `app/services/main_menu_button_service.py` скрывает дополнительные кнопки, связанные с рефералами
-- Обновлен файл `.env.example` с новой настройкой
+## Behavior
+
+- When the program is disabled, **Partners**, **Referrals**, and other related items are hidden from the bot’s main menu
+- Ordinary (non-referral) buttons continue to display regardless of this setting
+- Referral admin functions remain available in the admin panel for management
+- The setting is also respected by the API and other services that use referral-program information
+
+## Examples of hidden items
+
+- **🤝 Partners** button in the main menu
+- **👥 My referrals** button
+- **🤝 Referral program** (English locale)
+- Other items containing the words “partner”, “referr”, “партнер”, or “реферал”
+
+## Technical details
+
+- The new `REFERRAL_PROGRAM_ENABLED` variable was added in `app/config.py`
+- `is_referral_program_enabled()` checks the setting
+- `get_main_menu_keyboard` in `app/keyboards/inline.py` hides the **Partners** button when the program is disabled
+- `MainMenuButtonService` in `app/services/main_menu_button_service.py` hides extra buttons related to referrals
+- `.env.example` was updated with the new setting
