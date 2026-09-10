@@ -44,7 +44,7 @@ from app.services.gift_purchase_service import (
     quote_gift_purchase,
 )
 from app.services.pricing_engine import PricingEngine, pricing_engine
-from app.utils.price_display import user_can_afford
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.services.subscription_checkout_service import clear_subscription_checkout_draft
 from app.services.subscription_purchase_service import (
     MiniAppSubscriptionPurchaseService,
@@ -2727,7 +2727,8 @@ async def try_resume_disabled_daily_after_topup(
     daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
     # Check balance (при 100% скидке — пропускаем)
-    if daily_price > 0 and user.balance_kopeks < daily_price:
+    # daily_price is a catalog price (Toman x 100); the balance is Toman.
+    if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
         logger.info(
             '🔄 Авто-возобновление daily: недостаточно средств',
             format_user_id=_format_user_id(user),
@@ -2762,7 +2763,7 @@ async def try_resume_disabled_daily_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            daily_price,
+            catalog_price_in_toman(daily_price),
             description,
             mark_as_paid_subscription=True,
         )
@@ -2802,7 +2803,7 @@ async def try_resume_disabled_daily_after_topup(
             await add_user_balance(
                 db,
                 user,
-                daily_price,
+                catalog_price_in_toman(daily_price),
                 'Возврат: ошибка авто-возобновления суточной подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,

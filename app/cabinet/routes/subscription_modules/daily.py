@@ -17,6 +17,7 @@ from app.database.crud.tariff import get_tariff_by_id
 from app.database.models import User
 from app.services.subscription_service import SubscriptionService
 from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from .helpers import resolve_subscription
@@ -96,7 +97,8 @@ async def toggle_subscription_pause(
 
     # If resuming, check balance and charge
     if not new_paused_state:
-        if daily_price > 0 and user.balance_kopeks < daily_price:
+        # daily_price is a catalog price (Toman x 100); the balance is Toman.
+        if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -115,7 +117,7 @@ async def toggle_subscription_pause(
                 deducted = await subtract_user_balance(
                     db,
                     user,
-                    daily_price,
+                    catalog_price_in_toman(daily_price),
                     f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                     mark_as_paid_subscription=True,
                 )

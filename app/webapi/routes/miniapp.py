@@ -7526,7 +7526,10 @@ async def toggle_daily_subscription_pause_endpoint(
 
     # Если снимаем с паузы, проверяем баланс и списываем оплату
     if not new_paused_state:
-        if daily_price > 0 and user.balance_kopeks < daily_price:
+        # daily_price — цена каталога (×100), баланс — томаны.
+        from app.utils.price_display import catalog_price_in_toman, user_can_afford
+
+        if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
@@ -7545,7 +7548,7 @@ async def toggle_daily_subscription_pause_endpoint(
                 deducted = await subtract_user_balance(
                     db,
                     user,
-                    daily_price,
+                    catalog_price_in_toman(daily_price),
                     f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                     mark_as_paid_subscription=True,
                     commit=False,
