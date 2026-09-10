@@ -1,359 +1,382 @@
-# Selective upstream patches onto `main` (remnabot)
+# Selective upstream patches onto `main`
 
-**Date:** 2026-09-09
-**Status:** live plan — not started
-**Repo:** `remnabot` (`origin` = `k4lantar4/remnabot.git`, `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot`)
-**Target branch:** **`main`**. `prod-cutover` is fully merged into it and its local refs were
-deleted on 2026-09-10. Branch every task here off `main`.
-**Upstream basis:** re-verified against **v4.8.0** (`1fe2b47a`, 2026-09-09). Originally drafted
-against v4.7.1; see "Upstream moved" below — Plan A tasks 1-2 were rewritten as a result.
+**Status:** active — not started (no task has a commit yet)
+**Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
+`origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
+`BEDOLAGA-DEV/bedolaga-cabinet`.
+**Upstream basis (re-verified 2026-09-10):**
+- `remnabot`: release **v4.8.0** (`1fe2b47a`, = `upstream/main`) **plus `upstream/dev` up to
+  `dc9a7ca7`** (2026-09-10, 20 commits past the release, all triaged below). Upstream ships fixes on
+  `dev` a day or more before a release, so the preflight checks `upstream/dev` too, not only
+  `upstream/main`.
+- `frontend`: release **v1.72.0** (`7200853`, = `upstream/main`; no upstream `dev` branch ahead of
+  it). Our fork is synced to v1.71.1 (merge-base `5ade78f5`).
+**Fork basis:** `remnabot` `origin/main` `aa900324` (PR #16), `frontend` `origin/main` `dc18c0fe`.
+Every file/line reference below was re-checked on those commits.
 
-> Before starting **any** task here, re-run the upstream-freshness preflight in the
-> `plan-execution` skill. Upstream shipped 44 commits in one day between v4.7.1 and v4.8.0 and
-> reversed one of its own fixes in the process. A plan basis goes stale in days, not weeks.
+**Unit of work:** one branch + one PR per sub-plan (A, B, C, D, E), each off `origin/main`, so
+each is reviewable on its own. Tasks inside a sub-plan are commits.
 
-Replaces the abandoned all-at-once `git merge upstream/main` (branch
-`worktree-agent-a9deadb5da0928e72`, 424 files, 155 commits ahead). That merge was technically
-green but mixed merge + BSCHEKER removal + gateway policy + Alembic re-chaining + a bugfix into one
-reviewable unit, which is not maintainable. This plan takes only the fixes that are genuinely
-broken *in our fork*, as small independently-reviewable commits.
+> Before starting **any** task, run the upstream-freshness preflight in `plan-execution`, and also
+> `git log --oneline dc9a7ca7..upstream/dev -- <files of the task>`. Upstream corrected its own
+> expiry fix twice in two days (4.7.1 → 4.8.0 → dev `3513e1db`); a basis goes stale in days.
 
-`remnabot` is ~190 commits behind `upstream/main` (v4.8.0). We are NOT catching up — per workspace
-`CLAUDE.md` we do not auto-merge upstream. The gap growing is expected and is not a reason to
-revisit the merge decision.
-
----
-
-## Verification notes (established 2026-09-09 — do not re-derive)
-
-Every candidate below was checked against `prod-cutover` itself, not taken on trust from the
-candidate table.
-
-- **No candidate carries a migration.** All 11 upstream commits considered touch zero files under
-  `migrations/`. The known Alembic hazard (upstream's `system_error_events` migration also claiming
-  `0111` with `down_revision='0110'`, while we never grafted upstream `0105`–`0110` and our `0111`
-  is a deliberate graft) is therefore **moot for this plan**. **Our head is now `0112`**
-  (`0112_referral_earnings_reward_columns.py`, PR #8, chain `… 0104 → 0111 → 0112`). Any patch
-  added to this plan later that brings a migration must chain onto `0112`, never `0111`.
-- **`968687ce` IS needed on our side.** The earlier finding ("our wholesale path short-circuits in
-  `calculate_user_price`, so no equivalent needed") is correct but too narrow — it only clears the
-  wholesale path. The daily-price path in `app/cabinet/routes/subscription_modules/helpers.py`
-  never calls `calculate_user_price` at all. Our fork carries the bug verbatim: `helpers.py`
-  displays group + promo-offer stacked, while `daily_subscription_service.py` charges group only.
-  Displayed price != charged price for B2C users on daily tariffs.
-- **`841e2bda` must NOT be cherry-picked.** That commit fixes a `NameError`
-  (`dataclasses.asdict` vs `asdict`) that exists *only on the abandoned merge branch*, introduced by
-  its own conflict resolution. `prod-cutover:app/services/pricing_engine.py` still has
-  `import dataclasses` (line 3) and all three call sites use `dataclasses.asdict` (lines 685, 740,
-  895). Cherry-picking it would break working code.
-- **`frontend` is already done.** `frontend` `prod-cutover` *is* commit `dc77a7d9` (BSCHEKER removal).
-  Nothing to merge. Branch `worktree-agent-af3db50c4f08bf7cb` (`9712d786`) is 0 ahead / 24 behind
-  `prod-cutover` — it contains nothing that isn't already there.
-- **Test baseline:** `main` is red at baseline. The current numbers live in exactly one place —
-  `remnabot/CLAUDE.md` → "CI baseline" — so they cannot drift between docs. Compare every failure
-  against that before blaming your own change.
-
-### Branch reality (updated 2026-09-10)
-
-Everything that was waiting has landed. `origin/main` in both repos contains all of `prod-cutover`
-(remnabot PR #5, frontend PR #4), and the recovered WIP is merged too: `0112` migration (#8),
-logo-prewarm gate (#9), loopback Postgres + `{balance}` test (#10), RU→EN docs (#11), runtime
-`locales/` tracked (#7). All code findings in this doc were verified on `prod-cutover`, which is
-now contained in `main`, so they hold for `main`.
-
-### Upstream moved: v4.7.1 -> v4.8.0 (checked 2026-09-09)
-
-44 commits. Impact on this plan, file by file:
-
-| Plan item | Status against v4.8.0 |
-|---|---|
-| Plan A tasks 1-2 (`5b24d67a`, `664ecea7`) | **Rewritten.** `app/services/panel_expiry.py` is **deleted** in 4.8.0 and the 4.7.1 rule was found to be wrong — see below |
-| Plan A task 3 (`23a58172`+`fdebcad1`) | Unchanged. `app/cabinet/auth/email_auth_gate.py` untouched in 4.8.0 — take as planned |
-| Plan B task 4 (`fd9b2ccc`) | `app/services/tariff_switch_policy.py` untouched in 4.8.0 — take as planned |
-| Plan B task 5 (`968687ce`) | `helpers.py` untouched. `daily_subscription_service.py` was touched by `564fec3e` — do task 5 **before** task 8 to keep the diffs readable |
-| **new: `564fec3e`** | New in 4.8.0, adds `app/services/traffic_reset_policy.py`. **Accepted — added as task 8**, and it is the highest-value item found in this whole review |
-| Plan C tasks 6-7 (`aafdb2f2`, `118fe1be`) | Unchanged. `panel_id_is_free_for`, `link_subscription_panel_identity` and `sync_remnawave_user` all still live in `subscription_service.py` in 4.8.0 |
-| `6014b92b` (rejected) | 4.8.0 adds `0d04ae62 fix(settings): настройка из кабинета переживает перезапуск` in the same area. **Rejection stands** — same divergence and same "partner == upstream referral" reasoning |
-
-**Why Plan A tasks 1-2 had to be rewritten.** Upstream's `39097eb9` (in 4.8.0) explicitly names the
-4.7.1 rule as the cause of a new bug: omitting `expireAt` on update is correct only when the panel
-already holds the real, past date. If the panel has drifted and holds a *future* date, silence
-leaves a falsely-alive subscription — panel shows active, bot shows expired. The corrected rule,
-verified by upstream against the panel contract (identical in 3.0.0 and 3.4.3 — and we run 3.4.3):
-
-- panel `POST` accepts any date including past; panel `PATCH` rejects a past date
-  ("Expiration date cannot be in the past");
-- future date -> send it, for live *and* blocked subscriptions (access is closed by status, the date
-  stays truthful);
-- **create** -> send the real date, even a past one (this is what removes "expired a minute ago");
-- **update of an expired subscription** -> panel already holds past/unknown: omit the field; panel
-  holds future: clamp to the nearest allowed moment, once. After that the panel holds a past date
-  and later runs leave it alone, so "expired a minute ago" does not come back every sync.
-
-Implementing the 4.7.1 form would knowingly ship a bug upstream has already diagnosed and fixed.
-
-### Bug presence confirmed in `prod-cutover`
-
-| Patch | Evidence in our fork |
-|---|---|
-| `23a58172` + `fdebcad1` | `app/cabinet/auth/email_auth_gate.py` does not exist; our `auth.py` enforces the flag on **zero** routes (upstream gates 9); `branding.py:1015` has the same `== 'true'` parse bug; the admin toggle at `branding.py:1034` really does write the DB key |
-| `5b24d67a` + `664ecea7` | `max(end_date, now + timedelta(minutes=1))` present at 9 sites across `subscription_service.py`, `monitoring_service.py`, `remnawave_service.py`, `admin_users.py`, `grace_access_runtime.py` |
-| `fd9b2ccc` | `.days` truncation in all three switch flows + unconditional `RESET_TRAFFIC_ON_TARIFF_SWITCH` reset |
-| `968687ce` | present verbatim (see above) |
-| `aafdb2f2` | present |
-| `118fe1be` | `referral_reward_service.py:922` still calls `update_remnawave_user`; `sync_remnawave_user` does not exist |
-| `6014b92b` | real (`admin_partners.py:137-189` writes `.env`) — but **rejected**, see below |
+This plan takes only fixes that are genuinely broken *in our fork*, as small commits. It replaces
+the abandoned all-at-once merge (branch `worktree-agent-a9deadb5da0928e72`). We are not catching up
+with upstream (~192 commits behind `upstream/main`); the gap growing is expected.
 
 ---
 
-## Accept / reject
+## Verification notes (do not re-derive)
 
-**Accept — 8 upstream commits, in this order:**
+- **No accepted patch carries a migration.** Our Alembic head is `0112`
+  (`0112_referral_earnings_reward_columns.py`, chain `… 0104 → 0111 → 0112`, no 0105–0110 files).
+  Anything added later that brings a migration chains onto `0112`. Upstream dev's `76c6385c` adds
+  `0119_tariff_panel_tag_and_trial_days` — rejected, and a reason never to cherry-pick upstream
+  migrations by number.
+- **None of the accepted upstream commits has landed** on `origin/main`: the v4.8.0-era ones are
+  all `+` in `git cherry` with no subject match, and the files/symbols the dev ones add
+  (`is_expire_in_past_error`, `is_stale_external_squad_error`, `addon_cart.py`) are absent.
+- **`841e2bda` must NOT be cherry-picked.** It fixes a `NameError` that exists only on the abandoned
+  merge branch. Our `pricing_engine.py` has `import dataclasses` (line 3) and `dataclasses.asdict`
+  at 685, 740, 895 — working code.
+- **Live display bug found while re-verifying (raises Task 5's priority).** `frontend` already
+  carries upstream cabinet `881e557d` (2026-09-08): `src/components/subscription/purchase/dailyPrice.ts`
+  `dailyPriceQuote` treats `daily_price_kopeks` as "server price, already with the *group*
+  discount" and applies the active promo offer **once more**. Our bot still stacks group +
+  promo-offer into `daily_price_kopeks` (`app/cabinet/routes/subscription_modules/purchase.py:232-245`,
+  and `helpers.py:171-183`). A user with an active promo offer therefore sees the offer applied
+  **twice** on the tariff card, the activation screen and the switch sheet, while
+  `daily_subscription_service.py` charges group-only. Bot `968687ce` is the half we are missing.
+- **Test baseline:** `main` is red; numbers live only in `remnabot/CLAUDE.md` → "CI baseline".
+  Measure in a fresh worktree, never in the live checkout.
 
-| # | Patch | Why |
+### Upstream `dev` past v4.8.0 (`1fe2b47a..dc9a7ca7`, triaged 2026-09-10)
+
+| Commit | Decision | Why |
 |---|---|---|
-| 0 | `564fec3e` (v4.8.0) | **Highest value.** Paying customers get throttled to their limit while paying daily, and LIMITED subscriptions never recover. Do this first — it is the only item actively harming customers who did nothing wrong |
-| 1 | `39097eb9` + `7816e1e9` (v4.8.0 rule, superseding `5b24d67a`) | Ongoing, irreversible data loss: every sync destroys the real expiry date in the panel |
-| 2 | `664ecea7` | Same bug, grace path. Without it #1 is half-done |
-| 3 | `23a58172` + `fdebcad1` | The only genuine security item: our admin toggle looks functional but leaves 8 routes open |
-| 4 | `fd9b2ccc` | Direct revenue loss + unlimited traffic via `A -> B -> A` |
-| 5 | `968687ce` | Displayed != charged; user-trust and support-load problem |
-| 6 | `aafdb2f2` | Admin subscription screen breaks; currently fixed by hand in the DB |
-| 7 | `118fe1be` | User left without a working link, but only on the referral-reward path |
+| `3513e1db` fix(panel-sync): clearing the panel date survives bot/panel clock skew | **Accepted — folded into Task 1** | Corrects the rule Task 1 ports: margin 1 → 5 min, retry at 15 min when the panel rejects the date as past, status-first split. Porting the v4.8.0 form alone would ship a bug upstream reproduced (3 min skew) |
+| `9d786897` fix(remnawave): client vs OpenAPI 3.4.3 | **Partly accepted — Task 9** | We run panel 3.4.3. Our `is_user_not_found_error` (`remnawave_api.py:296-309`) returns true for *any* 404 or `A018` → callers re-create the panel user (duplicates). Bandwidth webhook (`remnawave_webhook_service.py:1846`) reads fields the panel doesn't send → user always sees "80%". Host `tags`/reachability, dead-method removal, `tz` param and the contract-fixture test are not taken (reachability was removed in our fork; the rest is cleanup) |
+| `0009c30b` + `8fe30849` fix(cart): add-on cart survives to purchase | **Accepted — Plan D (Task 10)** | All three causes confirmed in our fork, see Task 10 |
+| `917f3950` fix(sync): 429 no longer fails the to-panel pass | Not taken | Our client already retries 429 with `Retry-After` per request (`remnawave_api.py:516`); the shared pause targets upstream's `panel_sync/runner.py`, which we don't have |
+| `0715b5c7`, `dc9a7ca7` fix(sync): don't hold a DB transaction while talking to the panel | **Deferred — verify first** | Same defect class plausibly exists in our `RemnaWaveService.sync_users_to_panel` (`remnawave_service.py:2617`, one `db` session across 500-row batches), but it is not reproduced here and upstream's fix lives in its runner. Own investigation, not a cherry-pick |
+| `6144e6eb` fix(cabinet): zero = no highlighted period on tariff create | N/A | Our `TariffCreateRequest` has no `highlight_period_days` |
+| `a7d023c8` fix(reachability) | N/A | No reachability module in our fork |
+| `f06959ca`, `76c6385c`, `e17eb67f`, `06ae99af`, `1cb76d8c`, `cddbf296` | Rejected | Features (full-sync-to-panel with panel tags, tariff panel tag + migration `0119`, Telegram tariff editor, squad-name validation, activity trail) |
+| `46a7a1b5`, `d22b0d7e`, `4784029d`, `bd88997b`, `3b5c8d48` | Rejected | Tests/docs/lockfile for the above |
 
-**Reject:**
+### Upstream cabinet v1.71.1 → v1.72.0 (triaged 2026-09-10)
 
-- **`6014b92b`** (partner/ticket settings to DB) — two reasons. (a) Our `admin_partners.py` has
-  diverged: we carry an `is_env_locked` / `ENV_OVERRIDE_KEYS` layer upstream does not have in this
-  shape, so the patch's 98 deleted lines collide with our code. (b) "partner" in that file means
-  upstream's *referral program* (`REFERRAL_REWARD_SCHEME`, `REFERRAL_LEVELS_MODE`), not our B2B
-  نماینده / reseller concept. High review cost, ~zero value for our market. If writing to `.env`
-  ever becomes a real problem, do it as our own change, not as an upstream patch.
-- **`423bbf7d`** (resend verification email) — a new feature, not a fix. The route it adds
-  (`/email/register/resend`) does not exist in our fork. Taking it would inflate Task 3's scope.
-- **`0b622ba5`** (registration throttle + own disposable-domain list) — genuinely useful anti-abuse,
-  but a feature with new config keys, not a fix. **Deferred, not discarded.** Decide after Plan A;
-  the decision depends on whether email registration is actually open in our deployment (open
-  question below).
-- **`841e2bda`** — see verification notes. Would break working code.
+| Commit | Decision | Why |
+|---|---|---|
+| `db7344c0` fix(ui): subscription card no longer overflows on mobile | **Accepted — Plan E** | Buggy code present (`ConnectDeviceTile.tsx:110`, `SubscriptionCardActive.tsx:170,182,192`); long Persian tariff names make it worse for us |
+| `e53803a1` fix(admin): tariff period price may be 0 | **Accepted — Plan E** | Buggy code present (`AdminTariffCreate.tsx:222`, `:612`); our backend already accepts free tariffs |
+| `14832d0d`, `388b974f` best-value period preselect / outline | Not taken | Need `is_highlighted`, which our bot never sends |
+| `57a3d94d` don't query disabled autopay | Not taken | Platega/Lava (RU gateways) only |
 
-**Ordering rationale:** Plans A and C do not touch `pricing_engine.py` / `price_display.py`, so they
-do not collide with uncommitted WIP or the `fix/campaign-promocode-toman` branch. Plan B is the only
-one that enters pricing code and is deliberately sequenced last.
+Upstream cabinet does **not** handle `email_auth_disabled` anywhere — Task 3's frontend half is
+ours to write.
 
 ---
 
-# Plan A — data loss and security
+## Accept list and priority
 
-**Goal:** The Remnawave panel stops having the real end-date of expired subscriptions overwritten
-with "now + 1 minute", and turning email login off in the cabinet actually closes the API instead of
-just hiding the button.
+| # | Upstream | Plan | Why |
+|---|---|---|---|
+| 4 | `564fec3e` | B | **Highest value.** Daily-tariff customers are throttled to their limit while paying, and LIMITED subscriptions never recover |
+| 1 | `39097eb9` + `7816e1e9` + dev `3513e1db` | A | Every sync destroys the real expiry date in the panel (irreversible data loss) |
+| 2 | `664ecea7` | A | Same bug, grace path |
+| 5 | `968687ce` | B | Live double-discounted daily price in the cabinet (see verification notes) |
+| 3 | `23a58172` + `fdebcad1` | A | Security: the admin email-login toggle leaves the API open |
+| 6 | `fd9b2ccc` | B | Revenue loss + unlimited traffic via `A → B → A` switching |
+| 9 | dev `9d786897` (partial) | C | Duplicate panel users on unrelated 404s; wrong % in the traffic warning |
+| 10 | dev `0009c30b` + `8fe30849` | D | Customer tops up for an add-on and it is never bought; the button deletes the cart |
+| 7 | `aafdb2f2` | C | Admin subscription screen breaks; currently fixed by hand in the DB |
+| 8 | `118fe1be` | C | Referral-reward subscription has no working link |
+| 11 | cabinet `db7344c0` + `e53803a1` | E | Mobile card overflow; admin can't price a period at 0 |
 
-## Vs. upstream
+Suggested order of PRs: **A → B → C → D → E**. A and C don't touch pricing; B is the only one in
+pricing code; D touches the hot file `purchase.py`; E is frontend-only and can go any time.
 
-- **Our business logic that must survive untouched:** none of these tasks touch the wholesale /
-  `PartnerStatus` path, `pricing_engine.py`, or `price_display.py`. `grace_access_runtime.py` is
-  changed only at the date-computation points, not in grace policy itself.
-- **Upstream infra reused as-is — do not reimplement:** the expiry rule from
-  `app/services/panel_sync/expiry.py` (v4.8.0) and `app/cabinet/auth/email_auth_gate.py`, as is
-  `BotConfigurationService.deserialize_value` (already present in our fork).
-  **Do not port the whole `app/services/panel_sync/` package.** 4.8.0 refactors seven modules
-  (`identity`, `liveness`, `payload`, `projection`, `runner`, `writer`, `expiry`) out of
-  `subscription_service.py`; adopting that wholesale is a second big-bang merge, exactly what this
-  plan exists to avoid. Take the *rule* from `expiry.py` into a single small module of ours and
-  leave our call sites where they are.
-- **Deferred features this plan must not re-enable:** no payment gateway is touched. `ParityPay` /
-  `TabPay` never enter because we are not merging. `CryptoBot` stays untouched and enabled — it is
-  explicitly *not* part of the Russian-gateway cleanup.
-
-## Tasks
-
-**1. Add our own `panel_expiry.py` carrying the v4.8.0 rule, and route all six panel-write points
-through it** (rule from `39097eb9` + `7816e1e9`, shape of `5b24d67a`).
-Files: `app/services/panel_expiry.py` (new — our module, holding upstream's 4.8.0 *rule*, not
-upstream's `panel_sync/` package layout), `app/services/subscription_service.py` (lines 452, 648,
-819), `app/services/monitoring_service.py:694`, `app/services/remnawave_service.py:327` (delete the
-now-dead `_safe_expire_at_for_panel`), `app/cabinet/routes/admin_users.py` (lines 390, 4280).
-
-Rule to implement (all four branches — do not simplify to the 4.7.1 version):
-- future end date -> send it, for live and for blocked/disabled subscriptions alike;
-- create -> send the real end date, even if it is in the past (panel `POST` accepts past dates);
-- update, expired, panel already holds a past or unknown date -> omit `expireAt` entirely;
-- update, expired, panel holds a future date -> clamp once to the nearest allowed moment.
-
-The last branch needs the panel's current value, which arrives in the `PATCH` response — a second
-request goes out only on an actual mismatch. Verify that against our `app/external/remnawave_api.py`
-client before assuming the response is available at each call site; this is the part most likely to
-need adaptation on our side.
-
-**2. Same rule in the grace path** (from `664ecea7`, re-checked against 4.8.0).
-Files: `app/services/grace_access_runtime.py` (lines 1676, 1706).
-Kept separate from Task 1 because the grace flow has its own test path.
-
-**3. Email-auth gate with the correct parser, as one commit** (`23a58172` + `fdebcad1` squashed —
-`fdebcad1` only closes a bug in the file `23a58172` introduces, so splitting them on our fork is
-meaningless).
-Files: `app/cabinet/auth/email_auth_gate.py` (new), `app/cabinet/routes/auth.py` (8 of upstream's 9
-routes — we lack `/email/register/resend`, which belongs to the rejected `423bbf7d`),
-`app/cabinet/routes/branding.py` (fix the `== 'true'` parse in `get_email_auth_enabled`, use the
-shared key), `app/cabinet/routes/account_linking.py:88`.
-
-## Persian / i18n
-
-- Tasks 1 and 2: no user-visible strings (admin logs only) -> no locale changes.
-- **Task 3: yes.** The gate returns `403` with `{'code': 'email_auth_disabled', 'message': ...}` and
-  the frontend does not handle that code at all today (`grep email_auth_disabled frontend/src` ->
-  zero hits). Required: a new key in **both** `frontend/src/locales/en.json` and
-  `frontend/src/locales/fa.json` for "email login is disabled", plus handling the code in the
-  cabinet error layer. Write natural, everyday Persian rather than mirroring the English sentence;
-  Latin digits (0-9). Per the workspace localization rule, also sanity-check the neighbouring
-  existing Persian keys on the login screen that this change touches.
+**Rejected from the v4.7.1/v4.8.0 review (unchanged):** `6014b92b` (our `admin_partners.py` diverged
+with `is_env_locked`/`ENV_OVERRIDE_KEYS`, and "partner" there means upstream's referral program, not
+our نماینده), `423bbf7d` (feature: resend verification email; route absent here), `841e2bda` (see
+above). **Deferred:** `0b622ba5` (registration throttle) — decide after Plan A, see open question 1.
 
 ---
 
-# Plan B — tariff-switch abuse and daily price
+# Plan A — expiry data loss and email-login security (remnabot, then frontend)
 
-**Goal:** Daily-tariff customers stop being throttled while paying; on the last day of a
-subscription, switching tariffs is no longer free and no longer
-resets traffic to unlimited; and the daily price the cabinet shows is exactly the amount charged
-each day.
+**Goal:** The panel stops having the real end date of expired subscriptions overwritten with
+"now + 1 minute" (and a bot clock running behind the panel no longer leaves a falsely active
+subscription); turning email login off in the cabinet actually closes the API. Both B2C and partner.
 
 ## Vs. upstream
 
-- **Our business logic:** the wholesale path in `pricing_engine.py` (`uses_wholesale_pricing`,
-  `apply_wholesale_discount`, `wholesale_discount_bps`) must not change.
-  **Note a separate gap of ours, found while verifying:** the daily-price path in `helpers.py` never
-  consults wholesale at all, so an approved partner on a daily tariff currently receives the
-  group+offer discount instead of their wholesale discount. This plan only **records** that; fixing
-  it needs a business decision (see open questions) and is its own plan.
-- **Upstream infra reused as-is:** `app/services/tariff_switch_policy.py` and
-  `PricingEngine.daily_group_price` — take them verbatim.
-- **Currency scale — important:** both tasks operate on **catalog scale** (`daily_price_kopeks`,
-  `price_kopeks`) and do not touch `_BALANCE_SCALE_TRANSACTION_TYPES`. Per the default stated in the
-  workspace `CLAUDE.md`, the working assumption is **Phase C is out of scope**: do not widen the
-  dual-scale, and do not attempt the Toman unification inline. If Phase C should be in scope,
-  say so before Plan B starts.
+- **Ours that must survive:** nothing in wholesale / `PartnerStatus` / `pricing_engine.py` /
+  `price_display.py` is touched. `grace_access_runtime.py` changes only at its two date points.
+- **Reused as-is:** the rule from upstream `app/services/panel_sync/expiry.py` **at `dc9a7ca7`**
+  (not at v4.8.0), `is_expire_in_past_error` from `app/external/remnawave_api.py` (`3513e1db`),
+  `app/cabinet/auth/email_auth_gate.py`, `BotConfigurationService.deserialize_value` (already ours).
+  **Do not port the `panel_sync/` package** (identity, liveness, payload, projection, runner, writer,
+  expiry…): that is a second big-bang merge. Take the rule into one small module of ours.
+- **Gateways:** none touched. CryptoBot stays as it is (off, undecided — don't flip it).
 
 ## Tasks
 
-**4. Add `tariff_switch_policy.py` and wire it into all three flows** (from `fd9b2ccc`).
-Files: `app/services/tariff_switch_policy.py` (new),
-`app/cabinet/routes/subscription_modules/tariff_switch.py` (lines 139, 324, 485, 514),
-`app/webapi/routes/miniapp.py` (lines 6570, 6954, 7088, 7185, 7233),
-`app/handlers/subscription/tariff_purchase.py`.
+**1. `app/services/panel_expiry.py` with the dev-`3513e1db` rule, used by all panel-write points.**
+- Files: `app/services/panel_expiry.py` (new), `app/external/remnawave_api.py` (add
+  `is_expire_in_past_error`), `app/services/subscription_service.py` (452, 648, 819),
+  `app/services/monitoring_service.py:694`, `app/services/remnawave_service.py:320-327` (delete the
+  now-dead `_safe_expire_at_for_panel`, caller at 2664), `app/cabinet/routes/admin_users.py`
+  (390, 4280). Test: `tests/services/test_panel_expiry.py` (new; adapt upstream
+  `tests/services/panel_sync/test_expiry.py` + the skew cases of `test_writer.py` at `dc9a7ca7`).
+- Interfaces produced: `panel_expire_at(...)` and `stale_panel_expire_at(...)` (upstream names and
+  semantics from `git show dc9a7ca7:app/services/panel_sync/expiry.py`), constants
+  `MINIMUM_FUTURE = 5 min`, `SKEW_RETRY_MARGIN = 15 min`, already-cleared window
+  `SKEW_RETRY_MARGIN + 4 min`; one async helper `update_panel_user_with_expiry(api, **update_kwargs)`
+  that owns the skew fallback so the six call sites don't each re-implement it;
+  `is_expire_in_past_error(error) -> bool` (400 with `expireAt` in an error `path` or "past" in the
+  message).
+- Rule (all branches — don't simplify):
+  - future end date → send it, for live and blocked/disabled subscriptions alike;
+  - create → send the real end date even if past (panel `POST` accepts past dates);
+  - update, expired, panel holds past/unknown → omit `expireAt`;
+  - update, expired, panel holds future → clamp once to `now + 5 min`; inside the already-cleared
+    window, leave it;
+  - panel rejects the date as past (`is_expire_in_past_error`) → if the date rode with the status
+    in one PATCH, resend without `expireAt` first (status wins), then clear the date separately;
+    a rejected clear retries once at `now + 15 min` with a warning log about clock skew.
+- The "panel holds future" branch needs the panel's current value from the PATCH response — check
+  per call site against our client that it's available; this is the part most likely to need
+  adaptation.
+- Test (logic, failing first): each rule branch, including a 3-minute bot-behind-panel skew.
+- i18n: none (logs only).
 
-> **Highest adaptation risk in this plan.** Our `tariff_purchase.py` has diverged much further than
-> upstream's: against the 52 lines upstream touched, we have ~10 `.days` computation sites and 4
-> `RESET_TRAFFIC_ON_TARIFF_SWITCH` sites (lines 923, 2674, 3438, 3514, 3554, 3704, 3810, 3911, 3918,
-> 4111, 4188, 4206). A clean cherry-pick will not work; adapt by hand. If this outgrows one commit,
-> split here: (a) policy file + cabinet/miniapp flows, (b) bot flow.
+**2. Same rule in the grace path** (`664ecea7`).
+- Files: `app/services/grace_access_runtime.py` (**1688, 1718** — moved from 1676/1706). Test in the
+  existing grace test module.
+- Consumes: `panel_expire_at` / `update_panel_user_with_expiry` from Task 1.
+- i18n: none.
 
-**5. `daily_group_price` as the single source of daily price** (from `968687ce`).
-Files: `app/services/pricing_engine.py` (add `daily_group_price`),
-`app/cabinet/routes/subscription_modules/helpers.py` (lines 171-183 — drop the `_offer_pct`
-stacking), `app/cabinet/routes/subscription_modules/purchase.py`,
-`app/services/daily_subscription_service.py` (lines 152-159).
-
-**8. Daily charge actually resets the traffic counter, and LIMITED subscriptions recover**
-(from `564fec3e`, new in v4.8.0).
-Files: `app/services/traffic_reset_policy.py` (new), `app/services/daily_subscription_service.py`
-(hard-coded `reset_traffic=False` at lines 268, 276, 291; recovery loop at lines 758-834),
-`app/webapi/routes/miniapp.py` (lines 7673, 7681, 7698), plus the cabinet daily-charge path.
-
-Two defects, both confirmed present in our fork:
-
-- The traffic counter of a daily tariff **never** resets — three daily-charge sites hard-code
-  `reset_traffic=False` instead of consulting `RESET_TRAFFIC_ON_PAYMENT`, which every other payment
-  path in the project honours. A paying customer accumulates usage from their first purchase until
-  the panel cuts them off by limit — *while paying every day*. The only workaround today is the
-  per-tariff `traffic_reset_mode`, i.e. pushing the reset onto the panel.
-  Note the special case upstream handles: when the panel already resets the counter daily by itself,
-  do **not** add our own reset, or a calendar day grants two quotas.
-- A subscription that fell into `LIMITED` never comes back. Our recovery loop knows `DISABLED`
-  (line 765) and `EXPIRED` (line 802) but has no `LIMITED` branch. The recovery must run only when
-  the charge will actually reset the counter, otherwise it revives a subscription straight back into
-  the limit.
-
-Rank this **above tasks 4 and 5** if you only have time for one Plan B item: it silently cuts off
-customers who are paying correctly, which is worse than a mispriced display or a switch exploit.
-
-## Persian / i18n
-
-- Task 4: per upstream's own commit message the "you will lose N days" warning text does not change.
-  If the hand-adaptation needs any new string (e.g. "switching on the last day is not free"), that
-  same commit must add the key to **both** `remnabot/locales/en.json` and `remnabot/locales/fa.json`.
-- Task 5: no new keys, but **the displayed number changes** — the Toman amount on the daily-tariff
-  card must be compared against the amount actually charged during the smoke test.
-- Task 8: check whether the LIMITED-recovery path sends the user a notification. Our fork already
-  sends Persian notifications on `DISABLED->ACTIVE` (line 780) and `EXPIRED->ACTIVE` (line 814), so a
-  `LIMITED->ACTIVE` branch needs a matching string in **both** `remnabot/locales/en.json` and
-  `fa.json`, worded to match its two neighbours.
+**3. Email-auth gate with the correct parser — bot, then cabinet** (`23a58172` + `fdebcad1` as one
+bot commit; plus our own frontend commit).
+- Bot files: `app/cabinet/auth/email_auth_gate.py` (new), `app/cabinet/routes/auth.py` (8 of
+  upstream's 9 routes — `/email/register/resend` doesn't exist here; today zero routes check the
+  flag), `app/cabinet/routes/branding.py` (fix the `.lower() == 'true'` parse in
+  `get_email_auth_enabled` at 1017, use the shared key; the admin PATCH at 1031-1037 writes the key
+  and stays), `app/cabinet/routes/account_linking.py:88` (reads the config value, must read the
+  gate). Test: adapt upstream's end-to-end HTTP gate test.
+- Produces: HTTP 403 with `detail = {'code': 'email_auth_disabled', 'message': <English>}`.
+- Frontend files: `src/utils/api-error.ts` (`getApiErrorMessage` today reads only `detail`
+  string/array/`{message}` and never branches on a code — map `email_auth_disabled` to an i18n key),
+  `src/locales/en.json` + `src/locales/fa.json` (new key, e.g. `auth.emailAuthDisabled`). Test:
+  unit test for the mapping in `src/utils`.
+- i18n: the new frontend key in **both** locales — natural Persian, not a mirrored English
+  sentence; Latin digits. Quality-pass the neighbouring Persian keys on the login screen.
+- Cross-repo: bot PR first (the gate only rejects requests for a feature that is switched off),
+  frontend PR second, linked.
 
 ---
 
-# Plan C — panel identity and referral reward
+# Plan B — daily tariffs and tariff switching (remnabot)
 
-**Goal:** A subscription created by an admin tariff switch, and one created as a referral reward,
-are both correctly created/linked in the panel so the user gets a working link.
+**Goal:** Daily-tariff customers stop being throttled while paying; the daily price the cabinet
+shows is exactly what is charged; switching tariffs on the last day is no longer free and no longer
+resets traffic. B2C (partners on daily tariffs: see open question 2).
 
 ## Vs. upstream
 
-- **Our business logic:** none. Both are pure bot<->panel sync plumbing.
-- **Upstream infra reused as-is:** `panel_id_is_free_for`, `link_subscription_panel_identity`,
-  `SubscriptionService.sync_remnawave_user` — take verbatim; they replace 32 inline copies of the
-  same predicate.
-- **Must not be misused:** `118fe1be` touches upstream's **referral** path
-  (`referred_by_id` / `ReferralEarning`). Do not treat this as a foundation for our B2B reseller
-  model — per workspace `CLAUDE.md` those are different concepts. This only fixes a panel-sync bug.
+- **Ours:** `uses_wholesale_pricing`, `apply_wholesale_discount`, `wholesale_discount_bps` in
+  `pricing_engine.py` must not change. Recorded gap, not fixed here: the daily-price path in
+  `helpers.py` never consults wholesale (open question 2).
+- **Reused as-is:** `app/services/traffic_reset_policy.py` (`git show 1fe2b47a:…`),
+  `app/services/tariff_switch_policy.py`, `PricingEngine.daily_group_price`.
+- **Currency:** all three tasks stay on catalog scale (`daily_price_kopeks`, `price_kopeks`) and
+  don't touch `_BALANCE_SCALE_TRANSACTION_TYPES`. Working assumption: **Phase C out of scope** —
+  don't widen the dual scale, don't migrate inline. Say so before Plan B if Phase C is in.
 
 ## Tasks
 
-**6. Populate `subscriptions.remnawave_id` when updating the panel account** (from `aafdb2f2`).
-Files: `app/services/subscription_service.py`, `app/cabinet/routes/admin_users.py`.
+**4. Daily charge resets the traffic counter; LIMITED subscriptions recover** (`564fec3e`).
+- Files: `app/services/traffic_reset_policy.py` (new), `app/services/daily_subscription_service.py`
+  (`reset_traffic=False` hard-coded at 268, 276, 291; `process_auto_resume` loop 758-834 — DISABLED
+  branch at 765, EXPIRED at 802, **no LIMITED branch**), `app/webapi/routes/miniapp.py` (7673, 7681,
+  7698), and the cabinet daily-charge path. Test: adapt upstream's daily reset tests.
+- Rules: honour `RESET_TRAFFIC_ON_PAYMENT` like every other payment path; when the panel already
+  resets the counter daily by itself, don't add ours (else one day grants two quotas); run LIMITED
+  recovery only when this charge actually resets the counter.
+- i18n: **none.** The DISABLED→ACTIVE and EXPIRED→ACTIVE lines (780, 814) are log messages, not
+  user notifications, so a LIMITED→ACTIVE branch is log-only too.
 
-**7. `sync_remnawave_user` choosing between create and update** (from `118fe1be`).
-Files: `app/services/subscription_service.py`, `app/services/referral_reward_service.py` (line 922),
-`app/webapi/routes/miniapp.py`.
+**5. `daily_group_price` as the single source of the daily price** (`968687ce`).
+- Files: `app/services/pricing_engine.py` (add `daily_group_price`),
+  `app/cabinet/routes/subscription_modules/helpers.py` (171-183, drop `_offer_pct` stacking),
+  `app/cabinet/routes/subscription_modules/purchase.py` (232-245, same stacking),
+  `app/services/daily_subscription_service.py` (152-159). Surface parity: grep
+  `apply_stacked_discounts` / `daily_price` in `app/webapi/routes/miniapp.py` and the bot tariff
+  handlers and route them through `daily_group_price` too. Test: failing test that the cabinet's
+  `daily_price_kopeks` equals the amount `daily_subscription_service` charges.
+- Contract with the cabinet (already shipped, `881e557d`): `daily_price_kopeks` = group-discounted
+  only, `original_daily_price_kopeks` = undiscounted; the cabinet applies the promo offer once. Read
+  `968687ce` for what the promo offer applies to when charging (activation vs every day) and make the
+  displayed amounts match that — no frontend change expected.
+- i18n: no new keys; **the displayed Toman number changes** — compare card vs activation vs charge
+  in the smoke test, with and without an active promo offer.
 
-Order matters: 6 before 7 — both edit nearby regions of `subscription_service.py`, and `aafdb2f2`
-comes first in upstream history.
+**6. `tariff_switch_policy.py` in all three switch flows** (`fd9b2ccc`).
+- Files: `app/services/tariff_switch_policy.py` (new),
+  `app/cabinet/routes/subscription_modules/tariff_switch.py` (`.days` 139, 324; reset flag 485,
+  514), `app/webapi/routes/miniapp.py` (`.days` 6570, 6954, 7088; reset flag 7185, 7233),
+  `app/handlers/subscription/tariff_purchase.py`.
+- **Highest adaptation risk.** Hot file, far diverged: `.days` at 923, 2674, 3438, 3514, 3554, 3704,
+  3810, 4111, 4567, 4696, 4987 and `RESET_TRAFFIC_ON_TARIFF_SWITCH` at 3911, 3918, 4188, 4206, 4213,
+  5085, 5163, 5170. Adapt by hand; if too big, split (a) policy + cabinet/miniapp, (b) bot flow.
+  Reference for how it was resolved before: `git diff origin/main...worktree-agent-a9deadb5da0928e72
+  -- <file>`.
+- Test: policy unit tests (last-day switch not free; `A → B → A` doesn't restore traffic).
+- i18n: upstream keeps the "you will lose N days" text; any new string goes into `locales/` **and**
+  `app/localization/locales/` `en.json` + `fa.json`, byte-identical pairs.
 
-## Persian / i18n
+---
 
-Neither task has user-visible strings -> no locale changes.
+# Plan C — panel identity and panel-client errors (remnabot)
+
+**Goal:** Subscriptions created by an admin tariff switch or as a referral reward get a working
+panel link; an unrelated panel 404 no longer creates a duplicate panel user; the traffic warning
+shows the real threshold. B2C and partner alike.
+
+## Vs. upstream
+
+- **Ours:** none — bot ↔ panel plumbing. The panel is fixed (3.4.3); we adapt the bot.
+- **Reused as-is:** `link_subscription_panel_identity`, `SubscriptionService.sync_remnawave_user`,
+  and from `9d786897` the error predicates. We already have a **private**
+  `_panel_id_is_free_for` (`subscription_service.py:347`, called at 279, 404, 508, 1368) — upstream's
+  public `panel_id_is_free_for` is the same predicate: promote ours, don't add a second copy.
+- `118fe1be` touches upstream's **referral** path (`referred_by_id` / `ReferralEarning`) — not a
+  foundation for the B2B reseller model.
+
+## Tasks
+
+**7. Set `subscriptions.remnawave_id` when updating the panel account** (`aafdb2f2`).
+- Files: `app/services/subscription_service.py`, `app/cabinet/routes/admin_users.py`.
+- Produces: public `panel_id_is_free_for`, `link_subscription_panel_identity`.
+- Test: admin tariff switch on a subscription without `remnawave_id` ends with it set. i18n: none.
+
+**8. `sync_remnawave_user` chooses create or update** (`118fe1be`).
+- Files: `app/services/subscription_service.py`, `app/services/referral_reward_service.py:922`
+  (currently `update_remnawave_user`), `app/webapi/routes/miniapp.py`.
+- Consumes Task 7's helpers. Test: reward subscription with no panel user → created. i18n: none.
+
+**9. Panel-client error classification per OpenAPI 3.4.3** (dev `9d786897`, partial).
+- Files: `app/external/remnawave_api.py` — `is_user_not_found_error` (296-309): true only for
+  `errorCode` `A025`/`A063`, or a 404 *without* an error code whose message is one of "user not
+  found" / "user with specified params not found" / "users not found"; keep our
+  `RemnaWaveInvalidUserIdError` early return. Add `is_stale_external_squad_error` (`A018`, `A039`,
+  `A182`, or "external squad not found") and use it in the create (~640) and update (~856) retries,
+  retrying on a **copy** of the payload instead of `data.pop`.
+  `app/services/remnawave_webhook_service.py:1846` — take the percent from
+  `data['lastTriggeredThreshold']` first.
+- Check the callers that branch on it (`admin_users.py:513, 4391`, `remnawave_api.py:721, 868`) still
+  do the right thing. The inline `status_code == 404 → None` lookups (666, 682, 692, 964, 1046) are
+  out of scope unless one leads into re-creation.
+- Order: after Task 1 (both edit the same region of `remnawave_api.py`).
+- Test (failing first): A018 / A118 / A182 / plain 404 are not "user not found"; A025 is; create with
+  a stale external squad retries without it and leaves the caller's dict intact; the bandwidth
+  webhook formats the `lastTriggeredThreshold` value.
+- i18n: `WEBHOOK_SUB_BANDWIDTH_THRESHOLD` text unchanged — quality-pass its `fa` wording while here.
+
+---
+
+# Plan D — add-on cart survives top-up (remnabot)
+
+**Goal:** A customer who tries to buy extra traffic or devices without enough balance, then tops
+up, gets the add-on — automatically, or via "back to checkout" — instead of "cart corrupted" /
+"cart not found". B2C.
+
+## Vs. upstream
+
+- **Ours:** keep `purchase.py` (hot file) to one dispatch branch; the logic lives in upstream's new
+  module `app/handlers/subscription/addon_cart.py`. Payment providers stay frozen: the only payment
+  file touched is the shared post-top-up hook in `app/services/payment/common.py`.
+- **Currency — check before coding:** add-on carts store `price_kopeks` (catalog-scale `final_price`)
+  while subscription carts store `total_price`; `common.py` compares the cart total with the
+  balance. Confirm both keys are on the same scale relative to `balance_kopeks` before treating them
+  as interchangeable. If they're not, stop and ask — that is Phase C territory, not something to
+  paper over with a conversion here.
+
+## Tasks
+
+**10. Add-on carts carry intent, resume from the button, and pass the top-up hook**
+(dev `0009c30b` + `8fe30849`).
+- Confirmed causes on `origin/main`:
+  - the 8 add-on cart saves never set `return_to_cart`, so `has_topup_intent` fails and the silent
+    auto-purchase skips them (`subscription_auto_purchase_service.py:~3500`) — cabinet
+    `subscription_modules/devices.py:198, 473, 755`, `subscription_modules/traffic.py:303, 548`;
+    bot `handlers/subscription/devices.py:409, 1600`, `handlers/subscription/traffic.py:618`;
+  - the "back to checkout" handler requires `period_days` and answers "Корзина повреждена"
+    (`handlers/subscription/purchase.py:1494`), deleting the add-on cart;
+  - `common.py:450` requires `total_price`, which add-on carts don't have.
+- Files: the 8 save sites above, `app/handlers/subscription/addon_cart.py` (new),
+  `app/handlers/subscription/purchase.py` (dispatch `cart_mode in ('add_traffic', 'add_devices')`
+  before the `period_days` check), `app/services/subscription_auto_purchase_service.py` (let the
+  button path run the existing `add_traffic` / `add_devices` handlers at 3175-3177 without the
+  silent gates — the user pressed it), `app/services/payment/common.py:450` (accept `total_price` or
+  `price_kopeks`). Tests: adapt upstream `tests/handlers/test_addon_cart_resume.py` and
+  `tests/services/test_addon_cart_real_purchase.py`, including upstream's guard that every add-on
+  cart save sets the flag.
+- i18n: 5 keys — `ADDON_CART_STILL_INSUFFICIENT`, `ADDON_CART_COMPLETED`, `ADDON_CART_FAILED`,
+  `ADDON_PURCHASE_TRAFFIC_SUCCESS`, `ADDON_PURCHASE_DEVICES_SUCCESS` — in `en.json` + `fa.json`
+  under **both** `locales/` and `app/localization/locales/` (byte-identical). Write the Persian
+  ourselves (upstream's is literal: e.g. «محدودیت جدید» reads better as «سقف جدید»); amounts via
+  `format_price`, Latin digits. Add ru/ua/zh only if a parity test would otherwise newly fail.
+
+---
+
+# Plan E — cabinet cherry-picks (frontend)
+
+**Goal:** The subscription card no longer overflows on mobile; admins can set a tariff period price
+to 0. B2C UI + admin.
+
+## Vs. upstream
+
+- Clean cherry-picks of upstream cabinet `db7344c0` and `e53803a1` (both apply to code unchanged in
+  our fork). No Iran/Toman logic involved; no gateway touched.
+
+## Tasks
+
+**11. Cherry-pick `db7344c0` and `e53803a1`** (two commits, `git cherry-pick -x`).
+- Files: `src/components/dashboard/ConnectDeviceTile.tsx`,
+  `src/components/dashboard/SubscriptionCardActive.tsx`, `src/pages/AdminTariffCreate.tsx`; tests
+  arrive with the commits: `src/components/dashboard/subscriptionCardLayout.test.tsx`,
+  `src/pages/adminTariffFreePeriod.test.tsx`.
+- Test: the two upstream tests must pass (no new failures vs. baseline); plus visual — verify live on
+  panel.rookari.com at phone width with a long Persian tariff name, and create a tariff with a
+  0-priced period. `npm run type-check` + biome clean on touched files.
+- i18n: none.
 
 ---
 
 ## Branch disposition
 
-- **`remnabot` / `worktree-agent-a9deadb5da0928e72` (`c5f4dd32`)** — **keep until Plan C is done,
-  then delete.** 155 commits ahead, 0 behind: it holds the already-conflict-resolved version of
-  every file here. During Task 4's hand-adaptation it is the most valuable reference available —
-  `git diff prod-cutover..worktree-agent-a9deadb5da0928e72 -- <file>` shows how it was resolved
-  before. Do not merge it. Delete after Task 7 so nobody picks it up by mistake; its worktree is not
-  locked, so `git worktree remove` is straightforward.
-- **`frontend` / `worktree-agent-af3db50c4f08bf7cb` (`9712d786`)** — **delete now.** 0 ahead / 24
-  behind `prod-cutover`; contains nothing not already there. It only creates confusion.
-- **`frontend` / `dc77a7d9`** — **no action needed, already done.** It *is* frontend `prod-cutover`.
-  Only push and deploy remain, both explicitly out of scope. Note for smoke testing: because
-  `/opt/project/frontend` sits on `fix/campaign-promocode-toman` and the `cabinet_frontend`
-  container bind-mounts that source, what is live on panel.rookari.com is **not** `prod-cutover`.
+- **`remnabot` / `worktree-agent-a9deadb5da0928e72`** (`c5f4dd32`, 155 ahead / 40 behind
+  `origin/main`) — keep as the conflict-resolution reference for Task 6; delete (with its worktree)
+  once Plan C lands. Never merge it.
+- The frontend branch `worktree-agent-af3db50c4f08bf7cb` is already gone; `dc77a7d9` (BSCHEKER
+  removal) is in `frontend` `origin/main`. The live `frontend` checkout is on `main`, so
+  panel.rookari.com serves `main` unless someone switches it — check before smoke-testing.
 
----
+## Open questions (needed before the affected work)
 
-## Open questions (need a decision before the affected work)
-
-1. **Is email registration actually open in our cabinet?** Determines the fate of the deferred
-   `0b622ba5` and how urgent Task 3 is.
+1. **Is email registration actually open in our cabinet?** Decides the deferred `0b622ba5` and
+   Task 3's urgency.
 2. **Should the wholesale discount apply to daily tariffs?** An approved partner on a daily tariff
-   currently does not get their wholesale discount (found while verifying Plan B). Fixing it needs
-   real policy numbers, which will not be invented here — it becomes its own plan once answered.
-
----
+   gets group + offer, not their wholesale discount. Needs policy numbers — its own plan once
+   answered.
+3. **Phase C for Plans B/D?** Default: out of scope (don't widen the dual scale, don't migrate
+   inline).
 
 ## Smoke test
 
-After **each plan** finishes (not once at the end), generate the checklist fresh with the
-`smoke-test-checklist` skill. It is deliberately not written here: a checklist authored before the
-code exists cannot describe what to actually click — especially for Plan B, whose bot tariff-switch
-flow only takes its final shape after hand-adaptation.
+After **each** sub-plan's PR, generate the checklist with `smoke-test-checklist` — not now; it must
+describe the shipped code (especially Task 6's hand-adapted bot flow and Task 5's changed numbers).
