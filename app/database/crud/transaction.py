@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.models import PaymentMethod, Transaction, TransactionType, User
+from app.utils.price_display import storage_sum_to_display_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -28,6 +29,16 @@ _NON_GATEWAY_METHODS = frozenset(
     }
 )
 REAL_PAYMENT_METHODS = [m.value for m in PaymentMethod if m.value not in _NON_GATEWAY_METHODS]
+
+
+def display_toman_from_type_sums(rows) -> int:
+    """Per-type raw ``amount_kopeks`` sums → one display-Toman total.
+
+    Deposits and other balance-scale types are stored Toman 1:1, catalog types
+    (subscription_payment, gift_payment) ×100 — a single SQL sum across both is
+    meaningless, so callers group by type and convert here.
+    """
+    return sum(storage_sum_to_display_toman(int(total or 0), tx_type) for tx_type, total in rows)
 
 
 # ── Доп. услуги (докупка трафика / устройств) ──────────────────────────────────
@@ -347,7 +358,8 @@ async def get_transactions_statistics(
 
     # Доход считаем по реальным платежам + прямые покупки подписок (лендинги)
     income_result = await db.execute(
-        select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+        select(Transaction.type, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+        .where(
             and_(
                 Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
                 Transaction.is_completed == True,
@@ -356,8 +368,11 @@ async def get_transactions_statistics(
                 Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
             )
         )
+        .group_by(Transaction.type)
     )
-    total_income = income_result.scalar()
+    income_rows = income_result.all()
+    total_income = sum(int(total or 0) for _, total in income_rows)
+    total_income_toman = display_toman_from_type_sums(income_rows)
 
     expenses_result = await db.execute(
         select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
@@ -432,7 +447,8 @@ async def get_transactions_statistics(
 
     # Доход за сегодня — реальные платежи + прямые покупки подписок (лендинги)
     today_income_result = await db.execute(
-        select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+        select(Transaction.type, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+        .where(
             and_(
                 Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
                 Transaction.is_completed == True,
@@ -440,18 +456,30 @@ async def get_transactions_statistics(
                 Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
             )
         )
+        .group_by(Transaction.type)
     )
-    income_today = today_income_result.scalar()
+    today_income_rows = today_income_result.all()
+    income_today = sum(int(total or 0) for _, total in today_income_rows)
 
+    # ``*_kopeks`` keys stay raw storage sums (legacy consumers); ``*_toman`` keys
+    # are display Toman with each transaction type converted on its own scale.
     return {
         'period': {'start_date': start_date, 'end_date': end_date},
         'totals': {
             'income_kopeks': total_income,
+            'income_toman': total_income_toman,
             'expenses_kopeks': total_expenses,
             'profit_kopeks': total_income - total_expenses,
             'subscription_income_kopeks': subscription_income,
+            'subscription_income_toman': storage_sum_to_display_toman(
+                int(subscription_income or 0), TransactionType.SUBSCRIPTION_PAYMENT.value
+            ),
         },
-        'today': {'transactions_count': transactions_today, 'income_kopeks': income_today},
+        'today': {
+            'transactions_count': transactions_today,
+            'income_kopeks': income_today,
+            'income_toman': display_toman_from_type_sums(today_income_rows),
+        },
         'by_type': transactions_by_type,
         'by_payment_method': payment_methods,
     }
@@ -464,6 +492,7 @@ async def get_revenue_by_period(db: AsyncSession, days: int = 30) -> list[dict]:
     result = await db.execute(
         select(
             func.date(Transaction.created_at).label('date'),
+            Transaction.type.label('type'),
             func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
         )
         .where(
@@ -474,11 +503,18 @@ async def get_revenue_by_period(db: AsyncSession, days: int = 30) -> list[dict]:
                 Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
             )
         )
-        .group_by(func.date(Transaction.created_at))
+        .group_by(func.date(Transaction.created_at), Transaction.type)
         .order_by(func.date(Transaction.created_at))
     )
 
-    return [{'date': row.date, 'amount_kopeks': row.amount} for row in result]
+    # amount_kopeks: raw storage sum (legacy); amount_toman: display Toman per type scale.
+    by_date: dict = {}
+    for row in result:
+        amount = int(row.amount or 0)
+        entry = by_date.setdefault(row.date, {'date': row.date, 'amount_kopeks': 0, 'amount_toman': 0})
+        entry['amount_kopeks'] += amount
+        entry['amount_toman'] += storage_sum_to_display_toman(amount, row.type)
+    return list(by_date.values())
 
 
 async def find_tribute_transactions_by_payment_id(

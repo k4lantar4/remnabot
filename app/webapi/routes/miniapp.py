@@ -96,6 +96,7 @@ from app.services.trial_activation_service import (
 )
 from app.services.tribute_service import TributeService
 from app.utils.currency_converter import currency_converter
+from app.utils.price_display import display_transaction_amount_from_storage
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_price_per_month,
@@ -2877,7 +2878,7 @@ def _serialize_transaction(transaction: Transaction) -> MiniAppTransaction:
         id=transaction.id,
         type=transaction.type,
         amount_kopeks=transaction.amount_kopeks,
-        amount_rubles=round(transaction.amount_kopeks / 100, 2),
+        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks, transaction.type), 2),
         description=transaction.description,
         payment_method=transaction.payment_method,
         external_id=transaction.external_id,

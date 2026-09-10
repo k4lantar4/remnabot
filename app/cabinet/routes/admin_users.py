@@ -61,6 +61,7 @@ from app.database.models import (
     WithdrawalRequest,
 )
 from app.services.permission_service import PermissionService
+from app.utils.price_display import balance_from_display_amount, display_transaction_amount_from_storage
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
 
@@ -927,25 +928,7 @@ async def get_user_detail(
     transactions_result = await db.execute(transactions_q)
     transactions = transactions_result.scalars().all()
 
-    _EXPENSE_TYPES = {
-        TransactionType.WITHDRAWAL.value,
-        TransactionType.SUBSCRIPTION_PAYMENT.value,
-        TransactionType.GIFT_PAYMENT.value,
-    }
-
-    recent_transactions = [
-        UserTransactionItem(
-            id=t.id,
-            type=t.type,
-            amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
-            description=t.description,
-            payment_method=t.payment_method,
-            is_completed=t.is_completed,
-            created_at=t.created_at,
-        )
-        for t in transactions
-    ]
+    recent_transactions = [_serialize_admin_transaction(t) for t in transactions]
 
     # Get campaign info
     campaign_name = None
@@ -1253,6 +1236,31 @@ async def get_user_node_usage(
 # === Balance Management ===
 
 
+_ADMIN_EXPENSE_TRANSACTION_TYPES = frozenset(
+    {
+        TransactionType.WITHDRAWAL.value,
+        TransactionType.SUBSCRIPTION_PAYMENT.value,
+        TransactionType.GIFT_PAYMENT.value,
+    }
+)
+
+
+def _serialize_admin_transaction(t: Transaction) -> UserTransactionItem:
+    """Admin transaction row: expenses signed negative; amount_rubles is display Toman
+    on the transaction type's own storage scale (deposit 1:1, subscription_payment ÷100)."""
+    amount = -abs(t.amount_kopeks) if t.type in _ADMIN_EXPENSE_TRANSACTION_TYPES else t.amount_kopeks
+    return UserTransactionItem(
+        id=t.id,
+        type=t.type,
+        amount_kopeks=amount,
+        amount_rubles=display_transaction_amount_from_storage(amount, t.type),
+        description=t.description,
+        payment_method=t.payment_method,
+        is_completed=t.is_completed,
+        created_at=t.created_at,
+    )
+
+
 @router.post('/{user_id}/balance', response_model=UpdateBalanceResponse)
 async def update_user_balance(
     user_id: int,
@@ -1265,6 +1273,8 @@ async def update_user_balance(
 
     - Positive amount: adds to balance
     - Negative amount: subtracts from balance
+    - ``amount_display`` is the Toman the admin typed (credited 1:1); legacy
+      ``amount_kopeks`` is the raw balance storage amount (also Toman 1:1).
     """
     user = await get_user_by_id(db, user_id)
     if not user:
@@ -1275,12 +1285,17 @@ async def update_user_balance(
 
     old_balance = user.balance_kopeks
 
-    if request.amount_kopeks >= 0:
+    if request.amount_display is not None:
+        amount_toman = balance_from_display_amount(request.amount_display)
+    else:
+        amount_toman = request.amount_kopeks
+
+    if amount_toman >= 0:
         # Add balance
         success = await add_user_balance(
             db=db,
             user=user,
-            amount_kopeks=request.amount_kopeks,
+            amount_kopeks=amount_toman,
             description=request.description,
             create_transaction=request.create_transaction,
             transaction_type=TransactionType.DEPOSIT,
@@ -1288,7 +1303,7 @@ async def update_user_balance(
         )
     else:
         # Subtract balance
-        amount_to_subtract = abs(request.amount_kopeks)
+        amount_to_subtract = abs(amount_toman)
         if user.balance_kopeks < amount_to_subtract:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1318,14 +1333,14 @@ async def update_user_balance(
         user_id=user_id,
         old_balance=old_balance,
         balance_kopeks=user.balance_kopeks,
-        amount_kopeks=format(request.amount_kopeks, '+d'),
+        amount_toman=format(amount_toman, '+d'),
     )
 
     return UpdateBalanceResponse(
         success=True,
         old_balance_kopeks=old_balance,
         new_balance_kopeks=user.balance_kopeks,
-        message=f'Balance updated: {old_balance / 100:.2f}₽ -> {user.balance_kopeks / 100:.2f}₽',
+        message=f'Balance updated: {settings.format_balance(old_balance)} -> {settings.format_balance(user.balance_kopeks)}',
     )
 
 
@@ -3418,25 +3433,7 @@ async def get_user_transactions(
     result = await db.execute(query)
     transactions = result.scalars().all()
 
-    _EXPENSE_TYPES = {
-        TransactionType.WITHDRAWAL.value,
-        TransactionType.SUBSCRIPTION_PAYMENT.value,
-        TransactionType.GIFT_PAYMENT.value,
-    }
-
-    items = [
-        UserTransactionItem(
-            id=t.id,
-            type=t.type,
-            amount_kopeks=-abs(t.amount_kopeks) if t.type in _EXPENSE_TYPES else t.amount_kopeks,
-            amount_rubles=-abs(t.amount_kopeks) / 100 if t.type in _EXPENSE_TYPES else t.amount_kopeks / 100,
-            description=t.description,
-            payment_method=t.payment_method,
-            is_completed=t.is_completed,
-            created_at=t.created_at,
-        )
-        for t in transactions
-    ]
+    items = [_serialize_admin_transaction(t) for t in transactions]
 
     return {
         'transactions': items,
@@ -3480,6 +3477,11 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             subtype=t.type,
             title=t.description,
             amount_kopeks=t.amount_kopeks,
+            amount_toman=(
+                display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+                if t.amount_kopeks is not None
+                else None
+            ),
             timestamp=t.created_at,
             meta={'payment_method': t.payment_method, 'is_completed': t.is_completed},
         )

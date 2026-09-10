@@ -15,7 +15,12 @@ from app.database.crud.campaign import get_campaign_statistics, get_campaigns_co
 from app.database.crud.referral import not_referee_directed
 from app.database.crud.server_squad import get_server_statistics
 from app.database.crud.subscription import get_subscriptions_statistics
-from app.database.crud.transaction import REAL_PAYMENT_METHODS, get_revenue_by_period, get_transactions_statistics
+from app.database.crud.transaction import (
+    REAL_PAYMENT_METHODS,
+    display_toman_from_type_sums,
+    get_revenue_by_period,
+    get_transactions_statistics,
+)
 from app.database.models import (
     ReferralEarning,
     Subscription,
@@ -27,6 +32,7 @@ from app.database.models import (
 )
 from app.services.remnawave_service import RemnaWaveService
 from app.services.version_service import version_service
+from app.utils.price_display import display_transaction_amount_from_storage
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -238,8 +244,11 @@ class RecentPaymentsResponse(BaseModel):
 
     payments: list[RecentPaymentItem]
     total_count: int
+    # Raw storage sums across mixed scales (legacy); use the *_toman fields for display.
     total_today_kopeks: int
     total_week_kopeks: int
+    total_today_toman: int = 0
+    total_week_toman: int = 0
 
 
 # ============ Routes ============
@@ -281,8 +290,14 @@ async def get_dashboard_stats(
         income_today_from_chart = sum(
             item.get('amount_kopeks', 0) for item in revenue_data if str(item.get('date', '')) == today_str
         )
+        income_today_toman_from_chart = sum(
+            item.get('amount_toman', 0) for item in revenue_data if str(item.get('date', '')) == today_str
+        )
         # Use chart-derived value if available, otherwise fall back to trans_stats
         income_today_kopeks = income_today_from_chart or trans_stats.get('today', {}).get('income_kopeks', 0)
+        income_today_toman = income_today_toman_from_chart or trans_stats.get('today', {}).get('income_toman', 0)
+        month_totals = trans_stats.get('totals', {})
+        all_time_totals = all_time_stats.get('totals', {})
 
         # Build response
         return DashboardStats(
@@ -300,14 +315,13 @@ async def get_dashboard_stats(
             ),
             financial=FinancialStats(
                 income_today_kopeks=income_today_kopeks,
-                income_today_rubles=income_today_kopeks / 100,
-                income_month_kopeks=trans_stats.get('totals', {}).get('income_kopeks', 0),
-                income_month_rubles=trans_stats.get('totals', {}).get('income_kopeks', 0) / 100,
-                income_total_kopeks=all_time_stats.get('totals', {}).get('income_kopeks', 0),
-                income_total_rubles=all_time_stats.get('totals', {}).get('income_kopeks', 0) / 100,
-                subscription_income_kopeks=abs(all_time_stats.get('totals', {}).get('subscription_income_kopeks', 0)),
-                subscription_income_rubles=abs(all_time_stats.get('totals', {}).get('subscription_income_kopeks', 0))
-                / 100,
+                income_today_rubles=income_today_toman,
+                income_month_kopeks=month_totals.get('income_kopeks', 0),
+                income_month_rubles=month_totals.get('income_toman', 0),
+                income_total_kopeks=all_time_totals.get('income_kopeks', 0),
+                income_total_rubles=all_time_totals.get('income_toman', 0),
+                subscription_income_kopeks=abs(all_time_totals.get('subscription_income_kopeks', 0)),
+                subscription_income_rubles=all_time_totals.get('subscription_income_toman', 0),
             ),
             servers=ServerStats(
                 total_servers=server_stats.get('total_servers', 0),
@@ -322,7 +336,7 @@ async def get_dashboard_stats(
                     if hasattr(item.get('date', ''), 'isoformat')
                     else str(item.get('date', '')),
                     amount_kopeks=item.get('amount_kopeks', 0),
-                    amount_rubles=item.get('amount_kopeks', 0) / 100,
+                    amount_rubles=item.get('amount_toman', 0),
                 )
                 for item in revenue_data
             ],
@@ -922,7 +936,7 @@ async def get_recent_payments(
                     username=user.username,
                     display_name=display_name,
                     amount_kopeks=abs(trans.amount_kopeks),
-                    amount_rubles=abs(trans.amount_kopeks) / 100,
+                    amount_rubles=abs(display_transaction_amount_from_storage(trans.amount_kopeks, trans.type)),
                     type=trans.type,
                     type_display=type_display.get(trans.type, trans.type),
                     payment_method=trans.payment_method,
@@ -945,35 +959,32 @@ async def get_recent_payments(
         )
         total_count = total_count_result.scalar() or 0
 
-        today_total_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
-                and_(
-                    Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
-                    Transaction.is_completed == True,
-                    Transaction.created_at >= today_start,
-                    Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
+        def _income_by_type_since(since: datetime):
+            return (
+                select(Transaction.type, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+                .where(
+                    and_(
+                        Transaction.type.in_(
+                            [TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]
+                        ),
+                        Transaction.is_completed == True,
+                        Transaction.created_at >= since,
+                        Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
+                    )
                 )
+                .group_by(Transaction.type)
             )
-        )
-        total_today = today_total_result.scalar() or 0
 
-        week_total_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
-                and_(
-                    Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
-                    Transaction.is_completed == True,
-                    Transaction.created_at >= week_ago,
-                    Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
-                )
-            )
-        )
-        total_week = week_total_result.scalar() or 0
+        today_rows = (await db.execute(_income_by_type_since(today_start))).all()
+        week_rows = (await db.execute(_income_by_type_since(week_ago))).all()
 
         return RecentPaymentsResponse(
             payments=payment_items,
             total_count=total_count,
-            total_today_kopeks=total_today,
-            total_week_kopeks=total_week,
+            total_today_kopeks=sum(int(total or 0) for _, total in today_rows),
+            total_week_kopeks=sum(int(total or 0) for _, total in week_rows),
+            total_today_toman=display_toman_from_type_sums(today_rows),
+            total_week_toman=display_toman_from_type_sums(week_rows),
         )
 
     except Exception as e:
