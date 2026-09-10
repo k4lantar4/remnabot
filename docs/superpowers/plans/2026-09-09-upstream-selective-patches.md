@@ -404,12 +404,15 @@ to 0. B2C UI + admin.
    answered.
 3. **Phase C for Plans B/D?** Default: out of scope (don't widen the dual scale, don't migrate
    inline).
-4. **Daily charges look 100x off (found during Plan B, pre-existing, latent).** The first-day
-   activation converts the catalog price with `catalog_price_in_toman` (÷100), but the recurring
-   charges — `daily_subscription_service._process_single_charge`, the cabinet / Mini App / bot
-   resumes and `try_resume_disabled_daily_after_topup` — compare `daily_price_kopeks` with the
-   Toman balance and pass it to `subtract_user_balance` unconverted. The dev DB has no daily tariff
-   and no daily transaction, so it has never fired here. Decide: fix now (own PR) or go Phase C.
+4. ~~**Daily charges look 100x off.**~~ **Decided 2026-09-10: fix now, own PR** (branch
+   `fix/daily-charge-toman-scale`). The first-day activation converted the catalog price with
+   `catalog_price_in_toman` (÷100), but the recurring charges —
+   `daily_subscription_service._process_single_charge`, the cabinet / Mini App / bot resumes and
+   `try_resume_disabled_daily_after_topup` (incl. its refund) — compared `daily_price_kopeks` with
+   the Toman balance and passed it to `subtract_user_balance` unconverted. Surfaced live once tariff 9
+   (1,000,000 kopeks = 10,000 Toman/day) was created: its first recurring charges would have taken
+   1,000,000 Toman each. Now all five use `user_can_afford` / `catalog_price_in_toman`, like the
+   activation; transaction records stay on the catalog scale. Phase C would remove the distinction.
 
 ## Smoke test
 
