@@ -382,22 +382,13 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                 ]
 
                 if is_daily:
-                    # Для суточного тарифа показываем цену с учётом скидки промогруппы + promo-offer
-                    raw_daily_kopeks = getattr(tariff, 'daily_price_kopeks', 0)
-                    promo_group = (
-                        db_user.get_primary_promo_group() if hasattr(db_user, 'get_primary_promo_group') else None
-                    )
-                    daily_group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
+                    # Ровно то, что списывается каждый день: только скидка группы. Промокод —
+                    # разовый, при активации (PricingEngine.daily_group_price).
                     from app.services.pricing_engine import PricingEngine
-                    from app.utils.promo_offer import get_user_active_promo_discount_percent
 
-                    daily_offer_pct = get_user_active_promo_discount_percent(db_user)
-                    if daily_group_pct > 0 or daily_offer_pct > 0:
-                        daily_kopeks, _, _ = PricingEngine.apply_stacked_discounts(
-                            raw_daily_kopeks, daily_group_pct, daily_offer_pct
-                        )
-                    else:
-                        daily_kopeks = raw_daily_kopeks
+                    daily_kopeks, _ = PricingEngine.daily_group_price(
+                        getattr(tariff, 'daily_price_kopeks', 0) or 0, db_user
+                    )
                     daily_price = daily_kopeks / 100
                     tariff_info_lines.append(f'Цена: {daily_price:.2f} ₽/день')
 
