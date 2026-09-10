@@ -54,6 +54,7 @@ from app.utils.decorators import admin_required, error_handler
 from app.utils.formatters import format_datetime, format_time_ago
 from app.utils.formatting import user_html_link
 from app.utils.photo_message import safe_edit_or_resend
+from app.utils.price_display import balance_from_display_amount, format_transaction_amount_for_display
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
@@ -61,6 +62,10 @@ from app.utils.user_utils import get_effective_referral_commission_percent
 
 
 logger = structlog.get_logger(__name__)
+
+# Ceiling on one bot admin balance edit, in stored Toman. Kept equal to the stored
+# delta the old ruble-input path allowed (100,000 × 100), so the maximum credit is unchanged.
+_ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000
 
 
 # =============================================================================
@@ -155,7 +160,7 @@ def _build_user_button_text(
     if filter_type == UserFilterType.BALANCE:
         button_text = f'{status_emoji} {sub_emoji} {user.full_name}'
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
         # Use first active subscription from subscriptions list
         first_sub = next((s for s in (getattr(user, 'subscriptions', None) or []) if s.is_active), None)
         if first_sub and first_sub.end_date:
@@ -179,7 +184,7 @@ def _build_user_button_text(
         if filter_type == UserFilterType.BALANCE:
             button_text = f'{status_emoji} {sub_emoji} {short_name}'
             if user.balance_kopeks > 0:
-                button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+                button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
         else:
             button_text = f'{status_emoji} {short_name}'
 
@@ -347,7 +352,7 @@ async def show_users_list(
         button_text = f'{status_emoji} {subscription_emoji} {user.full_name}'
 
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         button_text += f' | 📅 {format_time_ago(user.created_at, db_user.language)}'
 
@@ -358,7 +363,7 @@ async def show_users_list(
 
             button_text = f'{status_emoji} {subscription_emoji} {short_name}'
             if user.balance_kopeks > 0:
-                button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+                button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         keyboard.append([types.InlineKeyboardButton(text=button_text, callback_data=f'admin_user_manage_{user.id}')])
 
@@ -462,7 +467,7 @@ async def show_users_ready_to_renew(
 
         button_text = (
             f'{status_emoji} {subscription_emoji} {user.full_name}'
-            f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            f' | 💰 {settings.format_balance(user.balance_kopeks)}'
             f' | ⏰ {expired_days}д ист.'
         )
 
@@ -471,7 +476,7 @@ async def show_users_ready_to_renew(
             if len(short_name) > 20:
                 short_name = short_name[:17] + '...'
             button_text = (
-                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
             )
 
         keyboard.append(
@@ -583,7 +588,7 @@ async def show_potential_customers(
                 subscription_emoji = '⏰'
 
         button_text = (
-            f'{status_emoji} {subscription_emoji} {user.full_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+            f'{status_emoji} {subscription_emoji} {user.full_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
         )
 
         if len(button_text) > 60:
@@ -591,7 +596,7 @@ async def show_potential_customers(
             if len(short_name) > 20:
                 short_name = short_name[:17] + '...'
             button_text = (
-                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_price(user.balance_kopeks)}'
+                f'{status_emoji} {subscription_emoji} {short_name} | 💰 {settings.format_balance(user.balance_kopeks)}'
             )
 
         keyboard.append(
@@ -801,7 +806,7 @@ async def show_users_statistics(callback: types.CallbackQuery, db_user: User, db
 • Без подписки: {users_without_subscription}
 
 💰 <b>Финансы:</b>
-• Средний баланс: {settings.format_price(int(avg_balance))}
+• Средний баланс: {settings.format_balance(int(avg_balance))}
 
 📈 <b>Регистрации:</b>
 • Сегодня: {stats['new_today']}
@@ -1070,6 +1075,7 @@ async def admin_select_user_subscription(callback: types.CallbackQuery, db_user:
 @admin_required
 @error_handler
 async def show_user_transactions(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     from app.database.crud.transaction import get_user_transactions
@@ -1081,28 +1087,39 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
 
     transactions = await get_user_transactions(db, user_id, limit=10)
 
-    text = '💳 <b>Транзакции пользователя</b>\n\n'
+    text = texts.t('ADMIN_USER_TRANSACTIONS_TITLE', '💳 <b>Транзакции пользователя</b>\n\n')
     user_link = user_html_link(user)
     user_id_display = user.telegram_id or user.email or f'#{user.id}'
     text += f'👤 {user_link} (ID: <code>{user_id_display}</code>)\n'
-    text += f'💰 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+    text += texts.t('ADMIN_USER_TRANSACTIONS_BALANCE', '💰 Текущий баланс: {balance}\n\n').format(
+        balance=settings.format_balance(user.balance_kopeks)
+    )
 
     if transactions:
-        text += '<b>Последние транзакции:</b>\n\n'
+        text += texts.t('ADMIN_USER_TRANSACTIONS_RECENT', '<b>Последние транзакции:</b>\n\n')
 
         for transaction in transactions:
             type_emoji = '📈' if transaction.amount_kopeks > 0 else '📉'
-            text += f'{type_emoji} {settings.format_price(abs(transaction.amount_kopeks))}\n'
+            # deposit/withdrawal are stored Toman 1:1, subscription_payment ×100.
+            amount_text = format_transaction_amount_for_display(
+                transaction.amount_kopeks, transaction.type, settings.format_balance, settings.format_price
+            )
+            text += f'{type_emoji} {amount_text}\n'
             text += f'📋 {html.escape(transaction.description or "")}\n'
             text += f'📅 {format_datetime(transaction.created_at)}\n\n'
     else:
-        text += '📭 <b>Транзакции отсутствуют</b>'
+        text += texts.t('ADMIN_USER_TRANSACTIONS_EMPTY', '📭 <b>Транзакции отсутствуют</b>')
 
     await callback.message.edit_text(
         text,
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='⬅️ К пользователю', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '⬅️ К пользователю'),
+                        callback_data=f'admin_user_manage_{user_id}',
+                    )
+                ]
             ]
         ),
     )
@@ -1214,7 +1231,7 @@ async def process_user_search(message: types.Message, db_user: User, state: FSMC
         button_text += f' | 🆔 {user_id_display}'
 
         if user.balance_kopeks > 0:
-            button_text += f' | 💰 {settings.format_price(user.balance_kopeks)}'
+            button_text += f' | 💰 {settings.format_balance(user.balance_kopeks)}'
 
         if len(button_text) > 60:
             short_name = user.full_name
@@ -1299,7 +1316,7 @@ async def show_user_management(callback: types.CallbackQuery, db_user: User, db:
             username=username_display,
             status=status_text,
             language=user.language,
-            balance=settings.format_price(user.balance_kopeks),
+            balance=settings.format_balance(user.balance_kopeks),
             transactions=profile['transactions_count'],
             registration=format_datetime(user.created_at),
             last_activity=last_activity,
@@ -2261,20 +2278,28 @@ async def set_user_promo_group(callback: types.CallbackQuery, db_user: User, db:
 @admin_required
 @error_handler
 async def start_balance_edit(callback: types.CallbackQuery, db_user: User, state: FSMContext):
+    texts = get_texts(db_user.language)
     user_id = int(callback.data.split('_')[-1])
 
     await state.update_data(editing_user_id=user_id)
 
     await callback.message.edit_text(
-        '💰 <b>Изменение баланса</b>\n\n'
-        'Введите сумму для изменения баланса:\n'
-        '• Положительное число для пополнения\n'
-        '• Отрицательное число для списания\n'
-        '• Примеры: 100, -50, 25.5\n\n'
-        'Или нажмите /cancel для отмены',
+        texts.t('ADMIN_USER_BALANCE_EDIT_TITLE', '💰 <b>Изменение баланса</b>\n\n')
+        + texts.t(
+            'ADMIN_USER_BALANCE_EDIT_PROMPT',
+            'Введите сумму в валюте баланса:\n'
+            '• Положительное число для пополнения\n'
+            '• Отрицательное число для списания\n'
+            '• Примеры: 50000, -20000\n\n'
+            'Или нажмите /cancel для отмены',
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='❌ Отмена', callback_data=f'admin_user_manage_{user_id}')]
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_CANCEL', '❌ Отмена'), callback_data=f'admin_user_manage_{user_id}'
+                    )
+                ]
             ]
         ),
     )
@@ -2411,54 +2436,81 @@ async def process_send_user_message(
 @admin_required
 @error_handler
 async def process_balance_edit(message: types.Message, db_user: User, state: FSMContext, db: AsyncSession):
+    texts = get_texts(db_user.language)
     data = await state.get_data()
     user_id = data.get('editing_user_id')
 
     if not user_id:
-        await message.answer('❌ Ошибка: пользователь не найден')
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
         await state.clear()
         return
 
     try:
-        amount_rubles = float(message.text.replace(',', '.'))
-        amount_kopeks = int(amount_rubles * 100)
+        # users.balance_kopeks is Toman 1:1 — the typed number is credited as-is.
+        amount_toman = balance_from_display_amount(message.text or '')
+    except ValueError:
+        await message.answer(
+            texts.t('ADMIN_USER_BALANCE_INPUT_INVALID', '❌ Введите корректную сумму (например: 50000 или -20000)')
+        )
+        return
 
-        if abs(amount_kopeks) > 10000000:
-            await message.answer('❌ Слишком большая сумма (максимум 100,000 ₽)')
-            return
+    if abs(amount_toman) > _ADMIN_BALANCE_EDIT_MAX_TOMAN:
+        await message.answer(
+            texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ Слишком большая сумма (максимум {max})').format(
+                max=settings.format_balance(_ADMIN_BALANCE_EDIT_MAX_TOMAN, language=db_user.language)
+            )
+        )
+        return
 
-        user_service = UserService()
+    target_user = await get_user_by_id(db, user_id)
+    if not target_user:
+        await message.answer(texts.t('ADMIN_USER_ERROR_GENERIC', '❌ Ошибка: пользователь не найден'))
+        await state.clear()
+        return
 
-        description = f'Изменение баланса администратором {db_user.full_name}'
-        if amount_kopeks > 0:
-            description = f'Пополнение администратором: +{int(amount_rubles)} ₽'
-        else:
-            description = f'Списание администратором: {int(amount_rubles)} ₽'
-
-        success = await user_service.update_user_balance(
-            db, user_id, amount_kopeks, description, db_user.id, bot=message.bot, admin_name=db_user.full_name
+    # The ledger line is shown to the user in their history — write it in their language.
+    ledger_texts = get_texts(target_user.language)
+    ledger_amount = settings.format_balance(abs(amount_toman), language=target_user.language)
+    if amount_toman > 0:
+        description = ledger_texts.t('ADMIN_LEDGER_TOPUP', 'Пополнение администратором: +{amount}').format(
+            amount=ledger_amount
+        )
+    else:
+        description = ledger_texts.t('ADMIN_LEDGER_DEBIT', 'Списание администратором: -{amount}').format(
+            amount=ledger_amount
         )
 
-        if success:
-            action = 'пополнен' if amount_kopeks > 0 else 'списан'
-            await message.answer(
-                f'✅ Баланс пользователя {action} на {settings.format_price(abs(amount_kopeks))}',
-                reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            types.InlineKeyboardButton(
-                                text='👤 К пользователю', callback_data=f'admin_user_manage_{user_id}'
-                            )
-                        ]
-                    ]
-                ),
-            )
-        else:
-            await message.answer('❌ Ошибка изменения баланса (возможно, недостаточно средств для списания)')
+    user_service = UserService()
+    success = await user_service.update_user_balance(
+        db, user_id, amount_toman, description, db_user.id, bot=message.bot, admin_name=db_user.full_name
+    )
 
-    except ValueError:
-        await message.answer('❌ Введите корректную сумму (например: 100 или -50)')
-        return
+    if success:
+        amount_text = settings.format_balance(abs(amount_toman), language=db_user.language)
+        if amount_toman > 0:
+            reply = texts.t('ADMIN_USER_BALANCE_UPDATED_CREDIT', '✅ Баланс пополнен на {amount}')
+        else:
+            reply = texts.t('ADMIN_USER_BALANCE_UPDATED_DEBIT', '✅ С баланса списано {amount}')
+        await message.answer(
+            reply.format(amount=amount_text),
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text=texts.t('ADMIN_USER_PROMO_GROUP_BACK', '👤 К пользователю'),
+                            callback_data=f'admin_user_manage_{user_id}',
+                        )
+                    ]
+                ]
+            ),
+        )
+    else:
+        await message.answer(
+            texts.t(
+                'ADMIN_USER_BALANCE_UPDATE_ERROR',
+                '❌ Ошибка изменения баланса (возможно, недостаточно средств для списания)',
+            )
+        )
 
     await state.clear()
 
@@ -2839,7 +2891,7 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
 
     text += '<b>Основная информация:</b>\n'
     text += f'• Дней с регистрации: {profile["registration_days"]}\n'
-    text += f'• Баланс: {settings.format_price(user.balance_kopeks)}\n'
+    text += f'• Баланс: {settings.format_balance(user.balance_kopeks)}\n'
     text += f'• Транзакций: {profile["transactions_count"]}\n'
     text += f'• Язык: {user.language}\n\n'
 
@@ -4885,7 +4937,7 @@ async def admin_buy_subscription(callback: types.CallbackQuery, db_user: User, d
     target_user_link = user_html_link(target_user)
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
     text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks)}\n\n'
+    text += f'💰 Баланс пользователя: {settings.format_balance(target_user.balance_kopeks)}\n\n'
     traffic_text = 'Безлимит' if (subscription.traffic_limit_gb or 0) <= 0 else f'{subscription.traffic_limit_gb} ГБ'
     devices_limit = subscription.device_limit
     if devices_limit is None:
@@ -4978,7 +5030,7 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
     text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
     text += f'📅 Период подписки: {period_days} дней\n'
     text += f'💰 Стоимость: {settings.format_price(price_kopeks)}\n'
-    text += f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks)}\n\n'
+    text += f'💰 Баланс пользователя: {settings.format_balance(target_user.balance_kopeks)}\n\n'
     traffic_text = 'Безлимит' if (subscription.traffic_limit_gb or 0) <= 0 else f'{subscription.traffic_limit_gb} ГБ'
     devices_limit = subscription.device_limit
     if devices_limit is None:
@@ -5345,7 +5397,7 @@ async def admin_buy_tariff(callback: types.CallbackQuery, db_user: User, db: Asy
     target_user_id_display = target_user.telegram_id or target_user.email or f'#{target_user.id}'
     text = '💳 <b>Покупка тарифа для пользователя</b>\n\n'
     text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
+    text += f'💰 Баланс: {settings.format_balance(target_user.balance_kopeks)}\n\n'
     text += '📦 <b>Выберите тариф:</b>\n\n'
 
     for tariff in tariffs:
@@ -5403,7 +5455,7 @@ async def admin_buy_tariff_period(callback: types.CallbackQuery, db_user: User, 
 
     text = '💳 <b>Покупка тарифа для пользователя</b>\n\n'
     text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
+    text += f'💰 Баланс: {settings.format_balance(target_user.balance_kopeks)}\n\n'
     text += f'📦 <b>Тариф: {html.escape(tariff.name)}</b>\n'
     text += f'📊 Трафик: {traffic}\n'
     text += f'📱 Устройств: {Texts.format_device_limit(tariff.device_limit)}\n'
@@ -5488,7 +5540,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
 
     text = '💳 <b>Подтверждение покупки тарифа</b>\n\n'
     text += f'👤 {target_user_link} (ID: {target_user_id_display})\n'
-    text += f'💰 Баланс: {settings.format_price(target_user.balance_kopeks)}\n\n'
+    text += f'💰 Баланс: {settings.format_balance(target_user.balance_kopeks)}\n\n'
     text += f'📦 <b>Тариф: {html.escape(tariff.name)}</b>\n'
     text += f'📊 Трафик: {traffic}\n'
     text += f'📱 Устройств: {Texts.format_device_limit(tariff.device_limit)}\n'

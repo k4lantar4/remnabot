@@ -148,26 +148,30 @@ class UserService:
         Отправляет уведомление пользователю о пополнении/списании баланса.
         Поддерживает как Telegram, так и email-only пользователей.
         """
+        from app.localization.user_language import resolve_user_facing_language
+
+        texts = get_texts(resolve_user_facing_language(user.language))
+        # Balance and the admin delta are Toman 1:1 — never format_price (÷100).
+        amount_display = texts.format_balance(abs(amount_kopeks))
+        balance_display = texts.format_balance(user.balance_kopeks)
+        signed_amount = f'+{amount_display}' if amount_kopeks > 0 else f'-{amount_display}'
+
         if amount_kopeks > 0:
-            # Пополнение
-            emoji = '💰'
-            amount_text = f'+{settings.format_price(amount_kopeks)}'
-            message = (
-                f'{emoji} <b>Баланс пополнен!</b>\n\n'
-                f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_price(user.balance_kopeks)}\n\n'
-                f'Спасибо за использование нашего сервиса! 🎉'
-            )
+            message = texts.t(
+                'USER_BALANCE_CREDITED_NOTIFY',
+                '💰 <b>Баланс пополнен!</b>\n\n'
+                '💵 <b>Сумма:</b> +{amount}\n'
+                '💳 <b>Текущий баланс:</b> {balance}\n\n'
+                'Спасибо за использование нашего сервиса! 🎉',
+            ).format(amount=amount_display, balance=balance_display)
         else:
-            # Списание
-            emoji = '💸'
-            amount_text = f'-{settings.format_price(abs(amount_kopeks))}'
-            message = (
-                f'{emoji} <b>Средства списаны с баланса</b>\n\n'
-                f'💵 <b>Сумма:</b> {amount_text}\n'
-                f'💳 <b>Текущий баланс:</b> {settings.format_price(user.balance_kopeks)}\n\n'
-                f'Если у вас есть вопросы, обратитесь в поддержку.'
-            )
+            message = texts.t(
+                'USER_BALANCE_DEBITED_NOTIFY',
+                '💸 <b>Средства списаны с баланса</b>\n\n'
+                '💵 <b>Сумма:</b> -{amount}\n'
+                '💳 <b>Текущий баланс:</b> {balance}\n\n'
+                'Если у вас есть вопросы, обратитесь в поддержку.',
+            ).format(amount=amount_display, balance=balance_display)
 
         keyboard_rows = []
         subs = getattr(user, 'subscriptions', None) or []
@@ -188,11 +192,12 @@ class UserService:
         # Use unified notification delivery service
         context = {
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            # *_rubles = display Toman (balance scale 1:1).
+            'amount_rubles': float(amount_kopeks),
             'new_balance_kopeks': user.balance_kopeks,
-            'new_balance_rubles': user.balance_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
-            'formatted_balance': settings.format_price(user.balance_kopeks),
+            'new_balance_rubles': float(user.balance_kopeks),
+            'formatted_amount': signed_amount,
+            'formatted_balance': balance_display,
             # No description - don't expose admin name to user
         }
 
