@@ -3,6 +3,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import UTC, datetime, time
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import ClassVar, Literal
 from urllib.parse import quote as _url_quote, urlparse
@@ -665,6 +666,9 @@ class Settings(BaseSettings):
     CRYPTOBOT_DEFAULT_ASSET: str = 'USDT'
     CRYPTOBOT_ASSETS: str = 'USDT,TON,BTC,ETH'
     CRYPTOBOT_INVOICE_EXPIRES_HOURS: int = 24
+    # Fixed Toman price of 1 USDT, set by the admin (env or admin settings). No default on
+    # purpose and no live exchange API: while unset, CryptoBot renewal invoices are refused.
+    CRYPTOBOT_TOMAN_PER_USDT: float | None = None
 
     HELEKET_ENABLED: bool = False
     HELEKET_DISPLAY_NAME: str = 'Heleket Crypto'
@@ -1485,6 +1489,14 @@ class Settings(BaseSettings):
             )
         if not parsed.hostname:
             raise ValueError('Proxy URL must contain a hostname')
+        return value
+
+    @field_validator('CRYPTOBOT_TOMAN_PER_USDT', mode='before')
+    @classmethod
+    def blank_cryptobot_toman_per_usdt_is_unset(cls, value: object) -> object:
+        # An empty `CRYPTOBOT_TOMAN_PER_USDT=` line means "not set", not a startup parse error.
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
     @field_validator('MAIN_MENU_MODE', mode='before')
@@ -2646,6 +2658,19 @@ class Settings(BaseSettings):
     def get_cryptobot_display_name(self) -> str:
         name = (self.CRYPTOBOT_DISPLAY_NAME or '').strip()
         return name or 'CryptoBot'
+
+    def get_cryptobot_toman_per_usdt(self) -> Decimal | None:
+        """Admin-set Toman price of 1 USDT; None while unset or not a positive number."""
+        raw = self.CRYPTOBOT_TOMAN_PER_USDT
+        if raw is None:
+            return None
+        try:
+            rate = Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            return None
+        if not rate.is_finite() or rate <= 0:
+            return None
+        return rate
 
     def is_heleket_configured(self) -> bool:
         """Есть ли учётные данные провайдера — без учёта флага включения."""

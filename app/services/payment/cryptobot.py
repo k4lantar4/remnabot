@@ -25,6 +25,7 @@ from app.services.subscription_renewal_service import (
 )
 from app.utils.currency_converter import currency_converter
 from app.utils.payment_logger import payment_logger as logger
+from app.utils.price_display import catalog_price_in_toman
 from app.utils.user_utils import format_referrer_info
 
 
@@ -519,10 +520,12 @@ class CryptoBotPaymentMixin:
             pricing_model.period_id = build_renewal_period_id(descriptor.period_days)
 
         # When price drops, recalculate balance portion: total minus the fixed external payment
-        # This ensures the user isn't overcharged from balance when crypto already covers more
+        # This ensures the user isn't overcharged from balance when crypto already covers more.
+        # Scales: final_total is catalog price_kopeks, the descriptor's missing amount is Toman
+        # (calculate_missing_amount), and finalize() charges the balance in Toman.
         required_balance = max(
             0,
-            pricing_model.final_total - descriptor.missing_amount_kopeks,
+            catalog_price_in_toman(pricing_model.final_total) - descriptor.missing_amount_kopeks,
         )
 
         current_balance = getattr(user, 'balance_kopeks', 0)
@@ -576,8 +579,8 @@ class CryptoBotPaymentMixin:
                     error=error,
                 )
 
-        external_amount_label = settings.format_price(descriptor.missing_amount_kopeks)
-        balance_amount_label = settings.format_price(required_balance)
+        external_amount_label = settings.format_balance(descriptor.missing_amount_kopeks)
+        balance_amount_label = settings.format_balance(required_balance)
 
         logger.info(
             'Подписка продлена через CryptoBot invoice (внешний платеж , списано с баланса)',

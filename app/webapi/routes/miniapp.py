@@ -57,6 +57,7 @@ from app.database.models import (
     TransactionType,
     User,
 )
+from app.localization.texts import get_texts
 from app.services.faq_service import FaqService
 from app.services.maintenance_service import maintenance_service
 from app.services.payment_service import PaymentService, get_wata_payment_by_link_id
@@ -366,6 +367,13 @@ def _compute_cryptobot_limits(rate: float) -> tuple[int, int]:
     max_kopeks = int(math.floor(rate * _CRYPTOBOT_MAX_USD * 100))
     max_kopeks = max(max_kopeks, min_kopeks)
     return min_kopeks, max_kopeks
+
+
+def _compute_cryptobot_limits_toman(toman_per_usdt: Decimal) -> tuple[int, int]:
+    """CryptoBot invoice limits in Toman (balance scale) from the admin-set Toman-per-USDT rate."""
+    min_toman = max(1, math.ceil(toman_per_usdt * Decimal(str(_CRYPTOBOT_MIN_USD))))
+    max_toman = math.floor(toman_per_usdt * Decimal(str(_CRYPTOBOT_MAX_USD)))
+    return min_toman, max(max_toman, min_toman)
 
 
 def _current_request_timestamp() -> str:
@@ -4619,21 +4627,21 @@ def _build_renewal_pending_message(
     missing_amount: int,
     method: str,
 ) -> str:
+    """``missing_amount`` is Toman (balance scale), as returned by calculate_missing_amount."""
     language_code = _normalize_language_code(user)
-    amount_label = settings.format_price(max(0, missing_amount))
+    texts = get_texts(language_code)
+    amount_label = settings.format_balance(max(0, missing_amount), language_code)
     method_title = _format_payment_method_title(method)
 
-    if language_code in {'ru', 'fa'}:
-        if method_title:
-            return (
-                f'Недостаточно средств на балансе. Доплатите {amount_label} через {method_title}, '
-                'чтобы завершить продление.'
-            )
-        return f'Недостаточно средств на балансе. Доплатите {amount_label}, чтобы завершить продление.'
-
     if method_title:
-        return f'Not enough balance. Pay the remaining {amount_label} via {method_title} to finish the renewal.'
-    return f'Not enough balance. Pay the remaining {amount_label} to finish the renewal.'
+        return texts.t(
+            'MINIAPP_RENEWAL_PENDING_PAYMENT_VIA',
+            'Not enough balance. Pay the remaining {amount} via {method} to finish the renewal.',
+        ).format(amount=amount_label, method=method_title)
+    return texts.t(
+        'MINIAPP_RENEWAL_PENDING_PAYMENT',
+        'Not enough balance. Pay the remaining {amount} to finish the renewal.',
+    ).format(amount=amount_label)
 
 
 def _parse_period_identifier(identifier: str | None) -> int | None:
@@ -5233,8 +5241,11 @@ async def get_subscription_renewal_options_endpoint(
     if default_period_id and default_period_id in pricing_map:
         selected_pricing = pricing_map[default_period_id]
         final_total = selected_pricing.get('final_total')
-        if isinstance(final_total, int) and balance_kopeks < final_total:
-            missing_amount = final_total - balance_kopeks
+        if isinstance(final_total, int):
+            # Toman shortfall: balance is Toman 1:1, final_total is catalog price_kopeks.
+            missing_toman = calculate_missing_amount(balance_kopeks, final_total)
+            if missing_toman > 0:
+                missing_amount = missing_toman
 
     renewal_autopay_payload = _build_autopay_payload(subscription)
     renewal_autopay_days_before = (
@@ -5254,7 +5265,7 @@ async def get_subscription_renewal_options_endpoint(
         subscription_id=subscription.id,
         currency=currency,
         balance_kopeks=balance_kopeks,
-        balance_label=settings.format_price(balance_kopeks),
+        balance_label=settings.format_balance(balance_kopeks),
         promo_group=promo_group_model,
         promo_offer=promo_offer_payload,
         periods=periods,
@@ -5414,20 +5425,20 @@ async def submit_subscription_renewal_endpoint(
         return MiniAppSubscriptionRenewalResponse(
             message=message,
             balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_price(user.balance_kopeks),
+            balance_label=settings.format_balance(user.balance_kopeks),
             subscription_id=updated_subscription.id,
             renewed_until=updated_subscription.end_date,
         )
 
     if not method:
-        if final_total > 0 and balance_kopeks < final_total:
-            missing = final_total - balance_kopeks
+        # missing_amount is the Toman shortfall (balance scale), not a catalog-kopek difference.
+        if missing_amount > 0:
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
                     'message': 'Not enough funds to renew the subscription',
-                    'missing_amount_kopeks': missing,
+                    'missing_amount_kopeks': missing_amount,
                 },
             )
 
@@ -5450,27 +5461,42 @@ async def submit_subscription_renewal_endpoint(
         if not settings.is_cryptobot_enabled():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Payment method is unavailable')
 
-        rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
-        if missing_amount < min_amount_kopeks:
+        # The invoice is issued in CRYPTOBOT_DEFAULT_ASSET units (currency_type=crypto), and the only
+        # Toman conversion is the admin-set Toman-per-USDT rate: no rate or another asset → refuse.
+        toman_per_usdt = settings.get_cryptobot_toman_per_usdt()
+        asset = (settings.CRYPTOBOT_DEFAULT_ASSET or '').strip().upper()
+        if toman_per_usdt is None or asset != 'USDT':
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Payment method is unavailable')
+
+        # missing_amount is Toman (balance scale); limits come from the USD limits × the fixed rate.
+        min_amount_toman, max_amount_toman = _compute_cryptobot_limits_toman(toman_per_usdt)
+        language_code = _normalize_language_code(user)
+        texts = get_texts(language_code)
+        if missing_amount < min_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail={
                     'code': 'amount_below_minimum',
-                    'message': f'Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)',
+                    'message': texts.t(
+                        'MINIAPP_CRYPTOBOT_AMOUNT_BELOW_MINIMUM',
+                        'The amount is below the CryptoBot minimum ({amount}).',
+                    ).format(amount=settings.format_balance(min_amount_toman, language_code)),
                 },
             )
-        if missing_amount > max_amount_kopeks:
+        if missing_amount > max_amount_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail={
                     'code': 'amount_above_maximum',
-                    'message': f'Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)',
+                    'message': texts.t(
+                        'MINIAPP_CRYPTOBOT_AMOUNT_ABOVE_MAXIMUM',
+                        'The amount exceeds the CryptoBot maximum ({amount}).',
+                    ).format(amount=settings.format_balance(max_amount_toman, language_code)),
                 },
             )
 
         try:
-            decimal_amount = Decimal(missing_amount) / Decimal(100) / Decimal(str(rate))
+            decimal_amount = Decimal(missing_amount) / toman_per_usdt
             amount_usd = float(decimal_amount.quantize(Decimal('0.01'), rounding=ROUND_UP))
         except (InvalidOperation, ValueError) as error:
             raise HTTPException(
@@ -5528,7 +5554,7 @@ async def submit_subscription_renewal_endpoint(
             success=False,
             message=message,
             balance_kopeks=user.balance_kopeks,
-            balance_label=settings.format_price(user.balance_kopeks),
+            balance_label=settings.format_balance(user.balance_kopeks),
             subscription_id=subscription.id,
             requires_payment=True,
             payment_method=method,
