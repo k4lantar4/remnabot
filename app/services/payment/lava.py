@@ -930,7 +930,11 @@ class LavaPaymentMixin:
         from app.database.crud import lava_subscription as sub_crud
 
         try:
-            record = await sub_crud.get_active_lava_subscription_by_subscription(db, subscription_id)
+            # SAVEPOINT: вызывается внутри чужих транзакций (dedup, удаление, мерж). Упавший
+            # запрос (в форке нет таблицы lava_subscriptions — её миграция не перенесена)
+            # в Postgres прерывает всю транзакцию вызывающего; откат к savepoint её сохраняет.
+            async with db.begin_nested():
+                record = await sub_crud.get_active_lava_subscription_by_subscription(db, subscription_id)
             if not record:
                 return
             await self.cancel_lava_recurrent_subscription(db, local_id=record.id, commit=commit)
