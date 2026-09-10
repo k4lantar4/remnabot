@@ -2403,5 +2403,21 @@
   "TOPUP_CUSTOM_AMOUNT_PROMPT": "💳 Enter the top-up amount in chat.\n\nMinimum: {min_amount}",
   "TOPUP_ENTER_CUSTOM_BTN": "✏️ Enter another amount",
   "TOPUP_SUGGESTED_AMOUNT_LINE": "💡 Suggested top-up: {suggested} (rounded up to 1,000)",
-  "USER_RESTRICTION_DEFAULT_REASON": "Действие ограничено администратором"
+  "USER_RESTRICTION_DEFAULT_REASON": "Действие ограничено администратором",
+  "ADMIN_LEDGER_DEBIT": "Списание администратором: -{amount}",
+  "ADMIN_LEDGER_TOPUP": "Пополнение администратором: +{amount}",
+  "ADMIN_USER_BALANCE_EDIT_PROMPT": "Введите сумму в валюте баланса:\n• Положительное число для пополнения\n• Отрицательное число для списания\n• Примеры: 50000, -20000\n\nИли нажмите /cancel для отмены",
+  "ADMIN_USER_BALANCE_EDIT_TITLE": "💰 <b>Изменение баланса</b>\n\n",
+  "ADMIN_USER_BALANCE_INPUT_INVALID": "❌ Введите корректную сумму (например: 50000 или -20000)",
+  "ADMIN_USER_BALANCE_TOO_LARGE": "❌ Слишком большая сумма (максимум {max})",
+  "ADMIN_USER_BALANCE_UPDATED_CREDIT": "✅ Баланс пополнен на {amount}",
+  "ADMIN_USER_BALANCE_UPDATED_DEBIT": "✅ С баланса списано {amount}",
+  "ADMIN_USER_BALANCE_UPDATE_ERROR": "❌ Ошибка изменения баланса (возможно, недостаточно средств для списания)",
+  "ADMIN_USER_ERROR_GENERIC": "❌ Ошибка: пользователь не найден",
+  "ADMIN_USER_TRANSACTIONS_BALANCE": "💰 Текущий баланс: {balance}\n\n",
+  "ADMIN_USER_TRANSACTIONS_EMPTY": "📭 <b>Транзакции отсутствуют</b>",
+  "ADMIN_USER_TRANSACTIONS_RECENT": "<b>Последние транзакции:</b>\n\n",
+  "ADMIN_USER_TRANSACTIONS_TITLE": "💳 <b>Транзакции пользователя</b>\n\n",
+  "USER_BALANCE_CREDITED_NOTIFY": "💰 <b>Баланс пополнен!</b>\n\n💵 <b>Сумма:</b> +{amount}\n💳 <b>Текущий баланс:</b> {balance}\n\nСпасибо за использование нашего сервиса! 🎉",
+  "USER_BALANCE_DEBITED_NOTIFY": "💸 <b>Средства списаны с баланса</b>\n\n💵 <b>Сумма:</b> -{amount}\n💳 <b>Текущий баланс:</b> {balance}\n\nЕсли у вас есть вопросы, обратитесь в поддержку."
 }
