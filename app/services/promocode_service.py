@@ -491,8 +491,10 @@ class PromoCodeService:
         ):
             await add_user_balance(db, user, promocode.balance_bonus_kopeks, f'Бонус по промокоду {promocode.code}')
 
-            balance_bonus_rubles = promocode.balance_bonus_kopeks / 100
-            effects.append(f'💰 Баланс пополнен на {balance_bonus_rubles}₽')
+            # balance_bonus_kopeks is already a Toman amount (see promocodes.py
+            # admin handler) — add_user_balance above credits it 1:1, so display
+            # it 1:1 too, don't divide by 100.
+            effects.append(f'💰 Баланс пополнен на {promocode.balance_bonus_kopeks}₽')
 
         if promocode.type == PromoCodeType.TRIAL_SUBSCRIPTION.value:
             from app.database.crud.subscription import create_trial_subscription
