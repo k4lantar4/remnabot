@@ -1,75 +1,79 @@
-# Сквозная корзина (Persistent Cart) для Remnawave Bedolaga Telegram Bot
+# Persistent cart for Remnawave Bedolaga Telegram Bot
 
-## Общее описание
+## Overview
 
-Система сквозной корзины позволяет пользователям продолжить оформление подписки после пополнения баланса, не теряя уже выбранные параметры (период, трафик, серверы, устройства и т.д.).
+The persistent cart lets users continue subscription checkout after topping up their balance without losing already selected parameters (period, traffic, servers, devices, and so on).
 
-## Архитектура
+## Architecture
 
-### 1. Сервис корзины (UserCartService)
+### 1. Cart service (`UserCartService`)
 
-Расположение: `app/services/user_cart_service.py`
+Location: `app/services/user_cart_service.py`
 
-Использует Redis для хранения данных корзины между сессиями пользователя.
+Uses Redis to store cart data between user sessions.
 
-#### Основные методы:
-- `save_user_cart(user_id, cart_data, ttl)` - сохраняет корзину пользователя
-- `get_user_cart(user_id)` - возвращает данные корзины пользователя
-- `delete_user_cart(user_id)` - удаляет корзину пользователя
-- `has_user_cart(user_id)` - проверяет наличие корзины у пользователя
+#### Main methods:
 
-### 2. Обновленные обработчики подписки
+- `save_user_cart(user_id, cart_data, ttl)` — saves the user’s cart
+- `get_user_cart(user_id)` — returns the user’s cart data
+- `delete_user_cart(user_id)` — deletes the user’s cart
+- `has_user_cart(user_id)` — checks whether the user has a cart
 
-Расположение: `app/handlers/subscription/purchase.py`
+### 2. Updated subscription handlers
 
-#### Основные функции:
-- `save_cart_and_redirect_to_topup` - сохраняет текущую корзину в Redis при недостатке средств и перенаправляет к пополнению
-- `return_to_saved_cart` - восстанавливает параметры подписки из Redis и продолжает процесс оформления
-- `clear_saved_cart` - очищает сохраненную корзину
+Location: `app/handlers/subscription/purchase.py`
 
-### 3. Обновленные клавиатуры
+#### Main functions:
 
-Расположение: `app/keyboards/inline.py`
+- `save_cart_and_redirect_to_topup` — saves the current cart to Redis when funds are insufficient and redirects to top-up
+- `return_to_saved_cart` — restores subscription parameters from Redis and continues checkout
+- `clear_saved_cart` — clears the saved cart
 
-#### Основные изменения:
-- `get_insufficient_balance_keyboard` - добавлена поддержка флага `has_saved_cart` для отображения кнопки возврата к оформлению
-- `get_insufficient_balance_keyboard_with_cart` - обновлена для использования флага `has_saved_cart`
-- `get_main_menu_keyboard` - добавлен параметр `has_saved_cart` для отображения кнопки возврата к оформлению
+### 3. Updated keyboards
 
-### 4. Интеграция с главным меню
+Location: `app/keyboards/inline.py`
 
-Расположение: `app/handlers/menu.py`
+#### Main changes:
 
-Функция `show_main_menu` теперь проверяет наличие сохраненной корзины и отображает соответствующую кнопку.
+- `get_insufficient_balance_keyboard` — added support for the `has_saved_cart` flag to show a return-to-checkout button
+- `get_insufficient_balance_keyboard_with_cart` — updated to use the `has_saved_cart` flag
+- `get_main_menu_keyboard` — added the `has_saved_cart` parameter to show a return-to-checkout button
 
-## Использование
+### 4. Main menu integration
 
-### Сохранение корзины
+Location: `app/handlers/menu.py`
 
-Когда пользователь не может завершить покупку из-за недостатка средств, его параметры автоматически сохраняются в Redis с TTL 1 час.
+`show_main_menu` now checks for a saved cart and shows the corresponding button.
 
-### Восстановление корзины
+## Usage
 
-При пополнении баланса пользователь может вернуться к оформлению подписки, нажав на кнопку "Вернуться к оформлению подписки" или через главное меню, если у него есть сохраненная корзина.
+### Saving the cart
 
-### Очистка корзины
+When a user cannot complete a purchase because of insufficient funds, their parameters are automatically saved in Redis with a 1-hour TTL.
 
-Корзина автоматически очищается после успешного оформления подписки или по запросу пользователя.
+### Restoring the cart
 
-## Тестирование
+After topping up, the user can return to subscription checkout by tapping **Return to subscription checkout** or via the main menu if they have a saved cart.
 
-Тесты расположены в:
-- `tests/test_user_cart_service.py` - модульные тесты сервиса корзины
-- `tests/test_subscription_cart_integration.py` - интеграционные тесты
+### Clearing the cart
 
-## Безопасность
+The cart is cleared automatically after a successful subscription checkout or on the user’s request.
 
-- Данные корзины хранятся в Redis с ограниченным временем жизни (TTL)
-- Используется идентификатор пользователя для изоляции данных
-- Корзина автоматически очищается после успешной покупки
+## Testing
 
-## Масштабируемость
+Tests live in:
 
-- Использование Redis позволяет системе масштабироваться на несколько инстансов бота
-- TTL автоматически очищает старые данные
-- Нагрузка на Redis минимальна благодаря короткому времени хранения данных
+- `tests/test_user_cart_service.py` — unit tests for the cart service
+- `tests/test_subscription_cart_integration.py` — integration tests
+
+## Security
+
+- Cart data is stored in Redis with a limited lifetime (TTL)
+- The user identifier is used to isolate data
+- The cart is cleared automatically after a successful purchase
+
+## Scalability
+
+- Redis lets the system scale across multiple bot instances
+- TTL automatically cleans up old data
+- Redis load is minimal because of the short storage lifetime

@@ -1,23 +1,25 @@
-# Использование API статистики кнопок меню
+# Menu button statistics API usage
 
-## Обзор
+## Overview
 
-Система статистики кликов по кнопкам меню позволяет отслеживать, какие кнопки чаще всего нажимают пользователи.
+The menu button click statistics system tracks which buttons users press most often.
 
-## API Эндпоинты
+## API endpoints
 
-### 1. Логирование клика по кнопке
+### 1. Log a button click
 
 **POST** `/menu-layout/stats/log-click`
 
-**Параметры:**
-- `button_id` (str) - ID кнопки
-- `user_id` (int, optional) - ID пользователя (telegram_id)
-- `callback_data` (str, optional) - callback_data кнопки
-- `button_type` (str, optional) - тип кнопки: `builtin`, `callback`, `url`, `mini_app`
-- `button_text` (str, optional) - текст кнопки на момент клика
+**Parameters:**
 
-**Пример:**
+- `button_id` (str) — button ID
+- `user_id` (int, optional) — user ID (`telegram_id`)
+- `callback_data` (str, optional) — button `callback_data`
+- `button_type` (str, optional) — button type: `builtin`, `callback`, `url`, `mini_app`
+- `button_text` (str, optional) — button text at the time of the click
+
+**Example:**
+
 ```python
 await MenuLayoutService.log_button_click(
     db,
@@ -25,27 +27,29 @@ await MenuLayoutService.log_button_click(
     user_id=123456789,
     callback_data="menu_balance",
     button_type="builtin",
-    button_text="💰 Баланс"
+    button_text="💰 Balance"
 )
 ```
 
-### 2. Получение статистики по конкретной кнопке
+### 2. Get statistics for a specific button
 
 **GET** `/menu-layout/stats/buttons/{button_id}?days=30`
 
-**Возвращает:**
-- `clicks_total` - общее количество кликов
-- `clicks_today` - клики сегодня
-- `clicks_week` - клики за неделю
-- `clicks_month` - клики за месяц
-- `unique_users` - уникальные пользователи
-- `last_click_at` - последний клик
-- `clicks_by_day` - клики по дням
+**Returns:**
 
-**Пример:**
+- `clicks_total` — total click count
+- `clicks_today` — clicks today
+- `clicks_week` — clicks this week
+- `clicks_month` — clicks this month
+- `unique_users` — unique users
+- `last_click_at` — last click
+- `clicks_by_day` — clicks by day
+
+**Example:**
+
 ```python
 stats = await MenuLayoutService.get_button_stats(db, "menu_balance", days=30)
-# Возвращает:
+# Returns:
 # {
 #     "button_id": "menu_balance",
 #     "clicks_total": 150,
@@ -57,79 +61,83 @@ stats = await MenuLayoutService.get_button_stats(db, "menu_balance", days=30)
 # }
 ```
 
-### 3. Получение общей статистики по всем кнопкам
+### 3. Get overall statistics for all buttons
 
 **GET** `/menu-layout/stats?days=30`
 
-**Возвращает:**
-- `items` - список статистики по каждой кнопке
-- `total_clicks` - общее количество кликов
-- `period_start` - начало периода
-- `period_end` - конец периода
+**Returns:**
 
-**Пример:**
+- `items` — statistics list for each button
+- `total_clicks` — total click count
+- `period_start` — period start
+- `period_end` — period end
+
+**Example:**
+
 ```python
 all_stats = await MenuLayoutService.get_all_buttons_stats(db, days=30)
 total = await MenuLayoutService.get_total_clicks(db, days=30)
 ```
 
-## Автоматическое логирование
+## Automatic logging
 
-✅ **Логирование кликов происходит автоматически!**
+**Button clicks are logged automatically.**
 
-Все клики по кнопкам автоматически логируются через `ButtonStatsMiddleware`. Middleware перехватывает все `CallbackQuery` события и логирует их в базу данных.
+All button clicks are logged through `ButtonStatsMiddleware`. The middleware intercepts every `CallbackQuery` event and writes it to the database.
 
-### Как это работает
+### How it works
 
-1. При каждом клике по кнопке middleware автоматически:
-   - Извлекает `callback_data` (используется как `button_id`)
-   - Получает `user_id` из события
-   - Определяет тип кнопки (`builtin`, `callback`, `url`)
-   - Извлекает текст кнопки из клавиатуры (если доступен)
-   - Логирует в базу данных асинхронно (не блокирует обработку)
+1. On every button click the middleware automatically:
+   - extracts `callback_data` (used as `button_id`)
+   - gets `user_id` from the event
+   - determines the button type (`builtin`, `callback`, `url`)
+   - extracts button text from the keyboard (if available)
+   - logs to the database asynchronously (does not block handling)
 
-2. Middleware активируется автоматически, если `MENU_LAYOUT_ENABLED=True`
+2. The middleware is enabled automatically when `MENU_LAYOUT_ENABLED=True`
 
-3. Логирование происходит в фоновом режиме и не влияет на производительность
+3. Logging runs in the background and does not affect performance
 
-### Ручное логирование (опционально)
+### Manual logging (optional)
 
-Если нужно логировать клики вручную (например, для внешних интеграций), можно использовать API:
+If you need to log clicks manually (for example for external integrations), use the API:
 
 ```python
-# Через сервис
+# Via the service
 await MenuLayoutService.log_button_click(
     db,
     button_id="custom_button",
     user_id=user_id,
     callback_data="custom_callback",
     button_type="callback",
-    button_text="Кастомная кнопка"
+    button_text="Custom button"
 )
 
-# Или через API эндпоинт
+# Or via the API endpoint
 POST /menu-layout/stats/log-click
 {
     "button_id": "custom_button",
     "user_id": 123456789,
     "callback_data": "custom_callback",
     "button_type": "callback",
-    "button_text": "Кастомная кнопка"
+    "button_text": "Custom button"
 }
 ```
 
-### 4. Статистика по типам кнопок
+### 4. Statistics by button type
 
 **GET** `/menu-layout/stats/by-type?days=30`
 
-**Возвращает:**
-- Статистику кликов по каждому типу кнопок (builtin, callback, url, mini_app)
-- Общее количество кликов по типам
+**Returns:**
 
-**Пример:**
+- Click statistics for each button type (`builtin`, `callback`, `url`, `mini_app`)
+- Total clicks by type
+
+**Example:**
+
 ```python
 stats = await MenuLayoutService.get_stats_by_button_type(db, days=30)
-# Возвращает:
+# Returns:
 # [
 #     {"button_type": "builtin", "clicks_total": 500, "unique_users": 100},
 #     {"button_type": "callback", "clicks_total": 200, "unique_users": 50},
@@ -137,21 +145,24 @@ stats = await MenuLayoutService.get_stats_by_button_type(db, days=30)
 # ]
 ```
 
-### 5. Статистика по часам дня
+### 5. Statistics by hour of day
 
 **GET** `/menu-layout/stats/by-hour?button_id=menu_balance&days=30`
 
-**Параметры:**
-- `button_id` (optional) - ID кнопки для фильтрации
-- `days` (default: 30) - период в днях
+**Parameters:**
 
-**Возвращает:**
-- Распределение кликов по часам дня (0-23)
+- `button_id` (optional) — button ID to filter by
+- `days` (default: 30) — period in days
 
-**Пример:**
+**Returns:**
+
+- Click distribution by hour of day (0–23)
+
+**Example:**
+
 ```python
 stats = await MenuLayoutService.get_clicks_by_hour(db, button_id="menu_balance", days=30)
-# Возвращает:
+# Returns:
 # [
 #     {"hour": 9, "count": 50},
 #     {"hour": 10, "count": 75},
@@ -159,66 +170,74 @@ stats = await MenuLayoutService.get_clicks_by_hour(db, button_id="menu_balance",
 # ]
 ```
 
-### 6. Статистика по дням недели
+### 6. Statistics by weekday
 
 **GET** `/menu-layout/stats/by-weekday?button_id=menu_balance&days=30`
 
-**Возвращает:**
-- Распределение кликов по дням недели (0=понедельник, 6=воскресенье)
+**Returns:**
 
-**Пример:**
+- Click distribution by weekday (0 = Monday, 6 = Sunday)
+
+**Example:**
+
 ```python
 stats = await MenuLayoutService.get_clicks_by_weekday(db, button_id="menu_balance", days=30)
-# Возвращает:
+# Returns:
 # [
-#     {"weekday": 0, "weekday_name": "Понедельник", "count": 100},
-#     {"weekday": 1, "weekday_name": "Вторник", "count": 120},
+#     {"weekday": 0, "weekday_name": "Monday", "count": 100},
+#     {"weekday": 1, "weekday_name": "Tuesday", "count": 120},
 #     ...
 # ]
 ```
 
-### 7. Топ пользователей по кликам
+### 7. Top users by clicks
 
 **GET** `/menu-layout/stats/top-users?button_id=menu_balance&limit=10&days=30`
 
-**Параметры:**
-- `button_id` (optional) - ID кнопки для фильтрации
-- `limit` (default: 10) - количество пользователей
-- `days` (default: 30) - период в днях
+**Parameters:**
 
-**Возвращает:**
-- Список пользователей с наибольшим количеством кликов
+- `button_id` (optional) — button ID to filter by
+- `limit` (default: 10) — number of users
+- `days` (default: 30) — period in days
 
-**Пример:**
+**Returns:**
+
+- Users with the highest click counts
+
+**Example:**
+
 ```python
 top_users = await MenuLayoutService.get_top_users(db, button_id="menu_balance", limit=10, days=30)
-# Возвращает:
+# Returns:
 # [
 #     {"user_id": 123456789, "clicks_count": 50, "last_click_at": datetime(...)},
 #     ...
 # ]
 ```
 
-### 8. Сравнение периодов
+### 8. Period comparison
 
 **GET** `/menu-layout/stats/compare?button_id=menu_balance&current_days=7&previous_days=7`
 
-**Параметры:**
-- `button_id` (optional) - ID кнопки для фильтрации
-- `current_days` (default: 7) - период текущего сравнения
-- `previous_days` (default: 7) - период предыдущего сравнения
+**Parameters:**
 
-**Возвращает:**
-- Сравнение текущего и предыдущего периода
-- Изменение в абсолютных числах и процентах
-- Тренд (up/down/stable)
+- `button_id` (optional) — button ID to filter by
+- `current_days` (default: 7) — current comparison period
+- `previous_days` (default: 7) — previous comparison period
 
-**Пример:**
+**Returns:**
+
+- Comparison of the current and previous periods
+- Change in absolute numbers and percent
+- Trend (`up` / `down` / `stable`)
+
+**Example:**
+
 ```python
 comparison = await MenuLayoutService.get_period_comparison(
     db, button_id="menu_balance", current_days=7, previous_days=7
 )
-# Возвращает:
+# Returns:
 # {
 #     "current_period": {"clicks": 100, "days": 7, ...},
 #     "previous_period": {"clicks": 80, "days": 7, ...},
@@ -226,34 +245,36 @@ comparison = await MenuLayoutService.get_period_comparison(
 # }
 ```
 
-### 9. Последовательности кликов пользователя
+### 9. User click sequences
 
 **GET** `/menu-layout/stats/users/{user_id}/sequences?limit=50`
 
-**Параметры:**
-- `user_id` (path) - ID пользователя
-- `limit` (default: 50) - максимальное количество записей
+**Parameters:**
 
-**Возвращает:**
-- Хронологическую последовательность кликов пользователя
+- `user_id` (path) — user ID
+- `limit` (default: 50) — maximum number of records
 
-**Пример:**
+**Returns:**
+
+- Chronological sequence of the user’s clicks
+
+**Example:**
+
 ```python
 sequences = await MenuLayoutService.get_user_click_sequences(db, user_id=123456789, limit=50)
-# Возвращает:
+# Returns:
 # [
-#     {"button_id": "menu_balance", "button_text": "💰 Баланс", "clicked_at": datetime(...)},
-#     {"button_id": "menu_subscription", "button_text": "📊 Подписка", "clicked_at": datetime(...)},
+#     {"button_id": "menu_balance", "button_text": "💰 Balance", "clicked_at": datetime(...)},
+#     {"button_id": "menu_subscription", "button_text": "📊 Subscription", "clicked_at": datetime(...)},
 #     ...
 # ]
 ```
 
-## Важные замечания
+## Important notes
 
-1. **Автоматическое логирование**: Все клики по кнопкам логируются автоматически через `ButtonStatsMiddleware`
-2. **Требуется авторизация**: API эндпоинты для получения статистики требуют токен авторизации (`require_api_token`)
-3. **button_id**: Используется `callback_data` кнопки как идентификатор
-4. **Производительность**: Логирование выполняется асинхронно в фоне и не блокирует обработку запросов
-5. **Активация**: Middleware работает только если `MENU_LAYOUT_ENABLED=True` в настройках
-6. **Временные зоны**: Все временные метрики используют локальное время сервера
-
+1. **Automatic logging:** all button clicks are logged automatically through `ButtonStatsMiddleware`
+2. **Authorization required:** statistics API endpoints require an auth token (`require_api_token`)
+3. **button_id:** the button’s `callback_data` is used as the identifier
+4. **Performance:** logging runs asynchronously in the background and does not block request handling
+5. **Activation:** the middleware runs only if `MENU_LAYOUT_ENABLED=True` in settings
+6. **Time zones:** all time metrics use the server’s local time

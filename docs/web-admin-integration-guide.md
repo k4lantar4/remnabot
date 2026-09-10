@@ -1,32 +1,31 @@
-# Руководство по интеграции WebSocket и Webhooks в веб-админку
+# Guide to integrating WebSocket and webhooks into the web admin
 
-## Содержание
+## Contents
 
-1. [Обзор](#обзор)
-2. [Настройка WebSocket подключения](#настройка-websocket-подключения)
-3. [Интеграция WebSocket в дашборд](#интеграция-websocket-в-дашборд)
-4. [Управление Webhooks через API](#управление-webhooks-через-api)
-5. [UI компоненты для Webhooks](#ui-компоненты-для-webhooks)
-6. [Примеры реализации](#примеры-реализации)
-7. [Обработка ошибок](#обработка-ошибок)
-8. [Тестирование](#тестирование)
-
----
-
-## Обзор
-
-Веб-админка может использовать два механизма для получения обновлений:
-
-1. **WebSocket** - для real-time обновлений в интерфейсе (новые пользователи, платежи, тикеты)
-2. **Webhooks** - для настройки внешних интеграций (отправка событий на внешние серверы)
+1. [Overview](#overview)
+2. [Setting up the WebSocket connection](#setting-up-the-websocket-connection)
+3. [Integrating WebSocket into the dashboard](#integrating-websocket-into-the-dashboard)
+4. [Managing webhooks through the API](#managing-webhooks-through-the-api)
+5. [UI components for webhooks](#ui-components-for-webhooks)
+6. [Error handling](#error-handling)
+7. [Testing](#testing)
 
 ---
 
-## Настройка WebSocket подключения
+## Overview
 
-### Шаг 1: Создать WebSocket менеджер
+The web admin can use two mechanisms to receive updates:
 
-Создайте утилиту для управления WebSocket подключением:
+1. **WebSocket** — real-time UI updates (new users, payments, tickets)
+2. **Webhooks** — configuring external integrations (sending events to external servers)
+
+---
+
+## Setting up the WebSocket connection
+
+### Step 1: Create a WebSocket manager
+
+Create a utility to manage the WebSocket connection:
 
 ```typescript
 // utils/websocket.ts
@@ -77,7 +76,7 @@ class WebSocketManager {
       this.attemptReconnect(url);
     };
 
-    // Ping для keepalive каждые 30 секунд
+    // Keepalive ping every 30 seconds
     setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'ping' }));
@@ -87,7 +86,7 @@ class WebSocketManager {
 
   private handleMessage(data: any): void {
     if (data.type === 'pong') {
-      return; // Игнорируем pong
+      return; // Ignore pong
     }
 
     if (data.type === 'connection') {
@@ -95,7 +94,7 @@ class WebSocketManager {
       return;
     }
 
-    // Эмитим событие по типу
+    // Emit an event by type
     this.emit(data.type, data.payload);
   }
 
@@ -156,10 +155,10 @@ class WebSocketManager {
 export default WebSocketManager;
 ```
 
-### Шаг 2: Инициализация в приложении
+### Step 2: Initialize in the application
 
 ```typescript
-// App.tsx или main.tsx
+// App.tsx or main.tsx
 import { useEffect, useState } from 'react';
 import WebSocketManager from './utils/websocket';
 import { getApiToken } from './utils/auth';
@@ -176,38 +175,38 @@ function App() {
 
     const manager = new WebSocketManager(token);
     const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws';
-    
+
     manager.connect(wsUrl);
     setWsManager(manager);
 
-    // Обработка событий
+    // Event handling
     manager.on('user.created', (payload) => {
       console.log('New user created:', payload);
-      // Обновить список пользователей
-      // Показать уведомление
+      // Refresh the user list
+      // Show a notification
     });
 
     manager.on('payment.completed', (payload) => {
       console.log('Payment completed:', payload);
-      // Обновить статистику
-      // Обновить баланс пользователя
+      // Refresh statistics
+      // Refresh the user balance
     });
 
     manager.on('ticket.created', (payload) => {
       console.log('New ticket created:', payload);
-      // Обновить список тикетов
-      // Показать уведомление
+      // Refresh the ticket list
+      // Show a notification
     });
 
     manager.on('ticket.status_changed', (payload) => {
       console.log('Ticket status changed:', payload);
-      // Обновить статус тикета в списке
+      // Update the ticket status in the list
     });
 
     manager.on('ticket.message_added', (payload) => {
       console.log('New message in ticket:', payload);
-      // Обновить список сообщений в тикете
-      // Показать уведомление о новом сообщении
+      // Refresh the message list in the ticket
+      // Show a notification about the new message
     });
 
     return () => {
@@ -216,16 +215,16 @@ function App() {
   }, []);
 
   return (
-    // Ваш компонент приложения
+    // Your application component
   );
 }
 ```
 
 ---
 
-## Интеграция WebSocket в дашборд
+## Integrating WebSocket into the dashboard
 
-### Шаг 1: Создать React Hook для WebSocket
+### Step 1: Create a React hook for WebSocket
 
 ```typescript
 // hooks/useWebSocket.ts
@@ -253,7 +252,7 @@ export function useWebSocketEvent<T = any>(eventType: string) {
   return data;
 }
 
-// Использование в компоненте
+// Usage in a component
 function Dashboard() {
   const newUser = useWebSocketEvent('user.created');
   const newPayment = useWebSocketEvent('payment.completed');
@@ -261,18 +260,18 @@ function Dashboard() {
 
   useEffect(() => {
     if (newUser) {
-      // Обновить счетчик пользователей
-      // Показать toast уведомление
+      // Update the user counter
+      // Show a toast notification
     }
   }, [newUser]);
 
   return (
-    // Ваш дашборд
+    // Your dashboard
   );
 }
 ```
 
-### Шаг 2: Обновление счетчиков в реальном времени
+### Step 2: Real-time counter updates
 
 ```typescript
 // components/DashboardStats.tsx
@@ -289,12 +288,12 @@ function DashboardStats() {
     todayRevenue: 0,
   });
 
-  // Загрузка начальных данных
+  // Load initial data
   useEffect(() => {
     loadStats();
   }, []);
 
-  // Подписка на события для обновления
+  // Subscribe to events for updates
   useEffect(() => {
     if (!wsManager) return;
 
@@ -337,16 +336,16 @@ function DashboardStats() {
 
   return (
     <div className="stats-grid">
-      <StatCard title="Всего пользователей" value={stats.totalUsers} />
-      <StatCard title="Активные подписки" value={stats.activeSubscriptions} />
-      <StatCard title="Открытые тикеты" value={stats.openTickets} />
-      <StatCard title="Доход сегодня" value={`${stats.todayRevenue} ₽`} />
+      <StatCard title="Total users" value={stats.totalUsers} />
+      <StatCard title="Active subscriptions" value={stats.activeSubscriptions} />
+      <StatCard title="Open tickets" value={stats.openTickets} />
+      <StatCard title="Revenue today" value={`${stats.todayRevenue} ₽`} />
     </div>
   );
 }
 ```
 
-### Шаг 3: Уведомления о новых событиях
+### Step 3: Notifications for new events
 
 ```typescript
 // components/NotificationCenter.tsx
@@ -372,7 +371,7 @@ function NotificationCenter() {
       const notification: Notification = {
         id: `user-${payload.user_id}`,
         type: 'user.created',
-        message: `Новый пользователь: @${payload.username || payload.telegram_id}`,
+        message: `New user: @${payload.username || payload.telegram_id}`,
         timestamp: new Date(),
       };
       addNotification(notification);
@@ -383,7 +382,7 @@ function NotificationCenter() {
       const notification: Notification = {
         id: `payment-${payload.transaction_id}`,
         type: 'payment.completed',
-        message: `Пополнение баланса: ${payload.amount_rubles} ₽`,
+        message: `Balance top-up: ${payload.amount_rubles} ₽`,
         timestamp: new Date(),
       };
       addNotification(notification);
@@ -394,13 +393,13 @@ function NotificationCenter() {
       const notification: Notification = {
         id: `ticket-${payload.ticket_id}`,
         type: 'ticket.created',
-        message: `Новый тикет: ${payload.title}`,
+        message: `New ticket: ${payload.title}`,
         timestamp: new Date(),
       };
       addNotification(notification);
       toast.warning(notification.message, {
         onClick: () => {
-          // Перейти к тикету
+          // Navigate to the ticket
           window.location.href = `/tickets/${payload.ticket_id}`;
         },
       });
@@ -410,15 +409,15 @@ function NotificationCenter() {
       const notification: Notification = {
         id: `ticket-message-${payload.message_id}`,
         type: 'ticket.message_added',
-        message: payload.is_from_admin 
-          ? `Новый ответ в тикете #${payload.ticket_id}`
-          : `Новое сообщение от пользователя в тикете #${payload.ticket_id}`,
+        message: payload.is_from_admin
+          ? `New reply in ticket #${payload.ticket_id}`
+          : `New user message in ticket #${payload.ticket_id}`,
         timestamp: new Date(),
       };
       addNotification(notification);
       toast.info(notification.message, {
         onClick: () => {
-          // Перейти к тикету
+          // Navigate to the ticket
           window.location.href = `/tickets/${payload.ticket_id}`;
         },
       });
@@ -438,7 +437,7 @@ function NotificationCenter() {
   }, [wsManager]);
 
   const addNotification = (notification: Notification) => {
-    setNotifications(prev => [notification, ...prev].slice(0, 50)); // Храним последние 50
+    setNotifications(prev => [notification, ...prev].slice(0, 50)); // Keep the last 50
   };
 
   return (
@@ -453,9 +452,9 @@ function NotificationCenter() {
 
 ---
 
-## Управление Webhooks через API
+## Managing webhooks through the API
 
-### Шаг 1: API клиент для webhooks
+### Step 1: API client for webhooks
 
 ```typescript
 // api/webhooks.ts
@@ -492,7 +491,7 @@ export interface WebhookUpdateRequest {
 }
 
 export const webhooksApi = {
-  // Список webhooks
+  // Webhook list
   list: async (params?: {
     event_type?: string;
     is_active?: boolean;
@@ -503,30 +502,30 @@ export const webhooksApi = {
     return response.data;
   },
 
-  // Получить webhook
+  // Get a webhook
   get: async (id: number): Promise<Webhook> => {
     const response = await apiClient.get(`/webhooks/${id}`);
     return response.data;
   },
 
-  // Создать webhook
+  // Create a webhook
   create: async (data: WebhookCreateRequest): Promise<Webhook> => {
     const response = await apiClient.post('/webhooks', data);
     return response.data;
   },
 
-  // Обновить webhook
+  // Update a webhook
   update: async (id: number, data: WebhookUpdateRequest): Promise<Webhook> => {
     const response = await apiClient.patch(`/webhooks/${id}`, data);
     return response.data;
   },
 
-  // Удалить webhook
+  // Delete a webhook
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/webhooks/${id}`);
   },
 
-  // Статистика
+  // Statistics
   getStats: async (): Promise<{
     total_webhooks: number;
     active_webhooks: number;
@@ -539,7 +538,7 @@ export const webhooksApi = {
     return response.data;
   },
 
-  // История доставок
+  // Delivery history
   getDeliveries: async (
     webhookId: number,
     params?: { status?: string; limit?: number; offset?: number }
@@ -550,40 +549,40 @@ export const webhooksApi = {
 };
 ```
 
-### Шаг 2: Список доступных типов событий
+### Step 2: List of available event types
 
 ```typescript
 // constants/webhookEvents.ts
 export const WEBHOOK_EVENT_TYPES = [
   {
     value: 'user.created',
-    label: 'Создание пользователя',
-    description: 'Отправляется при регистрации нового пользователя',
+    label: 'User created',
+    description: 'Sent when a new user registers',
   },
   {
     value: 'payment.completed',
-    label: 'Завершение платежа',
-    description: 'Отправляется при успешном пополнении баланса',
+    label: 'Payment completed',
+    description: 'Sent when a balance top-up succeeds',
   },
   {
     value: 'transaction.created',
-    label: 'Создание транзакции',
-    description: 'Отправляется при создании любой транзакции',
+    label: 'Transaction created',
+    description: 'Sent when any transaction is created',
   },
   {
     value: 'ticket.created',
-    label: 'Создание тикета',
-    description: 'Отправляется при создании нового тикета поддержки',
+    label: 'Ticket created',
+    description: 'Sent when a new support ticket is created',
   },
   {
     value: 'ticket.status_changed',
-    label: 'Изменение статуса тикета',
-    description: 'Отправляется при изменении статуса тикета',
+    label: 'Ticket status changed',
+    description: 'Sent when a ticket status changes',
   },
   {
     value: 'ticket.message_added',
-    label: 'Новое сообщение в тикете',
-    description: 'Отправляется при добавлении нового сообщения в тикет (от пользователя или админа)',
+    label: 'New ticket message',
+    description: 'Sent when a new message is added to a ticket (from the user or an admin)',
   },
 ] as const;
 
@@ -592,9 +591,9 @@ export type WebhookEventType = typeof WEBHOOK_EVENT_TYPES[number]['value'];
 
 ---
 
-## UI компоненты для Webhooks
+## UI components for webhooks
 
-### Шаг 1: Форма создания/редактирования webhook
+### Step 1: Webhook create/edit form
 
 ```typescript
 // components/WebhookForm.tsx
@@ -633,7 +632,7 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
       }
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка при сохранении webhook');
+      setError(err.response?.data?.detail || 'Error saving webhook');
     } finally {
       setLoading(false);
     }
@@ -642,7 +641,7 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
   return (
     <form onSubmit={handleSubmit} className="webhook-form">
       <div className="form-group">
-        <label>Название *</label>
+        <label>Name *</label>
         <input
           type="text"
           value={formData.name}
@@ -663,14 +662,14 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
       </div>
 
       <div className="form-group">
-        <label>Тип события *</label>
+        <label>Event type *</label>
         <select
           value={formData.event_type}
           onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
           required
-          disabled={!!webhook} // Нельзя менять тип события для существующего webhook
+          disabled={!!webhook} // Event type cannot be changed for an existing webhook
         >
-          <option value="">Выберите тип события</option>
+          <option value="">Select an event type</option>
           {WEBHOOK_EVENT_TYPES.map((event) => (
             <option key={event.value} value={event.value}>
               {event.label}
@@ -685,18 +684,18 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
       </div>
 
       <div className="form-group">
-        <label>Секрет (опционально)</label>
+        <label>Secret (optional)</label>
         <input
           type="password"
           value={formData.secret}
           onChange={(e) => setFormData({ ...formData, secret: e.target.value })}
-          placeholder="Для подписи payload"
+          placeholder="For payload signing"
         />
-        <small>Если указан, payload будет подписан с помощью HMAC-SHA256</small>
+        <small>If set, the payload is signed with HMAC-SHA256</small>
       </div>
 
       <div className="form-group">
-        <label>Описание</label>
+        <label>Description</label>
         <textarea
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -712,7 +711,7 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
               checked={formData.is_active}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
             />
-            Активен
+            Active
           </label>
         </div>
       )}
@@ -721,10 +720,10 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
 
       <div className="form-actions">
         <button type="button" onClick={onCancel} disabled={loading}>
-          Отмена
+          Cancel
         </button>
         <button type="submit" disabled={loading}>
-          {loading ? 'Сохранение...' : webhook ? 'Обновить' : 'Создать'}
+          {loading ? 'Saving...' : webhook ? 'Update' : 'Create'}
         </button>
       </div>
     </form>
@@ -732,7 +731,7 @@ function WebhookForm({ webhook, onSuccess, onCancel }: WebhookFormProps) {
 }
 ```
 
-### Шаг 2: Список webhooks
+### Step 2: Webhook list
 
 ```typescript
 // components/WebhooksList.tsx
@@ -765,7 +764,7 @@ function WebhooksList() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Удалить этот webhook?')) return;
+    if (!confirm('Delete this webhook?')) return;
 
     try {
       await webhooksApi.delete(id);
@@ -784,19 +783,19 @@ function WebhooksList() {
     }
   };
 
-  if (loading) return <div>Загрузка...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className="webhooks-page">
       <div className="page-header">
         <h1>Webhooks</h1>
-        <button onClick={() => setShowForm(true)}>Создать webhook</button>
+        <button onClick={() => setShowForm(true)}>Create webhook</button>
       </div>
 
       {showForm && (
         <div className="modal">
           <div className="modal-content">
-            <h2>{editingWebhook ? 'Редактировать' : 'Создать'} Webhook</h2>
+            <h2>{editingWebhook ? 'Edit' : 'Create'} Webhook</h2>
             <WebhookForm
               webhook={editingWebhook || undefined}
               onSuccess={() => {
@@ -816,14 +815,14 @@ function WebhooksList() {
       <table className="webhooks-table">
         <thead>
           <tr>
-            <th>Название</th>
+            <th>Name</th>
             <th>URL</th>
-            <th>Тип события</th>
-            <th>Статус</th>
-            <th>Успешно</th>
-            <th>Ошибок</th>
-            <th>Последний вызов</th>
-            <th>Действия</th>
+            <th>Event type</th>
+            <th>Status</th>
+            <th>Succeeded</th>
+            <th>Errors</th>
+            <th>Last call</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -836,7 +835,7 @@ function WebhooksList() {
               <td>{webhook.event_type}</td>
               <td>
                 <span className={`status ${webhook.is_active ? 'active' : 'inactive'}`}>
-                  {webhook.is_active ? 'Активен' : 'Неактивен'}
+                  {webhook.is_active ? 'Active' : 'Inactive'}
                 </span>
               </td>
               <td>{webhook.success_count}</td>
@@ -846,23 +845,23 @@ function WebhooksList() {
               <td>
                 {webhook.last_triggered_at
                   ? new Date(webhook.last_triggered_at).toLocaleString()
-                  : 'Никогда'}
+                  : 'Never'}
               </td>
               <td>
                 <button onClick={() => handleToggleActive(webhook)}>
-                  {webhook.is_active ? 'Деактивировать' : 'Активировать'}
+                  {webhook.is_active ? 'Deactivate' : 'Activate'}
                 </button>
                 <button onClick={() => {
                   setEditingWebhook(webhook);
                   setShowForm(true);
                 }}>
-                  Редактировать
+                  Edit
                 </button>
                 <button onClick={() => setSelectedWebhook(webhook)}>
-                  История
+                  History
                 </button>
                 <button onClick={() => handleDelete(webhook.id)} className="danger">
-                  Удалить
+                  Delete
                 </button>
               </td>
             </tr>
@@ -881,7 +880,7 @@ function WebhooksList() {
 }
 ```
 
-### Шаг 3: История доставок webhook
+### Step 3: Webhook delivery history
 
 ```typescript
 // components/WebhookDeliveries.tsx
@@ -921,31 +920,31 @@ function WebhookDeliveries({ webhookId, onClose }: WebhookDeliveriesProps) {
     <div className="modal">
       <div className="modal-content large">
         <div className="modal-header">
-          <h2>История доставок</h2>
+          <h2>Delivery history</h2>
           <button onClick={onClose}>×</button>
         </div>
 
         <div className="filters">
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">Все статусы</option>
-            <option value="success">Успешно</option>
-            <option value="failed">Ошибка</option>
-            <option value="pending">Ожидает</option>
+            <option value="">All statuses</option>
+            <option value="success">Succeeded</option>
+            <option value="failed">Error</option>
+            <option value="pending">Pending</option>
           </select>
         </div>
 
         {loading ? (
-          <div>Загрузка...</div>
+          <div>Loading...</div>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Время</th>
-                <th>Событие</th>
-                <th>Статус</th>
-                <th>HTTP код</th>
-                <th>Ошибка</th>
-                <th>Попытка</th>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Status</th>
+                <th>HTTP code</th>
+                <th>Error</th>
+                <th>Attempt</th>
               </tr>
             </thead>
             <tbody>
@@ -982,31 +981,31 @@ function WebhookDeliveries({ webhookId, onClose }: WebhookDeliveriesProps) {
 
 ---
 
-## Обработка ошибок
+## Error handling
 
-### Обработка ошибок WebSocket
+### WebSocket error handling
 
 ```typescript
-// utils/websocket.ts (дополнение)
+// utils/websocket.ts (addition)
 class WebSocketManager {
-  // ... существующий код ...
+  // ... existing code ...
 
   private handleError(error: Error): void {
     console.error('WebSocket error:', error);
-    
-    // Уведомление пользователя
+
+    // Notify the user
     this.emit('error', {
-      message: 'Ошибка подключения к серверу',
+      message: 'Server connection error',
       error: error.message,
     });
 
-    // Автоматическое переподключение
+    // Automatic reconnect
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.attemptReconnect(this.wsUrl);
     }
   }
 
-  // Показ статуса подключения
+  // Connection status
   getConnectionStatus(): 'connected' | 'disconnected' | 'connecting' {
     if (!this.ws) return 'disconnected';
     if (this.ws.readyState === WebSocket.OPEN) return 'connected';
@@ -1016,7 +1015,7 @@ class WebSocketManager {
 }
 ```
 
-### Индикатор статуса подключения
+### Connection status indicator
 
 ```typescript
 // components/ConnectionStatus.tsx
@@ -1048,9 +1047,9 @@ function ConnectionStatus() {
   return (
     <div className={`connection-status ${status}`}>
       <span className="status-dot" />
-      {status === 'connected' && 'Подключено'}
-      {status === 'disconnected' && 'Отключено'}
-      {status === 'connecting' && 'Подключение...'}
+      {status === 'connected' && 'Connected'}
+      {status === 'disconnected' && 'Disconnected'}
+      {status === 'connecting' && 'Connecting...'}
     </div>
   );
 }
@@ -1058,29 +1057,29 @@ function ConnectionStatus() {
 
 ---
 
-## Тестирование
+## Testing
 
-### Тестирование WebSocket
+### Testing WebSocket
 
-1. **Проверка подключения:**
-   - Откройте консоль браузера
-   - Должно появиться сообщение "WebSocket connected"
-   - Проверьте индикатор статуса подключения
+1. **Connection check:**
+   - Open the browser console
+   - A "WebSocket connected" message should appear
+   - Check the connection status indicator
 
-2. **Проверка событий:**
-   - Создайте нового пользователя через API или бота
-   - В консоли должно появиться событие `user.created`
-   - Дашборд должен обновиться автоматически
+2. **Event check:**
+   - Create a new user via the API or the bot
+   - A `user.created` event should appear in the console
+   - The dashboard should update automatically
 
-3. **Проверка переподключения:**
-   - Остановите сервер
-   - WebSocket должен отключиться
-   - Запустите сервер снова
-   - WebSocket должен автоматически переподключиться
+3. **Reconnect check:**
+   - Stop the server
+   - WebSocket should disconnect
+   - Start the server again
+   - WebSocket should reconnect automatically
 
-### Тестирование Webhooks
+### Testing webhooks
 
-1. **Создание webhook:**
+1. **Creating a webhook:**
    ```bash
    curl -X POST http://localhost:8080/webhooks \
      -H "Authorization: Bearer YOUR_TOKEN" \
@@ -1092,56 +1091,55 @@ function ConnectionStatus() {
      }'
    ```
 
-2. **Проверка доставки:**
-   - Создайте нового пользователя
-   - Проверьте webhook.site - должен прийти запрос
-   - Проверьте историю доставок в админке
+2. **Delivery check:**
+   - Create a new user
+   - Check webhook.site — a request should arrive
+   - Check delivery history in the admin
 
-3. **Тестирование подписи:**
-   - Создайте webhook с secret
-   - Проверьте заголовок `X-Webhook-Signature`
-   - Валидируйте подпись на стороне получателя
-
----
-
-## Чеклист интеграции
-
-- [ ] Создан WebSocket менеджер
-- [ ] WebSocket подключение инициализировано в приложении
-- [ ] Реализована обработка событий в компонентах
-- [ ] Добавлены real-time обновления на дашборде
-- [ ] Реализованы уведомления о новых событиях
-- [ ] Создан API клиент для webhooks
-- [ ] Реализована форма создания/редактирования webhooks
-- [ ] Реализован список webhooks с фильтрацией
-- [ ] Реализована история доставок
-- [ ] Добавлена обработка ошибок
-- [ ] Добавлен индикатор статуса подключения
-- [ ] Протестированы все функции
+3. **Signature testing:**
+   - Create a webhook with a secret
+   - Check the `X-Webhook-Signature` header
+   - Validate the signature on the receiver side
 
 ---
 
-## Дополнительные рекомендации
+## Integration checklist
 
-1. **Оптимизация производительности:**
-   - Используйте debounce для частых обновлений
-   - Кэшируйте данные, которые не требуют real-time обновлений
-   - Ограничьте количество одновременно открытых WebSocket соединений
+- [ ] WebSocket manager created
+- [ ] WebSocket connection initialized in the application
+- [ ] Event handling implemented in components
+- [ ] Real-time dashboard updates added
+- [ ] Notifications for new events implemented
+- [ ] API client for webhooks created
+- [ ] Webhook create/edit form implemented
+- [ ] Webhook list with filtering implemented
+- [ ] Delivery history implemented
+- [ ] Error handling added
+- [ ] Connection status indicator added
+- [ ] All features tested
 
-2. **Безопасность:**
-   - Всегда используйте HTTPS для webhook URL
-   - Храните секреты webhooks в безопасном месте
-   - Валидируйте подпись на стороне получателя
-   - Ограничьте доступ к управлению webhooks (только для админов)
+---
 
-3. **Мониторинг:**
-   - Логируйте все события WebSocket
-   - Отслеживайте успешность доставки webhooks
-   - Настройте алерты на большое количество ошибок
+## Additional recommendations
 
-4. **UX улучшения:**
-   - Показывайте индикатор загрузки при обновлении данных
-   - Используйте анимации для плавных обновлений
-   - Предоставьте возможность отключить уведомления
-   - Добавьте фильтры для событий в уведомлениях
+1. **Performance:**
+   - Use debounce for frequent updates
+   - Cache data that does not need real-time updates
+   - Limit the number of simultaneously open WebSocket connections
 
+2. **Security:**
+   - Always use HTTPS for webhook URLs
+   - Store webhook secrets in a safe place
+   - Validate the signature on the receiver side
+   - Restrict webhook management access (admins only)
+
+3. **Monitoring:**
+   - Log all WebSocket events
+   - Track webhook delivery success
+   - Set alerts for a large number of errors
+
+4. **UX improvements:**
+   - Show a loading indicator when data updates
+   - Use animations for smooth updates
+   - Provide a way to disable notifications
+   - Add filters for events in notifications
