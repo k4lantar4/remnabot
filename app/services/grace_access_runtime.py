@@ -17,7 +17,7 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, func, inspect, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -559,6 +559,11 @@ class GraceAccessRuntime:
                 _build_policy()
             if requested_mode is GraceAccessMode.ACTIVE:
                 _validate_active_configuration()
+            if requested_mode is GraceAccessMode.DISABLED and not await self._sessions_table_exists():
+                # 0111 defers grace_access_sessions on the remnabot lineage. With grace off there are
+                # no sessions to count, so a missing table is not a startup failure.
+                logger.info('Grace access is disabled; grace_access_sessions is not created (deferred)')
+                return
             open_count = await self.open_count()
         except Exception:
             self._mode = GraceAccessMode.DISABLED
@@ -755,6 +760,13 @@ class GraceAccessRuntime:
                     progress = True
             if not progress:
                 return aggregate
+
+    async def _sessions_table_exists(self) -> bool:
+        async with AsyncSessionLocal() as db:
+            conn = await db.connection()
+            return await conn.run_sync(
+                lambda sync_conn: inspect(sync_conn).has_table(GraceAccessSessionModel.__tablename__)
+            )
 
     async def open_count(self) -> int:
         async with AsyncSessionLocal() as db:
