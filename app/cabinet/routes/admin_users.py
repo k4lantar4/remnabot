@@ -4417,7 +4417,11 @@ async def sync_user_to_panel(
                         )
                     else:
                         await grace_safe_update(**update_kwargs)
-                    await _record_panel_identity(db, sub, panel_user_id, changes)
+                    # Только в одиночном режиме: в мультитарифе id без своего у подписки
+                    # взят с пользователя — это аккаунт ДРУГОЙ подписки, и привязка
+                    # навсегда отправляла бы обновления этой строки в чужой аккаунт.
+                    if not settings.is_multi_tariff_enabled():
+                        await _record_panel_identity(db, sub, panel_user_id, changes)
                     action = 'updated'
                 except Exception as update_error:
                     # «Пользователя нет» = только явный признак этого (A025/A063).

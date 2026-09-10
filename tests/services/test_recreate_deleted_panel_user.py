@@ -214,6 +214,9 @@ async def test_update_addresses_panel_by_numeric_id(monkeypatch):
     service.create_remnawave_user = AsyncMock()
 
     db = AsyncMock()
+    # Результат SELECT привязки (link_subscription_panel_identity): у голого AsyncMock
+    # scalar_one_or_none() — невызванная корутина, то есть «id занят» по случайности.
+    db.execute = AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: None))
     result = await service.update_remnawave_user(db, _make_subscription())
 
     assert result is updated_user
@@ -595,6 +598,9 @@ async def test_monitoring_update_happy_path_reaches_panel(monkeypatch):
     service = _setup_monitoring_service(monkeypatch, api)
 
     db = AsyncMock()
+    # Результат SELECT привязки (link_subscription_panel_identity): у голого AsyncMock
+    # scalar_one_or_none() — невызванная корутина, то есть «id занят» по случайности.
+    db.execute = AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: None))
     result = await service.update_remnawave_user(db, _make_subscription())
 
     assert result is updated_user

@@ -171,3 +171,26 @@ async def test_sync_to_panel_endpoint_records_panel_id_on_selected_subscription(
     assert result.action == 'updated'
     assert updated == [USER_PANEL_ID]
     assert subscription.remnawave_id == USER_PANEL_ID
+
+
+async def test_sync_to_panel_multi_mode_does_not_link_user_level_fallback_id(monkeypatch):
+    """В мультитарифе у каждой подписки свой аккаунт панели. Если у выбранной id нет,
+    эндпоинт падает на ``users.remnawave_id`` — аккаунт ДРУГОЙ подписки. Записать его на
+    эту строку значит навсегда привязать её к чужому аккаунту: каждое следующее
+    обновление уходило бы туда."""
+    updated, _created = _panel_double(monkeypatch, _Api({USER_PANEL_ID}), multi_tariff=True)
+    subscription = _subscription()
+    user = _user(subscriptions=[subscription])
+    monkeypatch.setattr(admin_users, 'get_user_by_id', AsyncMock(return_value=user))
+
+    result = await admin_users.sync_user_to_panel(
+        user.id,
+        subscription_id=subscription.id,
+        request=SyncToPanelRequest(),
+        admin=SimpleNamespace(id=1),
+        db=_db(panel_id_taken=False),
+    )
+
+    assert result.action == 'updated'
+    assert updated == [USER_PANEL_ID]
+    assert subscription.remnawave_id is None
