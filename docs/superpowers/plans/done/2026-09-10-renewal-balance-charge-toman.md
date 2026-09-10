@@ -1,6 +1,6 @@
 # Renewal from balance charges the catalog-kopek price as Toman (100x)
 
-**Status:** active (backlog — recorded 2026-09-10, not started)
+**Status:** done (2026-09-10) — remnabot PR #32 (tasks 1–4, plus the compensating-refund fix found on the way)
 **Repos:** `remnabot` only
 **Upstream basis:** remnabot `origin/main` `96bf5a12`; `upstream/main` `4e6e9224` (v4.9.0)
 **Kind:** bounded payment fix (fix + PR, TDD). Run the `fix-payment` skill. Phase C is **not** in
@@ -34,7 +34,8 @@ charge_from_balance = max(0, min(charge_from_balance, final_total))
 Effect: those renewals try to debit e.g. 20,000,000 for a 200,000-Toman renewal. Usually
 `subtract_user_balance` refuses (insufficient funds; the bot shows «⚠ Ошибка списания средств»), so
 balance renewals fail. A user whose balance is at least 100x the price gets charged 100x. The dev DB
-has no renewal transactions yet (2026-09-10), so no dev data was affected; production must be
+has no renewal transactions from these paths (2026-09-10: its 19 renewal rows are all tariff-renewal /
+auto-purchase rows of test user 433), so no dev data was affected; production must be
 checked before release (read-only query for `subscription_payment` rows whose description says
 renewal, «Продление» / «تمدید»).
 
@@ -81,3 +82,9 @@ flipping it silently would misrender history.
 
 Generate with `smoke-test-checklist` after implementation: top up a test user, renew from the bot
 menu, from «اشتراک‌های من» → تمدید, and from the cabinet; each debits exactly the Toman price shown.
+
+## Outcome
+
+Done in remnabot PR #32. The production check is still open: this workspace has no read-only
+production DB access. Run the release query there: `subscription_payment` rows described «Продление
+подписки…» / «Автоматическое продление…», compared with the matching balance delta.
