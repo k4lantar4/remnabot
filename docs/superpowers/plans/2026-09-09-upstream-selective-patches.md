@@ -1,8 +1,10 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — **Plans A and B done.** A: bot #18; cabinet frontend #7; found during it and
+**Status:** active — **Plans A, B and C done.** A: bot #18; cabinet frontend #7; found during it and
 fixed: cabinet branding-cache crash, frontend #8. B: bot #20, plus follow-up #21 (daily charges
-100x off, open question 4). Both are deployed to the dev bot as of 2026-09-10. Plans C–E not started.
+100x off, open question 4). A and B are deployed to the dev bot as of 2026-09-10. C: bot #23
+(preflight re-run against upstream v4.9.0: the only later commit on its files, `89ea5d51` — an
+optional per-minute panel request ceiling — is a feature and was not taken). Plans D–E not started.
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.

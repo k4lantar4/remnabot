@@ -314,20 +314,55 @@ def is_expire_in_past_error(error: RemnaWaveAPIError) -> bool:
     return False
 
 
+# Remnawave 3.4.3: у 404 NotFound 27 кодов — пользователя из них касаются только два.
+# Сообщения — для панелей, не приславших errorCode.
+USER_NOT_FOUND_ERROR_CODES = frozenset({'A025', 'A063'})
+USER_NOT_FOUND_MESSAGES = frozenset({'user not found', 'user with specified params not found', 'users not found'})
+
+# Протухший externalSquadUuid панель не отличает от прочих сбоев записи: на создании
+# отвечает A018 «Failed to create user», на обновлении A039 «Update user error» (оба 500),
+# а при проверке самого сквада — 404 A182 «External squad not found». Повтор без поля
+# уместен только когда поле действительно уходило в запросе.
+STALE_EXTERNAL_SQUAD_ERROR_CODES = frozenset({'A018', 'A039', 'A182'})
+
+
+def _panel_error_code(error: RemnaWaveAPIError) -> str:
+    data = error.response_data if isinstance(error.response_data, dict) else {}
+    return str(data.get('errorCode') or '').strip()
+
+
+def _panel_error_message(error: RemnaWaveAPIError) -> str:
+    data = error.response_data if isinstance(error.response_data, dict) else {}
+    return str(data.get('message') or error.message or '').strip().lower()
+
+
 def is_user_not_found_error(error: RemnaWaveAPIError) -> bool:
-    """Панель не нашла пользователя (удалён/протух идентификатор).
+    """Панель сообщила, что такого пользователя НЕТ (удалён / протух идентификатор).
 
-    Разные версии RemnaWave сообщают это по-разному: A018 или A063, и не всегда
-    со статусом 404 — проверяем оба признака. Вызывающий код по этому признаку
-    пересоздаёт пользователя вместо падения в ошибку.
-
-    Коды A018/A063 в 3.0.0 не изменились (сверено с backend-contract@3.0.0).
-    Статус 400 сюда намеренно НЕ входит: см. ``RemnaWaveInvalidUserIdError``.
+    Только явный признак: код ``A025``/``A063`` либо 404 без кода с сообщением про
+    пользователя. 404 у панели имеет 27 причин (внешний сквад ``A182``, внутренний
+    ``A118``, HWID-устройство ``A204``…), а ``A018`` — это «Failed to create user» (500).
+    Любое расширение этой проверки уводит вызывающий код в ветку «пользователя нет →
+    создать» и плодит дубли в панели. Статус 400 сюда намеренно НЕ входит: см.
+    ``RemnaWaveInvalidUserIdError``. Сверено с OpenAPI 3.4.3 (upstream 9d786897).
     """
     if isinstance(error, RemnaWaveInvalidUserIdError):
         return False
-    error_code = ((error.response_data or {}).get('errorCode') or '').strip()
-    return error.status_code == 404 or error_code in ('A018', 'A063')
+    error_code = _panel_error_code(error)
+    if error_code in USER_NOT_FOUND_ERROR_CODES:
+        return True
+    if error_code:
+        return False
+    if error.status_code != 404:
+        return False
+    return _panel_error_message(error) in USER_NOT_FOUND_MESSAGES
+
+
+def is_stale_external_squad_error(error: RemnaWaveAPIError) -> bool:
+    """Панель отвергла запись из-за ``externalSquadUuid`` (или не смогла её отличить)."""
+    if _panel_error_code(error) in STALE_EXTERNAL_SQUAD_ERROR_CODES:
+        return True
+    return 'external squad not found' in _panel_error_message(error)
 
 
 # Публичный RSA-ключ Happ для crypt4-ссылок — тот же, которым официальная страница
@@ -656,16 +691,17 @@ class RemnaWaveAPI:
         try:
             response = await self._make_request('POST', '/api/users', data)
         except RemnaWaveAPIError as e:
-            # A039 = FK violation on externalSquadUuid — retry without it
-            error_code = (e.response_data or {}).get('errorCode', '')
-            if error_code == 'A039' and 'externalSquadUuid' in data:
-                stale_uuid = data.pop('externalSquadUuid')
+            # Протухший externalSquadUuid (A018 на создании / A182) — повтор без него,
+            # на копии запроса: исходный словарь остаётся тем, что ушло в панель.
+            if is_stale_external_squad_error(e) and 'externalSquadUuid' in data:
+                retry_data = {key: value for key, value in data.items() if key != 'externalSquadUuid'}
                 logger.warning(
-                    'A039 FK violation on externalSquadUuid, retrying without it',
-                    stale_uuid=stale_uuid,
+                    'Panel rejected create with externalSquadUuid, retrying without it',
+                    error_code=_panel_error_code(e),
+                    stale_uuid=data['externalSquadUuid'],
                     username=data.get('username'),
                 )
-                response = await self._make_request('POST', '/api/users', data)
+                response = await self._make_request('POST', '/api/users', retry_data)
             else:
                 logger.error('POST /api/users FAILED — full payload', payload=data)
                 raise
@@ -872,16 +908,17 @@ class RemnaWaveAPI:
         try:
             response = await self._make_request('PATCH', '/api/users', data)
         except RemnaWaveAPIError as e:
-            # A039 = FK violation on externalSquadUuid — retry without it
-            error_code = (e.response_data or {}).get('errorCode', '')
-            if error_code == 'A039' and 'externalSquadUuid' in data:
-                stale_uuid = data.pop('externalSquadUuid')
+            # Протухший externalSquadUuid (A039 на обновлении / A182) — повтор без него,
+            # на копии запроса: исходный словарь остаётся тем, что ушло в панель.
+            if is_stale_external_squad_error(e) and 'externalSquadUuid' in data:
+                retry_data = {key: value for key, value in data.items() if key != 'externalSquadUuid'}
                 logger.warning(
-                    'A039 FK violation on externalSquadUuid, retrying without it',
-                    stale_uuid=stale_uuid,
+                    'Panel rejected update with externalSquadUuid, retrying without it',
+                    error_code=_panel_error_code(e),
+                    stale_uuid=data['externalSquadUuid'],
                     panel_user_id=panel_user_id,
                 )
-                response = await self._make_request('PATCH', '/api/users', data)
+                response = await self._make_request('PATCH', '/api/users', retry_data)
             else:
                 # «User not found» — не error: как и 404 в _make_request, его
                 # обрабатывает вызывающий код (пересоздание пользователя), а
