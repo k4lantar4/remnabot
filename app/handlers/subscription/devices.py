@@ -34,10 +34,12 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.services.pricing_engine import PricingEngine
 from app.services.remnawave_service import RemnaWaveService
+from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
 from app.utils.pagination import paginate_list
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
@@ -387,8 +389,8 @@ async def confirm_change_devices(
         total_discount = int(discount_per_month * charged_days / 30)
         period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
 
-        if price > 0 and db_user.balance_kopeks < price:
-            missing_kopeks = price - db_user.balance_kopeks
+        if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+            missing_toman = calculate_missing_amount(db_user.balance_kopeks, price)
             required_text = f'{texts.format_price(price)} (за {period_label})'
             message_text = texts.t(
                 'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
@@ -401,8 +403,8 @@ async def confirm_change_devices(
                 ),
             ).format(
                 required=required_text,
-                balance=texts.format_price(db_user.balance_kopeks),
-                missing=texts.format_price(missing_kopeks),
+                balance=texts.format_balance(db_user.balance_kopeks),
+                missing=texts.format_balance(missing_toman),
             )
 
             # Сохраняем корзину для автопокупки после пополнения баланса
@@ -425,7 +427,7 @@ async def confirm_change_devices(
                 message_text,
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=missing_kopeks,
+                    amount_kopeks=missing_toman,
                     has_saved_cart=True,
                 ),
                 parse_mode='HTML',
@@ -619,7 +621,10 @@ async def execute_change_devices(
     try:
         if price > 0:
             success = await subtract_user_balance(
-                db, db_user, price, f'Изменение количества устройств с {current_devices} до {new_devices_count}'
+                db,
+                db_user,
+                catalog_price_in_toman(price),
+                f'Изменение количества устройств с {current_devices} до {new_devices_count}',
             )
 
             if not success:
@@ -662,7 +667,7 @@ async def execute_change_devices(
                         .execution_options(populate_existing=True)
                     )
                     refund_user = user_refund.scalar_one()
-                    refund_user.balance_kopeks += price
+                    refund_user.balance_kopeks += catalog_price_in_toman(price)
                     await db.commit()
                 await callback.answer(
                     f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',
@@ -678,7 +683,7 @@ async def execute_change_devices(
                     .execution_options(populate_existing=True)
                 )
                 refund_user = user_refund.scalar_one()
-                refund_user.balance_kopeks += price
+                refund_user.balance_kopeks += catalog_price_in_toman(price)
                 await db.commit()
                 await callback.answer(
                     '⚠️ Изменение уже применено. Баланс возвращён.',
@@ -1578,8 +1583,8 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         total_discount=total_discount / 100,
     )
 
-    if price > 0 and db_user.balance_kopeks < price:
-        missing_kopeks = price - db_user.balance_kopeks
+    if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
+        missing_toman = calculate_missing_amount(db_user.balance_kopeks, price)
         required_text = f'{texts.format_price(price)} (за {period_label})'
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
@@ -1592,8 +1597,8 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             ),
         ).format(
             required=required_text,
-            balance=texts.format_price(db_user.balance_kopeks),
-            missing=texts.format_price(missing_kopeks),
+            balance=texts.format_balance(db_user.balance_kopeks),
+            missing=texts.format_balance(missing_toman),
         )
 
         # Сохраняем корзину для автопокупки после пополнения баланса
@@ -1617,7 +1622,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=missing_toman,
                 has_saved_cart=True,
             ),
             parse_mode='HTML',
@@ -1627,7 +1632,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
 
     try:
         success = await subtract_user_balance(
-            db, db_user, price, f'Добавление {devices_count} устройств на {period_label}'
+            db, db_user, catalog_price_in_toman(price), f'Добавление {devices_count} устройств на {period_label}'
         )
 
         if not success:
@@ -1654,7 +1659,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
                 select(User).where(User.id == db_user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price
+            refund_user.balance_kopeks += catalog_price_in_toman(price)
             await db.commit()
             await callback.answer(
                 f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',

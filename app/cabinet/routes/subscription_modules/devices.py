@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cabinet.utils.device_ownership import verify_hwid_belongs_to_user
 from app.config import settings
 from app.database.crud.tariff import get_tariff_by_id
+from app.database.crud.transaction import create_transaction
 from app.database.crud.user_device_alias import (
     delete_alias,
     get_aliases_for_user,
@@ -34,8 +35,10 @@ from app.database.crud.user_device_alias import (
     set_alias,
 )
 from app.database.models import Subscription, TransactionType, User
+from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import DevicePurchaseRequest
@@ -181,9 +184,9 @@ async def purchase_devices_legacy(
             detail=f'Максимальное количество устройств: {max_device_limit}',
         )
 
-    # Check balance (skip for 100% discount)
-    if total_price > 0 and user.balance_kopeks < total_price:
-        missing = total_price - user.balance_kopeks
+    # Check balance (skip for 100% discount): catalog price vs the Toman balance
+    if total_price > 0 and not user_can_afford(user.balance_kopeks, total_price):
+        missing = calculate_missing_amount(user.balance_kopeks, total_price)
 
         # Сохраняем корзину для автопокупки после пополнения
         try:
@@ -226,20 +229,27 @@ async def purchase_devices_legacy(
     else:
         description = f'Покупка {request.devices} доп. устройств'
 
+    charge_toman = catalog_price_in_toman(total_price)
     success = await subtract_user_balance(
         db=db,
         user=user,
-        amount_kopeks=total_price,
+        amount_kopeks=charge_toman,
         description=description,
-        create_transaction=True,
-        payment_method=PaymentMethod.BALANCE,
-        transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
     )
     if not success:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail='Insufficient funds',
         )
+    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    await create_transaction(
+        db=db,
+        user_id=user.id,
+        type=TransactionType.SUBSCRIPTION_PAYMENT,
+        amount_kopeks=total_price,
+        description=description,
+        payment_method=PaymentMethod.BALANCE,
+    )
 
     # Re-lock subscription after subtract_user_balance committed (which released all locks).
     # Re-validate max device limit to prevent concurrent purchases exceeding the limit.
@@ -259,7 +269,7 @@ async def purchase_devices_legacy(
             select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
         )
         refund_user = user_refund.scalar_one()
-        refund_user.balance_kopeks += total_price
+        refund_user.balance_kopeks += charge_toman
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -456,9 +466,9 @@ async def purchase_devices(
         if devices_discount_percent < 100:
             price_kopeks = max(100, price_kopeks)
 
-        # Check balance (skip for 100% discount)
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-            missing = price_kopeks - user.balance_kopeks
+        # Check balance (skip for 100% discount): catalog price vs the Toman balance
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+            missing = calculate_missing_amount(user.balance_kopeks, price_kopeks)
 
             # Сохраняем корзину для автопокупки после пополнения
             try:
@@ -502,20 +512,27 @@ async def purchase_devices(
         else:
             description = f'Покупка {request.devices} доп. устройств'
 
+        charge_toman = catalog_price_in_toman(price_kopeks)
         success = await subtract_user_balance(
             db=db,
             user=user,
-            amount_kopeks=price_kopeks,
+            amount_kopeks=charge_toman,
             description=description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
         )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail='Insufficient funds',
             )
+        # The payment row stays on the catalog scale, as the tariff purchase records it.
+        await create_transaction(
+            db=db,
+            user_id=user.id,
+            type=TransactionType.SUBSCRIPTION_PAYMENT,
+            amount_kopeks=price_kopeks,
+            description=description,
+            payment_method=PaymentMethod.BALANCE,
+        )
 
         # Re-lock subscription after subtract_user_balance committed (which released all locks).
         # Re-validate max device limit to prevent concurrent purchases exceeding the limit.
@@ -535,7 +552,7 @@ async def purchase_devices(
                 select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price_kopeks
+            refund_user.balance_kopeks += charge_toman
             await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -631,7 +648,7 @@ async def purchase_devices(
             'price_kopeks': price_kopeks,
             'price_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
-            'balance_label': settings.format_price(user.balance_kopeks),
+            'balance_label': settings.format_balance(user.balance_kopeks),
         }
 
         if devices_discount_percent > 0:

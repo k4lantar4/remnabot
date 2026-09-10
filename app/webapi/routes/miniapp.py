@@ -96,7 +96,11 @@ from app.services.trial_activation_service import (
 )
 from app.services.tribute_service import TributeService
 from app.utils.currency_converter import currency_converter
-from app.utils.price_display import display_transaction_amount_from_storage
+from app.utils.price_display import (
+    catalog_price_in_toman,
+    display_transaction_amount_from_storage,
+    user_can_afford,
+)
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_price_per_month,
@@ -6041,14 +6045,14 @@ async def update_subscription_traffic_endpoint(
 
     if price_difference_per_month > 0:
         total_price_difference = max(100, int(price_difference_per_month * days_remaining / 30))
-        if getattr(user, 'balance_kopeks', 0) < total_price_difference:
-            missing = total_price_difference - getattr(user, 'balance_kopeks', 0)
+        if not user_can_afford(getattr(user, 'balance_kopeks', 0), total_price_difference):
+            missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), total_price_difference)
             raise HTTPException(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
                     'message': (
-                        f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
+                        f'Недостаточно средств на балансе. Не хватает {settings.format_balance(missing, round_kopeks=False)}'
                     ),
                 },
             )
@@ -6058,7 +6062,7 @@ async def update_subscription_traffic_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            total_price_difference,
+            catalog_price_in_toman(total_price_difference),
             description,
         )
         if not success:
@@ -6231,14 +6235,14 @@ async def update_subscription_devices_endpoint(
             subscription.end_date,
         )
 
-    if price_to_charge > 0 and getattr(user, 'balance_kopeks', 0) < price_to_charge:
-        missing = price_to_charge - getattr(user, 'balance_kopeks', 0)
+    if price_to_charge > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), price_to_charge):
+        missing = calculate_missing_amount(getattr(user, 'balance_kopeks', 0), price_to_charge)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
                 'message': (
-                    f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
+                    f'Недостаточно средств на балансе. Не хватает {settings.format_balance(missing, round_kopeks=False)}'
                 ),
             },
         )
@@ -6248,7 +6252,7 @@ async def update_subscription_devices_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            price_to_charge,
+            catalog_price_in_toman(price_to_charge),
             description,
         )
         if not success:
@@ -6288,7 +6292,7 @@ async def update_subscription_devices_endpoint(
                 select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += price_to_charge
+            refund_user.balance_kopeks += catalog_price_in_toman(price_to_charge)
             await db.commit()
             if actual_delta <= 0:
                 raise HTTPException(
@@ -7372,7 +7376,7 @@ async def purchase_traffic_topup_endpoint(
     )
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -7388,7 +7392,7 @@ async def purchase_traffic_topup_endpoint(
         traffic_description = f'Докупка {payload.gb} ГБ трафика (скидка {traffic_discount_percent}%)'
     else:
         traffic_description = f'Докупка {payload.gb} ГБ трафика'
-    success = await subtract_user_balance(db, user, final_price, traffic_description)
+    success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

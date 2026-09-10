@@ -1565,6 +1565,32 @@ async def _auto_purchase_daily_tariff(
     return True
 
 
+async def _record_addon_payment(db: AsyncSession, user: User, price_kopeks: int, description: str) -> None:
+    """Record an add-on payment on the catalog scale, after its Toman charge went through.
+
+    Kept out of the charge's try-block: the balance is already taken, so a failed row
+    must not turn the purchase into "not bought".
+    """
+    from app.database.models import PaymentMethod
+
+    try:
+        await create_transaction(
+            db=db,
+            user_id=user.id,
+            type=TransactionType.SUBSCRIPTION_PAYMENT,
+            amount_kopeks=price_kopeks,
+            description=description,
+            payment_method=PaymentMethod.BALANCE,
+        )
+    except Exception as error:
+        logger.error(
+            'Add-on auto-purchase: failed to record the payment transaction',
+            format_user_id=_format_user_id(user),
+            error=error,
+            exc_info=True,
+        )
+
+
 async def _auto_add_devices(
     db: AsyncSession,
     user: User,
@@ -1576,7 +1602,6 @@ async def _auto_add_devices(
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     from app.database.crud.user import lock_user_for_pricing, subtract_user_balance
-    from app.database.models import PaymentMethod
     from app.utils.pricing_utils import apply_percentage_discount
 
     devices_to_add = _safe_int(cart_data.get('devices_to_add'))
@@ -1692,7 +1717,7 @@ async def _auto_add_devices(
         )
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
         logger.info(
             '🔁 Автопокупка устройств: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -1704,15 +1729,7 @@ async def _auto_add_devices(
     # Списываем баланс
     description = f'Покупка {devices_to_add} доп. устройств'
     try:
-        success = await subtract_user_balance(
-            db,
-            user,
-            price_kopeks,
-            description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
-        )
+        success = await subtract_user_balance(db, user, catalog_price_in_toman(price_kopeks), description)
         if not success:
             logger.warning(
                 '❌ Автопокупка устройств: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)
@@ -1726,6 +1743,9 @@ async def _auto_add_devices(
             exc_info=True,
         )
         return False
+
+    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    await _record_addon_payment(db, user, price_kopeks, description)
 
     # Re-lock subscription after subtract_user_balance committed (released locks)
     relock_result = await db.execute(
@@ -1745,7 +1765,7 @@ async def _auto_add_devices(
             select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
         )
         refund_user = user_refund.scalar_one()
-        refund_user.balance_kopeks += price_kopeks
+        refund_user.balance_kopeks += catalog_price_in_toman(price_kopeks)
         await db.commit()
         logger.warning(
             '🔁 Автопокупка устройств: лимит превышен после оплаты, баланс возвращён',
@@ -1904,7 +1924,6 @@ async def _auto_add_traffic(
 
     from app.database.crud.subscription import add_subscription_traffic, get_subscription_by_user_id
     from app.database.crud.user import lock_user_for_pricing, subtract_user_balance
-    from app.database.models import PaymentMethod
     from app.utils.pricing_utils import calculate_prorated_price
 
     traffic_gb = _safe_int(cart_data.get('traffic_gb'))
@@ -2051,7 +2070,7 @@ async def _auto_add_traffic(
         )
 
     # Verify balance (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
         logger.info(
             '🔁 Автопокупка трафика: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -2063,15 +2082,7 @@ async def _auto_add_traffic(
     # Deduct balance
     description = f'Докупка {traffic_gb} ГБ трафика'
     try:
-        success = await subtract_user_balance(
-            db,
-            user,
-            price_kopeks,
-            description,
-            create_transaction=True,
-            payment_method=PaymentMethod.BALANCE,
-            transaction_type=TransactionType.SUBSCRIPTION_PAYMENT,
-        )
+        success = await subtract_user_balance(db, user, catalog_price_in_toman(price_kopeks), description)
         if not success:
             logger.warning(
                 '❌ Автопокупка трафика: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)
@@ -2085,6 +2096,9 @@ async def _auto_add_traffic(
             exc_info=True,
         )
         return False
+
+    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    await _record_addon_payment(db, user, price_kopeks, description)
 
     # Add traffic
     old_traffic_limit = subscription.traffic_limit_gb or 0
@@ -2107,7 +2121,7 @@ async def _auto_add_traffic(
             await add_user_balance(
                 db,
                 user,
-                price_kopeks,
+                catalog_price_in_toman(price_kopeks),
                 'Возврат: ошибка автопокупки трафика',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
