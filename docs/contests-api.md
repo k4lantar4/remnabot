@@ -1,13 +1,13 @@
 # Contests API (admin)
 
-Админский REST API для конкурсов: ежедневные игры и реферальные конкурсы. Авторизация как в остальных методах — `X-API-Key` или Bearer.
+Admin REST API for contests: daily games and referral contests. Authentication matches the other methods — `X-API-Key` or Bearer.
 
-## Ежедневные игры (`/contests/daily`)
+## Daily games (`/contests/daily`)
 
-- `GET /contests/daily/templates?enabled_only=false` — список шаблонов игр.
-- `GET /contests/daily/templates/{id}` — получить шаблон.
-- `PATCH /contests/daily/templates/{id}` — обновить поля: `name`, `description`, `prize_type`, `prize_value`, `max_winners`, `attempts_per_user`, `times_per_day`, `schedule_times`, `cooldown_hours`, `payload` (dict), `is_enabled`.
-- `POST /contests/daily/templates/{id}/start-round` — запустить раунд вручную. Тело:
+- `GET /contests/daily/templates?enabled_only=false` — list game templates.
+- `GET /contests/daily/templates/{id}` — get a template.
+- `PATCH /contests/daily/templates/{id}` — update fields: `name`, `description`, `prize_type`, `prize_value`, `max_winners`, `attempts_per_user`, `times_per_day`, `schedule_times`, `cooldown_hours`, `payload` (dict), `is_enabled`.
+- `POST /contests/daily/templates/{id}/start-round` — start a round manually. Body:
   ```json
   {
     "starts_at": "2025-12-15T09:00:00+03:00",
@@ -17,19 +17,19 @@
     "force": true
   }
   ```
-  Если `force=true`, активный раунд этого шаблона завершается перед созданием нового.
-- `GET /contests/daily/rounds?status_filter=active|finished|any&template_id&limit&offset` — список раундов.
-- `GET /contests/daily/rounds/{id}` — получить раунд.
-- `POST /contests/daily/rounds/{id}/finish` — завершить раунд.
-- `GET /contests/daily/rounds/{id}/attempts?winners_only=false&limit&offset` — попытки (с данными пользователя).
+  If `force=true`, the active round for this template is finished before the new one is created.
+- `GET /contests/daily/rounds?status_filter=active|finished|any&template_id&limit&offset` — list rounds.
+- `GET /contests/daily/rounds/{id}` — get a round.
+- `POST /contests/daily/rounds/{id}/finish` — finish a round.
+- `GET /contests/daily/rounds/{id}/attempts?winners_only=false&limit&offset` — attempts (with user data).
 
-## Реферальные конкурсы (`/contests/referral`)
+## Referral contests (`/contests/referral`)
 
-- `GET /contests/referral?contest_type&limit&offset` — список конкурсов.
-- `POST /contests/referral` — создать конкурс:
+- `GET /contests/referral?contest_type&limit&offset` — list contests.
+- `POST /contests/referral` — create a contest:
   ```json
   {
-    "title": "Рефералы декабрь",
+    "title": "December referrals",
     "contest_type": "referral_paid",
     "start_at": "2025-12-20T10:00:00+03:00",
     "end_at": "2025-12-27T10:00:00+03:00",
@@ -40,17 +40,17 @@
     "created_by": 1
   }
   ```
-- `GET /contests/referral/{id}/detailed-stats` — детальная статистика конкурса с разбивкой по участникам (total_participants, total_invited, total_paid_amount, total_unpaid, participants).
-- `PATCH /contests/referral/{id}` — частичное обновление (те же поля + `final_summary_sent`, `is_active`, `daily_summary_times` с несколькими временами через запятую).
-- `POST /contests/referral/{id}/toggle?is_active=true|false` — быстро включить/остановить.
-- `GET /contests/referral/{id}/events?limit&offset` — события (referrer/referral, тип, суммы).
-- `DELETE /contests/referral/{id}` — удалить завершённый конкурс.
+- `GET /contests/referral/{id}/detailed-stats` — detailed contest stats broken down by participant (`total_participants`, `total_invited`, `total_paid_amount`, `total_unpaid`, `participants`).
+- `PATCH /contests/referral/{id}` — partial update (same fields plus `final_summary_sent`, `is_active`, `daily_summary_times` with multiple times comma-separated).
+- `POST /contests/referral/{id}/toggle?is_active=true|false` — quickly enable or stop.
+- `GET /contests/referral/{id}/events?limit&offset` — events (referrer/referral, type, amounts).
+- `DELETE /contests/referral/{id}` — delete a finished contest.
 
-## Даты и часовые пояса
+## Dates and time zones
 
-- Поля `datetime` можно передавать с TZ; сервер переводит в UTC (tzinfo убирается).
-- Если TZ не указан, используется `settings.TIMEZONE`.
+- `datetime` fields may include a TZ; the server converts them to UTC (tzinfo is stripped).
+- If no TZ is specified, `settings.TIMEZONE` is used.
 
-## Тег в OpenAPI
+## OpenAPI tag
 
-Все методы сгруппированы под тегом `contests` в Swagger/Redoc после перезапуска web-api.
+All methods are grouped under the `contests` tag in Swagger/Redoc after the web-api restart.

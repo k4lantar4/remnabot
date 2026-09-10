@@ -1,39 +1,33 @@
-# Grace-доступ для продления подписки
+# Grace access for subscription renewal
 
-Grace-доступ временно оставляет клиенту только специальный Remnawave-сквад, через который должен работать Telegram. Он предназначен для двух случаев:
+Grace access temporarily leaves the client on a special Remnawave squad that Telegram should still work through. It is intended for two cases:
 
-- `expired` — закончилось время подписки;
-- `limited` — закончился трафик текущего периода.
+- `expired` — the subscription time has ended;
+- `limited` — the current period’s traffic has been exhausted.
 
-База бота остаётся главным источником биллинга. Grace не продлевает оплаченный срок в базе, не меняет тариф и никогда не уменьшает уже использованный трафик. После оплаты панель получает обычные актуальные значения из базы.
+The bot database remains the source of truth for billing. Grace does not extend the paid period in the database, does not change the tariff, and never reduces already used traffic. After payment, the panel receives the usual current values from the database.
 
-## Режимы
+## Modes
 
-- `GRACE_ACCESS_MODE=false` — функциональность выключена, новые grace-сессии не создаются и фоновая обработка не запускается. Не используйте этот режим для остановки уже выданного grace: сначала примените `drain`.
-- `GRACE_ACCESS_MODE=observe` — бот только обнаруживает подходящие случаи и пишет их в лог. Grace-сессии не создаются, доступ и Remnawave не изменяются.
-- `GRACE_ACCESS_MODE=true` — выдаются новые grace-сессии и обрабатываются уже открытые.
-- `GRACE_ACCESS_MODE=drain` — новые grace-сессии не выдаются. Уже активные корректно завершаются по оплате или своему исходному сроку; незавершённый `pending` не активируется.
+- `GRACE_ACCESS_MODE=false` — the feature is off: new grace sessions are not created and background processing does not start. Do not use this mode to stop grace that has already been granted: apply `drain` first.
+- `GRACE_ACCESS_MODE=observe` — the bot only detects matching cases and writes them to the log. Grace sessions are not created; access and Remnawave are not changed.
+- `GRACE_ACCESS_MODE=true` — new grace sessions are issued and already open sessions are processed.
+- `GRACE_ACCESS_MODE=drain` — new grace sessions are not issued. Already active sessions finish correctly on payment or their original deadline; unfinished `pending` is not activated.
 
-Allowlist не используется.
+There is no allowlist.
 
-## Настройки
+## Settings
 
-Штатное место — веб-кабинет, раздел «Админка → Grace-доступ». Там же проверяется
-конфигурация (пустой или неверный UUID сквада не даст включить режим), видно
-работающий режим рядом с сохранённым и состояние сессий.
+The intended place is the web cabinet, **Admin → Grace access**. The same screen validates configuration (an empty or invalid squad UUID will not allow enabling the mode), shows the running mode next to the saved one, and shows session state.
 
-Ключи можно задать и в `.env`, но у этого есть цена: ключ, физически
-присутствующий в файле, попадает в `ENV_OVERRIDE_KEYS`, файл перекрывает базу, и
-настройка перестаёт меняться из админки — раздел откроется с замком на каждом
-поле, а сохранение вернёт 409. Поэтому в `.env.example` эти ключи закомментированы.
-Прописывайте их в файл только там, где значение обязано быть неизменяемым:
+Keys can also be set in `.env`, but there is a cost: a key that is physically present in the file is added to `ENV_OVERRIDE_KEYS`, the file overrides the database, and the setting can no longer be changed from the admin UI — the section opens with a lock on every field, and saving returns 409. That is why these keys are commented out in `.env.example`. Put them in the file only where the value must be immutable:
 
 ```env
 GRACE_ACCESS_MODE=observe
 GRACE_ACCESS_DURATION_HOURS=72
 
-GRACE_ACCESS_EXPIRED_SQUAD_UUID=UUID_СКВАДА_ДЛЯ_EXPIRED
-GRACE_ACCESS_LIMITED_SQUAD_UUID=UUID_СКВАДА_ДЛЯ_LIMITED
+GRACE_ACCESS_EXPIRED_SQUAD_UUID=UUID_OF_THE_EXPIRED_SQUAD
+GRACE_ACCESS_LIMITED_SQUAD_UUID=UUID_OF_THE_LIMITED_SQUAD
 
 GRACE_ACCESS_TRAFFIC_GB=1
 
@@ -46,115 +40,96 @@ GRACE_ACCESS_RECONCILE_BATCH_SIZE=200
 GRACE_ACCESS_CANDIDATE_LOOKBACK_MINUTES=30
 ```
 
-Оба UUID обязаны быть настоящими UUID внутренних Remnawave-сквадов. Можно указать один и тот же Telegram-only сквад для обоих случаев. На его нодах не должно быть маршрута в обычный интернет: ограничение «только Telegram» обеспечивается сетевой конфигурацией сквада/нод, а не самим ботом.
+Both UUIDs must be real UUIDs of internal Remnawave squads. You may use the same Telegram-only squad for both cases. Its nodes must not have a route to the regular internet: the “Telegram only” restriction is enforced by the squad/node network configuration, not by the bot itself.
 
-В режиме `true` `GRACE_ACCESS_TRAFFIC_GB` должен быть не меньше 1 ГиБ. Это точная квота,
-которую клиент сможет потратить во время grace. Remnawave хранит накопительный счётчик расхода,
-поэтому технический лимит панели равен «текущий расход + квота grace». Счётчик не сбрасывается:
-старый остаток и старый безлимит не переносятся во временный доступ.
+In `true` mode, `GRACE_ACCESS_TRAFFIC_GB` must be at least 1 GiB. That is the exact quota the client can spend during grace. Remnawave stores a cumulative usage counter, so the panel’s technical limit is “current usage + grace quota”. The counter is not reset: the old remainder and the old unlimited flag are not carried into temporary access.
 
-При `GRACE_ACCESS_MODE=true` grace по умолчанию доступен обычным платным несуточным подпискам.
-Дополнительные флаги разрешают остальные взаимоисключающие виды. Подписка классифицируется по
-приоритету: trial → daily → free → обычная платная. Например, бесплатная суточная подписка
-управляется только `GRACE_ACCESS_DAILY_ENABLED`.
+With `GRACE_ACCESS_MODE=true`, grace is available by default to ordinary paid non-daily subscriptions. Additional flags enable the other mutually exclusive kinds. A subscription is classified by priority: trial → daily → free → ordinary paid. For example, a free daily subscription is controlled only by `GRACE_ACCESS_DAILY_ENABLED`.
 
-Обе причины используют общий срок и квоту, но сохраняют разные сквады. Для создания overlay
-Remnawave должен вернуть текущий расход трафика; если расход неизвестен, выдача безопасно
-откладывается до следующей попытки reconciler.
+Both reasons share the same duration and quota, but keep different squads. To create the overlay, Remnawave must return current traffic usage; if usage is unknown, issuance is safely deferred until the next reconciler attempt.
 
-Старые переменные `GRACE_ACCESS_EXPIRED_TRAFFIC_GB` и `GRACE_ACCESS_LIMITED_TRAFFIC_GB`
-больше не поддерживаются.
+The old variables `GRACE_ACCESS_EXPIRED_TRAFFIC_GB` and `GRACE_ACCESS_LIMITED_TRAFFIC_GB` are no longer supported.
 
-## Повторные выдачи
+## Repeat issuance
 
-- `expired` выдаётся один раз для конкретной даты окончания подписки. Продление меняет дату и
-  создаёт новый инцидент.
-- `limited` использует комбинацию даты окончания, общего лимита и `lastTrafficResetAt`.
-  Изменение любого из этих значений создаёт новый инцидент. Если Remnawave не вернул дату
-  сброса, используется стабильный маркер `unknown`.
+- `expired` is issued once for a specific subscription end date. Renewal changes the date and creates a new incident.
+- `limited` uses the combination of end date, total limit, and `lastTrafficResetAt`. Changing any of these values creates a new incident. If Remnawave did not return a reset date, the stable marker `unknown` is used.
 
-Повторный webhook, перезапуск или повторная фоновая проверка одного инцидента не создают новую
-grace-сессию. Флаги вида подписки проверяются только при новой выдаче: уже открытая сессия не
-обрывается после выключения соответствующего флага.
+A repeated webhook, restart, or repeated background check of the same incident does not create a new grace session. Subscription-kind flags are checked only on new issuance: an already open session is not cut off after the corresponding flag is disabled.
 
-## Первое включение в продакшене
+## First production enablement
 
-1. Сделайте резервную копию базы и текущего `.env`.
-2. Сначала установите режим `observe` (кабинет: «Админка → Grace-доступ», либо `GRACE_ACCESS_MODE=observe` в `.env`) и перезапустите бот: режим читается один раз при старте, поэтому без перезапуска сохранённое значение ничего не делает. Миграция создаст отдельную таблицу `grace_access_sessions` и три служебных поля в `subscriptions`.
-3. Проверьте состояние:
+1. Back up the database and the current `.env`.
+2. First set mode `observe` (cabinet: **Admin → Grace access**, or `GRACE_ACCESS_MODE=observe` in `.env`) and restart the bot: the mode is read once at startup, so a saved value does nothing without a restart. The migration creates a separate `grace_access_sessions` table and three service fields on `subscriptions`.
+3. Check status:
 
    ```bash
    python -m app.tools.grace_access status
    ```
 
-4. Убедитесь по логам `Grace candidate observed`, что определяются только ожидаемые `expired` и `limited` клиенты.
-5. Заполните UUID Telegram-only сквадов, переключите режим на `true` и перезапустите бот. UUID применяются сразу, режим — только после перезапуска.
-6. Проверьте первого выданного клиента в Remnawave: статус временно `ACTIVE`, назначен только grace-сквад, внешний сквад снят, срок равен времени окончания grace, а лимит равен текущему расходу плюс `GRACE_ACCESS_TRAFFIC_GB`. Использованный трафик не должен уменьшиться.
+4. Confirm from `Grace candidate observed` logs that only the expected `expired` and `limited` clients are detected.
+5. Fill in the Telegram-only squad UUIDs, switch the mode to `true`, and restart the bot. UUIDs apply immediately; the mode applies only after restart.
+6. Check the first issued client in Remnawave: status is temporarily `ACTIVE`, only the grace squad is assigned, the external squad is removed, expiry equals the grace end time, and the limit equals current usage plus `GRACE_ACCESS_TRAFFIC_GB`. Used traffic must not decrease.
 
-Если конфигурация режима `true` неверна, grace остаётся выключенным, а основной бот продолжает запускаться с критической записью в журнале.
+If `true` mode configuration is invalid, grace stays off and the main bot continues to start with a critical log entry.
 
-## Что происходит при оплате
+## What happens on payment
 
-1. Платёжная логика бота обновляет обычную подписку в базе.
-2. Grace-обработчик видит новый срок/трафик.
-3. В Remnawave возвращаются канонические статус, срок, лимит, сквады и внешний сквад оплаченного тарифа.
-4. Grace-сессия завершается с причиной `paid`.
+1. The bot payment logic updates the ordinary subscription in the database.
+2. The grace handler sees the new period/traffic.
+3. Remnawave is restored to the canonical status, period, limit, squads, and external squad of the paid tariff.
+4. The grace session finishes with reason `paid`.
 
-Обычная синхронизация во время grace продолжает забирать расход трафика и ссылки, но не перетирает временные срок, статус и сквады.
+Ordinary sync during grace continues to fetch traffic usage and links, but does not overwrite the temporary period, status, and squads.
 
-## Аварийная остановка и откат
+## Emergency stop and rollback
 
-Для обычной остановки сначала установите `GRACE_ACCESS_MODE=drain`. Не переключайте сразу в `false`: открытым сессиям нужен новый код, чтобы безопасно восстановить клиентов.
+For a normal stop, first set `GRACE_ACCESS_MODE=drain`. Do not switch straight to `false`: open sessions need the new code to restore clients safely.
 
-Посмотреть состояние и выполнить предварительную проверку без изменений:
+Inspect state and run a dry check without changes:
 
 ```bash
 python -m app.tools.grace_access status
 python -m app.tools.grace_access restore-all
 ```
 
-Немедленно восстановить все открытые сессии:
+Immediately restore all open sessions:
 
 ```bash
 python -m app.tools.grace_access restore-all --apply
 ```
 
-Команда откажется работать, если в конфигурации всё ещё стоит `true`. Проверяется
-именно **сохранённая** конфигурация, а работающий процесс мог стартовать с другим
-режимом: переключение из кабинета вступает в силу только после перезапуска. Поэтому
-перед `restore-all --apply` бот должен быть перезапущен — иначе живой воркер продолжит
-выдавать grace, пока команда закрывает сессии. После восстановления поле `open` должно
-быть равно нулю.
+The command refuses to run if configuration is still `true`. It checks the **saved** configuration, while the running process may have started with a different mode: a cabinet switch takes effect only after restart. Therefore restart the bot before `restore-all --apply` — otherwise the live worker will keep issuing grace while the command is closing sessions. After restore, the `open` field must be zero.
 
-Если есть терминальные конфликты, `status` покажет до 20 последних ошибок. Сначала вручную проверьте этих клиентов в Remnawave. Когда состояние безопасно и открытых сессий нет, подтвердите проверку:
+If there are terminal conflicts, `status` shows up to 20 recent errors. First inspect those clients manually in Remnawave. When the state is safe and there are no open sessions, confirm the check:
 
 ```bash
 python -m app.tools.grace_access restore-all --apply --accept-conflicts
 ```
 
-Только после успешного закрытия всех сессий можно удалять миграцию и возвращать старый код:
+Only after all sessions have been closed successfully can you remove the migration and return to the old code:
 
 ```bash
 alembic downgrade 0096
 ```
 
-Порядок отката: `drain` → `restore-all --apply` → проверить `open=0` и конфликты → `alembic downgrade 0096` → развернуть старую версию бота.
+Rollback order: `drain` → `restore-all --apply` → verify `open=0` and conflicts → `alembic downgrade 0096` → deploy the old bot version.
 
-## Защитные механизмы
+## Safeguards
 
-- Перед изменением Remnawave сохраняется долговечный снимок исходного состояния.
-- Повторное событие одного и того же инцидента не выдаёт grace второй раз.
-- Ошибка API оставляет `pending`, который можно безопасно повторить или восстановить.
-- Повтор `pending` не включает пользователя, если панель была вручную изменена или отключена.
-- Ручное отключение и канонические изменения биллинга имеют приоритет над grace.
-- Внешний сквад временно снимается до включения доступа и восстанавливается после завершения.
-- Удаление подписки/пользователя блокируется, пока открытый grace не завершён, поэтому панель и база не расходятся.
-- База запрещает каскадно удалить единственный восстановительный снимок открытой сессии.
-- Обычные, админские и ночные обновления Remnawave не могут затереть grace-статус, срок, трафик или сквады.
-- После ожидания блокировки синхронизация заново читает подписку из базы, поэтому старая задача не отменит свежую оплату.
-- Массовое добавление/удаление всех клиентов из сквада блокируется, если есть хотя бы одна открытая grace-сессия.
-- `drain` не применяет новый overlay и не активирует `pending`.
+- Before changing Remnawave, a durable snapshot of the original state is saved.
+- A repeated event for the same incident does not issue grace a second time.
+- An API error leaves `pending`, which can be safely retried or restored.
+- Retrying `pending` does not enable the user if the panel was changed or disabled manually.
+- Manual disable and canonical billing changes take priority over grace.
+- The external squad is temporarily removed until access is enabled and restored after completion.
+- Deleting a subscription/user is blocked while open grace is unfinished, so the panel and database do not diverge.
+- The database forbids cascading deletion of the only recovery snapshot of an open session.
+- Ordinary, admin, and nightly Remnawave updates cannot overwrite grace status, period, traffic, or squads.
+- After waiting for a lock, sync re-reads the subscription from the database, so an old task cannot cancel a fresh payment.
+- Bulk add/remove of all clients from a squad is blocked if at least one open grace session exists.
+- `drain` does not apply a new overlay and does not activate `pending`.
 
-## Обновление бота из upstream
+## Updating the bot from upstream
 
-Миграция `0097_add_grace_access` продолжает штатную последовательную нумерацию (`down_revision = '0096'`).
+Migration `0097_add_grace_access` continues the sequential numbering (`down_revision = '0096'`).
