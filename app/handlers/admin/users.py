@@ -5059,6 +5059,33 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
     await callback.answer()
 
 
+async def _refund_undelivered_admin_purchase(db: AsyncSession, user: User, amount_toman: int, reason: str) -> None:
+    """Return a committed balance debit when the admin purchase failed before the subscription was saved.
+
+    Runs after db.rollback(), which expired ``user``: reload it before add_user_balance reads user.id.
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.database.crud.user import add_user_balance
+
+    identity = sa_inspect(user).identity  # readable without a load, unlike the expired user.id
+    try:
+        await db.refresh(user)
+        refunded = await add_user_balance(
+            db, user, amount_toman, reason, create_transaction=True, transaction_type=TransactionType.REFUND
+        )
+        if not refunded:
+            raise RuntimeError('add_user_balance returned False')
+    except Exception as refund_error:
+        logger.critical(
+            'CRITICAL: admin purchase refund failed, manual correction needed',
+            user_id=identity[0] if identity else None,
+            amount_toman=amount_toman,
+            reason=reason,
+            refund_error=refund_error,
+        )
+
+
 @admin_required
 @error_handler
 async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
@@ -5117,6 +5144,8 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         await callback.answer('❌ Недостаточно средств на балансе пользователя', show_alert=True)
         return
 
+    # The debit commits on its own: until the extension is saved too, a failure must refund it.
+    charged = delivered = False
     try:
         from app.database.crud.user import subtract_user_balance
 
@@ -5132,6 +5161,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         if not success:
             await callback.answer('❌ Ошибка списания средств', show_alert=True)
             return
+        charged = True
 
         if subscription:
             current_time = datetime.now(UTC)
@@ -5167,6 +5197,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
                     subscription.traffic_used_gb = 0.0
 
             await db.commit()
+            delivered = True
             await db.refresh(subscription)
 
             from app.database.crud.transaction import create_transaction
@@ -5358,6 +5389,13 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         await callback.answer('❌ Ошибка при покупке подписки', show_alert=True)
 
         await db.rollback()
+        if charged and not delivered:
+            await _refund_undelivered_admin_purchase(
+                db,
+                target_user,
+                catalog_price_in_toman(price_kopeks),
+                f'Возврат: ошибка покупки подписки на {period_days} дней (администратор)',
+            )
 
 
 # ==================== Покупка тарифа администратором ====================
@@ -5642,6 +5680,9 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         await callback.answer('❌ Недостаточно средств на балансе', show_alert=True)
         return
 
+    # The debit commits on its own: until the subscription is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат: ошибка покупки тарифа {tariff.name} на {period} дней (администратор)'
     try:
         from app.database.crud.subscription import (
             create_paid_subscription,
@@ -5664,6 +5705,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         if not success:
             await callback.answer('❌ Ошибка списания средств', show_alert=True)
             return
+        charged = True
 
         # Получаем серверы из тарифа
         squads = tariff.allowed_squads or []
@@ -5693,6 +5735,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
                 connected_squads=squads,
                 tariff_id=tariff.id,
             )
+        delivered = True  # extend_subscription / create_paid_subscription committed the subscription
 
         # Обновляем в Remnawave
         try:
@@ -5763,6 +5806,13 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         logger.error('Ошибка покупки тарифа администратором', error=e, exc_info=True)
         await callback.answer('❌ Ошибка при покупке тарифа', show_alert=True)
         await db.rollback()
+        if charged and not delivered:
+            await _refund_undelivered_admin_purchase(
+                db,
+                target_user,
+                catalog_price_in_toman(price_kopeks),
+                refund_reason,  # built before the rollback expired the tariff
+            )
 
 
 @admin_required

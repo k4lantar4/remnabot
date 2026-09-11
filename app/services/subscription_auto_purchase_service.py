@@ -537,7 +537,8 @@ async def _auto_extend_subscription(
     if prepared is None:
         return False
 
-    if prepared.price_kopeks > 0 and user.balance_kopeks < prepared.price_kopeks:
+    # price_kopeks is a catalog price (Toman x 100); the balance is Toman.
+    if prepared.price_kopeks > 0 and not user_can_afford(user.balance_kopeks, prepared.price_kopeks):
         logger.info(
             '🔁 Автопокупка: у пользователя недостаточно средств для продления (<)',
             format_user_id=_format_user_id(user),
@@ -559,7 +560,7 @@ async def _auto_extend_subscription(
         deducted = await subtract_user_balance(
             db,
             user,
-            prepared.price_kopeks,
+            catalog_price_in_toman(prepared.price_kopeks),
             prepared.description,
             consume_promo_offer=prepared.consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -628,6 +629,7 @@ async def _auto_extend_subscription(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -635,7 +637,7 @@ async def _auto_extend_subscription(
             await add_user_balance(
                 db,
                 user,
-                prepared.price_kopeks,
+                catalog_price_in_toman(prepared.price_kopeks),
                 'Возврат: ошибка автопродления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -934,7 +936,7 @@ async def _auto_purchase_tariff(
     final_price = result.final_total
     consume_promo = result.promo_offer_discount > 0
 
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         logger.info(
             '🔁 Автопокупка тарифа: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -954,7 +956,7 @@ async def _auto_purchase_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            final_price,
+            catalog_price_in_toman(final_price),
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1021,6 +1023,7 @@ async def _auto_purchase_tariff(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -1028,7 +1031,7 @@ async def _auto_purchase_tariff(
             await add_user_balance(
                 db,
                 user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка автопокупки тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1277,7 +1280,7 @@ async def _auto_purchase_daily_tariff(
     final_price, _, _ = PricingEngine.apply_stacked_discounts(daily_price, group_pct, offer_pct)
     consume_promo = offer_pct > 0
 
-    if final_price > 0 and user.balance_kopeks < final_price:
+    if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
         logger.info(
             '🔁 Автопокупка суточного тарифа: у пользователя недостаточно средств (<)',
             format_user_id=_format_user_id(user),
@@ -1292,7 +1295,7 @@ async def _auto_purchase_daily_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            final_price,
+            catalog_price_in_toman(final_price),
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1390,6 +1393,7 @@ async def _auto_purchase_daily_tariff(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -1397,7 +1401,7 @@ async def _auto_purchase_daily_tariff(
             await add_user_balance(
                 db,
                 user,
-                final_price,
+                catalog_price_in_toman(final_price),
                 'Возврат: ошибка автопокупки суточного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1489,12 +1493,13 @@ async def _auto_purchase_daily_tariff(
         try:
             texts = get_texts(getattr(user, 'language', 'ru'))
 
-            message = (
-                f'✅ <b>Суточный тариф «{html.escape(tariff.name)}» активирован!</b>\n\n'
-                f'💰 Списано: {final_price / 100:.0f} ₽ за первый день\n'
-                f'🔄 Средства будут списываться автоматически раз в сутки.\n\n'
-                f'ℹ️ Вы можете приостановить подписку в любой момент.'
-            )
+            message = texts.t(
+                'AUTO_PURCHASE_DAILY_TARIFF_ACTIVATED',
+                '✅ <b>Daily plan «{name}» activated!</b>\n\n'
+                '💰 Charged for the first day: {price}\n'
+                '🔄 The daily fee is charged automatically.\n\n'
+                'ℹ️ You can pause the subscription at any time.',
+            ).format(name=html.escape(tariff.name), price=settings.format_price(final_price))
 
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -2121,6 +2126,7 @@ async def _auto_add_traffic(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -2402,7 +2408,7 @@ async def try_auto_extend_expired_after_topup(
         return False
 
     # Check balance (skip for 100% discount)
-    if renewal_cost > 0 and user.balance_kopeks < renewal_cost:
+    if renewal_cost > 0 and not user_can_afford(user.balance_kopeks, renewal_cost):
         logger.info(
             '🔄 Автопродление expired: недостаточно средств',
             format_user_id=_format_user_id(user),
@@ -2444,7 +2450,7 @@ async def try_auto_extend_expired_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            renewal_cost,
+            catalog_price_in_toman(renewal_cost),
             description,
             consume_promo_offer=consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -2490,6 +2496,7 @@ async def try_auto_extend_expired_after_topup(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -2497,7 +2504,7 @@ async def try_auto_extend_expired_after_topup(
             await add_user_balance(
                 db,
                 user,
-                renewal_cost,
+                catalog_price_in_toman(renewal_cost),
                 'Возврат: ошибка автопродления истёкшей подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2818,6 +2825,7 @@ async def try_resume_disabled_daily_after_topup(
             exc_info=True,
         )
         await db.rollback()
+        await db.refresh(user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -3632,7 +3640,7 @@ async def _process_legacy_generic_cart(
         )
         return False
 
-    if pricing.final_total > 0 and user.balance_kopeks < pricing.final_total:
+    if pricing.final_total > 0 and not user_can_afford(user.balance_kopeks, pricing.final_total):
         logger.info(
             'Автопокупка: у пользователя недостаточно средств',
             format_user_id=_format_user_id(user),

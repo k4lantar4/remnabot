@@ -18,6 +18,7 @@ from app.services.payment_service import PaymentService
 from app.services.subscription_purchase_service import SubscriptionPurchaseService
 from app.states import SubscriptionStates
 from app.utils.decorators import error_handler
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.pricing_utils import compute_simple_subscription_price
 from app.utils.subscription_utils import (
     get_display_subscription_link,
@@ -122,7 +123,7 @@ async def start_simple_subscription_purchase(
         else 'none',
     )
 
-    can_pay_from_balance = user_balance_kopeks >= price_kopeks
+    can_pay_from_balance = user_can_afford(user_balance_kopeks, price_kopeks)  # Toman balance vs catalog price
     logger.warning(
         'SIMPLE_SUBSCRIPTION_DEBUG_START_BALANCE',
         db_user_id=db_user.id,
@@ -439,7 +440,7 @@ async def handle_simple_subscription_pay_with_balance(
     # Проверяем баланс пользователя
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0)
 
-    if total_required > 0 and user_balance_kopeks < total_required:
+    if total_required > 0 and not user_can_afford(user_balance_kopeks, total_required):
         await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
         return
 
@@ -449,7 +450,7 @@ async def handle_simple_subscription_pay_with_balance(
         success = await subtract_user_balance(
             db,
             db_user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             purchase_description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -518,13 +519,17 @@ async def handle_simple_subscription_pay_with_balance(
 
         if not subscription:
             # Возвращаем средства на баланс в случае ошибки
+            from app.database.models import TransactionType
             from app.services.payment_service import add_user_balance
 
+            # add_user_balance takes the user object (the user id made it fail and keep the debit)
+            # and the Toman amount that was debited.
             await add_user_balance(
                 db,
-                db_user.id,
-                price_kopeks,
+                db_user,
+                catalog_price_in_toman(price_kopeks),
                 f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
+                transaction_type=TransactionType.REFUND,
             )
             await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
             return
@@ -745,7 +750,7 @@ async def handle_simple_subscription_other_payment_methods(
     )
 
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0)
-    can_pay_from_balance = user_balance_kopeks >= price_kopeks
+    can_pay_from_balance = user_can_afford(user_balance_kopeks, price_kopeks)  # Toman balance vs catalog price
     logger.warning(
         'SIMPLE_SUBSCRIPTION_DEBUG_METHODS',
         db_user_id=db_user.id,
@@ -2187,7 +2192,7 @@ async def confirm_simple_subscription_purchase(
     # Проверяем баланс пользователя
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0)
 
-    if total_required > 0 and user_balance_kopeks < total_required:
+    if total_required > 0 and not user_can_afford(user_balance_kopeks, total_required):
         await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
         return
 
@@ -2197,7 +2202,7 @@ async def confirm_simple_subscription_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             purchase_description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -2266,13 +2271,17 @@ async def confirm_simple_subscription_purchase(
 
         if not subscription:
             # Возвращаем средства на баланс в случае ошибки
+            from app.database.models import TransactionType
             from app.services.payment_service import add_user_balance
 
+            # add_user_balance takes the user object (the user id made it fail and keep the debit)
+            # and the Toman amount that was debited.
             await add_user_balance(
                 db,
-                db_user.id,
-                price_kopeks,
+                db_user,
+                catalog_price_in_toman(price_kopeks),
                 f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
+                transaction_type=TransactionType.REFUND,
             )
             await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
             return

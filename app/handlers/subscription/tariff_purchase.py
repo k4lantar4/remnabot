@@ -949,7 +949,7 @@ async def _proceed_with_selected_tariff(
         user_balance = db_user.balance_kopeks or 0
         traffic = format_traffic(tariff.traffic_limit_gb)
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_PURCHASE_DAILY_CONFIRM',
@@ -1398,6 +1398,7 @@ async def handle_custom_confirm(
     except Exception as e:
         logger.error('Ошибка создания/продления подписки при покупке кастомного тарифа', error=e, exc_info=True)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -1689,7 +1690,7 @@ async def select_tariff_period(
 
     traffic = format_traffic(tariff.traffic_limit_gb)
 
-    if user_balance >= final_price:
+    if user_can_afford(user_balance, final_price):
         # Показываем подтверждение
         discount_text = ''
         if discount_percent > 0:
@@ -1717,7 +1718,7 @@ async def select_tariff_period(
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
                 balance=texts.format_balance(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(final_price)),
             ),
             reply_markup=get_tariff_confirm_keyboard(
                 tariff_id,
@@ -2015,6 +2016,7 @@ async def confirm_tariff_purchase(
         # Partial unique index violation: user already has active subscription for this tariff
         logger.warning('Тариф уже активен у пользователя', tariff_id=tariff_id, user_id=db_user.id, error=e)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         try:
             from app.database.crud.user import add_user_balance
 
@@ -2058,6 +2060,7 @@ async def confirm_tariff_purchase(
     except Exception as e:
         logger.error('Ошибка создания/продления подписки при покупке тарифа', error=e, exc_info=True)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -2396,6 +2399,7 @@ async def confirm_daily_tariff_purchase(
     except Exception as e:
         logger.error('Ошибка создания/продления подписки при покупке суточного тарифа', error=e, exc_info=True)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -2879,7 +2883,7 @@ async def select_tariff_extend_period(
 
     traffic = format_traffic(tariff.traffic_limit_gb)
 
-    if user_balance >= final_price:
+    if user_can_afford(user_balance, final_price):
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t(
@@ -2906,7 +2910,7 @@ async def select_tariff_extend_period(
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
                 balance=texts.format_balance(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(final_price)),
             ),
             reply_markup=get_tariff_extend_confirm_keyboard(subscription.id, tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -3560,7 +3564,7 @@ async def select_tariff_switch(
                     '⚠️ <b>Внимание!</b> У вас осталось {days} дн. подписки.\nПри смене на суточный тариф они будут утеряны!',
                 ).format(days=whole_days_left)
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_SWITCH_DAILY_CONFIRM',
@@ -3708,7 +3712,7 @@ async def select_tariff_switch_period(
     # При смене тарифа устанавливается ровно оплаченный период
     time_info = texts.t('TARIFF_SWITCH_WILL_SET_LINE', '⏰ Будет установлено: {days} дней').format(days=period)
 
-    if user_balance >= final_price:
+    if user_can_afford(user_balance, final_price):
         discount_text = ''
         if discount_percent > 0:
             discount_text = texts.t(
@@ -3737,7 +3741,7 @@ async def select_tariff_switch_period(
                 discount=discount_text,
                 total=format_price_kopeks(final_price),
                 balance=texts.format_balance(user_balance),
-                after=format_price_kopeks(user_balance - final_price),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(final_price)),
             ),
             reply_markup=get_tariff_switch_confirm_keyboard(tariff_id, period, db_user.language),
             parse_mode='HTML',
@@ -4325,6 +4329,7 @@ async def confirm_daily_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при смене на суточный тариф', error=e, exc_info=True)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -4742,7 +4747,7 @@ async def preview_instant_switch(
         )
         user_balance = db_user.balance_kopeks or 0
 
-        if user_balance >= daily_price:
+        if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_SWITCH_DAILY_PREVIEW',
@@ -4807,7 +4812,7 @@ async def preview_instant_switch(
 
     if is_upgrade:
         # Upgrade - нужна доплата
-        if user_balance >= upgrade_cost:
+        if user_can_afford(user_balance, upgrade_cost):
             await callback.message.edit_text(
                 texts.t(
                     'TARIFF_SWITCH_UPGRADE_PREVIEW',
@@ -4832,7 +4837,7 @@ async def preview_instant_switch(
                     days=remaining_days,
                     cost=format_price_kopeks(upgrade_cost),
                     balance=texts.format_balance(user_balance),
-                    after=format_price_kopeks(user_balance - upgrade_cost),
+                    after=texts.format_balance(user_balance - catalog_price_in_toman(upgrade_cost)),
                 ),
                 reply_markup=get_instant_switch_confirm_keyboard(tariff_id, db_user.language),
                 parse_mode='HTML',
@@ -5103,7 +5108,10 @@ async def confirm_instant_switch(
 
             # Списываем первый день если ещё не списано (upgrade_cost был 0)
             if upgrade_cost == 0 and daily_price > 0:
-                if user_balance >= daily_price:
+                if user_can_afford(user_balance, daily_price):
+                    # subtract_user_balance reloads the user with populate_existing, which also reloads
+                    # this subscription and would discard the tariff change made above (autoflush is off).
+                    await db.flush()
                     success = await subtract_user_balance(
                         db,
                         db_user,
@@ -5113,6 +5121,7 @@ async def confirm_instant_switch(
                         mark_as_paid_subscription=True,
                     )
                     if not success:
+                        await db.rollback()  # drop the flushed, unpaid switch (the middleware commits)
                         try:
                             await callback.message.edit_text(
                                 texts.t('TARIFF_PURCHASE_INSUFFICIENT_FUNDS', '❌ Недостаточно средств')
@@ -5494,7 +5503,7 @@ async def return_to_saved_tariff_cart(
                 devices=tariff.device_limit,
                 price=format_price_kopeks(daily_price),
                 balance=texts.format_balance(user_balance),
-                after=format_price_kopeks(user_balance - daily_price),
+                after=texts.format_balance(user_balance - catalog_price_in_toman(daily_price)),
             ),
             reply_markup=get_daily_tariff_confirm_keyboard(tariff_id, db_user.language),
             parse_mode='HTML',

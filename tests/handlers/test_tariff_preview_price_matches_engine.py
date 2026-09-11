@@ -24,6 +24,7 @@ from app.database.models import (
     UserStatus,
     tariff_promo_groups,
 )
+from app.utils.price_display import catalog_price_in_toman
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -67,7 +68,8 @@ async def test_preview_uses_engine_price_with_extra_devices(monkeypatch):
             first_name='User',
             status=UserStatus.ACTIVE.value,
             language='ru',
-            balance_kopeks=BASE_PRICE_KOPEKS,  # ровно голая цена периода
+            # exactly the bare period price; the balance is Toman, the catalog price is Toman x 100
+            balance_kopeks=catalog_price_in_toman(BASE_PRICE_KOPEKS),
         )
         db.add(user)
         await db.commit()
