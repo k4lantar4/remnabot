@@ -311,15 +311,15 @@ async def get_campaign_stats(
             is_active=campaign.is_active,
             registrations=stats['registrations'],
             balance_issued_kopeks=stats['balance_issued'],
-            # raw Toman amount post-Phase-B, not kopeks — divisor=1 (unlike the
-            # revenue/payment fields below, which are genuinely kopek-scale).
+            # Balance bonuses and revenue (a sum of deposits) are raw Toman post-Phase-B —
+            # divisor=1. Only the first payment (a subscription price) is catalog ×100.
             balance_issued_rubles=_safe_div(stats['balance_issued'], divisor=1),
             subscription_issued=stats['subscription_issued'],
             last_registration=stats['last_registration'],
             total_revenue_kopeks=stats['total_revenue_kopeks'],
-            total_revenue_rubles=_safe_div(stats['total_revenue_kopeks']),
+            total_revenue_rubles=_safe_div(stats['total_revenue_kopeks'], divisor=1),
             avg_revenue_per_user_kopeks=stats['avg_revenue_per_user_kopeks'],
-            avg_revenue_per_user_rubles=_safe_div(stats['avg_revenue_per_user_kopeks']),
+            avg_revenue_per_user_rubles=_safe_div(stats['avg_revenue_per_user_kopeks'], divisor=1),
             avg_first_payment_kopeks=stats['avg_first_payment_kopeks'],
             avg_first_payment_rubles=_safe_div(stats['avg_first_payment_kopeks']),
             balance_issued_toman=stats['balance_issued_toman'],

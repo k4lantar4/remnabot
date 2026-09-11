@@ -147,8 +147,8 @@ class CampaignStatisticsResponse(BaseModel):
     avg_revenue_per_user_rubles: float = 0.0
     avg_first_payment_kopeks: int = 0
     avg_first_payment_rubles: float = 0.0
-    # Display Toman, normalized per source scale. Prefer these over *_kopeks/*_rubles:
-    # total_revenue_rubles / avg_revenue_per_user_rubles divide a Toman sum by 100.
+    # Display Toman, normalized per source scale. Prefer these over *_kopeks: revenue
+    # *_kopeks hold a Toman deposit sum, avg_first_payment_kopeks a catalog ×100 price.
     balance_issued_toman: int = 0
     total_revenue_toman: int = 0
     avg_revenue_per_user_toman: int = 0

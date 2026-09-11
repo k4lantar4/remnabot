@@ -16,6 +16,7 @@ from app.database.crud.user import (
 )
 from app.database.models import User
 from app.services.partner_stats_service import PartnerStatsService
+from app.utils.price_display import display_balance_from_storage
 from app.utils.text_search import contains_conditions
 from app.utils.user_utils import (
     get_detailed_referral_list,
@@ -89,9 +90,9 @@ def _serialize_referrer(user: User, stats: dict) -> PartnerReferrerItem:
         invited_count=int(stats.get('invited_count') or 0),
         active_referrals=int(stats.get('active_referrals') or 0),
         total_earned_kopeks=total_earned_kopeks,
-        total_earned_rubles=round(total_earned_kopeks / 100, 2),
+        total_earned_rubles=display_balance_from_storage(total_earned_kopeks),
         month_earned_kopeks=month_earned_kopeks,
-        month_earned_rubles=round(month_earned_kopeks / 100, 2),
+        month_earned_rubles=display_balance_from_storage(month_earned_kopeks),
         created_at=user.created_at,
         last_activity=user.last_activity,
     )
@@ -114,9 +115,9 @@ def _serialize_referral_item(referral: dict) -> PartnerReferralItem:
         last_activity=referral.get('last_activity'),
         has_made_first_topup=bool(referral.get('has_made_first_topup', False)),
         balance_kopeks=balance_kopeks,
-        balance_rubles=round(balance_kopeks / 100, 2),
+        balance_rubles=display_balance_from_storage(balance_kopeks),
         total_earned_kopeks=total_earned_kopeks,
-        total_earned_rubles=round(total_earned_kopeks / 100, 2),
+        total_earned_rubles=display_balance_from_storage(total_earned_kopeks),
         topups_count=int(referral.get('topups_count') or 0),
         days_since_registration=int(referral.get('days_since_registration') or 0),
         days_since_activity=referral.get('days_since_activity'),

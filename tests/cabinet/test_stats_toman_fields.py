@@ -263,6 +263,24 @@ async def test_admin_campaign_stats_toman_fields(monkeypatch):
     assert stats.total_revenue_kopeks == DEPOSIT_TOMAN
 
 
+async def test_admin_campaign_stats_rubles_fields_are_display_toman(monkeypatch):
+    """F-004: revenue sums deposits (balance scale), so its *_rubles must not divide by 100.
+
+    The first payment is a subscription price (catalog scale) and keeps its ÷100.
+    """
+    from app.cabinet.routes import admin_campaigns as route
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_base(db)
+
+        stats = await route.get_campaign_stats(campaign_id=CAMPAIGN_ID, admin=ADMIN, db=db)
+
+    assert stats.total_revenue_rubles == DEPOSIT_TOMAN
+    assert stats.avg_revenue_per_user_rubles == DEPOSIT_TOMAN
+    assert stats.avg_first_payment_rubles == SUBSCRIPTION_TOMAN
+    assert stats.balance_issued_rubles == 5_000
+
+
 async def test_admin_campaign_list_and_overview_toman_fields(monkeypatch):
     from app.cabinet.routes import admin_campaigns as route
 
