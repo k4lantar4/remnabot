@@ -287,7 +287,7 @@ async def handle_reset_traffic(
     missing_kopeks = max(0, reset_price - db_user.balance_kopeks)
 
     # Формируем текст о балансе
-    balance_info = f'\n\n💰 На балансе: {texts.format_price(db_user.balance_kopeks)}'
+    balance_info = f'\n\n💰 На балансе: {texts.format_balance(db_user.balance_kopeks)}'
     if not has_enough_balance:
         balance_info += f'\n⚠️ Не хватает: {texts.format_price(missing_kopeks)}'
 
@@ -348,7 +348,7 @@ async def confirm_reset_traffic(
             ),
         ).format(
             required=texts.format_price(reset_price, round_kopeks=False),
-            balance=texts.format_price(db_user.balance_kopeks, round_kopeks=False),
+            balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
             missing=texts.format_price(missing_kopeks, round_kopeks=False),
         )
 

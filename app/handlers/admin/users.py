@@ -5007,7 +5007,7 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
         # одинаковыми и админ увидит «не хватает 0 ₽».
         await callback.message.edit_text(
             f'❌ Недостаточно средств на балансе пользователя\n\n'
-            f'💰 Баланс пользователя: {settings.format_price(target_user.balance_kopeks, round_kopeks=False)}\n'
+            f'💰 Баланс пользователя: {settings.format_balance(target_user.balance_kopeks, round_kopeks=False)}\n'
             f'💳 Стоимость подписки: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
             f'📉 Не хватает: {settings.format_price(missing_kopeks, round_kopeks=False)}\n\n'
             f'Пополните баланс пользователя перед покупкой.',
@@ -5516,7 +5516,7 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
         missing = price_kopeks - target_user.balance_kopeks
         await callback.message.edit_text(
             f'❌ <b>Недостаточно средств</b>\n\n'
-            f'💰 Баланс: {settings.format_price(target_user.balance_kopeks, round_kopeks=False)}\n'
+            f'💰 Баланс: {settings.format_balance(target_user.balance_kopeks, round_kopeks=False)}\n'
             f'💳 Стоимость: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
             f'📉 Не хватает: {settings.format_price(missing, round_kopeks=False)}\n\n'
             f'Пополните баланс пользователя перед покупкой.',

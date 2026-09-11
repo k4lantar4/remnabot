@@ -87,7 +87,8 @@ async def test_activate_trial_paid_shows_payment_screen_with_trial_price(
     # the paid-trial keyboard sentinel.
     assert kwargs['reply_markup'] is mock_keyboard
     assert settings.format_price(trial_price_kopeks) in body
-    assert settings.format_price(balance_kopeks) in body
+    # the balance is Toman 1:1 (Phase B): format_balance, not the catalog format_price
+    assert settings.format_balance(balance_kopeks) in body
 
     trial_callback_query.answer.assert_called_once()
 

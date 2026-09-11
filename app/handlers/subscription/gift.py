@@ -252,7 +252,7 @@ def _render_confirmation_summary(db_user: User, quote: GiftQuote) -> tuple[str, 
         else texts.t('GIFT_TRAFFIC_UNLIMITED', '∞ (безлимит)')
     )
     devices_str = texts.format_device_limit(quote.device_limit)
-    balance_str = texts.format_price(db_user.balance_kopeks)
+    balance_str = texts.format_balance(db_user.balance_kopeks)
     final_price_str = texts.format_price(quote.final_price_kopeks)
 
     price_details = ''
@@ -1016,7 +1016,7 @@ async def handle_return_to_gift_cart(
         )
 
         req_str = texts.format_price(quote.final_price_kopeks)
-        bal_str = texts.format_price(db_user.balance_kopeks)
+        bal_str = texts.format_balance(db_user.balance_kopeks)
         missing_str = texts.format_price(new_missing)
 
         text = texts.t(

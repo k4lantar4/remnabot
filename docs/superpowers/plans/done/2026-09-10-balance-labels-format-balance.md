@@ -1,6 +1,6 @@
 # Balance labels show the Toman balance 100x too small
 
-**Status:** active (backlog — recorded 2026-09-10, not started)
+**Status:** done (2026-09-11) — remnabot PR #34 (tasks 1–3, plus the admin-notification and app-wide balance sweep)
 **Repos:** `remnabot` (and `frontend` only if it renders `balance_label` — check first)
 **Upstream basis:** remnabot `origin/main` `96bf5a12`; `upstream/main` `4e6e9224` (v4.9.0)
 **Kind:** bounded display fix (presentation layer only; no charge/credit logic).
@@ -48,3 +48,10 @@ the cabinet formats `balance_kopeks` itself, check that it treats it as Toman.
 
 `smoke-test-checklist` after implementation: https://panel.rookari.com daily tariff / purchase /
 tariff switch screens show the same balance as the balance page.
+
+## Outcome
+
+Done in remnabot PR #34: every `format_price(<balance>)` in `app/` is now `format_balance`, enforced by the
+AST guard in `tests/services/test_balance_display_toman.py`. The cabinet doesn't render `balance_label`.
+Its own ÷100 suspects (GiftSubscription, CampaignBonusNotifier, SuccessNotificationModal,
+AdminWithdrawalDetail) are listed in the PR for a separate frontend fix.

@@ -606,7 +606,7 @@ class AdminNotificationService:
             )
 
             # Баланс после покупки
-            message_lines.append(f'💰 Баланс: {settings.format_price(user.balance_kopeks)}')
+            message_lines.append(f'💰 Баланс: {settings.format_balance(user.balance_kopeks)}')
 
             # Реферер (только если есть)
             if user.referred_by_id:
@@ -763,10 +763,11 @@ class AdminNotificationService:
         # --- Детали пополнения ---
         message_lines.extend(
             [
-                f'💵 <b>{settings.format_price(transaction.amount_kopeks)}</b> | {payment_method}',
+                # a top-up is a deposit row: balance scale (Toman 1:1), like the balances below
+                f'💵 <b>{settings.format_balance(transaction.amount_kopeks)}</b> | {payment_method}',
                 '',
-                f'📉 {settings.format_price(old_balance)} → 📈 {settings.format_price(user.balance_kopeks)}'
-                f' (<b>+{settings.format_price(balance_change)}</b>)',
+                f'📉 {settings.format_balance(old_balance)} → 📈 {settings.format_balance(user.balance_kopeks)}'
+                f' (<b>+{settings.format_balance(balance_change)}</b>)',
             ]
         )
 
@@ -1137,7 +1138,7 @@ class AdminNotificationService:
                     '',
                     '💼 <b>Баланс:</b>',
                     (
-                        f'{settings.format_price(balance_before_kopeks)} → {settings.format_price(balance_after_kopeks)}'
+                        f'{settings.format_balance(balance_before_kopeks)} → {settings.format_balance(balance_after_kopeks)}'
                         if balance_before_kopeks is not None and balance_after_kopeks is not None
                         else 'ℹ️ Баланс не изменился'
                     ),
@@ -1434,7 +1435,7 @@ class AdminNotificationService:
             message_lines.extend(
                 [
                     '',
-                    f'💰 Баланс пользователя: {settings.format_price(user.balance_kopeks)}',
+                    f'💰 Баланс пользователя: {settings.format_balance(user.balance_kopeks)}',
                     f'⏰ <i>{format_local_datetime(datetime.now(UTC), "%d.%m.%Y %H:%M:%S")}</i>',
                 ]
             )
@@ -2074,7 +2075,7 @@ class AdminNotificationService:
                 [
                     '',
                     f'📅 До {format_local_datetime(subscription.end_date, "%d.%m.%Y")}',
-                    f'💰 Баланс: {settings.format_price(user.balance_kopeks)}',
+                    f'💰 Баланс: {settings.format_balance(user.balance_kopeks)}',
                 ]
             )
 
@@ -2208,8 +2209,9 @@ class AdminNotificationService:
             message_lines.extend(
                 [
                     '',
-                    f'💵 <b>Сумма: {settings.format_price(amount_kopeks)}</b>',
-                    f'💰 Баланс: {settings.format_price(user.balance_kopeks)}',
+                    # the request is checked against (and paid from) the Toman wallet
+                    f'💵 <b>Сумма: {settings.format_balance(amount_kopeks)}</b>',
+                    f'💰 Баланс: {settings.format_balance(user.balance_kopeks)}',
                 ]
             )
 
