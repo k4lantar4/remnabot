@@ -307,7 +307,8 @@ async def show_campaign_detail(
     text.append(f'• Регистраций: <b>{stats["registrations"]}</b>')
     text.append(f'• Выдано баланса: <b>{texts.format_balance(stats["balance_issued"])}</b>')
     text.append(f'• Выдано подписок: <b>{stats["subscription_issued"]}</b>')
-    text.append(f'• Доход: <b>{texts.format_price(stats["total_revenue_kopeks"])}</b>')
+    # Campaign revenue = real deposits (balance scale, Toman 1:1) → format_balance, not format_price.
+    text.append(f'• Доход: <b>{texts.format_balance(stats["total_revenue_toman"])}</b>')
     text.append(f'• Получили триал: <b>{stats["trial_users_count"]}</b> (активно: {stats["active_trials_count"]})')
     text.append(
         '• Конверсий в оплату: '
@@ -316,7 +317,7 @@ async def show_campaign_detail(
     )
     text.append(f'• Конверсия в оплату: <b>{stats["conversion_rate"]:.1f}%</b>')
     text.append(f'• Конверсия триала: <b>{stats["trial_conversion_rate"]:.1f}%</b>')
-    text.append(f'• Средний доход на пользователя: <b>{texts.format_price(stats["avg_revenue_per_user_kopeks"])}</b>')
+    text.append(f'• Средний доход на пользователя: <b>{texts.format_balance(stats["avg_revenue_per_user_toman"])}</b>')
     text.append(f'• Средний первый платеж: <b>{texts.format_price(stats["avg_first_payment_kopeks"])}</b>')
     if stats['last_registration']:
         text.append(f'• Последняя: {stats["last_registration"].strftime("%d.%m.%Y %H:%M")}')
