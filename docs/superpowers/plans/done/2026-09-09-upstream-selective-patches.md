@@ -8,8 +8,8 @@ optional per-minute panel request ceiling — is a feature and was not taken). D
 currency pre-check found every add-on purchase 100x off — fixed first as bot #27 + frontend #12.
 E: frontend #17 (`2c6357da`; clean cherry-picks, preflight against cabinet v1.73.0 unchanged).
 Left open on purpose, not part of any sub-plan: the deferred/candidate rows in the triage tables
-(`0715b5c7`/`dc9a7ca7` transaction-while-panel-call check, `0b622ba5`, `1e612772`, `d22e47c9`) and
-open questions 1–2 — each is its own task if picked up.
+(`0715b5c7`/`dc9a7ca7` transaction-while-panel-call check, `1e612772`, `d22e47c9` = F-026) — each
+is its own task if picked up. Open questions 1–2 answered 2026-09-11 (see the end).
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -124,7 +124,8 @@ pricing code; D touches the hot file `purchase.py`; E is frontend-only and can g
 **Rejected from the v4.7.1/v4.8.0 review (unchanged):** `6014b92b` (our `admin_partners.py` diverged
 with `is_env_locked`/`ENV_OVERRIDE_KEYS`, and "partner" there means upstream's referral program, not
 our نماینده), `423bbf7d` (feature: resend verification email; route absent here), `841e2bda` (see
-above). **Deferred:** `0b622ba5` (registration throttle) — decide after Plan A, see open question 1.
+above). **Not taken:** `0b622ba5` (registration throttle) — email registration stays closed (open
+question 1).
 
 ---
 
@@ -441,19 +442,18 @@ to 0. B2C UI + admin.
 ## Branch disposition
 
 - **`remnabot` / `worktree-agent-a9deadb5da0928e72`** (`c5f4dd32`, 155 ahead / 40 behind
-  `origin/main`) — keep as the conflict-resolution reference for Task 6; delete (with its worktree)
-  once Plan C lands. Never merge it.
+  `origin/main`) — **deleted 2026-09-11** with its worktree (user-approved; it was never pushed).
 - The frontend branch `worktree-agent-af3db50c4f08bf7cb` is already gone; `dc77a7d9` (BSCHEKER
   removal) is in `frontend` `origin/main`. The live `frontend` checkout is on `main`, so
   panel.rookari.com serves `main` unless someone switches it — check before smoke-testing.
 
 ## Open questions (needed before the affected work)
 
-1. **Is email registration actually open in our cabinet?** Decides the deferred `0b622ba5` and
-   Task 3's urgency.
-2. **Should the wholesale discount apply to daily tariffs?** An approved partner on a daily tariff
-   gets group + offer, not their wholesale discount. Needs policy numbers — its own plan once
-   answered.
+1. ~~**Is email registration actually open in our cabinet?**~~ **Answered 2026-09-11: no**, and
+   not a priority. Future login is planned as Google OAuth; email + password login isn't expected
+   to be needed. So `0b622ba5` (registration throttle) is **not taken**.
+2. ~~**Should the wholesale discount apply to daily tariffs?**~~ **Answered 2026-09-11: yes** —
+   plan `plans/2026-09-11-wholesale-daily-tariffs.md` (closes F-013).
 3. **Phase C for Plans B/D?** Default: out of scope (don't widen the dual scale, don't migrate
    inline).
 4. ~~**Daily charges look 100x off.**~~ **Decided 2026-09-10: fix now, own PR** (branch
