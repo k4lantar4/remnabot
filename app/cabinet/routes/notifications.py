@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User
+from app.utils.notification_prefs import DEFAULT_BALANCE_LOW_THRESHOLD
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 
@@ -29,7 +30,7 @@ class NotificationSettingsResponse(BaseModel):
     traffic_warning_enabled: bool = True
     traffic_warning_percent: int = 80
     balance_low_enabled: bool = False
-    balance_low_threshold: int = 100  # Toman, compared 1:1 with balance_kopeks (Phase B)
+    balance_low_threshold: int = DEFAULT_BALANCE_LOW_THRESHOLD  # Toman, compared 1:1 with balance_kopeks (Phase B)
     news_enabled: bool = True
     promo_offers_enabled: bool = True
 
@@ -61,7 +62,7 @@ def _get_notification_settings(user: User) -> dict[str, Any]:
         'traffic_warning_enabled': settings_data.get('traffic_warning_enabled', True),
         'traffic_warning_percent': settings_data.get('traffic_warning_percent', 80),
         'balance_low_enabled': settings_data.get('balance_low_enabled', False),
-        'balance_low_threshold': settings_data.get('balance_low_threshold', 100),
+        'balance_low_threshold': settings_data.get('balance_low_threshold', DEFAULT_BALANCE_LOW_THRESHOLD),
         'news_enabled': settings_data.get('news_enabled', True),
         'promo_offers_enabled': settings_data.get('promo_offers_enabled', True),
     }
