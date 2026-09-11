@@ -4,7 +4,7 @@
 **Repos:** `remnabot` only. The cabinet shows the traffic top-up 402 `detail.message` verbatim
 (`frontend/src/components/subscription/sheets/TrafficTopupSheet.tsx:221` via `getErrorMessage`); that is fixed
 server-side, so no frontend change.
-**Upstream basis:** remnabot `origin/main` `df7bd874`; `upstream/main` `bf33d125` (v4.9.1)
+**Upstream basis:** remnabot `origin/main` `1f795695`; `upstream/main` `bf33d125` (v4.9.1)
 **Kind:** translation (run `fix-translation` / `translation-fixer`); task 2 touches a promo bonus
 amount display (payment scale check, see there).
 **Origin:** finding F-009 in `/opt/project/FINDINGS.md` (from remnabot#20, #26, #27, #31, #32, #35,
