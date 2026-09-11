@@ -773,7 +773,10 @@ class TestInvitePromise:
 
         await screen.create_invite_message(callback, SimpleNamespace(referral_code='X', language='ru'), None)
 
-        assert '500' in captured['text']
+        # REFERRAL_*_KOPEKS hold Toman 1:1 (Phase B): the 50,000 bonus is shown whole, not ÷100 as «500».
+        from app.localization.texts import get_texts
+
+        assert get_texts('ru').format_balance(500_00) in captured['text']
 
 
 class TestDepthHonesty:

@@ -20,6 +20,7 @@ from app.services.referral_reward_service import format_reward_total
 from app.services.referral_withdrawal_service import referral_withdrawal_service
 from app.states import ReferralWithdrawalStates
 from app.utils.photo_message import edit_or_answer_photo
+from app.utils.price_display import balance_from_display_amount
 from app.utils.user_utils import (
     get_detailed_referral_list,
     get_effective_referral_commission_percent,
@@ -159,15 +160,15 @@ async def show_referral_info(callback: types.CallbackQuery, db_user: User, db: A
             'REFERRAL_REWARD_NEW_USER',
             '• Новый пользователь получает: <b>{bonus}</b> при первом пополнении от <b>{minimum}</b>',
         ).format(
-            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
-            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
+            bonus=texts.format_balance(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
+            minimum=texts.format_balance(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
         )
 
     if not levels_scheme and settings.REFERRAL_INVITER_BONUS_KOPEKS > 0:
         referral_text += '\n' + texts.t(
             'REFERRAL_REWARD_INVITER',
             '• Вы получаете при первом пополнении реферала: <b>{bonus}</b>',
-        ).format(bonus=texts.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS))
+        ).format(bonus=texts.format_balance(settings.REFERRAL_INVITER_BONUS_KOPEKS))
 
     if not levels_scheme:
         if settings.REFERRAL_MAX_COMMISSION_PAYMENTS > 0:
@@ -664,8 +665,8 @@ async def create_invite_message(callback: types.CallbackQuery, db_user: User, db
             'REFERRAL_INVITE_BONUS',
             '💎 При первом пополнении от {minimum} ты получишь {bonus} бонусом на баланс!',
         ).format(
-            minimum=texts.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
-            bonus=texts.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
+            minimum=texts.format_balance(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
+            bonus=texts.format_balance(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
         )
 
     # Ссылки оборачиваем в <code>: при тапе по <blockquote> для копирования
@@ -739,7 +740,7 @@ async def show_withdrawal_info(callback: types.CallbackQuery, db_user: User, db:
 
     text += (
         texts.t('REFERRAL_WITHDRAWAL_MIN_AMOUNT', '📊 Минимальная сумма: <b>{amount}</b>').format(
-            amount=texts.format_price(min_amount)
+            amount=texts.format_balance(min_amount)
         )
         + '\n'
     )
@@ -786,14 +787,16 @@ async def start_withdrawal_request(callback: types.CallbackQuery, db_user: User,
     await state.set_state(ReferralWithdrawalStates.waiting_for_amount)
 
     text = texts.t(
-        'REFERRAL_WITHDRAWAL_ENTER_AMOUNT', '💸 Введите сумму для вывода в рублях\n\nДоступно: <b>{amount}</b>'
-    ).format(amount=texts.format_price(available))
+        'REFERRAL_WITHDRAWAL_ENTER_AMOUNT', '💸 Введите сумму для вывода в туманах\n\nДоступно: <b>{amount}</b>'
+    ).format(amount=texts.format_balance(available))
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text=texts.t('REFERRAL_WITHDRAWAL_ALL', f'Вывести всё ({available / 100:.0f}₽)'),
+                    text=texts.t('REFERRAL_WITHDRAWAL_ALL', 'Вывести всё ({amount})').format(
+                        amount=texts.format_balance(available)
+                    ),
                     callback_data=f'referral_withdrawal_amount_{available}',
                 )
             ],
@@ -816,10 +819,9 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
     available = data.get('available_balance', 0)
 
     try:
-        # Парсим сумму (в рублях)
-        amount_text = message.text.strip().replace(',', '.').replace('₽', '').replace(' ', '')
-        amount_rubles = float(amount_text)
-        amount_kopeks = int(amount_rubles * 100)
+        # The typed amount is Toman, the same unit the screen shows; the wallet and
+        # WithdrawalRequest.amount_kopeks store Toman 1:1 (Phase B), so no x100 here.
+        amount_kopeks = balance_from_display_amount(message.text or '')
 
         if amount_kopeks <= 0:
             await message.answer(texts.t('REFERRAL_WITHDRAWAL_INVALID_AMOUNT', '❌ Введите положительную сумму'))
@@ -829,7 +831,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
         if amount_kopeks < min_amount:
             await message.answer(
                 texts.t('REFERRAL_WITHDRAWAL_MIN_ERROR', '❌ Минимальная сумма: {amount}').format(
-                    amount=texts.format_price(min_amount)
+                    amount=texts.format_balance(min_amount)
                 )
             )
             return
@@ -837,7 +839,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
         if amount_kopeks > available:
             await message.answer(
                 texts.t('REFERRAL_WITHDRAWAL_INSUFFICIENT', '❌ Недостаточно средств. Доступно: {amount}').format(
-                    amount=texts.format_price(available)
+                    amount=texts.format_balance(available)
                 )
             )
             return
@@ -917,7 +919,7 @@ async def process_payment_details(message: types.Message, db_user: User, db: Asy
     text = texts.t('REFERRAL_WITHDRAWAL_CONFIRM_TITLE', '📋 <b>Подтверждение заявки</b>') + '\n\n'
     text += (
         texts.t('REFERRAL_WITHDRAWAL_CONFIRM_AMOUNT', '💰 Сумма: <b>{amount}</b>').format(
-            amount=texts.format_price(amount_kopeks)
+            amount=texts.format_balance(amount_kopeks)
         )
         + '\n\n'
     )
@@ -977,7 +979,7 @@ async def confirm_withdrawal_request(callback: types.CallbackQuery, db_user: Use
 
 👤 Пользователь: {safe_name}
 🆔 ID: <code>{user_id_display}</code>
-💰 Сумма: <b>{amount_kopeks / 100:.0f}₽</b>
+💰 Сумма: <b>{settings.format_balance(amount_kopeks)}</b>
 
 💳 Реквизиты:
 <code>{safe_details}</code>
@@ -1036,7 +1038,7 @@ async def confirm_withdrawal_request(callback: types.CallbackQuery, db_user: Use
         'Сумма: <b>{amount}</b>\n\n'
         'Ваша заявка будет рассмотрена администрацией. '
         'Мы уведомим вас о результате.',
-    ).format(id=request.id, amount=texts.format_price(amount_kopeks))
+    ).format(id=request.id, amount=texts.format_balance(amount_kopeks))
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[[types.InlineKeyboardButton(text=texts.BACK, callback_data='menu_referrals')]]

@@ -1,6 +1,7 @@
 """Admin routes for managing withdrawal requests in cabinet."""
 
 import json
+from html import escape as html_escape
 from typing import Literal
 
 import structlog
@@ -14,7 +15,9 @@ from app.database.models import (
     WithdrawalRequest,
     WithdrawalRequestStatus,
 )
+from app.localization.texts import get_texts
 from app.services.referral_withdrawal_service import referral_withdrawal_service
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.withdrawals import (
@@ -40,6 +43,34 @@ def _get_risk_level(risk_score: int) -> str:
     if risk_score >= 30:
         return 'medium'
     return 'low'
+
+
+_APPROVED_DEFAULT = (
+    '✅ <b>Заявка на вывод #{id} одобрена!</b>\n\n'
+    'Сумма: <b>{amount}</b>\n'
+    'Средства списаны с баланса.\n\n'
+    'Ожидайте перевод на указанные реквизиты.'
+)
+_REJECTED_DEFAULT = (
+    '❌ <b>Заявка на вывод #{id} отклонена</b>\n\n'
+    'Сумма: <b>{amount}</b>\n\n'
+    'Если у вас есть вопросы, обратитесь в поддержку.'
+)
+
+
+def _decision_message(user: User, withdrawal: WithdrawalRequest, key: str, default: str, comment: str | None) -> str:
+    """Telegram text for the user, in their language — the same texts the bot's admin screen sends.
+
+    ``withdrawal.amount_kopeks`` is Toman 1:1 (Phase B). The message is sent with parse_mode=HTML,
+    so the admin's free-text comment is escaped.
+    """
+    texts = get_texts(user.language)
+    text = texts.t(key, default).format(id=withdrawal.id, amount=texts.format_balance(withdrawal.amount_kopeks))
+    if comment:
+        text += '\n\n' + texts.t(
+            'REFERRAL_WITHDRAWAL_ADMIN_COMMENT', '💬 Комментарий администратора: {comment}'
+        ).format(comment=html_escape(comment))
+    return text
 
 
 @router.get('', response_model=AdminWithdrawalListResponse)
@@ -101,7 +132,7 @@ async def list_withdrawals(
                 first_name=user.first_name if user else None,
                 telegram_id=user.telegram_id if user else None,
                 amount_kopeks=w.amount_kopeks,
-                amount_rubles=w.amount_kopeks / 100,
+                amount_rubles=display_balance_from_storage(w.amount_kopeks),
                 status=w.status,
                 risk_score=w.risk_score or 0,
                 risk_level=_get_risk_level(w.risk_score or 0),
@@ -161,7 +192,7 @@ async def get_withdrawal_detail(
         first_name=user.first_name if user else None,
         telegram_id=user.telegram_id if user else None,
         amount_kopeks=withdrawal.amount_kopeks,
-        amount_rubles=withdrawal.amount_kopeks / 100,
+        amount_rubles=display_balance_from_storage(withdrawal.amount_kopeks),
         status=withdrawal.status,
         risk_score=withdrawal.risk_score or 0,
         risk_level=_get_risk_level(withdrawal.risk_score or 0),
@@ -207,9 +238,9 @@ async def approve_withdrawal(
             withdrawal = await db.get(WithdrawalRequest, withdrawal_id)
             user = await db.get(User, withdrawal.user_id) if withdrawal else None
             if user and withdrawal:
-                formatted_amount = settings.format_price(withdrawal.amount_kopeks)
-                comment_text = f'\n{request.comment}' if request.comment else ''
-                tg_message = f'✅ Ваш запрос на вывод {formatted_amount} одобрен.{comment_text}'
+                tg_message = _decision_message(
+                    user, withdrawal, 'REFERRAL_WITHDRAWAL_APPROVED', _APPROVED_DEFAULT, request.comment
+                )
                 bot = create_bot()
                 try:
                     await notification_delivery_service.notify_withdrawal_approved(
@@ -258,9 +289,9 @@ async def reject_withdrawal(
             withdrawal = await db.get(WithdrawalRequest, withdrawal_id)
             user = await db.get(User, withdrawal.user_id) if withdrawal else None
             if user and withdrawal:
-                formatted_amount = settings.format_price(withdrawal.amount_kopeks)
-                comment_text = f'\nПричина: {request.comment}' if request.comment else ''
-                tg_message = f'❌ Ваш запрос на вывод {formatted_amount} отклонён.{comment_text}'
+                tg_message = _decision_message(
+                    user, withdrawal, 'REFERRAL_WITHDRAWAL_REJECTED', _REJECTED_DEFAULT, request.comment
+                )
                 bot = create_bot()
                 try:
                     await notification_delivery_service.notify_withdrawal_rejected(
