@@ -609,3 +609,40 @@ async def test_force_check_counts_autopay_ready_on_the_toman_price(monkeypatch):
     result = await service.force_check_subscriptions(None)
 
     assert result['autopay_ready'] == 1  # only the 250,000-Toman balance covers the 200,000 renewal
+
+
+# ---------------------------------------------------------------- bot admin: buy for a user, failure after the debit
+
+
+@pytest.mark.parametrize('flow', ['subscription', 'tariff'])
+@pytest.mark.asyncio
+async def test_admin_buy_for_user_refunds_the_toman_price_when_delivery_fails(monkeypatch, flow):
+    import app.database.crud.subscription as subscription_crud
+    from tests.services.test_affordability_toman import ADMIN_FLOWS, _admin_setup, _bot_callback, _undecorated
+
+    admin_users = _admin_setup(monkeypatch)
+    _, execute, data = ADMIN_FLOWS[flow]
+    admin = SimpleNamespace(id=99, telegram_id=99, language='ru')
+    failing = AsyncMock(side_effect=RuntimeError('db down'))
+    monkeypatch.setattr(subscription_crud, 'extend_subscription', failing)
+    monkeypatch.setattr(subscription_crud, 'create_paid_subscription', failing)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        if flow == 'subscription':  # this flow extends in place and commits: fail that commit
+            real_commit = db.commit
+            calls = {'n': 0}
+
+            async def commit():
+                calls['n'] += 1
+                if calls['n'] == 2:  # 1: the debit, 2: the extension, 3: the refund
+                    raise RuntimeError('commit failed')
+                await real_commit()
+
+            monkeypatch.setattr(db, 'commit', commit)
+        callback = _bot_callback(data)
+        await _undecorated(admin_users, execute)(callback, admin, db)
+
+        assert await _balance(db) == RICH_BALANCE
+        assert await _payments(db) == [('refund', PRICE_TOMAN)]
+    assert 'Ошибка' in callback.answer.await_args.args[0]
