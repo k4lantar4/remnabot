@@ -59,6 +59,7 @@ from app.services.guest_purchase_service import GuestPurchaseError
 from app.services.user_cart_service import user_cart_service
 from app.states import GiftActivationStates, GiftPurchaseStates
 from app.utils.gift_links import build_gift_claim_artifacts
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.topup_suggestion import suggest_topup_amount_toman
 
 
@@ -1001,9 +1002,9 @@ async def handle_return_to_gift_cart(
         )
         return
 
-    # Check if balance is still insufficient
-    if db_user.balance_kopeks < quote.final_price_kopeks:
-        new_missing = quote.final_price_kopeks - db_user.balance_kopeks
+    # Check if balance is still insufficient (balance is Toman 1:1; the quote is a catalog price)
+    if not user_can_afford(db_user.balance_kopeks, quote.final_price_kopeks):
+        new_missing = missing_toman(db_user.balance_kopeks, quote.final_price_kopeks)
         cart_data['total_price'] = quote.final_price_kopeks
         cart_data['missing_amount'] = new_missing
         await user_cart_service.save_user_cart(db_user.id, cart_data)
@@ -1018,7 +1019,7 @@ async def handle_return_to_gift_cart(
 
         req_str = texts.format_price(quote.final_price_kopeks)
         bal_str = texts.format_balance(db_user.balance_kopeks)
-        missing_str = texts.format_price(new_missing)
+        missing_str = texts.format_balance(new_missing)
 
         text = texts.t(
             'GIFT_INSUFFICIENT_BALANCE_TITLE',
@@ -1035,7 +1036,7 @@ async def handle_return_to_gift_cart(
         )
         reply_markup = get_insufficient_balance_keyboard(
             language=db_user.language,
-            amount_kopeks=new_missing,
+            amount_kopeks=suggest_topup_amount_toman(new_missing),  # Toman prefill
             resume_callback='return_to_gift_cart',
             has_saved_cart=True,
             resume_text=texts.t('GIFT_RETURN_TO_CART_BUTTON', '🎁 Вернуться к подарку'),

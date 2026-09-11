@@ -21,7 +21,12 @@ from app.keyboards.inline import (
 from app.localization.texts import get_texts
 from app.states import BalanceStates
 from app.utils.decorators import error_handler
-from app.utils.price_display import balance_from_display_amount, is_balance_scale_transaction
+from app.utils.price_display import (
+    balance_from_display_amount,
+    is_balance_scale_transaction,
+    missing_toman,
+    user_can_afford,
+)
 
 
 logger = structlog.get_logger(__name__)
@@ -505,12 +510,12 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                 ]
             )
 
-            if 0 < total_price <= user.balance_kopeks:
+            # total_price is the cart's catalog price; the balance is Toman 1:1
+            if total_price > 0 and user_can_afford(user.balance_kopeks, total_price):
                 balance_hint = 'Средств на балансе достаточно для оформления.'
             else:
-                missing = max(total_price - user.balance_kopeks, 0)
-                # Без округления, иначе при не хватке <50 копеек покажется «0 ₽».
-                balance_hint = f'Не хватает: {texts.format_price(missing, round_kopeks=False)}'
+                missing = missing_toman(user.balance_kopeks, total_price)
+                balance_hint = f'Не хватает: {texts.format_balance(missing)}'
 
             success_text = (
                 f'✅ Баланс пополнен на {texts.format_balance(amount_kopeks)}!\n\n'

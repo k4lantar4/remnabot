@@ -537,8 +537,8 @@ class TestGiftTopupSuccessKeyboardAndResume:
         """When resuming with still-insufficient balance, updates shortfall and shows payment methods."""
         monkeypatch.setattr('app.handlers.subscription.gift.user_cart_service', test_cart_service)
 
-        # Balance 10025, quote 30050 -> missing 20025
-        mock_db_user.balance_kopeks = 10025
+        # Balance 100 Toman, quote 30,050 catalog (300 Toman) -> missing 200 Toman
+        mock_db_user.balance_kopeks = 100
 
         await test_cart_service.save_user_cart(
             mock_db_user.id,
