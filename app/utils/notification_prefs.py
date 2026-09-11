@@ -18,7 +18,7 @@ _DEFAULTS: dict[str, Any] = {
     'traffic_warning_enabled': True,
     'traffic_warning_percent': 80,
     'balance_low_enabled': False,
-    'balance_low_threshold': 100,  # kopeks
+    'balance_low_threshold': 100,  # Toman, compared 1:1 with balance_kopeks (Phase B)
     'news_enabled': True,
     'promo_offers_enabled': True,
 }

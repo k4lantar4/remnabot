@@ -8,6 +8,7 @@ from typing import Any
 
 import structlog
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError
+from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -2552,6 +2553,32 @@ class MonitoringService:
         except Exception as error:
             logger.error('Error checking traffic warnings', error=error)
 
+    @staticmethod
+    def _build_low_balance_alert(user: Any, balance: int, threshold: int) -> tuple[str, InlineKeyboardMarkup]:
+        """Render the low-balance alert text and its top-up keyboard.
+
+        ``balance`` (``User.balance_kopeks``) is raw Toman (Phase B) and the cabinet stores
+        ``balance_low_threshold`` as the number the user typed, compared 1:1 with the balance,
+        so both are printed with ``format_balance`` — no ÷100.
+        """
+        language = getattr(user, 'language', None) or settings.DEFAULT_LANGUAGE
+        texts = get_texts(language)
+        message = texts.t(
+            'LOW_BALANCE_ALERT',
+            '⚠️ <b>Low Balance</b>\n\n'
+            'Your balance: {balance}\n'
+            'Notification threshold: {threshold}\n\n'
+            'Top up your balance to ensure automatic subscription renewal.',
+        ).format(
+            balance=texts.format_balance(balance),
+            threshold=texts.format_balance(threshold),
+        )
+        topup_button = build_miniapp_or_callback_button(
+            texts.t('BALANCE_TOPUP', '💳 Top up balance'),
+            callback_data='balance_topup',
+        )
+        return message, InlineKeyboardMarkup(inline_keyboard=[[topup_button]])
+
     async def _check_low_balance_alerts(self, db: AsyncSession):
         """Check users with autopay enabled who have low balance and notify them.
 
@@ -2567,7 +2594,6 @@ class MonitoringService:
         try:
             from datetime import UTC, datetime, timedelta
 
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
             from sqlalchemy import select
 
             from app.database.models import Subscription, User
@@ -2617,37 +2643,7 @@ class MonitoringService:
                     pass
 
                 try:
-                    language = getattr(user, 'language', 'ru') or 'ru'
-                    texts = get_texts(language)
-                    threshold_rub = threshold / 100
-                    balance_rub = balance / 100
-                    message = texts.get(
-                        'LOW_BALANCE_ALERT',
-                        '⚠️ <b>Низкий баланс</b>\n\n'
-                        'Ваш баланс: {balance} ₽\n'
-                        'Порог уведомления: {threshold} ₽\n\n'
-                        'Пополните баланс, чтобы автопродление подписки прошло успешно.',
-                    )
-                    message = message.format(
-                        balance=f'{balance_rub:.0f}',
-                        threshold=f'{threshold_rub:.0f}',
-                    )
-
-                    # Build inline keyboard with cabinet top-up button
-                    keyboard = None
-                    miniapp_url = settings.get_main_menu_miniapp_url()
-                    if miniapp_url:
-                        topup_label = texts.get('LOW_BALANCE_TOPUP_BUTTON', '💳 Пополнить баланс')
-                        keyboard = InlineKeyboardMarkup(
-                            inline_keyboard=[
-                                [
-                                    InlineKeyboardButton(
-                                        text=topup_label,
-                                        web_app=WebAppInfo(url=miniapp_url),
-                                    )
-                                ]
-                            ]
-                        )
+                    message, keyboard = self._build_low_balance_alert(user, balance, threshold)
 
                     await self.bot.send_message(
                         user.telegram_id,
