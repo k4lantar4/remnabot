@@ -353,19 +353,27 @@ class DailySubscriptionService:
             return 'error'
 
     async def _notify_daily_charge(self, user, subscription, amount_kopeks: int):
-        """Уведомляет пользователя о суточном списании."""
-        get_texts(getattr(user, 'language', 'ru'))
-        amount_rubles = amount_kopeks / 100
-        balance_rubles = user.balance_kopeks / 100
+        """Уведомляет пользователя о суточном списании.
+
+        ``amount_kopeks`` is the catalog daily price (format_price); the balance left is Toman (format_balance).
+        """
+        texts = get_texts(getattr(user, 'language', 'ru'))
 
         tariff_label = ''
         if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-            tariff_label = f'\n📦 Тариф: «{subscription.tariff.name}»'
-        message = (
-            f'💳 <b>Суточное списание</b>\n\n'
-            f'Списано: {amount_rubles:.2f} ₽\n'
-            f'Остаток баланса: {balance_rubles:.2f} ₽{tariff_label}\n\n'
-            f'Следующее списание через 24 часа.'
+            tariff_label = texts.t('DAILY_CHARGE_TARIFF_LINE', '\n📦 Тариф: «{name}»').format(
+                name=subscription.tariff.name
+            )
+        message = texts.t(
+            'DAILY_CHARGE_NOTIFICATION',
+            '💳 <b>Суточное списание</b>\n\n'
+            'Списано: {amount}\n'
+            'Остаток баланса: {balance}{tariff}\n\n'
+            'Следующее списание через 24 часа.',
+        ).format(
+            amount=settings.format_price(amount_kopeks),
+            balance=settings.format_balance(user.balance_kopeks),
+            tariff=tariff_label,
         )
 
         # Use unified notification delivery service
@@ -384,32 +392,42 @@ class DailySubscriptionService:
         """Уведомляет пользователя о недостатке средств."""
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-        get_texts(getattr(user, 'language', 'ru'))
-        required_rubles = required_amount / 100
-        balance_rubles = user.balance_kopeks / 100
+        texts = get_texts(getattr(user, 'language', 'ru'))
+        # required_amount is the catalog daily price; the balance is Toman.
+        required_label = settings.format_price(required_amount)
+        balance_label = settings.format_balance(user.balance_kopeks)
 
         tariff_label = ''
         if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
             tariff_label = f' «{subscription.tariff.name}»'
-        message = (
-            f'⚠️ <b>Подписка{tariff_label} приостановлена</b>\n\n'
-            f'Недостаточно средств для суточной оплаты.\n\n'
-            f'Требуется: {required_rubles:.2f} ₽\n'
-            f'Баланс: {balance_rubles:.2f} ₽\n\n'
-            f'Пополните баланс, чтобы возобновить подписку.'
-        )
+        message = texts.t(
+            'DAILY_INSUFFICIENT_NOTIFICATION',
+            '⚠️ <b>Подписка{tariff} приостановлена</b>\n\n'
+            'Недостаточно средств для суточной оплаты.\n\n'
+            'Требуется: {required}\n'
+            'Баланс: {balance}\n\n'
+            'Пополните баланс, чтобы возобновить подписку.',
+        ).format(tariff=tariff_label, required=required_label, balance=balance_label)
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text='💳 Пополнить баланс', callback_data='menu_balance')],
-                [InlineKeyboardButton(text='📱 Моя подписка', callback_data='menu_subscription')],
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='menu_balance'
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'), callback_data='menu_subscription'
+                    )
+                ],
             ]
         )
 
         # Use unified notification delivery service
         context = {
-            'required_amount': f'{required_rubles:.2f} ₽',
-            'current_balance': f'{balance_rubles:.2f} ₽',
+            'required_amount': required_label,
+            'current_balance': balance_label,
         }
 
         try:

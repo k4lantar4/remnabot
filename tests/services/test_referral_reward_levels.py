@@ -610,9 +610,9 @@ class TestRewardFormatting:
     @pytest.mark.parametrize(
         ('money', 'days', 'expected_fragments', 'forbidden'),
         [
-            (250_00, 0, ['250'], ['дн.']),
+            (25_000, 0, ['25,000'], ['дн.']),  # Toman earnings, shown 1:1
             (0, 14, ['14 дн.'], ['0 ₽']),
-            (250_00, 7, ['250', '7 дн.'], []),
+            (25_000, 7, ['25,000', '7 дн.'], []),
             (0, 0, ['0'], ['дн.']),
         ],
     )

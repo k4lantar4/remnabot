@@ -46,7 +46,55 @@ def _levels_breakdown_block(by_level: list[dict]) -> str:
     return '\n'.join(lines) + '\n'
 
 
-async def _program_rules_block(db: AsyncSession) -> str:
+_DIAG_DEFAULTS = {
+    'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRALS': 'Бонусов рефералам: {amount}',
+    'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRERS': 'Бонусов реферерам: {amount}',
+    'ADMIN_REFERRAL_DIAG_FIRST_TOPUP': 'Первое пополнение: {amount}',
+    'ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRAL': 'Бонус рефералу: {amount}',
+    'ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRER': 'Бонус рефереру: {amount}',
+    'ADMIN_REFERRAL_DIAG_MISSING_TO_REFERRALS': 'Рефералам: {amount}',
+    'ADMIN_REFERRAL_DIAG_MISSING_TO_REFERRERS': 'Реферерам: {amount}',
+    'ADMIN_REFERRAL_DIAG_TOTAL': '<b>Итого: {amount}</b>',
+    'ADMIN_REFERRAL_DIAG_TOPUP': 'Пополнение: {amount}',
+    'ADMIN_REFERRAL_DIAG_CREDITED_TO_REFERRALS': 'Начислено рефералам: {amount}',
+    'ADMIN_REFERRAL_DIAG_CREDITED_TO_REFERRERS': 'Начислено реферерам: {amount}',
+}
+
+
+def _diag_line(texts, key: str, amount_toman: int) -> str:
+    """One diagnostics amount label: first deposits and referral bonuses are Toman."""
+    return texts.t(key, _DIAG_DEFAULTS[key]).format(amount=settings.format_balance(amount_toman))
+
+
+def _diag_lines(texts, rows: tuple[tuple[str, int], ...]) -> str:
+    return '\n'.join(f'• {_diag_line(texts, key, amount)}' for key, amount in rows)
+
+
+def _legacy_terms_lines(texts, bullet: str) -> str:
+    """The three legacy REFERRAL_*_KOPEKS terms: Toman (compared with the Toman top-up, credited 1:1)."""
+    return '\n'.join(
+        f'{bullet} ' + texts.t(key, default).format(amount=settings.format_balance(amount))
+        for key, default, amount in (
+            (
+                'ADMIN_REFERRAL_MIN_TOPUP_LINE',
+                'Минимальное пополнение: {amount}',
+                settings.REFERRAL_MINIMUM_TOPUP_KOPEKS,
+            ),
+            (
+                'ADMIN_REFERRAL_FIRST_TOPUP_BONUS_LINE',
+                'Бонус за первое пополнение: {amount}',
+                settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
+            ),
+            (
+                'ADMIN_REFERRAL_INVITER_BONUS_LINE',
+                'Бонус пригласившему: {amount}',
+                settings.REFERRAL_INVITER_BONUS_KOPEKS,
+            ),
+        )
+    )
+
+
+async def _program_rules_block(db: AsyncSession, texts) -> str:
     """Действующие правила программы.
 
     В многоуровневой схеме печатать легаси-ключи нельзя: они не управляют ни одним
@@ -56,9 +104,7 @@ async def _program_rules_block(db: AsyncSession) -> str:
     if not settings.is_referral_levels_scheme():
         return (
             '<b>Настройки реферальной системы:</b>\n'
-            f'- Минимальное пополнение: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}\n'
-            f'- Бонус за первое пополнение: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}\n'
-            f'- Бонус пригласившему: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}\n'
+            f'{_legacy_terms_lines(texts, "-")}\n'
             f'- Комиссия с покупок: {settings.REFERRAL_COMMISSION_PERCENT}%'
         )
 
@@ -110,6 +156,7 @@ async def _reward_tariff_names(db: AsyncSession) -> dict[int, str]:
 @admin_required
 @error_handler
 async def show_referral_statistics(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     try:
         stats = await get_referral_statistics(db)
 
@@ -118,6 +165,10 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
             avg_per_referrer = stats.get('total_paid_kopeks', 0) / stats['active_referrers']
 
         current_time = datetime.now(UTC).strftime('%H:%M:%S')
+        # ReferralEarning sums are Toman (credited 1:1 to the wallet).
+        avg_line = texts.t('ADMIN_REFERRAL_AVG_PER_REFERRER_LINE', 'На одного реферера: {amount}').format(
+            amount=settings.format_balance(int(avg_per_referrer))
+        )
 
         text = f"""
 🤝 <b>Реферальная статистика</b>
@@ -133,7 +184,7 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
 - За месяц: {_paid_line(stats.get('month_earnings_kopeks', 0), stats.get('month_earnings_days', 0))}
 
 <b>Средние показатели:</b>
-- На одного реферера: {settings.format_price(int(avg_per_referrer))}
+- {avg_line}
 """
 
         text += _levels_breakdown_block(stats.get('by_level') or [])
@@ -154,7 +205,7 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
         else:
             text += 'Нет данных\n'
 
-        text += f'\n{await _program_rules_block(db)}'
+        text += f'\n{await _program_rules_block(db, texts)}'
         text += f"""
 - Уведомления: {'✅ Включены' if settings.REFERRAL_NOTIFICATIONS_ENABLED else '❌ Отключены'}
 
@@ -202,9 +253,7 @@ async def show_referral_statistics(callback: types.CallbackQuery, db_user: User,
 ❌ <b>Ошибка загрузки данных</b>
 
 <b>Текущие настройки:</b>
-- Минимальное пополнение: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}
-- Бонус за первое пополнение: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}
-- Бонус пригласившему: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}
+{_legacy_terms_lines(texts, '-')}
 - Комиссия с покупок: {settings.REFERRAL_COMMISSION_PERCENT}%
 
 <i>🕐 Время: {current_time}</i>
@@ -360,11 +409,12 @@ def _settings_hint() -> str:
 @admin_required
 @error_handler
 async def show_referral_settings(callback: types.CallbackQuery, db_user: User, db: AsyncSession):
+    texts = get_texts(db_user.language)
     if settings.is_referral_levels_scheme():
         text = f"""
 ⚙️ <b>Настройки реферальной системы</b>
 
-{await _program_rules_block(db)}
+{await _program_rules_block(db, texts)}
 
 <b>Уведомления:</b>
 • Статус: {'✅ Включены' if settings.REFERRAL_NOTIFICATIONS_ENABLED else '❌ Отключены'}
@@ -387,9 +437,7 @@ async def show_referral_settings(callback: types.CallbackQuery, db_user: User, d
 ⚙️ <b>Настройки реферальной системы</b>
 
 <b>Бонусы и награды:</b>
-• Минимальная сумма пополнения для участия: {settings.format_price(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS)}
-• Бонус за первое пополнение реферала: {settings.format_price(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS)}
-• Бонус пригласившему за первое пополнение: {settings.format_price(settings.REFERRAL_INVITER_BONUS_KOPEKS)}
+{_legacy_terms_lines(texts, '•')}
 
 <b>Комиссионные:</b>
 • Процент с каждой покупки реферала: {settings.REFERRAL_COMMISSION_PERCENT}%
@@ -953,6 +1001,7 @@ async def show_referral_diagnostics(callback: types.CallbackQuery, db_user: User
 @error_handler
 async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     """Показывает предпросмотр исправлений потерянных рефералов."""
+    texts = get_texts(db_user.language)
     try:
         await callback.answer('Анализирую...')
 
@@ -992,8 +1041,8 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
 
 <b>📊 Что будет сделано:</b>
 • Исправлено рефералов: {fix_report.users_fixed}
-• Бонусов рефералам: {settings.format_price(fix_report.bonuses_to_referrals)}
-• Бонусов рефереам: {settings.format_price(fix_report.bonuses_to_referrers)}
+• {_diag_line(texts, 'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRALS', fix_report.bonuses_to_referrals)}
+• {_diag_line(texts, 'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRERS', fix_report.bonuses_to_referrers)}
 • Ошибок: {fix_report.errors}
 
 <b>🔍 Детали:</b>
@@ -1018,11 +1067,11 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
                     )
                     text += f'   • Реферер: {referrer_display}\n'
                 if detail.had_first_topup:
-                    text += f'   • Первое пополнение: {settings.format_price(detail.topup_amount_kopeks)}\n'
+                    text += f'   • {_diag_line(texts, "ADMIN_REFERRAL_DIAG_FIRST_TOPUP", detail.topup_amount_kopeks)}\n'
                 if detail.bonus_to_referral_kopeks > 0:
-                    text += f'   • Бонус рефералу: {settings.format_price(detail.bonus_to_referral_kopeks)}\n'
+                    text += f'   • {_diag_line(texts, "ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRAL", detail.bonus_to_referral_kopeks)}\n'
                 if detail.bonus_to_referrer_kopeks > 0:
-                    text += f'   • Бонус рефереру: {settings.format_price(detail.bonus_to_referrer_kopeks)}\n'
+                    text += f'   • {_diag_line(texts, "ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRER", detail.bonus_to_referrer_kopeks)}\n'
 
         if len(fix_report.details) > 10:
             text += f'\n<i>... и ещё {len(fix_report.details) - 10}</i>\n'
@@ -1051,6 +1100,7 @@ async def preview_referral_fixes(callback: types.CallbackQuery, db_user: User, d
 @error_handler
 async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     """Применяет исправления потерянных рефералов."""
+    texts = get_texts(db_user.language)
     try:
         await callback.answer('Применяю исправления...')
 
@@ -1090,8 +1140,8 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
 
 <b>📊 Результаты:</b>
 • Исправлено рефералов: {fix_report.users_fixed}
-• Бонусов рефералам: {settings.format_price(fix_report.bonuses_to_referrals)}
-• Бонусов рефереам: {settings.format_price(fix_report.bonuses_to_referrers)}
+• {_diag_line(texts, 'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRALS', fix_report.bonuses_to_referrals)}
+• {_diag_line(texts, 'ADMIN_REFERRAL_DIAG_BONUSES_TO_REFERRERS', fix_report.bonuses_to_referrers)}
 • Ошибок: {fix_report.errors}
 
 <b>🔍 Детали:</b>
@@ -1116,9 +1166,9 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
                     )
                     text += f'   • Реферер: {referrer_display}\n'
                 if detail.bonus_to_referral_kopeks > 0:
-                    text += f'   • Бонус рефералу: {settings.format_price(detail.bonus_to_referral_kopeks)}\n'
+                    text += f'   • {_diag_line(texts, "ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRAL", detail.bonus_to_referral_kopeks)}\n'
                 if detail.bonus_to_referrer_kopeks > 0:
-                    text += f'   • Бонус рефереру: {settings.format_price(detail.bonus_to_referrer_kopeks)}\n'
+                    text += f'   • {_diag_line(texts, "ADMIN_REFERRAL_DIAG_BONUS_TO_REFERRER", detail.bonus_to_referrer_kopeks)}\n'
 
         if fix_report.users_fixed > 10:
             text += f'\n<i>... и ещё {fix_report.users_fixed - 10} исправлений</i>\n'
@@ -1170,6 +1220,7 @@ async def apply_referral_fixes(callback: types.CallbackQuery, db_user: User, db:
 @error_handler
 async def check_missing_bonuses(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     """Проверяет по БД — всем ли рефералам начислены бонусы."""
+    texts = get_texts(db_user.language)
     from app.services.referral_diagnostics_service import (
         referral_diagnostics_service,
     )
@@ -1219,11 +1270,20 @@ async def check_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
 """
 
         if report.missing_bonuses:
+            missing_lines = _diag_lines(
+                texts,
+                (
+                    ('ADMIN_REFERRAL_DIAG_MISSING_TO_REFERRALS', report.total_missing_to_referrals),
+                    ('ADMIN_REFERRAL_DIAG_MISSING_TO_REFERRERS', report.total_missing_to_referrers),
+                    (
+                        'ADMIN_REFERRAL_DIAG_TOTAL',
+                        report.total_missing_to_referrals + report.total_missing_to_referrers,
+                    ),
+                ),
+            )
             text += f"""
 💰 <b>Требуется начислить:</b>
-• Рефералам: {report.total_missing_to_referrals / 100:.0f}₽
-• Рефереерам: {report.total_missing_to_referrers / 100:.0f}₽
-• <b>Итого: {(report.total_missing_to_referrals + report.total_missing_to_referrers) / 100:.0f}₽</b>
+{missing_lines}
 
 👤 <b>Список ({len(report.missing_bonuses)} чел.):</b>
 """
@@ -1236,8 +1296,11 @@ async def check_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
                 )
                 text += f'\n{i}. <b>{referral_name}</b>'
                 text += f'\n   └ Пригласил: {referrer_name}'
-                text += f'\n   └ Пополнение: {mb.first_topup_amount_kopeks / 100:.0f}₽'
-                text += f'\n   └ Бонусы: {mb.referral_bonus_amount / 100:.0f}₽ + {mb.referrer_bonus_amount / 100:.0f}₽'
+                text += f'\n   └ {_diag_line(texts, "ADMIN_REFERRAL_DIAG_TOPUP", mb.first_topup_amount_kopeks)}'
+                text += '\n   └ ' + texts.t('ADMIN_REFERRAL_DIAG_BONUSES', 'Бонусы: {referral} + {referrer}').format(
+                    referral=settings.format_balance(mb.referral_bonus_amount),
+                    referrer=settings.format_balance(mb.referrer_bonus_amount),
+                )
 
             if len(report.missing_bonuses) > 15:
                 text += f'\n\n<i>... и ещё {len(report.missing_bonuses) - 15} чел.</i>'
@@ -1269,6 +1332,7 @@ async def check_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
 @error_handler
 async def apply_missing_bonuses(callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext):
     """Применяет начисление пропущенных бонусов."""
+    texts = get_texts(db_user.language)
     from app.services.referral_diagnostics_service import (
         MissingBonusReport,
         referral_diagnostics_service,
@@ -1294,14 +1358,20 @@ async def apply_missing_bonuses(callback: types.CallbackQuery, db_user: User, db
         # Применяем исправления
         fix_report = await referral_diagnostics_service.fix_missing_bonuses(db, report.missing_bonuses, apply=True)
 
+        credited_lines = _diag_lines(
+            texts,
+            (
+                ('ADMIN_REFERRAL_DIAG_CREDITED_TO_REFERRALS', fix_report.bonuses_to_referrals),
+                ('ADMIN_REFERRAL_DIAG_CREDITED_TO_REFERRERS', fix_report.bonuses_to_referrers),
+                ('ADMIN_REFERRAL_DIAG_TOTAL', fix_report.bonuses_to_referrals + fix_report.bonuses_to_referrers),
+            ),
+        )
         text = f"""
 ✅ <b>Бонусы начислены!</b>
 
 📊 <b>Результат:</b>
 • Обработано: {fix_report.users_fixed} пользователей
-• Начислено рефералам: {fix_report.bonuses_to_referrals / 100:.0f}₽
-• Начислено рефереерам: {fix_report.bonuses_to_referrers / 100:.0f}₽
-• <b>Итого: {(fix_report.bonuses_to_referrals + fix_report.bonuses_to_referrers) / 100:.0f}₽</b>
+{credited_lines}
 """
 
         if fix_report.errors > 0:

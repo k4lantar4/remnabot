@@ -1738,11 +1738,12 @@ def format_reward_total(money_kopeks: int, days: int, language: str | None = Non
     texts = get_texts(language) if language else get_texts()
     days_label = texts.t('REFERRAL_DAYS_SHORT', '{days} дн.').format(days=days)
 
+    # Paid money is ReferralEarning.amount_kopeks: Toman, credited 1:1 to the wallet (balance scale).
     if days and not money:
         return days_label
     if days:
-        return f'{settings.format_price(money)} + {days_label}'
-    return settings.format_price(money)
+        return f'{settings.format_balance(money)} + {days_label}'
+    return settings.format_balance(money)
 
 
 def legacy_percent_for_import() -> tuple[int, list[str]]:

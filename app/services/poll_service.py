@@ -21,6 +21,7 @@ from app.database.models import (
     User,
 )
 from app.localization.texts import get_texts
+from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -220,10 +221,12 @@ async def reward_user_for_poll(
     response.reward_given = True
     response.reward_amount_kopeks = poll.reward_amount_kopeks
 
+    # The reward is typed and stored like a price (catalog scale, x100) and shown with format_price;
+    # the wallet and the poll_reward row are Toman.
     success = await add_user_balance(
         db,
         user,
-        poll.reward_amount_kopeks,
+        catalog_price_in_toman(poll.reward_amount_kopeks),
         description,
         transaction_type=TransactionType.POLL_REWARD,
     )
