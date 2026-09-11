@@ -4159,6 +4159,11 @@ async def confirm_daily_tariff_switch(
         pass
 
     promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
+    # Возврат — только списанию, которое не превратилось в смену: после коммита смены
+    # (delivered) ошибка сообщения или уведомления не повод отдавать деньги.
+    refund_reason = f'Возврат: ошибка смены на суточный тариф {tariff.name}'
+    charged = False
+    delivered = False
     try:
         # Списываем первый день сразу
         success = await subtract_user_balance(
@@ -4175,6 +4180,7 @@ async def confirm_daily_tariff_switch(
             except Exception:
                 pass
             return
+        charged = True
 
         # Получаем список серверов из тарифа
         squads = tariff.allowed_squads or []
@@ -4222,6 +4228,7 @@ async def confirm_daily_tariff_switch(
             subscription.traffic_used_gb = 0.0
 
         await db.commit()
+        delivered = True
         await db.refresh(subscription)
 
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
@@ -4352,36 +4359,9 @@ async def confirm_daily_tariff_switch(
 
     except Exception as e:
         logger.error('Ошибка при смене на суточный тариф', error=e, exc_info=True)
-        await db.rollback()
-        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
-        # Compensating refund: balance was already committed by subtract_user_balance
-        try:
-            from app.database.crud.user import add_user_balance
-
-            await restore_promo_offer(db, db_user, promo_snapshot)
-            refund_success = await add_user_balance(
-                db,
-                db_user,
-                catalog_price_in_toman(final_daily_price),
-                'Возврат: ошибка смены на суточный тариф',
-                create_transaction=True,
-                transaction_type=TransactionType.REFUND,
-                commit=False,
-            )
-            if not refund_success:
-                await _persist_failed_refund(
-                    user_id=db_user.id,
-                    amount_kopeks=catalog_price_in_toman(final_daily_price),
-                    reason='Возврат: ошибка смены на суточный тариф',
-                    error=Exception('add_user_balance returned False'),
-                )
-            await db.commit()
-        except Exception as refund_error:
-            logger.critical(
-                'CRITICAL: не удалось вернуть средства после ошибки смены на суточный тариф',
-                user_id=db_user.id,
-                price_kopeks=final_daily_price,
-                refund_error=refund_error,
+        if charged and not delivered:
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(final_daily_price), refund_reason, promo_snapshot=promo_snapshot
             )
         try:
             await callback.message.edit_text(
