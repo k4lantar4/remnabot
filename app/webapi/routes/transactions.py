@@ -8,6 +8,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Transaction
+from app.utils.price_display import display_transaction_amount_from_storage
 
 from ..dependencies import get_db_session, require_api_token
 from ..schemas.transactions import TransactionListResponse, TransactionResponse
@@ -22,7 +23,7 @@ def _serialize(transaction: Transaction) -> TransactionResponse:
         user_id=transaction.user_id,
         type=transaction.type,
         amount_kopeks=transaction.amount_kopeks,
-        amount_rubles=round(transaction.amount_kopeks / 100, 2),
+        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks, transaction.type), 2),
         description=transaction.description,
         payment_method=transaction.payment_method,
         external_id=transaction.external_id,
