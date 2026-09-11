@@ -1,12 +1,15 @@
 # Selective upstream patches onto `main`
 
-**Status:** active — **Plans A, B, C and D done.** A: bot #18; cabinet frontend #7; found during it
+**Status:** done — **Plans A–E all merged.** A: bot #18; cabinet frontend #7; found during it
 and fixed: cabinet branding-cache crash, frontend #8. B: bot #20, plus follow-up #21 (daily charges
 100x off, open question 4). A and B are deployed to the dev bot as of 2026-09-10. C: bot #23
 (preflight re-run against upstream v4.9.0: the only later commit on its files, `89ea5d51` — an
 optional per-minute panel request ceiling — is a feature and was not taken). D: bot #31, after its
 currency pre-check found every add-on purchase 100x off — fixed first as bot #27 + frontend #12.
-Plan E not started (re-checked against cabinet v1.73.0: unaffected).
+E: frontend #17 (`2c6357da`; clean cherry-picks, preflight against cabinet v1.73.0 unchanged).
+Left open on purpose, not part of any sub-plan: the deferred/candidate rows in the triage tables
+(`0715b5c7`/`dc9a7ca7` transaction-while-panel-call check, `0b622ba5`, `1e612772`, `d22e47c9`) and
+open questions 1–2 — each is its own task if picked up.
 **Repos:** `remnabot` (Plans A–D, all bot-first) → `frontend` (Task 3's error mapping, Plan E).
 `origin` = `k4lantar4/*`; `upstream` = `BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot` /
 `BEDOLAGA-DEV/bedolaga-cabinet`.
@@ -422,6 +425,8 @@ to 0. B2C UI + admin.
 ## Tasks
 
 **11. Cherry-pick `db7344c0` and `e53803a1`** (two commits, `git cherry-pick -x`).
+- Done: frontend #17 (`0cb8789b`, `3339ff3d`), nothing adapted. Carried over from upstream as-is:
+  an empty price field now adds a 0-priced period (`toNumber('', 0)`); the field starts at 300.
 - Files: `src/components/dashboard/ConnectDeviceTile.tsx`,
   `src/components/dashboard/SubscriptionCardActive.tsx`, `src/pages/AdminTariffCreate.tsx`; tests
   arrive with the commits: `src/components/dashboard/subscriptionCardLayout.test.tsx`,
