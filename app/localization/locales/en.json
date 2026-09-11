@@ -2568,5 +2568,17 @@
   "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 Check status",
   "TRAFFIC_AMOUNT_GB": "{value} GB",
   "TRAFFIC_AMOUNT_TB": "{value} TB",
-  "TRAFFIC_LIMIT_UNLIMITED": "∞ (unlimited)"
+  "TRAFFIC_LIMIT_UNLIMITED": "∞ (unlimited)",
+  "TRAFFIC_TOPUP_DESCRIPTION": "Extra traffic: {gb} GB",
+  "TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT": "Extra traffic: {gb} GB ({percent}% off)",
+  "TRAFFIC_TOPUP_ADDED": "{gb} GB of traffic added",
+  "CABINET_TRAFFIC_NO_SUBSCRIPTION": "You don't have an active subscription",
+  "CABINET_TRAFFIC_SUBSCRIPTION_INACTIVE": "Your subscription is not active",
+  "CABINET_TRAFFIC_TOPUP_TRIAL": "Extra traffic isn't available during the trial",
+  "CABINET_TRAFFIC_ALREADY_UNLIMITED": "Your traffic is already unlimited",
+  "CABINET_TRAFFIC_TARIFF_NOT_FOUND": "Tariff not found",
+  "CABINET_TRAFFIC_TOPUP_TARIFF_DISABLED": "Your tariff doesn't allow extra traffic",
+  "CABINET_TRAFFIC_PACKAGE_UNAVAILABLE": "The {gb} GB traffic package isn't available",
+  "CABINET_TRAFFIC_TOPUP_DISABLED": "Extra traffic purchases are turned off",
+  "CABINET_TRAFFIC_PACKAGE_INVALID": "This traffic package isn't available"
 }

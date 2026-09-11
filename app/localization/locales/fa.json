@@ -2568,5 +2568,17 @@
   "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 بررسی وضعیت",
   "TRAFFIC_AMOUNT_GB": "{value} گیگ",
   "TRAFFIC_AMOUNT_TB": "{value} ترابایت",
-  "TRAFFIC_LIMIT_UNLIMITED": "∞ (نامحدود)"
+  "TRAFFIC_LIMIT_UNLIMITED": "∞ (نامحدود)",
+  "TRAFFIC_TOPUP_DESCRIPTION": "خرید {gb} گیگ ترافیک اضافه",
+  "TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT": "خرید {gb} گیگ ترافیک اضافه ({percent}% تخفیف)",
+  "TRAFFIC_TOPUP_ADDED": "{gb} گیگ ترافیک اضافه شد",
+  "CABINET_TRAFFIC_NO_SUBSCRIPTION": "اشتراک فعالی وجود ندارد",
+  "CABINET_TRAFFIC_SUBSCRIPTION_INACTIVE": "اشتراک فعال نیست",
+  "CABINET_TRAFFIC_TOPUP_TRIAL": "در دوره‌ی آزمایشی خرید ترافیک اضافه ممکن نیست",
+  "CABINET_TRAFFIC_ALREADY_UNLIMITED": "ترافیک این اشتراک نامحدود است",
+  "CABINET_TRAFFIC_TARIFF_NOT_FOUND": "تعرفه پیدا نشد",
+  "CABINET_TRAFFIC_TOPUP_TARIFF_DISABLED": "این تعرفه امکان خرید ترافیک اضافه ندارد",
+  "CABINET_TRAFFIC_PACKAGE_UNAVAILABLE": "بسته‌ی {gb} گیگ در دسترس نیست",
+  "CABINET_TRAFFIC_TOPUP_DISABLED": "خرید ترافیک اضافه فعلاً غیرفعال است",
+  "CABINET_TRAFFIC_PACKAGE_INVALID": "این بسته‌ی ترافیک در دسترس نیست"
 }

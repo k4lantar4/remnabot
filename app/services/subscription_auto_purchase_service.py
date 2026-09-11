@@ -2095,7 +2095,9 @@ async def _auto_add_traffic(
         return False
 
     # Deduct balance
-    description = f'Докупка {traffic_gb} ГБ трафика'
+    description = (
+        get_texts(user.language).t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=traffic_gb)
+    )
     try:
         success = await subtract_user_balance(db, user, catalog_price_in_toman(price_kopeks), description)
         if not success:

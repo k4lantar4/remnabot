@@ -2568,5 +2568,17 @@
   "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 Check status",
   "TRAFFIC_AMOUNT_GB": "{value} ГБ",
   "TRAFFIC_AMOUNT_TB": "{value} ТБ",
-  "TRAFFIC_LIMIT_UNLIMITED": "∞ (безлимит)"
+  "TRAFFIC_LIMIT_UNLIMITED": "∞ (безлимит)",
+  "TRAFFIC_TOPUP_DESCRIPTION": "Докупка {gb} ГБ трафика",
+  "TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT": "Докупка {gb} ГБ трафика (скидка {percent}%)",
+  "TRAFFIC_TOPUP_ADDED": "Добавлено {gb} ГБ трафика",
+  "CABINET_TRAFFIC_NO_SUBSCRIPTION": "У вас нет активной подписки",
+  "CABINET_TRAFFIC_SUBSCRIPTION_INACTIVE": "Ваша подписка неактивна",
+  "CABINET_TRAFFIC_TOPUP_TRIAL": "Докупка трафика недоступна на пробном периоде",
+  "CABINET_TRAFFIC_ALREADY_UNLIMITED": "У вас уже безлимитный трафик",
+  "CABINET_TRAFFIC_TARIFF_NOT_FOUND": "Тариф не найден",
+  "CABINET_TRAFFIC_TOPUP_TARIFF_DISABLED": "Докупка трафика недоступна на вашем тарифе",
+  "CABINET_TRAFFIC_PACKAGE_UNAVAILABLE": "Пакет трафика {gb} ГБ недоступен",
+  "CABINET_TRAFFIC_TOPUP_DISABLED": "Докупка трафика отключена",
+  "CABINET_TRAFFIC_PACKAGE_INVALID": "Недоступный пакет трафика"
 }

@@ -7381,10 +7381,13 @@ async def purchase_traffic_topup_endpoint(
         )
 
     # Списываем баланс
+    texts = get_texts(user.language)
     if traffic_discount_percent > 0:
-        traffic_description = f'Докупка {payload.gb} ГБ трафика (скидка {traffic_discount_percent}%)'
+        traffic_description = texts.t(
+            'TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT', 'Докупка {gb} ГБ трафика (скидка {percent}%)'
+        ).format(gb=payload.gb, percent=traffic_discount_percent)
     else:
-        traffic_description = f'Докупка {payload.gb} ГБ трафика'
+        traffic_description = texts.t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=payload.gb)
     success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
     if not success:
         raise HTTPException(
@@ -7440,7 +7443,7 @@ async def purchase_traffic_topup_endpoint(
 
     return MiniAppTrafficTopupResponse(
         success=True,
-        message=f'Добавлено {payload.gb} ГБ трафика',
+        message=texts.t('TRAFFIC_TOPUP_ADDED', 'Добавлено {gb} ГБ трафика').format(gb=payload.gb),
         new_traffic_limit_gb=subscription.traffic_limit_gb,
         new_balance_kopeks=user.balance_kopeks,
         charged_kopeks=final_price,
