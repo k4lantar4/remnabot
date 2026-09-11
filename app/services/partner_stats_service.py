@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database.crud.referral import not_referee_directed
-from app.database.crud.transaction import REAL_PAYMENT_METHODS
+from app.database.crud.transaction import REAL_PAYMENT_METHODS, transaction_toman_amount
 from app.database.models import (
     AdvertisingCampaignRegistration,
     ReferralEarning,
@@ -765,6 +765,8 @@ class PartnerStatsService:
                 'registrations_count': registrations_map.get(cid, 0),
                 'referrals_count': earning_data['referrals'],
                 'earnings_kopeks': earning_data['earnings'],
+                # ReferralEarning holds commissions on Toman top-ups → balance scale, 1:1.
+                'earnings_toman': earning_data['earnings'],
             }
 
         return result
@@ -855,6 +857,7 @@ class PartnerStatsService:
                     'date': date_str,
                     'referrals_count': referrals_dict.get(date_str, 0),
                     'earnings_kopeks': earnings_dict.get(date_str, 0),
+                    'earnings_toman': earnings_dict.get(date_str, 0),  # balance scale, 1:1
                 }
             )
 
@@ -916,11 +919,13 @@ class PartnerStatsService:
                 'days': PERIOD_COMPARISON_DAYS,
                 'referrals_count': current_referrals,
                 'earnings_kopeks': current_earnings,
+                'earnings_toman': current_earnings,
             },
             'previous': {
                 'days': PERIOD_COMPARISON_DAYS,
                 'referrals_count': previous_referrals,
                 'earnings_kopeks': previous_earnings,
+                'earnings_toman': previous_earnings,
             },
             'referrals_change': _calc_change(current_referrals, previous_referrals),
             'earnings_change': _calc_change(current_earnings, previous_earnings),
@@ -985,6 +990,7 @@ class PartnerStatsService:
                     'has_paid': row.has_made_first_topup,
                     'is_active': row.id in active_subs,
                     'total_earnings_kopeks': int(row.total_earnings),
+                    'total_earnings_toman': int(row.total_earnings),
                 }
             )
 
@@ -1002,6 +1008,11 @@ class PartnerStatsService:
             'earnings_today': int(pe_row.today),
             'earnings_week': int(pe_row.week),
             'earnings_month': int(pe_row.month),
+            # *_toman twins: referral earnings are balance scale, so they equal the raw sums.
+            'earnings_toman': summary['earnings_kopeks'],
+            'earnings_today_toman': int(pe_row.today),
+            'earnings_week_toman': int(pe_row.week),
+            'earnings_month_toman': int(pe_row.month),
             'daily_stats': daily_stats,
             'period_comparison': period_comparison,
             'top_referrals': top_referrals,
@@ -1050,26 +1061,27 @@ class PartnerStatsService:
 
         # --- Daily revenue (DAILY_STATS_DAYS days) ---
         # Revenue = real deposits only (exclude bonus/promo balance spending on subscriptions)
+        real_deposit = and_(
+            Transaction.type == TransactionType.DEPOSIT.value,
+            Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
+        )
         revenue_amount_expr = func.coalesce(
             func.sum(
                 case(
-                    (
-                        and_(
-                            Transaction.type == TransactionType.DEPOSIT.value,
-                            Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
-                        ),
-                        Transaction.amount_kopeks,
-                    ),
+                    (real_deposit, Transaction.amount_kopeks),
                     else_=0,
                 )
             ),
             0,
         )
+        # *_toman twins: the same sums in display Toman, normalized per row type.
+        revenue_toman_expr = func.coalesce(func.sum(case((real_deposit, transaction_toman_amount()), else_=0)), 0)
 
         revenue_by_day = await db.execute(
             select(
                 func.date(Transaction.created_at).label('date'),
                 revenue_amount_expr.label('revenue'),
+                revenue_toman_expr.label('revenue_toman'),
             )
             .where(
                 and_(
@@ -1082,7 +1094,9 @@ class PartnerStatsService:
             )
             .group_by(func.date(Transaction.created_at))
         )
-        revenue_dict = {str(row.date): int(row.revenue) for row in revenue_by_day.all()}
+        revenue_rows = revenue_by_day.all()
+        revenue_dict = {str(row.date): int(row.revenue) for row in revenue_rows}
+        revenue_toman_dict = {str(row.date): int(row.revenue_toman) for row in revenue_rows}
 
         # --- Combine into daily_stats ---
         daily_stats: list[dict[str, Any]] = []
@@ -1094,6 +1108,7 @@ class PartnerStatsService:
                     'date': date_str,
                     'referrals_count': registrations_dict.get(date_str, 0),
                     'earnings_kopeks': revenue_dict.get(date_str, 0),
+                    'earnings_toman': revenue_toman_dict.get(date_str, 0),
                 }
             )
 
@@ -1123,7 +1138,7 @@ class PartnerStatsService:
 
         # Current period revenue
         current_rev_result = await db.execute(
-            select(revenue_amount_expr.label('revenue')).where(
+            select(revenue_amount_expr.label('revenue'), revenue_toman_expr.label('revenue_toman')).where(
                 and_(
                     Transaction.user_id.in_(campaign_user_ids_sq),
                     Transaction.is_completed.is_(True),
@@ -1133,11 +1148,13 @@ class PartnerStatsService:
                 )
             )
         )
-        current_revenue = int(current_rev_result.scalar() or 0)
+        current_rev_row = current_rev_result.one()
+        current_revenue = int(current_rev_row.revenue or 0)
+        current_revenue_toman = int(current_rev_row.revenue_toman or 0)
 
         # Previous period revenue
         previous_rev_result = await db.execute(
-            select(revenue_amount_expr.label('revenue')).where(
+            select(revenue_amount_expr.label('revenue'), revenue_toman_expr.label('revenue_toman')).where(
                 and_(
                     Transaction.user_id.in_(campaign_user_ids_sq),
                     Transaction.is_completed.is_(True),
@@ -1148,18 +1165,22 @@ class PartnerStatsService:
                 )
             )
         )
-        previous_revenue = int(previous_rev_result.scalar() or 0)
+        previous_rev_row = previous_rev_result.one()
+        previous_revenue = int(previous_rev_row.revenue or 0)
+        previous_revenue_toman = int(previous_rev_row.revenue_toman or 0)
 
         period_comparison = {
             'current': {
                 'days': PERIOD_COMPARISON_DAYS,
                 'referrals_count': current_registrations,
                 'earnings_kopeks': current_revenue,
+                'earnings_toman': current_revenue_toman,
             },
             'previous': {
                 'days': PERIOD_COMPARISON_DAYS,
                 'referrals_count': previous_registrations,
                 'earnings_kopeks': previous_revenue,
+                'earnings_toman': previous_revenue_toman,
             },
             'referrals_change': _calc_change(current_registrations, previous_registrations),
             'earnings_change': _calc_change(current_revenue, previous_revenue),
@@ -1195,6 +1216,19 @@ class PartnerStatsService:
                     ),
                     0,
                 ).label('spending'),
+                revenue_toman_expr.label('deposits_toman'),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
+                                transaction_toman_amount(),
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label('spending_toman'),
             ).where(
                 and_(
                     Transaction.user_id.in_(campaign_user_ids_sq),
@@ -1211,6 +1245,8 @@ class PartnerStatsService:
         totals_row = totals_result.one()
         total_deposits_kopeks = int(totals_row.deposits)
         total_spending_kopeks = int(totals_row.spending)
+        total_deposits_toman = int(totals_row.deposits_toman)
+        total_spending_toman = int(totals_row.spending_toman)
 
         # --- Top registrations (top 5 users by spending) ---
         top_result = await db.execute(
@@ -1236,6 +1272,7 @@ class PartnerStatsService:
                     ),
                     0,
                 ).label('total_spending'),
+                revenue_toman_expr.label('total_spending_toman'),
             )
             .join(AdvertisingCampaignRegistration, AdvertisingCampaignRegistration.user_id == User.id)
             .outerjoin(
@@ -1298,6 +1335,7 @@ class PartnerStatsService:
                     'has_paid': row.has_had_paid_subscription,
                     'is_active': row.id in active_subs,
                     'total_earnings_kopeks': int(row.total_spending),
+                    'total_earnings_toman': int(row.total_spending_toman),
                 }
             )
 
@@ -1305,6 +1343,8 @@ class PartnerStatsService:
             'campaign_id': campaign_id,
             'total_deposits_kopeks': total_deposits_kopeks,
             'total_spending_kopeks': total_spending_kopeks,
+            'total_deposits_toman': total_deposits_toman,
+            'total_spending_toman': total_spending_toman,
             'daily_stats': daily_stats,
             'period_comparison': period_comparison,
             'top_registrations': top_registrations,

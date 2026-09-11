@@ -208,6 +208,9 @@ class TopCampaignItem(BaseModel):
     conversion_rate: float
     total_revenue_kopeks: int
     avg_revenue_per_user_kopeks: int
+    # Display Toman: campaign revenue is real deposits (balance scale, 1:1).
+    total_revenue_toman: int = 0
+    avg_revenue_per_user_toman: int = 0
     created_at: str | None = None
 
 
@@ -218,6 +221,7 @@ class TopCampaignsResponse(BaseModel):
     total_campaigns: int
     total_registrations: int
     total_revenue_kopeks: int
+    total_revenue_toman: int = 0
 
 
 class RecentPaymentItem(BaseModel):
@@ -814,6 +818,7 @@ async def get_top_campaigns(
         campaign_items = []
         total_registrations = 0
         total_revenue = 0
+        total_revenue_toman = 0
 
         for campaign in campaigns:
             stats = await get_campaign_statistics(db, campaign.id)
@@ -830,12 +835,15 @@ async def get_top_campaigns(
                     conversion_rate=stats.get('conversion_rate', 0.0),
                     total_revenue_kopeks=stats.get('total_revenue_kopeks', 0),
                     avg_revenue_per_user_kopeks=stats.get('avg_revenue_per_user_kopeks', 0),
+                    total_revenue_toman=stats.get('total_revenue_toman', 0),
+                    avg_revenue_per_user_toman=stats.get('avg_revenue_per_user_toman', 0),
                     created_at=campaign.created_at.isoformat() if campaign.created_at else None,
                 )
             )
 
             total_registrations += stats.get('registrations', 0)
             total_revenue += stats.get('total_revenue_kopeks', 0)
+            total_revenue_toman += stats.get('total_revenue_toman', 0)
 
         # Sort by revenue
         campaign_items.sort(key=lambda x: x.total_revenue_kopeks, reverse=True)
@@ -847,6 +855,7 @@ async def get_top_campaigns(
             total_campaigns=total_campaigns,
             total_registrations=total_registrations,
             total_revenue_kopeks=total_revenue,
+            total_revenue_toman=total_revenue_toman,
         )
 
     except Exception as e:
