@@ -10,6 +10,7 @@ from app.database.crud.subscription import decrement_subscription_server_counts
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
 from app.database.models import PaymentMethod, Subscription, TransactionType, User
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -21,12 +22,13 @@ class TrialPaymentError(Exception):
 
 @dataclass(slots=True)
 class TrialPaymentInsufficientFunds(TrialPaymentError):
-    required_amount: int
-    balance_amount: int
+    required_amount: int  # catalog price_kopeks
+    balance_amount: int  # stored balance, Toman 1:1
 
     @property
     def missing_amount(self) -> int:
-        return max(0, self.required_amount - self.balance_amount)
+        """Toman shortfall (balance scale)."""
+        return missing_toman(self.balance_amount, self.required_amount)
 
 
 class TrialPaymentChargeFailed(TrialPaymentError):
@@ -61,7 +63,7 @@ def preview_trial_activation_charge(user: User) -> int:
         return 0
 
     balance = int(getattr(user, 'balance_kopeks', 0) or 0)
-    if balance < price_kopeks:
+    if not user_can_afford(balance, price_kopeks):
         raise TrialPaymentInsufficientFunds(price_kopeks, balance)
 
     return price_kopeks
@@ -75,8 +77,9 @@ async def charge_trial_activation_if_required(
 ) -> int:
     """Charges the user's balance if paid trial activation is enabled.
 
-    Returns the charged amount in kopeks. If payment is not required or the
-    configured price is zero, the function returns ``0``.
+    Returns the charged price on the catalog scale (price_kopeks) — the value callers display with
+    format_price and hand back to revert_trial_activation. The balance itself is debited in Toman.
+    If payment is not required or the configured price is zero, the function returns ``0``.
     """
 
     price_kopeks = preview_trial_activation_charge(user)
@@ -88,7 +91,7 @@ async def charge_trial_activation_if_required(
     success = await subtract_user_balance(
         db,
         user,
-        price_kopeks,
+        catalog_price_in_toman(price_kopeks),
         charge_description,
         mark_as_paid_subscription=True,
     )
@@ -115,7 +118,11 @@ async def refund_trial_activation_charge(
     *,
     description: str | None = None,
 ) -> bool:
-    """Refunds a previously charged trial activation amount back to the user."""
+    """Refunds a previously charged trial activation amount back to the user.
+
+    ``amount_kopeks`` is the catalog price returned by charge_trial_activation_if_required; the
+    balance gets back the Toman amount that was actually debited.
+    """
 
     if amount_kopeks <= 0:
         return True
@@ -125,7 +132,7 @@ async def refund_trial_activation_charge(
     success = await add_user_balance(
         db,
         user,
-        amount_kopeks,
+        catalog_price_in_toman(amount_kopeks),
         refund_description,
         transaction_type=TransactionType.REFUND,
     )

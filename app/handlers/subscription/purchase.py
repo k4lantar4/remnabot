@@ -112,6 +112,7 @@ from app.utils.price_display import (
     PriceInfo,
     catalog_price_in_toman,
     format_price_text,
+    missing_toman,
     render_addon_insufficient_funds,
     user_can_afford,
 )
@@ -833,7 +834,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
     if trial_price_kopeks > 0:
         # Платный триал - показываем экран с выбором метода оплаты
         user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0) or 0
-        can_pay_from_balance = user_balance_kopeks >= trial_price_kopeks
+        can_pay_from_balance = user_can_afford(user_balance_kopeks, trial_price_kopeks)
 
         # Берём параметры из триального тарифа если доступен
         paid_trial_days = settings.TRIAL_DURATION_DAYS
@@ -982,7 +983,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
             # Без округления — копейки критичны, чтобы юзер понял что именно не хватает.
             required_label = settings.format_price(error.required_amount, round_kopeks=False)
             balance_label = settings.format_balance(error.balance_amount, round_kopeks=False)
-            missing_label = settings.format_price(error.missing_amount, round_kopeks=False)
+            missing_label = settings.format_balance(error.missing_amount)  # Toman shortfall
             message = texts.t(
                 'TRIAL_PAYMENT_INSUFFICIENT_FUNDS',
                 '⚠️ Недостаточно средств для активации триала.\n'
@@ -996,9 +997,10 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
 
             await callback.message.edit_text(
                 message,
+                # the keyboard prefills a Toman top-up: the required catalog price in Toman
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=error.required_amount,
+                    amount_kopeks=catalog_price_in_toman(error.required_amount),
                 ),
             )
             await callback.answer()
@@ -3248,22 +3250,23 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
         return
 
     user_balance_kopeks = getattr(db_user, 'balance_kopeks', 0) or 0
-    if user_balance_kopeks < trial_price_kopeks:
-        topup_needed_kopeks = trial_price_kopeks - user_balance_kopeks
+    if not user_can_afford(user_balance_kopeks, trial_price_kopeks):
+        topup_needed_toman = missing_toman(user_balance_kopeks, trial_price_kopeks)
         await callback.answer(
             texts.t(
                 'INSUFFICIENT_BALANCE',
                 '❌ Недостаточно средств на балансе. Пополните баланс на {amount} и попробуйте снова.',
-            ).format(amount=settings.format_price(topup_needed_kopeks)),
+            ).format(amount=settings.format_balance(topup_needed_toman)),
             show_alert=True,
         )
         return
 
-    # Списываем с баланса
+    # Debit the Toman price; the transaction row below keeps the catalog trial_price_kopeks.
+    trial_price_toman = catalog_price_in_toman(trial_price_kopeks)
     success = await subtract_user_balance(
         db,
         db_user,
-        trial_price_kopeks,
+        trial_price_toman,
         texts.t('TRIAL_PAYMENT_DESCRIPTION', 'Оплата пробной подписки'),
         mark_as_paid_subscription=True,
     )
@@ -3366,7 +3369,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                trial_price_toman,
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )
@@ -3394,7 +3397,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                trial_price_toman,
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )
@@ -3506,10 +3509,13 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
         try:
             from app.database.crud.user import add_user_balance
 
+            # rollback() expired db_user; add_user_balance reads db_user.id, which would lazy-load
+            # outside the async context (MissingGreenlet) and silently skip the refund.
+            await db.refresh(db_user)
             await add_user_balance(
                 db,
                 db_user,
-                trial_price_kopeks,
+                trial_price_toman,
                 texts.t('TRIAL_REFUND_DESCRIPTION', 'Возврат за неудачную активацию триала'),
                 transaction_type=TransactionType.REFUND,
             )

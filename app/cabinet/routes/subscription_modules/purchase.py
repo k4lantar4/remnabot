@@ -35,6 +35,7 @@ from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, get_user_by_id, subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, Subscription, Tariff, Transaction, TransactionType, User
+from app.localization.texts import get_texts
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -48,7 +49,7 @@ from app.services.subscription_purchase_service import (
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 from app.utils.pricing_utils import calculate_price_per_month, format_period_description
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -1400,17 +1401,20 @@ async def activate_trial(
     if requires_payment:
         from app.database.crud.user import subtract_user_balance
 
-        price_kopeks = settings.TRIAL_ACTIVATION_PRICE
-        if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
+        price_kopeks = settings.TRIAL_ACTIVATION_PRICE  # catalog scale; the balance is Toman 1:1
+        if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Insufficient balance. Need {price_kopeks / 100:.2f} RUB',
+                detail=get_texts(user.language)
+                .t('CABINET_TRIAL_INSUFFICIENT_BALANCE', 'Insufficient balance. Missing {amount}')
+                .format(amount=settings.format_balance(missing_toman(user.balance_kopeks, price_kopeks))),
             )
         trial_description = 'Активация триальной подписки'
+        # Debit the Toman price; the transaction row below keeps the catalog price_kopeks.
         success = await subtract_user_balance(
             db,
             user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             trial_description,
             mark_as_paid_subscription=True,
         )

@@ -136,6 +136,13 @@ async def _seed(db, *, balance_toman: int, with_subscription: bool = True) -> Us
     return await db.get(User, 1)
 
 
+async def _loaded_user(db) -> User:
+    """User 1 with subscriptions eager-loaded, as the bot middleware hands it to handlers."""
+    from app.database.crud.user import lock_user_for_pricing
+
+    return await lock_user_for_pricing(db, 1)
+
+
 async def _balance(db) -> int:
     return (await db.execute(select(User.balance_kopeks).where(User.id == 1))).scalar_one()
 
@@ -441,3 +448,120 @@ async def test_purchase_submit_refuses_then_debits_the_toman_price(monkeypatch):
 
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+# ---------------------------------------------------------------- paid trial
+
+
+@pytest.fixture
+def paid_trial(monkeypatch):
+    monkeypatch.setattr(Settings, 'is_trial_paid_activation_enabled', lambda self: True)
+    monkeypatch.setattr(Settings, 'get_trial_activation_price', lambda self: PRICE_KOPEKS)
+    monkeypatch.setattr(settings, 'TRIAL_PAYMENT_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'TRIAL_ACTIVATION_PRICE', PRICE_KOPEKS, raising=False)
+
+
+def _spy_debits(monkeypatch, module) -> list[int]:
+    """Record what a module passes to subtract_user_balance, then run the real debit."""
+    debits: list[int] = []
+    real = module.subtract_user_balance
+
+    async def spy(db, user, amount, *args, **kwargs):
+        debits.append(amount)
+        return await real(db, user, amount, *args, **kwargs)
+
+    monkeypatch.setattr(module, 'subtract_user_balance', spy)
+    return debits
+
+
+@pytest.mark.asyncio
+async def test_trial_service_reports_the_toman_shortfall(monkeypatch, paid_trial):
+    from app.services.trial_activation_service import TrialPaymentInsufficientFunds, preview_trial_activation_charge
+
+    with pytest.raises(TrialPaymentInsufficientFunds) as caught:
+        preview_trial_activation_charge(SimpleNamespace(balance_kopeks=SHORT_BALANCE))
+
+    assert caught.value.missing_amount == SHORTFALL_TOMAN  # also the miniapp 402 missing_amount_kopeks
+    assert preview_trial_activation_charge(SimpleNamespace(balance_kopeks=RICH_BALANCE)) == PRICE_KOPEKS
+
+
+@pytest.mark.asyncio
+async def test_trial_service_debits_and_refunds_the_toman_price(monkeypatch, paid_trial):
+    from app.services import trial_activation_service as trial
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        charged = await trial.charge_trial_activation_if_required(db, user)
+
+        assert charged == PRICE_KOPEKS  # the catalog price callers display with format_price
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+        await trial.revert_trial_activation(db, user, None, charged)
+
+        assert await _balance(db) == RICH_BALANCE
+        assert ('refund', PRICE_TOMAN) in await _payments(db)
+
+
+def _trial_callback() -> SimpleNamespace:
+    return SimpleNamespace(
+        data='trial_pay_with_balance',
+        answer=AsyncMock(),
+        message=SimpleNamespace(edit_text=AsyncMock(), answer=AsyncMock()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_bot_trial_pay_refuses_with_the_toman_shortfall(monkeypatch, paid_trial):
+    from app.handlers.subscription import purchase
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE, with_subscription=False)
+        user = await _loaded_user(db)
+        callback = _trial_callback()
+        await purchase.handle_trial_pay_with_balance(callback, user, db)
+
+        assert await _balance(db) == SHORT_BALANCE
+
+    alert = callback.answer.await_args.args[0]
+    assert SHORTFALL_LABEL in alert
+
+
+@pytest.mark.asyncio
+async def test_bot_trial_pay_debits_the_toman_price_and_refunds_it_on_failure(monkeypatch, paid_trial):
+    from app.handlers.subscription import purchase
+
+    debits = _spy_debits(monkeypatch, purchase)
+    monkeypatch.setattr(purchase, 'create_trial_subscription', AsyncMock(side_effect=RuntimeError('panel down')))
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        user = await _loaded_user(db)
+        await purchase.handle_trial_pay_with_balance(_trial_callback(), user, db)
+
+        assert debits == [PRICE_TOMAN]
+        # the activation failed after the debit: the Toman amount comes back as a refund row
+        assert await _balance(db) == RICH_BALANCE
+        assert sorted(await _payments(db)) == [('refund', PRICE_TOMAN), ('subscription_payment', PRICE_KOPEKS)]
+
+
+@pytest.mark.asyncio
+async def test_cabinet_trial_refuses_with_the_toman_shortfall_then_debits_the_toman_price(monkeypatch, paid_trial):
+    from app.cabinet.routes.subscription_modules import purchase as cabinet_purchase
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=SHORT_BALANCE, with_subscription=False)
+        with pytest.raises(HTTPException) as caught:
+            await cabinet_purchase.activate_trial(user=user, db=db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert SHORTFALL_LABEL in caught.value.detail
+
+    debits = _spy_debits(monkeypatch, __import__('app.database.crud.user', fromlist=['x']))
+    monkeypatch.setattr(cabinet_purchase, 'create_trial_subscription', AsyncMock(side_effect=RuntimeError('stop')))
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        with pytest.raises(Exception):  # noqa: B017 - activation is stopped right after the debit
+            await cabinet_purchase.activate_trial(user=user, db=db)
+
+        assert debits == [PRICE_TOMAN]
+        assert ('subscription_payment', PRICE_KOPEKS) in await _payments(db)

@@ -8,6 +8,7 @@ from app.config import settings
 from app.database.models import User
 from app.handlers.subscription.purchase import activate_trial
 from app.services.trial_activation_service import TrialPaymentInsufficientFunds
+from app.utils.price_display import catalog_price_in_toman
 
 
 @pytest.fixture
@@ -155,10 +156,11 @@ async def test_activate_free_trial_insufficient_funds_redirects_to_topup(
     # Rollback must run before redirecting (no orphaned trial subscription).
     rollback_mock.assert_awaited_once()
 
-    # Top-up redirect must target the EXACT required amount, not the balance.
+    # Top-up redirect must target the EXACT required amount, not the balance. The keyboard prefills
+    # a Toman top-up, so the catalog price arrives converted (15,900 catalog = 159 Toman).
     insufficient_keyboard.assert_called_once_with(
         trial_user.language,
-        amount_kopeks=error.required_amount,
+        amount_kopeks=catalog_price_in_toman(error.required_amount),
     )
     trial_callback_query.message.edit_text.assert_called_once()
     trial_callback_query.answer.assert_called_once()
