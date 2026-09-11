@@ -30,6 +30,7 @@ from app.database.models import (
     tariff_promo_groups,
 )
 from app.services.gift_purchase_service import GIFT_ENABLED_KEY, is_gift_enabled
+from app.utils.price_display import catalog_price_in_toman
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -254,9 +255,9 @@ async def test_purchase_gift_balance_success(monkeypatch):
         assert purchase.gift_recipient_type is None
         assert purchase.gift_recipient_value is None
 
-        # Check user balance
+        # Check user balance: the Toman wallet loses the Toman price (catalog 30,000 = 300 Toman)
         await db.refresh(user)
-        assert user.balance_kopeks == 20000
+        assert user.balance_kopeks == 50000 - catalog_price_in_toman(30000)
 
         # Check transaction
         tx_res = await db.execute(select(Transaction).where(Transaction.user_id == 10))
@@ -312,7 +313,7 @@ async def test_purchase_gift_balance_insufficient_balance(monkeypatch):
     """When balance is insufficient, raises 400 Insufficient balance."""
     async with memory_session(monkeypatch, _TABLES) as db:
         db.add(SystemSetting(key=GIFT_ENABLED_KEY, value='true'))
-        user = User(id=10, balance_kopeks=5000, username='buyer')
+        user = User(id=10, balance_kopeks=50, username='buyer')  # Toman; the gift costs 300 Toman
         tariff = Tariff(
             id=1,
             name='Standard',
@@ -336,7 +337,7 @@ async def test_purchase_gift_balance_insufficient_balance(monkeypatch):
 
         # User balance unchanged
         await db.refresh(user)
-        assert user.balance_kopeks == 5000
+        assert user.balance_kopeks == 50
 
 
 @pytest.mark.asyncio

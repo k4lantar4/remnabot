@@ -62,7 +62,10 @@ def _isolate(monkeypatch):
     from app.services.payment import lava, platega
     from app.services.user_cart_service import user_cart_service
 
-    pricing_module.pricing_engine.__dict__.pop('calculate_tariff_switch_cost', None)
+    # Other modules patch these on the pricing_engine singleton instance and monkeypatch restores them as
+    # instance attributes, which would shadow the class-level patches used here.
+    for name in ('calculate_tariff_switch_cost', 'calculate_tariff_purchase_price'):
+        pricing_module.pricing_engine.__dict__.pop(name, None)
     monkeypatch.setattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False, raising=False)
     monkeypatch.setattr(settings, 'RESET_TRAFFIC_ON_PAYMENT', False, raising=False)
     monkeypatch.setattr(settings, 'TARIFF_SWITCH_UPGRADE_ENABLED', True, raising=False)
