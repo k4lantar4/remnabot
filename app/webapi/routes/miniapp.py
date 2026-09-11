@@ -6037,7 +6037,7 @@ async def update_subscription_traffic_endpoint(
                 detail={
                     'code': 'insufficient_funds',
                     'message': texts.t(
-                        'CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе. Не хватает {amount}'
+                        'CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств. Не хватает {amount}'
                     ).format(amount=settings.format_balance(missing, round_kopeks=False)),
                 },
             )
@@ -6240,9 +6240,9 @@ async def update_subscription_devices_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': texts.t(
-                    'CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств на балансе. Не хватает {amount}'
-                ).format(amount=settings.format_balance(missing, round_kopeks=False)),
+                'message': texts.t('CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств. Не хватает {amount}').format(
+                    amount=settings.format_balance(missing, round_kopeks=False)
+                ),
             },
         )
 
