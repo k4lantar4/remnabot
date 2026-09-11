@@ -828,3 +828,85 @@ async def test_gift_from_balance_refuses_with_the_toman_shortfall_then_debits_th
         assert await _payments(db) == [('gift_payment', PRICE_KOPEKS)]
 
     assert result.remaining_balance_kopeks == RICH_BALANCE - PRICE_TOMAN
+
+
+# ---------------------------------------------------------------- scheduled autopay renewal
+
+
+async def _seed_autopay(db, *, balance_toman: int) -> None:
+    await _seed(db, balance_toman=balance_toman)
+    subscription = await db.get(Subscription, 10)
+    now = datetime.now(UTC)
+    subscription.autopay_enabled = True
+    subscription.autopay_days_before = 3
+    subscription.end_date = now + timedelta(days=1)
+    subscription.updated_at = now - timedelta(days=1)  # not "recently updated by a webhook"
+    await db.commit()
+
+
+def _autopay_service(monkeypatch):
+    import app.services.monitoring_service as monitoring
+    from app.services.pricing_engine import RenewalPricing
+
+    async def renewal_price(self, db, subscription, period_days, *, user=None):
+        return RenewalPricing(
+            base_price=PRICE_KOPEKS,
+            servers_price=0,
+            traffic_price=0,
+            devices_price=0,
+            promo_group_discount=0,
+            promo_offer_discount=0,
+            final_total=PRICE_KOPEKS,
+            period_days=period_days,
+            is_tariff_mode=True,
+            breakdown={},
+        )
+
+    import app.services.pricing_engine as pricing_module
+
+    pricing_module.pricing_engine.__dict__.pop('calculate_renewal_price', None)
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', renewal_price)
+    service = monitoring.MonitoringService(bot=None)
+    service.subscription_service = _FakePanelSync()
+    service._maybe_notify_autopay_failure = AsyncMock()
+    monkeypatch.setattr(monitoring.notification_delivery_service, 'notify_autopay_success', AsyncMock())
+    return monitoring, service
+
+
+@pytest.mark.asyncio
+async def test_autopay_skips_a_balance_below_the_toman_price(monkeypatch):
+    _, service = _autopay_service(monkeypatch)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_autopay(db, balance_toman=SHORT_BALANCE)
+        await service._process_autopayments(db)
+
+        assert await _balance(db) == SHORT_BALANCE
+        assert await _payments(db) == []
+
+    # the failure notice gets the catalog price (it is formatted with format_price)
+    assert service._maybe_notify_autopay_failure.await_args.args[1] == PRICE_KOPEKS
+
+
+@pytest.mark.asyncio
+async def test_autopay_debits_the_toman_price(monkeypatch):
+    _, service = _autopay_service(monkeypatch)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_autopay(db, balance_toman=RICH_BALANCE)
+        await service._process_autopayments(db)
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+    service._maybe_notify_autopay_failure.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_autopay_refunds_the_toman_price_when_the_extension_fails(monkeypatch):
+    monitoring, service = _autopay_service(monkeypatch)
+    monkeypatch.setattr(monitoring, 'extend_subscription', AsyncMock(side_effect=RuntimeError('db down')))
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_autopay(db, balance_toman=RICH_BALANCE)
+        await service._process_autopayments(db)
+
+        assert await _balance(db) == RICH_BALANCE
+        assert await _payments(db) == [('refund', PRICE_TOMAN)]
