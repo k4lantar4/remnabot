@@ -31,7 +31,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
 from app.services.user_cart_service import user_cart_service
 from app.utils.decorators import error_handler
-from app.utils.formatting import format_period, format_price_kopeks, format_traffic
+from app.utils.formatting import format_period, format_price_kopeks
 from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.subscription_purchase_intent import should_extend_multi_tariff
@@ -495,7 +495,7 @@ def format_tariff_info_for_user(
     """Форматирует информацию о тарифе для пользователя."""
     texts = get_texts(language)
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     text = texts.t(
         'TARIFF_PURCHASE_INFO',
@@ -741,7 +741,7 @@ async def format_custom_tariff_preview(
     traffic_display = (
         texts.t('TARIFF_PURCHASE_TRAFFIC_GB', '{traffic} ГБ').format(traffic=traffic_gb)
         if traffic_gb > 0
-        else format_traffic(tariff.traffic_limit_gb)
+        else texts.format_traffic(tariff.traffic_limit_gb)
     )
 
     text = texts.t('TARIFF_PURCHASE_CUSTOM_TITLE', '📦 <b>{name}</b>\n\n<b>Настройте параметры:</b>\n').format(
@@ -948,7 +948,7 @@ async def _proceed_with_selected_tariff(
             else ''
         )
         user_balance = db_user.balance_kopeks or 0
-        traffic = format_traffic(tariff.traffic_limit_gb)
+        traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
         if user_can_afford(user_balance, daily_price):
             await callback.message.edit_text(
@@ -1514,7 +1514,7 @@ async def handle_custom_confirm(
 
         await state.clear()
 
-        traffic_display = format_traffic(traffic_limit)
+        traffic_display = texts.format_traffic(traffic_limit)
 
         await callback.message.edit_text(
             texts.t(
@@ -1689,7 +1689,7 @@ async def select_tariff_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     if user_can_afford(user_balance, final_price):
         # Показываем подтверждение
@@ -2198,7 +2198,7 @@ async def confirm_tariff_purchase(
 
     await state.clear()
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     await callback.message.edit_text(
         texts.t(
@@ -2510,7 +2510,7 @@ async def confirm_daily_tariff_purchase(
 
     await state.clear()
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     await callback.message.edit_text(
         texts.t(
@@ -2785,7 +2785,7 @@ async def show_tariff_extend(
         await callback.answer()
         return
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     # Проверяем есть ли у пользователя скидки по периодам
     promo_group = db_user.get_primary_promo_group() if hasattr(db_user, 'get_primary_promo_group') else None
@@ -2884,7 +2884,7 @@ async def select_tariff_extend_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     if user_can_afford(user_balance, final_price):
         discount_text = ''
@@ -3175,7 +3175,7 @@ async def confirm_tariff_extend(
 
         await state.clear()
 
-        traffic = format_traffic(tariff.traffic_limit_gb)
+        traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
         await callback.message.edit_text(
             texts.t(
@@ -3545,7 +3545,7 @@ async def select_tariff_switch(
                 )
                 return
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     # Проверяем, суточный ли это тариф
     is_daily = getattr(tariff, 'is_daily', False)
@@ -3708,7 +3708,7 @@ async def select_tariff_switch_period(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     # Получаем текущий тариф для отображения
     current_tariff_name = texts.t('SUBSCRIPTION_STATUS_UNKNOWN', 'Неизвестно')
@@ -4021,7 +4021,7 @@ async def confirm_tariff_switch(
 
         await state.clear()
 
-        traffic = format_traffic(tariff.traffic_limit_gb)
+        traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
         # При смене тарифа устанавливается оплаченный период
         time_info = texts.t('TARIFF_SWITCH_PERIOD_LINE', '📅 Период: {days} дней').format(days=days_for_new_tariff)
@@ -4316,7 +4316,7 @@ async def confirm_daily_tariff_switch(
 
         await state.clear()
 
-        traffic = format_traffic(tariff.traffic_limit_gb)
+        traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
         await callback.message.edit_text(
             texts.t(
@@ -4743,8 +4743,8 @@ async def preview_instant_switch(
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
 
-    traffic = format_traffic(new_tariff.traffic_limit_gb)
-    current_traffic = format_traffic(current_tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(new_tariff.traffic_limit_gb)
+    current_traffic = texts.format_traffic(current_tariff.traffic_limit_gb)
 
     # Проверяем, суточный ли новый тариф
     is_new_daily = getattr(new_tariff, 'is_daily', False)
@@ -5334,7 +5334,7 @@ async def confirm_instant_switch(
 
         await state.clear()
 
-        traffic = format_traffic(new_tariff.traffic_limit_gb)
+        traffic = texts.format_traffic(new_tariff.traffic_limit_gb)
 
         # Для суточного тарифа другое сообщение об успехе
         if is_new_daily:
@@ -5456,7 +5456,7 @@ async def return_to_saved_tariff_cart(
 
     total_price = cart_data.get('total_price', 0)
     user_balance = db_user.balance_kopeks or 0
-    traffic = format_traffic(tariff.traffic_limit_gb)
+    traffic = texts.format_traffic(tariff.traffic_limit_gb)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
     if total_price > 0 and not user_can_afford(user_balance, total_price):
