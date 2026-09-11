@@ -104,11 +104,14 @@ async def update_countries(
     subscription_id: int | None = QueryParam(None, description='Subscription ID for multi-tariff'),
 ) -> dict[str, Any]:
     """Update subscription countries/servers."""
+    from app.config import settings
     from app.database.crud.server_squad import add_user_to_servers, get_available_server_squads, get_server_ids_by_uuids
     from app.database.crud.subscription import add_subscription_servers
     from app.database.crud.transaction import create_transaction
     from app.database.crud.user import subtract_user_balance
     from app.database.models import TransactionType
+    from app.localization.texts import get_texts
+    from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
     from app.utils.pricing_utils import apply_percentage_discount, calculate_prorated_price
 
     subscription = await resolve_subscription(db, user, subscription_id)
@@ -194,16 +197,25 @@ async def update_countries(
         if server.squad_uuid in removed:
             removed_names.append(server.display_name)
 
-    # Check balance
-    if total_cost > 0 and user.balance_kopeks < total_cost:
+    # Check balance: total_cost is a catalog price (Toman x 100), the balance is Toman.
+    if total_cost > 0 and not user_can_afford(user.balance_kopeks, total_cost):
+        missing = missing_toman(user.balance_kopeks, total_cost)
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f'Insufficient balance. Need {total_cost / 100:.2f} RUB, have {user.balance_kopeks / 100:.2f} RUB',
+            detail={
+                'code': 'insufficient_funds',
+                'message': get_texts(user.language)
+                .t('CABINET_INSUFFICIENT_BALANCE', 'Insufficient balance. Missing {amount}')
+                .format(amount=settings.format_balance(missing)),
+                'missing_amount': missing,  # Toman, like every 402 since #27
+            },
         )
 
-    # Deduct balance and update subscription
+    # Deduct balance and update subscription (the Toman price; the transaction row keeps the catalog total)
     if added and total_cost > 0:
-        success = await subtract_user_balance(db, user, total_cost, f'Adding countries: {", ".join(added_names)}')
+        success = await subtract_user_balance(
+            db, user, catalog_price_in_toman(total_cost), f'Adding countries: {", ".join(added_names)}'
+        )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

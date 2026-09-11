@@ -399,3 +399,58 @@ async def test_auto_legacy_cart_gates_on_the_toman_price(monkeypatch, auto, bala
     assert await auto._process_legacy_generic_cart(None, user, {'period_days': 30}) is False
     # the submit (which debits the Toman price since #36) is reached only when the balance covers it
     assert service.submit_purchase.await_count == (1 if balance == RICH_BALANCE else 0)
+
+
+# ---------------------------------------------------------------- cabinet: add countries (classic mode)
+
+
+def _cabinet_countries(monkeypatch):
+    import app.database.crud.server_squad as squad_crud
+    import app.database.crud.subscription as subscription_crud
+    from app.cabinet.routes.subscription_modules import servers
+    from app.utils import pricing_utils
+
+    async def resolve(db, user, subscription_id):
+        return await db.get(Subscription, 10)
+
+    squads = [
+        SimpleNamespace(squad_uuid='squad-1', price_kopeks=0, display_name='NL'),
+        SimpleNamespace(squad_uuid='squad-2', price_kopeks=PRICE_KOPEKS, display_name='DE'),
+    ]
+    monkeypatch.setattr(servers, 'resolve_subscription', resolve)
+    monkeypatch.setattr(servers, 'SubscriptionService', lambda: _FakePanelSync())
+    monkeypatch.setattr(squad_crud, 'get_available_server_squads', AsyncMock(return_value=squads))
+    monkeypatch.setattr(squad_crud, 'get_server_ids_by_uuids', AsyncMock(return_value=[2]))
+    monkeypatch.setattr(squad_crud, 'add_user_to_servers', AsyncMock())
+    monkeypatch.setattr(subscription_crud, 'add_subscription_servers', AsyncMock())
+    monkeypatch.setattr(pricing_utils, 'calculate_prorated_price', lambda price, end_date, *a, **k: (price, 30))
+    return servers
+
+
+@pytest.mark.asyncio
+async def test_cabinet_add_countries_refuses_with_the_toman_shortfall_then_debits_the_toman_price(monkeypatch):
+    from fastapi import HTTPException
+
+    servers = _cabinet_countries(monkeypatch)
+    request = {'countries': ['squad-1', 'squad-2']}
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        with pytest.raises(HTTPException) as caught:
+            await servers.update_countries(request=request, user=await _loaded_user(db), db=db, subscription_id=None)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert caught.value.status_code == 402
+    assert caught.value.detail['missing_amount'] == SHORTFALL_TOMAN  # Toman, like every 402 since #27
+    assert SHORTFALL_LABEL in caught.value.detail['message']  # the cabinet shows detail.message
+    assert 'RUB' not in caught.value.detail['message']
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        response = await servers.update_countries(
+            request=request, user=await _loaded_user(db), db=db, subscription_id=None
+        )
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+    assert response['amount_paid_kopeks'] == PRICE_KOPEKS  # catalog, like every *_kopeks price field

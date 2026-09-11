@@ -1752,6 +1752,7 @@
   "INSUFFICIENT_FUNDS_DETAILED": "❌ 余额不足。还差：{amount}",
   "ACTIVATION_INSUFFICIENT_FUNDS": "❌ 余额不足。",
   "CABINET_TRIAL_INSUFFICIENT_BALANCE": "余额不足。还差：{amount}",
+  "CABINET_INSUFFICIENT_BALANCE": "余额不足。还差：{amount}",
   "ACTIVATION_PRICE_ERROR": "❌ 价格计算失败，请稍后重试。",
   "CONTEST_TOO_FAST": "太快了！请稍候。",
   "CONTEST_DISABLED": "游戏已关闭。",
