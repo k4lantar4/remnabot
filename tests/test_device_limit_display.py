@@ -8,7 +8,7 @@
 
 import pytest
 
-from app.localization.texts import Texts
+from app.localization.texts import Texts, get_texts
 
 
 @pytest.mark.parametrize('limit', [0, None, -1])
@@ -23,7 +23,7 @@ def test_real_limit_renders_as_number(limit):
 
 def test_traffic_and_device_limits_agree_on_unlimited():
     """Трафик уже показывал безлимит бесконечностью — устройства не должны отставать."""
-    assert '∞' in Texts.format_traffic(0, is_limit=True)
+    assert '∞' in get_texts('ru').format_traffic(0, is_limit=True)
     assert '∞' in Texts.format_device_limit(0)
 
 

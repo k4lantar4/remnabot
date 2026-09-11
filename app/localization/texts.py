@@ -257,19 +257,18 @@ class Texts:
     def format_balance(self, amount_toman: int, *, round_kopeks: bool | None = None) -> str:
         return settings.format_balance(amount_toman, language=self.language, round_kopeks=round_kopeks)
 
-    @staticmethod
-    def format_traffic(gb: float, is_limit: bool = True) -> str:
-        """Format traffic value.
+    def format_traffic(self, gb: float, is_limit: bool = True) -> str:
+        """Format traffic value in the user's language.
 
         Args:
             gb: Traffic in gigabytes
             is_limit: If True, 0 means unlimited. If False, 0 means zero used.
         """
-        if gb == 0:
-            return '∞ (безлимит)' if is_limit else '0 ГБ'
+        if gb == 0 and is_limit:
+            return self.t('TRAFFIC_LIMIT_UNLIMITED', '∞ (безлимит)')
         if gb >= 1024:
-            return f'{gb / 1024:.1f} ТБ'
-        return f'{gb:.0f} ГБ'
+            return self.t('TRAFFIC_AMOUNT_TB', '{value} ТБ').format(value=f'{gb / 1024:.1f}')
+        return self.t('TRAFFIC_AMOUNT_GB', '{value} ГБ').format(value=f'{gb:.0f}')
 
     @staticmethod
     def format_device_limit(limit: int | None) -> str:

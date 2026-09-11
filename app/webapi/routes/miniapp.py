@@ -535,10 +535,11 @@ def _format_gb_label(value: float) -> str:
     return f'{value:.2f} GB'
 
 
-def _format_limit_label(limit: int | None) -> str:
+def _format_limit_label(limit: int | None, language: str) -> str:
+    texts = get_texts(language)
     if not limit:
-        return 'Unlimited'
-    return f'{limit} GB'
+        return texts.t('TRAFFIC_UNLIMITED_SHORT', 'Unlimited')
+    return texts.t('CABINET_TARIFF_TRAFFIC_GB', '{traffic} GB').format(traffic=limit)
 
 
 async def _resolve_user_from_init_data(
@@ -3475,7 +3476,7 @@ async def get_subscription_details(
         traffic_used_gb=round(traffic_used_value, 2),
         traffic_used_label=_format_gb_label(traffic_used_value),
         traffic_limit_gb=traffic_limit_value,
-        traffic_limit_label=_format_limit_label(traffic_limit_value),
+        traffic_limit_label=_format_limit_label(traffic_limit_value, user.language),
         lifetime_used_traffic_gb=lifetime_used,
         has_active_subscription=status_actual in {'active', 'trial'},
         promo_offer_discount_percent=active_discount_percent,
@@ -3685,9 +3686,9 @@ async def _get_current_tariff_model(db: AsyncSession, subscription, user=None) -
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb)
-        if settings.is_tariffs_mode()
-        else f'{tariff.traffic_limit_gb} ГБ',
+        traffic_limit_label=_format_traffic_limit_label(
+            tariff.traffic_limit_gb, (user.language if user else None) or settings.DEFAULT_LANGUAGE
+        ),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -6325,11 +6326,12 @@ async def update_subscription_devices_endpoint(
 # =============================================================================
 
 
-def _format_traffic_limit_label(traffic_gb: int) -> str:
+def _format_traffic_limit_label(traffic_gb: int, language: str) -> str:
     """Форматирует лимит трафика для отображения."""
+    texts = get_texts(language)
     if traffic_gb == 0:
-        return '♾️ Безлимит'
-    return f'{traffic_gb} ГБ'
+        return texts.t('CABINET_TARIFF_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+    return texts.t('CABINET_TARIFF_TRAFFIC_GB', '{traffic} ГБ').format(traffic=traffic_gb)
 
 
 async def _build_tariff_model(
@@ -6441,7 +6443,9 @@ async def _build_tariff_model(
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb),
+        traffic_limit_label=_format_traffic_limit_label(
+            tariff.traffic_limit_gb, (user.language if user else None) or settings.DEFAULT_LANGUAGE
+        ),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -6489,7 +6493,9 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
         description=tariff.description,
         tier_level=tariff.tier_level,
         traffic_limit_gb=tariff.traffic_limit_gb,
-        traffic_limit_label=_format_traffic_limit_label(tariff.traffic_limit_gb),
+        traffic_limit_label=_format_traffic_limit_label(
+            tariff.traffic_limit_gb, (user.language if user else None) or settings.DEFAULT_LANGUAGE
+        ),
         is_unlimited_traffic=tariff.traffic_limit_gb == 0,
         device_limit=tariff.device_limit,
         servers_count=servers_count,
@@ -7375,10 +7381,13 @@ async def purchase_traffic_topup_endpoint(
         )
 
     # Списываем баланс
+    texts = get_texts(user.language)
     if traffic_discount_percent > 0:
-        traffic_description = f'Докупка {payload.gb} ГБ трафика (скидка {traffic_discount_percent}%)'
+        traffic_description = texts.t(
+            'TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT', 'Докупка {gb} ГБ трафика (скидка {percent}%)'
+        ).format(gb=payload.gb, percent=traffic_discount_percent)
     else:
-        traffic_description = f'Докупка {payload.gb} ГБ трафика'
+        traffic_description = texts.t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=payload.gb)
     success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
     if not success:
         raise HTTPException(
@@ -7434,7 +7443,7 @@ async def purchase_traffic_topup_endpoint(
 
     return MiniAppTrafficTopupResponse(
         success=True,
-        message=f'Добавлено {payload.gb} ГБ трафика',
+        message=texts.t('TRAFFIC_TOPUP_ADDED', 'Добавлено {gb} ГБ трафика').format(gb=payload.gb),
         new_traffic_limit_gb=subscription.traffic_limit_gb,
         new_balance_kopeks=user.balance_kopeks,
         charged_kopeks=final_price,

@@ -2565,5 +2565,20 @@
   "CRYPTOBOT_TOPUP_PROMPT": "🪙 <b>Top up with crypto</b>\n\nEnter an amount from {min} to {max}.\n\n💱 Rate: 1 USDT = {rate}\nYou pay the equivalent in USDT through CryptoBot.",
   "CRYPTOBOT_TOPUP_INVOICE_MESSAGE": "🪙 <b>Pay with crypto</b>\n\n💰 Top-up amount: {amount}\n💵 To pay: {usdt} {asset}\n💱 Rate: 1 USDT = {rate}\n🆔 Payment ID: {invoice_id}...\n\nTap “Pay”, send the amount in CryptoBot and your balance is topped up automatically.\n\n❓ Problems? Contact {support}",
   "CRYPTOBOT_PAY_BUTTON": "🪙 Pay",
-  "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 Check status"
+  "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 Check status",
+  "TRAFFIC_AMOUNT_GB": "{value} ГБ",
+  "TRAFFIC_AMOUNT_TB": "{value} ТБ",
+  "TRAFFIC_LIMIT_UNLIMITED": "∞ (безлимит)",
+  "TRAFFIC_TOPUP_DESCRIPTION": "Докупка {gb} ГБ трафика",
+  "TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT": "Докупка {gb} ГБ трафика (скидка {percent}%)",
+  "TRAFFIC_TOPUP_ADDED": "Добавлено {gb} ГБ трафика",
+  "CABINET_TRAFFIC_NO_SUBSCRIPTION": "У вас нет активной подписки",
+  "CABINET_TRAFFIC_SUBSCRIPTION_INACTIVE": "Ваша подписка неактивна",
+  "CABINET_TRAFFIC_TOPUP_TRIAL": "Докупка трафика недоступна на пробном периоде",
+  "CABINET_TRAFFIC_ALREADY_UNLIMITED": "У вас уже безлимитный трафик",
+  "CABINET_TRAFFIC_TARIFF_NOT_FOUND": "Тариф не найден",
+  "CABINET_TRAFFIC_TOPUP_TARIFF_DISABLED": "Докупка трафика недоступна на вашем тарифе",
+  "CABINET_TRAFFIC_PACKAGE_UNAVAILABLE": "Пакет трафика {gb} ГБ недоступен",
+  "CABINET_TRAFFIC_TOPUP_DISABLED": "Докупка трафика отключена",
+  "CABINET_TRAFFIC_PACKAGE_INVALID": "Недоступный пакет трафика"
 }
