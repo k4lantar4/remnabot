@@ -4424,7 +4424,7 @@ async def handle_simple_subscription_purchase(
         'Безлимит' if subscription_params['traffic_limit_gb'] == 0 else f'{subscription_params["traffic_limit_gb"]} ГБ'
     )
 
-    if user_balance_kopeks >= price_kopeks:
+    if user_can_afford(user_balance_kopeks, price_kopeks):
         # Если баланс достаточный, предлагаем оплатить с баланса
         simple_lines = [
             '⚡ <b>Простая покупка подписки</b>',
@@ -4644,6 +4644,7 @@ async def _extend_existing_subscription(
     except Exception as commit_error:
         logger.error('Ошибка сохранения продления подписки', error=commit_error, exc_info=True)
         await db.rollback()
+        await db.refresh(db_user)  # rollback() expired it; the refund below would die on MissingGreenlet
         # Compensating refund: balance was already committed by subtract_user_balance
         try:
             from app.database.crud.user import add_user_balance
@@ -4651,7 +4652,7 @@ async def _extend_existing_subscription(
             await add_user_balance(
                 db,
                 db_user,
-                price_kopeks,
+                catalog_price_in_toman(price_kopeks),
                 'Возврат: ошибка продления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,

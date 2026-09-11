@@ -454,3 +454,133 @@ async def test_cabinet_add_countries_refuses_with_the_toman_shortfall_then_debit
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
     assert response['amount_paid_kopeks'] == PRICE_KOPEKS  # catalog, like every *_kopeks price field
+
+
+# ---------------------------------------------------------------- bot simple subscription (SIMPLE_SUBSCRIPTION_ENABLED)
+
+
+SIMPLE_PARAMS = {'period_days': 30, 'device_limit': 1, 'traffic_limit_gb': 0, 'squad_uuid': 'squad-1'}
+
+
+@pytest.fixture
+def simple(monkeypatch):
+    import app.services.subscription_service as subscription_service_module
+    from app.handlers import simple_subscription
+    from app.handlers.subscription import purchase
+
+    price = AsyncMock(return_value=(PRICE_KOPEKS, {}))
+    monkeypatch.setattr(settings, 'SIMPLE_SUBSCRIPTION_ENABLED', True, raising=False)
+    monkeypatch.setattr(simple_subscription, '_calculate_simple_subscription_price', price)
+    monkeypatch.setattr(purchase, '_calculate_simple_subscription_price', price)
+    monkeypatch.setattr(
+        simple_subscription, '_ensure_simple_subscription_squad_uuid', AsyncMock(return_value='squad-1')
+    )
+    monkeypatch.setattr(subscription_service_module, 'SubscriptionService', lambda: _FakePanelSync())
+    return simple_subscription
+
+
+def _simple_state() -> SimpleNamespace:
+    return _state({'subscription_params': dict(SIMPLE_PARAMS)})
+
+
+SIMPLE_SCREENS = {
+    'start': ('app.handlers.simple_subscription', 'start_simple_subscription_purchase'),
+    'other methods': ('app.handlers.simple_subscription', 'handle_simple_subscription_other_payment_methods'),
+    'purchase menu': ('app.handlers.subscription.purchase', 'handle_simple_subscription_purchase'),
+}
+
+
+@pytest.mark.parametrize('screen', sorted(SIMPLE_SCREENS))
+@pytest.mark.parametrize('balance', [SHORT_BALANCE, RICH_BALANCE])
+@pytest.mark.asyncio
+async def test_simple_subscription_offers_pay_from_balance_only_when_the_toman_balance_covers_it(
+    monkeypatch, simple, screen, balance
+):
+    import importlib
+
+    module_name, name = SIMPLE_SCREENS[screen]
+    handler = getattr(importlib.import_module(module_name), name)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=balance, with_subscription=False)
+        callback = _callback('simple_subscription')
+        if screen == 'purchase menu':
+            await handler(callback, _simple_state(), await _loaded_user(db), db)
+        else:
+            await handler(callback, await _loaded_user(db), _simple_state(), db)
+
+    offered = 'simple_subscription_pay_with_balance' in _buttons(callback)
+    assert offered is (balance == RICH_BALANCE)
+
+
+SIMPLE_PAYMENTS = {
+    # handler, with an existing (active, paid) subscription
+    'pay with balance': ('handle_simple_subscription_pay_with_balance', False),
+    'confirm over an active subscription': ('confirm_simple_subscription_purchase', True),
+}
+
+
+@pytest.mark.parametrize('flow', sorted(SIMPLE_PAYMENTS))
+@pytest.mark.asyncio
+async def test_simple_subscription_payment_refuses_then_debits_the_toman_price(monkeypatch, simple, flow):
+    name, with_subscription = SIMPLE_PAYMENTS[flow]
+    handler = getattr(simple, name)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE, with_subscription=with_subscription)
+        refused = _callback('pay')
+        await handler(refused, await _loaded_user(db), _simple_state(), db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert 'Недостаточно средств' in refused.answer.await_args.args[0]
+
+    debits = _spy_debits(monkeypatch, __import__('app.database.crud.user', fromlist=['x']))
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=with_subscription)
+        await handler(_callback('pay'), await _loaded_user(db), _simple_state(), db)
+
+        assert debits == [PRICE_TOMAN]
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+@pytest.mark.parametrize('flow', sorted(SIMPLE_PAYMENTS))
+@pytest.mark.asyncio
+async def test_simple_subscription_refunds_the_toman_price_when_no_subscription_comes_back(monkeypatch, simple, flow):
+    import app.database.crud.subscription as subscription_crud
+
+    name, _ = SIMPLE_PAYMENTS[flow]
+    # without a subscription both handlers create one; a None result is refunded
+    monkeypatch.setattr(subscription_crud, 'create_paid_subscription', AsyncMock(return_value=None))
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        callback = _callback('pay')
+        await getattr(simple, name)(callback, await _loaded_user(db), _simple_state(), db)
+
+        assert await _balance(db) == RICH_BALANCE
+        assert sorted(await _payments(db)) == [('refund', PRICE_TOMAN), ('subscription_payment', PRICE_KOPEKS)]
+    assert 'Средства возвращены' in callback.answer.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_simple_subscription_extension_refunds_the_toman_price_when_the_commit_fails(monkeypatch, simple):
+    """purchase._extend_existing_subscription: the refund after db.rollback() returned the catalog price."""
+    from app.handlers.subscription import purchase
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        real_commit = db.commit
+        calls = {'n': 0}
+
+        async def commit():
+            calls['n'] += 1
+            if calls['n'] == 2:  # 1: the debit, 2: the extension, 3: the refund
+                raise RuntimeError('commit failed')
+            await real_commit()
+
+        monkeypatch.setattr(db, 'commit', commit)
+        callback = _callback('simple_subscription_purchase')
+        await purchase._extend_existing_subscription(
+            callback, await _loaded_user(db), db, await db.get(Subscription, 10), 30, 1, 0, 'squad-1'
+        )
+
+        assert await _balance(db) == RICH_BALANCE
+        assert await _payments(db) == [('refund', PRICE_TOMAN)]
