@@ -1,6 +1,6 @@
 # Tariff switch direction parity (F-001)
 
-Status: active
+Status: done — remnabot#47 (tasks 1–2), frontend#19 (tasks 3–4)
 Repos: remnabot (first, additive) → frontend
 Upstream basis: not upstream-derived. Written against remnabot origin/main 7fb15329 (upstream/main
 bf33d125) and frontend origin/main 05cda114 (upstream/main 346d1f11).
