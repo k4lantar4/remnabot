@@ -15,6 +15,7 @@ from app.localization.texts import get_texts
 from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
+from app.utils.price_display import catalog_price_in_toman
 from app.utils.user_utils import get_effective_referral_commission_percent
 
 
@@ -1274,7 +1275,8 @@ async def process_referral_purchase(
 
         commission_percent = get_effective_referral_commission_percent(referrer)
 
-        commission_amount = int(purchase_amount_kopeks * commission_percent / 100)
+        # The purchase is a catalog price (Toman x 100); the commission lands 1:1 in the Toman balance.
+        commission_amount = int(catalog_price_in_toman(purchase_amount_kopeks) * commission_percent / 100)
 
         if commission_amount > 0:
             await add_user_balance(
@@ -1293,9 +1295,7 @@ async def process_referral_purchase(
             )
 
             referrer_id = referrer.telegram_id or referrer.email or f'user#{referrer.id}'
-            logger.info(
-                '💰 Комиссия с покупки: получил ₽', referrer_id=referrer_id, commission_amount=commission_amount / 100
-            )
+            logger.info('💰 Комиссия с покупки', referrer_id=referrer_id, commission_toman=commission_amount)
 
             if bot:
                 purchase_commission_notification = (
@@ -1303,7 +1303,7 @@ async def process_referral_purchase(
                     f'Ваш реферал <b>{html.escape(user.full_name)}</b> совершил покупку на '
                     f'{settings.format_price(purchase_amount_kopeks)}\n\n'
                     f'🎁 Ваша комиссия ({commission_percent}%): '
-                    f'{settings.format_price(commission_amount)}\n\n'
+                    f'{settings.format_balance(commission_amount)}\n\n'
                     f'💎 Средства зачислены на ваш баланс.'
                 )
                 await send_referral_notification(
