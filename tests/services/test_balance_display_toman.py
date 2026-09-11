@@ -13,12 +13,13 @@ from __future__ import annotations
 import ast
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.config import Settings, settings
-from app.database.models import Base, Subscription, SubscriptionStatus, Tariff, User
+from app.database.models import Base, Subscription, SubscriptionStatus, Tariff, Transaction, User
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -27,11 +28,13 @@ TABLES = list(Base.metadata.sorted_tables)
 
 BALANCE_TOMAN = 150_000
 BALANCE_LABEL = settings.format_balance(BALANCE_TOMAN)  # «150,000 تومان»
+WRONG_LABEL = settings.format_price(BALANCE_TOMAN)  # «1,500 تومان»
 
 GUARDED = [
     ROOT / 'app' / 'cabinet' / 'routes',
     ROOT / 'app' / 'webapi',
     ROOT / 'app' / 'services' / 'subscription_purchase_service.py',
+    ROOT / 'app' / 'services' / 'admin_notification_service.py',
 ]
 
 
@@ -159,3 +162,149 @@ async def test_miniapp_daily_pause_labels_the_toman_balance(monkeypatch, _single
         )
 
     assert response.balance_label == BALANCE_LABEL
+
+
+# ---------------------------------------------------------------- admin notifications
+
+
+def _user() -> User:
+    """Transient model instance: every attribute the notifications read exists."""
+    return User(id=1, telegram_id=1001, first_name='U', language='fa', status='active', balance_kopeks=BALANCE_TOMAN)
+
+
+def _subscription() -> Subscription:
+    now = datetime.now(UTC)
+    return Subscription(
+        id=10,
+        user_id=1,
+        status=SubscriptionStatus.ACTIVE.value,
+        is_trial=False,
+        start_date=now,
+        end_date=now + timedelta(days=30),
+        traffic_limit_gb=100,
+        device_limit=1,
+        connected_squads=['squad-1'],
+    )
+
+
+@pytest.fixture
+def notifier(monkeypatch):
+    from app.services.admin_notification_service import AdminNotificationService
+
+    service = AdminNotificationService(SimpleNamespace())
+    service.sent = []
+
+    async def capture(message, **kwargs):
+        service.sent.append(message)
+        return True
+
+    monkeypatch.setattr(service, '_record_subscription_event', AsyncMock())
+    monkeypatch.setattr(service, '_is_enabled', lambda: True)
+    monkeypatch.setattr(service, '_get_servers_info', AsyncMock(return_value='squad-1'))
+    monkeypatch.setattr(service, '_get_user_promo_group', AsyncMock(return_value=None))
+    monkeypatch.setattr(service, '_send_message', capture)
+    return service
+
+
+def _only_message(service) -> str:
+    (message,) = service.sent
+    return message
+
+
+@pytest.mark.asyncio
+async def test_subscription_purchase_notification_shows_the_toman_balance(notifier):
+    now = datetime.now(UTC)
+    transaction = Transaction(
+        id=501,
+        type='subscription_payment',
+        amount_kopeks=-20_000_000,
+        payment_method='balance',
+        completed_at=now,
+        created_at=now,
+    )
+
+    await notifier.send_subscription_purchase_notification(None, _user(), _subscription(), transaction, 30)
+
+    message = _only_message(notifier)
+    assert f'Баланс: {BALANCE_LABEL}' in message
+    assert settings.format_price(20_000_000) in message  # the price stays a catalog price
+
+
+@pytest.mark.asyncio
+async def test_balance_topup_notification_shows_toman_amounts(notifier):
+    now = datetime.now(UTC)
+    transaction = Transaction(
+        id=601,
+        type='deposit',
+        amount_kopeks=50_000,  # deposit rows are balance scale (Toman)
+        payment_method='c2c',
+        completed_at=now,
+        created_at=now,
+    )
+
+    message = notifier._build_balance_topup_message(
+        _user(),
+        transaction,
+        100_000,
+        topup_status='🆕 Первое пополнение',
+        referrer_info='Нет',
+        subscription=None,
+        promo_group=None,
+    )
+
+    assert f'<b>{settings.format_balance(50_000)}</b>' in message
+    assert f'{settings.format_balance(100_000)} → 📈 {BALANCE_LABEL}' in message
+    assert f'+{settings.format_balance(50_000)}' in message
+
+
+@pytest.mark.asyncio
+async def test_promocode_notification_shows_the_toman_balance(notifier):
+    await notifier.send_promocode_activation_notification(
+        None,
+        _user(),
+        {'code': 'GIFT', 'type': 'balance', 'balance_bonus_kopeks': 50_000},
+        'bonus',
+        balance_before_kopeks=100_000,
+        balance_after_kopeks=BALANCE_TOMAN,
+    )
+
+    assert f'{settings.format_balance(100_000)} → {BALANCE_LABEL}' in _only_message(notifier)
+
+
+@pytest.mark.asyncio
+async def test_promo_group_change_notification_shows_the_toman_balance(notifier):
+    group = SimpleNamespace(
+        id=2,
+        name='VIP',
+        server_discount_percent=0,
+        traffic_discount_percent=0,
+        device_discount_percent=0,
+        period_discounts={},
+        auto_assign_total_spent_kopeks=0,
+        is_default=False,
+        apply_discounts_to_addons=False,
+    )
+
+    await notifier.send_user_promo_group_change_notification(None, _user(), None, group, automatic=True)
+
+    assert f'Баланс пользователя: {BALANCE_LABEL}' in _only_message(notifier)
+
+
+@pytest.mark.asyncio
+async def test_subscription_update_notification_shows_the_toman_balance(notifier):
+    await notifier.send_subscription_update_notification(None, _user(), _subscription(), 'devices', 1, 2, 1_000_000)
+
+    message = _only_message(notifier)
+    assert f'Баланс: {BALANCE_LABEL}' in message
+    assert settings.format_price(1_000_000) in message  # the add-on price stays a catalog price
+
+
+@pytest.mark.asyncio
+async def test_withdrawal_request_notification_shows_toman_amounts(notifier):
+    """The requested amount is taken from the Toman wallet (checked against balance_kopeks)."""
+    await notifier.send_withdrawal_request_notification(_user(), 50_000, 'card 6037')
+
+    message = _only_message(notifier)
+    assert f'Сумма: {settings.format_balance(50_000)}' in message
+    assert f'Баланс: {BALANCE_LABEL}' in message
+    assert WRONG_LABEL not in message
