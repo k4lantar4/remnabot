@@ -1,7 +1,7 @@
 # Toman balance scale — wave 2 (lost refunds, remaining 100x sites, cabinet tariff switch)
 
 **Status:** done (2026-09-11) — wave 1 and wave 2 shipped. Wave 2: remnabot #40 (Task 5), #41 (Tasks 1, 2, 4);
-frontend #15 (Tasks 7, 3), #16 (Task 6). Leftovers: `plans/2026-09-11-toman-scale-wave-3-backlog.md`.
+frontend #15 (Tasks 7, 3), #16 (Task 6). Leftovers: `/opt/project/FINDINGS.md` F-001 … F-009.
 **Repos:** `remnabot` first (Tasks 1, 2, 4, 5), then `frontend` (Tasks 3, 6, 7). Cross-repo work is
 bot-first and additive.
 **Upstream basis:** remnabot `origin/main` `58e5a405`, `upstream/main` `bf33d125` (2026-09-11);
