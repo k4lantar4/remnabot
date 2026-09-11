@@ -2496,5 +2496,11 @@
   "ADMIN_USER_TRANSACTIONS_RECENT": "<b>Recent transactions:</b>\n\n",
   "ADMIN_USER_TRANSACTIONS_TITLE": "💳 <b>User transactions</b>\n\n",
   "USER_BALANCE_CREDITED_NOTIFY": "💰 <b>Your balance was topped up</b>\n\n💵 <b>Amount:</b> +{amount}\n💳 <b>Current balance:</b> {balance}\n\nThanks for using our service! 🎉",
-  "USER_BALANCE_DEBITED_NOTIFY": "💸 <b>An amount was deducted from your balance</b>\n\n💵 <b>Amount:</b> -{amount}\n💳 <b>Current balance:</b> {balance}\n\nIf you have any questions, contact support."
+  "USER_BALANCE_DEBITED_NOTIFY": "💸 <b>An amount was deducted from your balance</b>\n\n💵 <b>Amount:</b> -{amount}\n💳 <b>Current balance:</b> {balance}\n\nIf you have any questions, contact support.",
+  "PROMO_OFFER_DEFAULT_TITLE": "🎁 <b>Спеціальна пропозиція для вас!</b>",
+  "PROMO_OFFER_DEFAULT_DISCOUNT_LINE": "🔥 Знижка <b>{percent}%</b> на підписку",
+  "PROMO_OFFER_DEFAULT_BONUS_LINE": "💰 Бонус <b>{amount}</b> на баланс",
+  "PROMO_OFFER_DEFAULT_VALID_LINE": "⏰ Пропозиція діє <b>{hours} год.</b>",
+  "PROMO_OFFER_DEFAULT_CTA": "Натисніть кнопку нижче, щоб активувати!",
+  "PROMO_OFFER_DEFAULT_BUTTON": "🎁 Отримати"
 }

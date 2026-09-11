@@ -2496,5 +2496,11 @@
   "ADMIN_USER_TRANSACTIONS_RECENT": "<b>Последние транзакции:</b>\n\n",
   "ADMIN_USER_TRANSACTIONS_TITLE": "💳 <b>Транзакции пользователя</b>\n\n",
   "USER_BALANCE_CREDITED_NOTIFY": "💰 <b>Баланс пополнен!</b>\n\n💵 <b>Сумма:</b> +{amount}\n💳 <b>Текущий баланс:</b> {balance}\n\nСпасибо за использование нашего сервиса! 🎉",
-  "USER_BALANCE_DEBITED_NOTIFY": "💸 <b>Средства списаны с баланса</b>\n\n💵 <b>Сумма:</b> -{amount}\n💳 <b>Текущий баланс:</b> {balance}\n\nЕсли у вас есть вопросы, обратитесь в поддержку."
+  "USER_BALANCE_DEBITED_NOTIFY": "💸 <b>Средства списаны с баланса</b>\n\n💵 <b>Сумма:</b> -{amount}\n💳 <b>Текущий баланс:</b> {balance}\n\nЕсли у вас есть вопросы, обратитесь в поддержку.",
+  "PROMO_OFFER_DEFAULT_TITLE": "🎁 <b>Специальное предложение для вас!</b>",
+  "PROMO_OFFER_DEFAULT_DISCOUNT_LINE": "🔥 Скидка <b>{percent}%</b> на подписку",
+  "PROMO_OFFER_DEFAULT_BONUS_LINE": "💰 Бонус <b>{amount}</b> на баланс",
+  "PROMO_OFFER_DEFAULT_VALID_LINE": "⏰ Предложение действует <b>{hours} ч.</b>",
+  "PROMO_OFFER_DEFAULT_CTA": "Нажмите кнопку ниже, чтобы активировать!",
+  "PROMO_OFFER_DEFAULT_BUTTON": "🎁 Получить"
 }

@@ -35,6 +35,7 @@ from app.database.models import (
     User,
 )
 from app.handlers.admin.messages import get_custom_users, get_target_users, get_target_users_count
+from app.localization.texts import get_texts
 from app.services.broadcast_service import BroadcastConfig, broadcast_service
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button
 from app.utils.notification_prefs import is_promo_offers_enabled
@@ -537,19 +538,41 @@ def _build_default_promo_message(
     bonus_amount_kopeks: int,
     valid_hours: int,
 ) -> str:
-    """Build default promo notification message."""
-    lines = ['🎁 <b>Специальное предложение для вас!</b>\n']
+    """Build default promo notification message.
+
+    One text goes to every recipient of the broadcast, so it is rendered in the bot's default language.
+    """
+    texts = get_texts(settings.DEFAULT_LANGUAGE)
+    lines = [texts.t('PROMO_OFFER_DEFAULT_TITLE', '🎁 <b>A special offer for you!</b>') + '\n']
 
     if discount_percent > 0:
-        lines.append(f'🔥 Скидка <b>{discount_percent}%</b> на подписку')
+        lines.append(
+            texts.t('PROMO_OFFER_DEFAULT_DISCOUNT_LINE', '🔥 <b>{percent}%</b> off your subscription').format(
+                percent=discount_percent
+            )
+        )
     if bonus_amount_kopeks > 0:
-        bonus_rub = bonus_amount_kopeks / 100
-        lines.append(f'💰 Бонус <b>{bonus_rub:.0f}₽</b> на баланс')
+        # Catalog scale, like every other display of bonus_amount_kopeks (format_price).
+        lines.append(
+            texts.t('PROMO_OFFER_DEFAULT_BONUS_LINE', '💰 <b>{amount}</b> bonus to your balance').format(
+                amount=settings.format_price(bonus_amount_kopeks)
+            )
+        )
 
-    lines.append(f'\n⏰ Предложение действует <b>{valid_hours} ч.</b>')
-    lines.append('\nНажмите кнопку ниже, чтобы активировать!')
+    lines.append(
+        '\n'
+        + texts.t('PROMO_OFFER_DEFAULT_VALID_LINE', '⏰ The offer is valid for <b>{hours} h</b>').format(
+            hours=valid_hours
+        )
+    )
+    lines.append('\n' + texts.t('PROMO_OFFER_DEFAULT_CTA', 'Tap the button below to activate it!'))
 
     return '\n'.join(lines)
+
+
+def _default_promo_button_text() -> str:
+    """Label of the broadcast button when the admin left it empty (bot's default language)."""
+    return get_texts(settings.DEFAULT_LANGUAGE).t('PROMO_OFFER_DEFAULT_BUTTON', '🎁 Claim')
 
 
 async def _send_promo_email_notifications(
@@ -735,7 +758,7 @@ async def broadcast_offer(
                     bonus_amount_kopeks=payload.bonus_amount_kopeks,
                     valid_hours=payload.valid_hours,
                 ),
-                button_text=payload.button_text or '🎁 Получить',
+                button_text=payload.button_text or _default_promo_button_text(),
                 notify_targets=notify_targets,
             )
             logger.info(

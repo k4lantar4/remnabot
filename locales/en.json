@@ -2496,5 +2496,11 @@
   "TOPUP_CUSTOM_AMOUNT_PROMPT": "💳 Enter the top-up amount in chat.\n\nMinimum: {min_amount}",
   "TOPUP_ENTER_CUSTOM_BTN": "✏️ Enter another amount",
   "TOPUP_SUGGESTED_AMOUNT_LINE": "💡 Suggested top-up: {suggested} (rounded up to 1,000)",
-  "USER_RESTRICTION_DEFAULT_REASON": "Restricted by an administrator"
+  "USER_RESTRICTION_DEFAULT_REASON": "Restricted by an administrator",
+  "PROMO_OFFER_DEFAULT_TITLE": "🎁 <b>A special offer for you!</b>",
+  "PROMO_OFFER_DEFAULT_DISCOUNT_LINE": "🔥 <b>{percent}%</b> off your subscription",
+  "PROMO_OFFER_DEFAULT_BONUS_LINE": "💰 <b>{amount}</b> bonus to your balance",
+  "PROMO_OFFER_DEFAULT_VALID_LINE": "⏰ The offer is valid for <b>{hours} h</b>",
+  "PROMO_OFFER_DEFAULT_CTA": "Tap the button below to activate it!",
+  "PROMO_OFFER_DEFAULT_BUTTON": "🎁 Claim"
 }

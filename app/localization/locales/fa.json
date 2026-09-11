@@ -2496,5 +2496,11 @@
   "TOPUP_CUSTOM_AMOUNT_PROMPT": "💳 مبلغ شارژ را بنویسید و بفرستید.\n\nحداقل: {min_amount}",
   "TOPUP_ENTER_CUSTOM_BTN": "✏️ مبلغ دیگر",
   "TOPUP_SUGGESTED_AMOUNT_LINE": "💡 مبلغ پیشنهادی شارژ: {suggested} (گرد شده به مضرب 1,000)",
-  "USER_RESTRICTION_DEFAULT_REASON": "این امکان را ادمین محدود کرده است"
+  "USER_RESTRICTION_DEFAULT_REASON": "این امکان را ادمین محدود کرده است",
+  "PROMO_OFFER_DEFAULT_TITLE": "🎁 <b>یک پیشنهاد ویژه برای شما!</b>",
+  "PROMO_OFFER_DEFAULT_DISCOUNT_LINE": "🔥 <b>{percent}%</b> تخفیف روی اشتراک",
+  "PROMO_OFFER_DEFAULT_BONUS_LINE": "💰 <b>{amount}</b> هدیه به موجودی شما",
+  "PROMO_OFFER_DEFAULT_VALID_LINE": "⏰ این پیشنهاد فقط <b>{hours} ساعت</b> اعتبار دارد",
+  "PROMO_OFFER_DEFAULT_CTA": "برای فعال‌سازی، دکمه‌ی زیر را بزنید.",
+  "PROMO_OFFER_DEFAULT_BUTTON": "🎁 دریافت"
 }
