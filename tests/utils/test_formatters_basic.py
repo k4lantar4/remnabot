@@ -31,10 +31,10 @@ def test_format_days_declension_handles_russian_rules() -> None:
     assert formatters.format_days_declension(10) == '10 дней'
 
 
-def test_format_days_declension_uses_russian_fallback_for_fa() -> None:
-    """Для fa используем fallback на русские формы до полной локализации."""
-    assert formatters.format_days_declension(1, language='fa') == '1 день'
-    assert formatters.format_days_declension(3, language='fa') == '3 дня'
+def test_format_days_declension_is_persian_for_fa() -> None:
+    """fa no longer falls back to the Russian forms (F-009): the expiry notification uses it."""
+    assert formatters.format_days_declension(1, language='fa') == '1 روز'
+    assert formatters.format_days_declension(3, language='fa') == '3 روز'
 
 
 def test_format_duration_switches_units() -> None:
@@ -110,10 +110,13 @@ def test_format_boolean_localises_output() -> None:
     assert formatters.format_boolean(False, language='en') == '❌ No'
 
 
-def test_format_boolean_uses_russian_fallback_for_fa() -> None:
-    """Для fa булевы значения пока используют базовый ru fallback."""
-    assert formatters.format_boolean(True, language='fa') == '✅ Да'
-    assert formatters.format_boolean(False, language='fa') == '❌ Нет'
+def test_formatters_do_not_answer_fa_in_russian() -> None:
+    """fa used to map to the Russian branch (F-009); it now gets the non-Russian output."""
+    assert formatters.format_boolean(True, language='fa') == '✅ Yes'
+    assert formatters.format_boolean(False, language='fa') == '❌ No'
+    assert formatters.format_traffic_usage(10.0, 100, language='fa') == '10.0 GB / 100 GB (10.0%)'
+    status = formatters.format_subscription_status(False, False, '2026-01-01T00:00:00+00:00', language='fa')
+    assert status == '❌ Inactive'
 
 
 def test_format_username_link_wraps_telegram_handle_in_anchor() -> None:

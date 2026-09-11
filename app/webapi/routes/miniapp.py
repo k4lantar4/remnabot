@@ -4083,23 +4083,8 @@ async def activate_subscription_trial_endpoint(
     if not duration_days and settings.TRIAL_DURATION_DAYS > 0:
         duration_days = settings.TRIAL_DURATION_DAYS
 
-    language_code = _normalize_language_code(user)
     charged_amount_label = settings.format_price(charged_amount) if charged_amount > 0 else None
-    if language_code in {'ru', 'fa'}:
-        if duration_days:
-            message = f'Триал активирован на {duration_days} дн. Приятного пользования!'
-        else:
-            message = 'Триал активирован. Приятного пользования!'
-    elif duration_days:
-        message = f'Trial activated for {duration_days} days. Enjoy!'
-    else:
-        message = 'Trial activated successfully. Enjoy!'
-
-    if charged_amount_label:
-        if language_code in {'ru', 'fa'}:
-            message = f'{message}\n\n💳 С вашего баланса списано {charged_amount_label}.'
-        else:
-            message = f'{message}\n\n💳 {charged_amount_label} has been deducted from your balance.'
+    message = _build_trial_activation_message(user, duration_days, charged_amount_label)
 
     await with_admin_notification_service(
         lambda service: service.send_trial_activation_notification(
@@ -4534,11 +4519,30 @@ def _normalize_language_code(user: User | None) -> str:
     return language.split('-')[0].lower()
 
 
+def _build_trial_activation_message(
+    user: User | None,
+    duration_days: int | None,
+    charged_amount_label: str | None,
+) -> str:
+    texts = get_texts(_normalize_language_code(user))
+    if duration_days:
+        message = texts.t('MINIAPP_TRIAL_ACTIVATED_DAYS', 'Trial activated for {days} days. Enjoy!').format(
+            days=duration_days
+        )
+    else:
+        message = texts.t('MINIAPP_TRIAL_ACTIVATED', 'Trial activated successfully. Enjoy!')
+
+    if charged_amount_label:
+        charged = texts.t('MINIAPP_TRIAL_CHARGED', '💳 {amount} has been deducted from your balance.').format(
+            amount=charged_amount_label
+        )
+        message = f'{message}\n\n{charged}'
+    return message
+
+
 def _build_renewal_status_message(user: User | None) -> str:
-    language_code = _normalize_language_code(user)
-    if language_code in {'ru', 'fa'}:
-        return 'Стоимость указана с учётом ваших текущих серверов, трафика и устройств.'
-    return 'Prices already include your current servers, traffic, and devices.'
+    texts = get_texts(_normalize_language_code(user))
+    return texts.t('MINIAPP_RENEWAL_STATUS_NOTE', 'Prices already include your current servers, traffic, and devices.')
 
 
 def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
@@ -4552,11 +4556,8 @@ def _build_promo_offer_payload(user: User | None) -> dict[str, Any] | None:
     if expires_at:
         payload['expires_at'] = expires_at
 
-    language_code = _normalize_language_code(user)
-    if language_code in {'ru', 'fa'}:
-        payload['message'] = 'Дополнительная скидка применяется автоматически.'
-    else:
-        payload['message'] = 'Extra discount is applied automatically.'
+    texts = get_texts(_normalize_language_code(user))
+    payload['message'] = texts.t('MINIAPP_PROMO_EXTRA_DISCOUNT_NOTE', 'Extra discount is applied automatically.')
 
     return payload
 
@@ -4583,7 +4584,7 @@ def _build_renewal_success_message(
     charged_amount: int,
     promo_discount_value: int = 0,
 ) -> str:
-    language_code = _normalize_language_code(user)
+    texts = get_texts(_normalize_language_code(user))
     amount_label = settings.format_price(max(0, charged_amount))
     date_label = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M') if subscription.end_date else ''
 
@@ -4591,38 +4592,23 @@ def _build_renewal_success_message(
     if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff', None):
         tariff_label = f' «{subscription.tariff.name}»'
 
-    if language_code in {'ru', 'fa'}:
-        if charged_amount > 0:
-            message = (
-                f'Подписка{tariff_label} продлена до {date_label}. '
-                if date_label
-                else f'Подписка{tariff_label} продлена. '
-            ) + f'Списано {amount_label}.'
-        else:
-            message = (
-                f'Подписка{tariff_label} продлена до {date_label}.'
-                if date_label
-                else f'Подписка{tariff_label} успешно продлена.'
-            )
-    elif charged_amount > 0:
-        message = (
-            f'Subscription{tariff_label} renewed until {date_label}. '
-            if date_label
-            else f'Subscription{tariff_label} renewed. '
-        ) + f'Charged {amount_label}.'
-    else:
-        message = (
-            f'Subscription{tariff_label} renewed until {date_label}.'
-            if date_label
-            else f'Subscription{tariff_label} renewed successfully.'
+    if charged_amount > 0 and date_label:
+        message = texts.t(
+            'MINIAPP_RENEWAL_SUCCESS_UNTIL_CHARGED', 'Subscription{tariff} renewed until {date}. Charged {amount}.'
         )
+    elif charged_amount > 0:
+        message = texts.t('MINIAPP_RENEWAL_SUCCESS_CHARGED', 'Subscription{tariff} renewed. Charged {amount}.')
+    elif date_label:
+        message = texts.t('MINIAPP_RENEWAL_SUCCESS_UNTIL', 'Subscription{tariff} renewed until {date}.')
+    else:
+        message = texts.t('MINIAPP_RENEWAL_SUCCESS', 'Subscription{tariff} renewed successfully.')
+    message = message.format(tariff=tariff_label, date=date_label, amount=amount_label)
 
     if promo_discount_value > 0:
         discount_label = settings.format_price(promo_discount_value)
-        if language_code in {'ru', 'fa'}:
-            message += f' Применена дополнительная скидка {discount_label}.'
-        else:
-            message += f' Promo discount applied: {discount_label}.'
+        message += ' ' + texts.t('MINIAPP_RENEWAL_PROMO_DISCOUNT', 'Promo discount applied: {amount}.').format(
+            amount=discount_label
+        )
 
     return message
 
