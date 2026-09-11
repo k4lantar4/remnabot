@@ -1877,6 +1877,7 @@
   "ACTIVATION_SUCCESS": "✅ Subscription activated for {days} days.\n💰 Charged: {amount}",
   "INSUFFICIENT_FUNDS_DETAILED": "❌ Not enough balance. Missing: {amount}",
   "ACTIVATION_INSUFFICIENT_FUNDS": "❌ Not enough balance.",
+  "CABINET_TRIAL_INSUFFICIENT_BALANCE": "Insufficient balance. Missing {amount}",
   "ACTIVATION_PRICE_ERROR": "❌ Couldn't calculate the price. Please try again later.",
   "CONTEST_TOO_FAST": "Too fast! Please wait.",
   "CONTEST_DISABLED": "The game is disabled.",

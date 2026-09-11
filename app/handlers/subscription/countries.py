@@ -25,10 +25,12 @@ from app.services.subscription_checkout_service import (
 )
 from app.services.subscription_service import SubscriptionService
 from app.states import SubscriptionStates
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
 )
+from app.utils.topup_suggestion import suggest_topup_amount_toman
 
 from .common import _get_period_hint_from_subscription, logger
 from .summary import present_subscription_summary
@@ -331,8 +333,9 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             total_discount=total_discount / 100,
         )
 
-    if total_cost > 0 and db_user.balance_kopeks < total_cost:
-        missing_kopeks = total_cost - db_user.balance_kopeks
+    # balance is Toman 1:1; total_cost is a catalog price (server price_kopeks, prorated)
+    if total_cost > 0 and not user_can_afford(db_user.balance_kopeks, total_cost):
+        missing_toman_amount = missing_toman(db_user.balance_kopeks, total_cost)
         required_text = f'{texts.format_price(total_cost)} (за {charged_days} дн.)'
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
@@ -346,7 +349,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
         ).format(
             required=required_text,
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman_amount),
         )
 
         await callback.message.answer(
@@ -354,7 +357,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
                 resume_callback=resume_callback,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman_amount),  # Toman prefill
             ),
             parse_mode='HTML',
         )
@@ -374,8 +377,12 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
 
     try:
         if added and total_cost > 0:
+            # Debit the Toman price; the transaction row below keeps the catalog total_cost.
             success = await subtract_user_balance(
-                db, db_user, total_cost, f'Добавление стран: {", ".join(added_names)} за {charged_days} дн.'
+                db,
+                db_user,
+                catalog_price_in_toman(total_cost),
+                f'Добавление стран: {", ".join(added_names)} за {charged_days} дн.',
             )
             if not success:
                 await callback.answer(
@@ -873,8 +880,9 @@ async def confirm_add_countries_to_subscription(
         if country['uuid'] in removed_countries:
             removed_countries_names.append(html.escape(country['name']))
 
-    if new_countries and total_price > 0 and db_user.balance_kopeks < total_price:
-        missing_kopeks = total_price - db_user.balance_kopeks
+    # balance is Toman 1:1; total_price is a catalog price (server price_kopeks, prorated)
+    if new_countries and total_price > 0 and not user_can_afford(db_user.balance_kopeks, total_price):
+        missing_toman_amount = missing_toman(db_user.balance_kopeks, total_price)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -887,14 +895,14 @@ async def confirm_add_countries_to_subscription(
         ).format(
             required=texts.format_price(total_price, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman_amount),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman_amount),  # Toman prefill
             ),
             parse_mode='HTML',
         )
@@ -915,8 +923,12 @@ async def confirm_add_countries_to_subscription(
             return
 
         if new_countries and total_price > 0:
+            # Debit the Toman price; the transaction row below keeps the catalog total_price.
             success = await subtract_user_balance(
-                db, db_user, total_price, f'Добавление стран к подписке: {", ".join(new_countries_names)}'
+                db,
+                db_user,
+                catalog_price_in_toman(total_price),
+                f'Добавление стран к подписке: {", ".join(new_countries_names)}',
             )
 
             if not success:

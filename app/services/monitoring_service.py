@@ -68,6 +68,7 @@ from app.utils.cache import cache
 from app.utils.formatters import format_username_link
 from app.utils.message_patch import caption_exceeds_telegram_limit
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button, build_subscription_extend_button
+from app.utils.price_display import catalog_price_in_toman, user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.rich_notify import try_send_rich_notification
 from app.utils.subscription_utils import (
@@ -1598,18 +1599,21 @@ class MonitoringService:
 
                     # calculate_renewal_price уже включает promo_group + promo_offer скидки.
                     # Не применяем promo_offer повторно — только consume-им при успешной оплате.
+                    # charge_amount is the catalog price (the ledger row and the notifications format it
+                    # with format_price); the Toman balance is checked against and debited its Toman value.
                     charge_amount = renewal_cost
+                    charge_toman = catalog_price_in_toman(charge_amount)
                     promo_discount_percent = get_user_active_promo_discount_percent(user)
 
                     autopay_key = f'autopay_{user.id}_{subscription.id}'
                     if autopay_key in self._notified_users:
                         continue
 
-                    if user.balance_kopeks >= charge_amount:
+                    if user_can_afford(user.balance_kopeks, charge_amount):
                         success = await subtract_user_balance(
                             db,
                             user,
-                            charge_amount,
+                            charge_toman,
                             'Автопродление подписки',
                             consume_promo_offer=promo_discount_percent > 0,
                             mark_as_paid_subscription=True,
@@ -1665,10 +1669,14 @@ class MonitoringService:
                                     from app.database.crud.user import add_user_balance
                                     from app.database.models import TransactionType as _TxType
 
+                                    # A failed extension can leave the session aborted and the user
+                                    # expired; reset both before refunding, as finalize() does (#32).
+                                    await db.rollback()
+                                    await db.refresh(user)
                                     await add_user_balance(
                                         db,
                                         user,
-                                        charge_amount,
+                                        charge_toman,
                                         'Возврат: автопродление не удалось',
                                         transaction_type=_TxType.REFUND,
                                         create_transaction=True,

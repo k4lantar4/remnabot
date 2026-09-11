@@ -29,10 +29,11 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
+from app.utils.topup_suggestion import suggest_topup_amount_toman
 
 from .common import (
     _get_period_hint_from_subscription,
@@ -283,13 +284,14 @@ async def handle_reset_traffic(
         )
 
     # Проверяем достаточно ли средств
-    has_enough_balance = db_user.balance_kopeks >= reset_price
-    missing_kopeks = max(0, reset_price - db_user.balance_kopeks)
+    # balance is Toman 1:1; reset_price is a catalog price
+    has_enough_balance = user_can_afford(db_user.balance_kopeks, reset_price)
+    missing_toman_amount = missing_toman(db_user.balance_kopeks, reset_price)
 
     # Формируем текст о балансе
     balance_info = f'\n\n💰 На балансе: {texts.format_balance(db_user.balance_kopeks)}'
     if not has_enough_balance:
-        balance_info += f'\n⚠️ Не хватает: {texts.format_price(missing_kopeks)}'
+        balance_info += f'\n⚠️ Не хватает: {texts.format_balance(missing_toman_amount)}'
 
     await callback.message.edit_text(
         f'🔄 <b>Сброс трафика</b>\n\n'
@@ -301,7 +303,7 @@ async def handle_reset_traffic(
             reset_price,
             db_user.language,
             has_enough_balance=has_enough_balance,
-            missing_kopeks=missing_kopeks,
+            missing_kopeks=missing_toman_amount,  # unused by the keyboard; Toman
         ),
     )
 
@@ -335,8 +337,8 @@ async def confirm_reset_traffic(
 
     reset_price = _calculate_traffic_reset_price(subscription)
 
-    if reset_price > 0 and db_user.balance_kopeks < reset_price:
-        missing_kopeks = reset_price - db_user.balance_kopeks
+    if reset_price > 0 and not user_can_afford(db_user.balance_kopeks, reset_price):
+        missing_toman_amount = missing_toman(db_user.balance_kopeks, reset_price)
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -349,14 +351,14 @@ async def confirm_reset_traffic(
         ).format(
             required=texts.format_price(reset_price, round_kopeks=False),
             balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
-            missing=texts.format_price(missing_kopeks, round_kopeks=False),
+            missing=texts.format_balance(missing_toman_amount),
         )
 
         await callback.message.edit_text(
             message_text,
             reply_markup=get_insufficient_balance_keyboard(
                 db_user.language,
-                amount_kopeks=missing_kopeks,
+                amount_kopeks=suggest_topup_amount_toman(missing_toman_amount),  # Toman prefill
             ),
             parse_mode='HTML',
         )
@@ -364,7 +366,8 @@ async def confirm_reset_traffic(
         return
 
     try:
-        success = await subtract_user_balance(db, db_user, reset_price, 'Сброс трафика')
+        # Debit the Toman price; the transaction row below keeps the catalog reset_price.
+        success = await subtract_user_balance(db, db_user, catalog_price_in_toman(reset_price), 'Сброс трафика')
 
         if not success:
             await callback.answer('⌛ Ошибка списания средств', show_alert=True)

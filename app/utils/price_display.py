@@ -88,6 +88,21 @@ def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
     return balance_toman >= catalog_price_in_toman(price_kopeks)
 
 
+def missing_toman(balance_toman: int, price_kopeks: int) -> int:
+    """Toman shortfall of a stored (Toman) balance against a catalog price; 0 when affordable."""
+    return max(0, catalog_price_in_toman(price_kopeks) - int(balance_toman or 0))
+
+
+def missing_toman_on_catalog_scale(balance_toman: int, price_kopeks: int) -> int:
+    """The Toman shortfall expressed on the catalog scale (x100).
+
+    Only for existing API fields a client already renders as catalog kopeks: the cabinet's
+    ``InsufficientBalancePrompt`` divides ``missing_amount_kopeks`` by 100 for both the label and
+    the prefilled top-up amount, so a 50,000-Toman shortfall must arrive as 5,000,000 there.
+    """
+    return kopeks_from_display_amount(missing_toman(balance_toman, price_kopeks))
+
+
 def render_addon_insufficient_funds(texts, *, price_kopeks: int, balance_toman: int) -> tuple[str, int]:
     """Persian/HTML insufficient-funds copy with Toman missing for C2C top-up.
 

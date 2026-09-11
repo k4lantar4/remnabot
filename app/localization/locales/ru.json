@@ -1983,6 +1983,7 @@
   "ACTIVATION_SUCCESS": "✅ Подписка активирована на {days} дн.\n💰 Списано: {amount}",
   "INSUFFICIENT_FUNDS_DETAILED": "❌ Недостаточно средств. Не хватает {amount}",
   "ACTIVATION_INSUFFICIENT_FUNDS": "❌ Недостаточно средств",
+  "CABINET_TRIAL_INSUFFICIENT_BALANCE": "Недостаточно средств. Не хватает {amount}",
   "ACTIVATION_PRICE_ERROR": "❌ Ошибка расчёта стоимости",
   "CONTEST_TOO_FAST": "Слишком быстро! Подождите.",
   "CONTEST_DISABLED": "Игра отключена.",
