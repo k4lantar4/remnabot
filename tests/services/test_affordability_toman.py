@@ -378,3 +378,66 @@ async def test_miniapp_server_add_refuses_then_debits_the_toman_price(monkeypatc
 
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+# ---------------------------------------------------------------- purchase service (cabinet + miniapp preview)
+
+
+def _purchase_pricing():
+    from app.services.subscription_purchase_service import PurchasePricingResult, PurchaseSelection
+
+    period = SimpleNamespace(id='days:30', days=30, months=1)
+    return PurchasePricingResult(
+        selection=PurchaseSelection(period=period, traffic_value=100, servers=['squad-1'], devices=1),
+        server_ids=[],
+        server_prices_for_period=[],
+        base_original_total=PRICE_KOPEKS,
+        discounted_total=PRICE_KOPEKS,
+        promo_discount_value=0,
+        promo_discount_percent=0,
+        final_total=PRICE_KOPEKS,
+        months=1,
+        details={},
+    )
+
+
+def test_purchase_preview_reports_the_toman_shortfall_on_the_cabinet_scale():
+    from app.services.subscription_purchase_service import MiniAppSubscriptionPurchaseService
+
+    service = MiniAppSubscriptionPurchaseService()
+    user = SimpleNamespace(language='fa')
+    short = service.build_preview_payload(SimpleNamespace(user=user, balance_kopeks=SHORT_BALANCE), _purchase_pricing())
+    rich = service.build_preview_payload(SimpleNamespace(user=user, balance_kopeks=RICH_BALANCE), _purchase_pricing())
+
+    assert short['can_purchase'] is False
+    # ClassicPurchaseWizard hands missing_amount_kopeks to InsufficientBalancePrompt (catalog scale, ÷100)
+    assert short['missing_amount_kopeks'] == SHORTFALL_TOMAN * 100
+    assert short['missing_amount_label'] == SHORTFALL_LABEL
+    assert rich['can_purchase'] is True
+    assert rich['missing_amount_kopeks'] == 0
+
+
+@pytest.mark.asyncio
+async def test_purchase_submit_refuses_then_debits_the_toman_price(monkeypatch):
+    import app.services.subscription_purchase_service as purchase_module
+    from app.services.subscription_purchase_service import MiniAppSubscriptionPurchaseService, PurchaseBalanceError
+
+    monkeypatch.setattr(purchase_module, 'SubscriptionService', lambda: _FakePanelSync())
+    service = MiniAppSubscriptionPurchaseService()
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=SHORT_BALANCE)
+        subscription = await db.get(Subscription, 10)
+        context = SimpleNamespace(user=user, subscription=subscription, payload={}, balance_kopeks=SHORT_BALANCE)
+        with pytest.raises(PurchaseBalanceError):
+            await service.submit_purchase(db, context, _purchase_pricing())
+        assert await _balance(db) == SHORT_BALANCE
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=RICH_BALANCE)
+        subscription = await db.get(Subscription, 10)
+        context = SimpleNamespace(user=user, subscription=subscription, payload={}, balance_kopeks=RICH_BALANCE)
+        await service.submit_purchase(db, context, _purchase_pricing())
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]

@@ -26,6 +26,12 @@ from app.database.crud.user import subtract_user_balance
 from app.database.models import PaymentMethod, ServerSquad, Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import (
+    catalog_price_in_toman,
+    missing_toman,
+    missing_toman_on_catalog_scale,
+    user_can_afford,
+)
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_months_from_days,
@@ -928,7 +934,12 @@ class MiniAppSubscriptionPurchaseService:
                 promo_item['discountLabel'] = promo_discount_line
             breakdown.append(promo_item)
 
-        missing = max(0, pricing.final_total - context.balance_kopeks)
+        # balance is Toman 1:1; final_total is a catalog price.
+        missing = missing_toman(context.balance_kopeks, pricing.final_total)
+        # This payload also backs the cabinet purchase preview, whose InsufficientBalancePrompt renders
+        # missing_amount_kopeks as catalog kopeks (÷100 for the label and the prefilled top-up): the
+        # field carries the Toman shortfall on the catalog scale.
+        missing_catalog_scale = missing_toman_on_catalog_scale(context.balance_kopeks, pricing.final_total)
         status_message = ''
         if missing > 0:
             status_message = texts.t(
@@ -974,10 +985,10 @@ class MiniAppSubscriptionPurchaseService:
             # "Баланс 150 ₽, не хватает 0 ₽" и не понимает что мешает покупке.
             'balance_label': texts.format_balance(context.balance_kopeks, round_kopeks=False),
             'balanceLabel': texts.format_balance(context.balance_kopeks, round_kopeks=False),
-            'missing_amount_kopeks': missing,
-            'missingAmountKopeks': missing,
-            'missing_amount_label': texts.format_price(missing, round_kopeks=False) if missing else None,
-            'missingAmountLabel': texts.format_price(missing, round_kopeks=False) if missing else None,
+            'missing_amount_kopeks': missing_catalog_scale,
+            'missingAmountKopeks': missing_catalog_scale,
+            'missing_amount_label': texts.format_balance(missing) if missing else None,
+            'missingAmountLabel': texts.format_balance(missing) if missing else None,
             'can_purchase': missing == 0,
             'canPurchase': missing == 0,
             'status_message': status_message,
@@ -998,7 +1009,7 @@ class MiniAppSubscriptionPurchaseService:
         if pricing.final_total <= 0 and pricing.base_original_total <= 0:
             raise PurchaseValidationError('Invalid total amount', code='calculation_error')
 
-        if pricing.final_total > 0 and user.balance_kopeks < pricing.final_total:
+        if pricing.final_total > 0 and not user_can_afford(user.balance_kopeks, pricing.final_total):
             raise PurchaseBalanceError(
                 texts.t(
                     'MINIAPP_PURCHASE_STATUS_INSUFFICIENT',
@@ -1007,10 +1018,11 @@ class MiniAppSubscriptionPurchaseService:
             )
 
         description = f'Покупка подписки на {pricing.selection.period.days} дней'
+        # Debit the Toman price; the transaction row keeps the catalog final_total.
         success = await subtract_user_balance(
             db,
             user,
-            pricing.final_total,
+            catalog_price_in_toman(pricing.final_total),
             description,
             consume_promo_offer=pricing.promo_discount_value > 0,
             mark_as_paid_subscription=True,
