@@ -1,6 +1,6 @@
 # Traffic units and traffic add-on texts in the user's language (F-036, F-037, F-040, F-041)
 
-- **Status:** active
+- **Status:** done — PR `fix(F-036, F-037, F-040, F-041)` on `fix/traffic-units-i18n`
 - **Repos:** remnabot only (no endpoint/field changes; `frontend/src/api` needs nothing — the
   cabinet already prints `detail` / `description` strings as received)
 - **Upstream basis:** remnabot `origin/main` 0b5ec3ff (upstream `v4.10.0`, 9fcebfd7)
@@ -83,7 +83,7 @@ strings in `admin/tariffs.py` (F-009 admin part); the cabinet devices add-on (F-
 - **Test first:** fa `50 → '50 گیگ'`, `2048 → '2.0 ترابایت'`, `(0, True) → '∞ (نامحدود)'`,
   `(0, False) → '0 گیگ'`; ru returns exactly today's strings (`'50 ГБ'`, `'2.0 ТБ'`,
   `'∞ (безлимит)'`, `'0 ГБ'`); en `'50 GB'`.
-- **Commit:** `fix(F-036): format traffic amounts in the user's language`
+- **Commit:** `fix(F-036): format traffic amounts in the user's language` — done, 25fac4a0
 
 ### 2. Move the bare `format_traffic` callers to `texts.format_traffic` (F-036, part 2)
 
@@ -101,7 +101,7 @@ strings in `admin/tariffs.py` (F-009 admin part); the cabinet devices add-on (F-
   `traffic_limit_gb=50` contains `50 گیگ` and no `ГБ`; with `0` it contains `نامحدود`. Check
   `tests/handlers/test_admin_tariff_custom_traffic*.py` still pass (they may pin «ГБ» for ru — ru
   must be unchanged).
-- **Commit:** `fix(F-036): tariff screens use the language-aware traffic formatter`
+- **Commit:** `fix(F-036): tariff screens use the language-aware traffic formatter` — done, 61883ed4
 
 ### 3. Drop the device line in any language (F-037)
 
@@ -116,7 +116,7 @@ strings in `admin/tariffs.py` (F-009 admin part); the cabinet devices add-on (F-
   contains no `دستگاه‌ها`, and the same for `SUBSCRIPTION_DAILY_OVERVIEW_TEMPLATE` and
   `SUBSCRIPTION_SETTINGS_OVERVIEW`; the result still `.format()`s with the other placeholders.
 - **i18n:** none.
-- **Commit:** `fix(F-037): hide the device line in every language when device selection is off`
+- **Commit:** `fix(F-037): hide the device line in every language when device selection is off` — done, f6783eb0
 
 ### 4. Miniapp traffic labels (F-040)
 
@@ -134,7 +134,9 @@ strings in `admin/tariffs.py` (F-009 admin part); the cabinet devices add-on (F-
   label); ru keeps `'50 ГБ'` / `'♾️ Безлимит'`; en `_format_limit_label(None, 'en') == 'Unlimited'`
   (today's value).
 - **i18n:** no new keys.
-- **Commit:** `fix(F-040): miniapp traffic labels in the user's language`
+- **Commit:** `fix(F-040): miniapp traffic labels in the user's language` — done, 2d6e69be. Visible
+  for ru too: `_format_limit_label` printed English («Unlimited» / «N GB») for everyone; ru now
+  gets «Безлимит» / «N ГБ».
 
 ### 5. Traffic add-on descriptions and errors (F-041)
 
@@ -164,7 +166,10 @@ strings in `admin/tariffs.py` (F-009 admin part); the cabinet devices add-on (F-
   `tests/cabinet/test_traffic_packages_discount.py`) — fa user on a trial subscription →
   `save_traffic_cart` raises with the fa `detail`; fa user buying 10 GB → `subtract_user_balance`
   gets `خرید 10 گیگ ترافیک اضافه`; ru user gets exactly today's Russian description.
-- **Commit:** `fix(F-041): traffic add-on descriptions and errors in the user's language`
+- **Commit:** `fix(F-041): traffic add-on descriptions and errors in the user's language` — done,
+  dd574f7c. One key beyond the list above: `CABINET_TRAFFIC_NO_SUBSCRIPTION` (ru «У вас нет
+  активной подписки», fa «اشتراک فعالی وجود ندارد») for the first save-cart error. The English
+  errors of `purchase_traffic` / `switch_traffic_package` / the miniapp endpoint stay: F-054.
 
 ## Finish
 
