@@ -386,7 +386,8 @@ class TestReferee:
 
         promised = await describe_referee_bonus(None, referrer=tiers.users[3])
         assert paid.money_kopeks == 300_00
-        assert '300' in promised, f'обещано «{promised}», а начислено 300 ₽'
+        # the fixed amount is credited 1:1 into the Toman balance: promised with format_balance
+        assert settings.format_balance(300_00) in promised, f'обещано «{promised}», а начислено 30,000 Toman'
 
     @pytest.mark.asyncio
     async def test_without_inviter_the_base_tier_is_promised(self, tiers, monkeypatch):
@@ -398,7 +399,7 @@ class TestReferee:
         _install(monkeypatch, ladder)
 
         promised = await describe_referee_bonus(None)
-        assert '100' in promised
+        assert settings.format_balance(100_00) in promised
 
 
 class TestLadderText:
@@ -843,7 +844,7 @@ class TestChainRefereePromise:
         )
 
         assert any(not c.is_referrer and c.money_kopeks == 500_00 for c in paid)
-        assert promised is not None and '500' in promised
+        assert promised is not None and settings.format_balance(500_00) in promised
 
     @pytest.mark.asyncio
     async def test_anonymous_caller_still_sees_the_terms(self, tiers, monkeypatch):
@@ -925,7 +926,7 @@ class TestImpossiblePercentIsNotPromised:
         )
 
         assert any(c.money_kopeks == 500_00 for c in paid)
-        assert any('500' in line for line in lines), lines
+        assert any(settings.format_balance(500_00) in line for line in lines), lines
 
     @pytest.mark.asyncio
     async def test_percent_on_a_topup_trigger_is_still_promised(self, tiers, monkeypatch):

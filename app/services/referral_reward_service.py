@@ -1313,7 +1313,7 @@ async def build_level_views(
             if percent:
                 rewards.append(texts.t('REFERRAL_REWARD_PERCENT_OF_SUM', '{percent}% от суммы').format(percent=percent))
             if config.referrer_fixed_kopeks:
-                rewards.append(settings.format_price(config.referrer_fixed_kopeks))
+                rewards.append(settings.format_balance(config.referrer_fixed_kopeks))
         if (
             config.days_enabled
             and config.referrer_days
@@ -1414,7 +1414,7 @@ async def describe_reward_choice_sides(
         if percent:
             money_parts.append(texts.t('REFERRAL_REWARD_PERCENT_OF_SUM', '{percent}% от суммы').format(percent=percent))
         if config.referrer_fixed_kopeks:
-            money_parts.append(settings.format_price(config.referrer_fixed_kopeks))
+            money_parts.append(settings.format_balance(config.referrer_fixed_kopeks))
 
     days_label: str | None = None
     if (
@@ -1434,7 +1434,7 @@ def _describe_referee_parts(config: LevelConfig, names: dict[int, str], texts) -
     """Что получает приглашённый на этой ступени. ``None`` — ничего."""
     parts: list[str] = []
     if config.money_enabled and config.referee_fixed_kopeks:
-        parts.append(settings.format_price(config.referee_fixed_kopeks))
+        parts.append(settings.format_balance(config.referee_fixed_kopeks))
     if (
         config.days_enabled
         and config.referee_days
@@ -1605,7 +1605,7 @@ async def describe_referee_bonus(
 
         parts: list[str] = []
         if config.money_enabled and config.referee_fixed_kopeks:
-            parts.append(settings.format_price(config.referee_fixed_kopeks))
+            parts.append(settings.format_balance(config.referee_fixed_kopeks))
         if (
             config.days_enabled
             and config.referee_days

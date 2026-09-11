@@ -27,6 +27,7 @@ from app.database.models import (
 )
 from app.localization.texts import get_texts
 from app.services.admin_notification_service import AdminNotificationService
+from app.services.balance_refund import restore_promo_offer, snapshot_promo_offer
 from app.services.gift_notification_service import (
     resolve_gift_claim_channel,
     send_gift_result_message,
@@ -1290,6 +1291,7 @@ async def _auto_purchase_daily_tariff(
         return False
 
     # Списываем баланс за первый день
+    promo_snapshot = snapshot_promo_offer(user, consume_promo)
     try:
         description = f'Активация суточного тарифа {tariff.name}'
         success = await subtract_user_balance(
@@ -1398,6 +1400,7 @@ async def _auto_purchase_daily_tariff(
         try:
             from app.database.crud.user import add_user_balance
 
+            await restore_promo_offer(db, user, promo_snapshot)
             await add_user_balance(
                 db,
                 user,

@@ -36,6 +36,7 @@ from app.database.crud.user import add_user_balance, get_user_by_id, subtract_us
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, Subscription, Tariff, Transaction, TransactionType, User
 from app.localization.texts import get_texts
+from app.services.balance_refund import restore_promo_offer, snapshot_promo_offer
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -902,6 +903,8 @@ async def purchase_tariff(
         if promo_offer_discount_value > 0:
             description += f' (промо -{promo_offer_discount_percent}%)'
         charge_toman = catalog_price_in_toman(price_kopeks)
+        # Plain values: _refund_charge runs after db.rollback() and puts the consumed offer back.
+        promo_snapshot = snapshot_promo_offer(user, promo_offer_discount_value > 0)
         success = await subtract_user_balance(
             db,
             user,
@@ -949,6 +952,7 @@ async def purchase_tariff(
                     )
                     await _persist_failed_refund(refund_user_id, charge_toman, reason, 'user not found for refund')
                     return
+                await restore_promo_offer(db, refund_user, promo_snapshot)
                 # add_user_balance swallows its own errors and returns False rather than
                 # raising, so the return value — not just an exception — must be checked;
                 # otherwise a failed refund would be lost silently (#3031).

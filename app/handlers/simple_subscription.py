@@ -14,7 +14,7 @@ from app.config import settings
 from app.database.models import User
 from app.keyboards.inline import get_happ_download_button_row
 from app.localization.texts import get_texts
-from app.services.balance_refund import refund_undelivered_debit
+from app.services.balance_refund import refund_undelivered_debit, restore_promo_offer, snapshot_promo_offer
 from app.services.payment_service import PaymentService
 from app.services.subscription_purchase_service import SubscriptionPurchaseService
 from app.states import SubscriptionStates
@@ -448,6 +448,7 @@ async def handle_simple_subscription_pay_with_balance(
     # The debit commits on its own: until the subscription is saved too, a failure must refund it.
     charged = delivered = False
     refund_reason = f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней'
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем средства с баланса пользователя
         purchase_description = f'Оплата подписки на {subscription_params["period_days"]} дней'
@@ -532,6 +533,7 @@ async def handle_simple_subscription_pay_with_balance(
             # add_user_balance takes the user object (the user id made it fail and keep the debit)
             # and the Toman amount that was debited.
             charged = False  # refunded here; the except below must not refund it again
+            await restore_promo_offer(db, db_user, promo_snapshot)
             await add_user_balance(
                 db,
                 db_user,
@@ -698,7 +700,9 @@ async def handle_simple_subscription_pay_with_balance(
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(price_kopeks), refund_reason)
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(price_kopeks), refund_reason, promo_snapshot=promo_snapshot
+            )
         logger.error(
             'Ошибка оплаты простой подписки с баланса для пользователя',
             db_user_id=db_user.id,
@@ -2209,6 +2213,7 @@ async def confirm_simple_subscription_purchase(
     # The debit commits on its own: until the subscription is saved too, a failure must refund it.
     charged = delivered = False
     refund_reason = f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней'
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем средства с баланса пользователя
         purchase_description = f'Оплата подписки на {subscription_params["period_days"]} дней'
@@ -2293,6 +2298,7 @@ async def confirm_simple_subscription_purchase(
             # add_user_balance takes the user object (the user id made it fail and keep the debit)
             # and the Toman amount that was debited.
             charged = False  # refunded here; the except below must not refund it again
+            await restore_promo_offer(db, db_user, promo_snapshot)
             await add_user_balance(
                 db,
                 db_user,
@@ -2459,7 +2465,9 @@ async def confirm_simple_subscription_purchase(
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(price_kopeks), refund_reason)
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(price_kopeks), refund_reason, promo_snapshot=promo_snapshot
+            )
         logger.error(
             'Ошибка подтверждения простой подписки с баланса для пользователя',
             db_user_id=db_user.id,

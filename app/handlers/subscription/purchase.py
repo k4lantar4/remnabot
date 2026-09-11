@@ -38,6 +38,7 @@ from app.keyboards.inline import (
 )
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
+from app.services.balance_refund import restore_promo_offer, snapshot_promo_offer
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveConfigurationError
 from app.services.subscription_auto_purchase_service import ADDON_CART_MODES
@@ -4587,6 +4588,7 @@ async def _extend_existing_subscription(
         return
 
     # Списываем средства
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     success = await subtract_user_balance(
         db,
         db_user,
@@ -4649,6 +4651,7 @@ async def _extend_existing_subscription(
         try:
             from app.database.crud.user import add_user_balance
 
+            await restore_promo_offer(db, db_user, promo_snapshot)
             await add_user_balance(
                 db,
                 db_user,
