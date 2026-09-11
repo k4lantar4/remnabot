@@ -354,6 +354,17 @@ def test_admin_analysis_is_toman():
     assert '₽' not in text
 
 
+def test_format_analysis_for_admin_without_analysis_is_empty():
+    # A request with no stored risk_analysis reaches the formatter as {} (admin referrals.py,
+    # referral.py); indexing analysis['risk_level'] raised KeyError and broke the request screen.
+    assert ReferralWithdrawalService().format_analysis_for_admin({}) == ''
+
+
+def test_format_analysis_for_admin_without_risk_level_keeps_the_rest():
+    text = ReferralWithdrawalService().format_analysis_for_admin({'flags': ['flag-x']})
+    assert 'flag-x' in text
+
+
 # ---------------------------------------------------------------- bot: user withdrawal flow
 
 
