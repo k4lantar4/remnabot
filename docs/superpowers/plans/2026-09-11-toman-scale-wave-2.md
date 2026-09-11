@@ -1,6 +1,6 @@
 # Toman balance scale — wave 2 (lost refunds, remaining 100x sites, cabinet tariff switch)
 
-**Status:** active — wave 1 done (below); wave 2 not started. Task 7 waits on a product decision.
+**Status:** active — wave 1 done (below); wave 2 not started. Task 7 decided: option (b).
 **Repos:** `remnabot` first (Tasks 1, 2, 4, 5), then `frontend` (Tasks 3, 6, 7). Cross-repo work is
 bot-first and additive.
 **Upstream basis:** remnabot `origin/main` `58e5a405`, `upstream/main` `bf33d125` (2026-09-11);
@@ -57,6 +57,11 @@ except-refund would also refund when only the final message failed.
 
 ## Tasks
 
+**Order (2026-09-11):** the bot runs in cabinet mode — its buttons link to the cabinet — so users reach
+purchases through the cabinet, not the bot's own tariff screens. Do the cabinet-visible tasks first:
+7 → 3 → 5 → 6, then 1 → 2 → 4. Tasks 1, 2 and 4 are still real bugs (bot handlers can be reached through
+old keyboards and deep links, and notifications/autopay run server-side), just lower priority.
+
 1. **Lost refunds in live bot tariff flows** (highest priority — money loss).
    Repo `remnabot`: `app/handlers/subscription/tariff_purchase.py` `confirm_tariff_extend`,
    `confirm_tariff_switch`, `confirm_instant_switch`; `app/handlers/simple_subscription.py` outer
@@ -104,7 +109,7 @@ except-refund would also refund when only the final message failed.
    `formatBalance`/`formatPrice`). Test: mapping in `src/api` if any; otherwise visual — verify live.
    Ships after Task 5 merges.
 
-7. **Cabinet tariff switch in multi-tariff mode — needs the user's decision first.**
+7. **Cabinet tariff switch in multi-tariff mode — decided 2026-09-11: option (b).**
    Finding (2026-09-11): with `MULTI_TARIFF_ENABLED=true` (live) the cabinet never offers «تغییر
    تعرفه»: `TariffPickerGrid.tsx` computes `canSwitch = !isMultiTariff && …`, so every other tariff
    shows «خرید» (buy it as an additional subscription). This is upstream's deliberate design
@@ -115,8 +120,18 @@ except-refund would also refund when only the final message failed.
    Options: (a) keep upstream — cabinet buys additional subscriptions, bot switches (document it);
    (b) fork change — show «تغییر» per subscription in the cabinet in multi-tariff mode, reusing
    `SwitchTariffSheet` and the existing endpoint (frontend-only, `TariffPickerGrid.tsx` + tests);
-   (c) turn `MULTI_TARIFF_ENABLED` off (config; changes the whole purchase model). Execute only the
-   chosen option.
+   (c) turn `MULTI_TARIFF_ENABLED` off (config; changes the whole purchase model).
+   **User ruling (2026-09-11): (b).** In multi-tariff mode the cabinet offers «تغییر تعرفه» on a
+   subscription, as the bot does. Scope: `TariffPickerGrid.tsx` — drop the `!isMultiTariff` term from
+   `canSwitch` only when the page is bound to an existing subscription (`subscriptionId` set, not
+   `isNewPurchase` / `intent=new`); a tariff the user already owns as another subscription stays
+   «خرید»-less/disabled (the bot endpoint answers 409 for it — map that error to a fa message).
+   `SwitchTariffSheet` already passes `subscriptionId` to `subscriptionApi.switchTariff`. Keep «خرید»
+   on the new-purchase page (`/subscription/purchase` without a subscription) so buying an extra
+   subscription still works. Test: `canSwitch` extracted to a pure helper in `src/utils` with cases
+   (multi + bound sub → true; multi + new purchase → false; owned target → false). i18n: the 409 message
+   key in `en.json` and `fa.json`. Fork-only UX change on an upstream file — note it in the PR for the
+   next upstream merge. Independent of Tasks 1–6; can ship first.
 
 ## Found, not in this plan
 
