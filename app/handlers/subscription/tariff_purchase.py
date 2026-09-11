@@ -25,6 +25,7 @@ from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
+from app.services.balance_refund import refund_undelivered_debit
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
@@ -3066,6 +3067,9 @@ async def confirm_tariff_extend(
     except Exception:
         pass
 
+    # The debit commits on its own: until the extension is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат: ошибка продления тарифа {tariff.name} на {period} дней'
     try:
         # Списываем баланс
         success = await subtract_user_balance(
@@ -3082,6 +3086,7 @@ async def confirm_tariff_extend(
             except Exception:
                 pass
             return
+        charged = True
 
         # Запоминаем, был ли триал ДО продления
         was_trial = subscription.is_trial
@@ -3095,6 +3100,7 @@ async def confirm_tariff_extend(
             traffic_limit_gb=tariff.traffic_limit_gb if was_trial else None,
             device_limit=actual_device_limit if was_trial else None,
         )
+        delivered = True  # extend_subscription committed the extension
 
         # Обновляем пользователя в Remnawave
         try:
@@ -3201,6 +3207,8 @@ async def confirm_tariff_extend(
         )
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
+        if charged and not delivered:
+            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(final_price), refund_reason)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_RENEW_ERROR', '❌ Произошла ошибка при продлении подписки')
@@ -3855,6 +3863,9 @@ async def confirm_tariff_switch(
     except Exception:
         pass
 
+    # The debit commits on its own: until the switch is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат: ошибка смены тарифа на {tariff.name} ({period} дней)'
     try:
         # Списываем баланс
         success = await subtract_user_balance(
@@ -3871,6 +3882,7 @@ async def confirm_tariff_switch(
             except Exception:
                 pass
             return
+        charged = True
 
         # Получаем список серверов из тарифа
         squads = tariff.allowed_squads or []
@@ -3901,6 +3913,7 @@ async def confirm_tariff_switch(
             device_limit=effective_device_limit,
             connected_squads=squads,
         )
+        delivered = True  # extend_subscription committed the switch
 
         # Обновляем пользователя в Remnawave
         try:
@@ -4042,6 +4055,8 @@ async def confirm_tariff_switch(
 
     except Exception as e:
         logger.error('Ошибка при переключении тарифа', error=e, exc_info=True)
+        if charged and not delivered:
+            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(final_price), refund_reason)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
@@ -5031,6 +5046,9 @@ async def confirm_instant_switch(
     except Exception:
         pass
 
+    # The upgrade debit commits on its own: until the switch is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат: ошибка переключения на тариф {new_tariff.name}'
     try:
         # Списываем баланс если это upgrade
         # upgrade_cost includes both group + offer discounts from PricingEngine
@@ -5051,6 +5069,7 @@ async def confirm_instant_switch(
                 except Exception:
                     pass
                 return
+            charged = True
 
         # Получаем список серверов из нового тарифа
         squads = new_tariff.allowed_squads or []
@@ -5129,6 +5148,7 @@ async def confirm_instant_switch(
                         except Exception:
                             pass
                         return
+                    delivered = True  # this debit's commit also saved the switch flushed above
                     await create_transaction(
                         db,
                         user_id=db_user.id,
@@ -5165,6 +5185,7 @@ async def confirm_instant_switch(
             subscription.traffic_used_gb = 0.0
 
         await db.commit()
+        delivered = True
         await db.refresh(subscription)
 
         # Обновляем пользователя в Remnawave (сброс трафика по админ-настройке)
@@ -5339,6 +5360,8 @@ async def confirm_instant_switch(
 
     except Exception as e:
         logger.error('Ошибка при мгновенном переключении тарифа', error=e, exc_info=True)
+        if charged and not delivered:
+            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(upgrade_cost), refund_reason)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
