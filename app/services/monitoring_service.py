@@ -3197,7 +3197,8 @@ class MonitoringService:
 
             for subscription in autopay_subscriptions:
                 user = await get_user_by_id(db, subscription.user_id)
-                if user and user.balance_kopeks >= settings.PRICE_30_DAYS:
+                # PRICE_30_DAYS is a catalog price (Toman x 100); the balance is Toman.
+                if user and user_can_afford(user.balance_kopeks, settings.PRICE_30_DAYS):
                     autopay_processed += 1
 
             await self._log_monitoring_event(

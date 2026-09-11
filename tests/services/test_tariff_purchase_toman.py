@@ -584,3 +584,28 @@ async def test_simple_subscription_extension_refunds_the_toman_price_when_the_co
 
         assert await _balance(db) == RICH_BALANCE
         assert await _payments(db) == [('refund', PRICE_TOMAN)]
+
+
+# ---------------------------------------------------------------- admin monitoring: force check
+
+
+@pytest.mark.asyncio
+async def test_force_check_counts_autopay_ready_on_the_toman_price(monkeypatch):
+    import app.services.monitoring_service as monitoring
+
+    users = {1: SimpleNamespace(balance_kopeks=SHORT_BALANCE), 2: SimpleNamespace(balance_kopeks=RICH_BALANCE)}
+    monkeypatch.setattr(settings, 'PRICE_30_DAYS', PRICE_KOPEKS, raising=False)  # catalog 200,000 Toman
+    monkeypatch.setattr(monitoring, 'get_expired_subscriptions', AsyncMock(return_value=[]))
+    monkeypatch.setattr(monitoring, 'get_expiring_subscriptions', AsyncMock(return_value=[]))
+    monkeypatch.setattr(
+        monitoring,
+        'get_subscriptions_for_autopay',
+        AsyncMock(return_value=[SimpleNamespace(user_id=1), SimpleNamespace(user_id=2)]),
+    )
+    monkeypatch.setattr(monitoring, 'get_user_by_id', AsyncMock(side_effect=lambda db, user_id: users[user_id]))
+    service = monitoring.MonitoringService(bot=None)
+    service._log_monitoring_event = AsyncMock()
+
+    result = await service.force_check_subscriptions(None)
+
+    assert result['autopay_ready'] == 1  # only the 250,000-Toman balance covers the 200,000 renewal
