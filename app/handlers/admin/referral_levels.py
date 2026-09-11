@@ -40,6 +40,7 @@ from app.database.models import ReferralRewardMode, ReferralRewardTrigger, User
 from app.services.system_settings_service import bot_configuration_service
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
+from app.utils.price_display import balance_from_display_amount
 
 
 _MODE_LABELS = {
@@ -65,9 +66,9 @@ _TRIGGER_CYCLE = [
 # Поля, которые правятся вводом числа: подпись, единица, максимум.
 _NUMERIC_FIELDS = {
     'referrer_percent': ('Процент пригласившему', '%', 100),
-    'referrer_fixed_kopeks': ('Фикс. сумма пригласившему', '₽', None),
+    'referrer_fixed_kopeks': ('Фикс. сумма пригласившему', 'تومان', None),
     'referrer_days': ('Дни пригласившему', 'дн.', 3650),
-    'referee_fixed_kopeks': ('Фикс. сумма приглашённому', '₽', None),
+    'referee_fixed_kopeks': ('Фикс. сумма приглашённому', 'تومان', None),
     'referee_days': ('Дни приглашённому', 'дн.', 3650),
     'max_payments': ('Лимит оплаченных комиссий (0 = без лимита)', 'шт.', None),
     'required_referrals': ('Рефералов для открытия уровня (0 = сразу)', 'чел.', None),
@@ -125,7 +126,7 @@ def _fmt_percent_for_card(level, money_on: bool, tier_mode: bool) -> str:
 
 
 def _fmt_optional_money(value: int | None) -> str:
-    return settings.format_price(value) if value else 'не начисляется'
+    return settings.format_balance(value) if value else 'не начисляется'
 
 
 def _fmt_days(days: int, tariff_name: str | None) -> str:
@@ -272,7 +273,7 @@ async def _render_levels(callback: types.CallbackQuery, db: AsyncSession) -> Non
                 if level.referrer_percent:
                     referrer_parts.append(f'{level.referrer_percent}%')
                 if level.referrer_fixed_kopeks:
-                    referrer_parts.append(settings.format_price(level.referrer_fixed_kopeks))
+                    referrer_parts.append(settings.format_balance(level.referrer_fixed_kopeks))
             if level.reward_mode in (ReferralRewardMode.DAYS.value, ReferralRewardMode.BOTH.value):
                 if level.referrer_days:
                     referrer_parts.append(_fmt_days(level.referrer_days, names.get(level.referrer_tariff_id)))
@@ -281,7 +282,7 @@ async def _render_levels(callback: types.CallbackQuery, db: AsyncSession) -> Non
             referee_parts = []
             if level.reward_mode in (ReferralRewardMode.MONEY.value, ReferralRewardMode.BOTH.value):
                 if level.referee_fixed_kopeks:
-                    referee_parts.append(settings.format_price(level.referee_fixed_kopeks))
+                    referee_parts.append(settings.format_balance(level.referee_fixed_kopeks))
             if level.reward_mode in (ReferralRewardMode.DAYS.value, ReferralRewardMode.BOTH.value):
                 if level.referee_days:
                     referee_parts.append(_fmt_days(level.referee_days, names.get(level.referee_tariff_id)))
@@ -1032,28 +1033,38 @@ async def process_level_value(message: types.Message, db_user: User, db: AsyncSe
         return
 
     label, unit, maximum = _NUMERIC_FIELDS[field]
-    raw = (message.text or '').strip().replace(',', '.')
 
-    try:
-        parsed = float(raw)
-    except ValueError:
-        await message.answer(f'❌ Нужно число. {label} ({unit}).')
-        return
+    if field in _MONEY_FIELDS:
+        # Фиксированная сумма — Toman 1:1, как баланс: движок начисляет её на баланс без
+        # пересчёта (referral_reward_service). Персидские цифры, разделители тысяч и «تومان»
+        # допустимы; 'inf'/'nan' разбор отвергает сам (NaN — через InvalidOperation).
+        try:
+            parsed = balance_from_display_amount(message.text or '')
+        except (ValueError, ArithmeticError):
+            await message.answer(f'❌ Нужно число. {label} ({unit}).')
+            return
+    else:
+        raw = (message.text or '').strip().replace(',', '.')
 
-    # float() принимает 'inf' и 'nan', проверка на отрицательность их пропускает,
-    # а int() ниже падает OverflowError/ValueError. Обработчик при этом уходит с
-    # ошибкой, НЕ сняв состояние: следующее произвольное сообщение админа
-    # попадает сюда же и переписывает денежное поле.
-    if not math.isfinite(parsed):
-        await message.answer(f'❌ Нужно обычное число. {label} ({unit}).')
-        return
+        try:
+            parsed = float(raw)
+        except ValueError:
+            await message.answer(f'❌ Нужно число. {label} ({unit}).')
+            return
+
+        # float() принимает 'inf' и 'nan', проверка на отрицательность их пропускает,
+        # а int() ниже падает OverflowError/ValueError. Обработчик при этом уходит с
+        # ошибкой, НЕ сняв состояние: следующее произвольное сообщение админа
+        # попадает сюда же и переписывает поле.
+        if not math.isfinite(parsed):
+            await message.answer(f'❌ Нужно обычное число. {label} ({unit}).')
+            return
 
     if parsed < 0:
         await message.answer('❌ Отрицательные значения недопустимы.')
         return
 
-    # Деньги вводятся в рублях, а хранятся в копейках — как и везде в админке.
-    value = int(round(parsed * 100)) if field in _MONEY_FIELDS else int(parsed)
+    value = int(parsed)
     if maximum is not None and value > maximum:
         await message.answer(f'❌ Максимум: {maximum} {unit}.')
         return
@@ -1069,7 +1080,7 @@ async def process_level_value(message: types.Message, db_user: User, db: AsyncSe
     await upsert_reward_level(db, level_number, **{field: stored})
     await state.clear()
 
-    display = settings.format_price(value) if field in _MONEY_FIELDS else f'{value} {unit}'
+    display = settings.format_balance(value) if field in _MONEY_FIELDS else f'{value} {unit}'
     await message.answer(
         f'✅ {label}: {display}\n\nОткройте «Уровни наград», чтобы продолжить настройку.',
         reply_markup=types.InlineKeyboardMarkup(
