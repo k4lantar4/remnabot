@@ -3056,7 +3056,7 @@ async def _build_referral_info(
                     last_activity=item.get('last_activity'),
                     has_made_first_topup=bool(item.get('has_made_first_topup')),
                     balance_kopeks=balance,
-                    balance_label=settings.format_price(balance),
+                    balance_label=settings.format_balance(balance),
                     total_earned_kopeks=total_earned,
                     total_earned_days=item_days,
                     total_earned_label=format_reward_total(total_earned, item_days, user.language),
@@ -4117,7 +4117,7 @@ async def activate_subscription_trial_endpoint(
         charged_amount_kopeks=charged_amount if charged_amount > 0 else None,
         charged_amount_label=charged_amount_label,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_label=settings.format_balance(user.balance_kopeks),
     )
 
 
@@ -5214,7 +5214,7 @@ async def get_subscription_renewal_options_endpoint(
             periods=[],
             currency=(getattr(user, 'balance_currency', None) or 'RUB').upper(),
             balance_kopeks=getattr(user, 'balance_kopeks', 0),
-            balance_label=settings.format_price(getattr(user, 'balance_kopeks', 0)),
+            balance_label=settings.format_balance(getattr(user, 'balance_kopeks', 0)),
             status_message='Classic subscriptions cannot be renewed. Please purchase a tariff.',
             sales_mode=settings.get_sales_mode(),
         )
@@ -5591,13 +5591,13 @@ async def get_subscription_purchase_options_endpoint(
     data_payload.setdefault('currency', context.currency)
     data_payload.setdefault('balance_kopeks', context.balance_kopeks)
     data_payload.setdefault('balanceKopeks', context.balance_kopeks)
-    data_payload.setdefault('balance_label', settings.format_price(context.balance_kopeks))
-    data_payload.setdefault('balanceLabel', settings.format_price(context.balance_kopeks))
+    data_payload.setdefault('balance_label', settings.format_balance(context.balance_kopeks))
+    data_payload.setdefault('balanceLabel', settings.format_balance(context.balance_kopeks))
 
     return MiniAppSubscriptionPurchaseOptionsResponse(
         currency=context.currency,
         balance_kopeks=context.balance_kopeks,
-        balance_label=settings.format_price(context.balance_kopeks),
+        balance_label=settings.format_balance(context.balance_kopeks),
         subscription_id=data_payload.get('subscription_id') or data_payload.get('subscriptionId'),
         data=data_payload,
     )
@@ -5626,7 +5626,7 @@ async def subscription_purchase_preview_endpoint(
     pricing = await purchase_service.calculate_pricing(db, context, selection)
     preview_payload = purchase_service.build_preview_payload(context, pricing)
 
-    balance_label = settings.format_price(getattr(user, 'balance_kopeks', 0))
+    balance_label = settings.format_balance(getattr(user, 'balance_kopeks', 0))
 
     return MiniAppSubscriptionPurchasePreviewResponse(
         preview=preview_payload,
@@ -5711,7 +5711,7 @@ async def subscription_purchase_endpoint(
             )
         )
 
-    balance_label = settings.format_price(getattr(user, 'balance_kopeks', 0))
+    balance_label = settings.format_balance(getattr(user, 'balance_kopeks', 0))
 
     return MiniAppSubscriptionPurchaseResponse(
         message=result.get('message'),
@@ -6619,7 +6619,7 @@ async def get_tariffs_endpoint(
         tariffs=tariff_models,
         current_tariff=current_tariff_model,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_label=settings.format_balance(user.balance_kopeks),
         promo_group=promo_group_model,
     )
 
@@ -6848,7 +6848,7 @@ async def purchase_tariff_endpoint(
         tariff_name=tariff.name,
         new_end_date=subscription.end_date,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_label=settings.format_balance(user.balance_kopeks),
     )
 
 
@@ -6987,7 +6987,7 @@ async def preview_tariff_switch_endpoint(
         # Когда показываем missing_amount_label с копейками (round_kopeks=False),
         # balance_label тоже должен быть с копейками — иначе пары "Баланс 150 ₽,
         # не хватает 0.40 ₽" выглядит противоречиво ("150 ₽ это > 150 ₽? зачем не хватает?").
-        balance_label=settings.format_price(balance, round_kopeks=False),
+        balance_label=settings.format_balance(balance, round_kopeks=False),
         has_enough_balance=has_enough,
         missing_amount_kopeks=missing,
         missing_amount_label=settings.format_price(missing, round_kopeks=False) if missing > 0 else '',
@@ -7279,7 +7279,7 @@ async def switch_tariff_endpoint(
         tariff_name=new_tariff.name,
         charged_kopeks=upgrade_cost,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_label=settings.format_balance(user.balance_kopeks),
     )
 
 
@@ -7768,5 +7768,5 @@ async def toggle_daily_subscription_pause_endpoint(
         message=message,
         is_paused=new_paused_state,
         balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_price(user.balance_kopeks),
+        balance_label=settings.format_balance(user.balance_kopeks),
     )
