@@ -2565,5 +2565,8 @@
   "CRYPTOBOT_TOPUP_PROMPT": "🪙 <b>شارژ با رمزارز</b>\n\nمبلغی بین {min} تا {max} وارد کنید.\n\n💱 نرخ: هر USDT برابر {rate}\nمعادلش را به USDT از طریق CryptoBot می‌پردازید.",
   "CRYPTOBOT_TOPUP_INVOICE_MESSAGE": "🪙 <b>پرداخت با رمزارز</b>\n\n💰 مبلغ شارژ: {amount}\n💵 قابل پرداخت: {usdt} {asset}\n💱 نرخ: هر USDT برابر {rate}\n🆔 شناسه پرداخت: {invoice_id}...\n\nروی «پرداخت» بزنید و مبلغ را در CryptoBot بپردازید؛ موجودی‌تان خودکار شارژ می‌شود.\n\n❓ اگر مشکلی پیش آمد، به {support} پیام دهید.",
   "CRYPTOBOT_PAY_BUTTON": "🪙 پرداخت",
-  "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 بررسی وضعیت"
+  "CRYPTOBOT_CHECK_STATUS_BUTTON": "📊 بررسی وضعیت",
+  "TRAFFIC_AMOUNT_GB": "{value} گیگ",
+  "TRAFFIC_AMOUNT_TB": "{value} ترابایت",
+  "TRAFFIC_LIMIT_UNLIMITED": "∞ (نامحدود)"
 }
