@@ -34,6 +34,7 @@ from tests.services.test_affordability_toman import (  # noqa: F401 - _isolate i
     _seed,
     _spy_debits,
     _switch_cost,
+    _tariff_id,
 )
 
 
@@ -646,3 +647,133 @@ async def test_admin_buy_for_user_refunds_the_toman_price_when_delivery_fails(mo
         assert await _balance(db) == RICH_BALANCE
         assert await _payments(db) == [('refund', PRICE_TOMAN)]
     assert 'Ошибка' in callback.answer.await_args.args[0]
+
+
+# ---------------------------------------------------------------- bot tariff flows: failure after the committed debit
+
+
+def _failing_commit(monkeypatch, db, failing_call: int) -> None:
+    """Make the n-th db.commit() raise (1: the debit, 2: the delivery, ...)."""
+    real_commit = db.commit
+    calls = {'n': 0}
+
+    async def commit():
+        calls['n'] += 1
+        if calls['n'] == failing_call:
+            raise RuntimeError('commit failed')
+        await real_commit()
+
+    monkeypatch.setattr(db, 'commit', commit)
+
+
+BOT_PAID_FLOWS = {
+    # name: (handler, callback data, what the subscription's tariff becomes once delivered)
+    'renewal': ('confirm_tariff_extend', 'tariff_ext_confirm:10:1:30', 1),
+    'switch': ('confirm_tariff_switch', 'tariff_sw_confirm:2:30', 2),
+    'instant switch upgrade': ('confirm_instant_switch', 'instant_sw_confirm:2', 2),
+}
+
+
+@pytest.mark.parametrize('flow', sorted(BOT_PAID_FLOWS))
+@pytest.mark.asyncio
+async def test_bot_paid_tariff_flow_refunds_the_toman_price_once_when_delivery_fails(monkeypatch, bot_tariffs, flow):
+    """The debit commits, the next step raises: the user gets the 200,000 back exactly once."""
+    name, data, _ = BOT_PAID_FLOWS[flow]
+    _switch_cost(monkeypatch)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        if flow == 'instant switch upgrade':  # the switch is saved by the handler's own commit
+            _failing_commit(monkeypatch, db, failing_call=2)
+        else:
+            monkeypatch.setattr(bot_tariffs, 'extend_subscription', AsyncMock(side_effect=RuntimeError('db down')))
+        callback = _callback(data)
+        await getattr(bot_tariffs, name)(callback, await _loaded_user(db), db, _state())
+
+        assert await _balance(db) == RICH_BALANCE
+        assert await _payments(db) == [('refund', PRICE_TOMAN)]
+        assert await _tariff_id(db) == 1  # nothing delivered
+        failed = await db.execute(select(Transaction.id).where(Transaction.type == 'failed_refund'))
+        assert failed.first() is None
+
+
+@pytest.mark.parametrize('flow', sorted(BOT_PAID_FLOWS))
+@pytest.mark.asyncio
+async def test_bot_paid_tariff_flow_keeps_the_charge_when_only_the_final_message_fails(monkeypatch, bot_tariffs, flow):
+    name, data, delivered_tariff = BOT_PAID_FLOWS[flow]
+    _switch_cost(monkeypatch)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        callback = _callback(data)
+        callback.message.edit_text.side_effect = RuntimeError('message is not modified')
+        await getattr(bot_tariffs, name)(callback, await _loaded_user(db), db, _state())
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+        assert await _tariff_id(db) == delivered_tariff
+
+
+@pytest.mark.parametrize('flow', sorted(SIMPLE_PAYMENTS))
+@pytest.mark.asyncio
+async def test_simple_subscription_refunds_the_toman_price_once_when_delivery_raises(monkeypatch, simple, flow):
+    import app.database.crud.subscription as subscription_crud
+
+    name, with_subscription = SIMPLE_PAYMENTS[flow]
+    failing = AsyncMock(side_effect=RuntimeError('db down'))
+    monkeypatch.setattr(subscription_crud, 'create_paid_subscription', failing)
+    monkeypatch.setattr(subscription_crud, 'extend_subscription', failing)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=with_subscription)
+        await getattr(simple, name)(_callback('pay'), await _loaded_user(db), _simple_state(), db)
+
+        assert await _balance(db) == RICH_BALANCE
+        # the catalog ledger row was written before delivery; the refund is its own balance-scale row
+        assert sorted(await _payments(db)) == [('refund', PRICE_TOMAN), ('subscription_payment', PRICE_KOPEKS)]
+
+
+@pytest.mark.parametrize('flow', sorted(SIMPLE_PAYMENTS))
+@pytest.mark.asyncio
+async def test_simple_subscription_keeps_the_charge_when_only_the_final_message_fails(monkeypatch, simple, flow):
+    name, with_subscription = SIMPLE_PAYMENTS[flow]
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=with_subscription)
+        callback = _callback('pay')
+        callback.message.edit_text.side_effect = RuntimeError('message is not modified')
+        await getattr(simple, name)(callback, await _loaded_user(db), _simple_state(), db)
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+# ---------------------------------------------------------------- bot instant switch to daily: short balance
+
+
+@pytest.mark.asyncio
+async def test_bot_instant_switch_to_daily_refuses_a_balance_short_of_the_first_day(monkeypatch, bot_tariffs):
+    """5,000 Toman against a 10,000-Toman day (catalog 1,000,000): refused like the preview, nothing changes."""
+    from app.services.pricing_engine import PricingEngine
+
+    async def daily_price(self, tariff, period_days, *, device_limit=None, user=None, **kwargs):
+        return SimpleNamespace(
+            final_total=1_000_000,
+            original_total=1_000_000,
+            promo_group_discount=0,
+            promo_offer_discount=0,
+            breakdown={},
+        )
+
+    monkeypatch.setattr(PricingEngine, 'calculate_tariff_purchase_price', daily_price)
+    _switch_cost(monkeypatch, upgrade_cost=0)  # no prorated upgrade: only the first day would be charged
+    debits = _spy_debits(monkeypatch, bot_tariffs)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=5_000)
+        await _add_daily_tariff(db)
+        callback = _callback('instant_sw_confirm:3')
+        await bot_tariffs.confirm_instant_switch(callback, await _loaded_user(db), db, _state())
+
+        assert debits == []
+        assert await _balance(db) == 5_000
+        assert await _payments(db) == []
+        assert await _tariff_id(db) == 1
+
+    assert _refused(callback)
+    assert settings.format_balance(5_000) in _text(callback)  # shortfall 10,000 - 5,000

@@ -14,6 +14,7 @@ from app.config import settings
 from app.database.models import User
 from app.keyboards.inline import get_happ_download_button_row
 from app.localization.texts import get_texts
+from app.services.balance_refund import refund_undelivered_debit
 from app.services.payment_service import PaymentService
 from app.services.subscription_purchase_service import SubscriptionPurchaseService
 from app.states import SubscriptionStates
@@ -444,6 +445,9 @@ async def handle_simple_subscription_pay_with_balance(
         await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
         return
 
+    # The debit commits on its own: until the subscription is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней'
     try:
         # Списываем средства с баланса пользователя
         purchase_description = f'Оплата подписки на {subscription_params["period_days"]} дней'
@@ -459,6 +463,7 @@ async def handle_simple_subscription_pay_with_balance(
         if not success:
             await callback.answer('❌ Ошибка списания средств с баланса', show_alert=True)
             return
+        charged = True
 
         # Создаём транзакцию для учёта списания
         from app.database.crud.transaction import create_transaction
@@ -491,6 +496,7 @@ async def handle_simple_subscription_pay_with_balance(
                 device_limit=subscription_params['device_limit'],
                 connected_squads=[resolved_squad_uuid] if resolved_squad_uuid else None,
             )
+            delivered = True  # extend_subscription committed the extension
 
             # Если текущая подписка была пробной, и мы обновляем её
             # нужно изменить статус подписки
@@ -516,6 +522,7 @@ async def handle_simple_subscription_pay_with_balance(
                 connected_squads=[resolved_squad_uuid] if resolved_squad_uuid else [],
                 update_server_counters=True,
             )
+            delivered = subscription is not None  # create_paid_subscription committed it
 
         if not subscription:
             # Возвращаем средства на баланс в случае ошибки
@@ -524,11 +531,12 @@ async def handle_simple_subscription_pay_with_balance(
 
             # add_user_balance takes the user object (the user id made it fail and keep the debit)
             # and the Toman amount that was debited.
+            charged = False  # refunded here; the except below must not refund it again
             await add_user_balance(
                 db,
                 db_user,
                 catalog_price_in_toman(price_kopeks),
-                f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
+                refund_reason,
                 transaction_type=TransactionType.REFUND,
             )
             await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
@@ -689,6 +697,8 @@ async def handle_simple_subscription_pay_with_balance(
         )
 
     except Exception as error:
+        if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
+            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(price_kopeks), refund_reason)
         logger.error(
             'Ошибка оплаты простой подписки с баланса для пользователя',
             db_user_id=db_user.id,
@@ -2196,6 +2206,9 @@ async def confirm_simple_subscription_purchase(
         await callback.answer('❌ Недостаточно средств на балансе для оплаты подписки', show_alert=True)
         return
 
+    # The debit commits on its own: until the subscription is saved too, a failure must refund it.
+    charged = delivered = False
+    refund_reason = f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней'
     try:
         # Списываем средства с баланса пользователя
         purchase_description = f'Оплата подписки на {subscription_params["period_days"]} дней'
@@ -2211,6 +2224,7 @@ async def confirm_simple_subscription_purchase(
         if not success:
             await callback.answer('❌ Ошибка списания средств с баланса', show_alert=True)
             return
+        charged = True
 
         # Создаём транзакцию для учёта списания
         from app.database.crud.transaction import create_transaction
@@ -2243,6 +2257,7 @@ async def confirm_simple_subscription_purchase(
                 device_limit=subscription_params['device_limit'],
                 connected_squads=[resolved_squad_uuid] if resolved_squad_uuid else None,
             )
+            delivered = True  # extend_subscription committed the extension
 
             # Если текущая подписка была пробной, и мы обновляем её
             # нужно изменить статус подписки
@@ -2268,6 +2283,7 @@ async def confirm_simple_subscription_purchase(
                 connected_squads=[resolved_squad_uuid] if resolved_squad_uuid else [],
                 update_server_counters=True,
             )
+            delivered = subscription is not None  # create_paid_subscription committed it
 
         if not subscription:
             # Возвращаем средства на баланс в случае ошибки
@@ -2276,11 +2292,12 @@ async def confirm_simple_subscription_purchase(
 
             # add_user_balance takes the user object (the user id made it fail and keep the debit)
             # and the Toman amount that was debited.
+            charged = False  # refunded here; the except below must not refund it again
             await add_user_balance(
                 db,
                 db_user,
                 catalog_price_in_toman(price_kopeks),
-                f'Возврат средств за неудавшуюся подписку на {subscription_params["period_days"]} дней',
+                refund_reason,
                 transaction_type=TransactionType.REFUND,
             )
             await callback.answer('❌ Ошибка создания подписки. Средства возвращены на баланс.', show_alert=True)
@@ -2441,6 +2458,8 @@ async def confirm_simple_subscription_purchase(
         )
 
     except Exception as error:
+        if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
+            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(price_kopeks), refund_reason)
         logger.error(
             'Ошибка подтверждения простой подписки с баланса для пользователя',
             db_user_id=db_user.id,

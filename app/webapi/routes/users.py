@@ -30,6 +30,7 @@ from app.database.crud.user import (
 from app.database.models import PaymentMethod, PromoGroup, Subscription, User, UserStatus
 from app.services.manual_topup_service import ManualTopupKeyConflict, credit_manual_topup
 from app.services.subscription_service import SubscriptionService
+from app.utils.price_display import display_balance_from_storage
 from app.utils.text_search import contains_conditions
 
 from ..dependencies import get_db_session, require_api_token
@@ -108,7 +109,7 @@ def _serialize_user(user: User) -> UserResponse:
         status=user.status,
         language=user.language,
         balance_kopeks=user.balance_kopeks,
-        balance_rubles=round(user.balance_kopeks / 100, 2),
+        balance_rubles=display_balance_from_storage(user.balance_kopeks),  # the wallet is Toman 1:1
         referral_code=user.referral_code,
         referred_by_id=user.referred_by_id,
         has_had_paid_subscription=user.has_had_paid_subscription,
@@ -458,7 +459,7 @@ async def deposit_balance(
         amount_kopeks=result.transaction.amount_kopeks,
         old_balance_kopeks=result.old_balance_kopeks,
         new_balance_kopeks=result.new_balance_kopeks,
-        new_balance_rubles=round(result.new_balance_kopeks / 100, 2),
+        new_balance_rubles=display_balance_from_storage(result.new_balance_kopeks),  # the wallet is Toman 1:1
     )
 
 
