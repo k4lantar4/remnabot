@@ -48,6 +48,9 @@ class _FakePanelSync:
     async def create_remnawave_user(self, db, subscription, **kwargs):
         return SimpleNamespace(id=9001, used_traffic_bytes=0)
 
+    async def sync_remnawave_user(self, db, subscription, **kwargs):
+        return SimpleNamespace(id=9001, used_traffic_bytes=0)
+
 
 @pytest.fixture(autouse=True)
 def _isolate(monkeypatch):
@@ -221,3 +224,157 @@ async def test_cabinet_switch_debits_the_toman_price(monkeypatch):
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
         assert await _tariff_id(db) == 2
+
+
+# ---------------------------------------------------------------- miniapp
+
+
+@pytest.fixture
+def miniapp_user(monkeypatch):
+    """Authorize as user 1 with subscriptions loaded, like _authorize_miniapp_user does."""
+    from app.database.crud.user import lock_user_for_pricing
+    from app.webapi.routes import miniapp
+
+    async def authorize(init_data, db):
+        return await lock_user_for_pricing(db, 1)
+
+    monkeypatch.setattr(miniapp, '_authorize_miniapp_user', authorize)
+    monkeypatch.setattr(miniapp, 'SubscriptionService', lambda: _FakePanelSync(), raising=False)
+    return miniapp
+
+
+def _miniapp_switch_cost(monkeypatch, miniapp) -> None:
+    def fake(current_tariff, new_tariff, remaining_days, user=None):
+        return TariffSwitchResult(
+            upgrade_cost=PRICE_KOPEKS,
+            is_upgrade=True,
+            raw_cost=PRICE_KOPEKS,
+            group_discount_pct=0,
+            offer_discount_pct=0,
+        )
+
+    monkeypatch.setattr(miniapp, '_calculate_tariff_switch', fake)
+
+
+@pytest.mark.asyncio
+async def test_miniapp_switch_preview_reports_the_toman_shortfall(monkeypatch, miniapp_user):
+    from app.webapi.schemas.miniapp import MiniAppTariffSwitchRequest
+
+    _miniapp_switch_cost(monkeypatch, miniapp_user)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        short = await miniapp_user.preview_tariff_switch_endpoint(
+            MiniAppTariffSwitchRequest(init_data='x', tariff_id=2), db=db
+        )
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        rich = await miniapp_user.preview_tariff_switch_endpoint(
+            MiniAppTariffSwitchRequest(init_data='x', tariff_id=2), db=db
+        )
+
+    assert short.can_switch is False
+    assert short.missing_amount_kopeks == SHORTFALL_TOMAN  # miniapp shortfalls are Toman (#26)
+    assert short.missing_amount_label == SHORTFALL_LABEL
+    assert rich.can_switch is True
+    assert rich.missing_amount_kopeks == 0
+
+
+@pytest.mark.asyncio
+async def test_miniapp_switch_refuses_then_debits_the_toman_price(monkeypatch, miniapp_user):
+    from app.webapi.schemas.miniapp import MiniAppTariffSwitchRequest
+
+    _miniapp_switch_cost(monkeypatch, miniapp_user)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        with pytest.raises(HTTPException) as caught:
+            await miniapp_user.switch_tariff_endpoint(MiniAppTariffSwitchRequest(init_data='x', tariff_id=2), db=db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert caught.value.status_code == 402
+    assert caught.value.detail['missing_amount'] == SHORTFALL_TOMAN
+    assert SHORTFALL_LABEL in caught.value.detail['message']
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        await miniapp_user.switch_tariff_endpoint(MiniAppTariffSwitchRequest(init_data='x', tariff_id=2), db=db)
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+        assert await _tariff_id(db) == 2
+
+
+def _tariff_purchase_price(monkeypatch) -> None:
+    async def fake(self, tariff, period_days, *, device_limit=None, user=None, **kwargs):
+        return SimpleNamespace(final_total=PRICE_KOPEKS, promo_offer_discount=0, breakdown={})
+
+    monkeypatch.setattr(PricingEngine, 'calculate_tariff_purchase_price', fake)
+
+
+@pytest.mark.asyncio
+async def test_miniapp_tariff_purchase_refuses_then_debits_the_toman_price(monkeypatch, miniapp_user):
+    from app.webapi.schemas.miniapp import MiniAppTariffPurchaseRequest
+
+    _tariff_purchase_price(monkeypatch)
+    request = {'initData': 'x', 'tariffId': 2, 'periodDays': 30}
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE, with_subscription=False)
+        with pytest.raises(HTTPException) as caught:
+            await miniapp_user.purchase_tariff_endpoint(MiniAppTariffPurchaseRequest(**request), db=db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert caught.value.status_code == 402
+    assert caught.value.detail['missing_amount'] == SHORTFALL_TOMAN
+    assert SHORTFALL_LABEL in caught.value.detail['message']
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        await miniapp_user.purchase_tariff_endpoint(MiniAppTariffPurchaseRequest(**request), db=db)
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert ('subscription_payment', PRICE_KOPEKS) in await _payments(db)
+
+
+def _server_catalog(monkeypatch, miniapp) -> None:
+    catalog = {
+        'squad-1': {'server_id': 1, 'discounted_per_month': 0, 'available_for_new': True, 'name': 'NL'},
+        'squad-2': {'server_id': 2, 'discounted_per_month': PRICE_KOPEKS, 'available_for_new': True, 'name': 'DE'},
+    }
+    monkeypatch.setattr(miniapp, '_prepare_server_catalog', AsyncMock(return_value=([], [], catalog)))
+    monkeypatch.setattr(
+        miniapp,
+        'get_available_server_squads',
+        AsyncMock(return_value=[SimpleNamespace(squad_uuid='squad-1'), SimpleNamespace(squad_uuid='squad-2')]),
+    )
+    monkeypatch.setattr(miniapp, 'calculate_prorated_price', lambda *args, **kwargs: (PRICE_KOPEKS, 30))
+    monkeypatch.setattr(miniapp, 'add_subscription_servers', AsyncMock())
+    monkeypatch.setattr(miniapp, 'remove_subscription_servers', AsyncMock(), raising=False)
+    monkeypatch.setattr(miniapp, 'update_server_user_counts', AsyncMock(), raising=False)
+    monkeypatch.setattr(miniapp, '_validate_subscription_id', lambda *args, **kwargs: None)
+
+
+@pytest.mark.asyncio
+async def test_miniapp_server_add_refuses_then_debits_the_toman_price(monkeypatch, miniapp_user):
+    from app.webapi.schemas.miniapp import MiniAppSubscriptionServersUpdateRequest
+
+    _server_catalog(monkeypatch, miniapp_user)
+    request = {'initData': 'x', 'subscription_id': 10, 'servers': ['squad-1', 'squad-2']}
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        with pytest.raises(HTTPException) as caught:
+            await miniapp_user.update_subscription_servers_endpoint(
+                MiniAppSubscriptionServersUpdateRequest(**request), db=db
+            )
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert caught.value.status_code == 402
+    assert caught.value.detail['missing_amount'] == SHORTFALL_TOMAN
+    assert SHORTFALL_LABEL in caught.value.detail['message']
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        await miniapp_user.update_subscription_servers_endpoint(
+            MiniAppSubscriptionServersUpdateRequest(**request), db=db
+        )
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]

@@ -100,6 +100,7 @@ from app.utils.currency_converter import currency_converter
 from app.utils.price_display import (
     catalog_price_in_toman,
     display_transaction_amount_from_storage,
+    missing_toman,
     user_can_afford,
 )
 from app.utils.pricing_utils import (
@@ -5880,15 +5881,14 @@ async def update_subscription_servers_endpoint(
         if catalog[uuid].get('server_id') is not None
     ]
 
-    if total_cost > 0 and getattr(user, 'balance_kopeks', 0) < total_cost:
-        missing = total_cost - getattr(user, 'balance_kopeks', 0)
+    if total_cost > 0 and not user_can_afford(getattr(user, 'balance_kopeks', 0), total_cost):
+        missing = missing_toman(getattr(user, 'balance_kopeks', 0), total_cost)
         raise HTTPException(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': (
-                    f'Недостаточно средств на балансе. Не хватает {settings.format_price(missing, round_kopeks=False)}'
-                ),
+                'message': f'Недостаточно средств на балансе. Не хватает {settings.format_balance(missing)}',
+                'missing_amount': missing,
             },
         )
 
@@ -5900,10 +5900,11 @@ async def update_subscription_servers_endpoint(
             else 'Изменение списка серверов'
         )
 
+        # Debit the Toman price; the transaction row below keeps the catalog total_cost.
         success = await subtract_user_balance(
             db,
             user,
-            total_cost,
+            catalog_price_in_toman(total_cost),
             description,
         )
         if not success:
@@ -6702,13 +6703,13 @@ async def purchase_tariff_endpoint(
     discount_percent = group_pcts.get('period', 0)
 
     # Проверяем баланс (при 100% скидке — пропускаем)
-    if price_kopeks > 0 and user.balance_kopeks < price_kopeks:
-        missing = price_kopeks - user.balance_kopeks
+    if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
+        missing = missing_toman(user.balance_kopeks, price_kopeks)
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing)}',
                 'missing_amount': missing,
             },
         )
@@ -6720,10 +6721,11 @@ async def purchase_tariff_endpoint(
         description = f"Покупка тарифа '{tariff.name}' на {payload.period_days} дней (скидка {discount_percent}%)"
     else:
         description = f"Покупка тарифа '{tariff.name}' на {payload.period_days} дней"
+    # Debit the Toman price; the transaction row below keeps the catalog price_kopeks.
     success = await subtract_user_balance(
         db,
         user,
-        price_kopeks,
+        catalog_price_in_toman(price_kopeks),
         description,
         consume_promo_offer=consume_promo_offer,
         mark_as_paid_subscription=True,
@@ -6970,9 +6972,11 @@ async def preview_tariff_switch_endpoint(
     upgrade_cost = switch_result.upgrade_cost
     is_upgrade = switch_result.is_upgrade
 
+    # balance is Toman 1:1; upgrade_cost is a catalog price. The shortfall is Toman, like the
+    # other miniapp shortfall fields since #26 (the cabinet never calls this endpoint).
     balance = user.balance_kopeks or 0
-    has_enough = balance >= upgrade_cost
-    missing = max(0, upgrade_cost - balance) if not has_enough else 0
+    has_enough = user_can_afford(balance, upgrade_cost)
+    missing = missing_toman(balance, upgrade_cost)
 
     return MiniAppTariffSwitchPreviewResponse(
         can_switch=has_enough,
@@ -6990,7 +6994,7 @@ async def preview_tariff_switch_endpoint(
         balance_label=settings.format_balance(balance, round_kopeks=False),
         has_enough_balance=has_enough,
         missing_amount_kopeks=missing,
-        missing_amount_label=settings.format_price(missing, round_kopeks=False) if missing > 0 else '',
+        missing_amount_label=settings.format_balance(missing) if missing > 0 else '',
         is_upgrade=is_upgrade,
         message=None,
     )
@@ -7106,13 +7110,13 @@ async def switch_tariff_endpoint(
 
     # Списываем доплату если апгрейд
     if upgrade_cost > 0:
-        if user.balance_kopeks < upgrade_cost:
-            missing = upgrade_cost - user.balance_kopeks
+        if not user_can_afford(user.balance_kopeks, upgrade_cost):
+            missing = missing_toman(user.balance_kopeks, upgrade_cost)
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Недостаточно средств. Не хватает {settings.format_price(missing, round_kopeks=False)}',
+                    'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing)}',
                     'missing_amount': missing,
                 },
             )
@@ -7121,10 +7125,11 @@ async def switch_tariff_endpoint(
             description = f"Переход с суточного на тариф '{new_tariff.name}' ({new_period_days} дней)"
         else:
             description = f"Переход на тариф '{new_tariff.name}' (доплата за {remaining_days} дней)"
+        # Debit the Toman price; the transaction row keeps the catalog upgrade_cost.
         success = await subtract_user_balance(
             db,
             user,
-            upgrade_cost,
+            catalog_price_in_toman(upgrade_cost),
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,
