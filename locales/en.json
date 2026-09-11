@@ -1911,6 +1911,7 @@
   "REFERRAL_WITHDRAWAL_STATS_PENDING": "⏳ Under review: <b>{amount}</b>",
   "AUTO_PURCHASE_DEVICES_SUCCESS": "✅ <b>Devices added automatically!</b>\n\n📱 Added: {devices_to_add} devices\n📊 New limit: {new_limit} devices\n💰 Charged: {price}",
   "AUTO_PURCHASE_TRAFFIC_SUCCESS": "✅ <b>Traffic added automatically!</b>\n\n📈 Added: {traffic_gb} GB\n📊 New limit: {new_limit} GB\n💰 Charged: {price}",
+  "AUTO_PURCHASE_DAILY_TARIFF_ACTIVATED": "✅ <b>Daily plan «{name}» activated!</b>\n\n💰 Charged for the first day: {price}\n🔄 The daily fee is charged automatically.\n\nℹ️ You can pause the subscription at any time.",
   "ADDON_CART_COMPLETED": "✅ Done!",
   "ADDON_CART_FAILED": "❌ Could not complete the purchase. Try again or contact support.",
   "ADDON_PURCHASE_TRAFFIC_SUCCESS": "✅ <b>Traffic added!</b>\n\n📈 Added: {traffic_gb} GB\n📊 New limit: {new_limit} GB\n💰 Charged: {price}",

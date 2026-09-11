@@ -243,3 +243,159 @@ async def test_bot_tariff_purchase_refunds_the_toman_price_when_creation_fails(m
         assert await _payments(db) == [('refund', PRICE_TOMAN)]
         failed = await db.execute(select(Transaction.id).where(Transaction.type == 'failed_refund'))
         assert failed.first() is None
+
+
+# ---------------------------------------------------------------- auto-purchase after a top-up
+
+
+@pytest.fixture
+def auto(monkeypatch):
+    """The auto-purchase service with no panel, carts, e-mail, websocket or admin notifications."""
+    import app.services.subscription_auto_purchase_service as auto_module
+    import app.services.subscription_renewal_service as renewal_module
+    from app.cabinet.routes import websocket
+    from app.services.pricing_engine import PricingEngine, RenewalPricing, pricing_engine
+
+    async def renewal_price(self, db, subscription, period_days, *, user=None):
+        return RenewalPricing(
+            base_price=PRICE_KOPEKS,
+            servers_price=0,
+            traffic_price=0,
+            devices_price=0,
+            promo_group_discount=0,
+            promo_offer_discount=0,
+            final_total=PRICE_KOPEKS,
+            period_days=period_days,
+            is_tariff_mode=True,
+            breakdown={},
+        )
+
+    pricing_engine.__dict__.pop('calculate_renewal_price', None)
+    monkeypatch.setattr(PricingEngine, 'calculate_renewal_price', renewal_price)
+    _purchase_price(monkeypatch)
+    monkeypatch.setattr(auto_module, 'SubscriptionService', lambda: _FakePanelSync())
+    monkeypatch.setattr(auto_module, '_delete_cart_for_subscription', AsyncMock())
+    monkeypatch.setattr(auto_module, 'clear_subscription_checkout_draft', AsyncMock())
+    monkeypatch.setattr(auto_module, '_notify_email_user_auto_purchase', AsyncMock())
+    monkeypatch.setattr(renewal_module, 'with_admin_notification_service', AsyncMock())
+    for name in ('notify_user_subscription_renewed', 'notify_user_subscription_activated'):
+        monkeypatch.setattr(websocket, name, AsyncMock())
+    return auto_module
+
+
+async def _seed_auto(db, *, balance_toman: int, expired: bool = False, with_subscription: bool = True) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    await _seed(db, balance_toman=balance_toman, with_subscription=with_subscription)
+    await _add_daily_tariff(db)
+    if expired:
+        subscription = await db.get(Subscription, 10)
+        now = datetime.now(UTC)
+        subscription.status = 'expired'
+        subscription.autopay_enabled = True
+        subscription.end_date = now - timedelta(days=2)
+        subscription.updated_at = now - timedelta(days=2)
+        await db.commit()
+
+
+AUTO_FLOWS = {
+    # name: (function, cart, seed kwargs)
+    'extend': (
+        '_auto_extend_subscription',
+        {'cart_mode': 'extend', 'subscription_id': 10, 'tariff_id': 1, 'period_days': 30},
+        {},
+    ),
+    'tariff': ('_auto_purchase_tariff', {'cart_mode': 'tariff_purchase', 'tariff_id': 2, 'period_days': 30}, {}),
+    'daily tariff': (
+        '_auto_purchase_daily_tariff',
+        {'cart_mode': 'daily_tariff_purchase', 'tariff_id': 3},
+        {'with_subscription': False},
+    ),
+    'expired renewal': ('try_auto_extend_expired_after_topup', None, {'expired': True}),
+}
+
+
+async def _run_auto(auto, flow: str, db) -> bool:
+    name, cart, _ = AUTO_FLOWS[flow]
+    user = await _loaded_user(db)
+    if cart is None:
+        return await getattr(auto, name)(db, user)
+    return await getattr(auto, name)(db, user, dict(cart))
+
+
+@pytest.mark.parametrize('flow', sorted(AUTO_FLOWS))
+@pytest.mark.asyncio
+async def test_auto_purchase_waits_for_a_balance_that_covers_the_toman_price(monkeypatch, auto, flow):
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_auto(db, balance_toman=SHORT_BALANCE, **AUTO_FLOWS[flow][2])
+        assert await _run_auto(auto, flow, db) is False
+        assert await _balance(db) == SHORT_BALANCE
+        assert await _payments(db) == []
+
+
+@pytest.mark.parametrize('flow', sorted(AUTO_FLOWS))
+@pytest.mark.asyncio
+async def test_auto_purchase_debits_the_toman_price(monkeypatch, auto, flow):
+    import app.database.crud.user as user_crud
+
+    # module-level import (extend, expired renewal) and function-local imports (tariff, daily tariff)
+    debits = _spy_debits(monkeypatch, auto), _spy_debits(monkeypatch, user_crud)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_auto(db, balance_toman=RICH_BALANCE, **AUTO_FLOWS[flow][2])
+        assert await _run_auto(auto, flow, db) is True
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+    assert debits[0] + debits[1] == [PRICE_TOMAN]
+
+
+AUTO_FAILURES = {
+    # flow: (module holding the creation step, its name)
+    'extend': ('app.services.subscription_auto_purchase_service', 'extend_subscription'),
+    'tariff': ('app.database.crud.subscription', 'extend_subscription'),
+    'daily tariff': ('app.database.crud.subscription', 'create_paid_subscription'),
+    'expired renewal': ('app.services.subscription_auto_purchase_service', 'extend_subscription'),
+}
+
+
+@pytest.mark.parametrize('flow', sorted(AUTO_FLOWS))
+@pytest.mark.asyncio
+async def test_auto_purchase_refunds_the_toman_price_when_the_subscription_step_fails(monkeypatch, auto, flow):
+    """The refund runs after db.rollback(), which expires the user it is handed."""
+    import importlib
+
+    module_name, name = AUTO_FAILURES[flow]
+    monkeypatch.setattr(importlib.import_module(module_name), name, AsyncMock(side_effect=RuntimeError('db down')))
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_auto(db, balance_toman=RICH_BALANCE, **AUTO_FLOWS[flow][2])
+        assert await _run_auto(auto, flow, db) is False
+        assert await _balance(db) == RICH_BALANCE
+        assert await _payments(db) == [('refund', PRICE_TOMAN)]
+
+
+@pytest.mark.asyncio
+async def test_auto_daily_tariff_message_shows_the_toman_price(monkeypatch, auto):
+    monkeypatch.setattr(Settings, 'is_notifications_enabled', lambda self: True)
+    bot = SimpleNamespace(send_message=AsyncMock())
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_auto(db, balance_toman=RICH_BALANCE, with_subscription=False)
+        assert await auto._auto_purchase_daily_tariff(db, await _loaded_user(db), {'tariff_id': 3}, bot=bot)
+
+    text = bot.send_message.await_args.kwargs['text']
+    assert settings.format_price(PRICE_KOPEKS) in text  # «200,000 تومان»
+    assert '₽' not in text
+    assert 'روزانه' in text  # the fa locale, not the old hard-coded Russian
+
+
+@pytest.mark.parametrize('balance', [SHORT_BALANCE, RICH_BALANCE])
+@pytest.mark.asyncio
+async def test_auto_legacy_cart_gates_on_the_toman_price(monkeypatch, auto, balance):
+    from tests.services.test_affordability_toman import _purchase_pricing
+
+    service = SimpleNamespace(submit_purchase=AsyncMock(side_effect=RuntimeError('stop after the gate')))
+    prepared = SimpleNamespace(pricing=_purchase_pricing(), selection=None, context=None, service=service)
+    monkeypatch.setattr(auto, '_prepare_auto_purchase', AsyncMock(return_value=prepared))
+    user = SimpleNamespace(id=1, telegram_id=1001, balance_kopeks=balance)
+
+    assert await auto._process_legacy_generic_cart(None, user, {'period_days': 30}) is False
+    # the submit (which debits the Toman price since #36) is reached only when the balance covers it
+    assert service.submit_purchase.await_count == (1 if balance == RICH_BALANCE else 0)

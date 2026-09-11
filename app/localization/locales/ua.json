@@ -1787,6 +1787,7 @@
   "REFERRAL_WITHDRAWAL_STATS_PENDING": "⏳ На розгляді: <b>{amount}</b>",
   "AUTO_PURCHASE_DEVICES_SUCCESS": "✅ <b>Пристрої додано автоматично!</b>\n\n📱 Додано: {devices_to_add} пристроїв\n📊 Новий ліміт: {new_limit} пристроїв\n💰 Списано: {price}",
   "AUTO_PURCHASE_TRAFFIC_SUCCESS": "✅ <b>Трафік додано автоматично!</b>\n\n📈 Додано: {traffic_gb} ГБ\n📊 Новий ліміт: {new_limit} ГБ\n💰 Списано: {price}",
+  "AUTO_PURCHASE_DAILY_TARIFF_ACTIVATED": "✅ <b>Добовий тариф «{name}» активовано!</b>\n\n💰 Списано за перший день: {price}\n🔄 Кошти списуватимуться автоматично раз на добу.\n\nℹ️ Ви можете призупинити підписку будь-коли.",
   "ADDON_CART_COMPLETED": "✅ Готово!",
   "ADDON_CART_FAILED": "❌ Не вдалося завершити покупку. Спробуйте ще раз або напишіть у підтримку.",
   "ADDON_PURCHASE_TRAFFIC_SUCCESS": "✅ <b>Трафік додано!</b>\n\n📈 Додано: {traffic_gb} ГБ\n📊 Новий ліміт: {new_limit} ГБ\n💰 Списано: {price}",

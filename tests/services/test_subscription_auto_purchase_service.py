@@ -16,6 +16,7 @@ from app.services.subscription_purchase_service import (
     PurchaseServersConfig,
     PurchaseTrafficConfig,
 )
+from app.utils.price_display import catalog_price_in_toman
 
 
 @pytest.fixture(autouse=True)
@@ -384,10 +385,11 @@ async def test_auto_purchase_saved_cart_after_topup_extension(monkeypatch):
     result = await auto_purchase_saved_cart_after_topup(db_session, user, bot=bot)
 
     assert result is True
+    # the balance is Toman; the catalog renewal price 31,000 is debited as 310 Toman
     subtract_mock.assert_awaited_once_with(
         db_session,
         user,
-        31_000,
+        catalog_price_in_toman(31_000),
         cart_data['description'],
         consume_promo_offer=True,
         mark_as_paid_subscription=True,
