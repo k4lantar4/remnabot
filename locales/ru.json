@@ -2071,6 +2071,8 @@
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT": "Недостаточно средств. Доступно: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT_REFERRAL": "Недостаточно реферального баланса. Доступно: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_BALANCE_TOO_LOW": "Недостаточно средств на балансе пользователя. Баланс: {amount}",
+  "REFERRAL_WITHDRAWAL_ERROR_COOLDOWN": "Следующий запрос на вывод будет доступен через {days} дн.",
+  "REFERRAL_WITHDRAWAL_ERROR_PENDING": "У вас уже есть активная заявка на рассмотрении",
   "REFERRAL_WITHDRAWAL_ADMIN_COMMENT": "💬 Комментарий администратора: {comment}",
   "ADMIN_PAYMENTS_CHECK_ALL_RESULT": "🔄 <b>Результат проверки</b>",
   "ADMIN_PAYMENTS_EXPORT_SUCCESS": "✅ Файл отправлен",

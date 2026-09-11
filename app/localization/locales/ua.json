@@ -1841,6 +1841,8 @@
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT": "Недостатньо коштів. Доступно: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT_REFERRAL": "Недостатньо реферального балансу. Доступно: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_BALANCE_TOO_LOW": "Недостатньо коштів на балансі користувача. Баланс: {amount}",
+  "REFERRAL_WITHDRAWAL_ERROR_COOLDOWN": "Наступний запит на виведення буде доступний через {days} дн.",
+  "REFERRAL_WITHDRAWAL_ERROR_PENDING": "У вас вже є активна заявка на розгляді",
   "REFERRAL_WITHDRAWAL_ADMIN_COMMENT": "💬 Коментар адміністратора: {comment}",
   "ADMIN_PAYMENTS_CHECK_ALL_RESULT": "🔄 <b>Результат перевірки</b>",
   "ADMIN_PAYMENTS_EXPORT_SUCCESS": "✅ Файл надіслано",

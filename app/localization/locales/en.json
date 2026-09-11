@@ -1974,6 +1974,8 @@
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT": "Not enough funds. Available: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT_REFERRAL": "Not enough referral balance. Available: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_BALANCE_TOO_LOW": "The user's wallet doesn't cover this withdrawal. Balance: {amount}",
+  "REFERRAL_WITHDRAWAL_ERROR_COOLDOWN": "Your next withdrawal request will be available in {days} days",
+  "REFERRAL_WITHDRAWAL_ERROR_PENDING": "You already have a withdrawal request under review",
   "REFERRAL_WITHDRAWAL_ADMIN_COMMENT": "💬 Note from the admin: {comment}",
   "ADMIN_PAYMENTS_CHECK_ALL_RESULT": "🔄 <b>Check result</b>",
   "ADMIN_PAYMENTS_EXPORT_SUCCESS": "✅ File sent",

@@ -2147,6 +2147,8 @@
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT": "موجودی کافی نیست. قابل برداشت: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_INSUFFICIENT_REFERRAL": "موجودی معرفی کافی نیست. قابل برداشت: {amount}",
   "REFERRAL_WITHDRAWAL_ERROR_BALANCE_TOO_LOW": "موجودی کیف پول کاربر برای این برداشت کافی نیست. موجودی: {amount}",
+  "REFERRAL_WITHDRAWAL_ERROR_COOLDOWN": "درخواست برداشت بعدی را {days} روز دیگر می‌توانید ثبت کنید.",
+  "REFERRAL_WITHDRAWAL_ERROR_PENDING": "یک درخواست برداشت شما هنوز در حال بررسی است.",
   "REFERRAL_WITHDRAWAL_ADMIN_COMMENT": "💬 توضیح مدیر: {comment}",
   "ADMIN_PAYMENTS_CHECK_ALL_RESULT": "🔄 <b>نتیجه بررسی</b>",
   "ADMIN_PAYMENTS_EXPORT_SUCCESS": "✅ فایل ارسال شد",
