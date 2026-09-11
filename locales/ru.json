@@ -1052,6 +1052,8 @@
   "TARIFF_PURCHASE_TOTAL_AND_BALANCE": "\n<b>💰 Итого: {total}</b>\n\n💳 Ваш баланс: {balance}",
   "TARIFF_PURCHASE_TRAFFIC_BUTTON": "📊 {traffic} ГБ",
   "TARIFF_PURCHASE_TRAFFIC_GB": "{traffic} ГБ",
+  "CABINET_TARIFF_TRAFFIC_GB": "{traffic} ГБ",
+  "CABINET_TARIFF_TRAFFIC_UNLIMITED": "♾️ Безлимит",
   "TARIFF_PURCHASE_TRAFFIC_LINE": "📊 Трафик: {traffic}\n",
   "TARIFF_PURCHASE_TRAFFIC_SETUP_HINT": "\n\n📊 <i>После выбора периода вы сможете настроить трафик</i>",
   "TARIFF_PURCHASE_UNAVAILABLE": "Тариф недоступен",
