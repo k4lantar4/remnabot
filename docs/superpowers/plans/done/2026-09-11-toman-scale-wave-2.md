@@ -1,6 +1,7 @@
 # Toman balance scale — wave 2 (lost refunds, remaining 100x sites, cabinet tariff switch)
 
-**Status:** active — wave 1 done (below); wave 2 not started. Task 7 decided: option (b).
+**Status:** done (2026-09-11) — wave 1 and wave 2 shipped. Wave 2: remnabot #40 (Task 5), #41 (Tasks 1, 2, 4);
+frontend #15 (Tasks 7, 3), #16 (Task 6). Leftovers: `plans/2026-09-11-toman-scale-wave-3-backlog.md`.
 **Repos:** `remnabot` first (Tasks 1, 2, 4, 5), then `frontend` (Tasks 3, 6, 7). Cross-repo work is
 bot-first and additive.
 **Upstream basis:** remnabot `origin/main` `58e5a405`, `upstream/main` `bf33d125` (2026-09-11);
@@ -62,7 +63,7 @@ purchases through the cabinet, not the bot's own tariff screens. Do the cabinet-
 7 → 3 → 5 → 6, then 1 → 2 → 4. Tasks 1, 2 and 4 are still real bugs (bot handlers can be reached through
 old keyboards and deep links, and notifications/autopay run server-side), just lower priority.
 
-1. **Lost refunds in live bot tariff flows** (highest priority — money loss).
+1. **Lost refunds in live bot tariff flows** — **done: remnabot #41.** (highest priority — money loss).
    Repo `remnabot`: `app/handlers/subscription/tariff_purchase.py` `confirm_tariff_extend`,
    `confirm_tariff_switch`, `confirm_instant_switch`; `app/handlers/simple_subscription.py` outer
    `except` blocks. Test: extend `tests/services/test_tariff_purchase_toman.py` — debit commits, the
@@ -70,20 +71,20 @@ old keyboards and deep links, and notifications/autopay run server-side), just l
    user before `add_user_balance` after any rollback (see agent memory, refund-loss patterns).
    i18n: none expected.
 
-2. **Instant switch to a daily tariff with a short balance switches for free.**
+2. **Instant switch to a daily tariff with a short balance switches for free.** — **done: remnabot #41.**
    Repo `remnabot`: `confirm_instant_switch` (daily branch). Today it skips the first-day charge when
    the balance is short (the preview blocks it, the confirm callback doesn't). Refuse with the same
    insufficient-balance message the preview uses. Test: balance 5,000 vs daily 10,000 → refused, tariff
    unchanged, no debit. i18n: reuse the existing insufficient-balance key.
 
-3. **Cabinet server management affordability (classic mode).**
+3. **Cabinet server management affordability (classic mode).** — **done: frontend #15.**
    Repo `frontend`: `src/components/subscription/sheets/ServerManagementSheet.tsx`
    (`totalCost <= balance_kopeks`, `missingAmount = totalCost - balance`) → `userCanAfford` /
    `missingToman` from `src/utils/catalogScale.ts`. Backend already fixed in #37 (402 `{code, message,
    missing_amount}`). Test: helper-level unit tests exist; add a component-logic test if the branch is
    non-trivial, else verify live (hidden while `SALES_MODE=tariffs`).
 
-4. **Remaining ÷100 balance displays in the bot.**
+4. **Remaining ÷100 balance displays in the bot.** — **done: remnabot #41.**
    Repo `remnabot`: `app/services/daily_subscription_service.py` `_notify_daily_charge` (balance ÷100 and
    hardcoded «₽»); `notify_daily_debit` `formatted_amount`; `app/services/referral_service.py` user
    notifications (invite promise, bonus received, inviter breakdown); `app/handlers/admin/referrals.py`
@@ -94,7 +95,7 @@ old keyboards and deep links, and notifications/autopay run server-side), just l
    balance → «150,000 تومان»). i18n: hardcoded Russian strings touched here become keys in all five
    baked locales + runtime `locales/`, byte-identical; natural Persian, Latin digits.
 
-5. **Toman fields for mixed-scale stats (bot side, additive).**
+5. **Toman fields for mixed-scale stats (bot side, additive).** — **done: remnabot #40.**
    Repo `remnabot`: the endpoints behind cabinet sales stats, admin campaign revenue/deposits, the
    AdminDashboard campaign revenue, the referral network spend/branch/campaign revenue, the admin user's
    total spent, and the partner campaign daily/period series. Each sums rows of mixed scale
@@ -102,14 +103,14 @@ old keyboards and deep links, and notifications/autopay run server-side), just l
    ones. Test: a fixture with one catalog-scale and one balance-scale row → the `*_toman` total is the
    Toman sum. Produces the field names Task 6 consumes — list them in the PR body.
 
-6. **Cabinet consumes the Task 5 fields.**
+6. **Cabinet consumes the Task 5 fields.** — **done: frontend #16.**
    Repo `frontend`: `src/components/stats/DailyChart.tsx`, `PeriodComparison.tsx` (shared by partner
    `CampaignDetailStats.tsx` and admin campaign stats), the sales-stats tabs, and `src/pages/Info.tsx`
    loyalty tab (hardcoded `currency: 'RUB'`, line ~573 — verify its amount scale, then format via
    `formatBalance`/`formatPrice`). Test: mapping in `src/api` if any; otherwise visual — verify live.
    Ships after Task 5 merges.
 
-7. **Cabinet tariff switch in multi-tariff mode — decided 2026-09-11: option (b).**
+7. **Cabinet tariff switch in multi-tariff mode — decided 2026-09-11: option (b).** — **done: frontend #15.**
    Finding (2026-09-11): with `MULTI_TARIFF_ENABLED=true` (live) the cabinet never offers «تغییر
    تعرفه»: `TariffPickerGrid.tsx` computes `canSwitch = !isMultiTariff && …`, so every other tariff
    shows «خرید» (buy it as an additional subscription). This is upstream's deliberate design
