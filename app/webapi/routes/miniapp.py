@@ -6000,12 +6000,13 @@ async def update_subscription_traffic_endpoint(
         if is_enabled:
             available_packages.append(gb_value)
 
+    texts = get_texts(_normalize_language_code(user))
     if available_packages and new_traffic not in available_packages:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'traffic_unavailable',
-                'message': 'Selected traffic package is not available',
+                'message': texts.t('CABINET_TRAFFIC_PACKAGE_INVALID', 'Selected traffic package is not available'),
             },
         )
 
@@ -6035,13 +6036,15 @@ async def update_subscription_traffic_endpoint(
                 status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': (
-                        f'Недостаточно средств на балансе. Не хватает {settings.format_balance(missing, round_kopeks=False)}'
-                    ),
+                    'message': texts.t(
+                        'CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств. Не хватает {amount}'
+                    ).format(amount=settings.format_balance(missing, round_kopeks=False)),
                 },
             )
 
-        description = f'Переключение трафика с {subscription.traffic_limit_gb}GB на {new_traffic}GB'
+        description = texts.t('TRAFFIC_SWITCH_DESCRIPTION', 'Переключение трафика с {old}GB на {new}GB').format(
+            old=subscription.traffic_limit_gb, new=new_traffic
+        )
 
         success = await subtract_user_balance(
             db,
@@ -6054,7 +6057,7 @@ async def update_subscription_traffic_endpoint(
                 status.HTTP_502_BAD_GATEWAY,
                 detail={
                     'code': 'balance_charge_failed',
-                    'message': 'Failed to charge user balance',
+                    'message': texts.t('BALANCE_CHARGE_FAILED', 'Failed to charge user balance'),
                 },
             )
 
@@ -6063,7 +6066,9 @@ async def update_subscription_traffic_endpoint(
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=total_price_difference,
-            description=f'{description} за {days_remaining} дн.',
+            description=texts.t('ADDON_DESCRIPTION_FOR_DAYS', '{description} за {days} дн.').format(
+                description=description, days=days_remaining
+            ),
         )
 
     subscription.traffic_limit_gb = new_traffic
@@ -6142,11 +6147,16 @@ async def update_subscription_devices_endpoint(
         tariff_device_price = settings.PRICE_PER_DEVICE
         tariff_max_device_limit = settings.MAX_DEVICES_LIMIT if settings.MAX_DEVICES_LIMIT > 0 else None
 
+    texts = get_texts(_normalize_language_code(user))
+
     # Block purchase if device price is 0 (purchase unavailable for this tariff)
     if not tariff_device_price or tariff_device_price <= 0:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail={'code': 'devices_unavailable', 'message': 'Докупка устройств недоступна'},
+            detail={
+                'code': 'devices_unavailable',
+                'message': texts.t('DEVICES_ADDON_UNAVAILABLE', 'Докупка устройств недоступна'),
+            },
         )
 
     # Enforce tariff max device limit
@@ -6160,7 +6170,10 @@ async def update_subscription_devices_endpoint(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'devices_below_tariff',
-                'message': f'Нельзя уменьшить количество устройств ниже {min_device_limit} — столько включено в тариф',
+                'message': texts.t(
+                    'DEVICES_BELOW_TARIFF_MIN',
+                    'Нельзя уменьшить количество устройств ниже {min} — столько включено в тариф',
+                ).format(min=min_device_limit),
             },
         )
 
@@ -6169,7 +6182,9 @@ async def update_subscription_devices_endpoint(
             status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'devices_limit_exceeded',
-                'message': f'Превышен максимальный лимит устройств ({tariff_max_device_limit})',
+                'message': texts.t(
+                    'DEVICES_MAX_LIMIT_EXCEEDED', 'Превышен максимальный лимит устройств ({max})'
+                ).format(max=tariff_max_device_limit),
             },
         )
 
@@ -6225,14 +6240,16 @@ async def update_subscription_devices_endpoint(
             status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': (
-                    f'Недостаточно средств на балансе. Не хватает {settings.format_balance(missing, round_kopeks=False)}'
+                'message': texts.t('CABINET_INSUFFICIENT_BALANCE', 'Недостаточно средств. Не хватает {amount}').format(
+                    amount=settings.format_balance(missing, round_kopeks=False)
                 ),
             },
         )
 
     if price_to_charge > 0:
-        description = f'Изменение количества устройств с {current_devices} до {new_devices}'
+        description = texts.t('DEVICES_CHANGE_DESCRIPTION', 'Изменение количества устройств с {old} до {new}').format(
+            old=current_devices, new=new_devices
+        )
         success = await subtract_user_balance(
             db,
             user,
@@ -6244,7 +6261,7 @@ async def update_subscription_devices_endpoint(
                 status.HTTP_502_BAD_GATEWAY,
                 detail={
                     'code': 'balance_charge_failed',
-                    'message': 'Failed to charge user balance',
+                    'message': texts.t('BALANCE_CHARGE_FAILED', 'Failed to charge user balance'),
                 },
             )
 
@@ -6253,7 +6270,11 @@ async def update_subscription_devices_endpoint(
             user_id=user.id,
             type=TransactionType.SUBSCRIPTION_PAYMENT,
             amount_kopeks=price_to_charge,
-            description=f'{description} за {charged_days or max(1, math.ceil((subscription.end_date - datetime.now(UTC)).total_seconds() / 86400))} дн.',
+            description=texts.t('ADDON_DESCRIPTION_FOR_DAYS', '{description} за {days} дн.').format(
+                description=description,
+                days=charged_days
+                or max(1, math.ceil((subscription.end_date - datetime.now(UTC)).total_seconds() / 86400)),
+            ),
         )
 
     if price_to_charge > 0:
@@ -6283,14 +6304,20 @@ async def update_subscription_devices_endpoint(
                     status.HTTP_409_CONFLICT,
                     detail={
                         'code': 'already_applied',
-                        'message': 'Изменение уже применено параллельным запросом. Баланс возвращён.',
+                        'message': texts.t(
+                            'DEVICES_CHANGE_ALREADY_APPLIED',
+                            'Изменение уже применено параллельным запросом. Баланс возвращён.',
+                        ),
                     },
                 )
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail={
                     'code': 'devices_limit_exceeded',
-                    'message': f'Превышен максимальный лимит устройств ({tariff_max_device_limit}). Баланс возвращён.',
+                    'message': texts.t(
+                        'DEVICES_MAX_LIMIT_EXCEEDED_REFUNDED',
+                        'Превышен максимальный лимит устройств ({max}). Баланс возвращён.',
+                    ).format(max=tariff_max_device_limit),
                 },
             )
 
@@ -7266,6 +7293,7 @@ async def purchase_traffic_topup_endpoint(
     user = await _authorize_miniapp_user(payload.init_data, db)
     subscription = _ensure_paid_subscription(user, subscription_id=payload.subscription_id)
     _validate_subscription_id(payload.subscription_id, subscription)
+    texts = get_texts(_normalize_language_code(user))
 
     # Проверяем режим тарифов
     if not settings.is_tariffs_mode():
@@ -7273,7 +7301,9 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'tariffs_mode_disabled',
-                'message': 'Traffic top-up is only available in tariffs mode',
+                'message': texts.t(
+                    'TRAFFIC_TOPUP_TARIFFS_MODE_ONLY', 'Traffic top-up is only available in tariffs mode'
+                ),
             },
         )
 
@@ -7284,7 +7314,7 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'no_tariff',
-                'message': 'Subscription has no tariff',
+                'message': texts.t('TRAFFIC_TOPUP_NO_TARIFF', 'Subscription has no tariff'),
             },
         )
 
@@ -7294,7 +7324,7 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 'code': 'tariff_not_found',
-                'message': 'Tariff not found',
+                'message': texts.t('CABINET_TRAFFIC_TARIFF_NOT_FOUND', 'Tariff not found'),
             },
         )
 
@@ -7304,7 +7334,9 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 'code': 'traffic_topup_disabled',
-                'message': 'Traffic top-up is disabled for this tariff',
+                'message': texts.t(
+                    'CABINET_TRAFFIC_TOPUP_TARIFF_DISABLED', 'Traffic top-up is disabled for this tariff'
+                ),
             },
         )
 
@@ -7314,7 +7346,7 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'unlimited_traffic',
-                'message': 'Cannot add traffic to unlimited subscription',
+                'message': texts.t('CABINET_TRAFFIC_ALREADY_UNLIMITED', 'Cannot add traffic to unlimited subscription'),
             },
         )
 
@@ -7329,7 +7361,11 @@ async def purchase_traffic_topup_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     'code': 'topup_limit_exceeded',
-                    'message': f'Traffic top-up limit exceeded. Maximum allowed: {max_topup_limit} GB, current: {current_traffic} GB, available: {available_gb} GB',
+                    'message': texts.t(
+                        'MINIAPP_TRAFFIC_TOPUP_LIMIT_EXCEEDED',
+                        'Traffic top-up limit exceeded. Maximum allowed: {max} GB, current: {current} GB, '
+                        'available: {available} GB',
+                    ).format(max=max_topup_limit, current=current_traffic, available=available_gb),
                     'max_limit_gb': max_topup_limit,
                     'current_gb': current_traffic,
                     'available_gb': available_gb,
@@ -7343,7 +7379,9 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 'code': 'invalid_package',
-                'message': f'Traffic package {payload.gb}GB is not available',
+                'message': texts.t(
+                    'CABINET_TRAFFIC_PACKAGE_UNAVAILABLE', 'Traffic package {gb}GB is not available'
+                ).format(gb=payload.gb),
             },
         )
 
@@ -7374,14 +7412,13 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_balance',
-                'message': 'Insufficient balance',
+                'message': texts.t('CABINET_INSUFFICIENT_BALANCE_RETRY', 'Insufficient balance'),
                 'required': final_price,
                 'balance': user.balance_kopeks,
             },
         )
 
     # Списываем баланс
-    texts = get_texts(user.language)
     if traffic_discount_percent > 0:
         traffic_description = texts.t(
             'TRAFFIC_TOPUP_DESCRIPTION_DISCOUNT', 'Докупка {gb} ГБ трафика (скидка {percent}%)'
@@ -7394,7 +7431,7 @@ async def purchase_traffic_topup_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 'code': 'balance_error',
-                'message': 'Failed to subtract balance',
+                'message': texts.t('BALANCE_CHARGE_FAILED', 'Failed to subtract balance'),
             },
         )
 
