@@ -208,9 +208,10 @@ class ReferralWithdrawalService:
         Принимает предвычисленные stats для избежания повторного запроса.
         """
         if not settings.is_referral_withdrawal_enabled():
+            texts = await self._texts_for(db, user_id)
             return (
                 False,
-                'Функция вывода реферального баланса отключена',
+                texts.t('REFERRAL_WITHDRAWAL_DISABLED', 'The withdrawal feature is disabled'),
                 {
                     'total_earned': 0,
                     'own_deposits': 0,
@@ -248,11 +249,20 @@ class ReferralWithdrawalService:
 
                 if datetime.now(UTC) < cooldown_end:
                     days_left = (cooldown_end - datetime.now(UTC)).days + 1
-                    return False, f'Следующий запрос на вывод будет доступен через {days_left} дн.', stats
+                    texts = await self._texts_for(db, user_id)
+                    reason = texts.t(
+                        'REFERRAL_WITHDRAWAL_ERROR_COOLDOWN',
+                        'Your next withdrawal request will be available in {days} days',
+                    ).format(days=days_left)
+                    return False, reason, stats
 
             # Проверяем, нет ли активной заявки
             if last_request.status == WithdrawalRequestStatus.PENDING.value:
-                return False, 'У вас уже есть активная заявка на рассмотрении', stats
+                texts = await self._texts_for(db, user_id)
+                reason = texts.t(
+                    'REFERRAL_WITHDRAWAL_ERROR_PENDING', 'You already have a withdrawal request under review'
+                )
+                return False, reason, stats
 
         return True, 'OK', stats
 

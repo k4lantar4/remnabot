@@ -387,11 +387,17 @@ async def confirm_change_devices(
         )
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=charged_days)
+            if charged_days > 1
+            else texts.t('ADDON_PERIOD_ONE_DAY', '1 day')
+        )
 
         if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
             missing_toman = calculate_missing_amount(db_user.balance_kopeks, price)
-            required_text = f'{texts.format_price(price)} (за {period_label})'
+            required_text = f'{texts.format_price(price)} ' + texts.t('ADDON_FOR_PERIOD', '(for {period})').format(
+                period=period_label
+            )
             message_text = texts.t(
                 'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
                 (
@@ -1556,7 +1562,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=charged_days)
+            if charged_days > 1
+            else texts.t('ADDON_PERIOD_ONE_DAY', '1 day')
+        )
     else:
         # Для обычных тарифов - по дням (как в кабинете)
         now = datetime.now(UTC)
@@ -1575,7 +1585,11 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         # Прорейт по остатку подписки (как трафик/серверы), без потолка.
         price, charged_days = calculate_prorated_price(discounted_per_month, subscription.end_date)
         total_discount = int(discount_per_month * charged_days / 30)
-        period_label = f'{charged_days} дн.' if charged_days > 1 else '1 день'
+        period_label = (
+            texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=charged_days)
+            if charged_days > 1
+            else texts.t('ADDON_PERIOD_ONE_DAY', '1 day')
+        )
 
     logger.info(
         'Добавление устройств: ₽/мес × = ₽ (скидка ₽)',
@@ -1588,7 +1602,9 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
 
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
         missing_toman = calculate_missing_amount(db_user.balance_kopeks, price)
-        required_text = f'{texts.format_price(price)} (за {period_label})'
+        required_text = f'{texts.format_price(price)} ' + texts.t('ADDON_FOR_PERIOD', '(for {period})').format(
+            period=period_label
+        )
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
@@ -1713,14 +1729,19 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         except Exception as e:
             logger.error('Ошибка отправки уведомления о докупке устройств', error=e)
 
-        success_text = (
-            '✅ Устройства успешно добавлены!\n\n'
-            f'📱 Добавлено: {devices_count} устройств\n'
-            f'Новый лимит: {subscription.device_limit} устройств\n'
+        success_text = texts.t(
+            'DEVICES_ADDED_SUCCESS',
+            '✅ Devices added!\n\n📱 Added: {count} devices\nNew limit: {limit} devices\n💰 Charged: {amount} (for {period})',
+        ).format(
+            count=devices_count,
+            limit=subscription.device_limit,
+            amount=texts.format_price(price),
+            period=period_label,
         )
-        success_text += f'💰 Списано: {texts.format_price(price)} (за {period_label})'
         if total_discount > 0:
-            success_text += f' (скидка {devices_discount_percent}%: -{texts.format_price(total_discount)})'
+            success_text += texts.t('DEVICE_CHANGE_DISCOUNT_INFO', ' (discount {percent}%: -{amount})').format(
+                percent=devices_discount_percent, amount=texts.format_price(total_discount)
+            )
 
         await callback.message.edit_text(success_text, reply_markup=get_back_keyboard(db_user.language))
 

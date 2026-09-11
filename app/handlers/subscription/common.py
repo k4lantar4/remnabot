@@ -588,6 +588,8 @@ def get_traffic_switch_keyboard(
 ) -> InlineKeyboardMarkup:
     from app.config import settings
 
+    texts = get_texts(language)
+
     # Если базовый трафик не передан, используем текущий
     # (для обратной совместимости и случаев без докупленного трафика)
     if base_traffic_gb is None:
@@ -598,7 +600,12 @@ def get_traffic_switch_keyboard(
         now = datetime.now(UTC)
         days_left = max(1, math.ceil((subscription_end_date - now).total_seconds() / 86400))
         price_multiplier = days_left / 30
-        period_text = f' (за {days_left} дн.)' if days_left > 1 else ' (за 1 день)'
+        period_label = (
+            texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=days_left)
+            if days_left > 1
+            else texts.t('ADDON_PERIOD_ONE_DAY', '1 day')
+        )
+        period_text = ' ' + texts.t('ADDON_FOR_PERIOD', '(for {period})').format(period=period_label)
     else:
         price_multiplier = 1
         period_text = ''
@@ -629,43 +636,37 @@ def get_traffic_switch_keyboard(
         # Сравниваем с базовым трафиком (без докупленного)
         if gb == base_traffic_gb:
             emoji = '✅'
-            action_text = ' (текущий)'
+            action_text = ' ' + texts.t('TRAFFIC_SWITCH_CURRENT', '(current)')
             price_text = ''
         elif total_price_diff > 0:
             emoji = '⬆️'
             action_text = ''
-            price_text = f' (+{total_price_diff // 100}₽{period_text})'
+            price_text = f' (+{texts.format_price(total_price_diff)}{period_text})'
             if discount_percent > 0:
                 discount_total = int((price_per_month - current_price_per_month) * price_multiplier) - total_price_diff
                 if discount_total > 0:
-                    price_text += f' (скидка {discount_percent}%: -{discount_total // 100}₽)'
+                    price_text += texts.t('DEVICE_CHANGE_DISCOUNT_INFO', ' (discount {percent}%: -{amount})').format(
+                        percent=discount_percent, amount=texts.format_price(discount_total)
+                    )
         elif total_price_diff < 0:
             emoji = '⬇️'
             action_text = ''
-            price_text = ' (без возврата)'
+            price_text = ' ' + texts.t('TRAFFIC_SWITCH_NO_REFUND', '(no refund)')
         else:
             emoji = '🔄'
             action_text = ''
-            price_text = ' (бесплатно)'
+            price_text = ' ' + texts.t('TRAFFIC_SWITCH_FREE', '(free)')
 
         if gb == 0:
-            traffic_text = 'Безлимит'
+            traffic_text = texts.t('TRAFFIC_UNLIMITED_SHORT', 'Unlimited')
         else:
-            traffic_text = f'{gb} ГБ'
+            traffic_text = texts.t('TARIFF_PURCHASE_TRAFFIC_GB', '{traffic} GB').format(traffic=gb)
 
         button_text = f'{emoji} {traffic_text}{action_text}{price_text}'
 
         buttons.append([InlineKeyboardButton(text=button_text, callback_data=f'switch_traffic_{gb}')])
 
-    language_code = (language or 'ru').split('-')[0].lower()
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text='⬅️ Назад' if language_code in {'ru', 'fa'} else '⬅️ Back',
-                callback_data=back_callback,
-            )
-        ]
-    )
+    buttons.append([InlineKeyboardButton(text=texts.BACK, callback_data=back_callback)])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -673,14 +674,15 @@ def get_traffic_switch_keyboard(
 def get_confirm_switch_traffic_keyboard(
     new_traffic_gb: int, price_difference: int, language: str = 'ru', back_callback: str = 'subscription_settings'
 ) -> InlineKeyboardMarkup:
+    texts = get_texts(language)
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text='✅ Подтвердить переключение',
+                    text=texts.t('TARIFF_SWITCH_CONFIRM_BUTTON', '✅ Confirm switch'),
                     callback_data=f'confirm_switch_traffic_{new_traffic_gb}_{price_difference}',
                 )
             ],
-            [InlineKeyboardButton(text='❌ Отмена', callback_data=back_callback)],
+            [InlineKeyboardButton(text=texts.t('CANCEL', '❌ Cancel'), callback_data=back_callback)],
         ]
     )

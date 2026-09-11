@@ -859,6 +859,7 @@ async def confirm_switch_traffic(
     )
     price_difference_per_month = discounted_new_per_month - discounted_old_per_month
     discount_savings_per_month = (new_price_per_month - old_price_per_month) - price_difference_per_month
+    period_label = texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=days_remaining)
 
     if price_difference_per_month > 0:
         total_price_difference = int(price_difference_per_month * days_remaining / 30)
@@ -876,7 +877,8 @@ async def confirm_switch_traffic(
                     'Выберите способ пополнения. Сумма подставится автоматически.'
                 ),
             ).format(
-                required=f'{texts.format_price(total_price_difference)} (за {days_remaining} дн.)',
+                required=f'{texts.format_price(total_price_difference)} '
+                + texts.t('ADDON_FOR_PERIOD', '(for {period})').format(period=period_label),
                 balance=texts.format_balance(db_user.balance_kopeks, round_kopeks=False),
                 missing=texts.format_balance(missing_toman, round_kopeks=False),
             )
@@ -892,22 +894,38 @@ async def confirm_switch_traffic(
             await callback.answer()
             return
 
-        action_text = f'увеличить до {texts.format_traffic(new_traffic_gb)}'
-        cost_text = f'Доплата: {texts.format_price(total_price_difference)} (за {days_remaining} дн.)'
+        action_text = texts.t('TRAFFIC_CHANGE_ACTION_INCREASE', 'increase to {traffic}').format(
+            traffic=texts.format_traffic(new_traffic_gb)
+        )
+        cost_text = texts.t('DEVICE_CHANGE_EXTRA_COST', 'Extra payment: {amount} (for {period})').format(
+            amount=texts.format_price(total_price_difference), period=period_label
+        )
         if discount_savings_per_month > 0:
             total_discount_savings = int(discount_savings_per_month * days_remaining / 30)
-            cost_text += f' (скидка {traffic_discount_percent}%: -{texts.format_price(total_discount_savings)})'
+            cost_text += texts.t('DEVICE_CHANGE_DISCOUNT_INFO', ' (discount {percent}%: -{amount})').format(
+                percent=traffic_discount_percent, amount=texts.format_price(total_discount_savings)
+            )
     else:
         total_price_difference = 0
-        action_text = f'уменьшить до {texts.format_traffic(new_traffic_gb)}'
-        cost_text = 'Возврат средств не производится'
+        action_text = texts.t('TRAFFIC_CHANGE_ACTION_DECREASE', 'decrease to {traffic}').format(
+            traffic=texts.format_traffic(new_traffic_gb)
+        )
+        cost_text = texts.t('DEVICE_CHANGE_NO_REFUND', 'Payments are not refunded')
 
-    confirm_text = '🔄 <b>Подтверждение переключения трафика</b>\n\n'
-    confirm_text += f'Текущий лимит: {texts.format_traffic(current_traffic)}\n'
-    confirm_text += f'Новый лимит: {texts.format_traffic(new_traffic_gb)}\n\n'
-    confirm_text += f'Действие: {action_text}\n'
-    confirm_text += f'💰 {cost_text}\n\n'
-    confirm_text += 'Подтвердить переключение?'
+    confirm_text = (
+        texts.t(
+            'SWITCH_TRAFFIC_CONFIRM',
+            '🔄 <b>Confirm traffic change</b>\n\nCurrent limit: {current_traffic}\nNew limit: {new_traffic}\n\n'
+            'Action: {action}\n💰 {cost}\n\nApply this change?',
+        )
+        .format(
+            current_traffic=texts.format_traffic(current_traffic),
+            new_traffic=texts.format_traffic(new_traffic_gb),
+            action=action_text,
+            cost=cost_text,
+        )
+        .strip()
+    )
 
     await callback.message.edit_text(
         confirm_text,

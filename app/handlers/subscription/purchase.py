@@ -375,13 +375,21 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                 # Формируем блок информации о тарифе
                 is_daily = getattr(tariff, 'is_daily', False)
-                tariff_type_str = '🔄 Суточный' if is_daily else '📅 Периодный'
+                tariff_type_str = (
+                    texts.t('SUBSCRIPTION_TARIFF_TYPE_DAILY', '🔄 Daily')
+                    if is_daily
+                    else texts.t('SUBSCRIPTION_TARIFF_TYPE_PERIODIC', '📅 Periodic')
+                )
 
                 tariff_info_lines = [
                     f'<b>📦 {html.escape(tariff.name)}</b>',
-                    f'Тип: {tariff_type_str}',
-                    f'Трафик: {tariff.traffic_limit_gb} ГБ' if tariff.traffic_limit_gb > 0 else 'Трафик: ∞ Безлимит',
-                    f'Устройства: {Texts.format_device_limit(tariff.device_limit)}',
+                    texts.t('SUBSCRIPTION_TARIFF_TYPE_LINE', 'Type: {type}').format(type=tariff_type_str),
+                    texts.t('SUBSCRIPTION_TARIFF_TRAFFIC_LINE', 'Traffic: {gb} GB').format(gb=tariff.traffic_limit_gb)
+                    if tariff.traffic_limit_gb > 0
+                    else texts.t('SUBSCRIPTION_TARIFF_TRAFFIC_UNLIMITED', 'Traffic: ∞ Unlimited'),
+                    texts.t('SUBSCRIPTION_TARIFF_DEVICES_LINE', 'Devices: {devices}').format(
+                        devices=Texts.format_device_limit(tariff.device_limit)
+                    ),
                 ]
 
                 if is_daily:
@@ -392,8 +400,11 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                     daily_kopeks, _ = PricingEngine.daily_group_price(
                         getattr(tariff, 'daily_price_kopeks', 0) or 0, db_user
                     )
-                    daily_price = daily_kopeks / 100
-                    tariff_info_lines.append(f'Цена: {daily_price:.2f} ₽/день')
+                    tariff_info_lines.append(
+                        texts.t('SUBSCRIPTION_TARIFF_DAILY_PRICE', 'Price: {price}/day').format(
+                            price=texts.format_price(daily_kopeks)
+                        )
+                    )
 
                     # Прогресс-бар до следующего списания
                     last_charge = getattr(subscription, 'last_daily_charge_at', None)
@@ -401,7 +412,9 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                     if is_paused:
                         tariff_info_lines.append('')
-                        tariff_info_lines.append('⏸️ <b>Подписка приостановлена</b>')
+                        tariff_info_lines.append(
+                            '<b>' + texts.t('DAILY_SUBSCRIPTION_PAUSED', '⏸️ Subscription paused') + '</b>'
+                        )
                         # Показываем оставшееся время даже при паузе
                         if last_charge:
                             next_charge = last_charge + timedelta(hours=24)
@@ -410,8 +423,14 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                                 time_until = next_charge - now
                                 hours_left = time_until.seconds // 3600
                                 minutes_left = (time_until.seconds % 3600) // 60
-                                tariff_info_lines.append(f'⏳ Осталось: {hours_left}ч {minutes_left}мин')
-                                tariff_info_lines.append('💤 Списание приостановлено')
+                                tariff_info_lines.append(
+                                    texts.t('SUBSCRIPTION_DAILY_TIME_LEFT', '⏳ Time left: {hours}h {minutes}m').format(
+                                        hours=hours_left, minutes=minutes_left
+                                    )
+                                )
+                                tariff_info_lines.append(
+                                    texts.t('SUBSCRIPTION_DAILY_CHARGE_PAUSED', '💤 Daily charge paused')
+                                )
                     elif last_charge:
                         next_charge = last_charge + timedelta(hours=24)
                         now = datetime.now(UTC)
@@ -433,11 +452,17 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
                             progress_bar = '▓' * filled + '░' * empty
 
                             tariff_info_lines.append('')
-                            tariff_info_lines.append(f'⏳ До списания: {hours_left}ч {minutes_left}мин')
+                            tariff_info_lines.append(
+                                texts.t(
+                                    'SUBSCRIPTION_DAILY_NEXT_CHARGE', '⏳ Next charge in: {hours}h {minutes}m'
+                                ).format(hours=hours_left, minutes=minutes_left)
+                            )
                             tariff_info_lines.append(f'[{progress_bar}] {percent:.0f}%')
                     else:
                         tariff_info_lines.append('')
-                        tariff_info_lines.append('⏳ Первое списание скоро')
+                        tariff_info_lines.append(
+                            texts.t('SUBSCRIPTION_DAILY_FIRST_CHARGE_SOON', '⏳ First charge coming soon')
+                        )
 
                 tariff_info_block = '\n<blockquote expandable>' + '\n'.join(tariff_info_lines) + '</blockquote>'
 
@@ -559,16 +584,27 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
 
                 # Формируем текст о времени
                 if days_remaining == 0:
-                    time_text = 'истекает сегодня'
+                    time_text = texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_EXPIRES_TODAY', 'expires today')
                 elif days_remaining == 1:
-                    time_text = 'остался 1 день'
-                elif days_remaining < 5:
-                    time_text = f'осталось {days_remaining} дня'
+                    time_text = texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_ONE_DAY_LEFT', '1 day left')
                 else:
-                    time_text = f'осталось {days_remaining} дней'
+                    time_text = texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_DAYS_LEFT', '{days} days left').format(
+                        days=days_remaining
+                    )
 
-                message += f'• {purchase.traffic_gb} ГБ — {time_text}\n'
-                message += f'  {bar} {progress_percent:.0f}% | до {expire_date}\n'
+                message += (
+                    texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_ITEM', '• {gb} GB — {time}').format(
+                        gb=purchase.traffic_gb, time=time_text
+                    )
+                    + '\n'
+                )
+                message += (
+                    '  '
+                    + texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_PROGRESS', '{bar} {percent}% | until {date}').format(
+                        bar=bar, percent=f'{progress_percent:.0f}', date=expire_date
+                    )
+                    + '\n'
+                )
 
             message += texts.t('SUBSCRIPTION_PURCHASED_TRAFFIC_FOOTER', '</blockquote>')
 
@@ -1870,7 +1906,9 @@ async def confirm_extend_subscription(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext = None
 ):
     if not callback.data:
-        await callback.answer('⚠ Ошибка данных', show_alert=True)
+        await callback.answer(
+            get_texts(db_user.language).t('DEVICES_INVALID_REQUEST', '❌ Invalid request'), show_alert=True
+        )
         return
     days = int(callback.data.split('_')[2])
     texts = get_texts(db_user.language)
@@ -1900,13 +1938,16 @@ async def confirm_extend_subscription(
             subscription = await get_subscription_by_id_for_user(db, _fsm_sub_id, db_user.id)
         else:
             # Multi-tariff without FSM state — cannot determine which subscription
-            await callback.answer('Выберите подписку через "Мои подписки"', show_alert=True)
+            await callback.answer(
+                texts.t('SUBSCRIPTION_SELECT_IN_MY_SUBSCRIPTIONS', 'Pick the subscription in "My subscriptions"'),
+                show_alert=True,
+            )
             return
     else:
         subscription = db_user.subscription
 
     if not subscription:
-        await callback.answer('⚠ У вас нет активной подписки', show_alert=True)
+        await callback.answer(texts.t('NO_ACTIVE_SUBSCRIPTION', '⚠️ You have no active subscription'), show_alert=True)
         return
 
     from app.database.crud.user import lock_user_for_pricing
@@ -1954,7 +1995,7 @@ async def confirm_extend_subscription(
 
     except Exception as e:
         logger.error('⚠ ОШИБКА РАСЧЕТА ЦЕНЫ', error=e)
-        await callback.answer('⚠ Ошибка расчета стоимости', show_alert=True)
+        await callback.answer(texts.t('ACTIVATION_PRICE_ERROR', '❌ Price calculation error'), show_alert=True)
         return
 
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
@@ -2008,12 +2049,12 @@ async def confirm_extend_subscription(
             payment_method=PaymentMethod.BALANCE,
         )
     except SubscriptionRenewalChargeError:
-        await callback.answer('⚠ Ошибка списания средств', show_alert=True)
+        await callback.answer(texts.t('PAYMENT_CHARGE_ERROR', '⚠️ Payment charge error'), show_alert=True)
         return
     except Exception as e:
         logger.error('⚠ КРИТИЧЕСКАЯ ОШИБКА ПРОДЛЕНИЯ', error=e)
         await callback.message.edit_text(
-            '⚠ Произошла ошибка при продлении подписки. Обратитесь в поддержку.',
+            texts.t('TARIFF_RENEW_ERROR', '❌ An error occurred while renewing the subscription'),
             reply_markup=get_back_keyboard(db_user.language),
         )
         await callback.answer()
@@ -2022,20 +2063,26 @@ async def confirm_extend_subscription(
     refreshed_end_date = result.subscription.end_date
     await db.refresh(db_user)
 
-    success_message = (
-        '✅ Подписка успешно продлена!\n\n'
-        f'⏰ Добавлено: {days} дней\n'
-        f'Действует до: {format_local_datetime(refreshed_end_date, "%d.%m.%Y %H:%M")}\n\n'
-        f'💰 Списано: {texts.format_price(price)}'
+    success_message = texts.t(
+        'SUBSCRIPTION_EXTEND_SUCCESS',
+        '✅ Subscription renewed!\n\n⏰ Added: {days} days\nValid until: {end_date}\n\n💰 Charged: {amount}',
+    ).format(
+        days=days,
+        end_date=format_local_datetime(refreshed_end_date, '%d.%m.%Y %H:%M'),
+        amount=texts.format_price(price),
     )
 
     # Добавляем уведомление о сбросе трафика
     if settings.is_traffic_fixed() and result.subscription.traffic_limit_gb != old_traffic_gb:
         fixed_limit = settings.get_fixed_traffic_limit()
-        success_message += f'\n\n📊 Трафик сброшен до {fixed_limit} ГБ'
+        success_message += '\n\n' + texts.t('SUBSCRIPTION_EXTEND_TRAFFIC_RESET', '📊 Traffic reset to {gb} GB').format(
+            gb=fixed_limit
+        )
 
     if promo_offer_discount > 0:
-        success_message += f' (включая доп. скидку {offer_pct}%: -{texts.format_price(promo_offer_discount)})'
+        success_message += ' ' + texts.t(
+            'SUBSCRIPTION_EXTEND_PROMO_DISCOUNT', '(incl. extra discount {percent}%: -{amount})'
+        ).format(percent=offer_pct, amount=texts.format_price(promo_offer_discount))
 
     await callback.message.edit_text(success_message, reply_markup=get_back_keyboard(db_user.language))
 

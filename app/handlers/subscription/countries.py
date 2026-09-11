@@ -336,7 +336,10 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
     # balance is Toman 1:1; total_cost is a catalog price (server price_kopeks, prorated)
     if total_cost > 0 and not user_can_afford(db_user.balance_kopeks, total_cost):
         missing_toman_amount = missing_toman(db_user.balance_kopeks, total_cost)
-        required_text = f'{texts.format_price(total_cost)} (за {charged_days} дн.)'
+        period_label = texts.t('ADDON_PERIOD_DAYS', '{days} days').format(days=charged_days)
+        required_text = f'{texts.format_price(total_cost)} ' + texts.t('ADDON_FOR_PERIOD', '(for {period})').format(
+            period=period_label
+        )
         message_text = texts.t(
             'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
             (
