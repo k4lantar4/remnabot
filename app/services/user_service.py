@@ -94,8 +94,8 @@ class UserService:
         if has_active_subscription:
             # У пользователя есть активная подписка - обычное сообщение
             message = (
-                f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+                f'✅ <b>Баланс пополнен на {settings.format_balance(amount_kopeks)}!</b>\n\n'
+                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'Спасибо за использование нашего сервиса! 🎉'
             )
             extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
@@ -112,8 +112,8 @@ class UserService:
         else:
             # НЕТ активной подписки - БОЛЬШОЕ ПРЕДУПРЕЖДЕНИЕ
             message = (
-                f'✅ <b>Баланс пополнен на {settings.format_price(amount_kopeks)}!</b>\n\n'
-                f'💳 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n\n'
+                f'✅ <b>Баланс пополнен на {settings.format_balance(amount_kopeks)}!</b>\n\n'
+                f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n\n'
                 f'{"─" * 25}\n\n'
                 f'⚠️ <b>ВАЖНО!</b> ⚠️\n\n'
                 f'🔴 <b>ПОДПИСКА НЕ АКТИВНА!</b>\n\n'

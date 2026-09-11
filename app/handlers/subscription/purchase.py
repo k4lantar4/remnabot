@@ -867,7 +867,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
             f'📱 {texts.t("DEVICES", "Устройства")}: {paid_trial_devices}',
             '',
             f'💰 {texts.t("PRICE", "Стоимость")}: {settings.format_price(trial_price_kopeks)}',
-            f'💳 {texts.t("YOUR_BALANCE", "Ваш баланс")}: {settings.format_price(user_balance_kopeks)}',
+            f'💳 {texts.t("YOUR_BALANCE", "Ваш баланс")}: {settings.format_balance(user_balance_kopeks)}',
             '',
         ]
 
@@ -981,7 +981,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
             )
             # Без округления — копейки критичны, чтобы юзер понял что именно не хватает.
             required_label = settings.format_price(error.required_amount, round_kopeks=False)
-            balance_label = settings.format_price(error.balance_amount, round_kopeks=False)
+            balance_label = settings.format_balance(error.balance_amount, round_kopeks=False)
             missing_label = settings.format_price(error.missing_amount, round_kopeks=False)
             message = texts.t(
                 'TRIAL_PAYMENT_INSUFFICIENT_FUNDS',
@@ -4435,7 +4435,7 @@ async def handle_simple_subscription_purchase(
                 f'🌍 Сервер: {"Любой доступный" if not subscription_params["squad_uuid"] else "Выбранный"}',
                 '',
                 f'💰 Стоимость: {settings.format_price(price_kopeks)}',
-                f'💳 Ваш баланс: {settings.format_price(user_balance_kopeks)}',
+                f'💳 Ваш баланс: {settings.format_balance(user_balance_kopeks)}',
                 '',
                 'Вы можете оплатить подписку с баланса или выбрать другой способ оплаты.',
             ]
@@ -4475,7 +4475,7 @@ async def handle_simple_subscription_purchase(
                 f'🌍 Сервер: {"Любой доступный" if not subscription_params["squad_uuid"] else "Выбранный"}',
                 '',
                 f'💰 Стоимость: {settings.format_price(price_kopeks)}',
-                f'💳 Ваш баланс: {settings.format_price(user_balance_kopeks)}',
+                f'💳 Ваш баланс: {settings.format_balance(user_balance_kopeks)}',
                 '',
                 'Выберите способ оплаты:',
             ]

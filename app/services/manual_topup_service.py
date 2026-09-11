@@ -323,8 +323,8 @@ async def _notify_user(
                 user.telegram_id,
                 (
                     '✅ <b>Баланс пополнен</b>\n\n'
-                    f'💰 Сумма: {settings.format_price(amount_kopeks)}\n'
-                    f'💳 Текущий баланс: {settings.format_price(user.balance_kopeks)}\n'
+                    f'💰 Сумма: {settings.format_balance(amount_kopeks)}\n'
+                    f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n'
                     f'🆔 Транзакция: {transaction.id}'
                 ),
                 parse_mode='HTML',

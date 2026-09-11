@@ -513,8 +513,8 @@ async def handle_successful_topup_with_cart(user_id: int, amount_kopeks: int, bo
                 balance_hint = f'Не хватает: {texts.format_price(missing, round_kopeks=False)}'
 
             success_text = (
-                f'✅ Баланс пополнен на {texts.format_price(amount_kopeks)}!\n\n'
-                f'💰 Текущий баланс: {texts.format_price(user.balance_kopeks)}\n\n'
+                f'✅ Баланс пополнен на {texts.format_balance(amount_kopeks)}!\n\n'
+                f'💰 Текущий баланс: {texts.format_balance(user.balance_kopeks)}\n\n'
                 f'🛒 У вас есть сохранённая корзина на {texts.format_price(total_price)}\n'
                 f'{balance_hint}\n\n'
                 f'Хотите продолжить оформление?'

@@ -30,12 +30,7 @@ BALANCE_TOMAN = 150_000
 BALANCE_LABEL = settings.format_balance(BALANCE_TOMAN)  # «150,000 تومان»
 WRONG_LABEL = settings.format_price(BALANCE_TOMAN)  # «1,500 تومان»
 
-GUARDED = [
-    ROOT / 'app' / 'cabinet' / 'routes',
-    ROOT / 'app' / 'webapi',
-    ROOT / 'app' / 'services' / 'subscription_purchase_service.py',
-    ROOT / 'app' / 'services' / 'admin_notification_service.py',
-]
+GUARDED = [ROOT / 'app']
 
 
 def _format_price_on_balance() -> list[str]:
@@ -308,3 +303,43 @@ async def test_withdrawal_request_notification_shows_toman_amounts(notifier):
     assert f'Сумма: {settings.format_balance(50_000)}' in message
     assert f'Баланс: {BALANCE_LABEL}' in message
     assert WRONG_LABEL not in message
+
+
+# ---------------------------------------------------------------- user-facing top-up messages
+
+
+@pytest.mark.asyncio
+async def test_manual_topup_message_shows_toman_amount_and_balance(monkeypatch):
+    """Admin manual top-up: the user's «Баланс пополнен» message (amount and wallet are Toman)."""
+    import app.services.manual_topup_service as manual_topup
+    from app.services.payment.common import PaymentCommonMixin
+
+    monkeypatch.setattr(Settings, 'is_notifications_enabled', lambda self: True)
+    monkeypatch.setattr(PaymentCommonMixin, 'build_topup_success_keyboard', AsyncMock(return_value=None))
+    monkeypatch.setattr(manual_topup, 'notify_email_user_topup', AsyncMock(), raising=False)
+    bot = SimpleNamespace(send_message=AsyncMock())
+
+    await manual_topup._notify_user(_user(), 50_000, Transaction(id=701), bot=bot)
+
+    text = bot.send_message.await_args.args[1]
+    assert f'Сумма: {settings.format_balance(50_000)}' in text
+    assert f'Текущий баланс: {BALANCE_LABEL}' in text
+
+
+@pytest.mark.asyncio
+async def test_topup_delivery_context_formats_toman(monkeypatch):
+    """Email / non-Telegram top-up notice built by notification_delivery_service."""
+    from app.services.notification_delivery_service import notification_delivery_service
+
+    captured: dict = {}
+
+    async def fake_send(user, notification_type, context, **kwargs):
+        captured.update(context)
+        return True
+
+    monkeypatch.setattr(notification_delivery_service, 'send_notification', fake_send)
+
+    await notification_delivery_service.notify_balance_topup(_user(), 50_000, BALANCE_TOMAN)
+
+    assert captured['formatted_amount'] == settings.format_balance(50_000)
+    assert captured['formatted_balance'] == BALANCE_LABEL

@@ -378,8 +378,8 @@ async def notify_email_user_topup(user: Any, amount_kopeks: int) -> None:
             user=user,
             notification_type=NotificationType.BALANCE_TOPUP,
             context={
-                'formatted_amount': settings.format_price(amount_kopeks),
-                'formatted_balance': settings.format_price(getattr(user, 'balance_kopeks', 0) or 0),
+                'formatted_amount': settings.format_balance(amount_kopeks),
+                'formatted_balance': settings.format_balance(getattr(user, 'balance_kopeks', 0) or 0),
                 'amount_kopeks': amount_kopeks,
                 'new_balance_kopeks': getattr(user, 'balance_kopeks', 0) or 0,
             },
