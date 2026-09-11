@@ -15,6 +15,7 @@ from aiogram import Bot
 
 from app.config import settings
 from app.database.models import User, UserStatus
+from app.utils.price_display import display_amount_from_kopeks, display_balance_from_storage
 from app.utils.timezone import format_email_datetime
 
 
@@ -476,8 +477,11 @@ class NotificationDeliveryService:
                     context['amount'] = context['formatted_amount']
                 elif 'amount_kopeks' in context:
                     context['amount'] = settings.format_price(context['amount_kopeks'])
+                elif context.get('formatted_bonus'):
+                    context['amount'] = context['formatted_bonus']
                 elif 'bonus_kopeks' in context:
-                    context['amount'] = settings.format_price(context['bonus_kopeks'])
+                    # A referral bonus is credited to the Toman wallet.
+                    context['amount'] = settings.format_balance(context['bonus_kopeks'])
             if 'balance' not in context:
                 if context.get('formatted_balance'):
                     context['balance'] = context['formatted_balance']
@@ -569,11 +573,15 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about balance top-up."""
         context = {
+            # A top-up is a Toman deposit and the wallet is Toman: both 1:1 (Phase B).
+            # ``*_rubles`` is the historic placeholder name; ``*_toman`` says what it holds.
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'amount_toman': display_balance_from_storage(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
-            'formatted_amount': settings.format_balance(amount_kopeks),  # a top-up is a Toman deposit
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
+            'new_balance_toman': display_balance_from_storage(new_balance_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 
@@ -641,8 +649,10 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about successful autopay."""
         context = {
+            # The renewal price is a catalog price (x100).
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
+            'amount_toman': display_amount_from_kopeks(amount_kopeks),
             'formatted_amount': settings.format_price(amount_kopeks),
             # Localize + humanize (see expiring branch above).
             'new_expires_at': format_email_datetime(new_expires_at),
@@ -739,20 +749,22 @@ class NotificationDeliveryService:
         """
         reward_parts = []
         if bonus_kopeks > 0:
-            reward_parts.append(settings.format_price(bonus_kopeks))
+            reward_parts.append(settings.format_balance(bonus_kopeks))
         if bonus_days > 0:
             tariff_suffix = f' тарифа «{tariff_name}»' if tariff_name else ''
             reward_parts.append(f'{bonus_days} дн. подписки{tariff_suffix}')
 
         context = {
+            # A referral bonus is credited to the Toman wallet (Phase B).
             'bonus_kopeks': bonus_kopeks,
-            'bonus_rubles': bonus_kopeks / 100,
-            'formatted_bonus': settings.format_price(bonus_kopeks),
+            'bonus_rubles': display_balance_from_storage(bonus_kopeks),
+            'bonus_toman': display_balance_from_storage(bonus_kopeks),
+            'formatted_bonus': settings.format_balance(bonus_kopeks),
             'bonus_days': bonus_days,
             'tariff_name': tariff_name,
             'level': level,
             # Единственное поле, которое верно и для денег, и для дней, и для обоих.
-            'formatted_reward': ' + '.join(reward_parts) or settings.format_price(bonus_kopeks),
+            'formatted_reward': ' + '.join(reward_parts) or settings.format_balance(bonus_kopeks),
             'referral_name': referral_name,
         }
 
@@ -817,9 +829,11 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about withdrawal request approval."""
         context = {
+            # WithdrawalRequest.amount_kopeks is Toman 1:1 (Phase B).
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'amount_toman': display_balance_from_storage(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'comment': comment or '',
         }
 
@@ -841,9 +855,11 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about withdrawal request rejection."""
         context = {
+            # WithdrawalRequest.amount_kopeks is Toman 1:1 (Phase B).
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
-            'formatted_amount': settings.format_price(amount_kopeks),
+            'amount_rubles': display_balance_from_storage(amount_kopeks),
+            'amount_toman': display_balance_from_storage(amount_kopeks),
+            'formatted_amount': settings.format_balance(amount_kopeks),
             'comment': comment or '',
         }
 
@@ -866,11 +882,14 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about daily subscription debit."""
         context = {
+            # The daily price is a catalog price (x100); the wallet left is Toman.
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': amount_kopeks / 100,
+            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
+            'amount_toman': display_amount_from_kopeks(amount_kopeks),
             'formatted_amount': settings.format_price(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
-            'new_balance_rubles': new_balance_kopeks / 100,
+            'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),
+            'new_balance_toman': display_balance_from_storage(new_balance_kopeks),
             'formatted_balance': settings.format_balance(new_balance_kopeks),
         }
 

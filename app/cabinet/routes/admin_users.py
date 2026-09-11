@@ -61,7 +61,11 @@ from app.database.models import (
     WithdrawalRequest,
 )
 from app.services.permission_service import PermissionService
-from app.utils.price_display import balance_from_display_amount, display_transaction_amount_from_storage
+from app.utils.price_display import (
+    balance_from_display_amount,
+    display_balance_from_storage,
+    display_transaction_amount_from_storage,
+)
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
 
@@ -797,7 +801,7 @@ async def get_users_stats(
         users_with_trial=users_with_trial,
         users_with_expired_subscription=users_with_expired,
         total_balance_kopeks=total_balance,
-        total_balance_rubles=total_balance / 100,
+        total_balance_rubles=display_balance_from_storage(total_balance),
         avg_balance_kopeks=avg_balance,
         active_today=active_today,
         active_week=active_week,

@@ -445,7 +445,7 @@ async def show_pending_withdrawal_requests(callback: types.CallbackQuery, db_use
         )
 
         text += f'<b>#{req.id}</b> — {user_name} (ID{user_tg_id})\n'
-        text += f'💰 {req.amount_kopeks / 100:.0f}₽ | {risk_emoji} Риск: {req.risk_score}/100\n'
+        text += f'💰 {settings.format_balance(req.amount_kopeks)} | {risk_emoji} Риск: {req.risk_score}/100\n'
         text += f'📅 {req.created_at.strftime("%d.%m.%Y %H:%M")}\n\n'
 
     keyboard_rows = []
@@ -453,7 +453,8 @@ async def show_pending_withdrawal_requests(callback: types.CallbackQuery, db_use
         keyboard_rows.append(
             [
                 types.InlineKeyboardButton(
-                    text=f'#{req.id} — {req.amount_kopeks / 100:.0f}₽', callback_data=f'admin_withdrawal_view_{req.id}'
+                    text=f'#{req.id} — {settings.format_balance(req.amount_kopeks)}',
+                    callback_data=f'admin_withdrawal_view_{req.id}',
                 )
             ]
         )
@@ -502,7 +503,7 @@ async def view_withdrawal_request(callback: types.CallbackQuery, db_user: User, 
 
 👤 Пользователь: {user_name}
 🆔 ID: <code>{user_tg_id}</code>
-💰 Сумма: <b>{request.amount_kopeks / 100:.0f}₽</b>
+💰 Сумма: <b>{settings.format_balance(request.amount_kopeks)}</b>
 📊 Статус: {status_text}
 
 💳 <b>Реквизиты:</b>
@@ -571,7 +572,7 @@ async def approve_withdrawal_request(callback: types.CallbackQuery, db_user: Use
                         'Сумма: <b>{amount}</b>\n'
                         'Средства списаны с баланса.\n\n'
                         'Ожидайте перевод на указанные реквизиты.',
-                    ).format(id=request.id, amount=texts.format_price(request.amount_kopeks)),
+                    ).format(id=request.id, amount=texts.format_balance(request.amount_kopeks)),
                 )
             except Exception as e:
                 logger.error('Ошибка отправки уведомления пользователю', error=e)
@@ -614,7 +615,7 @@ async def reject_withdrawal_request(callback: types.CallbackQuery, db_user: User
                         '❌ <b>Заявка на вывод #{id} отклонена</b>\n\n'
                         'Сумма: <b>{amount}</b>\n\n'
                         'Если у вас есть вопросы, обратитесь в поддержку.',
-                    ).format(id=request.id, amount=texts.format_price(request.amount_kopeks)),
+                    ).format(id=request.id, amount=texts.format_balance(request.amount_kopeks)),
                 )
             except Exception as e:
                 logger.error('Ошибка отправки уведомления пользователю', error=e)
@@ -655,7 +656,7 @@ async def complete_withdrawal_request(callback: types.CallbackQuery, db_user: Us
                         '💸 <b>Выплата по заявке #{id} выполнена!</b>\n\n'
                         'Сумма: <b>{amount}</b>\n\n'
                         'Деньги отправлены на указанные реквизиты.',
-                    ).format(id=request.id, amount=texts.format_price(request.amount_kopeks)),
+                    ).format(id=request.id, amount=texts.format_balance(request.amount_kopeks)),
                 )
             except Exception as e:
                 logger.error('Ошибка отправки уведомления пользователю', error=e)
