@@ -2130,6 +2130,8 @@
   "TARIFF_PURCHASE_TOTAL_AND_BALANCE": "\n<b>💰 总计：{total}</b>\n\n💳 您的余额：{balance}",
   "TARIFF_PURCHASE_TRAFFIC_BUTTON": "📊 {traffic} GB",
   "TARIFF_PURCHASE_TRAFFIC_GB": "{traffic} GB",
+  "CABINET_TARIFF_TRAFFIC_GB": "{traffic} GB",
+  "CABINET_TARIFF_TRAFFIC_UNLIMITED": "♾️ 无限",
   "TARIFF_PURCHASE_TRAFFIC_LINE": "📊 流量：{traffic}\n",
   "TARIFF_PURCHASE_TRAFFIC_SETUP_HINT": "\n\n📊 <i>选择周期后即可自定义流量</i>",
   "TARIFF_PURCHASE_UNAVAILABLE": "套餐不可用",

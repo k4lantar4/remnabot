@@ -2158,6 +2158,8 @@
   "TARIFF_PURCHASE_TOTAL_AND_BALANCE": "\n<b>💰 Total: {total}</b>\n\n💳 Your balance: {balance}",
   "TARIFF_PURCHASE_TRAFFIC_BUTTON": "📊 {traffic} GB",
   "TARIFF_PURCHASE_TRAFFIC_GB": "{traffic} GB",
+  "CABINET_TARIFF_TRAFFIC_GB": "{traffic} GB",
+  "CABINET_TARIFF_TRAFFIC_UNLIMITED": "♾️ Unlimited",
   "TARIFF_PURCHASE_TRAFFIC_LINE": "📊 Traffic: {traffic}\n",
   "TARIFF_PURCHASE_TRAFFIC_SETUP_HINT": "\n\n📊 <i>After choosing a period you can configure traffic</i>",
   "TARIFF_PURCHASE_UNAVAILABLE": "Plan unavailable",

@@ -230,7 +230,12 @@ async def _build_tariff_response(
 
             periods.append(period_data)
 
-    traffic_label = '♾️ Безлимит' if tariff.traffic_limit_gb == 0 else f'{tariff.traffic_limit_gb} ГБ'
+    texts = get_texts(language)
+    traffic_label = (
+        texts.t('CABINET_TARIFF_TRAFFIC_UNLIMITED', '♾️ Безлимит')
+        if tariff.traffic_limit_gb == 0
+        else texts.t('CABINET_TARIFF_TRAFFIC_GB', '{traffic} ГБ').format(traffic=tariff.traffic_limit_gb)
+    )
 
     # Суточная цена — как и периоды, только со скидкой группы: промокод накладывает
     # кабинет для показа и сервер при списании (PricingEngine.daily_group_price).

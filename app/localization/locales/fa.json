@@ -1077,6 +1077,8 @@
   "TARIFF_PURCHASE_TOTAL_AND_BALANCE": "\n<b>💰 جمع کل: {total}</b>\n\n💳 موجودی شما: {balance}",
   "TARIFF_PURCHASE_TRAFFIC_BUTTON": "📊 {traffic} گیگ",
   "TARIFF_PURCHASE_TRAFFIC_GB": "{traffic} گیگ",
+  "CABINET_TARIFF_TRAFFIC_GB": "{traffic} گیگ",
+  "CABINET_TARIFF_TRAFFIC_UNLIMITED": "♾️ نامحدود",
   "TARIFF_PURCHASE_TRAFFIC_LINE": "📊 ترافیک: {traffic}\n",
   "TARIFF_PURCHASE_TRAFFIC_SETUP_HINT": "\n\n📊 <i>پس از انتخاب دوره می‌توانید ترافیک را تنظیم کنید</i>",
   "TARIFF_PURCHASE_UNAVAILABLE": "تعرفه در دسترس نیست",
