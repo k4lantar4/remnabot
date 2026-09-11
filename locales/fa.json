@@ -2096,6 +2096,7 @@
   "ACTIVATION_INSUFFICIENT_FUNDS": "❌ موجودی کافی نیست.",
   "CABINET_TRIAL_INSUFFICIENT_BALANCE": "موجودی کافی نیست. کسری: {amount}",
   "CABINET_INSUFFICIENT_BALANCE": "موجودی کافی نیست. کسری: {amount}",
+  "CABINET_INSUFFICIENT_BALANCE_RETRY": "موجودی کافی نیست.",
   "ACTIVATION_PRICE_ERROR": "❌ محاسبه قیمت انجام نشد. کمی بعد دوباره امتحان کنید.",
   "CONTEST_TOO_FAST": "خیلی سریع! کمی صبر کنید.",
   "CONTEST_DISABLED": "بازی غیرفعال است.",

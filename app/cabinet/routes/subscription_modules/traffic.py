@@ -23,6 +23,7 @@ from app.database.crud.tariff import get_tariff_by_id
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import subtract_user_balance
 from app.database.models import TransactionType, User
+from app.localization.texts import get_texts
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_renewal_service import calculate_missing_amount
@@ -319,7 +320,9 @@ async def purchase_traffic(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
                 'code': 'insufficient_funds',
-                'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
+                'message': get_texts(user.language)
+                .t('CABINET_INSUFFICIENT_BALANCE', 'Insufficient balance. Missing {amount}')
+                .format(amount=settings.format_balance(missing, round_kopeks=False)),
                 'missing_amount': missing,
                 'cart_saved': True,
                 'cart_mode': 'add_traffic',
@@ -634,7 +637,9 @@ async def switch_traffic_package(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Недостаточно средств. Не хватает {settings.format_balance(missing, round_kopeks=False)}',
+                    'message': get_texts(user.language)
+                    .t('CABINET_INSUFFICIENT_BALANCE', 'Insufficient balance. Missing {amount}')
+                    .format(amount=settings.format_balance(missing, round_kopeks=False)),
                     'missing_amount': missing,
                 },
             )

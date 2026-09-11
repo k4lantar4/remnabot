@@ -2020,6 +2020,7 @@
   "ACTIVATION_INSUFFICIENT_FUNDS": "❌ Недостаточно средств",
   "CABINET_TRIAL_INSUFFICIENT_BALANCE": "Недостаточно средств. Не хватает {amount}",
   "CABINET_INSUFFICIENT_BALANCE": "Недостаточно средств. Не хватает {amount}",
+  "CABINET_INSUFFICIENT_BALANCE_RETRY": "Недостаточно средств",
   "ACTIVATION_PRICE_ERROR": "❌ Ошибка расчёта стоимости",
   "CONTEST_TOO_FAST": "Слишком быстро! Подождите.",
   "CONTEST_DISABLED": "Игра отключена.",
