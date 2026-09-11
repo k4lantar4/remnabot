@@ -22,7 +22,10 @@ from app.database.crud.transaction import (
 from app.database.crud.user import get_user_by_id
 from app.database.models import PaymentMethod, TransactionType
 from app.external.telegram_stars import TelegramStarsService
+from app.localization.texts import get_texts
+from app.utils import toman_rates
 from app.utils.payment_logger import payment_logger as logger
+from app.utils.price_display import kopeks_from_display_amount
 from app.utils.user_utils import format_referrer_info
 
 
@@ -44,8 +47,13 @@ class TelegramStarsMixin:
         payload: str | None = None,
         *,
         stars_amount: int | None = None,
+        title: str | None = None,
     ) -> str:
-        """Создаёт invoice в Telegram Stars, автоматически рассчитывая количество звёзд."""
+        """Создаёт invoice в Telegram Stars, автоматически рассчитывая количество звёзд.
+
+        Toman top-up callers pass ``stars_amount`` (from ``toman_rates.quote_stars_for_toman``), a
+        localized ``title`` and the full ``description``; the ruble fallback below is upstream's.
+        """
         if not self.bot or not getattr(self, 'stars_service', None):
             raise ValueError('Bot instance required for Stars payments')
 
@@ -60,12 +68,12 @@ class TelegramStarsMixin:
                 raise ValueError('Stars amount must be positive')
 
             invoice_link = await self.bot.create_invoice_link(
-                title='Пополнение баланса VPN',
-                description=f'{description} (≈{stars_amount} ⭐)',
+                title=title or 'Пополнение баланса VPN',
+                description=description if title else f'{description} (≈{stars_amount} ⭐)',
                 payload=payload or f'balance_topup_{amount_kopeks}',
                 provider_token='',
                 currency='XTR',
-                prices=[LabeledPrice(label='Пополнение', amount=stars_amount)],
+                prices=[LabeledPrice(label=title or 'Пополнение', amount=stars_amount)],
             )
 
             logger.info(
@@ -89,15 +97,10 @@ class TelegramStarsMixin:
     ) -> bool:
         """Финализирует платеж, пришедший из Telegram Stars, и обновляет баланс пользователя.
 
-        Credit derivation order:
-          1. If payload encodes the originally-requested ``amount_kopeks``
-             (every balance-topup flow does this), credit that exact
-             amount. This is what the user actually asked for; the
-             stars-to-rubles back-conversion can drift by sub-ruble
-             fractions (banker's rounding at quote time, non-1.0
-             operator rates).
-          2. Otherwise fall back to ``stars × current_rate`` — best-effort
-             for old payloads or paths we haven't catalogued.
+        Balance top-ups credit Toman 1:1 (see ``_resolve_stars_topup_toman``): the Toman a
+        ``topup_toman_*`` payload promised, else stars x the fixed Toman rate. Legacy ``balance_*``
+        payloads and the simple-subscription flow keep upstream's ruble derivation
+        (``_legacy_stars_amount_kopeks``).
 
         Telegram passes the payload back byte-for-byte from the
         ``create_invoice_link`` call, so payload trust is fine; the
@@ -118,35 +121,31 @@ class TelegramStarsMixin:
                 )
                 return True
 
-            rubles_amount = TelegramStarsService.calculate_rubles_from_stars(stars_amount)
-            reconstructed_kopeks = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
-
-            payload_kopeks = self._parse_balance_topup_kopeks(payload)
-            if payload_kopeks is not None and self._is_payload_amount_plausible(
-                payload_kopeks=payload_kopeks,
-                reconstructed_kopeks=reconstructed_kopeks,
-            ):
-                amount_kopeks = payload_kopeks
-            else:
-                if payload_kopeks is not None:
-                    logger.warning(
-                        'Stars payload amount diverged from stars×rate; using reconstructed amount',
-                        payload_kopeks=payload_kopeks,
-                        reconstructed_kopeks=reconstructed_kopeks,
-                        stars_amount=stars_amount,
-                    )
-                amount_kopeks = reconstructed_kopeks
-
             simple_payload = self._parse_simple_subscription_payload(
                 payload,
                 user_id,
             )
 
-            transaction_description = (
-                f'Оплата подписки через Telegram Stars ({stars_amount} ⭐)'
-                if simple_payload
-                else f'Пополнение через Telegram Stars ({stars_amount} ⭐)'
-            )
+            if simple_payload:
+                amount_kopeks = self._legacy_stars_amount_kopeks(payload, stars_amount)
+            else:
+                # Balance top-up: Toman 1:1, the scale of users.balance_kopeks.
+                amount_kopeks = self._resolve_stars_topup_toman(payload, stars_amount)
+
+            user = await get_user_by_id(db, user_id)
+            if not user:
+                logger.error('Пользователь с ID не найден при обработке Stars платежа', user_id=user_id)
+                await db.rollback()
+                return False
+
+            if simple_payload:
+                transaction_description = f'Оплата подписки через Telegram Stars ({stars_amount} ⭐)'
+            else:
+                transaction_description = (
+                    get_texts(getattr(user, 'language', None))
+                    .t('STARS_TOPUP_LEDGER_DESC', 'Telegram Stars top-up: {amount} ({stars} ⭐)')
+                    .format(amount=settings.format_balance(amount_kopeks), stars=stars_amount)
+                )
             transaction_type = TransactionType.SUBSCRIPTION_PAYMENT if simple_payload else TransactionType.DEPOSIT
 
             # commit=False: транзакция флашится, но не коммитится здесь. Реальный
@@ -164,12 +163,6 @@ class TelegramStarsMixin:
                 is_completed=True,
                 commit=False,
             )
-
-            user = await get_user_by_id(db, user_id)
-            if not user:
-                logger.error('Пользователь с ID не найден при обработке Stars платежа', user_id=user_id)
-                await db.rollback()
-                return False
 
             if simple_payload:
                 return await self._finalize_simple_subscription_stars_payment(
@@ -200,6 +193,62 @@ class TelegramStarsMixin:
             except Exception:
                 pass
             return False
+
+    def _legacy_stars_amount_kopeks(self, payload: str, stars_amount: int) -> int:
+        """Upstream's ruble derivation (payload kopeks, else stars x RUB rate x 100).
+
+        Kept for the simple-subscription flow and for ``balance_*`` top-up invoices issued before
+        the Toman rate existed, so already-issued payloads keep crediting as they did.
+        """
+        rubles_amount = TelegramStarsService.calculate_rubles_from_stars(stars_amount)
+        reconstructed_kopeks = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
+
+        payload_kopeks = self._parse_balance_topup_kopeks(payload)
+        if payload_kopeks is not None and self._is_payload_amount_plausible(
+            payload_kopeks=payload_kopeks,
+            reconstructed_kopeks=reconstructed_kopeks,
+        ):
+            return payload_kopeks
+        if payload_kopeks is not None:
+            logger.warning(
+                'Stars payload amount diverged from stars×rate; using reconstructed amount',
+                payload_kopeks=payload_kopeks,
+                reconstructed_kopeks=reconstructed_kopeks,
+                stars_amount=stars_amount,
+            )
+        return reconstructed_kopeks
+
+    def _resolve_stars_topup_toman(self, payload: str, stars_amount: int) -> int:
+        """Toman to credit for a paid Stars balance top-up.
+
+        1. ``topup_toman_*`` payload: the Toman the invoice promised, unless it is far from what the
+           stars are worth at the current rate (bug catcher; the rate may also have been removed
+           since the invoice was issued, then the payload is trusted as-is).
+        2. Legacy ``balance_*`` payloads: upstream's handling, unchanged.
+        3. Anything else (admin test invoice, unknown producer): stars x Toman rate when set.
+        """
+        toman_payload = toman_rates.parse_toman_topup_payload(payload)
+        rate = toman_rates.stars_toman_rate()
+
+        if toman_payload is not None:
+            if rate is None:
+                return toman_payload.toman
+            stars_value = toman_rates.stars_to_toman(stars_amount)
+            tolerance = max(int(stars_value * 0.20), toman_rates.stars_to_toman(1))
+            if abs(toman_payload.toman - stars_value) <= tolerance:
+                return toman_payload.toman
+            logger.warning(
+                'Stars Toman payload diverged from stars x rate; crediting the stars value',
+                payload_toman=toman_payload.toman,
+                stars_value_toman=stars_value,
+                stars_amount=stars_amount,
+            )
+            return stars_value
+
+        if (payload or '').startswith('balance') or rate is None:
+            return self._legacy_stars_amount_kopeks(payload, stars_amount)
+
+        return toman_rates.stars_to_toman(stars_amount)
 
     @staticmethod
     def _parse_balance_topup_kopeks(payload: str) -> int | None:
@@ -602,7 +651,7 @@ class TelegramStarsMixin:
             description=transaction.description,
         )
 
-        description_for_referral = f'Пополнение Stars: {settings.format_price(amount_kopeks)} ({stars_amount} ⭐)'
+        description_for_referral = f'Пополнение Stars: {settings.format_balance(amount_kopeks)} ({stars_amount} ⭐)'
         logger.info('🔍 Проверка реферальной логики для описания', description_for_referral=description_for_referral)
 
         lower_description = description_for_referral.lower()
@@ -617,10 +666,11 @@ class TelegramStarsMixin:
             try:
                 from app.services.referral_service import process_referral_topup
 
+                # amount_kopeks is the Toman balance credit; the referral service expects catalog x100.
                 await process_referral_topup(
                     db,
                     user.id,
-                    amount_kopeks,
+                    kopeks_from_display_amount(amount_kopeks),
                     getattr(self, 'bot', None),
                 )
             except Exception as error:  # pragma: no cover - диагностический лог
@@ -676,6 +726,6 @@ class TelegramStarsMixin:
             '✅ Обработан Stars платеж',
             user_id=user.id,
             stars_amount=stars_amount,
-            format_price=settings.format_price(amount_kopeks),
+            credited=settings.format_balance(amount_kopeks),
         )
         return True

@@ -7,11 +7,15 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.database.crud.transaction import get_transaction_by_external_id
 from app.database.crud.user import get_user_by_telegram_id
+from app.database.models import PaymentMethod
 from app.external.telegram_stars import TelegramStarsService
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import Texts, get_texts
 from app.services.payment_service import PaymentService
+from app.utils.price_display import format_transaction_amount_for_display
+from app.utils.toman_rates import TOMAN_TOPUP_PAYLOAD_PREFIX
 
 
 logger = structlog.get_logger(__name__)
@@ -455,7 +459,15 @@ async def handle_pre_checkout_query(query: types.PreCheckoutQuery):
             invoice_payload=query.invoice_payload,
         )
 
-        allowed_prefixes = ('balance_', 'admin_stars_test_', 'simple_sub_', 'wheel_spin_', 'trial_', 'guest_purchase_')
+        allowed_prefixes = (
+            'balance_',
+            f'{TOMAN_TOPUP_PAYLOAD_PREFIX}_',
+            'admin_stars_test_',
+            'simple_sub_',
+            'wheel_spin_',
+            'trial_',
+            'guest_purchase_',
+        )
 
         if not query.invoice_payload or not query.invoice_payload.startswith(allowed_prefixes):
             logger.warning('Невалидный payload', invoice_payload=query.invoice_payload)
@@ -610,9 +622,17 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
         )
 
         if success:
-            rubles_amount = TelegramStarsService.calculate_rubles_from_stars(payment.total_amount)
-            amount_kopeks = int((rubles_amount * Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
-            amount_text = settings.format_price(amount_kopeks).replace(' ₽', '')
+            # Show what was actually credited (the Transaction just written), on its own scale —
+            # never a stars x ruble-rate re-computation.
+            transaction = await get_transaction_by_external_id(
+                db, payment.telegram_payment_charge_id, PaymentMethod.TELEGRAM_STARS
+            )
+            if transaction is not None:
+                amount_text = format_transaction_amount_for_display(
+                    transaction.amount_kopeks, transaction.type, texts.format_balance, texts.format_price
+                )
+            else:
+                amount_text = '—'
 
             keyboard = await payment_service.build_topup_success_keyboard(user)
 
@@ -623,7 +643,7 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
                     'STARS_PAYMENT_SUCCESS',
                     '🎉 <b>Платеж успешно обработан!</b>\n\n'
                     '⭐ Потрачено звезд: {stars_spent}\n'
-                    '💰 Зачислено на баланс: {amount} ₽\n'
+                    '💰 Зачислено на баланс: {amount}\n'
                     '🆔 ID транзакции: {transaction_id}...\n\n'
                     'Спасибо за пополнение! 🚀',
                 ).format(
@@ -639,7 +659,7 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
                 '✅ Stars платеж успешно обработан',
                 user_id=user.id,
                 total_amount=payment.total_amount,
-                format_price=settings.format_price(amount_kopeks),
+                credited=amount_text,
             )
         else:
             logger.error('Ошибка обработки Stars платежа для пользователя', user_id=user.id)

@@ -44,6 +44,8 @@ from app.database.models import (
     WataPayment,
     YooKassaPayment,
 )
+from app.utils.price_display import kopeks_from_display_amount
+from app.utils.toman_rates import parse_toman_topup_payload
 
 
 logger = structlog.get_logger(__name__)
@@ -530,6 +532,11 @@ def _is_cispay_pending(payment: CisPayPayment) -> bool:
 
 def _parse_cryptobot_amount_kopeks(payment: CryptoBotPayment) -> int:
     payload = payment.payload or ''
+    # Toman top-up invoices name the Toman credit; report it on the top-up scale (Toman x100)
+    # that the cabinet and admin screens divide by 100 for display.
+    toman_payload = parse_toman_topup_payload(payload)
+    if toman_payload is not None:
+        return kopeks_from_display_amount(toman_payload.toman)
     match = re.search(r'_(\d+)$', payload)
     if match:
         try:
@@ -1149,7 +1156,8 @@ async def _fetch_stars_transactions(db: AsyncSession, cutoff: datetime) -> list[
             PaymentMethod.TELEGRAM_STARS,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            amount_kopeks=transaction.amount_kopeks,
+            # DEPOSIT rows are Toman 1:1; records carry the top-up scale (Toman x100).
+            amount_kopeks=kopeks_from_display_amount(transaction.amount_kopeks),
             status='paid' if transaction.is_completed else 'pending',
             is_paid=bool(transaction.is_completed),
         )
@@ -1533,7 +1541,8 @@ async def get_payment_record(
             method,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            amount_kopeks=transaction.amount_kopeks,
+            # DEPOSIT rows are Toman 1:1; records carry the top-up scale (Toman x100).
+            amount_kopeks=kopeks_from_display_amount(transaction.amount_kopeks),
             status='paid' if transaction.is_completed else 'pending',
             is_paid=bool(transaction.is_completed),
         )

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, TransactionType
+from app.localization.texts import get_texts
 from app.services.pricing_engine import RenewalPricing, pricing_engine
 from app.services.subscription_renewal_service import (
     RenewalPaymentDescriptor,
@@ -23,9 +24,10 @@ from app.services.subscription_renewal_service import (
     decode_payment_payload,
     parse_payment_metadata,
 )
+from app.utils import toman_rates
 from app.utils.currency_converter import currency_converter
 from app.utils.payment_logger import payment_logger as logger
-from app.utils.price_display import catalog_price_in_toman
+from app.utils.price_display import catalog_price_in_toman, kopeks_from_display_amount
 from app.utils.user_utils import format_referrer_info
 
 
@@ -122,6 +124,33 @@ class CryptoBotPaymentMixin:
         except Exception as error:
             logger.error('Ошибка создания CryptoBot платежа', error=error)
             return None
+
+    async def _legacy_cryptobot_rub_credit(self, amount_usd: float, invoice_id: str) -> tuple[int, float, float]:
+        """Upstream's credit for invoices without a Toman payload: live USD→RUB, rubles x100.
+
+        Kept unchanged so invoices issued before the fixed Toman rate keep crediting as they did.
+        Returns ``(amount_kopeks, amount_rubles_rounded, conversion_rate)``.
+        """
+        try:
+            amount_rubles = await currency_converter.usd_to_rub(amount_usd)
+            amount_rubles_rounded = math.ceil(amount_rubles)
+            amount_kopeks = int(amount_rubles_rounded * 100)
+            conversion_rate = amount_rubles / amount_usd if amount_usd > 0 else 0
+            logger.info(
+                'Конвертация USD->RUB',
+                amount_usd=amount_usd,
+                amount_rubles=amount_rubles,
+                amount_rubles_rounded=amount_rubles_rounded,
+                conversion_rate=conversion_rate,
+            )
+        except Exception as error:
+            logger.warning(
+                'Ошибка конвертации валют для платежа , используем курс 1:1', invoice_id=invoice_id, error=error
+            )
+            amount_rubles_rounded = math.ceil(amount_usd)
+            amount_kopeks = int(amount_rubles_rounded * 100)
+            conversion_rate = 1.0
+        return amount_kopeks, amount_rubles_rounded, conversion_rate
 
     async def process_cryptobot_webhook(
         self,
@@ -246,28 +275,42 @@ class CryptoBotPaymentMixin:
                     return True
 
             if not updated_payment.transaction_id:
+                payment_service_module = import_module('app.services.payment_service')
+                get_user_by_id = payment_service_module.get_user_by_id
+                user = await get_user_by_id(db, updated_payment.user_id)
+                if not user:
+                    logger.error('Пользователь с ID не найден при пополнении баланса', user_id=updated_payment.user_id)
+                    return False
+
+                # Invoices issued with the fixed Toman rate name the Toman to credit in their payload;
+                # credit exactly that, whatever the rate is now. Older payloads keep the ruble path.
+                toman_payload = toman_rates.parse_toman_topup_payload(getattr(updated_payment, 'payload', '') or '')
+                user_texts = get_texts(getattr(user, 'language', None))
                 amount_usd = updated_payment.amount_float
 
-                try:
-                    amount_rubles = await currency_converter.usd_to_rub(amount_usd)
-                    amount_rubles_rounded = math.ceil(amount_rubles)
-                    amount_kopeks = int(amount_rubles_rounded * 100)
-                    conversion_rate = amount_rubles / amount_usd if amount_usd > 0 else 0
-                    logger.info(
-                        'Конвертация USD->RUB',
-                        amount_usd=amount_usd,
-                        amount_rubles=amount_rubles,
-                        amount_rubles_rounded=amount_rubles_rounded,
-                        conversion_rate=conversion_rate,
+                if toman_payload is not None:
+                    amount_kopeks = toman_payload.toman  # Toman 1:1, the users.balance_kopeks scale
+                    referral_amount_kopeks = kopeks_from_display_amount(amount_kopeks)
+                    amount_rubles_rounded = amount_kopeks
+                    conversion_rate = 0.0
+                    transaction_description = user_texts.t(
+                        'CRYPTOBOT_TOPUP_LEDGER_DESC', 'CryptoBot top-up: {amount} ({paid} {asset})'
+                    ).format(
+                        amount=settings.format_balance(amount_kopeks),
+                        paid=updated_payment.amount,
+                        asset=updated_payment.asset,
                     )
-                except Exception as error:
-                    logger.warning(
-                        'Ошибка конвертации валют для платежа , используем курс 1:1', invoice_id=invoice_id, error=error
+                else:
+                    (
+                        amount_kopeks,
+                        amount_rubles_rounded,
+                        conversion_rate,
+                    ) = await self._legacy_cryptobot_rub_credit(amount_usd, invoice_id)
+                    referral_amount_kopeks = amount_kopeks
+                    transaction_description = (
+                        'Пополнение через CryptoBot '
+                        f'({updated_payment.amount} {updated_payment.asset} → {amount_rubles_rounded:.2f}₽)'
                     )
-                    amount_rubles = amount_usd
-                    amount_rubles_rounded = math.ceil(amount_rubles)
-                    amount_kopeks = int(amount_rubles_rounded * 100)
-                    conversion_rate = 1.0
 
                 if amount_kopeks <= 0:
                     logger.error(
@@ -277,16 +320,12 @@ class CryptoBotPaymentMixin:
                     )
                     return False
 
-                payment_service_module = import_module('app.services.payment_service')
                 transaction = await payment_service_module.create_transaction(
                     db,
                     user_id=updated_payment.user_id,
                     type=TransactionType.DEPOSIT,
                     amount_kopeks=amount_kopeks,
-                    description=(
-                        'Пополнение через CryptoBot '
-                        f'({updated_payment.amount} {updated_payment.asset} → {amount_rubles_rounded:.2f}₽)'
-                    ),
+                    description=transaction_description,
                     payment_method=PaymentMethod.CRYPTOBOT,
                     external_id=invoice_id,
                     is_completed=True,
@@ -295,12 +334,6 @@ class CryptoBotPaymentMixin:
                 )
 
                 await cryptobot_crud.link_cryptobot_payment_to_transaction(db, invoice_id, transaction.id)
-
-                get_user_by_id = payment_service_module.get_user_by_id
-                user = await get_user_by_id(db, updated_payment.user_id)
-                if not user:
-                    logger.error('Пользователь с ID не найден при пополнении баланса', user_id=updated_payment.user_id)
-                    return False
 
                 # Lock user row to prevent concurrent balance race conditions
                 from app.database.crud.user import lock_user_for_update
@@ -337,7 +370,7 @@ class CryptoBotPaymentMixin:
                     await process_referral_topup(
                         db,
                         user.id,
-                        amount_kopeks,
+                        referral_amount_kopeks,
                         getattr(self, 'bot', None),
                     )
                 except Exception as error:
@@ -364,14 +397,26 @@ class CryptoBotPaymentMixin:
 
                     try:
                         keyboard = await self.build_topup_success_keyboard(user)
-                        message_text = (
-                            '✅ <b>Пополнение успешно!</b>\n\n'
-                            f'💰 Сумма: {settings.format_price(amount_kopeks)}\n'
-                            f'🪙 Платеж: {updated_payment.amount} {updated_payment.asset}\n'
-                            f'💱 Курс: 1 USD = {conversion_rate:.2f}₽\n'
-                            f'🆔 Транзакция: {invoice_id[:8]}...\n\n'
-                            'Баланс пополнен автоматически!'
-                        )
+                        if toman_payload is not None:
+                            message_text = user_texts.t(
+                                'CRYPTOBOT_TOPUP_SUCCESS',
+                                '✅ <b>Top-up successful!</b>\n\n💰 Amount: {amount}\n🪙 Paid: {paid} {asset}\n'
+                                '🆔 Transaction: {transaction_id}...\n\nYour balance has been topped up.',
+                            ).format(
+                                amount=user_texts.format_balance(amount_kopeks),
+                                paid=updated_payment.amount,
+                                asset=updated_payment.asset,
+                                transaction_id=invoice_id[:8],
+                            )
+                        else:
+                            message_text = (
+                                '✅ <b>Пополнение успешно!</b>\n\n'
+                                f'💰 Сумма: {settings.format_price(amount_kopeks)}\n'
+                                f'🪙 Платеж: {updated_payment.amount} {updated_payment.asset}\n'
+                                f'💱 Курс: 1 USD = {conversion_rate:.2f}₽\n'
+                                f'🆔 Транзакция: {invoice_id[:8]}...\n\n'
+                                'Баланс пополнен автоматически!'
+                            )
                         if settings.is_notifications_enabled():
                             user_notification = _UserNotificationPayload(
                                 telegram_id=user.telegram_id,

@@ -30,6 +30,7 @@ from app.services.subscription_renewal_service import (
     encode_payment_payload,
 )
 from app.utils.price_display import catalog_price_in_toman
+from app.utils.toman_rates import parse_toman_topup_payload
 from app.webapi.routes import miniapp
 from app.webapi.schemas.miniapp import (
     MiniAppPaymentCreateRequest,
@@ -1094,9 +1095,10 @@ async def test_resolve_wata_payment_status_uses_payment_link_lookup(monkeypatch)
 
 
 @pytest.mark.anyio('asyncio')
-async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
+async def test_create_payment_link_stars_quotes_toman_rate(monkeypatch):
+    """Miniapp Stars top-up: amount arrives as Toman x100, stars come from the fixed Toman rate."""
     monkeypatch.setattr(settings, 'TELEGRAM_STARS_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'TELEGRAM_STARS_RATE_RUB', 1000.0, raising=False)
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_TOMAN_PER_STAR', 1850, raising=False)
     monkeypatch.setattr(settings, 'BOT_TOKEN', 'test-token', raising=False)
 
     captured = {}
@@ -1112,11 +1114,13 @@ async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
             payload,
             *,
             stars_amount=None,
+            title=None,
         ):
             captured['amount_kopeks'] = amount_kopeks
             captured['description'] = description
             captured['payload'] = payload
             captured['stars_amount'] = stars_amount
+            captured['title'] = title
             return 'https://invoice.example'
 
     class DummySession:
@@ -1133,7 +1137,7 @@ async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
             self.session = DummySession()
 
     async def fake_resolve_user(db, init_data):
-        return types.SimpleNamespace(id=7, telegram_id=7, language='ru'), {}
+        return types.SimpleNamespace(id=7, telegram_id=7, language='fa'), {}
 
     monkeypatch.setattr(miniapp, 'PaymentService', DummyPaymentService)
     monkeypatch.setattr(miniapp, 'create_bot', lambda token=None, **kwargs: DummyBot(token or settings.BOT_TOKEN))
@@ -1142,28 +1146,48 @@ async def test_create_payment_link_stars_normalizes_amount(monkeypatch):
     payload = MiniAppPaymentCreateRequest(
         initData='data',
         method='stars',
-        amountKopeks=101000,
+        amountKopeks=5_000_000,
     )
 
     response = await miniapp.create_payment_link(payload, db=types.SimpleNamespace())
 
+    # 50,000 T at 1,850 T/star → 28 stars, worth 51,800 T (reported on the x100 scale).
     assert response.payment_url == 'https://invoice.example'
-    assert response.amount_kopeks == 100000
-    assert response.extra['stars_amount'] == 1
-    assert response.extra['requested_amount_kopeks'] == 101000
-    assert captured['amount_kopeks'] == 100000
-    assert captured['stars_amount'] == 1
+    assert response.amount_kopeks == 5_180_000
+    assert response.extra['stars_amount'] == 28
+    assert response.extra['requested_amount_kopeks'] == 5_000_000
+    assert captured['stars_amount'] == 28
+    assert parse_toman_topup_payload(captured['payload']).toman == 51_800
+    assert '₽' not in captured['description']
     assert captured['bot_token'] == 'test-token'
     assert captured.get('session_closed') is True
 
 
 @pytest.mark.anyio('asyncio')
-async def test_get_payment_methods_exposes_stars_min_amount(monkeypatch):
+async def test_create_payment_link_stars_refused_without_toman_rate(monkeypatch):
     monkeypatch.setattr(settings, 'TELEGRAM_STARS_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'TELEGRAM_STARS_RATE_RUB', 999.99, raising=False)
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_TOMAN_PER_STAR', None, raising=False)
 
     async def fake_resolve_user(db, init_data):
-        return types.SimpleNamespace(id=1, language='ru'), {}
+        return types.SimpleNamespace(id=7, telegram_id=7, language='fa'), {}
+
+    monkeypatch.setattr(miniapp, '_resolve_user_from_init_data', fake_resolve_user)
+
+    with pytest.raises(miniapp.HTTPException) as exc:
+        await miniapp.create_payment_link(
+            MiniAppPaymentCreateRequest(initData='data', method='stars', amountKopeks=5_000_000),
+            db=types.SimpleNamespace(),
+        )
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.anyio('asyncio')
+async def test_get_payment_methods_exposes_stars_toman_limits(monkeypatch):
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_TOMAN_PER_STAR', 1850, raising=False)
+
+    async def fake_resolve_user(db, init_data):
+        return types.SimpleNamespace(id=1, language='fa'), {}
 
     monkeypatch.setattr(miniapp, '_resolve_user_from_init_data', fake_resolve_user)
 
@@ -1173,10 +1197,108 @@ async def test_get_payment_methods_exposes_stars_min_amount(monkeypatch):
 
     stars_method = next((method for method in response.methods if method.id == 'stars'), None)
     assert stars_method is not None
-    assert stars_method.min_amount_kopeks == 99999
-    assert stars_method.amount_step_kopeks == 99999
+    assert stars_method.min_amount_kopeks == 185_000
+    assert stars_method.max_amount_kopeks == 1_850_000_000
+    assert stars_method.amount_step_kopeks == 185_000
     assert stars_method.integration_type == MiniAppPaymentIntegrationType.REDIRECT
     assert stars_method.iframe_config is None
+
+
+@pytest.mark.anyio('asyncio')
+async def test_get_payment_methods_hides_stars_and_cryptobot_without_toman_rate(monkeypatch):
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'TELEGRAM_STARS_TOMAN_PER_STAR', None, raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_API_TOKEN', '1:test', raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_TOMAN_PER_USDT', None, raising=False)
+
+    async def fake_resolve_user(db, init_data):
+        return types.SimpleNamespace(id=1, language='fa'), {}
+
+    monkeypatch.setattr(miniapp, '_resolve_user_from_init_data', fake_resolve_user)
+    response = await miniapp.get_payment_methods(
+        MiniAppPaymentMethodsRequest(initData='abc'), db=types.SimpleNamespace()
+    )
+    assert not any(method.id in {'stars', 'cryptobot'} for method in response.methods)
+
+
+@pytest.mark.anyio('asyncio')
+async def test_get_payment_methods_exposes_cryptobot_toman_limits(monkeypatch):
+    monkeypatch.setattr(settings, 'CRYPTOBOT_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_API_TOKEN', '1:test', raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_DEFAULT_ASSET', 'USDT', raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_TOMAN_PER_USDT', 95_000, raising=False)
+
+    async def fake_resolve_user(db, init_data):
+        return types.SimpleNamespace(id=1, language='fa'), {}
+
+    async def ruble_rate_must_not_be_used():
+        raise AssertionError('CryptoBot top-up must not use the live USD→RUB rate')
+
+    monkeypatch.setattr(miniapp, '_resolve_user_from_init_data', fake_resolve_user)
+    monkeypatch.setattr(miniapp, '_get_usd_to_rub_rate', ruble_rate_must_not_be_used)
+    response = await miniapp.get_payment_methods(
+        MiniAppPaymentMethodsRequest(initData='abc'), db=types.SimpleNamespace()
+    )
+    crypto = next(method for method in response.methods if method.id == 'cryptobot')
+    assert crypto.min_amount_kopeks == 9_500_000
+    assert crypto.max_amount_kopeks == 9_500_000_000
+
+
+def _setup_cryptobot_topup(monkeypatch) -> dict[str, Any]:
+    monkeypatch.setattr(settings, 'CRYPTOBOT_ENABLED', True, raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_API_TOKEN', '1:test', raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_DEFAULT_ASSET', 'USDT', raising=False)
+    monkeypatch.setattr(settings, 'CRYPTOBOT_TOMAN_PER_USDT', 95_000, raising=False)
+    captured: dict[str, Any] = {}
+
+    class DummyPaymentService:
+        async def create_cryptobot_payment(self, db, **kwargs):
+            captured.update(kwargs)
+            return {'local_payment_id': 1, 'invoice_id': '77', 'bot_invoice_url': 'https://t.me/CryptoBot?start=IV77'}
+
+    async def fake_resolve_user(db, init_data):
+        return types.SimpleNamespace(id=7, telegram_id=7, language='fa'), {}
+
+    async def ruble_rate_must_not_be_used():
+        raise AssertionError('CryptoBot top-up must not use the live USD→RUB rate')
+
+    monkeypatch.setattr(miniapp, 'PaymentService', DummyPaymentService)
+    monkeypatch.setattr(miniapp, '_resolve_user_from_init_data', fake_resolve_user)
+    monkeypatch.setattr(miniapp, '_get_usd_to_rub_rate', ruble_rate_must_not_be_used)
+    return captured
+
+
+@pytest.mark.anyio('asyncio')
+async def test_create_payment_link_cryptobot_quotes_toman_rate(monkeypatch):
+    captured = _setup_cryptobot_topup(monkeypatch)
+
+    response = await miniapp.create_payment_link(
+        MiniAppPaymentCreateRequest(initData='data', method='cryptobot', amountKopeks=20_000_000),
+        db=types.SimpleNamespace(),
+    )
+
+    assert Decimal(str(captured['amount_usd'])) == Decimal('2.11')
+    assert captured['asset'] == 'USDT'
+    assert parse_toman_topup_payload(captured['payload']).toman == 200_000
+    assert '₽' not in captured['description']
+    assert response.amount_kopeks == 20_000_000
+    assert response.payment_url == 'https://t.me/CryptoBot?start=IV77'
+
+
+@pytest.mark.anyio('asyncio')
+async def test_create_payment_link_cryptobot_minimum_is_in_toman(monkeypatch):
+    captured = _setup_cryptobot_topup(monkeypatch)
+
+    with pytest.raises(miniapp.HTTPException) as exc:
+        await miniapp.create_payment_link(
+            MiniAppPaymentCreateRequest(initData='data', method='cryptobot', amountKopeks=5_000_000),
+            db=types.SimpleNamespace(),
+        )
+    assert exc.value.status_code == 400
+    assert 'RUB' not in exc.value.detail
+    assert '95,000' in exc.value.detail
+    assert captured == {}
 
 
 @pytest.mark.anyio('asyncio')

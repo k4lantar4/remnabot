@@ -7,6 +7,8 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database.models import PaymentMethodConfig, PromoGroup
+from app.utils import toman_rates
+from app.utils.price_display import kopeks_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
@@ -41,15 +43,29 @@ def get_display_name_override(method_id: str) -> str | None:
 # ============ Default method definitions ============
 
 
+def _toman_rate_limits(is_ready, limits_toman) -> dict:
+    """Default min/max for a method quoted from a fixed Toman rate (Stars, CryptoBot).
+
+    Top-up amounts travel between cabinet/bot and these limits as Toman x100, so the Toman limits
+    are put on that scale. Without a rate the method is not configured and the limits are moot.
+    """
+    if not is_ready():
+        return {'default_min': 0, 'default_max': 0}
+    min_toman, max_toman = limits_toman()
+    return {
+        'default_min': kopeks_from_display_amount(min_toman),
+        'default_max': kopeks_from_display_amount(max_toman),
+    }
+
+
 # Mapping: method_id -> (default_display_name_func, is_configured_func, default_min, default_max, has_sub_options)
 def _get_method_defaults() -> dict:
     """Get default configuration for each payment method based on env vars."""
     return {
         'telegram_stars': {
             'default_display_name': settings.get_telegram_stars_display_name(),
-            'is_configured': settings.TELEGRAM_STARS_ENABLED,
-            'default_min': 100,
-            'default_max': 1000000,
+            'is_configured': toman_rates.is_stars_toman_ready(),
+            **_toman_rate_limits(toman_rates.is_stars_toman_ready, toman_rates.stars_topup_limits_toman),
             'available_sub_options': None,
         },
         'tribute': {
@@ -61,9 +77,8 @@ def _get_method_defaults() -> dict:
         },
         'cryptobot': {
             'default_display_name': settings.get_cryptobot_display_name(),
-            'is_configured': settings.is_cryptobot_enabled(),
-            'default_min': 1000,
-            'default_max': 10000000,
+            'is_configured': settings.is_cryptobot_enabled() and toman_rates.is_cryptobot_toman_ready(),
+            **_toman_rate_limits(toman_rates.is_cryptobot_toman_ready, toman_rates.cryptobot_topup_limits_toman),
             'available_sub_options': None,
         },
         'heleket': {

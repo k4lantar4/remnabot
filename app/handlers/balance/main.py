@@ -24,6 +24,7 @@ from app.utils.decorators import error_handler
 from app.utils.price_display import (
     balance_from_display_amount,
     is_balance_scale_transaction,
+    kopeks_from_display_amount,
     missing_toman,
     user_can_afford,
 )
@@ -41,6 +42,10 @@ CREDIT_TRANSACTION_TYPES: frozenset[str] = frozenset(
         TransactionType.POLL_REWARD.value,
     }
 )
+
+
+# Top-up methods quoted from a fixed Toman rate (app/utils/toman_rates.py).
+_TOMAN_RATE_METHODS = frozenset({'stars', 'cryptobot'})
 
 
 async def route_payment_by_method(
@@ -608,11 +613,15 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
 
         if payment_method == 'c2c':
             amount_kopeks = balance_from_display_amount(amount_text)
+        elif payment_method in _TOMAN_RATE_METHODS:
+            # Typed Toman (fa digits, separators) → the Toman x100 scale these handlers take; their
+            # own limits come from the fixed Toman rate, not the ruble bounds below.
+            amount_kopeks = kopeks_from_display_amount(balance_from_display_amount(amount_text))
         else:
             amount_rubles = float(amount_text.replace(',', '.'))
             amount_kopeks = int(amount_rubles * 100)
 
-        if payment_method != 'c2c':
+        if payment_method != 'c2c' and payment_method not in _TOMAN_RATE_METHODS:
             if amount_rubles < 1:
                 await message.answer(
                     'Минимальная сумма пополнения: 1 ₽',
