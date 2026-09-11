@@ -46,10 +46,9 @@ def resolve_config_method_id(method: str) -> str:
     return METHOD_CONFIG_IDS.get(method, method)
 
 
-def format_quick_amount(amount_kopeks: int) -> str:
-    if amount_kopeks % 100 == 0:
-        return f'{amount_kopeks // 100} ₽'
-    return f'{amount_kopeks / 100:.2f} ₽'
+def format_quick_amount(amount_kopeks: int, language: str = DEFAULT_LANGUAGE) -> str:
+    # Quick amounts and method limits sit on the Toman ×100 top-up scale → the catalog formatter.
+    return get_texts(language).format_price(amount_kopeks)
 
 
 async def _load_quick_amounts(db: AsyncSession, method: str, min_amount_kopeks: int | None = None) -> list[int]:
@@ -95,7 +94,7 @@ async def get_topup_amount_keyboard(
     for amount in amounts:
         row.append(
             InlineKeyboardButton(
-                text=format_quick_amount(amount),
+                text=format_quick_amount(amount, language),
                 callback_data=f'topup_amount|{method}|{amount}',
             )
         )

@@ -624,14 +624,18 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
         if payment_method != 'c2c' and payment_method not in _TOMAN_RATE_METHODS:
             if amount_rubles < 1:
                 await message.answer(
-                    'Минимальная сумма пополнения: 1 ₽',
+                    texts.t('TOPUP_AMOUNT_TOO_LOW', 'Minimum top-up amount: {amount}').format(
+                        amount=texts.format_price(100)
+                    ),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return
 
             if amount_rubles > 50000:
                 await message.answer(
-                    'Максимальная сумма пополнения: 50,000 ₽',
+                    texts.t('TOPUP_AMOUNT_TOO_HIGH', 'Maximum top-up amount: {amount}').format(
+                        amount=texts.format_price(5_000_000)
+                    ),
                     reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
                 )
                 return
