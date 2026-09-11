@@ -1880,7 +1880,7 @@
   "WEBHOOK_TORRENT_DETECTED": "🚫 <b>Torrent detected</b>\n\nTorrent traffic was detected on your connection{tariff_label}. Using torrents may result in subscription restrictions.",
   "WEBHOOK_CLOSE_BUTTON": "✖️ Close",
   "TRAFFIC_WARNING_ALERT": "⚠️ <b>Traffic Warning</b>\n\nUsed: {used:.1f} / {limit} GB ({percent:.0f}%)\n\nYour traffic limit is almost reached.",
-  "LOW_BALANCE_ALERT": "⚠️ <b>Low Balance</b>\n\nYour balance: {balance} ₽\nNotification threshold: {threshold} ₽\n\nTop up your balance to ensure automatic subscription renewal.",
+  "LOW_BALANCE_ALERT": "⚠️ <b>Low Balance</b>\n\nYour balance: {balance}\nNotification threshold: {threshold}\n\nTop up your balance to ensure automatic subscription renewal.",
   "SUBSCRIPTION_REVOKE_BTN": "🔄 Reissue Subscription",
   "SUBSCRIPTION_REVOKE_TITLE": "⚠️ Reissue Subscription",
   "SUBSCRIPTION_REVOKE_WARNING": "⚠️ <b>Reissue Subscription</b>\n\nThis action will:\n• Generate a new connection link\n• Disconnect all devices\n• The old link will stop working\n\nContinue?",
