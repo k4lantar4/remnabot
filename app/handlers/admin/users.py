@@ -2957,14 +2957,15 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
         text += '<b>Доходы от рефералов:</b>\n'
         text += f'• Всего приглашено: {referral_stats["invited_count"]}\n'
         text += f'• Активных рефералов: {referral_stats["active_referrals"]}\n'
-        text += f'• Общий доход: {settings.format_price(referral_stats["total_earned_kopeks"])}\n'
-        text += f'• Доход за месяц: {settings.format_price(referral_stats["month_earned_kopeks"])}\n'
+        # ReferralEarning sums are Toman 1:1 (balance scale) → format_balance.
+        text += f'• Общий доход: {settings.format_balance(referral_stats["total_earned_kopeks"])}\n'
+        text += f'• Доход за месяц: {settings.format_balance(referral_stats["month_earned_kopeks"])}\n'
 
         if referral_stats['referrals_detail']:
             text += '\n<b>Детали по рефералам:</b>\n'
             for detail in referral_stats['referrals_detail'][:5]:
                 referral_name = html.escape(detail['referral_name'])
-                earned = settings.format_price(detail['total_earned_kopeks'])
+                earned = settings.format_balance(detail['total_earned_kopeks'])
                 status = '🟢' if detail['is_active'] else '🔴'
                 text += f'• {status} {referral_name}: {earned}\n'
 
