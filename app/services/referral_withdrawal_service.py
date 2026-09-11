@@ -654,15 +654,19 @@ class ReferralWithdrawalService:
 
     def format_analysis_for_admin(self, analysis: dict) -> str:
         """Форматирует анализ для отображения админу."""
+        if not analysis:
+            # Заявка без сохранённого risk_analysis приходит сюда как {}.
+            return ''
+
         risk_emoji = {'low': '🟢', 'medium': '🟡', 'high': '🟠', 'critical': '🔴'}
 
-        text = f"""
-🔍 <b>Анализ на подозрительную активность</b>
-
-{risk_emoji.get(analysis['risk_level'], '⚪')} Уровень риска: <b>{analysis['risk_level'].upper()}</b>
-📊 Оценка риска: <b>{analysis['risk_score']}/100</b>
-{analysis.get('recommendation_text', '')}
-"""
+        text = '\n🔍 <b>Анализ на подозрительную активность</b>\n\n'
+        if analysis.get('risk_level'):
+            risk_level = str(analysis['risk_level'])
+            text += f'{risk_emoji.get(risk_level, "⚪")} Уровень риска: <b>{risk_level.upper()}</b>\n'
+        if analysis.get('risk_score') is not None:
+            text += f'📊 Оценка риска: <b>{analysis["risk_score"]}/100</b>\n'
+        text += f'{analysis.get("recommendation_text", "")}\n'
 
         if analysis.get('flags'):
             text += '\n⚠️ <b>Предупреждения:</b>\n'
