@@ -22,7 +22,12 @@ from app.database.models import PaymentMethod, Subscription, TransactionType, Us
 from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
-from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
+from app.services.tariff_switch_policy import (
+    is_switch_direction_allowed,
+    remaining_days_for_switch,
+    should_reset_used_traffic,
+    switch_direction_refusal,
+)
 from app.utils.price_display import (
     catalog_price_in_toman,
     missing_toman,
@@ -152,15 +157,10 @@ async def preview_tariff_switch(
     is_upgrade = switch_result.is_upgrade
 
     # Проверяем разрешение на смену в данном направлении
-    if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
+    if not is_switch_direction_allowed(is_upgrade):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Повышение тарифа недоступно',
-        )
-    if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Понижение тарифа недоступно',
+            detail=switch_direction_refusal(is_upgrade),
         )
     base_upgrade_cost = switch_result.raw_cost
     discount_value = switch_result.discount_value
@@ -340,15 +340,10 @@ async def switch_tariff(
     new_period_days = switch_result.new_period_days
 
     # Проверяем разрешение на смену в данном направлении
-    if is_upgrade and not settings.TARIFF_SWITCH_UPGRADE_ENABLED:
+    if not is_switch_direction_allowed(is_upgrade):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Повышение тарифа недоступно',
-        )
-    if not is_upgrade and not settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Понижение тарифа недоступно',
+            detail=switch_direction_refusal(is_upgrade),
         )
 
     # Validate daily price for switching TO daily

@@ -9,7 +9,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.config import settings
-from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
+from app.database.models import Tariff
+from app.services.tariff_switch_policy import (
+    is_switch_direction_allowed,
+    remaining_days_for_switch,
+    should_reset_used_traffic,
+    switch_direction_refusal,
+    tariff_switch_allowed,
+)
 
 
 NOW = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
@@ -66,3 +73,54 @@ class TestTrafficReset:
         monkeypatch.setattr(settings, 'RESET_TRAFFIC_ON_TARIFF_SWITCH', False)
         assert should_reset_used_traffic(500_00) is False
         assert should_reset_used_traffic(0) is False
+
+
+def _tariff(tariff_id: int, monthly: int) -> Tariff:
+    return Tariff(
+        id=tariff_id,
+        name=f'T{tariff_id}',
+        is_active=True,
+        is_daily=False,
+        period_prices={'30': monthly},
+        daily_price_kopeks=0,
+        traffic_limit_gb=0,
+        device_limit=1,
+    )
+
+
+class TestSwitchDirection:
+    """Кабинет спрашивает то же правило, что и список смены в боте (F-001)."""
+
+    @pytest.mark.parametrize(
+        ('upgrade_ok', 'downgrade_ok', 'is_upgrade', 'expected'),
+        [
+            (True, True, True, True),
+            (True, True, False, True),
+            (True, False, True, True),
+            (True, False, False, False),
+            (False, True, True, False),
+            (False, True, False, True),
+        ],
+    )
+    def test_direction_follows_settings(self, monkeypatch, upgrade_ok, downgrade_ok, is_upgrade, expected):
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_UPGRADE_ENABLED', upgrade_ok)
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_DOWNGRADE_ENABLED', downgrade_ok)
+        assert is_switch_direction_allowed(is_upgrade) is expected
+
+    def test_refusal_carries_a_code(self):
+        assert switch_direction_refusal(True)['code'] == 'tariff_upgrade_disabled'
+        assert switch_direction_refusal(False)['code'] == 'tariff_downgrade_disabled'
+        assert switch_direction_refusal(False)['message']
+
+    def test_equal_price_counts_as_downgrade(self, monkeypatch):
+        """Тарифы 2 и 4 стоят одинаково: доплаты нет — это понижение."""
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_UPGRADE_ENABLED', True)
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_DOWNGRADE_ENABLED', False)
+        assert tariff_switch_allowed(_tariff(2, 20000), _tariff(4, 20000), 20) is False
+        assert tariff_switch_allowed(_tariff(2, 20000), _tariff(5, 10000), 20) is False
+        assert tariff_switch_allowed(_tariff(2, 20000), _tariff(6, 40000), 20) is True
+
+    def test_both_directions_enabled_skips_pricing(self, monkeypatch):
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_UPGRADE_ENABLED', True)
+        monkeypatch.setattr(settings, 'TARIFF_SWITCH_DOWNGRADE_ENABLED', True)
+        assert tariff_switch_allowed(_tariff(2, 20000), _tariff(4, 20000), 20) is True
