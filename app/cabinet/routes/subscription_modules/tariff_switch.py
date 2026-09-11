@@ -23,6 +23,12 @@ from app.services.pricing_engine import pricing_engine
 from app.services.remnawave_service import RemnaWaveService
 from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
+from app.utils.price_display import (
+    catalog_price_in_toman,
+    missing_toman,
+    missing_toman_on_catalog_scale,
+    user_can_afford,
+)
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import TariffPurchaseRequest
@@ -160,9 +166,10 @@ async def preview_tariff_switch(
     discount_value = switch_result.discount_value
     period_discount_percent = switch_result.effective_discount_pct
 
+    # balance is Toman 1:1; upgrade_cost is a catalog price (price_kopeks)
     balance = user.balance_kopeks or 0
-    has_enough = balance >= upgrade_cost
-    missing = max(0, upgrade_cost - balance) if not has_enough else 0
+    has_enough = user_can_afford(balance, upgrade_cost)
+    missing = missing_toman(balance, upgrade_cost)
 
     response: dict[str, Any] = {
         'can_switch': has_enough,
@@ -178,8 +185,10 @@ async def preview_tariff_switch(
         # юзер видит "Баланс 150 ₽, не хватает 0 ₽" и думает что баг.
         'balance_label': settings.format_balance(balance, round_kopeks=False),
         'has_enough_balance': has_enough,
-        'missing_amount_kopeks': missing,
-        'missing_amount_label': settings.format_price(missing, round_kopeks=False) if missing > 0 else '',
+        # The cabinet's InsufficientBalancePrompt renders this field as catalog kopeks (÷100 for the
+        # label and the prefilled top-up), so it carries the Toman shortfall on the catalog scale.
+        'missing_amount_kopeks': missing_toman_on_catalog_scale(balance, upgrade_cost),
+        'missing_amount_label': settings.format_balance(missing) if missing > 0 else '',
         'is_upgrade': is_upgrade,
     }
 
@@ -357,13 +366,13 @@ async def switch_tariff(
     # Charge if upgrade
     switch_transaction = None
     if upgrade_cost > 0:
-        if user.balance_kopeks < upgrade_cost:
-            missing = upgrade_cost - user.balance_kopeks
+        if not user_can_afford(user.balance_kopeks, upgrade_cost):
+            missing = missing_toman(user.balance_kopeks, upgrade_cost)  # Toman, like every 402 shortfall
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail={
                     'code': 'insufficient_funds',
-                    'message': f'Insufficient funds. Missing {settings.format_price(missing, round_kopeks=False)}',
+                    'message': f'Insufficient funds. Missing {settings.format_balance(missing)}',
                     'missing_amount': missing,
                 },
             )
@@ -379,10 +388,11 @@ async def switch_tariff(
         if period_discount_percent > 0 and discount_value > 0:
             description += f' (скидка {period_discount_percent}%)'
 
+        # Debit the Toman price; the transaction row below keeps the catalog upgrade_cost.
         success = await subtract_user_balance(
             db,
             user,
-            upgrade_cost,
+            catalog_price_in_toman(upgrade_cost),
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,
