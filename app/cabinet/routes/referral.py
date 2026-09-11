@@ -458,11 +458,12 @@ async def get_referral_terms(
         first_payment_commission_percent=settings.REFERRAL_FIRST_PAYMENT_COMMISSION_PERCENT,
         recurring_commission_tiers=settings.REFERRAL_RECURRING_COMMISSION_TIERS,
         minimum_topup_kopeks=settings.REFERRAL_MINIMUM_TOPUP_KOPEKS,
-        minimum_topup_rubles=settings.REFERRAL_MINIMUM_TOPUP_KOPEKS / 100,
+        # REFERRAL_*_KOPEKS are Toman 1:1: compared with the Toman top-up, credited to the Toman wallet.
+        minimum_topup_rubles=display_balance_from_storage(settings.REFERRAL_MINIMUM_TOPUP_KOPEKS),
         first_topup_bonus_kopeks=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
-        first_topup_bonus_rubles=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS / 100,
+        first_topup_bonus_rubles=display_balance_from_storage(settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS),
         inviter_bonus_kopeks=settings.REFERRAL_INVITER_BONUS_KOPEKS,
-        inviter_bonus_rubles=settings.REFERRAL_INVITER_BONUS_KOPEKS / 100,
+        inviter_bonus_rubles=display_balance_from_storage(settings.REFERRAL_INVITER_BONUS_KOPEKS),
         max_commission_payments=settings.REFERRAL_MAX_COMMISSION_PAYMENTS,
         partner_section_visible=settings.REFERRAL_PARTNER_SECTION_VISIBLE,
     )

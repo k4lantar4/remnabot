@@ -40,7 +40,15 @@ TEMPLATE_TYPES = [
             'zh': '余额充值通知',
             'ua': 'Сповіщення про поповнення балансу',
         },
-        'context_vars': ['formatted_amount', 'formatted_balance', 'amount_rubles', 'new_balance_rubles'],
+        'context_vars': [
+            'formatted_amount',
+            'formatted_balance',
+            'amount_rubles',
+            'new_balance_rubles',
+            # Same numbers under a name that says what they hold (Toman).
+            'amount_toman',
+            'new_balance_toman',
+        ],
     },
     {
         'type': 'balance_change',
@@ -131,7 +139,7 @@ TEMPLATE_TYPES = [
             'zh': '自动续费成功通知',
             'ua': 'Сповіщення про успішний автоплатіж',
         },
-        'context_vars': ['formatted_amount', 'amount_rubles', 'new_expires_at'],
+        'context_vars': ['formatted_amount', 'amount_rubles', 'amount_toman', 'new_expires_at'],
     },
     {
         'type': 'autopay_failed',
@@ -174,7 +182,15 @@ TEMPLATE_TYPES = [
             'zh': '每日扣费通知',
             'ua': 'Сповіщення про добове списання',
         },
-        'context_vars': ['formatted_amount', 'formatted_balance', 'amount_rubles', 'new_balance_rubles'],
+        'context_vars': [
+            'formatted_amount',
+            'formatted_balance',
+            'amount_rubles',
+            'new_balance_rubles',
+            # Same numbers under a name that says what they hold (Toman).
+            'amount_toman',
+            'new_balance_toman',
+        ],
     },
     {
         'type': 'daily_insufficient_funds',
@@ -242,6 +258,7 @@ TEMPLATE_TYPES = [
         'context_vars': [
             'formatted_bonus',
             'bonus_rubles',
+            'bonus_toman',
             'referral_name',
             # formatted_reward описывает награду целиком: деньги, дни или и то и другое.
             'formatted_reward',
@@ -372,7 +389,7 @@ TEMPLATE_TYPES = [
             'zh': '提现请求获批通知',
             'ua': 'Сповіщення про схвалення запиту на виведення коштів',
         },
-        'context_vars': ['formatted_amount', 'amount_rubles', 'comment'],
+        'context_vars': ['formatted_amount', 'amount_rubles', 'amount_toman', 'comment'],
     },
     {
         'type': 'withdrawal_rejected',
@@ -388,7 +405,7 @@ TEMPLATE_TYPES = [
             'zh': '提现请求被拒通知',
             'ua': 'Сповіщення про відхилення запиту на виведення коштів',
         },
-        'context_vars': ['formatted_amount', 'amount_rubles', 'comment'],
+        'context_vars': ['formatted_amount', 'amount_rubles', 'amount_toman', 'comment'],
     },
     {
         'type': 'guest_subscription_delivered',
@@ -465,10 +482,12 @@ TEMPLATE_TYPES = [
 
 SAMPLE_CONTEXTS: dict[str, dict[str, Any]] = {
     'balance_topup': {
-        'formatted_amount': '500.00 ₽',
-        'formatted_balance': '1500.00 ₽',
-        'amount_rubles': 500,
-        'new_balance_rubles': 1500,
+        'formatted_amount': '50,000 تومان',
+        'formatted_balance': '150,000 تومان',
+        'amount_rubles': 50000,
+        'new_balance_rubles': 150000,
+        'amount_toman': 50000,
+        'new_balance_toman': 150000,
     },
     'balance_change': {
         'formatted_amount': '-200.00 ₽',
@@ -493,26 +512,34 @@ SAMPLE_CONTEXTS: dict[str, dict[str, Any]] = {
         'traffic_limit_gb': 100,
         'device_limit': 3,
     },
-    'autopay_success': {'formatted_amount': '300.00 ₽', 'amount_rubles': 300, 'new_expires_at': '28.02.2026, 23:59'},
+    'autopay_success': {
+        'formatted_amount': '70,000 تومان',
+        'amount_rubles': 70000,
+        'amount_toman': 70000,
+        'new_expires_at': '28.02.2026, 23:59',
+    },
     'autopay_failed': {'reason': 'Card declined'},
     'autopay_insufficient_funds': {'required_amount': '300.00 ₽', 'current_balance': '50.00 ₽'},
     'daily_debit': {
-        'formatted_amount': '10.00 ₽',
-        'formatted_balance': '490.00 ₽',
-        'amount_rubles': 10,
-        'new_balance_rubles': 490,
+        'formatted_amount': '5,000 تومان',
+        'formatted_balance': '145,000 تومان',
+        'amount_rubles': 5000,
+        'new_balance_rubles': 145000,
+        'amount_toman': 5000,
+        'new_balance_toman': 145000,
     },
     'daily_insufficient_funds': {'required_amount': '10.00 ₽', 'current_balance': '5.00 ₽'},
     'ban_notification': {'reason': 'Violation of terms of service'},
     'unban_notification': {},
     'warning_notification': {'message': 'Please review our terms of service'},
     'referral_bonus': {
-        'formatted_bonus': '100.00 ₽',
-        'bonus_rubles': 100,
+        'formatted_bonus': '25,000 تومان',
+        'bonus_rubles': 25000,
+        'bonus_toman': 25000,
         'referral_name': 'John',
         # Награда может прийти днями подписки: без этих переменных превью
         # шаблона с днями рендерится пустым, и админ отправит в прод сломанный текст.
-        'formatted_reward': '100.00 ₽',
+        'formatted_reward': '25,000 تومان',
         'bonus_days': 7,
         'tariff_name': 'Pro',
         'level': 2,
@@ -529,8 +556,18 @@ SAMPLE_CONTEXTS: dict[str, dict[str, Any]] = {
     'email_change_code': {'username': 'John', 'code': '123456', 'expire_minutes': 10},
     'partner_application_approved': {'commission_percent': 20, 'comment': 'Welcome aboard!'},
     'partner_application_rejected': {'comment': 'Not enough details provided'},
-    'withdrawal_approved': {'formatted_amount': '1000.00 ₽', 'amount_rubles': 1000, 'comment': 'Processed'},
-    'withdrawal_rejected': {'formatted_amount': '1000.00 ₽', 'amount_rubles': 1000, 'comment': 'Invalid requisites'},
+    'withdrawal_approved': {
+        'formatted_amount': '60,000 تومان',
+        'amount_rubles': 60000,
+        'amount_toman': 60000,
+        'comment': 'Processed',
+    },
+    'withdrawal_rejected': {
+        'formatted_amount': '60,000 تومان',
+        'amount_rubles': 60000,
+        'amount_toman': 60000,
+        'comment': 'Invalid requisites',
+    },
     'guest_subscription_delivered': {
         'tariff_name': 'Premium',
         'period_days': 30,
@@ -596,7 +633,14 @@ def _validate_template_type(notification_type: str) -> dict[str, Any]:
 # f'{context.get("amount_rubles", 0):.2f}', which raises on a string placeholder.
 # Omitted from the placeholder context — defaults render via formatted_* anyway,
 # and at send time the real numeric values substitute {amount_rubles} fine.
-_NUMERIC_FALLBACK_VARS = {'amount_rubles', 'new_balance_rubles', 'bonus_rubles'}
+_NUMERIC_FALLBACK_VARS = {
+    'amount_rubles',
+    'new_balance_rubles',
+    'bonus_rubles',
+    'amount_toman',
+    'new_balance_toman',
+    'bonus_toman',
+}
 
 
 def _placeholder_context(notification_type: str) -> dict[str, Any]:
