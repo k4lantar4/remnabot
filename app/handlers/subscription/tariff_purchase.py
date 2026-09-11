@@ -25,7 +25,7 @@ from app.database.database import AsyncSessionLocal
 from app.database.models import Tariff, Transaction, TransactionType, User
 from app.localization.texts import Texts, get_texts
 from app.services.admin_notification_service import AdminNotificationService
-from app.services.balance_refund import refund_undelivered_debit
+from app.services.balance_refund import refund_undelivered_debit, restore_promo_offer, snapshot_promo_offer
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, should_reset_used_traffic
@@ -2296,6 +2296,7 @@ async def confirm_daily_tariff_purchase(
     except Exception:
         pass
 
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем первый день сразу
         success = await subtract_user_balance(
@@ -2405,6 +2406,7 @@ async def confirm_daily_tariff_purchase(
         try:
             from app.database.crud.user import add_user_balance
 
+            await restore_promo_offer(db, db_user, promo_snapshot)
             refund_success = await add_user_balance(
                 db,
                 db_user,
@@ -3070,6 +3072,7 @@ async def confirm_tariff_extend(
     # The debit commits on its own: until the extension is saved too, a failure must refund it.
     charged = delivered = False
     refund_reason = f'Возврат: ошибка продления тарифа {tariff.name} на {period} дней'
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем баланс
         success = await subtract_user_balance(
@@ -3208,7 +3211,9 @@ async def confirm_tariff_extend(
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(final_price), refund_reason)
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(final_price), refund_reason, promo_snapshot=promo_snapshot
+            )
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_RENEW_ERROR', '❌ Произошла ошибка при продлении подписки')
@@ -3866,6 +3871,7 @@ async def confirm_tariff_switch(
     # The debit commits on its own: until the switch is saved too, a failure must refund it.
     charged = delivered = False
     refund_reason = f'Возврат: ошибка смены тарифа на {tariff.name} ({period} дней)'
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем баланс
         success = await subtract_user_balance(
@@ -4056,7 +4062,9 @@ async def confirm_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при переключении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(final_price), refund_reason)
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(final_price), refund_reason, promo_snapshot=promo_snapshot
+            )
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
@@ -4150,6 +4158,7 @@ async def confirm_daily_tariff_switch(
     except Exception:
         pass
 
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем первый день сразу
         success = await subtract_user_balance(
@@ -4349,6 +4358,7 @@ async def confirm_daily_tariff_switch(
         try:
             from app.database.crud.user import add_user_balance
 
+            await restore_promo_offer(db, db_user, promo_snapshot)
             refund_success = await add_user_balance(
                 db,
                 db_user,
@@ -5088,6 +5098,8 @@ async def confirm_instant_switch(
     # The upgrade debit commits on its own: until the switch is saved too, a failure must refund it.
     charged = delivered = False
     refund_reason = f'Возврат: ошибка переключения на тариф {new_tariff.name}'
+    # Only the upgrade debit can be refunded: the daily first-day debit below delivers in its own commit.
+    promo_snapshot = snapshot_promo_offer(db_user, consume_promo)
     try:
         # Списываем баланс если это upgrade
         # upgrade_cost includes both group + offer discounts from PricingEngine
@@ -5400,7 +5412,9 @@ async def confirm_instant_switch(
     except Exception as e:
         logger.error('Ошибка при мгновенном переключении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(db, db_user, catalog_price_in_toman(upgrade_cost), refund_reason)
+            await refund_undelivered_debit(
+                db, db_user, catalog_price_in_toman(upgrade_cost), refund_reason, promo_snapshot=promo_snapshot
+            )
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
