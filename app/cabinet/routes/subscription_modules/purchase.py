@@ -48,6 +48,7 @@ from app.services.subscription_purchase_service import (
 )
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
+from app.services.tariff_switch_policy import remaining_days_for_switch, tariff_switch_allowed
 from app.services.user_cart_service import user_cart_service
 from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 from app.utils.pricing_utils import calculate_price_per_month, format_period_description
@@ -318,6 +319,29 @@ async def _build_tariff_response(
     return response
 
 
+def _switch_allowed_for(
+    tariff: Tariff,
+    current_tariff: Tariff | None,
+    subscription: Subscription | None,
+    user: User | None,
+) -> bool:
+    """Пропустит ли бот смену текущей подписки на ``tariff`` по направлению.
+
+    Судим только живую подписку на другом тарифе: истёкшая и пробная идут в
+    покупку, а не в смену (F-001).
+    """
+    if subscription is None or current_tariff is None or tariff.id == current_tariff.id:
+        return True
+    if subscription.actual_status != 'active':
+        return True
+    return tariff_switch_allowed(
+        current_tariff,
+        tariff,
+        remaining_days_for_switch(subscription.end_date),
+        user,
+    )
+
+
 @router.get('/purchase-options')
 async def get_purchase_options(
     user: User = Depends(get_current_cabinet_user),
@@ -371,10 +395,10 @@ async def get_purchase_options(
             # Free (0₽) source tariff: switching is blocked (free_tariff_cannot_switch,
             # TARIFF_SWITCH_RESET_FREE_DAYS) — frontend must offer the purchase flow
             # instead of the prorated switch.
-            subscription_on_free_tariff = False
-            if current_tariff_id and settings.TARIFF_SWITCH_RESET_FREE_DAYS:
-                _current_tariff = await get_tariff_by_id(db, current_tariff_id)
-                subscription_on_free_tariff = bool(_current_tariff is not None and _current_tariff.is_free)
+            _current_tariff = await get_tariff_by_id(db, current_tariff_id) if current_tariff_id else None
+            subscription_on_free_tariff = bool(
+                settings.TARIFF_SWITCH_RESET_FREE_DAYS and _current_tariff is not None and _current_tariff.is_free
+            )
 
             tariff_responses = []
             for tariff in tariffs:
@@ -384,6 +408,8 @@ async def get_purchase_options(
                     tariff_data['is_purchased'] = True
                 else:
                     tariff_data['is_purchased'] = False
+                # Direction the bot would refuse (e.g. equal price with downgrades off) — F-001
+                tariff_data['switch_allowed'] = _switch_allowed_for(tariff, _current_tariff, subscription, user)
                 tariff_responses.append(tariff_data)
 
             return {
