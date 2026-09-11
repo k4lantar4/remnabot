@@ -59,6 +59,7 @@ from app.services.guest_purchase_service import GuestPurchaseError
 from app.services.user_cart_service import user_cart_service
 from app.states import GiftActivationStates, GiftPurchaseStates
 from app.utils.gift_links import build_gift_claim_artifacts
+from app.utils.topup_suggestion import suggest_topup_amount_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -722,7 +723,7 @@ async def handle_gift_confirm(
         )
         return
     except GiftInsufficientBalanceError as err:
-        missing_amount = err.required_kopeks - err.available_kopeks
+        missing_amount = err.missing_toman  # Toman, like every saved cart's missing_amount
         cart_data = {
             'cart_mode': 'gift_purchase',
             'gift_checkout_id': checkout_id,
@@ -737,7 +738,7 @@ async def handle_gift_confirm(
         saved = await user_cart_service.save_user_cart(db_user.id, cart_data)
         if not saved:
             req_str = texts.format_price(err.required_kopeks)
-            avail_str = texts.format_price(err.available_kopeks)
+            avail_str = texts.format_balance(err.available_kopeks)
             msg = texts.t(
                 'GIFT_INSUFFICIENT_BALANCE_ERROR',
                 '❌ Недостаточно средств на балансе. Требуется: {required}, доступно: {available}.',
@@ -746,8 +747,8 @@ async def handle_gift_confirm(
             return
 
         req_str = texts.format_price(err.required_kopeks)
-        avail_str = texts.format_price(err.available_kopeks)
-        missing_str = texts.format_price(missing_amount)
+        avail_str = texts.format_balance(err.available_kopeks)
+        missing_str = texts.format_balance(missing_amount)
 
         text = texts.t(
             'GIFT_INSUFFICIENT_BALANCE_TITLE',
@@ -764,7 +765,7 @@ async def handle_gift_confirm(
         )
         reply_markup = get_insufficient_balance_keyboard(
             language=db_user.language,
-            amount_kopeks=missing_amount,
+            amount_kopeks=suggest_topup_amount_toman(missing_amount),  # Toman prefill
             resume_callback='return_to_gift_cart',
             has_saved_cart=True,
             resume_text=texts.t('GIFT_RETURN_TO_CART_BUTTON', '🎁 Вернуться к подарку'),

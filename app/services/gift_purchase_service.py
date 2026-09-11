@@ -26,6 +26,7 @@ from app.database.models import (
 )
 from app.services.guest_purchase_service import create_purchase
 from app.services.pricing_engine import RenewalPricing, pricing_engine
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -126,10 +127,15 @@ class GiftInsufficientBalanceError(GiftError):
 
     def __init__(self, required_kopeks: int, available_kopeks: int) -> None:
         super().__init__(
-            f'Insufficient balance: required {required_kopeks} kopeks, available {available_kopeks} kopeks'
+            f'Insufficient balance: required {required_kopeks} (catalog), available {available_kopeks} (Toman)'
         )
-        self.required_kopeks = required_kopeks
-        self.available_kopeks = available_kopeks
+        self.required_kopeks = required_kopeks  # catalog price_kopeks
+        self.available_kopeks = available_kopeks  # stored balance, Toman 1:1
+
+    @property
+    def missing_toman(self) -> int:
+        """Toman shortfall (balance scale) — for display and the top-up prefill."""
+        return missing_toman(self.available_kopeks, self.required_kopeks)
 
 
 class GiftPriceChangedError(GiftError):
@@ -408,7 +414,8 @@ async def purchase_gift_from_balance(
     if fresh_price != expected_price_kopeks:
         raise GiftPriceChangedError(expected_price_kopeks=expected_price_kopeks, fresh_quote=fresh_quote)
 
-    if buyer.balance_kopeks < fresh_price:
+    # balance is Toman 1:1; fresh_price is a catalog price
+    if not user_can_afford(buyer.balance_kopeks, fresh_price):
         raise GiftInsufficientBalanceError(required_kopeks=fresh_price, available_kopeks=buyer.balance_kopeks)
 
     # 6. Prepare contact & recipient info
@@ -444,10 +451,11 @@ async def purchase_gift_from_balance(
             commit=False,
         )
 
+        # Debit the Toman price; the gift_payment row below keeps the catalog fresh_price.
         balance_ok = await subtract_user_balance(
             db,
             buyer,
-            fresh_price,
+            catalog_price_in_toman(fresh_price),
             description=tx_description,
             create_transaction=False,
             consume_promo_offer=consume_promo,

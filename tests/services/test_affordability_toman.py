@@ -766,3 +766,62 @@ async def test_admin_buy_for_user_uses_the_toman_price(monkeypatch, flow):
         assert debits == [PRICE_TOMAN]
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert ('subscription_payment', PRICE_KOPEKS) in await _payments(db)
+
+
+# ---------------------------------------------------------------- gift from balance (bot + cabinet /gift)
+
+
+async def _seed_gift(db, *, balance_toman: int) -> None:
+    from app.database.models import SystemSetting
+    from app.services.gift_purchase_service import GIFT_ENABLED_KEY
+
+    db.add(SystemSetting(key=GIFT_ENABLED_KEY, value='true'))
+    db.add(User(id=1, telegram_id=1001, first_name='U', language='fa', status='active', balance_kopeks=balance_toman))
+    db.add(
+        Tariff(
+            id=3,
+            name='Gift',
+            description='',
+            is_active=True,
+            show_in_gift=True,
+            is_daily=False,
+            period_prices={'30': PRICE_KOPEKS},
+            traffic_limit_gb=100,
+            traffic_reset_mode='NO_RESET',
+            device_limit=1,
+            max_device_limit=10,
+            device_price_kopeks=100,
+            allowed_squads=['squad-1'],
+            display_order=3,
+        )
+    )
+    await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_gift_from_balance_refuses_with_the_toman_shortfall_then_debits_the_toman_price(monkeypatch):
+    from app.services import gift_purchase_service as gifts
+
+    monkeypatch.setattr(gifts, 'emit_transaction_side_effects', AsyncMock())
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_gift(db, balance_toman=SHORT_BALANCE)
+        with pytest.raises(gifts.GiftInsufficientBalanceError) as caught:
+            await gifts.purchase_gift_from_balance(
+                db, 1, 3, 30, expected_price_kopeks=PRICE_KOPEKS, idempotency_key='gift-short'
+            )
+        assert await _balance(db) == SHORT_BALANCE
+
+    # the bot shows and prefills this; the cabinet /gift page gates on the same Toman rule (frontend #13)
+    assert caught.value.missing_toman == SHORTFALL_TOMAN
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed_gift(db, balance_toman=RICH_BALANCE)
+        result = await gifts.purchase_gift_from_balance(
+            db, 1, 3, 30, expected_price_kopeks=PRICE_KOPEKS, idempotency_key='gift-rich'
+        )
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('gift_payment', PRICE_KOPEKS)]
+
+    assert result.remaining_balance_kopeks == RICH_BALANCE - PRICE_TOMAN

@@ -281,7 +281,8 @@ class TestGiftInsufficientBalanceAndCart:
             ),
             patch(
                 'app.handlers.subscription.gift.purchase_gift_from_balance',
-                AsyncMock(side_effect=GiftInsufficientBalanceError(required_kopeks=30050, available_kopeks=10025)),
+                # 100 Toman on the wallet against a catalog price of 30,050 (300 Toman)
+                AsyncMock(side_effect=GiftInsufficientBalanceError(required_kopeks=30050, available_kopeks=100)),
             ),
         ):
             await handle_gift_confirm(mock_callback, mock_db_user, mock_db, memory_state)
@@ -294,7 +295,7 @@ class TestGiftInsufficientBalanceAndCart:
             assert saved_cart['tariff_id'] == 1
             assert saved_cart['period_days'] == 30
             assert saved_cart['total_price'] == 30050
-            assert saved_cart['missing_amount'] == 20025
+            assert saved_cart['missing_amount'] == 200  # Toman shortfall, like every saved cart
             assert saved_cart['saved_cart'] is True
             assert saved_cart['return_to_cart'] is True
             assert saved_cart['user_id'] == mock_db_user.id
@@ -306,7 +307,7 @@ class TestGiftInsufficientBalanceAndCart:
             assert mock_callback.message.edit_text.called
             edit_kwargs = mock_callback.message.edit_text.call_args[1]
             text = mock_callback.message.edit_text.call_args[0][0]
-            assert '200.25' in text or '200,25' in text or '200' in text
+            assert '200' in text
             reply_markup = edit_kwargs.get('reply_markup')
             assert reply_markup is not None
             callbacks = _callbacks(reply_markup)
@@ -338,7 +339,8 @@ class TestGiftInsufficientBalanceAndCart:
             ),
             patch(
                 'app.handlers.subscription.gift.purchase_gift_from_balance',
-                AsyncMock(side_effect=GiftInsufficientBalanceError(required_kopeks=30050, available_kopeks=10025)),
+                # 100 Toman on the wallet against a catalog price of 30,050 (300 Toman)
+                AsyncMock(side_effect=GiftInsufficientBalanceError(required_kopeks=30050, available_kopeks=100)),
             ),
         ):
             await handle_gift_confirm(mock_callback, mock_db_user, mock_db, memory_state)
@@ -802,7 +804,7 @@ class TestGiftAutoPurchaseAndIsolation:
             test_cart_service,
         )
 
-        mock_db_user.balance_kopeks = 20000  # Less than 30050
+        mock_db_user.balance_kopeks = 200  # Toman; less than the 300-Toman price (catalog 30,050)
 
         await test_cart_service.save_user_cart(
             mock_db_user.id,

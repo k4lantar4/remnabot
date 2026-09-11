@@ -56,7 +56,7 @@ from app.services.subscription_purchase_service import (
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
@@ -3379,21 +3379,21 @@ async def _auto_purchase_gift(
             fresh_price=quote.final_price_kopeks,
         )
         cart_data['total_price'] = quote.final_price_kopeks
-        cart_data['missing_amount'] = max(0, quote.final_price_kopeks - user.balance_kopeks)
+        cart_data['missing_amount'] = missing_toman(user.balance_kopeks, quote.final_price_kopeks)
         cart_data['return_to_cart'] = False
         await user_cart_service.save_user_cart(user.id, cart_data)
         await user_cart_service.clear_topup_intent(user.id)
         return False
 
     # Check if balance is still insufficient (partial top-up)
-    if user.balance_kopeks < saved_expected_price:
+    if not user_can_afford(user.balance_kopeks, saved_expected_price):
         logger.info(
             'Автопокупка подарка: баланса все еще недостаточно (частичное пополнение)',
             format_user_id=_format_user_id(user),
             balance=user.balance_kopeks,
             required=saved_expected_price,
         )
-        cart_data['missing_amount'] = saved_expected_price - user.balance_kopeks
+        cart_data['missing_amount'] = missing_toman(user.balance_kopeks, saved_expected_price)
         await user_cart_service.save_user_cart(user.id, cart_data)
         return False
 
@@ -3420,7 +3420,7 @@ async def _auto_purchase_gift(
         return False
     except GiftPriceChangedError as err:
         cart_data['total_price'] = err.fresh_quote.final_price_kopeks
-        cart_data['missing_amount'] = max(0, err.fresh_quote.final_price_kopeks - user.balance_kopeks)
+        cart_data['missing_amount'] = missing_toman(user.balance_kopeks, err.fresh_quote.final_price_kopeks)
         cart_data['return_to_cart'] = False
         await user_cart_service.save_user_cart(user.id, cart_data)
         await user_cart_service.clear_topup_intent(user.id)
