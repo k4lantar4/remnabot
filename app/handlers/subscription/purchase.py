@@ -125,6 +125,7 @@ from app.utils.subscription_utils import (
     get_display_subscription_link,
     resolve_simple_subscription_device_limit,
 )
+from app.utils.template_lines import strip_template_line
 from app.utils.timezone import format_local_datetime
 from app.utils.topup_suggestion import build_cart_topup_metadata, suggest_topup_amount_toman
 
@@ -503,10 +504,7 @@ async def show_subscription_info(callback: types.CallbackQuery, db_user: User, d
         )
 
     if not show_devices:
-        message_template = message_template.replace(
-            '\n📱 Устройства: {devices_used} / {device_limit}',
-            '',
-        )
+        message_template = strip_template_line(message_template, '{devices_used}')
 
     device_limit_display = Texts.format_device_limit(subscription.device_limit)
 
@@ -3000,10 +2998,7 @@ async def handle_subscription_settings(callback: types.CallbackQuery, db_user: U
     )
 
     if not show_devices:
-        settings_template = settings_template.replace(
-            '\n📱 Устройства: {devices_used} / {devices_limit}',
-            '',
-        )
+        settings_template = strip_template_line(settings_template, '{devices_used}')
 
     devices_limit_display = Texts.format_device_limit(subscription.device_limit)
 
