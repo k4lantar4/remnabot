@@ -35,9 +35,9 @@ converted the paths that still mixed the two. Deployed to the dev bot and the li
 Contract kept from #36: fields the cabinet feeds to `InsufficientBalancePrompt` (`missing_amount_kopeks`)
 carry `missing_toman_on_catalog_scale` (Toman shortfall × 100); `missing_amount` in 402 bodies is Toman.
 
-Not yet done from wave 1: the **production** DB check (read-only) for users charged 100x on renewal,
-switch, trial, gift, autopay or auto-purchase before these PRs — no read-only production access exists
-in this workspace; the user runs it before release.
+No production check needed: production runs on another server on older releases (bot 3.60, cabinet
+1.57), and all data here is test data. Production user data gets merged into the new schema at release
+(see `/opt/project/CLAUDE.md`).
 
 ## Design
 
