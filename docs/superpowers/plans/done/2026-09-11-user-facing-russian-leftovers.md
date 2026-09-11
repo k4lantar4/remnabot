@@ -1,6 +1,6 @@
 # Remaining Russian in user-facing texts (F-009, part A: users)
 
-**Status:** active
+**Status:** done (2026-09-11) — remnabot PR #51 (tasks 1-5, one commit each). Found during it: F-035 (promo bonus never credited), F-036 (`Texts.format_traffic` Russian units), F-037 (devices line kept in fa), F-038 (other classic screens), F-039 (fa `BACK` wording). F-009 stays open for the bot admin texts (part B).
 **Repos:** `remnabot` only. The cabinet shows the traffic top-up 402 `detail.message` verbatim
 (`frontend/src/components/subscription/sheets/TrafficTopupSheet.tsx:221` via `getErrorMessage`); that is fixed
 server-side, so no frontend change.
