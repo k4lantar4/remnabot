@@ -24,6 +24,7 @@ from app.database.crud.server_squad import (
 )
 from app.database.models import PromoGroup, ServerSquad, User
 from app.utils.cache import cache
+from app.utils.price_display import display_balance_from_storage
 
 from ..dependencies import get_db_session, require_api_token
 from ..schemas.servers import (
@@ -112,7 +113,7 @@ def _serialize_connected_user(user: User) -> ServerConnectedUser:
         last_name=user.last_name,
         status=getattr(getattr(user, 'status', None), 'value', user.status),
         balance_kopeks=int(user.balance_kopeks or 0),
-        balance_rubles=round((user.balance_kopeks or 0) / 100, 2),
+        balance_rubles=display_balance_from_storage(int(user.balance_kopeks or 0)),
         subscription_id=getattr(subscription, 'id', None),
         subscription_status=subscription_status,
         subscription_end_date=getattr(subscription, 'end_date', None),
