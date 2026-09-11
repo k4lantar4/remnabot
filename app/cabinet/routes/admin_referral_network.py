@@ -3,6 +3,7 @@
 import re
 from collections import defaultdict
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,6 +12,7 @@ from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.database.crud.transaction import transaction_toman_sum
 from app.database.models import (
     AdvertisingCampaign,
     AdvertisingCampaignRegistration,
@@ -57,6 +59,20 @@ SEARCH_RATE_WINDOW = 60
 
 MAX_REFERRAL_DEPTH = 50
 
+
+class SpentTotals(NamedTuple):
+    """A spend aggregate as the raw storage sum (old ``*_kopeks`` fields) and in display Toman.
+
+    Spending is subscription payments today (catalog scale, x100); ``toman`` is normalized
+    per row type, so it stays right if ``SPENT_TRANSACTION_TYPES`` ever gains a balance type.
+    """
+
+    kopeks: int = 0
+    toman: int = 0
+
+
+NO_SPEND = SpentTotals()
+
 # Regex to escape LIKE wildcards
 _LIKE_ESCAPE_RE = re.compile(r'([%_\\])')
 
@@ -78,6 +94,11 @@ class NetworkUserNode(BaseModel):
     branch_revenue_kopeks: int
     personal_revenue_kopeks: int
     personal_spent_kopeks: int
+    # Display Toman: branch/spent are subscription payments (catalog ÷100),
+    # personal revenue is referral earnings (balance scale, 1:1).
+    branch_revenue_toman: int = 0
+    personal_revenue_toman: int = 0
+    personal_spent_toman: int = 0
     subscription_name: str | None
     subscription_end: str | None
     subscription_status: str | None
@@ -100,6 +121,8 @@ class NetworkCampaignNode(BaseModel):
     total_revenue_kopeks: int
     conversion_rate: float
     avg_check_kopeks: int
+    total_revenue_toman: int = 0
+    avg_check_toman: int = 0
     top_referrers: list[TopReferrer]
 
 
@@ -118,6 +141,8 @@ class NetworkGraphResponse(BaseModel):
     total_campaigns: int
     total_earnings_kopeks: int
     total_subscription_revenue_kopeks: int
+    total_earnings_toman: int = 0
+    total_subscription_revenue_toman: int = 0
 
 
 class NetworkUserDetail(BaseModel):
@@ -136,6 +161,9 @@ class NetworkUserDetail(BaseModel):
     branch_revenue_kopeks: int
     personal_revenue_kopeks: int
     personal_spent_kopeks: int
+    branch_revenue_toman: int = 0
+    personal_revenue_toman: int = 0
+    personal_spent_toman: int = 0
     subscription_name: str | None
     subscription_end: str | None
     subscription_status: str | None
@@ -152,6 +180,8 @@ class NetworkCampaignDetail(BaseModel):
     total_revenue_kopeks: int
     conversion_rate: float
     avg_check_kopeks: int
+    total_revenue_toman: int = 0
+    avg_check_toman: int = 0
     top_referrers: list[TopReferrer]
 
 
@@ -215,8 +245,8 @@ def _build_user_node(
     *,
     direct_referral_count: int,
     personal_revenue: int,
-    branch_revenue: int,
-    personal_spent: int,
+    branch_revenue: SpentTotals,
+    personal_spent: SpentTotals,
     campaign_id: int | None,
     subscription_name: str | None,
     subscription_end_str: str | None,
@@ -233,9 +263,13 @@ def _build_user_node(
         campaign_id=campaign_id,
         direct_referrals=direct_referral_count,
         total_branch_users=direct_referral_count,
-        branch_revenue_kopeks=branch_revenue,
+        branch_revenue_kopeks=branch_revenue.kopeks,
         personal_revenue_kopeks=personal_revenue,
-        personal_spent_kopeks=personal_spent,
+        personal_spent_kopeks=personal_spent.kopeks,
+        branch_revenue_toman=branch_revenue.toman,
+        # ReferralEarning amounts are commissions on Toman top-ups → balance scale.
+        personal_revenue_toman=personal_revenue,
+        personal_spent_toman=personal_spent.toman,
         subscription_name=subscription_name,
         subscription_end=subscription_end_str,
         subscription_status=subscription_status,
@@ -302,7 +336,7 @@ async def _fetch_personal_revenue(db: AsyncSession, user_ids: set[int]) -> dict[
     return {row[0]: row[1] for row in result}
 
 
-async def _fetch_branch_revenue(db: AsyncSession, user_ids: set[int]) -> dict[int, int]:
+async def _fetch_branch_revenue(db: AsyncSession, user_ids: set[int]) -> dict[int, SpentTotals]:
     """Return {referrer_id: total_spent_by_direct_referrals}.
 
     This sums subscription payments by each user's direct referrals (one level deep).
@@ -320,6 +354,7 @@ async def _fetch_branch_revenue(db: AsyncSession, user_ids: set[int]) -> dict[in
         select(
             referred_user.c.referred_by_id,
             func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0),
+            transaction_toman_sum(),
         )
         .join(referred_user, Transaction.user_id == referred_user.c.id)
         .where(
@@ -331,16 +366,20 @@ async def _fetch_branch_revenue(db: AsyncSession, user_ids: set[int]) -> dict[in
         .group_by(referred_user.c.referred_by_id)
     )
     result = await db.execute(stmt)
-    return {row[0]: row[1] for row in result}
+    return {row[0]: SpentTotals(row[1], row[2]) for row in result}
 
 
-async def _fetch_personal_spent(db: AsyncSession, user_ids: set[int]) -> dict[int, int]:
+async def _fetch_personal_spent(db: AsyncSession, user_ids: set[int]) -> dict[int, SpentTotals]:
     """Return {user_id: total_spent_kopeks} for given users."""
     if not user_ids:
         return {}
 
     stmt = (
-        select(Transaction.user_id, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+        select(
+            Transaction.user_id,
+            func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0),
+            transaction_toman_sum(),
+        )
         .where(
             and_(
                 Transaction.user_id.in_(user_ids),
@@ -351,7 +390,7 @@ async def _fetch_personal_spent(db: AsyncSession, user_ids: set[int]) -> dict[in
         .group_by(Transaction.user_id)
     )
     result = await db.execute(stmt)
-    return {row[0]: row[1] for row in result}
+    return {row[0]: SpentTotals(row[1], row[2]) for row in result}
 
 
 async def _fetch_campaign_registrations(db: AsyncSession, user_ids: set[int] | None = None) -> dict[int, int]:
@@ -495,10 +534,14 @@ async def _fetch_campaign_stats(
     for uids in campaign_user_ids.values():
         all_campaign_users.update(uids)
 
-    user_spent: dict[int, int] = {}
+    user_spent: dict[int, SpentTotals] = {}
     if all_campaign_users:
         spent_stmt = (
-            select(Transaction.user_id, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+            select(
+                Transaction.user_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0),
+                transaction_toman_sum(),
+            )
             .where(
                 and_(
                     Transaction.user_id.in_(all_campaign_users),
@@ -509,7 +552,7 @@ async def _fetch_campaign_stats(
             .group_by(Transaction.user_id)
         )
         spent_result = await db.execute(spent_stmt)
-        user_spent = {row[0]: row[1] for row in spent_result}
+        user_spent = {row[0]: SpentTotals(row[1], row[2]) for row in spent_result}
 
     # Top referrers: users from campaign who have the most referrals
     # Also need usernames for those users
@@ -541,12 +584,14 @@ async def _fetch_campaign_stats(
             network_users += referral_counts.get(uid, 0)
 
         # Conversion = users who spent > 0 / total registered
-        paying_users = sum(1 for uid in c_user_ids if user_spent.get(uid, 0) > 0)
+        paying_users = sum(1 for uid in c_user_ids if user_spent.get(uid, NO_SPEND).kopeks > 0)
         conversion_rate = (paying_users / direct_users * 100) if direct_users > 0 else 0.0
 
         # Total revenue = sum of subscription payments by campaign users
-        total_spent_by_campaign_users = sum(user_spent.get(uid, 0) for uid in c_user_ids)
+        total_spent_by_campaign_users = sum(user_spent.get(uid, NO_SPEND).kopeks for uid in c_user_ids)
         avg_check = (total_spent_by_campaign_users // paying_users) if paying_users > 0 else 0
+        total_spent_toman = sum(user_spent.get(uid, NO_SPEND).toman for uid in c_user_ids)
+        avg_check_toman = (total_spent_toman // paying_users) if paying_users > 0 else 0
 
         top_refs = [
             TopReferrer(
@@ -568,6 +613,8 @@ async def _fetch_campaign_stats(
                 total_revenue_kopeks=total_spent_by_campaign_users,
                 conversion_rate=round(conversion_rate, 2),
                 avg_check_kopeks=avg_check,
+                total_revenue_toman=total_spent_toman,
+                avg_check_toman=avg_check_toman,
                 top_referrers=top_refs,
             )
         )
@@ -644,8 +691,8 @@ async def get_referral_network(
                 user,
                 direct_referral_count=referral_counts.get(user.id, 0),
                 personal_revenue=personal_revenue.get(user.id, 0),
-                branch_revenue=branch_revenue.get(user.id, 0),
-                personal_spent=personal_spent.get(user.id, 0),
+                branch_revenue=branch_revenue.get(user.id, NO_SPEND),
+                personal_spent=personal_spent.get(user.id, NO_SPEND),
                 campaign_id=campaign_regs.get(user.id),
                 subscription_name=sub[0],
                 subscription_end_str=sub[1],
@@ -701,7 +748,8 @@ async def get_referral_network(
     total_referrers = len([u for u in user_nodes if u.direct_referrals > 0])
 
     total_earnings = sum(personal_revenue.values())
-    total_subscription_revenue = sum(personal_spent.values())
+    total_subscription_revenue = sum(spent.kopeks for spent in personal_spent.values())
+    total_subscription_revenue_toman = sum(spent.toman for spent in personal_spent.values())
 
     return NetworkGraphResponse(
         users=user_nodes,
@@ -712,6 +760,9 @@ async def get_referral_network(
         total_campaigns=len(campaign_nodes),
         total_earnings_kopeks=total_earnings,
         total_subscription_revenue_kopeks=total_subscription_revenue,
+        # Referral earnings are balance scale (1:1).
+        total_earnings_toman=total_earnings,
+        total_subscription_revenue_toman=total_subscription_revenue_toman,
     )
 
 
@@ -898,8 +949,8 @@ async def _build_scoped_graph(
                 user,
                 direct_referral_count=referral_counts.get(user.id, 0),
                 personal_revenue=personal_revenue.get(user.id, 0),
-                branch_revenue=branch_revenue.get(user.id, 0),
-                personal_spent=personal_spent.get(user.id, 0),
+                branch_revenue=branch_revenue.get(user.id, NO_SPEND),
+                personal_spent=personal_spent.get(user.id, NO_SPEND),
                 campaign_id=campaign_regs.get(user.id),
                 subscription_name=sub[0],
                 subscription_end_str=sub[1],
@@ -955,7 +1006,8 @@ async def _build_scoped_graph(
 
     total_referrers = len([u for u in user_nodes if u.direct_referrals > 0])
     total_earnings = sum(personal_revenue.values())
-    total_subscription_revenue = sum(personal_spent.values())
+    total_subscription_revenue = sum(spent.kopeks for spent in personal_spent.values())
+    total_subscription_revenue_toman = sum(spent.toman for spent in personal_spent.values())
 
     return NetworkGraphResponse(
         users=user_nodes,
@@ -966,6 +1018,9 @@ async def _build_scoped_graph(
         total_campaigns=len(campaign_nodes),
         total_earnings_kopeks=total_earnings,
         total_subscription_revenue_kopeks=total_subscription_revenue,
+        # Referral earnings are balance scale (1:1).
+        total_earnings_toman=total_earnings,
+        total_subscription_revenue_toman=total_subscription_revenue_toman,
     )
 
 
@@ -1132,11 +1187,8 @@ async def get_network_user_detail(
     personal_rev_result = await db.execute(personal_rev_stmt)
     personal_revenue = personal_rev_result.scalar() or 0
 
-    # Branch revenue: computed after branch CTE (see below)
-    branch_revenue = 0
-
     # Personal spent
-    spent_stmt = select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+    spent_stmt = select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0), transaction_toman_sum()).where(
         and_(
             Transaction.user_id == user_id,
             Transaction.type.in_(SPENT_TRANSACTION_TYPES),
@@ -1144,7 +1196,7 @@ async def get_network_user_detail(
         )
     )
     spent_result = await db.execute(spent_stmt)
-    personal_spent = spent_result.scalar() or 0
+    personal_spent = SpentTotals(*spent_result.one())
 
     # Campaign registration
     campaign_reg_stmt = (
@@ -1181,7 +1233,9 @@ async def get_network_user_detail(
 
     # Branch revenue: total spent by all users in the branch
     branch_user_ids_stmt = select(branch_cte.c.id)
-    branch_rev_stmt = select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+    branch_rev_stmt = select(
+        func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0), transaction_toman_sum()
+    ).where(
         and_(
             Transaction.user_id.in_(branch_user_ids_stmt),
             Transaction.type.in_(SPENT_TRANSACTION_TYPES),
@@ -1189,7 +1243,7 @@ async def get_network_user_detail(
         )
     )
     branch_rev_result = await db.execute(branch_rev_stmt)
-    branch_revenue = branch_rev_result.scalar() or 0
+    branch_revenue = SpentTotals(*branch_rev_result.one())
 
     # Referrer info
     referrer_display_name: str | None = None
@@ -1230,9 +1284,12 @@ async def get_network_user_detail(
         campaign_name=campaign_name,
         direct_referrals=direct_referrals,
         total_branch_users=total_branch_users,
-        branch_revenue_kopeks=branch_revenue,
+        branch_revenue_kopeks=branch_revenue.kopeks,
         personal_revenue_kopeks=personal_revenue,
-        personal_spent_kopeks=personal_spent,
+        personal_spent_kopeks=personal_spent.kopeks,
+        branch_revenue_toman=branch_revenue.toman,
+        personal_revenue_toman=personal_revenue,  # referral earnings, balance scale
+        personal_spent_toman=personal_spent.toman,
         subscription_name=subscription_name,
         subscription_end=subscription_end,
         subscription_status=subscription_status,
@@ -1302,9 +1359,14 @@ async def get_network_campaign_detail(
     # Spending by campaign users (for conversion, avg check, and total revenue)
     paying_users = 0
     total_spent = 0
+    total_spent_toman = 0
     if campaign_user_ids:
         spent_stmt = (
-            select(Transaction.user_id, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+            select(
+                Transaction.user_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0),
+                transaction_toman_sum(),
+            )
             .where(
                 and_(
                     Transaction.user_id.in_(campaign_user_ids),
@@ -1319,9 +1381,11 @@ async def get_network_campaign_detail(
             if row[1] > 0:
                 paying_users += 1
                 total_spent += row[1]
+                total_spent_toman += row[2]
 
     conversion_rate = (paying_users / direct_users * 100) if direct_users > 0 else 0.0
     avg_check = (total_spent // paying_users) if paying_users > 0 else 0
+    avg_check_toman = (total_spent_toman // paying_users) if paying_users > 0 else 0
 
     # Top referrers from this campaign
     scored = [(uid, referral_counts.get(uid, 0)) for uid in campaign_user_ids if referral_counts.get(uid, 0) > 0]
@@ -1354,6 +1418,8 @@ async def get_network_campaign_detail(
         total_revenue_kopeks=total_spent,
         conversion_rate=round(conversion_rate, 2),
         avg_check_kopeks=avg_check,
+        total_revenue_toman=total_spent_toman,
+        avg_check_toman=avg_check_toman,
         top_referrers=top_referrers,
     )
 
@@ -1428,8 +1494,8 @@ async def search_referral_network(
                     user,
                     direct_referral_count=referral_counts.get(user.id, 0),
                     personal_revenue=personal_revenue.get(user.id, 0),
-                    branch_revenue=branch_revenue.get(user.id, 0),
-                    personal_spent=personal_spent.get(user.id, 0),
+                    branch_revenue=branch_revenue.get(user.id, NO_SPEND),
+                    personal_spent=personal_spent.get(user.id, NO_SPEND),
                     campaign_id=campaign_regs.get(user.id),
                     subscription_name=sub[0],
                     subscription_end_str=sub[1],
@@ -1484,10 +1550,14 @@ async def search_referral_network(
             all_campaign_user_ids.update(uids)
 
         # Batch: spending per user (for campaign revenue)
-        campaign_user_spent: dict[int, int] = {}
+        campaign_user_spent: dict[int, SpentTotals] = {}
         if all_campaign_user_ids:
             spent_stmt = (
-                select(Transaction.user_id, func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0))
+                select(
+                    Transaction.user_id,
+                    func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0),
+                    transaction_toman_sum(),
+                )
                 .where(
                     and_(
                         Transaction.user_id.in_(all_campaign_user_ids),
@@ -1498,7 +1568,7 @@ async def search_referral_network(
                 .group_by(Transaction.user_id)
             )
             spent_res = await db.execute(spent_stmt)
-            campaign_user_spent = {row[0]: row[1] for row in spent_res}
+            campaign_user_spent = {row[0]: SpentTotals(row[1], row[2]) for row in spent_res}
         campaign_referral_counts = (
             await _fetch_direct_referral_counts(db, all_campaign_user_ids) if all_campaign_user_ids else {}
         )
@@ -1508,7 +1578,8 @@ async def search_referral_network(
             direct_users = reg_counts.get(cid, 0)
             c_user_ids = campaign_user_map.get(cid, [])
             network_users = direct_users + sum(campaign_referral_counts.get(uid, 0) for uid in c_user_ids)
-            total_revenue = sum(campaign_user_spent.get(uid, 0) for uid in c_user_ids)
+            total_revenue = sum(campaign_user_spent.get(uid, NO_SPEND).kopeks for uid in c_user_ids)
+            total_revenue_toman = sum(campaign_user_spent.get(uid, NO_SPEND).toman for uid in c_user_ids)
 
             campaign_nodes.append(
                 NetworkCampaignNode(
@@ -1521,6 +1592,7 @@ async def search_referral_network(
                     total_revenue_kopeks=total_revenue,
                     conversion_rate=0.0,
                     avg_check_kopeks=0,
+                    total_revenue_toman=total_revenue_toman,
                     top_referrers=[],
                 )
             )

@@ -14,6 +14,7 @@ from app.database.constants import POSTGRES_INT4_MAX, POSTGRES_INT4_MIN
 from app.database.crud.discount_offer import get_latest_claimed_offer_for_user
 from app.database.crud.promo_group import get_default_promo_group
 from app.database.crud.promo_offer_log import log_promo_offer_action
+from app.database.crud.transaction import transaction_toman_amount
 from app.database.models import (
     AdvertisingCampaign,
     AdvertisingCampaignRegistration,
@@ -82,7 +83,10 @@ def _build_spending_stats_select():
     - get_users_spending_stats() для получения статистики
 
     Returns:
-        Tuple колонок (user_id, total_spent, purchase_count)
+        Tuple колонок (user_id, total_spent, purchase_count, total_spent_toman)
+
+    total_spent — сырая сумма (подписки хранятся в каталожном масштабе ×100);
+    total_spent_toman — та же сумма в отображаемых томанах, по типу каждой строки.
     """
 
     return (
@@ -111,6 +115,18 @@ def _build_spending_stats_select():
             ),
             0,
         ).label('purchase_count'),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
+                        transaction_toman_amount(),
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label('total_spent_toman'),
     )
 
 
@@ -1206,6 +1222,7 @@ async def get_users_spending_stats(db: AsyncSession, user_ids: list[int]) -> dic
         row.user_id: {
             'total_spent': int(row.total_spent or 0),
             'purchase_count': int(row.purchase_count or 0),
+            'total_spent_toman': int(row.total_spent_toman or 0),
         }
         for row in rows
     }

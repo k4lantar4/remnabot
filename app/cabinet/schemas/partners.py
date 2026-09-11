@@ -54,6 +54,7 @@ class PartnerCampaignInfo(BaseModel):
     registrations_count: int = 0
     referrals_count: int = 0
     earnings_kopeks: int = 0
+    earnings_toman: int = 0  # display Toman (referral earnings, balance scale)
 
 
 class PartnerStatusResponse(BaseModel):
@@ -74,6 +75,7 @@ class DailyStatItem(BaseModel):
     date: str
     referrals_count: int = 0
     earnings_kopeks: int = 0
+    earnings_toman: int = 0
 
 
 class PeriodStats(BaseModel):
@@ -82,6 +84,7 @@ class PeriodStats(BaseModel):
     days: int
     referrals_count: int = 0
     earnings_kopeks: int = 0
+    earnings_toman: int = 0
 
 
 class PeriodChange(BaseModel):
@@ -110,6 +113,7 @@ class CampaignReferralItem(BaseModel):
     has_paid: bool = False
     is_active: bool = False
     total_earnings_kopeks: int = 0
+    total_earnings_toman: int = 0
 
 
 class PartnerCampaignDetailedStats(BaseModel):
@@ -126,6 +130,11 @@ class PartnerCampaignDetailedStats(BaseModel):
     earnings_today: int = 0
     earnings_week: int = 0
     earnings_month: int = 0
+    # Display Toman twins (referral earnings are balance scale, so equal to the raw values)
+    earnings_toman: int = 0
+    earnings_today_toman: int = 0
+    earnings_week_toman: int = 0
+    earnings_month_toman: int = 0
     # Daily chart (30 days)
     daily_stats: list[DailyStatItem] = []
     # Period comparison (this week vs last week)

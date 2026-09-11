@@ -91,6 +91,7 @@ async def get_partner_status(
                     registrations_count=stats.get('registrations_count', 0),
                     referrals_count=stats.get('referrals_count', 0),
                     earnings_kopeks=stats.get('earnings_kopeks', 0),
+                    earnings_toman=stats.get('earnings_toman', 0),
                 )
             )
 
@@ -141,6 +142,10 @@ async def get_campaign_stats(
         earnings_today=raw['earnings_today'],
         earnings_week=raw['earnings_week'],
         earnings_month=raw['earnings_month'],
+        earnings_toman=raw['earnings_toman'],
+        earnings_today_toman=raw['earnings_today_toman'],
+        earnings_week_toman=raw['earnings_week_toman'],
+        earnings_month_toman=raw['earnings_month_toman'],
         daily_stats=[DailyStatItem(**d) for d in raw['daily_stats']],
         period_comparison=PeriodComparison(
             current=PeriodStats(**raw['period_comparison']['current']),

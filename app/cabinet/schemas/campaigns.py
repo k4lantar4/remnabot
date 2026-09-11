@@ -26,6 +26,7 @@ class CampaignListItem(BaseModel):
     is_active: bool
     registrations_count: int
     total_revenue_kopeks: int = 0
+    total_revenue_toman: int = 0  # display Toman (real deposits, balance scale)
     conversion_rate: float = 0.0
     partner_user_id: int | None = None
     partner_name: str | None = None
@@ -146,6 +147,12 @@ class CampaignStatisticsResponse(BaseModel):
     avg_revenue_per_user_rubles: float = 0.0
     avg_first_payment_kopeks: int = 0
     avg_first_payment_rubles: float = 0.0
+    # Display Toman, normalized per source scale. Prefer these over *_kopeks/*_rubles:
+    # total_revenue_rubles / avg_revenue_per_user_rubles divide a Toman sum by 100.
+    balance_issued_toman: int = 0
+    total_revenue_toman: int = 0
+    avg_revenue_per_user_toman: int = 0
+    avg_first_payment_toman: int = 0
     # Trial & Conversion stats
     trial_users_count: int = 0
     active_trials_count: int = 0
@@ -198,6 +205,7 @@ class CampaignsOverviewResponse(BaseModel):
     total_registrations: int
     total_balance_issued_kopeks: int
     total_balance_issued_rubles: float
+    total_balance_issued_toman: int = 0
     total_subscription_issued: int
     total_tariff_issued: int = 0
 
@@ -228,6 +236,7 @@ class AdminDailyStatItem(BaseModel):
     date: str
     referrals_count: int = 0  # actually registrations, named for frontend compat
     earnings_kopeks: int = 0  # actually revenue, named for frontend compat
+    earnings_toman: int = 0  # the same revenue (real deposits) in display Toman
 
 
 class AdminPeriodStats(BaseModel):
@@ -236,6 +245,7 @@ class AdminPeriodStats(BaseModel):
     days: int
     referrals_count: int = 0
     earnings_kopeks: int = 0
+    earnings_toman: int = 0
 
 
 class AdminPeriodChange(BaseModel):
@@ -264,6 +274,7 @@ class AdminTopRegistrationItem(BaseModel):
     has_paid: bool = False
     is_active: bool = False
     total_earnings_kopeks: int = 0  # actually total spending, named for frontend compat
+    total_earnings_toman: int = 0  # the same (real deposits) in display Toman
 
 
 class AdminCampaignChartDataResponse(BaseModel):
@@ -272,6 +283,8 @@ class AdminCampaignChartDataResponse(BaseModel):
     campaign_id: int
     total_deposits_kopeks: int = 0
     total_spending_kopeks: int = 0
+    total_deposits_toman: int = 0  # balance scale → 1:1
+    total_spending_toman: int = 0  # subscription payments, catalog scale → ÷100
     daily_stats: list[AdminDailyStatItem] = []
     period_comparison: AdminPeriodComparison
     top_registrations: list[AdminTopRegistrationItem] = []

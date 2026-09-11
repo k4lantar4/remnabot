@@ -1,12 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import Integer, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.models import PaymentMethod, Transaction, TransactionType, User
-from app.utils.price_display import storage_sum_to_display_toman
+from app.utils.price_display import BALANCE_SCALE_TRANSACTION_TYPES, storage_sum_to_display_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -39,6 +39,26 @@ def display_toman_from_type_sums(rows) -> int:
     meaningless, so callers group by type and convert here.
     """
     return sum(storage_sum_to_display_toman(int(total or 0), tx_type) for tx_type, total in rows)
+
+
+def transaction_toman_amount():
+    """Per-row ``|amount_kopeks|`` of a ``Transaction`` in display Toman (SQL expression).
+
+    Balance-scale types count 1:1, catalog types are divided by 100 per row — the same
+    floor as ``catalog_price_in_toman``, i.e. what the wallet was actually charged. Typing
+    ``abs`` as Integer makes ``//`` render as plain integer division on PostgreSQL and
+    SQLite (no FLOOR/NUMERIC), so sums stay integers.
+    """
+    amount = func.abs(Transaction.amount_kopeks, type_=Integer)
+    return case(
+        (Transaction.type.in_(BALANCE_SCALE_TRANSACTION_TYPES), amount),
+        else_=amount // 100,
+    )
+
+
+def transaction_toman_sum():
+    """``COALESCE(SUM(...), 0)`` of ``transaction_toman_amount`` — safe across mixed-scale rows."""
+    return func.coalesce(func.sum(transaction_toman_amount()), 0)
 
 
 # ── Доп. услуги (докупка трафика / устройств) ──────────────────────────────────
