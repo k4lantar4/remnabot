@@ -2938,7 +2938,8 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
             text += f' (параметр: <code>{campaign_registration.campaign.start_parameter}</code>)'
         text += '\n'
         text += f'• Всего регистраций: {campaign_stats["registrations"]}\n'
-        text += f'• Суммарный доход: {settings.format_price(campaign_stats["total_revenue_kopeks"])}\n'
+        # Campaign revenue = real deposits (balance scale, Toman 1:1) → format_balance.
+        text += f'• Суммарный доход: {settings.format_balance(campaign_stats["total_revenue_toman"])}\n'
         text += (
             '• Получили триал: '
             f'{campaign_stats["trial_users_count"]}'
@@ -2951,9 +2952,7 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
         )
         text += f'• Конверсия в оплату: {campaign_stats["conversion_rate"]:.1f}%\n'
         text += f'• Конверсия триала: {campaign_stats["trial_conversion_rate"]:.1f}%\n'
-        text += (
-            f'• Средний доход на пользователя: {settings.format_price(campaign_stats["avg_revenue_per_user_kopeks"])}\n'
-        )
+        text += f'• Средний доход на пользователя: {settings.format_balance(campaign_stats["avg_revenue_per_user_toman"])}\n'
         text += f'• Средний первый платеж: {settings.format_price(campaign_stats["avg_first_payment_kopeks"])}\n'
         text += '\n'
 

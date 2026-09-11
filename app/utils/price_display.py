@@ -45,6 +45,10 @@ _BALANCE_SCALE_TRANSACTION_TYPES = frozenset(
 )
 
 
+# Same set, for SQL ``IN (...)`` clauses (``app.database.crud.transaction.transaction_toman_amount``).
+BALANCE_SCALE_TRANSACTION_TYPES: tuple[str, ...] = tuple(sorted(_BALANCE_SCALE_TRANSACTION_TYPES))
+
+
 def is_balance_scale_transaction(tx_type: str) -> bool:
     """True when transaction.amount_kopeks uses balance Toman 1:1 storage."""
     return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES

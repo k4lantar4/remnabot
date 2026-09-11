@@ -95,6 +95,7 @@ async def get_overview(
             # balance_total is a sum of balance_bonus_kopeks, a raw Toman amount
             # post-Phase-B, not kopeks — divisor=1, don't divide by 100.
             total_balance_issued_rubles=_safe_div(overview['balance_total'], divisor=1),
+            total_balance_issued_toman=overview['balance_total'],
             total_subscription_issued=overview['subscription_total'],
             total_tariff_issued=tariff_count,
         )
@@ -200,6 +201,7 @@ async def list_campaigns(
                 is_active=campaign.is_active,
                 registrations_count=stats['registrations'],
                 total_revenue_kopeks=stats['total_revenue_kopeks'],
+                total_revenue_toman=stats['total_revenue_toman'],
                 conversion_rate=stats['conversion_rate'],
                 partner_user_id=campaign.partner_user_id,
                 partner_name=_get_partner_name(campaign),
@@ -320,6 +322,10 @@ async def get_campaign_stats(
             avg_revenue_per_user_rubles=_safe_div(stats['avg_revenue_per_user_kopeks']),
             avg_first_payment_kopeks=stats['avg_first_payment_kopeks'],
             avg_first_payment_rubles=_safe_div(stats['avg_first_payment_kopeks']),
+            balance_issued_toman=stats['balance_issued_toman'],
+            total_revenue_toman=stats['total_revenue_toman'],
+            avg_revenue_per_user_toman=stats['avg_revenue_per_user_toman'],
+            avg_first_payment_toman=stats['avg_first_payment_toman'],
             trial_users_count=stats['trial_users_count'],
             active_trials_count=stats['active_trials_count'],
             conversion_count=stats['conversion_count'],

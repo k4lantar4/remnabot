@@ -139,6 +139,8 @@ class UserListItem(BaseModel):
 
     # Stats
     total_spent_kopeks: int = 0
+    # Display Toman: spending is subscription payments (catalog scale ÷100).
+    total_spent_toman: int = 0
     purchase_count: int = 0
 
     # Restrictions
@@ -261,6 +263,8 @@ class UserDetailResponse(BaseModel):
 
     # Stats
     total_spent_kopeks: int = 0
+    # Display Toman: spending is subscription payments (catalog scale ÷100).
+    total_spent_toman: int = 0
     purchase_count: int = 0
     used_promocodes: int = 0
     has_had_paid_subscription: bool = False

@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database.crud.transaction import REAL_PAYMENT_METHODS
+from app.database.crud.transaction import REAL_PAYMENT_METHODS, transaction_toman_sum
 from app.database.models import (
     AdvertisingCampaign,
     AdvertisingCampaignRegistration,
@@ -17,6 +17,7 @@ from app.database.models import (
     TransactionType,
     User,
 )
+from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -310,14 +311,19 @@ async def get_campaign_statistics(
 
     # Only count real deposits (exclude promo bonuses, wheel prizes, admin top-ups)
     deposits_result = await db.execute(
-        select(func.coalesce(func.sum(Transaction.amount_kopeks), 0)).where(
+        select(
+            func.coalesce(func.sum(Transaction.amount_kopeks), 0),
+            transaction_toman_sum(),
+        ).where(
             Transaction.user_id.in_(select(registrations_subquery.c.user_id)),
             Transaction.type == TransactionType.DEPOSIT.value,
             Transaction.is_completed.is_(True),
             Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
         )
     )
-    deposits_total = deposits_result.scalar() or 0
+    deposits_total, deposits_toman = deposits_result.one()
+    deposits_total = deposits_total or 0
+    deposits_toman = deposits_toman or 0
 
     trials_result = await db.execute(
         select(func.count(func.distinct(Subscription.user_id))).where(
@@ -428,8 +434,10 @@ async def get_campaign_statistics(
         trial_conversion_rate = round((conversion_count / trial_users_count) * 100, 1)
 
     avg_revenue_per_user = 0
+    avg_revenue_per_user_toman = 0
     if count:
         avg_revenue_per_user = int(total_revenue / count)
+        avg_revenue_per_user_toman = int(deposits_toman / count)
 
     return {
         'registrations': count,
@@ -445,6 +453,12 @@ async def get_campaign_statistics(
         'trial_conversion_rate': trial_conversion_rate,
         'avg_revenue_per_user_kopeks': avg_revenue_per_user,
         'avg_first_payment_kopeks': avg_first_payment,
+        # *_toman twins in display Toman. Revenue is real deposits (balance scale);
+        # first payments are subscription prices (catalog scale); bonuses are Toman.
+        'total_revenue_toman': deposits_toman,
+        'avg_revenue_per_user_toman': avg_revenue_per_user_toman,
+        'avg_first_payment_toman': catalog_price_in_toman(avg_first_payment),
+        'balance_issued_toman': total_balance,
     }
 
 

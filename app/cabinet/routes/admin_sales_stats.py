@@ -14,6 +14,7 @@ from app.database.crud.transaction import (
     addon_description_clause,
     device_addon_clause,
     traffic_addon_clause,
+    transaction_toman_sum,
 )
 from app.database.models import (
     GuestPurchase,
@@ -27,6 +28,7 @@ from app.database.models import (
     TransactionType,
     User,
 )
+from app.utils.price_display import catalog_price_in_toman
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -96,6 +98,10 @@ class SalesSummary(BaseModel):
 
     total_revenue_kopeks: int
     manual_topup_kopeks: int
+    # *_toman: the same aggregates in display Toman, normalized per transaction type
+    # (the *_kopeks sums mix balance-scale deposits with catalog-scale payments).
+    total_revenue_toman: int = 0
+    manual_topup_toman: int = 0
     active_subscriptions: int
     active_trials: int
     new_trials: int
@@ -104,6 +110,7 @@ class SalesSummary(BaseModel):
     trial_to_paid_conversion: float
     renewals_count: int
     addon_revenue_kopeks: int
+    addon_revenue_toman: int = 0
 
 
 # ============ Summary Endpoint ============
@@ -123,7 +130,10 @@ async def get_sales_summary(
 
         # Total revenue (deposits + direct subscription payments with real payment methods)
         revenue_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+            select(
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('raw'),
+                transaction_toman_sum().label('toman'),
+            ).where(
                 and_(
                     Transaction.type.in_([TransactionType.DEPOSIT.value, TransactionType.SUBSCRIPTION_PAYMENT.value]),
                     Transaction.is_completed == True,
@@ -133,7 +143,9 @@ async def get_sales_summary(
                 )
             )
         )
-        total_revenue = revenue_result.scalar() or 0
+        revenue_row = revenue_result.one()
+        total_revenue = revenue_row.raw or 0
+        total_revenue_toman = revenue_row.toman or 0
 
         # Gateway-funded gifts never create a Transaction (the recipient "didn't
         # pay"), so the buyer's real payment was otherwise invisible to revenue.
@@ -150,11 +162,17 @@ async def get_sales_summary(
                 )
             )
         )
-        total_revenue += gift_revenue_result.scalar() or 0
+        gift_revenue = gift_revenue_result.scalar() or 0
+        total_revenue += gift_revenue
+        # GuestPurchase.amount_kopeks is a catalog price (tariff/gift quote).
+        total_revenue_toman += catalog_price_in_toman(gift_revenue)
 
         # Manual top-ups by admins
         manual_topup_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+            select(
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('raw'),
+                transaction_toman_sum().label('toman'),
+            ).where(
                 and_(
                     Transaction.type == TransactionType.DEPOSIT.value,
                     Transaction.is_completed == True,
@@ -164,7 +182,8 @@ async def get_sales_summary(
                 )
             )
         )
-        manual_topup = manual_topup_result.scalar() or 0
+        manual_topup_row = manual_topup_result.one()
+        manual_topup = manual_topup_row.raw or 0
 
         # Consolidated subscription counts: active paid, active trial, new trials in period
         sub_counts_result = await db.execute(
@@ -308,7 +327,10 @@ async def get_sales_summary(
         # so "Доп. услуги" matches the sum of the Add-ons tab. (Previously this was
         # traffic-only and silently dropped device revenue.)
         addon_revenue_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+            select(
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('raw'),
+                transaction_toman_sum().label('toman'),
+            ).where(
                 and_(
                     Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
                     Transaction.is_completed == True,
@@ -318,13 +340,16 @@ async def get_sales_summary(
                 )
             )
         )
-        addon_revenue = addon_revenue_result.scalar() or 0
+        addon_revenue_row = addon_revenue_result.one()
+        addon_revenue = addon_revenue_row.raw or 0
 
         return SalesSummary(
             # Gateway revenue only — manual admin top-ups are reported separately
             # (manual_topup_kopeks) so the headline "Доход" isn't muddied by them.
             total_revenue_kopeks=total_revenue,
             manual_topup_kopeks=manual_topup,
+            total_revenue_toman=total_revenue_toman,
+            manual_topup_toman=manual_topup_row.toman or 0,
             active_subscriptions=active_subs,
             active_trials=active_trials,
             new_trials=new_trials,
@@ -333,6 +358,7 @@ async def get_sales_summary(
             trial_to_paid_conversion=conversion_rate,
             renewals_count=renewals_count,
             addon_revenue_kopeks=addon_revenue,
+            addon_revenue_toman=addon_revenue_row.toman or 0,
         )
 
     except HTTPException:
@@ -559,6 +585,7 @@ class DailySalesItem(BaseModel):
     date: str
     count: int
     revenue_kopeks: int
+    revenue_toman: int = 0
 
 
 class DailyTariffSalesItem(BaseModel):
@@ -571,6 +598,8 @@ class SalesStatsResponse(BaseModel):
     total_sales: int
     total_revenue_kopeks: int
     avg_order_kopeks: int
+    total_revenue_toman: int = 0
+    avg_order_toman: int = 0
     top_tariff_name: str
     by_tariff: list[SalesByTariffItem]
     by_period: list[SalesByPeriodItem]
@@ -609,6 +638,7 @@ async def get_sales_stats(
         revenue_result = await db.execute(
             select(
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                transaction_toman_sum().label('revenue_toman'),
                 func.count(Transaction.id).label('payments'),
             ).where(
                 and_(
@@ -623,6 +653,8 @@ async def get_sales_stats(
         total_revenue = rev_row.revenue or 0
         sub_payment_count = rev_row.payments or 0
         avg_order = total_revenue // sub_payment_count if sub_payment_count > 0 else 0
+        total_revenue_toman = rev_row.revenue_toman or 0
+        avg_order_toman = total_revenue_toman // sub_payment_count if sub_payment_count > 0 else 0
 
         by_tariff_query = await db.execute(
             select(
@@ -672,6 +704,7 @@ async def get_sales_stats(
                 func.date(Transaction.created_at).label('date'),
                 func.count(Transaction.id).label('count'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                transaction_toman_sum().label('revenue_toman'),
             )
             .where(
                 and_(
@@ -689,6 +722,7 @@ async def get_sales_stats(
                 date=row.date.isoformat() if hasattr(row.date, 'isoformat') else str(row.date),
                 count=row.count,
                 revenue_kopeks=row.revenue,
+                revenue_toman=row.revenue_toman,
             )
             for row in daily_query
         ]
@@ -719,6 +753,8 @@ async def get_sales_stats(
             total_sales=total_sales,
             total_revenue_kopeks=total_revenue,
             avg_order_kopeks=avg_order,
+            total_revenue_toman=total_revenue_toman,
+            avg_order_toman=avg_order_toman,
             top_tariff_name=top_tariff_name,
             by_tariff=by_tariff,
             by_period=by_period,
@@ -747,6 +783,7 @@ class DailyRenewalItem(BaseModel):
 class RenewalPeriodStats(BaseModel):
     count: int
     revenue_kopeks: int
+    revenue_toman: int = 0
 
 
 class RenewalChange(BaseModel):
@@ -758,6 +795,7 @@ class RenewalChange(BaseModel):
 class RenewalsStatsResponse(BaseModel):
     total_renewals: int
     total_revenue_kopeks: int
+    total_revenue_toman: int = 0
     renewal_rate: float
     current_period: RenewalPeriodStats
     previous_period: RenewalPeriodStats
@@ -805,6 +843,7 @@ async def get_renewals_stats(
                 select(
                     func.count(Transaction.id).label('count'),
                     func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                    transaction_toman_sum().label('revenue_toman'),
                 ).where(
                     and_(
                         Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
@@ -817,9 +856,10 @@ async def get_renewals_stats(
             current = current_result.one()
             current_count = current.count
             current_revenue = current.revenue
+            current_revenue_toman = current.revenue_toman
 
             # No meaningful previous period for "all time"
-            prev = type('Row', (), {'count': 0, 'revenue': 0})()
+            prev = type('Row', (), {'count': 0, 'revenue': 0, 'revenue_toman': 0})()
         else:
             period_length = period_end - period_start
             prev_start = period_start - period_length
@@ -841,6 +881,7 @@ async def get_renewals_stats(
                 select(
                     func.count(Transaction.id).label('count'),
                     func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                    transaction_toman_sum().label('revenue_toman'),
                 ).where(
                     and_(
                         Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
@@ -855,6 +896,7 @@ async def get_renewals_stats(
             current = current_result.one()
             current_count = current.count
             current_revenue = current.revenue
+            current_revenue_toman = current.revenue_toman
 
             prev_existing_subquery = (
                 select(Transaction.user_id)
@@ -871,6 +913,7 @@ async def get_renewals_stats(
                 select(
                     func.count(Transaction.id).label('count'),
                     func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                    transaction_toman_sum().label('revenue_toman'),
                 ).where(
                     and_(
                         Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
@@ -941,9 +984,14 @@ async def get_renewals_stats(
         return RenewalsStatsResponse(
             total_renewals=current_count,
             total_revenue_kopeks=current_revenue,
+            total_revenue_toman=current_revenue_toman,
             renewal_rate=renewal_rate,
-            current_period=RenewalPeriodStats(count=current_count, revenue_kopeks=current_revenue),
-            previous_period=RenewalPeriodStats(count=prev.count, revenue_kopeks=prev.revenue),
+            current_period=RenewalPeriodStats(
+                count=current_count, revenue_kopeks=current_revenue, revenue_toman=current_revenue_toman
+            ),
+            previous_period=RenewalPeriodStats(
+                count=prev.count, revenue_kopeks=prev.revenue, revenue_toman=prev.revenue_toman
+            ),
             change=RenewalChange(
                 absolute=current_count - prev.count,
                 percent=change_percent,
@@ -987,6 +1035,8 @@ class AddonsStatsResponse(BaseModel):
     addon_revenue_kopeks: int
     device_purchases: int
     device_revenue_kopeks: int
+    addon_revenue_toman: int = 0
+    device_revenue_toman: int = 0
     by_package: list[AddonByPackageItem]
     daily: list[DailyAddonItem]
     daily_devices: list[DailyDeviceItem]
@@ -1021,7 +1071,10 @@ async def get_addons_stats(
         totals = totals_result.one()
 
         addon_revenue_result = await db.execute(
-            select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
+            select(
+                func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('raw'),
+                transaction_toman_sum().label('toman'),
+            ).where(
                 and_(
                     Transaction.type == TransactionType.SUBSCRIPTION_PAYMENT.value,
                     Transaction.is_completed == True,
@@ -1031,7 +1084,8 @@ async def get_addons_stats(
                 )
             )
         )
-        addon_revenue = addon_revenue_result.scalar() or 0
+        addon_revenue_row = addon_revenue_result.one()
+        addon_revenue = addon_revenue_row.raw or 0
 
         by_package_query = await db.execute(
             select(
@@ -1075,6 +1129,7 @@ async def get_addons_stats(
             select(
                 func.count(Transaction.id).label('count'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('revenue'),
+                transaction_toman_sum().label('revenue_toman'),
             ).where(device_filter)
         )
         device_row = device_result.one()
@@ -1103,6 +1158,8 @@ async def get_addons_stats(
             addon_revenue_kopeks=addon_revenue,
             device_purchases=device_row.count,
             device_revenue_kopeks=device_row.revenue,
+            addon_revenue_toman=addon_revenue_row.toman or 0,
+            device_revenue_toman=device_row.revenue_toman or 0,
             by_package=by_package,
             daily=daily,
             daily_devices=daily_devices,
@@ -1125,24 +1182,31 @@ class DepositByMethodItem(BaseModel):
     method: str
     count: int
     amount_kopeks: int
+    amount_toman: int = 0
 
 
 class DailyDepositItem(BaseModel):
     date: str
     count: int
     amount_kopeks: int
+    amount_toman: int = 0
 
 
 class DailyDepositByMethodItem(BaseModel):
     date: str
     method: str
     amount_kopeks: int
+    amount_toman: int = 0
 
 
 class DepositsStatsResponse(BaseModel):
     total_deposits: int
     total_amount_kopeks: int
     avg_deposit_kopeks: int
+    # This tab sums deposits (balance scale) together with direct gateway
+    # subscription payments (catalog scale): only the *_toman fields are meaningful.
+    total_amount_toman: int = 0
+    avg_deposit_toman: int = 0
     by_method: list[DepositByMethodItem]
     daily: list[DailyDepositItem]
     daily_by_method: list[DailyDepositByMethodItem]
@@ -1176,25 +1240,35 @@ async def get_deposits_stats(
             select(
                 func.count(Transaction.id).label('count'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
+                transaction_toman_sum().label('amount_toman'),
             ).where(base_filter)
         )
         totals = totals_result.one()
         total_deposits = totals.count
         total_amount = totals.amount
         avg_deposit = total_amount // total_deposits if total_deposits > 0 else 0
+        total_amount_toman = totals.amount_toman or 0
+        avg_deposit_toman = total_amount_toman // total_deposits if total_deposits > 0 else 0
 
         by_method_query = await db.execute(
             select(
                 Transaction.payment_method.label('method'),
                 func.count(Transaction.id).label('count'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
+                transaction_toman_sum().label('amount_toman'),
             )
             .where(base_filter)
             .group_by(Transaction.payment_method)
-            .order_by(func.sum(func.abs(Transaction.amount_kopeks)).desc())
+            # Rank by real money: the raw sum overweights catalog-scale rows 100x.
+            .order_by(transaction_toman_sum().desc())
         )
         by_method = [
-            DepositByMethodItem(method=row.method or 'unknown', count=row.count, amount_kopeks=row.amount)
+            DepositByMethodItem(
+                method=row.method or 'unknown',
+                count=row.count,
+                amount_kopeks=row.amount,
+                amount_toman=row.amount_toman,
+            )
             for row in by_method_query
         ]
 
@@ -1203,6 +1277,7 @@ async def get_deposits_stats(
                 func.date(Transaction.created_at).label('date'),
                 func.count(Transaction.id).label('count'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
+                transaction_toman_sum().label('amount_toman'),
             )
             .where(base_filter)
             .group_by(func.date(Transaction.created_at))
@@ -1213,6 +1288,7 @@ async def get_deposits_stats(
                 date=row.date.isoformat() if hasattr(row.date, 'isoformat') else str(row.date),
                 count=row.count,
                 amount_kopeks=row.amount,
+                amount_toman=row.amount_toman,
             )
             for row in daily_query
         ]
@@ -1224,6 +1300,7 @@ async def get_deposits_stats(
                 func.date(Transaction.created_at).label('date'),
                 Transaction.payment_method.label('method'),
                 func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('amount'),
+                transaction_toman_sum().label('amount_toman'),
             )
             .where(base_filter)
             .group_by(func.date(Transaction.created_at), Transaction.payment_method)
@@ -1234,6 +1311,7 @@ async def get_deposits_stats(
                 date=row.date.isoformat() if hasattr(row.date, 'isoformat') else str(row.date),
                 method=row.method or 'unknown',
                 amount_kopeks=row.amount,
+                amount_toman=row.amount_toman,
             )
             for row in daily_by_method_query
         ]
@@ -1242,6 +1320,8 @@ async def get_deposits_stats(
             total_deposits=total_deposits,
             total_amount_kopeks=total_amount,
             avg_deposit_kopeks=avg_deposit,
+            total_amount_toman=total_amount_toman,
+            avg_deposit_toman=avg_deposit_toman,
             by_method=by_method,
             daily=daily,
             daily_by_method=daily_by_method,
