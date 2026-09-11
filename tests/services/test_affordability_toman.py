@@ -565,3 +565,144 @@ async def test_cabinet_trial_refuses_with_the_toman_shortfall_then_debits_the_to
 
         assert debits == [PRICE_TOMAN]
         assert ('subscription_payment', PRICE_KOPEKS) in await _payments(db)
+
+
+# ---------------------------------------------------------------- bot: countries and traffic reset
+
+
+def _bot_callback(data: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        data=data,
+        answer=AsyncMock(),
+        message=SimpleNamespace(edit_text=AsyncMock(), answer=AsyncMock()),
+        from_user=SimpleNamespace(id=1001),
+    )
+
+
+def _sent_text(callback) -> str:
+    for mock in (callback.message.edit_text, callback.message.answer):
+        if mock.await_args is not None:
+            return mock.await_args.args[0]
+    return ''
+
+
+def _prefill(monkeypatch, module) -> list[int]:
+    """Capture the amount the insufficient-balance keyboard prefills (it expects Toman)."""
+    amounts: list[int] = []
+
+    def keyboard(language, *args, amount_kopeks=None, **kwargs):
+        amounts.append(amount_kopeks)
+
+    monkeypatch.setattr(module, 'get_insufficient_balance_keyboard', keyboard)
+    return amounts
+
+
+def _countries_setup(monkeypatch):
+    from app.handlers.subscription import countries
+
+    async def resolve(callback, db_user, db, state=None):
+        return await db.get(Subscription, 10), 10
+
+    available = [
+        {'uuid': 'squad-1', 'name': 'NL', 'price_kopeks': 0, 'is_available': True, 'id': 1},
+        {'uuid': 'squad-2', 'name': 'DE', 'price_kopeks': PRICE_KOPEKS, 'is_available': True, 'id': 2},
+    ]
+    monkeypatch.setattr(countries, '_resolve_subscription', resolve)
+    monkeypatch.setattr(countries, '_get_available_countries', AsyncMock(return_value=available))
+    monkeypatch.setattr(countries, 'calculate_prorated_price', lambda price, end_date, *a, **k: (price, 30))
+    monkeypatch.setattr(countries, 'save_subscription_checkout_draft', AsyncMock(), raising=False)
+    monkeypatch.setattr(countries, 'get_server_ids_by_uuids', AsyncMock(return_value=[2]), raising=False)
+    monkeypatch.setattr(countries, 'add_subscription_servers', AsyncMock(), raising=False)
+    monkeypatch.setattr(countries, 'add_user_to_servers', AsyncMock(), raising=False)
+    monkeypatch.setattr(countries, 'SubscriptionService', lambda: _FakePanelSync(), raising=False)
+    state = SimpleNamespace(get_data=AsyncMock(return_value={'countries': ['squad-1', 'squad-2']}), clear=AsyncMock())
+    return countries, state
+
+
+@pytest.mark.parametrize('handler', ['apply_countries_changes', 'confirm_add_countries_to_subscription'])
+@pytest.mark.asyncio
+async def test_bot_countries_refuse_with_the_toman_shortfall_then_debit_the_toman_price(monkeypatch, handler):
+    countries, state = _countries_setup(monkeypatch)
+    prefill = _prefill(monkeypatch, countries)
+    run = getattr(countries, handler)
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        callback = _bot_callback('x')
+        await run(callback, await _loaded_user(db), db, state)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert SHORTFALL_LABEL in _sent_text(callback)
+    assert prefill == [SHORTFALL_TOMAN]  # Toman top-up prefill (rounded to the 1,000 step)
+
+    debits = _spy_debits(monkeypatch, countries)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        await run(_bot_callback('x'), await _loaded_user(db), db, state)
+
+        assert debits == [PRICE_TOMAN]
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+class _FakeRemnaWave:
+    def __init__(self):
+        self.api = SimpleNamespace(reset_user_traffic=AsyncMock(), get_user_by_short_uuid=AsyncMock(return_value=None))
+
+    def get_api_client(self):
+        service = self
+
+        class _Ctx:
+            async def __aenter__(self):
+                return service.api
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _Ctx()
+
+
+def _traffic_setup(monkeypatch):
+    from app.handlers.subscription import traffic
+
+    async def resolve(callback, db_user, db, state=None):
+        return await db.get(Subscription, 10), 10
+
+    monkeypatch.setattr(Settings, 'is_traffic_topup_blocked', lambda self: False)
+    monkeypatch.setattr(traffic, '_resolve_subscription', resolve)
+    monkeypatch.setattr(traffic, '_calculate_traffic_reset_price', lambda subscription: PRICE_KOPEKS)
+    monkeypatch.setattr(traffic, 'RemnaWaveService', _FakeRemnaWave)
+    return traffic
+
+
+@pytest.mark.asyncio
+async def test_bot_traffic_reset_screen_shows_the_toman_shortfall(monkeypatch):
+    traffic = _traffic_setup(monkeypatch)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        callback = _bot_callback('reset_traffic')
+        await traffic.handle_reset_traffic(callback, await _loaded_user(db), db)
+
+    text = _sent_text(callback)
+    assert f'Не хватает: {SHORTFALL_LABEL}' in text
+
+
+@pytest.mark.asyncio
+async def test_bot_traffic_reset_refuses_then_debits_the_toman_price(monkeypatch):
+    traffic = _traffic_setup(monkeypatch)
+    prefill = _prefill(monkeypatch, traffic)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        callback = _bot_callback('confirm_reset_traffic')
+        await traffic.confirm_reset_traffic(callback, await _loaded_user(db), db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert SHORTFALL_LABEL in _sent_text(callback)
+    assert prefill == [SHORTFALL_TOMAN]
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        await traffic.confirm_reset_traffic(_bot_callback('confirm_reset_traffic'), await _loaded_user(db), db)
+
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
