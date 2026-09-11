@@ -20,12 +20,17 @@ from app.localization.texts import get_texts
 from app.services.referral_withdrawal_service import referral_withdrawal_service
 from app.states import AdminStates
 from app.utils.decorators import admin_required, error_handler
+from app.utils.price_display import balance_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
 
 
 from app.services.referral_reward_service import format_reward_total as _paid_line
+
+
+# Потолок тестового начисления: 10 000 000 туманов (решение пользователя 2026-09-11).
+_TEST_REFERRAL_EARNING_MAX_TOMAN = 10_000_000
 
 
 def _levels_breakdown_block(by_level: list[dict]) -> str:
@@ -723,27 +728,33 @@ async def start_test_referral_earning(
     callback: types.CallbackQuery, db_user: User, db: AsyncSession, state: FSMContext
 ):
     """Начинает процесс тестового начисления реферального дохода."""
+    texts = get_texts(db_user.language)
     if not settings.REFERRAL_WITHDRAWAL_TEST_MODE:
-        await callback.answer('Тестовый режим отключён', show_alert=True)
+        await callback.answer(
+            texts.t('ADMIN_TEST_REFERRAL_EARNING_DISABLED', '❌ Test mode is off'),
+            show_alert=True,
+        )
         return
 
     await state.set_state(AdminStates.test_referral_earning_input)
 
-    text = """
-🧪 <b>Тестовое начисление реферального дохода</b>
-
-Введите данные в формате:
-<code>telegram_id сумма_в_рублях</code>
-
-Примеры:
-• <code>123456789 500</code> — начислит 500₽ пользователю 123456789
-• <code>987654321 1000</code> — начислит 1000₽ пользователю 987654321
-
-⚠️ Это создаст реальную запись ReferralEarning, как будто пользователь заработал с реферала.
-"""
+    text = texts.t(
+        'ADMIN_TEST_REFERRAL_EARNING_PROMPT',
+        '🧪 <b>Test referral earning</b>\n\n'
+        'Send the user ID and the amount in one line:\n'
+        '<code>telegram_id amount</code>\n\n'
+        'Example: <code>123456789 50000</code> credits {example} to user 123456789.\n\n'
+        '⚠️ This creates a real referral earning record and adds the amount to the balance.',
+    ).format(example=settings.format_balance(50_000, language=db_user.language))
 
     keyboard = types.InlineKeyboardMarkup(
-        inline_keyboard=[[types.InlineKeyboardButton(text='❌ Отмена', callback_data='admin_withdrawal_requests')]]
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(
+                    text=texts.t('ADMIN_CANCEL', '❌ Cancel'), callback_data='admin_withdrawal_requests'
+                )
+            ]
+        ]
     )
 
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -753,51 +764,62 @@ async def start_test_referral_earning(
 @admin_required
 @error_handler
 async def process_test_referral_earning(message: types.Message, db_user: User, db: AsyncSession, state: FSMContext):
-    """Обрабатывает ввод тестового начисления."""
+    """Обрабатывает ввод тестового начисления.
+
+    Сумма вводится в туманах и хранится 1:1 — как и настоящие начисления:
+    ``balance_kopeks`` и ``ReferralEarning.amount_kopeks`` после Phase B держат туманы.
+    """
+    texts = get_texts(db_user.language)
     if not settings.REFERRAL_WITHDRAWAL_TEST_MODE:
-        await message.answer('❌ Тестовый режим отключён')
+        await message.answer(texts.t('ADMIN_TEST_REFERRAL_EARNING_DISABLED', '❌ Test mode is off'))
         await state.clear()
         return
 
-    text_input = message.text.strip()
-    parts = text_input.split()
-
+    bad_format = texts.t(
+        'ADMIN_TEST_REFERRAL_EARNING_BAD_FORMAT',
+        '❌ Wrong format. Send: <code>telegram_id amount</code>\n\nExample: <code>123456789 50000</code>',
+    )
+    parts = (message.text or '').strip().split(maxsplit=1)
     if len(parts) != 2:
-        await message.answer(
-            '❌ Неверный формат. Введите: <code>telegram_id сумма</code>\n\nНапример: <code>123456789 500</code>'
-        )
+        await message.answer(bad_format)
         return
 
     try:
         target_telegram_id = int(parts[0])
-        amount_rubles = float(parts[1].replace(',', '.'))
-        amount_kopeks = int(amount_rubles * 100)
-
-        if amount_kopeks <= 0:
-            await message.answer('❌ Сумма должна быть положительной')
-            return
-
-        if amount_kopeks > 10000000:  # Лимит 100 000₽
-            await message.answer('❌ Максимальная сумма тестового начисления: 100 000₽')
-            return
-
+        amount_toman = balance_from_display_amount(parts[1])
     except ValueError:
+        await message.answer(bad_format)
+        return
+
+    if amount_toman <= 0:
         await message.answer(
-            '❌ Неверный формат чисел. Введите: <code>telegram_id сумма</code>\n\nНапример: <code>123456789 500</code>'
+            texts.t('ADMIN_TEST_REFERRAL_EARNING_NOT_POSITIVE', '❌ The amount must be greater than zero')
+        )
+        return
+
+    if amount_toman > _TEST_REFERRAL_EARNING_MAX_TOMAN:
+        await message.answer(
+            texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ The amount is too large (maximum {max})').format(
+                max=settings.format_balance(_TEST_REFERRAL_EARNING_MAX_TOMAN, language=db_user.language)
+            )
         )
         return
 
     # Ищем целевого пользователя
     target_user = await get_user_by_telegram_id(db, target_telegram_id)
     if not target_user:
-        await message.answer(f'❌ Пользователь с ID {target_telegram_id} не найден в базе')
+        await message.answer(
+            texts.t('ADMIN_TEST_REFERRAL_EARNING_USER_NOT_FOUND', '❌ No user with ID {telegram_id}').format(
+                telegram_id=target_telegram_id
+            )
+        )
         return
 
     # Создаём тестовое начисление
     earning = ReferralEarning(
         user_id=target_user.id,
         referral_id=target_user.id,  # Сам на себя (тестовое)
-        amount_kopeks=amount_kopeks,
+        amount_kopeks=amount_toman,
         reason='test_earning',
     )
     db.add(earning)
@@ -806,30 +828,53 @@ async def process_test_referral_earning(message: types.Message, db_user: User, d
     from app.database.crud.user import lock_user_for_update
 
     target_user = await lock_user_for_update(db, target_user)
-    target_user.balance_kopeks += amount_kopeks
+    target_user.balance_kopeks += amount_toman
 
     await db.commit()
     await state.clear()
 
+    name = (
+        html.escape(target_user.full_name)
+        if target_user.full_name
+        else texts.t('ADMIN_TEST_REFERRAL_EARNING_NO_NAME', 'No name')
+    )
     await message.answer(
-        f'✅ <b>Тестовое начисление создано!</b>\n\n'
-        f'👤 Пользователь: {html.escape(target_user.full_name) if target_user.full_name else "Без имени"}\n'
-        f'🆔 ID: <code>{target_telegram_id}</code>\n'
-        f'💰 Сумма: <b>{amount_rubles:.0f}₽</b>\n'
-        f'💳 Новый баланс: <b>{target_user.balance_kopeks / 100:.0f}₽</b>\n\n'
-        f'Начисление добавлено как реферальный доход.',
+        texts.t(
+            'ADMIN_TEST_REFERRAL_EARNING_CREATED',
+            '✅ <b>Test earning created</b>\n\n'
+            '👤 User: {name}\n'
+            '🆔 ID: <code>{telegram_id}</code>\n'
+            '💰 Amount: <b>{amount}</b>\n'
+            '💳 New balance: <b>{balance}</b>\n\n'
+            'Recorded as referral income.',
+        ).format(
+            name=name,
+            telegram_id=target_telegram_id,
+            amount=settings.format_balance(amount_toman, language=db_user.language),
+            balance=settings.format_balance(target_user.balance_kopeks, language=db_user.language),
+        ),
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='📋 К заявкам', callback_data='admin_withdrawal_requests')],
-                [types.InlineKeyboardButton(text='👤 Профиль', callback_data=f'admin_user_manage_{target_user.id}')],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_TEST_REFERRAL_EARNING_TO_REQUESTS', '📋 To requests'),
+                        callback_data='admin_withdrawal_requests',
+                    )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text=texts.t('ADMIN_TEST_REFERRAL_EARNING_TO_PROFILE', '👤 Profile'),
+                        callback_data=f'admin_user_manage_{target_user.id}',
+                    )
+                ],
             ]
         ),
     )
 
     logger.info(
-        'Тестовое начисление: админ начислил ₽ пользователю',
+        'Тестовое начисление: админ начислил туманы пользователю',
         telegram_id=db_user.telegram_id,
-        amount_rubles=amount_rubles,
+        amount_toman=amount_toman,
         target_telegram_id=target_telegram_id,
     )
 
