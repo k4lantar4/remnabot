@@ -1,6 +1,6 @@
 # Toman scale batch A — admin amounts 100x off, and the daily-switch refund
 
-- Status: active
+- Status: done — k4lantar4/remnabot#59 (tasks 1-5, 7, 8), k4lantar4/frontend#21 (task 6)
 - Repos: remnabot (branch `fix/toman-scale-batch-a`), then frontend (branch `fix/referral-level-fixed-toman`)
 - Upstream basis: remnabot origin/main `0b5ec3ff` (fork 4.2.0+rookari.1); frontend origin/main `91009e94`
 - Findings: F-014, F-015, F-016, F-030, F-031, F-051, F-032 (`/opt/project/FINDINGS.md`)
@@ -41,6 +41,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 
 ### 1. F-014 — cabinet balance edit capped like the bot
 
+- Done: 94565243
+
 - Repo/files: remnabot `app/utils/price_display.py` (new constant `ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000`),
   `app/handlers/admin/users.py:74` (drop the local `_ADMIN_BALANCE_EDIT_MAX_TOMAN`, import the shared one;
   uses at `:2463,:2466`), `app/cabinet/schemas/users.py:342-352` (`UpdateBalanceRequest.amount_kopeks`
@@ -52,6 +54,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 - i18n: none (422 from pydantic; the cabinet already shows API errors).
 
 ### 2. F-015 — bot admin income stats in Toman
+
+- Done: 2724cb75
 
 - Repo/files: remnabot `app/database/crud/transaction.py` `get_transactions_statistics` — add
   `totals.expenses_toman` (withdrawal is balance scale → the raw sum), `totals.profit_toman`
@@ -71,6 +75,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 
 ### 3. F-016 — referral earnings in Toman (admin card + menu placeholder)
 
+- Done: efbbf155
+
 - Repo/files: remnabot `app/handlers/admin/users.py:2963,2964,2970` → `settings.format_balance`;
   `app/services/menu_layout/service.py:984` → `texts.format_balance(context.referral_earnings_kopeks)`.
   Source is `get_user_referral_stats` (`app/database/crud/referral.py:483`), `ReferralEarning` sums, Toman 1:1.
@@ -81,6 +87,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 - i18n: none.
 
 ### 4. F-030 — web API `amount_rubles` per transaction type
+
+- Done: e2b11728 (contests left: mixed scale → F-057)
 
 - Repo/files: remnabot `app/webapi/routes/transactions.py:25` →
   `amount_rubles=display_transaction_amount_from_storage(transaction.amount_kopeks, transaction.type)`.
@@ -94,6 +102,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 - i18n: none.
 
 ### 5. F-031 — referral-level fixed reward entered and stored in Toman (bot)
+
+- Done: 63af8573
 
 - Repo/files: remnabot `app/handlers/admin/referral_levels.py` — `:1056` store the typed Toman 1:1
   (parse with `balance_from_display_amount` so fa digits/separators work; money fields become
@@ -111,6 +121,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 
 ### 6. F-031 — cabinet referral-level inputs (frontend)
 
+- Done: frontend 54fa30a6 (k4lantar4/frontend#21)
+
 - Repo/files: frontend `src/pages/AdminReferralLevels.tsx:458-461,503-506` — `value` without `/ 100`,
   drop `scale={100}` (default 1); `src/pages/adminReferralLevels.test.tsx:215` — expect the typed
   Toman unchanged (e.g. `150000`).
@@ -120,6 +132,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
   and `en.json` states Toman; fix if it names another unit.
 
 ### 7. F-051 — bot quick top-up buttons and generic bounds in Toman
+
+- Done: 38618518
 
 - Repo/files: remnabot `app/keyboards/topup_amounts.py:49-52` `format_quick_amount(amount_kopeks, language)`
   → `settings.format_price(amount_kopeks, language=language)` (quick amounts and method limits are
@@ -135,6 +149,8 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
   (byte-identical), idiomatic Persian, Latin digits.
 
 ### 8. F-032 — daily switch: refund only an undelivered debit
+
+- Done: 719fd3f7
 
 - Repo/files: remnabot `app/handlers/subscription/tariff_purchase.py` `confirm_daily_tariff_switch`
   (`:4080-4380`). Add `charged = False` / `delivered = False` before the `try`; `charged = True`
@@ -153,8 +169,11 @@ gateway); `app/webapi/routes/contests.py` if its amounts turn out to mix scales 
 
 No endpoint or field changes. Task 6 only changes what the cabinet puts into the existing fields;
 the bot route stores them as-is. Merge the remnabot PR (Tasks 1-5, 7, 8) first, then the frontend PR.
-Release note for both PR bodies: any existing `referral_reward_levels` rows hold ×100 values and
-must be divided by 100 during the production data merge (the table is absent in the dev DB).
+Release note for both PR bodies: if `referral_reward_levels` exists in the production DB, check
+`referrer_fixed_kopeks` / `referee_fixed_kopeks` row by row during the data merge. Values typed into
+the bot or cabinet editor were stored ×100 and need ÷100; rows created by the legacy import
+(`REFERRAL_*_BONUS_KOPEKS`, already Toman) are correct as they are. If in doubt, re-enter them.
+(The table is absent in the dev DB — F-017.)
 
 ## Smoke test
 
