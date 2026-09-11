@@ -11,6 +11,9 @@ from typing import Any
 from app.database.models import User
 
 
+# Toman, compared 1:1 with balance_kopeks (Phase B). Applies only to users who never saved a threshold.
+DEFAULT_BALANCE_LOW_THRESHOLD = 100_000
+
 # Defaults match the frontend and cabinet/routes/notifications.py
 _DEFAULTS: dict[str, Any] = {
     'subscription_expiry_enabled': True,
@@ -18,7 +21,7 @@ _DEFAULTS: dict[str, Any] = {
     'traffic_warning_enabled': True,
     'traffic_warning_percent': 80,
     'balance_low_enabled': False,
-    'balance_low_threshold': 100,  # Toman, compared 1:1 with balance_kopeks (Phase B)
+    'balance_low_threshold': DEFAULT_BALANCE_LOW_THRESHOLD,
     'news_enabled': True,
     'promo_offers_enabled': True,
 }
@@ -67,12 +70,12 @@ def is_balance_low_enabled(user: User) -> bool:
 
 
 def get_balance_low_threshold(user: User) -> int:
-    """Get the low balance threshold in kopeks."""
+    """Get the low balance threshold in Toman (compared 1:1 with the balance)."""
     value = get_user_notification_pref(user, 'balance_low_threshold')
     try:
         return max(0, int(value))
     except (TypeError, ValueError):
-        return 100
+        return DEFAULT_BALANCE_LOW_THRESHOLD
 
 
 def is_news_enabled(user: User) -> bool:
