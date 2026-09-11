@@ -222,10 +222,13 @@ class TestValueInput:
         return SimpleNamespace(get_data=get_data, clear=clear, store=store)
 
     @pytest.mark.asyncio
-    async def test_money_is_entered_in_rubles_stored_in_kopeks(self, wired, fsm):
-        message = SimpleNamespace(text='150,50', answer=AsyncMock(), from_user=SimpleNamespace(id=1))
+    @pytest.mark.parametrize('typed', ['150,000', '150000', '۱۵۰۰۰۰', '150000 تومان'])
+    async def test_money_is_entered_and_stored_in_toman(self, wired, fsm, typed):
+        """The engine credits the fixed reward 1:1 to the Toman balance — no ×100 on input."""
+        message = SimpleNamespace(text=typed, answer=AsyncMock(), from_user=SimpleNamespace(id=1))
         await _raw(editor.process_level_value)(message, db_user=SimpleNamespace(id=1), db=None, state=fsm)
-        assert wired['saved'][-1]['referrer_fixed_kopeks'] == 15050
+        assert wired['saved'][-1]['referrer_fixed_kopeks'] == 150_000
+        assert '150,000' in message.answer.await_args.args[0]
 
     @pytest.mark.asyncio
     async def test_days_are_plain_integers(self, wired, fsm):

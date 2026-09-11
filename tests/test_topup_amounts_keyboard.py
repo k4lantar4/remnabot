@@ -10,6 +10,8 @@ from app.keyboards.topup_amounts import (
     get_topup_amount_keyboard,
     resolve_config_method_id,
 )
+from app.localization.loader import DEFAULT_LANGUAGE
+from app.localization.texts import get_texts
 
 
 def test_resolve_maps_callback_methods_to_config_ids():
@@ -34,9 +36,13 @@ def test_resolve_maps_overpay_variants_to_overpay():
     assert resolve_config_method_id('overpay_int') == 'overpay'
 
 
-def test_format_quick_amount():
-    assert format_quick_amount(10000) == '100 ₽'
-    assert format_quick_amount(12550) == '125.50 ₽'
+@pytest.mark.parametrize('language', ['fa', 'en'])
+def test_format_quick_amount_is_toman_in_user_language(language):
+    """Quick amounts sit on the Toman ×100 top-up scale — the catalog price formatter, never «₽»."""
+    for amount in (10000, 12550, 5_000_000):
+        label = format_quick_amount(amount, language)
+        assert label == get_texts(language).format_price(amount)
+        assert '₽' not in label
 
 
 async def test_keyboard_builds_amount_buttons_within_limits(monkeypatch: pytest.MonkeyPatch):
@@ -56,7 +62,8 @@ async def test_keyboard_builds_amount_buttons_within_limits(monkeypatch: pytest.
 
     callbacks = [button.callback_data for row in keyboard.inline_keyboard for button in row]
     assert callbacks == ['topup_amount|stars|30000', 'topup_amount|stars|50000', 'back_to_menu']
-    assert keyboard.inline_keyboard[0][0].text == '300 ₽'
+    assert keyboard.inline_keyboard[0][0].text == get_texts(DEFAULT_LANGUAGE).format_price(30000)
+    assert '₽' not in keyboard.inline_keyboard[0][0].text
 
 
 async def test_keyboard_chunks_amounts_two_per_row(monkeypatch: pytest.MonkeyPatch):

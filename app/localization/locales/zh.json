@@ -1877,6 +1877,8 @@
   "DONUT_ENTER_AMOUNT": "💳 <b>通过 {name} 充值</b>\n\n请输入充值金额（卢布）。\n\n最低：{min_amount}₽\n最高：{max_amount}₽",
   "PAYMENT_AMOUNT_TOO_LOW": "最低充值金额：{min_amount}₽",
   "PAYMENT_AMOUNT_TOO_HIGH": "最高充值金额：{max_amount}₽",
+  "TOPUP_AMOUNT_TOO_LOW": "最低充值金额：{amount}",
+  "TOPUP_AMOUNT_TOO_HIGH": "最高充值金额：{amount}",
   "RIOPAY_PAYMENT_CREATED": "💳 <b>通过 {name} 付款</b>\n\n金额：<b>{amount}₽</b>\n\n点击下方按钮进行付款。\n付款成功后余额将自动充值。",
   "RIOPAY_ENTER_AMOUNT": "💳 <b>通过 {name} 充值</b>\n\n请输入充值金额（卢布）。\n\n最低：{min_amount}₽\n最高：{max_amount}₽",
   "PAYMENT_INVALID_AMOUNT": "请输入有效的数字金额。",

@@ -153,6 +153,20 @@ def test_layout_balance_placeholder_uses_format_balance_not_price():
     texts.format_price.assert_not_called()
 
 
+def test_layout_referral_earnings_placeholder_uses_format_balance_not_price():
+    """ReferralEarning sums are Toman 1:1; format_price showed 20,000 Toman as 200."""
+    texts = MagicMock()
+    texts.format_balance.return_value = '20,000 تومان'
+    texts.format_price.return_value = '200 تومان'
+    context = MenuContext(language='fa', referral_earnings_kopeks=20_000)
+
+    out = MenuLayoutService._format_dynamic_text('🎁 درآمد معرفی: {referral_earnings}', context, texts)
+
+    assert out == '🎁 درآمد معرفی: 20,000 تومان'
+    texts.format_balance.assert_called_once_with(20_000)
+    texts.format_price.assert_not_called()
+
+
 def test_show_buy_hidden_when_active_single_tariff():
     conditions = {'show_buy': True}
     context = MenuContext(

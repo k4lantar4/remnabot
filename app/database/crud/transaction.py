@@ -405,6 +405,7 @@ async def get_transactions_statistics(
         )
     )
     total_expenses = expenses_result.scalar()
+    total_expenses_toman = storage_sum_to_display_toman(int(total_expenses or 0), TransactionType.WITHDRAWAL.value)
 
     subscription_income_result = await db.execute(
         select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
@@ -440,6 +441,7 @@ async def get_transactions_statistics(
     payment_methods_result = await db.execute(
         select(
             Transaction.payment_method,
+            Transaction.type,
             func.count(Transaction.id).label('count'),
             func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0).label('total_amount'),
         )
@@ -451,11 +453,16 @@ async def get_transactions_statistics(
                 Transaction.created_at <= end_date,
             )
         )
-        .group_by(Transaction.payment_method)
+        .group_by(Transaction.payment_method, Transaction.type)
     )
-    payment_methods = {
-        row.payment_method: {'count': row.count, 'amount': row.total_amount} for row in payment_methods_result
-    }
+    # Grouped by type too: one method carries deposits (1:1) and subscription payments (×100).
+    payment_methods: dict = {}
+    for row in payment_methods_result:
+        amount = int(row.total_amount or 0)
+        entry = payment_methods.setdefault(row.payment_method, {'count': 0, 'amount': 0, 'amount_toman': 0})
+        entry['count'] += row.count
+        entry['amount'] += amount
+        entry['amount_toman'] += storage_sum_to_display_toman(amount, row.type)
 
     today = datetime.now(UTC).date()
     today_result = await db.execute(
@@ -489,7 +496,9 @@ async def get_transactions_statistics(
             'income_kopeks': total_income,
             'income_toman': total_income_toman,
             'expenses_kopeks': total_expenses,
+            'expenses_toman': total_expenses_toman,
             'profit_kopeks': total_income - total_expenses,
+            'profit_toman': total_income_toman - total_expenses_toman,
             'subscription_income_kopeks': subscription_income,
             'subscription_income_toman': storage_sum_to_display_toman(
                 int(subscription_income or 0), TransactionType.SUBSCRIPTION_PAYMENT.value

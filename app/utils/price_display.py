@@ -20,6 +20,10 @@ from app.database.models import User
 
 logger = structlog.get_logger(__name__)
 
+# Ceiling on one admin balance edit (bot and cabinet), in stored Toman. Kept equal to the
+# stored delta the old ruble-input path allowed (100,000 × 100), so the maximum credit is unchanged.
+ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000
+
 
 def display_amount_from_kopeks(kopeks: int) -> float:
     """User-facing display unit for catalog prices (kopeks ÷ 100)."""

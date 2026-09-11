@@ -55,6 +55,7 @@ from app.utils.formatters import format_datetime, format_time_ago
 from app.utils.formatting import user_html_link
 from app.utils.photo_message import safe_edit_or_resend
 from app.utils.price_display import (
+    ADMIN_BALANCE_EDIT_MAX_TOMAN,
     balance_from_display_amount,
     catalog_price_in_toman,
     format_transaction_amount_for_display,
@@ -68,10 +69,6 @@ from app.utils.user_utils import get_effective_referral_commission_percent
 
 
 logger = structlog.get_logger(__name__)
-
-# Ceiling on one bot admin balance edit, in stored Toman. Kept equal to the stored
-# delta the old ruble-input path allowed (100,000 × 100), so the maximum credit is unchanged.
-_ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000
 
 
 # =============================================================================
@@ -2460,10 +2457,10 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
         )
         return
 
-    if abs(amount_toman) > _ADMIN_BALANCE_EDIT_MAX_TOMAN:
+    if abs(amount_toman) > ADMIN_BALANCE_EDIT_MAX_TOMAN:
         await message.answer(
             texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ Слишком большая сумма (максимум {max})').format(
-                max=settings.format_balance(_ADMIN_BALANCE_EDIT_MAX_TOMAN, language=db_user.language)
+                max=settings.format_balance(ADMIN_BALANCE_EDIT_MAX_TOMAN, language=db_user.language)
             )
         )
         return
@@ -2960,14 +2957,15 @@ async def show_user_statistics(callback: types.CallbackQuery, db_user: User, db:
         text += '<b>Доходы от рефералов:</b>\n'
         text += f'• Всего приглашено: {referral_stats["invited_count"]}\n'
         text += f'• Активных рефералов: {referral_stats["active_referrals"]}\n'
-        text += f'• Общий доход: {settings.format_price(referral_stats["total_earned_kopeks"])}\n'
-        text += f'• Доход за месяц: {settings.format_price(referral_stats["month_earned_kopeks"])}\n'
+        # ReferralEarning sums are Toman 1:1 (balance scale) → format_balance.
+        text += f'• Общий доход: {settings.format_balance(referral_stats["total_earned_kopeks"])}\n'
+        text += f'• Доход за месяц: {settings.format_balance(referral_stats["month_earned_kopeks"])}\n'
 
         if referral_stats['referrals_detail']:
             text += '\n<b>Детали по рефералам:</b>\n'
             for detail in referral_stats['referrals_detail'][:5]:
                 referral_name = html.escape(detail['referral_name'])
-                earned = settings.format_price(detail['total_earned_kopeks'])
+                earned = settings.format_balance(detail['total_earned_kopeks'])
                 status = '🟢' if detail['is_active'] else '🔴'
                 text += f'• {status} {referral_name}: {earned}\n'
 

@@ -2011,6 +2011,8 @@
   "DONUT_ENTER_AMOUNT": "💳 <b>Top up via {name}</b>\n\nEnter the top-up amount in rubles.\n\nMinimum: {min_amount}₽\nMaximum: {max_amount}₽",
   "PAYMENT_AMOUNT_TOO_LOW": "Minimum top-up amount: {min_amount}₽",
   "PAYMENT_AMOUNT_TOO_HIGH": "Maximum top-up amount: {max_amount}₽",
+  "TOPUP_AMOUNT_TOO_LOW": "Minimum top-up amount: {amount}",
+  "TOPUP_AMOUNT_TOO_HIGH": "Maximum top-up amount: {amount}",
   "RIOPAY_PAYMENT_CREATED": "💳 <b>Payment via {name}</b>\n\nAmount: <b>{amount}₽</b>\n\nTap the button below to pay.\nYour balance will be topped up automatically after a successful payment.",
   "RIOPAY_ENTER_AMOUNT": "💳 <b>Top up via {name}</b>\n\nEnter the top-up amount in rubles.\n\nMinimum: {min_amount}₽\nMaximum: {max_amount}₽",
   "PAYMENT_INVALID_AMOUNT": "Enter a valid amount as a number.",

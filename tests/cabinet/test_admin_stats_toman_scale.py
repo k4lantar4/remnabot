@@ -9,7 +9,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 from app.cabinet.routes.admin_stats import get_recent_payments
-from app.database.crud.transaction import display_toman_from_type_sums, get_revenue_by_period
+from app.database.crud.transaction import (
+    display_toman_from_type_sums,
+    get_revenue_by_period,
+    get_transactions_statistics,
+)
 
 
 NOW = datetime(2026, 9, 10, 18, 0, tzinfo=UTC)
@@ -46,6 +50,40 @@ async def test_revenue_chart_has_toman_per_day() -> None:
     data = await get_revenue_by_period(db, days=30)
 
     assert data == [{'date': day, 'amount_kopeks': 6_000_000, 'amount_toman': 5_010_000}]
+
+
+async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -> None:
+    """A 50,000-Toman deposit + a 100,000-Toman subscription payment, both via card (F-015)."""
+    db = AsyncMock()
+    db.execute = AsyncMock(
+        side_effect=[
+            _result(rows=[('deposit', 50_000), ('subscription_payment', 10_000_000)]),  # income
+            _result(scalar=20_000),  # withdrawals
+            _result(scalar=10_000_000),  # subscription income
+            _result(rows=[]),  # by type
+            _result(  # by payment method
+                rows=[
+                    SimpleNamespace(payment_method='card', type='deposit', count=1, total_amount=50_000),
+                    SimpleNamespace(
+                        payment_method='card', type='subscription_payment', count=1, total_amount=10_000_000
+                    ),
+                ]
+            ),
+            _result(scalar=0),  # today count
+            _result(rows=[]),  # today income
+        ]
+    )
+
+    stats = await get_transactions_statistics(db, start_date=NOW, end_date=NOW)
+
+    totals = stats['totals']
+    assert totals['income_toman'] == 150_000
+    assert totals['expenses_toman'] == 20_000
+    assert totals['profit_toman'] == 130_000
+    assert stats['by_payment_method']['card'] == {'count': 2, 'amount': 10_050_000, 'amount_toman': 150_000}
+    # legacy raw keys keep their meaning for the cabinet / web API consumers
+    assert totals['income_kopeks'] == 10_050_000
+    assert totals['profit_kopeks'] == 10_030_000
 
 
 async def test_recent_payments_amounts_and_totals_in_toman() -> None:

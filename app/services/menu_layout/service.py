@@ -979,9 +979,9 @@ class MenuLayoutService:
         if '{referral_count}' in text:
             text = text.replace('{referral_count}', str(context.referral_count))
 
-        # Заработок с рефералов
+        # Заработок с рефералов — суммы ReferralEarning хранятся в Toman 1:1 (как баланс)
         if '{referral_earnings}' in text:
-            formatted_earnings = texts.format_price(context.referral_earnings_kopeks)
+            formatted_earnings = texts.format_balance(context.referral_earnings_kopeks)
             text = text.replace('{referral_earnings}', formatted_earnings)
 
         return text

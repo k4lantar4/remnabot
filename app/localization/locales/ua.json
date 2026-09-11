@@ -1879,6 +1879,8 @@
   "DONUT_ENTER_AMOUNT": "💳 <b>Поповнення через {name}</b>\n\nВведіть суму поповнення в рублях.\n\nМінімум: {min_amount}₽\nМаксимум: {max_amount}₽",
   "PAYMENT_AMOUNT_TOO_LOW": "Мінімальна сума поповнення: {min_amount}₽",
   "PAYMENT_AMOUNT_TOO_HIGH": "Максимальна сума поповнення: {max_amount}₽",
+  "TOPUP_AMOUNT_TOO_LOW": "Мінімальна сума поповнення: {amount}",
+  "TOPUP_AMOUNT_TOO_HIGH": "Максимальна сума поповнення: {amount}",
   "RIOPAY_PAYMENT_CREATED": "💳 <b>Оплата через {name}</b>\n\nСума: <b>{amount}₽</b>\n\nНатисніть кнопку нижче для оплати.\nПісля успішної оплати баланс буде поповнено автоматично.",
   "RIOPAY_ENTER_AMOUNT": "💳 <b>Поповнення через {name}</b>\n\nВведіть суму поповнення в рублях.\n\nМінімум: {min_amount}₽\nМаксимум: {max_amount}₽",
   "PAYMENT_INVALID_AMOUNT": "Введіть коректну суму числом.",

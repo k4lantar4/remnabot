@@ -2111,6 +2111,8 @@
   "DONUT_ENTER_AMOUNT": "💳 <b>Пополнение через {name}</b>\n\nВведите сумму пополнения в рублях.\n\nМинимум: {min_amount}₽\nМаксимум: {max_amount}₽",
   "PAYMENT_AMOUNT_TOO_LOW": "Минимальная сумма пополнения: {min_amount}₽",
   "PAYMENT_AMOUNT_TOO_HIGH": "Максимальная сумма пополнения: {max_amount}₽",
+  "TOPUP_AMOUNT_TOO_LOW": "Минимальная сумма пополнения: {amount}",
+  "TOPUP_AMOUNT_TOO_HIGH": "Максимальная сумма пополнения: {amount}",
   "RIOPAY_PAYMENT_CREATED": "💳 <b>Оплата через {name}</b>\n\nСумма: <b>{amount}₽</b>\n\nНажмите кнопку ниже для оплаты.\nПосле успешной оплаты баланс будет пополнен автоматически.",
   "RIOPAY_ENTER_AMOUNT": "💳 <b>Пополнение через {name}</b>\n\nВведите сумму пополнения в рублях.\n\nМинимум: {min_amount}₽\nМаксимум: {max_amount}₽",
   "PAYMENT_INVALID_AMOUNT": "Введите корректную сумму числом.",

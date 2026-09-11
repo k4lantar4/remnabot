@@ -2187,6 +2187,8 @@
   "DONUT_ENTER_AMOUNT": "💳 <b>شارژ از طریق {name}</b>\n\nمبلغ شارژ را به روبل وارد کنید.\n\nحداقل: {min_amount}₽\nحداکثر: {max_amount}₽",
   "PAYMENT_AMOUNT_TOO_LOW": "حداقل مبلغ شارژ: {min_amount}₽",
   "PAYMENT_AMOUNT_TOO_HIGH": "حداکثر مبلغ شارژ: {max_amount}₽",
+  "TOPUP_AMOUNT_TOO_LOW": "حداقل مبلغ شارژ {amount} است.",
+  "TOPUP_AMOUNT_TOO_HIGH": "حداکثر مبلغ شارژ {amount} است.",
   "RIOPAY_PAYMENT_CREATED": "💳 <b>پرداخت از طریق {name}</b>\n\nمبلغ: <b>{amount}₽</b>\n\nبرای پرداخت روی دکمه زیر بزنید.\nپس از پرداخت موفق، موجودی به‌طور خودکار شارژ می‌شود.",
   "RIOPAY_ENTER_AMOUNT": "💳 <b>شارژ از طریق {name}</b>\n\nمبلغ شارژ را به روبل وارد کنید.\n\nحداقل: {min_amount}₽\nحداکثر: {max_amount}₽",
   "PAYMENT_INVALID_AMOUNT": "یک مبلغ معتبر به‌صورت عدد وارد کنید.",
