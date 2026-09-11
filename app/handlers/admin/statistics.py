@@ -145,25 +145,25 @@ async def show_revenue_statistics(callback: types.CallbackQuery, db_user: User, 
 💰 <b>Статистика доходов</b>
 
 <b>За текущий месяц:</b>
-- Доходы: {settings.format_price(month_stats['totals']['income_kopeks'])}
-- Расходы: {settings.format_price(month_stats['totals']['expenses_kopeks'])}
-- Прибыль: {settings.format_price(month_stats['totals']['profit_kopeks'])}
-- От подписок: {settings.format_price(abs(month_stats['totals']['subscription_income_kopeks']))}
+- Доходы: {settings.format_balance(month_stats['totals']['income_toman'])}
+- Расходы: {settings.format_balance(month_stats['totals']['expenses_toman'])}
+- Прибыль: {settings.format_balance(month_stats['totals']['profit_toman'])}
+- От подписок: {settings.format_balance(month_stats['totals']['subscription_income_toman'])}
 
 <b>Сегодня:</b>
 - Транзакций: {month_stats['today']['transactions_count']}
-- Доходы: {settings.format_price(month_stats['today']['income_kopeks'])}
+- Доходы: {settings.format_balance(month_stats['today']['income_toman'])}
 
 <b>За все время:</b>
-- Общий доход: {settings.format_price(all_time_stats['totals']['income_kopeks'])}
-- Общая прибыль: {settings.format_price(all_time_stats['totals']['profit_kopeks'])}
+- Общий доход: {settings.format_balance(all_time_stats['totals']['income_toman'])}
+- Общая прибыль: {settings.format_balance(all_time_stats['totals']['profit_toman'])}
 
 <b>Способы оплаты:</b>
 """
 
     for method, data in month_stats['by_payment_method'].items():
         if method and data['count'] > 0:
-            text += f'• {method}: {data["count"]} ({settings.format_price(data["amount"])})\n'
+            text += f'• {method}: {data["count"]} ({settings.format_balance(data["amount_toman"])})\n'
 
     text += f'\n<b>Обновлено:</b> {current_time}'
 
@@ -270,7 +270,7 @@ async def show_summary_statistics(callback: types.CallbackQuery, db_user: User, 
 
     arpu = 0
     if user_stats['active_users'] > 0:
-        arpu = revenue_stats['totals']['income_kopeks'] / user_stats['active_users']
+        arpu = revenue_stats['totals']['income_toman'] / user_stats['active_users']
 
     text = f"""
 📊 <b>Общая сводка системы</b>
@@ -286,8 +286,8 @@ async def show_summary_statistics(callback: types.CallbackQuery, db_user: User, 
 - Конверсия: {format_percentage(conversion_rate)}
 
 <b>Финансы (месяц):</b>
-- Доходы: {settings.format_price(revenue_stats['totals']['income_kopeks'])}
-- ARPU: {settings.format_price(int(arpu))}
+- Доходы: {settings.format_balance(revenue_stats['totals']['income_toman'])}
+- ARPU: {settings.format_balance(int(arpu))}
 - Транзакций: {sum(data['count'] for data in revenue_stats['by_type'].values())}
 
 <b>Рост:</b>
@@ -332,22 +332,23 @@ async def show_revenue_by_period(callback: types.CallbackQuery, db_user: User, d
         today = datetime.now(UTC).date()
         revenue_data = [r for r in revenue_data if r['date'] == today]
 
-    total_revenue = sum(r['amount_kopeks'] for r in revenue_data)
+    # amount_toman: each transaction type converted on its own scale (deposits 1:1, catalog ÷100).
+    total_revenue = sum(r['amount_toman'] for r in revenue_data)
     avg_daily = total_revenue / len(revenue_data) if revenue_data else 0
 
     text = f"""
 📈 <b>Доходы за период: {period}</b>
 
 <b>Сводка:</b>
-- Общий доход: {settings.format_price(total_revenue)}
+- Общий доход: {settings.format_balance(total_revenue)}
 - Дней с данными: {len(revenue_data)}
-- Средний доход в день: {settings.format_price(int(avg_daily))}
+- Средний доход в день: {settings.format_balance(int(avg_daily))}
 
 <b>По дням:</b>
 """
 
     for revenue in revenue_data[-10:]:
-        text += f'• {revenue["date"].strftime("%d.%m")}: {settings.format_price(revenue["amount_kopeks"])}\n'
+        text += f'• {revenue["date"].strftime("%d.%m")}: {settings.format_balance(revenue["amount_toman"])}\n'
 
     if len(revenue_data) > 10:
         text += f'... и еще {len(revenue_data) - 10} дней'
