@@ -1,4 +1,5 @@
 import html
+import time
 
 import structlog
 from aiogram import types
@@ -6,12 +7,14 @@ from aiogram.fsm.context import FSMContext
 
 from app.config import settings
 from app.database.models import User
-from app.external.telegram_stars import TelegramStarsService
+from app.keyboards.inline import get_back_keyboard
 from app.keyboards.topup_amounts import get_topup_amount_keyboard
 from app.localization.texts import get_texts
 from app.services.payment_service import PaymentService
 from app.states import BalanceStates
+from app.utils import toman_rates
 from app.utils.decorators import error_handler
+from app.utils.price_display import catalog_price_in_toman, kopeks_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
@@ -82,25 +85,40 @@ async def process_stars_payment_amount(message: types.Message, db_user: User, am
 
     texts = get_texts(db_user.language)
 
-    if not settings.TELEGRAM_STARS_ENABLED:
-        await message.answer('⚠️ Оплата Stars временно недоступна')
+    # amount_kopeks is the bot's top-up scale (Toman x100). Stars are quoted from the fixed
+    # TELEGRAM_STARS_TOMAN_PER_STAR rate; the payload carries the Toman those stars credit.
+    if not toman_rates.is_stars_toman_ready():
+        await message.answer(texts.t('STARS_TOPUP_UNAVAILABLE', '⚠️ Telegram Stars top-up is not available right now.'))
+        return
+
+    topup_toman = catalog_price_in_toman(amount_kopeks)
+    min_toman, max_toman = toman_rates.stars_topup_limits_toman()
+    if not min_toman <= topup_toman <= max_toman:
+        await message.answer(
+            texts.t('TOPUP_AMOUNT_OUT_OF_RANGE', 'Enter an amount from {min} to {max}.').format(
+                min=texts.format_balance(min_toman), max=texts.format_balance(max_toman)
+            ),
+            reply_markup=get_back_keyboard(db_user.language, callback_data='balance_topup'),
+        )
         return
 
     try:
-        amount_rubles = amount_kopeks / 100
-        stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_rubles)
-        stars_rate = settings.get_stars_rate()
+        quote = toman_rates.quote_stars_for_toman(topup_toman)
 
         payment_service = PaymentService(message.bot)
         invoice_link = await payment_service.create_stars_invoice(
-            amount_kopeks=amount_kopeks,
-            description=f'Пополнение баланса на {texts.format_price(amount_kopeks)}',
-            payload=f'balance_{db_user.id}_{amount_kopeks}',
+            amount_kopeks=kopeks_from_display_amount(quote.credit_toman),
+            title=texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up'),
+            description=texts.t(
+                'STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)'
+            ).format(amount=texts.format_balance(quote.credit_toman), stars=quote.stars),
+            payload=toman_rates.build_toman_topup_payload(db_user.id, quote.credit_toman, nonce=int(time.time())),
+            stars_amount=quote.stars,
         )
 
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='⭐ Оплатить', url=invoice_link)],
+                [types.InlineKeyboardButton(text=texts.t('STARS_PAY_BUTTON', '⭐ Pay'), url=invoice_link)],
                 [types.InlineKeyboardButton(text=texts.BACK, callback_data='balance_topup')],
             ]
         )
@@ -122,11 +140,15 @@ async def process_stars_payment_amount(message: types.Message, db_user: User, am
                 logger.warning('Не удалось удалить сообщение с запросом суммы Stars', delete_error=delete_error)
 
         invoice_message = await message.answer(
-            f'⭐ <b>Оплата через Telegram Stars</b>\n\n'
-            f'💰 Сумма: {texts.format_price(amount_kopeks)}\n'
-            f'⭐ К оплате: {stars_amount} звезд\n'
-            f'📊 Курс: {stars_rate}₽ за звезду\n\n'
-            f'Нажмите кнопку ниже для оплаты:',
+            texts.t(
+                'STARS_TOPUP_INVOICE_MESSAGE',
+                '⭐ <b>Pay with Telegram Stars</b>\n\n💰 Top-up amount: {amount}\n⭐ To pay: {stars} stars\n'
+                '📊 Rate: {rate} per star\n\nTap the button below to pay:',
+            ).format(
+                amount=texts.format_balance(quote.credit_toman),
+                stars=quote.stars,
+                rate=texts.format_balance(toman_rates.stars_to_toman(1)),
+            ),
             reply_markup=keyboard,
             parse_mode='HTML',
         )
@@ -140,4 +162,4 @@ async def process_stars_payment_amount(message: types.Message, db_user: User, am
 
     except Exception as e:
         logger.error('Ошибка создания Stars invoice', error=e)
-        await message.answer('⚠️ Ошибка создания платежа')
+        await message.answer(texts.t('TOPUP_PAYMENT_CREATE_ERROR', '⚠️ Could not create the payment. Please try again.'))

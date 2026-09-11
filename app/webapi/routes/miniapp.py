@@ -3,11 +3,11 @@ from __future__ import annotations
 import dataclasses
 import math
 import re
+import time
 from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
-from decimal import ROUND_FLOOR, ROUND_HALF_UP, ROUND_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, ROUND_UP, Decimal, InvalidOperation
 from typing import Any
-from uuid import uuid4
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -96,10 +96,12 @@ from app.services.trial_activation_service import (
     rollback_trial_subscription_activation,
 )
 from app.services.tribute_service import TributeService
+from app.utils import toman_rates
 from app.utils.currency_converter import currency_converter
 from app.utils.price_display import (
     catalog_price_in_toman,
     display_transaction_amount_from_storage,
+    kopeks_from_display_amount,
     missing_toman,
     user_can_afford,
 )
@@ -237,9 +239,6 @@ def _get_tariff_monthly_price(tariff) -> int:
 
     return 0
 
-
-_DECIMAL_ONE_HUNDRED = Decimal(100)
-_DECIMAL_CENT = Decimal('0.01')
 
 _PAYMENT_SUCCESS_STATUSES = {
     'paid',
@@ -383,46 +382,6 @@ def _compute_cryptobot_limits_toman(toman_per_usdt: Decimal) -> tuple[int, int]:
 
 def _current_request_timestamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
-
-
-def _compute_stars_min_amount() -> int | None:
-    try:
-        rate = Decimal(str(settings.get_stars_rate()))
-    except (InvalidOperation, TypeError):
-        return None
-
-    if rate <= 0:
-        return None
-
-    return int((rate * _DECIMAL_ONE_HUNDRED).to_integral_value(rounding=ROUND_HALF_UP))
-
-
-def _normalize_stars_amount(amount_kopeks: int) -> tuple[int, int]:
-    try:
-        rate = Decimal(str(settings.get_stars_rate()))
-    except (InvalidOperation, TypeError):
-        raise ValueError('Stars rate is not configured')
-
-    if rate <= 0:
-        raise ValueError('Stars rate must be positive')
-
-    amount_rubles = Decimal(amount_kopeks) / _DECIMAL_ONE_HUNDRED
-    stars_amount = int((amount_rubles / rate).to_integral_value(rounding=ROUND_FLOOR))
-    if stars_amount <= 0:
-        stars_amount = 1
-
-    normalized_rubles = (Decimal(stars_amount) * rate).quantize(
-        _DECIMAL_CENT,
-        rounding=ROUND_HALF_UP,
-    )
-    normalized_amount_kopeks = int((normalized_rubles * _DECIMAL_ONE_HUNDRED).to_integral_value(rounding=ROUND_HALF_UP))
-
-    return stars_amount, normalized_amount_kopeks
-
-
-def _build_balance_invoice_payload(user_id: int, amount_kopeks: int) -> str:
-    suffix = uuid4().hex[:8]
-    return f'balance_{user_id}_{amount_kopeks}_{suffix}'
 
 
 def _merge_purchase_selection_from_request(
@@ -697,16 +656,18 @@ async def get_payment_methods(
 
     methods: list[MiniAppPaymentMethod] = []
 
-    if settings.TELEGRAM_STARS_ENABLED:
-        stars_min_amount = _compute_stars_min_amount()
+    if toman_rates.is_stars_toman_ready():
+        # Limits on the miniapp top-up scale (Toman x100) from the fixed Toman-per-star rate.
+        stars_min_toman, stars_max_toman = toman_rates.stars_topup_limits_toman()
         methods.append(
             MiniAppPaymentMethod(
                 id='stars',
                 icon='⭐',
                 requires_amount=True,
                 currency='RUB',
-                min_amount_kopeks=stars_min_amount,
-                amount_step_kopeks=stars_min_amount,
+                min_amount_kopeks=kopeks_from_display_amount(stars_min_toman),
+                max_amount_kopeks=kopeks_from_display_amount(stars_max_toman),
+                amount_step_kopeks=kopeks_from_display_amount(stars_min_toman),
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -831,9 +792,10 @@ async def get_payment_methods(
             )
         )
 
-    if settings.is_cryptobot_enabled():
-        rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
+    if settings.is_cryptobot_enabled() and toman_rates.is_cryptobot_toman_ready():
+        crypto_min_toman, crypto_max_toman = toman_rates.cryptobot_topup_limits_toman()
+        min_amount_kopeks = kopeks_from_display_amount(crypto_min_toman)
+        max_amount_kopeks = kopeks_from_display_amount(crypto_max_toman)
         methods.append(
             MiniAppPaymentMethod(
                 id='cryptobot',
@@ -944,32 +906,40 @@ async def create_payment_link(
     )
 
     if method == 'stars':
-        if not settings.TELEGRAM_STARS_ENABLED:
+        if not toman_rates.is_stars_toman_ready():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Payment method is unavailable')
         if amount_kopeks is None or amount_kopeks <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Amount must be positive')
         if not settings.BOT_TOKEN:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Bot token is not configured')
 
+        # amount_kopeks is the miniapp top-up scale (Toman x100); stars come from the fixed
+        # Toman-per-star rate and the payload names the Toman those stars credit.
+        texts = get_texts(_normalize_language_code(user))
         requested_amount_kopeks = amount_kopeks
-        try:
-            stars_amount, amount_kopeks = _normalize_stars_amount(amount_kopeks)
-        except ValueError as exc:
-            logger.error('Failed to normalize Stars amount', exc=exc)
+        stars_min_toman, stars_max_toman = toman_rates.stars_topup_limits_toman()
+        topup_toman = catalog_price_in_toman(amount_kopeks)
+        if not stars_min_toman <= topup_toman <= stars_max_toman:
             raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail='Failed to prepare Stars payment',
-            ) from exc
+                status.HTTP_400_BAD_REQUEST,
+                detail=texts.t('TOPUP_AMOUNT_OUT_OF_RANGE', 'Enter an amount from {min} to {max}.').format(
+                    min=texts.format_balance(stars_min_toman), max=texts.format_balance(stars_max_toman)
+                ),
+            )
+        quote = toman_rates.quote_stars_for_toman(topup_toman)
+        stars_amount = quote.stars
+        amount_kopeks = kopeks_from_display_amount(quote.credit_toman)
 
         bot = create_bot()
-        invoice_payload = _build_balance_invoice_payload(user.id, amount_kopeks)
+        invoice_payload = toman_rates.build_toman_topup_payload(user.id, quote.credit_toman, nonce=int(time.time()))
         try:
             payment_service = PaymentService(bot)
             invoice_link = await payment_service.create_stars_invoice(
                 amount_kopeks=amount_kopeks,
-                description=settings.get_balance_payment_description(
-                    amount_kopeks, telegram_user_id=user.telegram_id, user_db_id=user.id
-                ),
+                title=texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up'),
+                description=texts.t(
+                    'STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)'
+                ).format(amount=texts.format_balance(quote.credit_toman), stars=quote.stars),
                 payload=invoice_payload,
                 stars_amount=stars_amount,
             )
@@ -1255,45 +1225,45 @@ async def create_payment_link(
         )
 
     if method == 'cryptobot':
-        if not settings.is_cryptobot_enabled():
+        if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Payment method is unavailable')
         if amount_kopeks is None or amount_kopeks <= 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail='Amount must be positive')
-        rate = await _get_usd_to_rub_rate()
-        min_amount_kopeks, max_amount_kopeks = _compute_cryptobot_limits(rate)
-        if amount_kopeks < min_amount_kopeks:
+
+        # Fixed admin-set Toman-per-USDT rate (never the live USD→RUB rate); the payload names the
+        # Toman to credit.
+        texts = get_texts(_normalize_language_code(user))
+        topup_toman = catalog_price_in_toman(amount_kopeks)
+        min_toman, max_toman = toman_rates.cryptobot_topup_limits_toman()
+        if topup_toman < min_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)',
+                detail=texts.t(
+                    'MINIAPP_CRYPTOBOT_AMOUNT_BELOW_MINIMUM', 'The amount is below the CryptoBot minimum ({amount}).'
+                ).format(amount=texts.format_balance(min_toman)),
             )
-        if amount_kopeks > max_amount_kopeks:
+        if topup_toman > max_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)',
+                detail=texts.t(
+                    'MINIAPP_CRYPTOBOT_AMOUNT_ABOVE_MAXIMUM', 'The amount exceeds the CryptoBot maximum ({amount}).'
+                ).format(amount=texts.format_balance(max_toman)),
             )
 
-        try:
-            amount_usd = float(
-                (Decimal(amount_kopeks) / Decimal(100) / Decimal(str(rate))).quantize(
-                    Decimal('0.01'), rounding=ROUND_HALF_UP
-                )
-            )
-        except (InvalidOperation, ValueError):
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail='Unable to convert amount to USD',
-            )
+        amount_usdt = toman_rates.quote_usdt_for_toman(topup_toman)
+        amount_usd = float(amount_usdt)
+        rate = float(toman_rates.cryptobot_toman_rate())
 
         payment_service = PaymentService()
         result = await payment_service.create_cryptobot_payment(
             db=db,
             user_id=user.id,
             amount_usd=amount_usd,
-            asset=settings.CRYPTOBOT_DEFAULT_ASSET,
-            description=settings.get_balance_payment_description(
-                amount_kopeks, telegram_user_id=user.telegram_id, user_db_id=user.id
+            asset=toman_rates.CRYPTOBOT_TOMAN_ASSET,
+            description=texts.t('CRYPTOBOT_TOPUP_INVOICE_DESCRIPTION', 'Balance top-up: {amount}').format(
+                amount=texts.format_balance(topup_toman)
             ),
-            payload=f'balance_{user.id}_{amount_kopeks}',
+            payload=toman_rates.build_toman_topup_payload(user.id, topup_toman),
         )
         if not result:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail='Failed to create payment')

@@ -2,7 +2,6 @@
 
 import math
 import time
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -17,6 +16,7 @@ from app.database.crud.saved_payment_method import (
 )
 from app.database.crud.user import get_user_by_id
 from app.database.models import PaymentMethod, Transaction, User
+from app.localization.texts import get_texts
 from app.services.payment_method_config_service import get_enabled_methods_for_user
 from app.services.payment_service import PaymentService
 from app.services.payment_verification_service import (
@@ -27,8 +27,13 @@ from app.services.payment_verification_service import (
     method_display_name,
     run_manual_check,
 )
-from app.utils.currency_converter import currency_converter
-from app.utils.price_display import display_balance_from_storage, display_transaction_amount_from_storage
+from app.utils import toman_rates
+from app.utils.price_display import (
+    catalog_price_in_toman,
+    display_balance_from_storage,
+    display_transaction_amount_from_storage,
+    kopeks_from_display_amount,
+)
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -221,6 +226,50 @@ async def get_payment_methods(
     return methods
 
 
+def _topup_error(status_code: int, texts, key: str, default: str, **fmt) -> HTTPException:
+    message = texts.t(key, default)
+    return HTTPException(status_code=status_code, detail=message.format(**fmt) if fmt else message)
+
+
+def _check_topup_allowed(user: User, texts) -> None:
+    if getattr(user, 'restriction_topup', False):
+        raise _topup_error(
+            status.HTTP_403_FORBIDDEN,
+            texts,
+            'CABINET_TOPUP_RESTRICTED',
+            'Balance top-up is restricted for this account.',
+        )
+
+
+def _check_topup_amount(amount_kopeks: int, method: PaymentMethodResponse, texts) -> None:
+    """Range check on the cabinet top-up scale (Toman x100); the message names Toman limits."""
+    if amount_kopeks < method.min_amount_kopeks:
+        raise _topup_error(
+            status.HTTP_400_BAD_REQUEST,
+            texts,
+            'CABINET_TOPUP_AMOUNT_TOO_LOW',
+            'Minimum top-up amount is {amount}.',
+            amount=texts.format_balance(catalog_price_in_toman(method.min_amount_kopeks)),
+        )
+    if amount_kopeks > method.max_amount_kopeks:
+        raise _topup_error(
+            status.HTTP_400_BAD_REQUEST,
+            texts,
+            'CABINET_TOPUP_AMOUNT_TOO_HIGH',
+            'Maximum top-up amount is {amount}.',
+            amount=texts.format_balance(catalog_price_in_toman(method.max_amount_kopeks)),
+        )
+
+
+def _method_unavailable(texts) -> HTTPException:
+    return _topup_error(
+        status.HTTP_400_BAD_REQUEST,
+        texts,
+        'CABINET_TOPUP_METHOD_UNAVAILABLE',
+        'This payment method is not available right now.',
+    )
+
+
 @router.post('/stars-invoice', response_model=StarsInvoiceResponse)
 async def create_stars_invoice(
     request: StarsInvoiceRequest,
@@ -230,45 +279,30 @@ async def create_stars_invoice(
     """
     Создать Telegram Stars invoice для пополнения баланса.
     Используется в Telegram Mini App для прямой оплаты Stars.
+
+    ``amount_kopeks`` arrives as Toman x100 (cabinet top-up scale). Stars are quoted from the fixed
+    ``TELEGRAM_STARS_TOMAN_PER_STAR`` rate and the payload carries the Toman those stars credit.
     """
-    if not settings.TELEGRAM_STARS_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Telegram Stars payments are not enabled',
-        )
+    texts = get_texts(getattr(user, 'language', None))
+    _check_topup_allowed(user, texts)
 
-    # Validate amount
-    if request.amount_kopeks < 100:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Minimum amount is 1.00 RUB',
-        )
+    methods = await get_payment_methods(user=user, db=db)
+    method = next((m for m in methods if m.id == 'telegram_stars'), None)
+    if not method or not method.is_available or not toman_rates.is_stars_toman_ready():
+        raise _method_unavailable(texts)
 
-    if request.amount_kopeks > 1000000:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Maximum amount is 10,000.00 RUB',
-        )
+    _check_topup_amount(request.amount_kopeks, method, texts)
 
-    # Calculate Stars amount and normalize kopeks to match exact star value
     try:
-        amount_rubles = request.amount_kopeks / 100
-        stars_amount = settings.rubles_to_stars(amount_rubles)
+        quote = toman_rates.quote_stars_for_toman(catalog_price_in_toman(request.amount_kopeks))
+    except toman_rates.TomanRateUnavailable:
+        raise _method_unavailable(texts)
 
-        if stars_amount <= 0:
-            stars_amount = 1
-
-        # Normalize kopeks so credited amount = stars * rate (no rounding mismatch)
-        normalized_kopeks = round(stars_amount * settings.get_stars_rate() * 100)
-    except Exception as e:
-        logger.error('Error calculating Stars amount', error=e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Failed to calculate Stars amount',
-        )
-
-    # Create payload for tracking payment
-    payload = f'balance_topup_{user.id}_{normalized_kopeks}_{int(time.time())}'
+    payload = toman_rates.build_toman_topup_payload(user.id, quote.credit_toman, nonce=int(time.time()))
+    title = texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up')
+    description = texts.t('STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)').format(
+        amount=texts.format_balance(quote.credit_toman), stars=quote.stars
+    )
 
     # Create invoice through Telegram Bot API
     try:
@@ -277,25 +311,26 @@ async def create_stars_invoice(
 
         async with create_bot() as bot:
             invoice_url = await bot.create_invoice_link(
-                title='Пополнение баланса VPN',
-                description=f'Пополнение баланса на {normalized_kopeks / 100:.2f} ₽ ({stars_amount} ⭐)',
+                title=title,
+                description=description,
                 payload=payload,
                 provider_token='',
                 currency='XTR',
-                prices=[LabeledPrice(label='Пополнение баланса', amount=stars_amount)],
+                prices=[LabeledPrice(label=title, amount=quote.stars)],
             )
 
         logger.info(
-            'Created Stars invoice for balance top-up: user=, amount= kopeks, stars',
+            'Created Stars invoice for balance top-up',
             user_id=user.id,
             amount_kopeks=request.amount_kopeks,
-            stars_amount=stars_amount,
+            stars_amount=quote.stars,
+            credit_toman=quote.credit_toman,
         )
 
         return StarsInvoiceResponse(
             invoice_url=invoice_url,
-            stars_amount=stars_amount,
-            amount_kopeks=normalized_kopeks,
+            stars_amount=quote.stars,
+            amount_kopeks=kopeks_from_display_amount(quote.credit_toman),
         )
 
     except TelegramAPIError as e:
@@ -313,34 +348,17 @@ async def create_topup(
     db: AsyncSession = Depends(get_cabinet_db),
 ):
     """Create payment for balance top-up."""
-    if getattr(user, 'restriction_topup', False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail='Balance top-up is restricted for this account',
-        )
+    texts = get_texts(getattr(user, 'language', None))
+    _check_topup_allowed(user, texts)
 
     # Validate payment method
     methods = await get_payment_methods(user=user, db=db)
     method = next((m for m in methods if m.id == request.payment_method), None)
 
     if not method or not method.is_available:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Invalid or unavailable payment method',
-        )
+        raise _method_unavailable(texts)
 
-    # Validate amount
-    if request.amount_kopeks < method.min_amount_kopeks:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Minimum amount is {method.min_amount_kopeks / 100:.2f} RUB',
-        )
-
-    if request.amount_kopeks > method.max_amount_kopeks:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Maximum amount is {method.max_amount_kopeks / 100:.2f} RUB',
-        )
+    _check_topup_amount(request.amount_kopeks, method, texts)
 
     amount_rubles = request.amount_kopeks / 100
     payment_url = None
@@ -394,41 +412,27 @@ async def create_topup(
                 )
 
         elif request.payment_method == 'cryptobot':
-            if not settings.is_cryptobot_enabled():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail='CryptoBot payment method is unavailable',
-                )
+            # Quoted from the fixed CRYPTOBOT_TOMAN_PER_USDT rate (never a live exchange API); the
+            # payload names the Toman to credit, so a later rate change can't move the credit.
+            if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
+                raise _method_unavailable(texts)
 
+            topup_toman = catalog_price_in_toman(request.amount_kopeks)
             try:
-                rate = await currency_converter.get_usd_to_rub_rate()
-            except Exception:
-                rate = 0.0
-            if not rate or rate <= 0:
-                rate = 95.0
-
-            try:
-                amount_usd = float(
-                    (Decimal(request.amount_kopeks) / Decimal(100) / Decimal(str(rate))).quantize(
-                        Decimal('0.01'), rounding=ROUND_HALF_UP
-                    )
-                )
-            except (InvalidOperation, ValueError):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail='Unable to convert amount to USD',
-                )
+                amount_usdt = toman_rates.quote_usdt_for_toman(topup_toman)
+            except toman_rates.TomanRateUnavailable:
+                raise _method_unavailable(texts)
 
             payment_service = PaymentService()
             result = await payment_service.create_cryptobot_payment(
                 db=db,
                 user_id=user.id,
-                amount_usd=amount_usd,
-                asset=settings.CRYPTOBOT_DEFAULT_ASSET,
-                description=settings.get_balance_payment_description(
-                    request.amount_kopeks, telegram_user_id=user.telegram_id, user_db_id=user.id
+                amount_usd=float(amount_usdt),
+                asset=toman_rates.CRYPTOBOT_TOMAN_ASSET,
+                description=texts.t('CRYPTOBOT_TOPUP_INVOICE_DESCRIPTION', 'Balance top-up: {amount}').format(
+                    amount=texts.format_balance(topup_toman)
                 ),
-                payload=f'cabinet_topup_{user.id}_{request.amount_kopeks}',
+                payload=toman_rates.build_toman_topup_payload(user.id, topup_toman),
             )
             if result:
                 payment_url = (

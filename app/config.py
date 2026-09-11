@@ -82,6 +82,19 @@ def transliterate_cyrillic(value: str) -> str:
 logger = structlog.get_logger(__name__)
 
 
+def _positive_decimal_or_none(raw: object) -> Decimal | None:
+    """An admin-set rate as a positive finite Decimal; None while unset or invalid."""
+    if raw is None:
+        return None
+    try:
+        rate = Decimal(str(raw))
+    except (InvalidOperation, ValueError):
+        return None
+    if not rate.is_finite() or rate <= 0:
+        return None
+    return rate
+
+
 class Settings(BaseSettings):
     BOT_TOKEN: str
     BOT_USERNAME: str | None = None
@@ -553,6 +566,10 @@ class Settings(BaseSettings):
     # for a 150 ₽ top-up, credited only 149.50 ₽ back — a built-in
     # rounding loss visible on every payment).
     TELEGRAM_STARS_RATE_RUB: float = 1.0
+    # Fixed Toman value of 1 ⭐, set by the admin (env or admin settings). No default on purpose and
+    # no live exchange API: while unset, Stars balance top-ups are not offered. The ruble rate above
+    # is upstream's and is never reused as a Toman rate.
+    TELEGRAM_STARS_TOMAN_PER_STAR: float | None = None
     TELEGRAM_STARS_DISPLAY_NAME: str = 'Telegram Stars'
 
     # Telegram Login Widget (cabinet auth page)
@@ -1495,6 +1512,14 @@ class Settings(BaseSettings):
     @classmethod
     def blank_cryptobot_toman_per_usdt_is_unset(cls, value: object) -> object:
         # An empty `CRYPTOBOT_TOMAN_PER_USDT=` line means "not set", not a startup parse error.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator('TELEGRAM_STARS_TOMAN_PER_STAR', mode='before')
+    @classmethod
+    def blank_stars_toman_per_star_is_unset(cls, value: object) -> object:
+        # An empty `TELEGRAM_STARS_TOMAN_PER_STAR=` line means "not set", not a startup parse error.
         if isinstance(value, str) and not value.strip():
             return None
         return value
@@ -2661,16 +2686,11 @@ class Settings(BaseSettings):
 
     def get_cryptobot_toman_per_usdt(self) -> Decimal | None:
         """Admin-set Toman price of 1 USDT; None while unset or not a positive number."""
-        raw = self.CRYPTOBOT_TOMAN_PER_USDT
-        if raw is None:
-            return None
-        try:
-            rate = Decimal(str(raw))
-        except (InvalidOperation, ValueError):
-            return None
-        if not rate.is_finite() or rate <= 0:
-            return None
-        return rate
+        return _positive_decimal_or_none(self.CRYPTOBOT_TOMAN_PER_USDT)
+
+    def get_stars_toman_per_star(self) -> Decimal | None:
+        """Admin-set Toman value of 1 ⭐; None while unset or not a positive number."""
+        return _positive_decimal_or_none(self.TELEGRAM_STARS_TOMAN_PER_STAR)
 
     def is_heleket_configured(self) -> bool:
         """Есть ли учётные данные провайдера — без учёта флага включения."""

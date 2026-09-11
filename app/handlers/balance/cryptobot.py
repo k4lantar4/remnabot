@@ -12,10 +12,16 @@ from app.keyboards.topup_amounts import get_topup_amount_keyboard
 from app.localization.texts import get_texts
 from app.services.payment_service import PaymentService
 from app.states import BalanceStates
+from app.utils import toman_rates
 from app.utils.decorators import error_handler
+from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _unavailable_text(texts) -> str:
+    return texts.t('CRYPTOBOT_TOPUP_UNAVAILABLE', '❌ Crypto top-up is not available right now.')
 
 
 @error_handler
@@ -39,31 +45,20 @@ async def start_cryptobot_payment(callback: types.CallbackQuery, db_user: User, 
         await callback.answer()
         return
 
-    if not settings.is_cryptobot_enabled():
-        await callback.answer('❌ Оплата криптовалютой временно недоступна', show_alert=True)
+    if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
+        await callback.answer(_unavailable_text(texts), show_alert=True)
         return
 
-    from app.utils.currency_converter import currency_converter
-
-    try:
-        current_rate = await currency_converter.get_usd_to_rub_rate()
-        rate_text = f'💱 Текущий курс: 1 USD = {current_rate:.2f} ₽'
-    except Exception as e:
-        logger.warning('Не удалось получить курс валют', error=e)
-        current_rate = 95.0
-        rate_text = f'💱 Курс: 1 USD ≈ {current_rate:.0f} ₽'
-
-    available_assets = settings.get_cryptobot_assets()
-    assets_text = ', '.join(available_assets)
-
-    message_text = (
-        f'🪙 <b>Пополнение криптовалютой</b>\n\n'
-        f'Введите сумму для пополнения от 100 до 100,000 ₽:\n\n'
-        f'💰 Доступные активы: {assets_text}\n'
-        f'⚡ Мгновенное зачисление на баланс\n'
-        f'🔒 Безопасная оплата через CryptoBot\n\n'
-        f'{rate_text}\n'
-        f'Сумма будет автоматически конвертирована в USD для оплаты.'
+    # Fixed admin-set Toman-per-USDT rate (never a live exchange API).
+    min_toman, max_toman = toman_rates.cryptobot_topup_limits_toman()
+    message_text = texts.t(
+        'CRYPTOBOT_TOPUP_PROMPT',
+        '🪙 <b>Top up with crypto</b>\n\nEnter an amount from {min} to {max}.\n\n'
+        '💱 Rate: 1 USDT = {rate}\nYou pay the equivalent in USDT through CryptoBot.',
+    ).format(
+        min=texts.format_balance(min_toman),
+        max=texts.format_balance(max_toman),
+        rate=texts.format_balance(int(toman_rates.cryptobot_toman_rate())),
     )
 
     keyboard = await get_topup_amount_keyboard('cryptobot', db_user.language, back_callback='back_to_menu')
@@ -73,7 +68,6 @@ async def start_cryptobot_payment(callback: types.CallbackQuery, db_user: User, 
     await state.set_state(BalanceStates.waiting_for_amount)
     await state.update_data(
         payment_method='cryptobot',
-        current_rate=current_rate,
         cryptobot_prompt_message_id=callback.message.message_id,
         cryptobot_prompt_chat_id=callback.message.chat.id,
     )
@@ -106,56 +100,36 @@ async def process_cryptobot_payment_amount(
 
     texts = get_texts(db_user.language)
 
-    if not settings.is_cryptobot_enabled():
-        await message.answer('❌ Оплата криптовалютой временно недоступна')
+    if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
+        await message.answer(_unavailable_text(texts))
         return
 
-    amount_rubles = amount_kopeks / 100
-
-    if amount_rubles < 100:
-        await message.answer('Минимальная сумма пополнения: 100 ₽', reply_markup=get_back_keyboard(db_user.language))
-        return
-
-    if amount_rubles > 100000:
+    # amount_kopeks is the bot's top-up scale (Toman x100); the balance is credited in Toman.
+    topup_toman = catalog_price_in_toman(amount_kopeks)
+    min_toman, max_toman = toman_rates.cryptobot_topup_limits_toman()
+    if not min_toman <= topup_toman <= max_toman:
         await message.answer(
-            'Максимальная сумма пополнения: 100,000 ₽', reply_markup=get_back_keyboard(db_user.language)
+            texts.t('TOPUP_AMOUNT_OUT_OF_RANGE', 'Enter an amount from {min} to {max}.').format(
+                min=texts.format_balance(min_toman), max=texts.format_balance(max_toman)
+            ),
+            reply_markup=get_back_keyboard(db_user.language),
         )
         return
 
     try:
-        data = await state.get_data()
-        current_rate = data.get('current_rate')
-
-        if not current_rate:
-            from app.utils.currency_converter import currency_converter
-
-            current_rate = await currency_converter.get_usd_to_rub_rate()
-
-        amount_usd = amount_rubles / current_rate
-
-        amount_usd = round(amount_usd, 2)
-
-        if amount_usd < 1:
-            await message.answer(
-                '❌ Минимальная сумма для оплаты в USD: 1.00 USD', reply_markup=get_back_keyboard(db_user.language)
-            )
-            return
-
-        if amount_usd > 1000:
-            await message.answer(
-                '❌ Максимальная сумма для оплаты в USD: 1,000 USD', reply_markup=get_back_keyboard(db_user.language)
-            )
-            return
+        amount_usdt = toman_rates.quote_usdt_for_toman(topup_toman)
 
         payment_service = PaymentService(message.bot)
 
         payment_result = await payment_service.create_cryptobot_payment(
             db=db,
             user_id=db_user.id,
-            amount_usd=amount_usd,
-            asset=settings.CRYPTOBOT_DEFAULT_ASSET,
-            description=f'Пополнение баланса на {amount_rubles:.0f} ₽ ({amount_usd:.2f} USD)',
-            payload=f'balance_{db_user.id}_{amount_kopeks}',
+            amount_usd=float(amount_usdt),
+            asset=toman_rates.CRYPTOBOT_TOMAN_ASSET,
+            description=texts.t('CRYPTOBOT_TOPUP_INVOICE_DESCRIPTION', 'Balance top-up: {amount}').format(
+                amount=texts.format_balance(topup_toman)
+            ),
+            payload=toman_rates.build_toman_topup_payload(db_user.id, topup_toman),
         )
 
         if not payment_result:
@@ -175,10 +149,10 @@ async def process_cryptobot_payment_amount(
 
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text='🪙 Оплатить', url=payment_url)],
+                [types.InlineKeyboardButton(text=texts.t('CRYPTOBOT_PAY_BUTTON', '🪙 Pay'), url=payment_url)],
                 [
                     types.InlineKeyboardButton(
-                        text='📊 Проверить статус',
+                        text=texts.t('CRYPTOBOT_CHECK_STATUS_BUTTON', '📊 Check status'),
                         callback_data=f'check_cryptobot_{payment_result["local_payment_id"]}',
                     )
                 ],
@@ -202,20 +176,20 @@ async def process_cryptobot_payment_amount(
                 logger.warning('Не удалось удалить сообщение с запросом суммы CryptoBot', delete_error=delete_error)
 
         invoice_message = await message.answer(
-            f'🪙 <b>Оплата криптовалютой</b>\n\n'
-            f'💰 Сумма к зачислению: {amount_rubles:.0f} ₽\n'
-            f'💵 К оплате: {amount_usd:.2f} USD\n'
-            f'🪙 Актив: {payment_result["asset"]}\n'
-            f'💱 Курс: 1 USD = {current_rate:.2f} ₽\n'
-            f'🆔 ID платежа: {payment_result["invoice_id"][:8]}...\n\n'
-            f'📱 <b>Инструкция:</b>\n'
-            f"1. Нажмите кнопку 'Оплатить'\n"
-            f'2. Выберите удобный актив\n'
-            f'3. Переведите указанную сумму\n'
-            f'4. Деньги поступят на баланс автоматически\n\n'
-            f'🔒 Оплата проходит через защищенную систему CryptoBot\n'
-            f'⚡ Поддерживаемые активы: USDT, TON, BTC, ETH\n\n'
-            f'❓ Если возникнут проблемы, обратитесь в {settings.get_support_contact_display_html()}',
+            texts.t(
+                'CRYPTOBOT_TOPUP_INVOICE_MESSAGE',
+                '🪙 <b>Pay with crypto</b>\n\n💰 Top-up amount: {amount}\n💵 To pay: {usdt} {asset}\n'
+                '💱 Rate: 1 USDT = {rate}\n🆔 Payment ID: {invoice_id}...\n\n'
+                'Tap “Pay”, send the amount in CryptoBot and your balance is topped up automatically.\n\n'
+                '❓ Problems? Contact {support}',
+            ).format(
+                amount=texts.format_balance(topup_toman),
+                usdt=f'{amount_usdt:.2f}',
+                asset=payment_result['asset'],
+                rate=texts.format_balance(int(toman_rates.cryptobot_toman_rate())),
+                invoice_id=payment_result['invoice_id'][:8],
+                support=settings.get_support_contact_display_html(),
+            ),
             reply_markup=keyboard,
             parse_mode='HTML',
         )
@@ -230,8 +204,8 @@ async def process_cryptobot_payment_amount(
         logger.info(
             'Создан CryptoBot платеж',
             telegram_id=db_user.telegram_id,
-            amount_rubles=round(amount_rubles, 0),
-            amount_usd=round(amount_usd, 2),
+            topup_toman=topup_toman,
+            amount_usdt=str(amount_usdt),
             payment_result=payment_result['invoice_id'],
         )
 
