@@ -19,7 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-slim
 
-ARG VERSION="v4.2.0+rookari.1" # = pyproject.toml version (tests/services/test_fork_version.py)
+# Must equal the pyproject.toml version (tests/services/test_fork_version.py).
+ARG VERSION="v4.2.0+rookari.1"
 ARG BUILD_DATE
 ARG VCS_REF
 

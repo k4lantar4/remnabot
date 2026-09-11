@@ -29,7 +29,9 @@ def test_docker_image_version_matches_pyproject():
     current = VersionService._get_current_version(VersionService.__new__(VersionService))
     dockerfile = (Path(__file__).resolve().parents[2] / 'Dockerfile').read_text()
 
-    assert f'ARG VERSION="v{current}"' in dockerfile
+    # The whole line, nothing after it: Docker has no inline comments, so trailing words become
+    # extra ARG names — and a lone '=' among them fails the build ("ARG names can not be blank").
+    assert f'ARG VERSION="v{current}"' in dockerfile.splitlines()
 
 
 def test_upstream_update_check_is_off_by_default():
