@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.utils.price_display import ADMIN_BALANCE_EDIT_MAX_TOMAN
+
 
 class UserStatusEnum(StrEnum):
     """User status enum."""
@@ -339,16 +341,17 @@ class UserNodeUsageResponse(BaseModel):
 class UpdateBalanceRequest(BaseModel):
     """Request to update user balance."""
 
+    # Same per-edit cap as the bot: both fields are Toman 1:1, so a typo with extra zeros is refused.
     amount_kopeks: int | None = Field(
         default=None,
-        ge=-2_000_000_000,
-        le=2_000_000_000,
+        ge=-ADMIN_BALANCE_EDIT_MAX_TOMAN,
+        le=ADMIN_BALANCE_EDIT_MAX_TOMAN,
         description='Legacy: raw balance storage amount (Toman 1:1), positive to add, negative to subtract',
     )
     amount_display: float | None = Field(
         default=None,
-        ge=-2_000_000_000,
-        le=2_000_000_000,
+        ge=-ADMIN_BALANCE_EDIT_MAX_TOMAN,
+        le=ADMIN_BALANCE_EDIT_MAX_TOMAN,
         description='Display Toman — the same number the admin sees as the balance; negative to subtract',
     )
     description: str = Field(default='Admin balance adjustment', max_length=500)

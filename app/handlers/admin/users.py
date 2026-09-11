@@ -55,6 +55,7 @@ from app.utils.formatters import format_datetime, format_time_ago
 from app.utils.formatting import user_html_link
 from app.utils.photo_message import safe_edit_or_resend
 from app.utils.price_display import (
+    ADMIN_BALANCE_EDIT_MAX_TOMAN,
     balance_from_display_amount,
     catalog_price_in_toman,
     format_transaction_amount_for_display,
@@ -68,10 +69,6 @@ from app.utils.user_utils import get_effective_referral_commission_percent
 
 
 logger = structlog.get_logger(__name__)
-
-# Ceiling on one bot admin balance edit, in stored Toman. Kept equal to the stored
-# delta the old ruble-input path allowed (100,000 × 100), so the maximum credit is unchanged.
-_ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000
 
 
 # =============================================================================
@@ -2460,10 +2457,10 @@ async def process_balance_edit(message: types.Message, db_user: User, state: FSM
         )
         return
 
-    if abs(amount_toman) > _ADMIN_BALANCE_EDIT_MAX_TOMAN:
+    if abs(amount_toman) > ADMIN_BALANCE_EDIT_MAX_TOMAN:
         await message.answer(
             texts.t('ADMIN_USER_BALANCE_TOO_LARGE', '❌ Слишком большая сумма (максимум {max})').format(
-                max=settings.format_balance(_ADMIN_BALANCE_EDIT_MAX_TOMAN, language=db_user.language)
+                max=settings.format_balance(ADMIN_BALANCE_EDIT_MAX_TOMAN, language=db_user.language)
             )
         )
         return
