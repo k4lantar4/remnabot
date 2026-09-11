@@ -55,6 +55,7 @@ from app.external.remnawave_api import (
     is_user_not_found_error,
 )
 from app.localization.texts import get_texts
+from app.services.balance_refund import restore_promo_offer, snapshot_promo_offer
 from app.services.grace_access_runtime import update_panel_user_grace_safe
 from app.services.notification_delivery_service import (
     NotificationType,
@@ -1610,6 +1611,7 @@ class MonitoringService:
                         continue
 
                     if user_can_afford(user.balance_kopeks, charge_amount):
+                        promo_snapshot = snapshot_promo_offer(user, promo_discount_percent > 0)
                         success = await subtract_user_balance(
                             db,
                             user,
@@ -1673,6 +1675,7 @@ class MonitoringService:
                                     # expired; reset both before refunding, as finalize() does (#32).
                                     await db.rollback()
                                     await db.refresh(user)
+                                    await restore_promo_offer(db, user, promo_snapshot)
                                     await add_user_balance(
                                         db,
                                         user,
