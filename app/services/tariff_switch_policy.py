@@ -17,8 +17,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from app.config import settings
+from app.services.pricing_engine import pricing_engine
+
+
+if TYPE_CHECKING:
+    from app.database.models import Tariff, User
 
 
 def remaining_days_for_switch(end_date: datetime | None, now: datetime | None = None) -> int:
@@ -60,3 +66,40 @@ def should_reset_used_traffic(upgrade_cost_kopeks: int) -> bool:
     if not settings.RESET_TRAFFIC_ON_TARIFF_SWITCH:
         return False
     return upgrade_cost_kopeks > 0
+
+
+def is_switch_direction_allowed(is_upgrade: bool) -> bool:
+    """Разрешено ли переключение в этом направлении (TARIFF_SWITCH_*_ENABLED).
+
+    Направление даёт ``calculate_tariff_switch_cost``: доплата больше нуля —
+    повышение, иначе понижение. Тариф той же цены — тоже понижение.
+    """
+    if is_upgrade:
+        return settings.TARIFF_SWITCH_UPGRADE_ENABLED
+    return settings.TARIFF_SWITCH_DOWNGRADE_ENABLED
+
+
+def switch_direction_refusal(is_upgrade: bool) -> dict[str, str]:
+    """``detail`` для 403, когда направление запрещено: код кабинет переводит сам."""
+    if is_upgrade:
+        return {'code': 'tariff_upgrade_disabled', 'message': 'Tariff upgrade is disabled'}
+    return {'code': 'tariff_downgrade_disabled', 'message': 'Tariff downgrade is disabled'}
+
+
+def tariff_switch_allowed(
+    current_tariff: Tariff,
+    new_tariff: Tariff,
+    remaining_days: int,
+    user: User | None = None,
+) -> bool:
+    """Пропустит ли смена тарифа проверку направления.
+
+    Кабинет не может вычислить направление сам (оно зависит от остатка дней и
+    скидок пользователя), поэтому бот отдаёт ответ в purchase-options — иначе
+    кабинет показывает «Сменить» на тарифе, который бот потом отклонит (F-001).
+    """
+    if settings.TARIFF_SWITCH_UPGRADE_ENABLED and settings.TARIFF_SWITCH_DOWNGRADE_ENABLED:
+        return True
+
+    result = pricing_engine.calculate_tariff_switch_cost(current_tariff, new_tariff, remaining_days, user=user)
+    return is_switch_direction_allowed(result.is_upgrade)
