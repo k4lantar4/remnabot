@@ -54,7 +54,13 @@ from app.utils.decorators import admin_required, error_handler
 from app.utils.formatters import format_datetime, format_time_ago
 from app.utils.formatting import user_html_link
 from app.utils.photo_message import safe_edit_or_resend
-from app.utils.price_display import balance_from_display_amount, format_transaction_amount_for_display
+from app.utils.price_display import (
+    balance_from_display_amount,
+    catalog_price_in_toman,
+    format_transaction_amount_for_display,
+    missing_toman,
+    user_can_afford,
+)
 from app.utils.subscription_utils import (
     resolve_hwid_device_limit_for_payload,
 )
@@ -5001,15 +5007,14 @@ async def admin_buy_subscription_confirm(callback: types.CallbackQuery, db_user:
             price_kopeks=price_kopeks,
         )
 
-    if target_user.balance_kopeks < price_kopeks:
-        missing_kopeks = price_kopeks - target_user.balance_kopeks
-        # Без округления — иначе при не хватке <50 копеек все три суммы покажутся
-        # одинаковыми и админ увидит «не хватает 0 ₽».
+    # balance is Toman 1:1; price_kopeks is a catalog price
+    if not user_can_afford(target_user.balance_kopeks, price_kopeks):
+        missing_toman_amount = missing_toman(target_user.balance_kopeks, price_kopeks)
         await callback.message.edit_text(
             f'❌ Недостаточно средств на балансе пользователя\n\n'
             f'💰 Баланс пользователя: {settings.format_balance(target_user.balance_kopeks, round_kopeks=False)}\n'
             f'💳 Стоимость подписки: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
-            f'📉 Не хватает: {settings.format_price(missing_kopeks, round_kopeks=False)}\n\n'
+            f'📉 Не хватает: {settings.format_balance(missing_toman_amount)}\n\n'
             f'Пополните баланс пользователя перед покупкой.',
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -5108,17 +5113,18 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
             price_kopeks=price_kopeks,
         )
 
-    if target_user.balance_kopeks < price_kopeks:
+    if not user_can_afford(target_user.balance_kopeks, price_kopeks):
         await callback.answer('❌ Недостаточно средств на балансе пользователя', show_alert=True)
         return
 
     try:
         from app.database.crud.user import subtract_user_balance
 
+        # Debit the Toman price; the transaction row keeps the catalog price_kopeks.
         success = await subtract_user_balance(
             db,
             target_user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             f'Покупка подписки на {period_days} дней (администратор)',
             mark_as_paid_subscription=True,
         )
@@ -5512,13 +5518,14 @@ async def admin_buy_tariff_confirm(callback: types.CallbackQuery, db_user: User,
         return
 
     # Проверяем баланс
-    if target_user.balance_kopeks < price_kopeks:
-        missing = price_kopeks - target_user.balance_kopeks
+    # balance is Toman 1:1; price_kopeks is a catalog price
+    if not user_can_afford(target_user.balance_kopeks, price_kopeks):
+        missing = missing_toman(target_user.balance_kopeks, price_kopeks)
         await callback.message.edit_text(
             f'❌ <b>Недостаточно средств</b>\n\n'
             f'💰 Баланс: {settings.format_balance(target_user.balance_kopeks, round_kopeks=False)}\n'
             f'💳 Стоимость: {settings.format_price(price_kopeks, round_kopeks=False)}\n'
-            f'📉 Не хватает: {settings.format_price(missing, round_kopeks=False)}\n\n'
+            f'📉 Не хватает: {settings.format_balance(missing)}\n\n'
             f'Пополните баланс пользователя перед покупкой.',
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -5631,7 +5638,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
             price_kopeks=price_kopeks,
         )
 
-    if target_user.balance_kopeks < price_kopeks:
+    if not user_can_afford(target_user.balance_kopeks, price_kopeks):
         await callback.answer('❌ Недостаточно средств на балансе', show_alert=True)
         return
 
@@ -5645,10 +5652,11 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         from app.services.subscription_service import SubscriptionService
 
         # Списываем баланс
+        # Debit the Toman price; the transaction row keeps the catalog price_kopeks.
         success = await subtract_user_balance(
             db,
             target_user,
-            price_kopeks,
+            catalog_price_in_toman(price_kopeks),
             f'Покупка тарифа {tariff.name} на {period} дней (администратор)',
             mark_as_paid_subscription=True,
         )

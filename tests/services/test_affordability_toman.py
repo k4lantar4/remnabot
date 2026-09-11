@@ -16,6 +16,7 @@ exactly 200,000 debited.
 
 from __future__ import annotations
 
+import inspect
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -706,3 +707,62 @@ async def test_bot_traffic_reset_refuses_then_debits_the_toman_price(monkeypatch
 
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+# ---------------------------------------------------------------- bot admin: buy for a user
+
+
+def _admin_setup(monkeypatch):
+    import app.services.subscription_service as subscription_service_module
+    from app.handlers.admin import users as admin_users
+
+    async def profile(db, user_id):
+        return {'user': await _loaded_user(db), 'subscription': await db.get(Subscription, 10)}
+
+    monkeypatch.setattr(admin_users.UserService, 'get_user_profile', lambda self, db, user_id: profile(db, user_id))
+    monkeypatch.setattr(admin_users, '_calculate_subscription_period_price', AsyncMock(return_value=PRICE_KOPEKS))
+    monkeypatch.setattr(admin_users, 'SubscriptionService', lambda: _FakePanelSync(), raising=False)
+    monkeypatch.setattr(subscription_service_module, 'SubscriptionService', lambda: _FakePanelSync())
+    _tariff_purchase_price(monkeypatch)
+    return admin_users
+
+
+def _undecorated(module, name):
+    """The handler without @admin_required / @error_handler (they need a real CallbackQuery)."""
+    return inspect.unwrap(getattr(module, name))
+
+
+ADMIN_FLOWS = {
+    'subscription': ('admin_buy_subscription_confirm', 'admin_buy_subscription_execute', 'a_b_c_d_1_30_20000000'),
+    'tariff': ('admin_buy_tariff_confirm', 'admin_buy_tariff_execute', 'a_b_c_d_1_2_30_20000000'),
+}
+
+
+@pytest.mark.parametrize('flow', sorted(ADMIN_FLOWS))
+@pytest.mark.asyncio
+async def test_admin_buy_for_user_uses_the_toman_price(monkeypatch, flow):
+    import app.database.crud.user as user_crud
+
+    admin_users = _admin_setup(monkeypatch)
+    confirm, execute, data = ADMIN_FLOWS[flow]
+    admin = SimpleNamespace(id=99, telegram_id=99, language='ru')
+
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=SHORT_BALANCE)
+        shown = _bot_callback(data)
+        await _undecorated(admin_users, confirm)(shown, admin, db)
+        refused = _bot_callback(data)
+        await _undecorated(admin_users, execute)(refused, admin, db)
+        assert await _balance(db) == SHORT_BALANCE
+
+    assert f'Не хватает: {SHORTFALL_LABEL}' in _sent_text(shown)
+    assert 'Недостаточно средств' in refused.answer.await_args.args[0]
+
+    debits = _spy_debits(monkeypatch, user_crud)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=RICH_BALANCE)
+        await _undecorated(admin_users, execute)(_bot_callback(data), admin, db)
+
+        assert debits == [PRICE_TOMAN]
+        assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
+        assert ('subscription_payment', PRICE_KOPEKS) in await _payments(db)
