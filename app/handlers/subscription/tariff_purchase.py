@@ -5039,6 +5039,45 @@ async def confirm_instant_switch(
         )
         return
 
+    # A switch to a daily tariff with no upgrade payment charges the first day below. A balance short of it
+    # used to skip that charge and switch for free: refuse it with the preview's insufficient-balance screen.
+    if getattr(new_tariff, 'is_daily', False) and upgrade_cost == 0:
+        first_day_price = (
+            await pricing_engine.calculate_tariff_purchase_price(
+                new_tariff, period_days=1, device_limit=new_tariff.device_limit, user=db_user
+            )
+        ).final_total
+        if first_day_price > 0 and not user_can_afford(user_balance, first_day_price):
+            _, _, daily_discount = _get_user_period_discount(db_user, 1)
+            try:
+                await callback.answer()
+            except Exception:
+                pass
+            await callback.message.edit_text(
+                texts.t(
+                    'TARIFF_PURCHASE_DAILY_INSUFFICIENT',
+                    '❌ <b>Недостаточно средств</b>\n\n'
+                    '📦 Тариф: <b>{name}</b>\n'
+                    '🔄 Тип: Суточный\n'
+                    '💰 Цена: {price}/день{discount}\n\n'
+                    '💳 Ваш баланс: {balance}\n'
+                    '⚠️ Не хватает: <b>{missing}</b>',
+                ).format(
+                    name=html.escape(new_tariff.name),
+                    price=format_price_kopeks(first_day_price),
+                    discount=texts.t('TARIFF_PURCHASE_DAILY_DISCOUNT_LINE', '\n💎 Скидка: {percent}%').format(
+                        percent=daily_discount
+                    )
+                    if daily_discount > 0
+                    else '',
+                    balance=texts.format_balance(user_balance),
+                    missing=texts.format_balance(calculate_missing_amount(user_balance, first_day_price)),
+                ),
+                reply_markup=get_instant_switch_insufficient_balance_keyboard(tariff_id, db_user.language),
+                parse_mode='HTML',
+            )
+            return
+
     # Отвечаем на callback СРАЗУ — до тяжёлых операций (панель, транзакции),
     # иначе Telegram инвалидирует query через 30 сек → TelegramBadRequest
     try:

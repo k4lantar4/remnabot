@@ -742,3 +742,38 @@ async def test_simple_subscription_keeps_the_charge_when_only_the_final_message_
 
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
+
+
+# ---------------------------------------------------------------- bot instant switch to daily: short balance
+
+
+@pytest.mark.asyncio
+async def test_bot_instant_switch_to_daily_refuses_a_balance_short_of_the_first_day(monkeypatch, bot_tariffs):
+    """5,000 Toman against a 10,000-Toman day (catalog 1,000,000): refused like the preview, nothing changes."""
+    from app.services.pricing_engine import PricingEngine
+
+    async def daily_price(self, tariff, period_days, *, device_limit=None, user=None, **kwargs):
+        return SimpleNamespace(
+            final_total=1_000_000,
+            original_total=1_000_000,
+            promo_group_discount=0,
+            promo_offer_discount=0,
+            breakdown={},
+        )
+
+    monkeypatch.setattr(PricingEngine, 'calculate_tariff_purchase_price', daily_price)
+    _switch_cost(monkeypatch, upgrade_cost=0)  # no prorated upgrade: only the first day would be charged
+    debits = _spy_debits(monkeypatch, bot_tariffs)
+    async with memory_session(monkeypatch, TABLES) as db:
+        await _seed(db, balance_toman=5_000)
+        await _add_daily_tariff(db)
+        callback = _callback('instant_sw_confirm:3')
+        await bot_tariffs.confirm_instant_switch(callback, await _loaded_user(db), db, _state())
+
+        assert debits == []
+        assert await _balance(db) == 5_000
+        assert await _payments(db) == []
+        assert await _tariff_id(db) == 1
+
+    assert _refused(callback)
+    assert settings.format_balance(5_000) in _text(callback)  # shortfall 10,000 - 5,000
