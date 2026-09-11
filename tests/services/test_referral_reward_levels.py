@@ -682,8 +682,8 @@ class TestProgramDescription:
         monkeypatch.setattr(ReferralRewardLevelService, 'get_all', classmethod(lambda cls, db: fake_all(db)))
 
         described = await describe_referee_bonus(None, tariff_names={})
-        assert '100' in described
-        assert '999' not in described
+        assert settings.format_balance(100_00) in described  # credited 1:1 into the Toman balance
+        assert settings.format_balance(999_00) not in described
 
     @pytest.mark.asyncio
     async def test_nothing_configured_describes_nothing(self, chain, monkeypatch):
