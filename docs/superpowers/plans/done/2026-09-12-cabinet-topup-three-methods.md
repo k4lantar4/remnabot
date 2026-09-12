@@ -1,6 +1,6 @@
 # Cabinet top-up: three live methods (Stars, CryptoBot, card-to-card)
 
-**Status:** active
+**Status:** done — task 1 config (2026-09-12), task 2 `ce6bc99a`, task 3 remnabot#78, tasks 4-5 frontend#27. Admin review of the receipts is the follow-up plan named below.
 **Repos:** `remnabot` first (tasks 1-3, backward-compatible additive API), then `frontend` (tasks 4-5).
 **Upstream basis:** `remnabot` origin/main `835b4e63`, upstream/main `9fcebfd7`; `frontend`
 origin/main `e1016515`, upstream/main `57810c7d`. (Re-based from `1505af7e` on 2026-09-12 when task 2
@@ -256,7 +256,11 @@ session while a submitted pending exists returns 409; submit with a `media_file_
 `CABINET_C2C_RECEIPT_ALREADY_SUBMITTED`, `CABINET_C2C_RECEIPT_EMPTY`, `CABINET_C2C_ADMIN_UNREACHABLE`.
 Persian wording must read naturally (not a mirror of the English), Latin digits only.
 
-### Task 4 — Frontend: the dedicated card-to-card page
+### Task 4 — Frontend: the dedicated card-to-card page — **DONE (frontend#27)**
+
+**As built:** the logic (step machine, amount check, receipt payload) is `src/utils/c2cTopUp.ts` with
+`src/utils/c2cTopUp.test.ts`; the page polls `GET /c2c/current?receipt_id=` so it follows the receipt
+into approved/rejected.
 
 **Repo + files:**
 - `frontend/src/api/balance.ts` — `c2cStartSession`, `c2cSubmitReceipt`, `c2cGetCurrent`, `c2cCancel`;
@@ -288,7 +292,10 @@ submit sends `media_file_id` + text together. Visuals — verify live with `run-
 and rejected wording, errors) and `balance.paymentMethods.c2c.description` in **both** `fa.json` and
 `en.json`; Latin digits in the Persian strings.
 
-### Task 5 — Frontend: balance screen entry and pending banner
+### Task 5 — Frontend: balance screen entry and pending banner — **DONE (frontend#27)**
+
+**As built:** the banner is its own component, `src/components/C2cPendingBanner.tsx`, tested in
+`src/components/C2cPendingBanner.test.tsx`.
 
 **Repo + files:** `frontend/src/pages/Balance.tsx`, `frontend/src/locales/fa.json` + `en.json`,
 test `frontend/src/pages/balanceC2cBanner.test.tsx`.
