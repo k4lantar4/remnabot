@@ -29,6 +29,7 @@ FORBIDDEN_TABLES = (
     'coupons',
     'legal_consents',
     'referral_reward_levels',
+    # Deferred by 0111 and created by its own revision, 0113 — never by 0111 itself.
     'grace_access_sessions',
 )
 
@@ -50,7 +51,7 @@ def test_0111_is_on_the_linear_chain() -> None:
     revision = script.get_revision('0111')
     assert revision is not None
     assert revision.down_revision == '0104'
-    assert script.get_current_head() == '0112'
+    assert script.get_current_head() == '0113'
 
 
 def test_0111_revises_grafted_remnabot_0104() -> None:

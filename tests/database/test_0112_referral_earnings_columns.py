@@ -29,9 +29,9 @@ def _load_revision():
     return module
 
 
-def test_0112_is_the_single_head() -> None:
+def test_0112_is_superseded_by_0113_as_head() -> None:
     heads = _script_directory().get_heads()
-    assert heads == ['0112'], heads
+    assert heads == ['0113'], heads
 
 
 def test_0112_revises_0111() -> None:
