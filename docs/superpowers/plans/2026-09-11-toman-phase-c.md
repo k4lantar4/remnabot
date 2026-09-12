@@ -1,6 +1,8 @@
 # Toman Phase C — one scale (Toman 1:1) everywhere in storage and backend logic
 
-**Status:** active — design approved by the user on 2026-09-12; execution started (Task 1, Task 2).
+**Status:** active — Tasks 1-5 done and deployed (remnabot#61, #63, #64, #65, plus the follow-ups
+#66 and #67); only Task 6 is left. Revisions `0114`, `0115` and `0116` are applied on this VPS and
+the cabinet was verified against them on 2026-09-12.
 **Repos:** `remnabot` only. The cabinet (`frontend`) is deliberately **not** touched: this plan keeps
 the HTTP contract byte-identical. The frontend change is the follow-up plan "Phase C-2" (last section).
 **Upstream basis:** remnabot `origin/main` `cf47f3cf`, `upstream/main` `9fcebfd7` (2026-09-11);
@@ -284,12 +286,17 @@ clean over the whole tree. Findings deleted as subsumed: F-010, F-012, F-052, F-
 
 #### Carried into deploy and Phase C-2
 
-- The numeric catalog keys in `remnabot/.env` (Decision 3) — divide by 100 **at deploy time**,
-  together with the restart, because `.env` is untracked and would otherwise drift from the code.
-  Never a token, a secret or a `*_ENABLED` flag.
-- **The first restart after this merge applies `0115`.**
-- Live verification: tariff 30-day `period_prices` reads `1000000` today and displays
-  «10,000 تومان»; after the merge it must read `10000` and display the same.
+- ~~The numeric catalog keys in `remnabot/.env` (Decision 3)~~ — **done on deploy day.** Nine keys
+  were divided by 100 in both `remnabot/.env` and `remnabot/.env.dev` (`BASE_SUBSCRIPTION_PRICE`,
+  `PRICE_{14,30,60,90,180,360}_DAYS`, `PRICE_TRAFFIC_UNLIMITED`, `PRICE_PER_DEVICE`), backups beside
+  them. `.env.dev` is the file `docker-compose.dev.yml` actually loads — editing only `.env` changes
+  nothing the container sees. No token, secret or `*_ENABLED` flag was touched.
+- ~~The first restart after this merge applies `0115`.~~ **Applied 2026-09-12**: the database was at
+  `0113`, so the restart ran `0114` and `0115` together (0.84 s).
+- ~~Live verification~~ **passed**: tariff 30-day `period_prices` went `1000000` → `10000` and the
+  cabinet still renders «10,000 تومان»; balances (a Toman column already) were untouched; the top-up
+  screen still reads «10,000 – 100,000,000 تومان» and the admin tariff editor shows the daily price
+  as `10000`.
 - `TopUpRequest.amount_kopeks` still caps at `le=2_000_000_000` on the wire, i.e. a single cabinet
   top-up of at most **20,000,000 Toman** (what remained of F-052 once the int32 column ceiling
   became 2.1 billion Toman). It lifts when Phase C-2 removes the ×100 from the wire.
@@ -309,13 +316,45 @@ Kept for its list: `app/config.py` catalog defaults, `payment_method_config_serv
 admin editors that parse typed amounts ×100, and the numeric catalog keys in `remnabot/.env`
 (Decision 3). The deferred gateways' `*_MIN/MAX_AMOUNT_KOPEKS` stay ruble kopeks.
 
+### Follow-ups found after Task 3 shipped — **done (remnabot#66, frontend#22, remnabot#67)**
+
+The admin-parity check that `CLAUDE.md` requires after a user-facing change was run against the
+merged Task 3 and found four money screens 100x off. Three were regressions Task 3 itself introduced
+and one was a column `0115` never saw:
+
+| Screen | Cause | Fix |
+|---|---|---|
+| `/admin/payments` | the sweep in `bbba9c97` read `amount_rubles=record.amount_kopeks / 100` as a scale hop and removed the division, but the cabinet prints that field as-is | remnabot#66 — back through `toman_from_wire_catalog` |
+| `/admin/users` → activity tab | the backend sent raw amounts while `src/utils/adminBalance.ts` divided by 100; only the transaction mapper had an `amount_toman` twin | remnabot#66 |
+| `/admin/traffic-usage` "total spent" | same shape, one column | remnabot#66 + frontend#22 |
+| tariff traffic top-up packages | `tariffs.traffic_topup_packages` was not in `CATALOG_SCALE_COLUMNS`, so `0115` skipped it — while the code shipped with `0115` reads it as Toman and **charges the stored number straight from the balance** | remnabot#67 — revision `0116` |
+
+**The root cause is worth keeping.** `amount_columns.py` only *forces* a column to be classified when
+its **name** matches `kopeks|price|amount`. `traffic_topup_packages` is a `{gb: price}` JSON map whose
+name says nothing about money, so nothing made anyone decide, and it stayed on the kopek scale while
+every reader moved to Toman. `0116` widens the pattern with `packages`, but a name pattern can only
+ever catch the money it is told to look for: **any new JSON column that holds amounts has to be
+classified by meaning, not by name.** `COLUMNS_RESCALED_AFTER_0115` is the mechanism that lets a later
+revision own a column `0115` skipped, so replaying the chain on a pre-Phase-C dump still divides it
+exactly once.
+
+Found and left open by that check: **F-068** (bulk "add balance" credits 100x — pre-dates Phase C,
+belongs to `payment-fixer`), **F-069**, **F-070**, **F-071** (admin money inputs still labelled in
+kopeks), **F-072** (tariff custom-days / custom-traffic have no admin form at all). Smoke items are
+**S-019** and **S-020**.
+
 ### Task 6 — Scale marker guard + deploy/rollback runbook
 
 - **Repo/files:** `remnabot` — startup check reading `system_settings['amount_scale']`,
   `docs/deploy/phase-c-runbook.md`, test `tests/database/test_amount_scale_guard.py`.
 - **Runbook:** deploy = pull + `docker compose -f docker-compose.dev.yml restart bot` (migration runs
   at start) + the verification queries. Rollback = `alembic downgrade 0114` **then** the previous
-  image, never the image alone.
+  image, never the image alone. Write it from what the 2026-09-12 deploy actually needed: take a
+  `pg_dump -Fc` first, divide the numeric catalog keys in **`.env.dev`** as well as `.env` (the dev
+  compose file loads the former), and recreate the container rather than restarting it when env
+  values changed, because `restart` reuses the old environment.
+- **Also record the head revision the runbook targets:** `0116`, not `0115` — a rollback that stops
+  at `0115` leaves `traffic_topup_packages` divided while everything else is not.
 
 ---
 
@@ -334,8 +373,8 @@ to it, then the old field goes. Frontend scope: `src/utils/catalogScale.ts` (del
 
 ## Findings subsumed by this plan
 
-Do not fix these separately — re-check them after Task 3/5 merges and delete the entries in that PR
-(re-read `/opt/project/FINDINGS.md` first; another session edits it concurrently).
+All five were re-verified against the merged branch and **deleted from `/opt/project/FINDINGS.md`**
+on 2026-09-12. The table below is kept so a later reader can see what each ID was.
 
 | ID | How Phase C covers it |
 |---|---|
@@ -354,6 +393,8 @@ ambiguity of `WithdrawalRequest`'s scale.
 
 ## Smoke test
 
-Generate with the `smoke-test-checklist` skill **after Task 3 and after Task 5** (the two tasks a user
-can see), not now — with the exact Toman numbers expected on each cabinet screen, and a before/after
-comparison of a tariff price, the wallet balance, a purchase and the balance history.
+Done: **S-019** (the single Toman scale after `0115` — the admin save round-trip, a real Stars or
+CryptoBot top-up, and a balance purchase) and **S-020** (the admin money screens the parity check
+fixed). Both are open in `/opt/project/SMOKE-TESTS.md`. What the cabinet driver could already check —
+the purchase screen, the top-up limits, the admin tariff editor, the admin balances — is recorded
+there as verified rather than queued.
