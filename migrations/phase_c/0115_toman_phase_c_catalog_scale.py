@@ -1,24 +1,35 @@
-"""0114: Toman Phase C — store catalog amounts in Toman 1:1
+"""0115: Toman Phase C — store catalog amounts in Toman 1:1
 
 Balances have been stored in Toman 1:1 since Phase B, while catalog prices stayed on the x100
 ``price_kopeks`` scale. Every hop that mixed the two produced the same 100x bug over and over
 (remnabot #32…#56). This revision moves the catalog columns onto the balance scale, so the whole
-database speaks one unit and the conversion helpers can be deleted (plan Task 3).
+database speaks one unit and the conversion helpers can be deleted.
+
+**Staged, not yet in the chain.** This file deliberately lives in ``migrations/phase_c/`` and not in
+``migrations/alembic/versions/``: Alembic only scans the latter, and the bot runs
+``alembic upgrade head`` at start, so a data revision sitting in ``versions/`` would be applied by
+the next restart no matter what the code does. Plan Task 3 ships it with a single
+
+    git mv migrations/phase_c/0115_toman_phase_c_catalog_scale.py migrations/alembic/versions/
+
+in the same commit as the code that reads Toman. Until then it is fully reviewed and exercised by
+``tests/database/test_0115_catalog_scale.py`` (SQLite round-trip) while being unreachable in
+production. The structural tables it fills were created separately by ``0114``, which is safe alone.
 
 Which columns are catalog, which are already Toman and which belong to a payment provider's own
 currency is decided once, in ``app/utils/amount_columns.py``, and guarded by
 ``tests/utils/test_amount_columns.py``.
 
-Division truncates toward zero, exactly what the display layer already does, so no user-visible
-number changes. The few rows that are not divisible by 100 keep their pre-image in
+Division keeps the sign and floors the magnitude, exactly what the display layer already does, so no
+user-visible number changes. The few rows that are not divisible by 100 keep their pre-image in
 ``amount_scale_rounding_log`` so ``downgrade()`` restores them byte-for-byte.
 
 Pre-Phase-B (ruble-era) rows must be *converted*, not silently divided (user decision 2026-09-12),
 and converting them needs a ruble→Toman rate, which is a business number nobody has given yet.
 So the upgrade refuses to run while such rows exist instead of guessing.
 
-Revision ID: 0114
-Revises: 0113
+Revision ID: 0115
+Revises: 0114
 Create Date: 2026-09-12
 """
 
@@ -31,21 +42,23 @@ from typing import Any, Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-from app.utils.amount_columns import CATALOG_SCALE_COLUMNS, ColumnRef
+from app.utils.amount_columns import (
+    AMOUNT_SCALE_ROUNDING_LOG_TABLE,
+    AMOUNT_SCALE_STATE_TABLE,
+    CATALOG_SCALE_COLUMNS,
+    TOMAN_SCALE,
+    ColumnRef,
+)
 
 
-revision: str = '0114'
-down_revision: Union[str, None] = '0113'
+revision: str = '0115'
+down_revision: Union[str, None] = '0114'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-SCALE_STATE_TABLE = 'amount_scale_state'
-ROUNDING_LOG_TABLE = 'amount_scale_rounding_log'
-TOMAN_SCALE = 'toman'
-
 #: Mirrors ``settings.BALANCE_TOMAN_CUTOFF_UTC``; kept as a literal so the revision imports no
-#: configuration. ``tests/database/test_0114_catalog_scale.py`` pins the two together.
+#: configuration. ``tests/database/test_0115_catalog_scale.py`` pins the two together.
 PRE_TOMAN_CUTOFF_UTC = datetime(2026, 6, 5, tzinfo=UTC)
 
 #: Tables whose rows would be ruble-era if they predate the cutoff.
@@ -55,13 +68,13 @@ PRE_CUTOFF_GUARD_TABLES: tuple[tuple[str, str], ...] = (
 )
 
 _state_table = sa.table(
-    SCALE_STATE_TABLE,
+    AMOUNT_SCALE_STATE_TABLE,
     sa.column('scale', sa.String),
     sa.column('applied_at', sa.DateTime(timezone=True)),
 )
 
 _log_table = sa.table(
-    ROUNDING_LOG_TABLE,
+    AMOUNT_SCALE_ROUNDING_LOG_TABLE,
     sa.column('table_name', sa.String),
     sa.column('column_name', sa.String),
     sa.column('row_id', sa.Integer),
@@ -83,6 +96,13 @@ def _row_filter(ref: ColumnRef) -> str:
     return f' AND ({ref.where})' if ref.where else ''
 
 
+def _already_on_toman_scale(bind: sa.engine.Connection, tables: set[str]) -> bool:
+    if AMOUNT_SCALE_STATE_TABLE not in tables:
+        return False
+    current = bind.execute(sa.text(f'SELECT scale FROM {AMOUNT_SCALE_STATE_TABLE} ORDER BY id DESC LIMIT 1')).scalar()
+    return current == TOMAN_SCALE
+
+
 def _guard_pre_cutoff_rows(bind: sa.engine.Connection, tables: set[str]) -> None:
     offenders: dict[str, int] = {}
     cutoff = sa.bindparam('cutoff', PRE_TOMAN_CUTOFF_UTC, type_=sa.DateTime(timezone=True))
@@ -96,11 +116,31 @@ def _guard_pre_cutoff_rows(bind: sa.engine.Connection, tables: set[str]) -> None
 
     if offenders:
         raise RuntimeError(
-            'Toman Phase C (revision 0114) refuses to run: this database still holds rows from '
+            'Toman Phase C (revision 0115) refuses to run: this database still holds rows from '
             f'before {PRE_TOMAN_CUTOFF_UTC.isoformat()} ({offenders}), i.e. pre-Phase-B amounts '
             'that are neither catalog kopeks nor Toman. They must be converted with a '
             'ruble-to-Toman rate, which is a business number that has to be supplied before this '
             'migration can run. See docs/superpowers/plans/2026-09-11-toman-phase-c.md, decision 2.'
+        )
+
+
+def _ensure_bookkeeping_tables(tables: set[str]) -> None:
+    """0114 creates these; recreate them defensively if a database arrives without them."""
+    if AMOUNT_SCALE_STATE_TABLE not in tables:
+        op.create_table(
+            AMOUNT_SCALE_STATE_TABLE,
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('scale', sa.String(length=16), nullable=False),
+            sa.Column('applied_at', sa.DateTime(timezone=True), nullable=False),
+        )
+    if AMOUNT_SCALE_ROUNDING_LOG_TABLE not in tables:
+        op.create_table(
+            AMOUNT_SCALE_ROUNDING_LOG_TABLE,
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('table_name', sa.String(length=64), nullable=False),
+            sa.Column('column_name', sa.String(length=64), nullable=False),
+            sa.Column('row_id', sa.Integer(), nullable=False),
+            sa.Column('before_value', sa.BigInteger(), nullable=False),
         )
 
 
@@ -190,26 +230,12 @@ def upgrade() -> None:
     bind = op.get_bind()
     tables = set(sa.inspect(bind).get_table_names())
 
-    if SCALE_STATE_TABLE in tables:
-        # Already on the Toman scale — never divide twice.
+    if _already_on_toman_scale(bind, tables):
+        # Never divide twice.
         return
 
     _guard_pre_cutoff_rows(bind, tables)
-
-    op.create_table(
-        SCALE_STATE_TABLE,
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('scale', sa.String(length=16), nullable=False),
-        sa.Column('applied_at', sa.DateTime(timezone=True), nullable=False),
-    )
-    op.create_table(
-        ROUNDING_LOG_TABLE,
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('table_name', sa.String(length=64), nullable=False),
-        sa.Column('column_name', sa.String(length=64), nullable=False),
-        sa.Column('row_id', sa.Integer(), nullable=False),
-        sa.Column('before_value', sa.BigInteger(), nullable=False),
-    )
+    _ensure_bookkeeping_tables(tables)
 
     _rescale_all(bind, tables, divide=True)
 
@@ -220,14 +246,14 @@ def downgrade() -> None:
     bind = op.get_bind()
     tables = set(sa.inspect(bind).get_table_names())
 
-    if SCALE_STATE_TABLE not in tables:
+    if not _already_on_toman_scale(bind, tables):
         return
 
     _rescale_all(bind, tables, divide=False)
 
-    if ROUNDING_LOG_TABLE in tables:
+    if AMOUNT_SCALE_ROUNDING_LOG_TABLE in tables:
         logged = bind.execute(
-            sa.text(f'SELECT table_name, column_name, row_id, before_value FROM {ROUNDING_LOG_TABLE}')
+            sa.text(f'SELECT table_name, column_name, row_id, before_value FROM {AMOUNT_SCALE_ROUNDING_LOG_TABLE}')
         ).fetchall()
         for entry in logged:
             bind.execute(
@@ -235,6 +261,7 @@ def downgrade() -> None:
                     value=int(entry.before_value), row_id=int(entry.row_id)
                 )
             )
-        op.drop_table(ROUNDING_LOG_TABLE)
+        bind.execute(sa.text(f'DELETE FROM {AMOUNT_SCALE_ROUNDING_LOG_TABLE}'))
 
-    op.drop_table(SCALE_STATE_TABLE)
+    # The tables themselves belong to 0114; only the declaration of the new scale is undone here.
+    bind.execute(sa.text(f'DELETE FROM {AMOUNT_SCALE_STATE_TABLE}'))
