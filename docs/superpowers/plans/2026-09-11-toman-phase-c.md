@@ -93,11 +93,13 @@ catalog columns by 100**, and the backend code stops converting. Consequences th
   that isn't divisible by 100 — `transactions.id=320`, `-13` ("افزودن 2 دستگاه برای 208 روز", the
   known device-pricing rounding artifact) → becomes `0`, which is what it already displays.
 - **Idempotency:** one revision, one transaction (PostgreSQL DDL+DML is transactional), guarded by
-  `alembic_version` and by a marker row `system_settings['amount_scale'] = 'toman'` the revision
-  writes and the downgrade removes.
+  `alembic_version` and by the marker table `amount_scale_state` (one row, `scale='toman'`) the
+  revision creates and the downgrade drops. *Implementation note (Task 2):* the marker and the log
+  live in their own two tables rather than in `system_settings` rows, so the admin-editable settings
+  store is not polluted with synthetic keys and the downgrade can simply drop them.
 - **Reversible:** `downgrade()` multiplies the same columns by 100. The non-round rows are the only
-  lossy ones; the upgrade stores their pre-image in `system_settings['amount_scale_rounding_log']`
-  so the downgrade restores them exactly.
+  lossy ones; the upgrade stores their pre-image in `amount_scale_rounding_log`, and the downgrade
+  restores each one exactly before dropping the table.
 - **Pre-cutoff (ruble-era) rows:** per Decision 2 the upgrade refuses to run when rows older than
   `BALANCE_TOMAN_CUTOFF_UTC` exist unless an explicit ruble→Toman rate is configured; it never
   invents one.
@@ -178,7 +180,7 @@ pricing (F-013, F-029, F-047), and enabling any payment method.
 Each task is one PR, mergeable on its own. Tasks 1–2 are inert (no behavior change); behavior changes
 only when Task 3 merges, which is why Tasks 2 and 3 must deploy together — note it in both PR bodies.
 
-### Task 1 — Money-column inventory + guard test (no behavior change) — **done**
+### Task 1 — Money-column inventory + guard test (no behavior change) — **done (remnabot#61)**
 
 - **Repo/files:** `remnabot` — `app/utils/amount_columns.py`; test `tests/utils/test_amount_columns.py`.
 - **Interfaces (consumed by Tasks 2, 3, 6):** `ColumnRef(table, column, kind='int'|'json_values',
@@ -191,17 +193,22 @@ only when Task 3 merges, which is why Tasks 2 and 3 must deploy together — not
   carry a row filter that matches their type set, `json_values` matches the real column type, and no
   gateway table is on the catalog scale.
 
-### Task 2 — Alembic revision `0113`: divide the catalog columns by 100
+### Task 2 — Alembic revision `0113`: divide the catalog columns by 100 — **done (this PR)**
 
 - **Repo/files:** `remnabot` — `migrations/alembic/versions/0113_toman_phase_c_catalog_scale.py`
-  (`revision = '0113'`, `down_revision = '0112'`); test `tests/migrations/test_0113_catalog_scale.py`.
-- **Interfaces:** consumes Task 1's tuples. Writes `system_settings['amount_scale'] = 'toman'`
-  (read by Task 6) and `system_settings['amount_scale_rounding_log']`. `upgrade()` = integer division
-  truncating toward zero, per `ColumnRef.kind` and `ColumnRef.where`; `downgrade()` multiplies back
-  and restores the logged pre-images. Refuses to run on a DB holding pre-cutoff rows unless a
-  ruble→Toman rate is configured (Decision 2).
-- **Test first:** seeded round-trip (upgrade → catalog ÷100, Toman and provider columns untouched →
-  downgrade → byte-identical, including a non-round row) plus the display invariant.
+  (`revision = '0113'`, `down_revision = '0112'`); test `tests/database/test_0113_catalog_scale.py`
+  (next to the other revision tests, not a new `tests/migrations/` directory).
+- **Interfaces:** consumes Task 1's tuples. Creates `amount_scale_state` (`scale='toman'`, read by
+  Task 6's startup guard) and `amount_scale_rounding_log`. `upgrade()` divides by 100 with the sign
+  kept and the magnitude floored — what the display layer already does — per `ColumnRef.kind` and
+  `ColumnRef.where`; `downgrade()` multiplies back, restores the logged pre-images and drops both
+  tables. Missing tables/columns are skipped, so it runs on a partially migrated database.
+  It **refuses to run** (raises, which aborts bot start) while rows older than
+  `PRE_TOMAN_CUTOFF_UTC` exist, because converting them needs the ruble→Toman rate of Decision 2.
+- **Test:** seeded round-trip on SQLite (upgrade → catalog ÷100 including the JSON columns, Toman and
+  provider columns untouched → downgrade → byte-identical snapshot, the `-13` artifact restored from
+  the log), idempotency, the marker row, the display invariant
+  (`format_price(before) == format_balance(after)`), and the pre-cutoff refusal.
 
 ### Task 3 — Collapse the helpers and the two formatters
 

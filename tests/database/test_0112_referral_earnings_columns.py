@@ -29,9 +29,11 @@ def _load_revision():
     return module
 
 
-def test_0112_is_the_single_head() -> None:
-    heads = _script_directory().get_heads()
-    assert heads == ['0112'], heads
+def test_0112_is_on_the_single_linear_chain() -> None:
+    script = _script_directory()
+    heads = script.get_heads()
+    assert len(heads) == 1, heads
+    assert '0112' in [rev.revision for rev in script.walk_revisions(base='base', head=heads[0])]
 
 
 def test_0112_revises_0111() -> None:
