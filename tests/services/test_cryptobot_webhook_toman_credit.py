@@ -169,7 +169,7 @@ async def test_toman_invoice_credits_quoted_toman(harness):
     assert created['type'] == TransactionType.DEPOSIT
     assert created['amount_kopeks'] == 200_000
     assert '₽' not in created['description']
-    assert harness['referral'] == [20_000_000]
+    assert harness['referral'] == [200_000], 'the referral base is Toman 1:1 since Phase C'
     notice = harness['user_notices'][0]
     assert '200,000' in notice.text
     assert '₽' not in notice.text and 'USD =' not in notice.text
@@ -196,8 +196,9 @@ async def test_legacy_payload_keeps_usd_rub_path(harness, monkeypatch):
 
     monkeypatch.setattr(cryptobot_module.currency_converter, 'usd_to_rub', _usd_to_rub)
     assert await harness['service'].process_cryptobot_webhook(_Db(), _webhook()) is True
-    # Unchanged legacy math: ceil(5 x 90) x 100.
-    assert harness['created'][0]['amount_kopeks'] == 45_000
+    # Legacy USD->RUB math is untouched (ceil(5 x 90)); only the kopek hop is gone, because the
+    # credit lands in the Toman `balance_kopeks` column and multiplying would credit 100x.
+    assert harness['created'][0]['amount_kopeks'] == 450
 
 
 def test_module_is_importable():

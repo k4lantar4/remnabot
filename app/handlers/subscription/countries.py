@@ -25,7 +25,7 @@ from app.services.subscription_checkout_service import (
 )
 from app.services.subscription_service import SubscriptionService
 from app.states import SubscriptionStates
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
@@ -327,10 +327,10 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
     if added_names:
         logger.info(
             'Стоимость новых серверов: ₽/мес × дн./30 = ₽ (скидка ₽)',
-            cost_per_month=cost_per_month / 100,
+            cost_per_month=cost_per_month,
             charged_days=charged_days,
-            total_cost=total_cost / 100,
-            total_discount=total_discount / 100,
+            total_cost=total_cost,
+            total_discount=total_discount,
         )
 
     # balance is Toman 1:1; total_cost is a catalog price (server price_kopeks, prorated)
@@ -384,7 +384,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(total_cost),
+                total_cost,
                 f'Добавление стран: {", ".join(added_names)} за {charged_days} дн.',
             )
             if not success:
@@ -507,7 +507,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             telegram_id=db_user.telegram_id,
             added_count=len(added),
             removed_count=len(removed),
-            total_cost=total_cost / 100,
+            total_cost=total_cost,
         )
 
     except Exception as e:
@@ -930,7 +930,7 @@ async def confirm_add_countries_to_subscription(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(total_price),
+                total_price,
                 f'Добавление стран к подписке: {", ".join(new_countries_names)}',
             )
 

@@ -57,8 +57,6 @@ from app.utils.photo_message import safe_edit_or_resend
 from app.utils.price_display import (
     ADMIN_BALANCE_EDIT_MAX_TOMAN,
     balance_from_display_amount,
-    catalog_price_in_toman,
-    format_transaction_amount_for_display,
     missing_toman,
     user_can_afford,
 )
@@ -1103,10 +1101,7 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
 
         for transaction in transactions:
             type_emoji = '📈' if transaction.amount_kopeks > 0 else '📉'
-            # deposit/withdrawal are stored Toman 1:1, subscription_payment ×100.
-            amount_text = format_transaction_amount_for_display(
-                transaction.amount_kopeks, transaction.type, settings.format_balance, settings.format_price
-            )
+            amount_text = settings.format_balance(abs(transaction.amount_kopeks))
             text += f'{type_emoji} {amount_text}\n'
             text += f'📋 {html.escape(transaction.description or "")}\n'
             text += f'📅 {format_datetime(transaction.created_at)}\n\n'
@@ -5150,7 +5145,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
         success = await subtract_user_balance(
             db,
             target_user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             f'Покупка подписки на {period_days} дней (администратор)',
             mark_as_paid_subscription=True,
         )
@@ -5390,7 +5385,7 @@ async def admin_buy_subscription_execute(callback: types.CallbackQuery, db_user:
             await _refund_undelivered_admin_purchase(
                 db,
                 target_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 f'Возврат: ошибка покупки подписки на {period_days} дней (администратор)',
             )
 
@@ -5694,7 +5689,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
         success = await subtract_user_balance(
             db,
             target_user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             f'Покупка тарифа {tariff.name} на {period} дней (администратор)',
             mark_as_paid_subscription=True,
         )
@@ -5807,7 +5802,7 @@ async def admin_buy_tariff_execute(callback: types.CallbackQuery, db_user: User,
             await _refund_undelivered_admin_purchase(
                 db,
                 target_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 refund_reason,  # built before the rollback expired the tariff
             )
 

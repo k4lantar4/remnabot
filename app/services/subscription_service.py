@@ -1522,7 +1522,7 @@ class SubscriptionService:
                     price = server.price_kopeks
                     total_price += price
                     prices_list.append(price)
-                    logger.debug('🏷️ Страна ₽', display_name=server.display_name, price=price / 100)
+                    logger.debug('🏷️ Страна ₽', display_name=server.display_name, price=price)
                 else:
                     default_price = 0
                     total_price += default_price
@@ -1530,10 +1530,10 @@ class SubscriptionService:
                     logger.warning(
                         '⚠️ Сервер недоступен, используем базовую цену: ₽',
                         country_uuid=country_uuid,
-                        default_price=default_price / 100,
+                        default_price=default_price,
                     )
 
-            logger.info('💰 Общая стоимость стран: ₽', total_price=total_price / 100)
+            logger.info('💰 Общая стоимость стран: ₽', total_price=total_price)
             return total_price, prices_list
 
         except Exception as e:

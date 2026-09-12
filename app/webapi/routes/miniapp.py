@@ -99,9 +99,7 @@ from app.services.tribute_service import TributeService
 from app.utils import toman_rates
 from app.utils.currency_converter import currency_converter
 from app.utils.price_display import (
-    catalog_price_in_toman,
     display_transaction_amount_from_storage,
-    kopeks_from_display_amount,
     missing_toman,
     user_can_afford,
 )
@@ -123,6 +121,7 @@ from app.utils.user_utils import (
     get_effective_referral_commission_percent,
     get_user_referral_summary,
 )
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_db_session
 from ..schemas.miniapp import (
@@ -612,7 +611,7 @@ def _normalize_amount_kopeks(
     except (InvalidOperation, ValueError):
         return None
 
-    normalized = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    normalized = int((decimal_amount).to_integral_value(rounding=ROUND_HALF_UP))
     return normalized if normalized >= 0 else None
 
 
@@ -666,9 +665,9 @@ async def get_payment_methods(
                 icon='⭐',
                 requires_amount=True,
                 currency='RUB',
-                min_amount_kopeks=kopeks_from_display_amount(stars_min_toman),
-                max_amount_kopeks=kopeks_from_display_amount(stars_max_toman),
-                amount_step_kopeks=kopeks_from_display_amount(stars_min_toman),
+                min_amount_kopeks=wire_catalog_kopeks(stars_min_toman),
+                max_amount_kopeks=wire_catalog_kopeks(stars_max_toman),
+                amount_step_kopeks=wire_catalog_kopeks(stars_min_toman),
                 integration_type=MiniAppPaymentIntegrationType.REDIRECT,
             )
         )
@@ -795,8 +794,8 @@ async def get_payment_methods(
 
     if settings.is_cryptobot_enabled() and toman_rates.is_cryptobot_toman_ready():
         crypto_min_toman, crypto_max_toman = toman_rates.cryptobot_topup_limits_toman()
-        min_amount_kopeks = kopeks_from_display_amount(crypto_min_toman)
-        max_amount_kopeks = kopeks_from_display_amount(crypto_max_toman)
+        min_amount_kopeks = wire_catalog_kopeks(crypto_min_toman)
+        max_amount_kopeks = wire_catalog_kopeks(crypto_max_toman)
         methods.append(
             MiniAppPaymentMethod(
                 id='cryptobot',
@@ -919,7 +918,7 @@ async def create_payment_link(
         texts = get_texts(_normalize_language_code(user))
         requested_amount_kopeks = amount_kopeks
         stars_min_toman, stars_max_toman = toman_rates.stars_topup_limits_toman()
-        topup_toman = catalog_price_in_toman(amount_kopeks)
+        topup_toman = toman_from_wire_catalog(amount_kopeks)
         if not stars_min_toman <= topup_toman <= stars_max_toman:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
@@ -929,14 +928,17 @@ async def create_payment_link(
             )
         quote = toman_rates.quote_stars_for_toman(topup_toman)
         stars_amount = quote.stars
-        amount_kopeks = kopeks_from_display_amount(quote.credit_toman)
+        # The Stars gateway takes the Toman credit; the response field keeps the catalog wire scale
+        # the miniapp still divides by 100. Reusing one variable for both is how this rendered 100x off.
+        credit_toman = quote.credit_toman
+        amount_kopeks = wire_catalog_kopeks(credit_toman)
 
         bot = create_bot()
         invoice_payload = toman_rates.build_toman_topup_payload(user.id, quote.credit_toman, nonce=int(time.time()))
         try:
             payment_service = PaymentService(bot)
             invoice_link = await payment_service.create_stars_invoice(
-                amount_kopeks=amount_kopeks,
+                amount_kopeks=credit_toman,
                 title=texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up'),
                 description=texts.t(
                     'STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)'
@@ -1234,7 +1236,7 @@ async def create_payment_link(
         # Fixed admin-set Toman-per-USDT rate (never the live USD→RUB rate); the payload names the
         # Toman to credit.
         texts = get_texts(_normalize_language_code(user))
-        topup_toman = catalog_price_in_toman(amount_kopeks)
+        topup_toman = toman_from_wire_catalog(amount_kopeks)
         min_toman, max_toman = toman_rates.cryptobot_topup_limits_toman()
         if topup_toman < min_toman:
             raise HTTPException(
@@ -1300,12 +1302,12 @@ async def create_payment_link(
         if amount_kopeks < min_amount_kopeks:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)',
+                detail=f'Amount is below minimum ({min_amount_kopeks:.2f} RUB)',
             )
         if amount_kopeks > max_amount_kopeks:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)',
+                detail=f'Amount exceeds maximum ({max_amount_kopeks:.2f} RUB)',
             )
 
         payment_service = PaymentService()
@@ -2449,7 +2451,7 @@ def _format_bonus_label(amount_kopeks: int) -> str | None:
     try:
         return settings.format_price(amount_kopeks)
     except Exception:  # pragma: no cover - defensive
-        return f'{amount_kopeks / 100:.2f}'
+        return f'{amount_kopeks:.2f}'
 
 
 async def _find_active_test_access_offers(
@@ -2862,7 +2864,7 @@ def _serialize_transaction(transaction: Transaction) -> MiniAppTransaction:
         id=transaction.id,
         type=transaction.type,
         amount_kopeks=transaction.amount_kopeks,
-        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks, transaction.type), 2),
+        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks), 2),
         description=transaction.description,
         payment_method=transaction.payment_method,
         external_id=transaction.external_id,
@@ -3221,7 +3223,7 @@ async def get_subscription_details(
                 id=group.id,
                 name=group.name,
                 threshold_kopeks=threshold,
-                threshold_rubles=round(threshold / 100, 2),
+                threshold_rubles=threshold,
                 threshold_label=settings.format_price(threshold),
                 is_reached=total_spent_kopeks >= threshold,
                 is_current=bool(promo_group and promo_group.id == group.id),
@@ -3578,7 +3580,7 @@ async def get_subscription_details(
         ),
         auto_assign_promo_groups=auto_promo_levels,
         total_spent_kopeks=total_spent_kopeks,
-        total_spent_rubles=round(total_spent_kopeks / 100, 2),
+        total_spent_rubles=round(total_spent_kopeks, 2),
         total_spent_label=settings.format_price(total_spent_kopeks),
         subscription_type=('trial' if subscription and subscription.is_trial else ('paid' if subscription else 'none')),
         autopay_enabled=autopay_enabled,
@@ -5861,7 +5863,7 @@ async def update_subscription_servers_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(total_cost),
+            total_cost,
             description,
         )
         if not success:
@@ -6049,7 +6051,7 @@ async def update_subscription_traffic_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(total_price_difference),
+            total_price_difference,
             description,
         )
         if not success:
@@ -6253,7 +6255,7 @@ async def update_subscription_devices_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_to_charge),
+            price_to_charge,
             description,
         )
         if not success:
@@ -6297,7 +6299,7 @@ async def update_subscription_devices_endpoint(
                 select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += catalog_price_in_toman(price_to_charge)
+            refund_user.balance_kopeks += price_to_charge
             await db.commit()
             if actual_delta <= 0:
                 raise HTTPException(
@@ -6714,7 +6716,7 @@ async def purchase_tariff_endpoint(
     success = await subtract_user_balance(
         db,
         user,
-        catalog_price_in_toman(price_kopeks),
+        price_kopeks,
         description,
         consume_promo_offer=consume_promo_offer,
         mark_as_paid_subscription=True,
@@ -7118,7 +7120,7 @@ async def switch_tariff_endpoint(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(upgrade_cost),
+            upgrade_cost,
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,
@@ -7425,7 +7427,7 @@ async def purchase_traffic_topup_endpoint(
         ).format(gb=payload.gb, percent=traffic_discount_percent)
     else:
         traffic_description = texts.t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=payload.gb)
-    success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
+    success = await subtract_user_balance(db, user, final_price, traffic_description)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -7565,7 +7567,7 @@ async def toggle_daily_subscription_pause_endpoint(
     # Если снимаем с паузы, проверяем баланс и списываем оплату
     if not new_paused_state:
         # daily_price — цена каталога (×100), баланс — томаны.
-        from app.utils.price_display import catalog_price_in_toman, user_can_afford
+        from app.utils.price_display import user_can_afford
 
         if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             raise HTTPException(
@@ -7586,7 +7588,7 @@ async def toggle_daily_subscription_pause_endpoint(
                 deducted = await subtract_user_balance(
                     db,
                     user,
-                    catalog_price_in_toman(daily_price),
+                    daily_price,
                     f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                     mark_as_paid_subscription=True,
                     commit=False,

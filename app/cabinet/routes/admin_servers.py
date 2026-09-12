@@ -15,6 +15,7 @@ from app.database.crud.server_squad import (
 )
 from app.database.models import PromoGroup, ServerSquad, Subscription, Tariff, User
 from app.services.subscription_service import SubscriptionService
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.servers import (
@@ -86,8 +87,8 @@ async def list_servers(
                 country_code=server.country_code,
                 is_available=server.is_available,
                 is_trial_eligible=server.is_trial_eligible,
-                price_kopeks=server.price_kopeks,
-                price_rubles=server.price_kopeks / 100,
+                price_kopeks=wire_catalog_kopeks(server.price_kopeks),
+                price_rubles=server.price_kopeks,
                 max_users=server.max_users,
                 current_users=server.current_users or 0,
                 sort_order=server.sort_order,
@@ -127,8 +128,8 @@ async def get_server(
         description=server.description,
         is_available=server.is_available,
         is_trial_eligible=server.is_trial_eligible,
-        price_kopeks=server.price_kopeks,
-        price_rubles=server.price_kopeks / 100,
+        price_kopeks=wire_catalog_kopeks(server.price_kopeks),
+        price_rubles=server.price_kopeks,
         max_users=server.max_users,
         current_users=server.current_users or 0,
         sort_order=server.sort_order,
@@ -170,7 +171,7 @@ async def update_existing_server(
     if request.is_trial_eligible is not None:
         updates['is_trial_eligible'] = request.is_trial_eligible
     if request.price_kopeks is not None:
-        updates['price_kopeks'] = request.price_kopeks
+        updates['price_kopeks'] = toman_from_wire_catalog(request.price_kopeks)
     if request.max_users is not None:
         updates['max_users'] = request.max_users if request.max_users > 0 else None
     if request.sort_order is not None:

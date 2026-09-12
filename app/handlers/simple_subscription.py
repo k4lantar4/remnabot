@@ -19,7 +19,7 @@ from app.services.payment_service import PaymentService
 from app.services.subscription_purchase_service import SubscriptionPurchaseService
 from app.states import SubscriptionStates
 from app.utils.decorators import error_handler
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 from app.utils.pricing_utils import compute_simple_subscription_price
 from app.utils.subscription_utils import (
     get_display_subscription_link,
@@ -455,7 +455,7 @@ async def handle_simple_subscription_pay_with_balance(
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             purchase_description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -537,7 +537,7 @@ async def handle_simple_subscription_pay_with_balance(
             await add_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 refund_reason,
                 transaction_type=TransactionType.REFUND,
             )
@@ -695,14 +695,12 @@ async def handle_simple_subscription_pay_with_balance(
         logger.info(
             'Пользователь успешно купил подписку с баланса',
             telegram_id=db_user.telegram_id,
-            price_kopeks=price_kopeks / 100,
+            price_kopeks=price_kopeks,
         )
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(
-                db, db_user, catalog_price_in_toman(price_kopeks), refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot)
         logger.error(
             'Ошибка оплаты простой подписки с баланса для пользователя',
             db_user_id=db_user.id,
@@ -1130,7 +1128,7 @@ async def handle_simple_subscription_payment_method(
                 await callback.answer('❌ Оплата через CryptoBot временно недоступна', show_alert=True)
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_kopeks
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через CryptoBot',
@@ -1241,7 +1239,7 @@ async def handle_simple_subscription_payment_method(
                 await callback.answer('❌ Оплата через Heleket временно недоступна', show_alert=True)
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_kopeks
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через Heleket',
@@ -2220,7 +2218,7 @@ async def confirm_simple_subscription_purchase(
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             purchase_description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -2302,7 +2300,7 @@ async def confirm_simple_subscription_purchase(
             await add_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 refund_reason,
                 transaction_type=TransactionType.REFUND,
             )
@@ -2460,14 +2458,12 @@ async def confirm_simple_subscription_purchase(
         logger.info(
             'Пользователь успешно купил подписку с баланса',
             telegram_id=db_user.telegram_id,
-            price_kopeks=price_kopeks / 100,
+            price_kopeks=price_kopeks,
         )
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(
-                db, db_user, catalog_price_in_toman(price_kopeks), refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot)
         logger.error(
             'Ошибка подтверждения простой подписки с баланса для пользователя',
             db_user_id=db_user.id,

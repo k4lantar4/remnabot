@@ -30,7 +30,6 @@ from app.database.models import (
     tariff_promo_groups,
 )
 from app.services.gift_purchase_service import GIFT_ENABLED_KEY, is_gift_enabled
-from app.utils.price_display import catalog_price_in_toman
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -169,9 +168,9 @@ async def test_gift_config_filters_tariffs_and_orders(monkeypatch):
         assert config.tariffs[0].name == 'Tariff Alpha'
         assert len(config.tariffs[0].periods) == 2
         assert config.tariffs[0].periods[0].days == 30
-        assert config.tariffs[0].periods[0].price_kopeks == 20000
+        assert config.tariffs[0].periods[0].price_kopeks == 2_000_000  # 20,000 Toman on the x100 wire
         assert config.tariffs[0].periods[1].days == 90
-        assert config.tariffs[0].periods[1].price_kopeks == 50000
+        assert config.tariffs[0].periods[1].price_kopeks == 5_000_000
 
 
 @pytest.mark.asyncio
@@ -205,8 +204,8 @@ async def test_gift_config_personalized_quote_fields(monkeypatch):
         assert config.active_discount_percent == 20
         period = config.tariffs[0].periods[0]
         assert period.days == 30
-        assert period.price_kopeks == 8000
-        assert period.original_price_kopeks == 10000
+        assert period.price_kopeks == 800_000  # 8,000 Toman on the x100 wire
+        assert period.original_price_kopeks == 1_000_000
         assert period.discount_percent == 20
 
 
@@ -257,7 +256,7 @@ async def test_purchase_gift_balance_success(monkeypatch):
 
         # Check user balance: the Toman wallet loses the Toman price (catalog 30,000 = 300 Toman)
         await db.refresh(user)
-        assert user.balance_kopeks == 50000 - catalog_price_in_toman(30000)
+        assert user.balance_kopeks == 50000 - 30000
 
         # Check transaction
         tx_res = await db.execute(select(Transaction).where(Transaction.user_id == 10))

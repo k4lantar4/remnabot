@@ -551,7 +551,7 @@ async def get_server_statistics(db: AsyncSession) -> dict:
         'unavailable_servers': total_servers - available_servers,
         'servers_with_connections': servers_with_connections,
         'total_revenue_kopeks': total_revenue_kopeks,
-        'total_revenue_rubles': total_revenue_kopeks / 100,
+        'total_revenue_rubles': total_revenue_kopeks,
     }
 
 

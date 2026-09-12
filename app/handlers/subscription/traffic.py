@@ -29,7 +29,7 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
@@ -367,7 +367,7 @@ async def confirm_reset_traffic(
 
     try:
         # Debit the Toman price; the transaction row below keeps the catalog reset_price.
-        success = await subtract_user_balance(db, db_user, catalog_price_in_toman(reset_price), 'Сброс трафика')
+        success = await subtract_user_balance(db, db_user, reset_price, 'Сброс трафика')
 
         if not success:
             await callback.answer('⌛ Ошибка списания средств', show_alert=True)
@@ -451,7 +451,7 @@ async def refresh_traffic_config():
         for pkg in packages:
             if pkg['enabled']:
                 gb_text = '♾️ Безлимит' if pkg['gb'] == 0 else f'{pkg["gb"]} ГБ'
-                logger.info('📦 ₽', gb_text=gb_text, pkg=pkg['price'] / 100)
+                logger.info('📦 ₽', gb_text=gb_text, pkg=pkg['price'])
 
         return True
 
@@ -473,13 +473,13 @@ async def get_traffic_packages_info() -> str:
             info_lines.append('\n✅ Активные:')
             for pkg in enabled_packages:
                 gb_text = '♾️ Безлимит' if pkg['gb'] == 0 else f'{pkg["gb"]} ГБ'
-                info_lines.append(f'   • {gb_text}: {pkg["price"] // 100}₽')
+                info_lines.append(f'   • {gb_text}: {pkg["price"]}₽')
 
         if disabled_packages:
             info_lines.append('\n❌ Отключенные:')
             for pkg in disabled_packages:
                 gb_text = '♾️ Безлимит' if pkg['gb'] == 0 else f'{pkg["gb"]} ГБ'
-                info_lines.append(f'   • {gb_text}: {pkg["price"] // 100}₽')
+                info_lines.append(f'   • {gb_text}: {pkg["price"]}₽')
 
         info_lines.append(f'\n📊 Всего пакетов: {len(packages)}')
         info_lines.append(f'🟢 Активных: {len(enabled_packages)}')
@@ -663,7 +663,7 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(price),
+            price,
             f'Добавление {traffic_gb} ГБ трафика',
         )
 
@@ -983,7 +983,7 @@ async def execute_switch_traffic(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_difference),
+                price_difference,
                 f'Переключение трафика с {current_traffic}GB на {new_traffic_gb}GB',
             )
 
@@ -1060,7 +1060,7 @@ async def execute_switch_traffic(
             telegram_id=db_user.telegram_id,
             current_traffic=current_traffic,
             new_traffic_gb=new_traffic_gb,
-            price_difference=price_difference / 100,
+            price_difference=price_difference,
         )
 
     except Exception as e:

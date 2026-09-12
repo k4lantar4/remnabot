@@ -50,9 +50,9 @@ def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_
 
     logger.debug(
         'Расчет пропорциональной цены',
-        monthly_price=monthly_price / 100,
+        monthly_price=monthly_price,
         days_to_charge=days_to_charge,
-        total_price=total_price / 100,
+        total_price=total_price,
     )
 
     return total_price, days_to_charge
@@ -319,13 +319,13 @@ def validate_pricing_calculation(base_price: int, monthly_additions: int, months
     if not is_valid:
         logger.warning(
             'Несоответствие в расчете цены: ожидаемая и фактическая сумма не совпадают',
-            expected_total=expected_total / 100,
-            total_calculated=total_calculated / 100,
+            expected_total=expected_total,
+            total_calculated=total_calculated,
         )
         logger.warning(
             'Детали расчета цены: базовая цена, месячные дополнения и число месяцев',
-            base_price=base_price / 100,
-            monthly_additions=monthly_additions / 100,
+            base_price=base_price,
+            monthly_additions=monthly_additions,
             months=months,
         )
 

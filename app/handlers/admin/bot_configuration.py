@@ -2196,7 +2196,7 @@ async def test_payment_provider(
             await _refresh_markup()
             return
 
-        stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_kopeks / 100)
+        stars_amount = TelegramStarsService.calculate_stars_from_rubles(amount_kopeks)
         message_text = (
             '🧪 <b>Тестовый платеж Telegram Stars</b>\n\n'
             f'💰 Сумма: {texts.format_price(amount_kopeks)}\n'
@@ -2260,7 +2260,7 @@ async def test_payment_provider(
             await _refresh_markup()
             return
 
-        amount_kopeks = int(amount_rubles * 100)
+        amount_kopeks = int(amount_rubles)
         message_text = (
             '🧪 <b>Тестовый платеж CryptoBot</b>\n\n'
             f'💰 Сумма к зачислению: {texts.format_price(amount_kopeks)}\n'

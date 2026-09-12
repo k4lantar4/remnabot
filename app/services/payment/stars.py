@@ -25,7 +25,6 @@ from app.external.telegram_stars import TelegramStarsService
 from app.localization.texts import get_texts
 from app.utils import toman_rates
 from app.utils.payment_logger import payment_logger as logger
-from app.utils.price_display import kopeks_from_display_amount
 from app.utils.user_utils import format_referrer_info
 
 
@@ -666,11 +665,10 @@ class TelegramStarsMixin:
             try:
                 from app.services.referral_service import process_referral_topup
 
-                # amount_kopeks is the Toman balance credit; the referral service expects catalog x100.
                 await process_referral_topup(
                     db,
                     user.id,
-                    kopeks_from_display_amount(amount_kopeks),
+                    amount_kopeks,
                     getattr(self, 'bot', None),
                 )
             except Exception as error:  # pragma: no cover - диагностический лог

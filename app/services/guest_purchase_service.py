@@ -329,7 +329,7 @@ async def _create_nalogo_receipt_for_purchase(
         if not nalogo_service.configured:
             return
 
-        amount_rubles = purchase.amount_kopeks / 100
+        amount_rubles = purchase.amount_kopeks
         # Не передаём telegram_user_id в описание чека — privacy (VPN-сервис)
         receipt_name = settings.get_balance_payment_description(purchase.amount_kopeks)
 
@@ -672,7 +672,7 @@ async def fulfill_purchase(
 
             _subid = purchase.subid or await get_subid(db, user.id)
             if _subid:
-                await send_postback('purchase', _subid, amount=purchase.amount_kopeks / 100, user_id=user.id)
+                await send_postback('purchase', _subid, amount=purchase.amount_kopeks, user_id=user.id)
         except Exception:
             logger.debug('S2S postback purchase hook error')
 
@@ -1836,7 +1836,7 @@ async def _send_stuck_purchase_alert(data: dict, retry_count: int, phase: str) -
         from app.bot_factory import create_bot
         from app.services.admin_notification_service import AdminNotificationService, NotificationCategory
 
-        amount_rub = data['amount_kopeks'] / 100
+        amount_rub = data['amount_kopeks']
         contact_value = html_mod.escape(str(data.get('contact_value', '?')))
         contact_type = html_mod.escape(str(data.get('contact_type', '?')))
         text = (
@@ -1877,8 +1877,8 @@ async def _send_amount_mismatch_alert(
         text = (
             f'<b>AMOUNT MISMATCH — purchase marked FAILED</b>\n\n'
             f'Token: <code>{purchase.token[:8]}...</code>\n'
-            f'Expected: <b>{purchase.amount_kopeks / 100:.0f} ₽</b>\n'
-            f'Provider: <b>{provider_amount_kopeks / 100:.0f} ₽</b>\n'
+            f'Expected: <b>{purchase.amount_kopeks:.0f} ₽</b>\n'
+            f'Provider: <b>{provider_amount_kopeks:.0f} ₽</b>\n'
             f'Payment: <code>{html_mod.escape(str(payment_method or "?"))}</code>\n'
             f'Payment ID: <code>{html_mod.escape(str(provider_payment_id))}</code>\n'
             f'Contact: {html_mod.escape(str(purchase.contact_type))}: '

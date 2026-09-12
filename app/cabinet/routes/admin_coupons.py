@@ -21,6 +21,7 @@ from app.database.crud.coupon import (
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.models import CouponBatch, CouponStatus, User
 from app.services.coupon_service import build_coupon_deeplink
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.coupons import (
@@ -55,7 +56,7 @@ def _serialize_batch(batch: CouponBatch, counts: dict[str, int]) -> CouponBatchR
         tariff_name=batch.tariff.name if batch.tariff else None,
         period_days=batch.period_days,
         coupons_total=batch.coupons_total,
-        wholesale_price_kopeks=batch.wholesale_price_kopeks,
+        wholesale_price_kopeks=wire_catalog_kopeks(batch.wholesale_price_kopeks),
         max_per_user=getattr(batch, 'max_per_user', 0) or 0,
         valid_until=batch.valid_until,
         is_revoked=batch.is_revoked,
@@ -116,7 +117,7 @@ async def create_coupon_batch_endpoint(
         tariff_id=tariff.id,
         period_days=payload.period_days,
         coupons_count=payload.coupons_count,
-        wholesale_price_kopeks=payload.wholesale_price_kopeks,
+        wholesale_price_kopeks=toman_from_wire_catalog(payload.wholesale_price_kopeks),
         max_per_user=payload.max_per_user,
         valid_until=valid_until,
         created_by=admin.id,

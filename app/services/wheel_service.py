@@ -321,7 +321,7 @@ class FortuneWheelService:
         user.balance_kopeks -= kopeks
         logger.info(
             '💫 Списано ₽ (⭐) с баланса user_id',
-            kopeks=round(kopeks / 100, 2),
+            kopeks=kopeks,
             spin_cost_stars=config.spin_cost_stars,
             user_id=user.id,
         )
@@ -397,13 +397,11 @@ class FortuneWheelService:
                 db,
                 user,
                 prize.prize_value,
-                description=f'Выигрыш в колесе удачи: {prize.prize_value / 100:.2f}₽',
+                description=f'Выигрыш в колесе удачи: {settings.format_balance(prize.prize_value)}',
                 create_transaction=True,
                 commit=False,
             )
-            logger.info(
-                '💰 Начислено ₽ на баланс user_id', prize_value=round(prize.prize_value / 100, 2), user_id=user.id
-            )
+            logger.info('💰 Начислено на баланс user_id', prize_value=prize.prize_value, user_id=user.id)
             return None
 
         if prize_type == WheelPrizeType.SUBSCRIPTION_DAYS.value:
@@ -444,14 +442,14 @@ class FortuneWheelService:
                             db,
                             user,
                             balance_bonus,
-                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней → {balance_bonus / 100:.2f}₽',
+                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней → {balance_bonus:.2f}₽',
                             create_transaction=True,
                             commit=False,
                         )
                         logger.info(
                             '💰 Суточный тариф: дней конвертированы в ₽ для user_id',
                             prize_value=prize.prize_value,
-                            balance_bonus=round(balance_bonus / 100, 2),
+                            balance_bonus=round(balance_bonus, 2),
                             user_id=user.id,
                         )
                     else:
@@ -771,7 +769,7 @@ class FortuneWheelService:
             return 'К сожалению, в этот раз не повезло. Попробуйте еще!'
 
         if prize_type == WheelPrizeType.BALANCE_BONUS.value:
-            return f'Поздравляем! Вы выиграли {prize.prize_value / 100:.0f}₽ на баланс!'
+            return f'Поздравляем! Вы выиграли {settings.format_balance(prize.prize_value)} на баланс!'
 
         if prize_type == WheelPrizeType.SUBSCRIPTION_DAYS.value:
             days_word = self._pluralize_days(prize.prize_value)

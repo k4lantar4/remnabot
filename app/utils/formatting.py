@@ -25,7 +25,7 @@ def format_traffic(gb: int) -> str:
 
 def format_price_kopeks(kopeks: int, compact: bool = False) -> str:
     """Форматирует цену из копеек в рубли."""
-    rubles = kopeks / 100
+    rubles = kopeks
     if compact:
         # Компактный формат - округляем до рублей
         return f'{int(round(rubles))}₽'

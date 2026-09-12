@@ -51,8 +51,9 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, tariff_switch_allowed
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import calculate_price_per_month, format_period_description
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -204,28 +205,30 @@ async def _build_tariff_response(
                 'days': period_days,
                 'months': months,
                 'label': format_period_description(period_days, language),
-                'price_kopeks': final_price,
+                # Every *_kopeks price travels on the catalog wire scale (the cabinet divides by 100);
+                # the labels are the Toman numbers.
+                'price_kopeks': wire_catalog_kopeks(final_price),
                 'price_label': settings.format_price(final_price),
-                'price_per_month_kopeks': per_month,
+                'price_per_month_kopeks': wire_catalog_kopeks(per_month),
                 'price_per_month_label': settings.format_price(per_month),
             }
 
             # Информация о доп. устройствах в цене
             if extra_devices_count > 0:
                 period_data['extra_devices_count'] = extra_devices_count
-                period_data['extra_devices_cost_kopeks'] = extra_devices_cost
+                period_data['extra_devices_cost_kopeks'] = wire_catalog_kopeks(extra_devices_cost)
                 period_data['extra_devices_cost_label'] = settings.format_price(extra_devices_cost)
-                period_data['base_tariff_price_kopeks'] = base_tariff_price
+                period_data['base_tariff_price_kopeks'] = wire_catalog_kopeks(base_tariff_price)
                 period_data['base_tariff_price_label'] = settings.format_price(base_tariff_price)
 
             # Add discount info if discount is applied
             if discount_percent > 0:
-                period_data['original_price_kopeks'] = original_price
+                period_data['original_price_kopeks'] = wire_catalog_kopeks(original_price)
                 period_data['original_price_label'] = settings.format_price(original_price)
-                period_data['original_per_month_kopeks'] = original_per_month
+                period_data['original_per_month_kopeks'] = wire_catalog_kopeks(original_per_month)
                 period_data['original_per_month_label'] = settings.format_price(original_per_month)
                 period_data['discount_percent'] = discount_percent
-                period_data['discount_amount_kopeks'] = discount_amount
+                period_data['discount_amount_kopeks'] = wire_catalog_kopeks(discount_amount)
                 period_data['discount_label'] = f'-{discount_percent}%'
 
             periods.append(period_data)
@@ -276,7 +279,7 @@ async def _build_tariff_response(
         'device_limit': actual_device_limit,
         'base_device_limit': tariff.device_limit,
         'extra_devices_count': extra_devices_count,
-        'device_price_kopeks': device_price,
+        'device_price_kopeks': wire_catalog_kopeks(device_price),
         'servers_count': servers_count,
         'servers': servers,
         'periods': periods,
@@ -284,23 +287,26 @@ async def _build_tariff_response(
         'is_available': tariff.is_active,
         # Произвольное количество дней
         'custom_days_enabled': tariff.custom_days_enabled,
-        'price_per_day_kopeks': price_per_day,
+        'price_per_day_kopeks': wire_catalog_kopeks(price_per_day),
         'min_days': tariff.min_days,
         'max_days': tariff.max_days,
         # Произвольный трафик при покупке (скрываем слайдер когда глобальный режим fixed)
         'custom_traffic_enabled': bool(tariff.custom_traffic_enabled) and not settings.is_traffic_fixed(),
-        'traffic_price_per_gb_kopeks': tariff.traffic_price_per_gb_kopeks,
+        'traffic_price_per_gb_kopeks': wire_catalog_kopeks(tariff.traffic_price_per_gb_kopeks or 0),
         'min_traffic_gb': tariff.min_traffic_gb,
         'max_traffic_gb': tariff.max_traffic_gb,
         # Докупка трафика
         'traffic_topup_enabled': tariff.traffic_topup_enabled,
-        'traffic_topup_packages': tariff.get_traffic_topup_packages()
-        if hasattr(tariff, 'get_traffic_topup_packages')
-        else {},
+        'traffic_topup_packages': {
+            gb: wire_catalog_kopeks(price)
+            for gb, price in (
+                tariff.get_traffic_topup_packages() if hasattr(tariff, 'get_traffic_topup_packages') else {}
+            ).items()
+        },
         'max_topup_traffic_gb': tariff.max_topup_traffic_gb,
         # Дневной тариф
         'is_daily': getattr(tariff, 'is_daily', False),
-        'daily_price_kopeks': daily_price,
+        'daily_price_kopeks': wire_catalog_kopeks(daily_price),
         # Сброс трафика
         'traffic_reset_mode': tariff.traffic_reset_mode or settings.DEFAULT_TRAFFIC_RESET_STRATEGY,
     }
@@ -311,15 +317,15 @@ async def _build_tariff_response(
 
     # Add original prices if discounts were applied
     if device_discount_percent > 0:
-        response['original_device_price_kopeks'] = original_device_price
+        response['original_device_price_kopeks'] = wire_catalog_kopeks(original_device_price)
         response['device_discount_percent'] = device_discount_percent
 
     if daily_discount_percent > 0 and original_daily_price > 0:
-        response['original_daily_price_kopeks'] = original_daily_price
+        response['original_daily_price_kopeks'] = wire_catalog_kopeks(original_daily_price)
         response['daily_discount_percent'] = daily_discount_percent
 
     if custom_days_discount_percent > 0 and original_price_per_day > 0:
-        response['original_price_per_day_kopeks'] = original_price_per_day
+        response['original_price_per_day_kopeks'] = wire_catalog_kopeks(original_price_per_day)
         response['custom_days_discount_percent'] = custom_days_discount_percent
 
     return response
@@ -909,7 +915,7 @@ async def purchase_tariff(
             description += f' (скидка {discount_percent}%)'
         if promo_offer_discount_value > 0:
             description += f' (промо -{promo_offer_discount_percent}%)'
-        charge_toman = catalog_price_in_toman(price_kopeks)
+        charge_toman = price_kopeks
         # Plain values: _refund_charge runs after db.rollback() and puts the consumed offer back.
         promo_snapshot = snapshot_promo_offer(user, promo_offer_discount_value > 0)
         success = await subtract_user_balance(
@@ -1373,8 +1379,8 @@ async def get_trial_info(
             traffic_limit_gb=traffic_limit_gb,
             device_limit=device_limit,
             requires_payment=requires_payment,
-            price_kopeks=price_kopeks,
-            price_rubles=price_kopeks / 100,
+            price_kopeks=wire_catalog_kopeks(price_kopeks),
+            price_rubles=price_kopeks,
             reason_unavailable='You already have an active subscription',
         )
 
@@ -1385,8 +1391,8 @@ async def get_trial_info(
             traffic_limit_gb=traffic_limit_gb,
             device_limit=device_limit,
             requires_payment=requires_payment,
-            price_kopeks=price_kopeks,
-            price_rubles=price_kopeks / 100,
+            price_kopeks=wire_catalog_kopeks(price_kopeks),
+            price_rubles=price_kopeks,
             reason_unavailable='Trial already used',
         )
 
@@ -1396,8 +1402,8 @@ async def get_trial_info(
         traffic_limit_gb=traffic_limit_gb,
         device_limit=device_limit,
         requires_payment=requires_payment,
-        price_kopeks=price_kopeks,
-        price_rubles=price_kopeks / 100,
+        price_kopeks=wire_catalog_kopeks(price_kopeks),
+        price_rubles=price_kopeks,
     )
 
 
@@ -1438,7 +1444,7 @@ async def activate_trial(
     if requires_payment:
         from app.database.crud.user import subtract_user_balance
 
-        price_kopeks = settings.TRIAL_ACTIVATION_PRICE  # catalog scale; the balance is Toman 1:1
+        price_kopeks = settings.TRIAL_ACTIVATION_PRICE  # Toman, like the balance
         if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1451,7 +1457,7 @@ async def activate_trial(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             trial_description,
             mark_as_paid_subscription=True,
         )

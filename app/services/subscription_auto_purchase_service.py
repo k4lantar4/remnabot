@@ -57,7 +57,7 @@ from app.services.subscription_purchase_service import (
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import format_period_description
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
@@ -561,7 +561,7 @@ async def _auto_extend_subscription(
         deducted = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(prepared.price_kopeks),
+            prepared.price_kopeks,
             prepared.description,
             consume_promo_offer=prepared.consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -638,7 +638,7 @@ async def _auto_extend_subscription(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(prepared.price_kopeks),
+                prepared.price_kopeks,
                 'Возврат: ошибка автопродления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -957,7 +957,7 @@ async def _auto_purchase_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(final_price),
+            final_price,
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1032,7 +1032,7 @@ async def _auto_purchase_tariff(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(final_price),
+                final_price,
                 'Возврат: ошибка автопокупки тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1297,7 +1297,7 @@ async def _auto_purchase_daily_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(final_price),
+            final_price,
             description,
             consume_promo_offer=consume_promo,
             mark_as_paid_subscription=True,
@@ -1404,7 +1404,7 @@ async def _auto_purchase_daily_tariff(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(final_price),
+                final_price,
                 'Возврат: ошибка автопокупки суточного тарифа',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -1738,7 +1738,7 @@ async def _auto_add_devices(
     # Списываем баланс
     description = f'Покупка {devices_to_add} доп. устройств'
     try:
-        success = await subtract_user_balance(db, user, catalog_price_in_toman(price_kopeks), description)
+        success = await subtract_user_balance(db, user, price_kopeks, description)
         if not success:
             logger.warning(
                 '❌ Автопокупка устройств: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)
@@ -1774,7 +1774,7 @@ async def _auto_add_devices(
             select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)
         )
         refund_user = user_refund.scalar_one()
-        refund_user.balance_kopeks += catalog_price_in_toman(price_kopeks)
+        refund_user.balance_kopeks += price_kopeks
         await db.commit()
         logger.warning(
             '🔁 Автопокупка устройств: лимит превышен после оплаты, баланс возвращён',
@@ -2099,7 +2099,7 @@ async def _auto_add_traffic(
         get_texts(user.language).t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=traffic_gb)
     )
     try:
-        success = await subtract_user_balance(db, user, catalog_price_in_toman(price_kopeks), description)
+        success = await subtract_user_balance(db, user, price_kopeks, description)
         if not success:
             logger.warning(
                 '❌ Автопокупка трафика: не удалось списать баланс пользователя', format_user_id=_format_user_id(user)
@@ -2139,7 +2139,7 @@ async def _auto_add_traffic(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 'Возврат: ошибка автопокупки трафика',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2455,7 +2455,7 @@ async def try_auto_extend_expired_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(renewal_cost),
+            renewal_cost,
             description,
             consume_promo_offer=consume_promo_offer,
             mark_as_paid_subscription=True,
@@ -2509,7 +2509,7 @@ async def try_auto_extend_expired_after_topup(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(renewal_cost),
+                renewal_cost,
                 'Возврат: ошибка автопродления истёкшей подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -2797,7 +2797,7 @@ async def try_resume_disabled_daily_after_topup(
         deducted = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(daily_price),
+            daily_price,
             description,
             mark_as_paid_subscription=True,
         )
@@ -2838,7 +2838,7 @@ async def try_resume_disabled_daily_after_topup(
             await add_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(daily_price),
+                daily_price,
                 'Возврат: ошибка авто-возобновления суточной подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,

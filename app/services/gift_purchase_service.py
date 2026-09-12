@@ -26,7 +26,7 @@ from app.database.models import (
 )
 from app.services.guest_purchase_service import create_purchase
 from app.services.pricing_engine import RenewalPricing, pricing_engine
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -126,15 +126,14 @@ class GiftInsufficientBalanceError(GiftError):
     """Raised when buyer balance is insufficient to complete the gift debit."""
 
     def __init__(self, required_kopeks: int, available_kopeks: int) -> None:
-        super().__init__(
-            f'Insufficient balance: required {required_kopeks} (catalog), available {available_kopeks} (Toman)'
-        )
-        self.required_kopeks = required_kopeks  # catalog price_kopeks
-        self.available_kopeks = available_kopeks  # stored balance, Toman 1:1
+        super().__init__(f'Insufficient balance: required {required_kopeks} Toman, available {available_kopeks} Toman')
+        # Both are Toman since revision 0115; the ``_kopeks`` names are kept for the call sites.
+        self.required_kopeks = required_kopeks
+        self.available_kopeks = available_kopeks
 
     @property
     def missing_toman(self) -> int:
-        """Toman shortfall (balance scale) — for display and the top-up prefill."""
+        """Toman shortfall — for display and the top-up prefill."""
         return missing_toman(self.available_kopeks, self.required_kopeks)
 
 
@@ -455,7 +454,7 @@ async def purchase_gift_from_balance(
         balance_ok = await subtract_user_balance(
             db,
             buyer,
-            catalog_price_in_toman(fresh_price),
+            fresh_price,
             description=tx_description,
             create_transaction=False,
             consume_promo_offer=consume_promo,

@@ -4,7 +4,7 @@ Every column in ``app.database.models`` whose name looks like money must be clas
 ``app.utils.amount_columns`` as catalog scale (x100, divided by revision 0113), Toman 1:1, or a
 payment provider's own currency/unit. A new or newly merged upstream money column therefore fails
 CI until somebody decides its scale — which is the job
-``price_display._BALANCE_SCALE_TRANSACTION_TYPES`` used to do by hand.
+``price_display._BALANCE_SCALE_TRANSACTION_TYPES`` used to do by hand before Phase C deleted it.
 """
 
 from sqlalchemy import JSON
@@ -15,13 +15,13 @@ from app.utils.amount_columns import (
     CATALOG_SCALE_COLUMNS,
     CATALOG_SCALE_SUBSCRIPTION_EVENT_TYPES,
     CATALOG_SCALE_TRANSACTION_TYPES,
+    PRE_PHASE_C_TOMAN_TRANSACTION_TYPES,
     PROVIDER_CURRENCY_COLUMNS,
     TOMAN_SCALE_COLUMNS,
     ColumnRef,
     looks_like_money_column,
     scale_of,
 )
-from app.utils.price_display import BALANCE_SCALE_TRANSACTION_TYPES
 
 
 MIXED_SCALE_COLUMNS = {('transactions', 'amount_kopeks'), ('subscription_events', 'amount_kopeks')}
@@ -61,7 +61,7 @@ def test_each_column_is_classified_exactly_once() -> None:
 
 def test_transaction_types_are_split_between_the_two_scales() -> None:
     every_type = {member.value for member in TransactionType}
-    balance_types = set(BALANCE_SCALE_TRANSACTION_TYPES)
+    balance_types = set(PRE_PHASE_C_TOMAN_TRANSACTION_TYPES)
 
     assert CATALOG_SCALE_TRANSACTION_TYPES.isdisjoint(balance_types)
     assert CATALOG_SCALE_TRANSACTION_TYPES | balance_types == every_type, (
@@ -79,7 +79,7 @@ def test_mixed_scale_columns_carry_a_row_filter_matching_their_type_set() -> Non
     transactions_where = by_key[('transactions', 'amount_kopeks')].where or ''
     for tx_type in CATALOG_SCALE_TRANSACTION_TYPES:
         assert tx_type in transactions_where
-    for tx_type in BALANCE_SCALE_TRANSACTION_TYPES:
+    for tx_type in PRE_PHASE_C_TOMAN_TRANSACTION_TYPES:
         assert tx_type not in transactions_where
 
     events_where = by_key[('subscription_events', 'amount_kopeks')].where or ''

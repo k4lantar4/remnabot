@@ -2,23 +2,26 @@ import pytest
 
 from app.services.tariff_custom_traffic import (
     parse_positive_gb,
-    parse_positive_rubles_to_kopeks,
+    parse_positive_toman,
     validate_custom_traffic_configuration,
 )
 
 
 @pytest.mark.parametrize(
     ('raw', 'expected'),
-    [('2', 200), ('2.50', 250), ('2,50', 250), ('0.01', 1)],
+    # '1.001' is European thousands to the shared normalizer, the same as in the top-up field.
+    [('2', 2), ('2500', 2500), ('2,000', 2000), ('1 500', 1500), ('2.00', 2), ('1.001', 1001)],
 )
-def test_parse_positive_rubles_to_kopeks(raw: str, expected: int) -> None:
-    assert parse_positive_rubles_to_kopeks(raw) == expected
+def test_parse_positive_toman(raw: str, expected: int) -> None:
+    """The typed number is the stored number: `traffic_price_per_gb_kopeks` is Toman since 0115."""
+    assert parse_positive_toman(raw) == expected
 
 
-@pytest.mark.parametrize('raw', ['', 'abc', '0', '-1', 'nan', 'NaN', 'inf', '-inf', '1.001'])
-def test_parse_positive_rubles_to_kopeks_rejects_invalid_values(raw: str) -> None:
+@pytest.mark.parametrize('raw', ['', 'abc', '0', '-1', 'nan', 'NaN', 'inf', '-inf', '2.50', '0.01', '1.5'])
+def test_parse_positive_toman_rejects_invalid_values(raw: str) -> None:
+    """Toman has no subunit here, so a fractional price is a typo — rejected, never rounded away."""
     with pytest.raises(ValueError):
-        parse_positive_rubles_to_kopeks(raw)
+        parse_positive_toman(raw)
 
 
 @pytest.mark.parametrize(('raw', 'expected'), [('1', 1), ('5', 5), ('100', 100)])

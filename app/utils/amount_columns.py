@@ -49,10 +49,27 @@ class ColumnRef(NamedTuple):
     note: str = ''
 
 
-#: ``transactions.type`` values whose ``amount_kopeks`` is a catalog amount (x100).
-#: The complement is ``price_display.BALANCE_SCALE_TRANSACTION_TYPES`` (Toman 1:1); together they
-#: must cover every ``TransactionType`` — asserted by the guard test.
+#: ``transactions.type`` values whose ``amount_kopeks`` was a catalog amount (x100) before revision
+#: ``0115`` divided it. Together with :data:`PRE_PHASE_C_TOMAN_TRANSACTION_TYPES` these must cover
+#: every ``TransactionType`` — asserted by the guard test, so a type added upstream cannot quietly
+#: go unclassified.
+#:
+#: This is migration metadata, not a runtime scale decision: after ``0115`` every row is Toman and
+#: nothing in the application asks which set a type belongs to. It stays here because ``0115``'s
+#: ``where`` clauses are built from it and its ``downgrade()`` needs the same split.
 CATALOG_SCALE_TRANSACTION_TYPES: frozenset[str] = frozenset({'subscription_payment', 'gift_payment'})
+
+#: The complement: types already stored Toman 1:1 before Phase C, which ``0115`` must not touch.
+PRE_PHASE_C_TOMAN_TRANSACTION_TYPES: frozenset[str] = frozenset(
+    {
+        'deposit',
+        'withdrawal',
+        'refund',
+        'failed_refund',
+        'referral_reward',
+        'poll_reward',
+    }
+)
 
 #: ``subscription_events.event_type`` values whose ``amount_kopeks`` is a catalog amount.
 #: ``balance_topup`` (mirrors a deposit), ``promocode_activation`` and ``campaign_registration``

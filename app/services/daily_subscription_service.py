@@ -32,7 +32,7 @@ from app.services.notification_delivery_service import (
     notification_delivery_service,
 )
 from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -197,7 +197,7 @@ class DailySubscriptionService:
             deducted = await subtract_user_balance(
                 db,
                 user,
-                catalog_price_in_toman(daily_price),
+                daily_price,
                 description,
                 mark_as_paid_subscription=True,
                 commit=False,

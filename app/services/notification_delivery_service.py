@@ -15,7 +15,7 @@ from aiogram import Bot
 
 from app.config import settings
 from app.database.models import User, UserStatus
-from app.utils.price_display import display_amount_from_kopeks, display_balance_from_storage
+from app.utils.price_display import display_balance_from_storage
 from app.utils.timezone import format_email_datetime
 
 
@@ -649,10 +649,10 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about successful autopay."""
         context = {
-            # The renewal price is a catalog price (x100).
+            # Renewal price and wallet are both Toman.
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
-            'amount_toman': display_amount_from_kopeks(amount_kopeks),
+            'amount_rubles': amount_kopeks,
+            'amount_toman': amount_kopeks,
             'formatted_amount': settings.format_price(amount_kopeks),
             # Localize + humanize (see expiring branch above).
             'new_expires_at': format_email_datetime(new_expires_at),
@@ -882,10 +882,10 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about daily subscription debit."""
         context = {
-            # The daily price is a catalog price (x100); the wallet left is Toman.
+            # Daily price and wallet are both Toman.
             'amount_kopeks': amount_kopeks,
-            'amount_rubles': display_amount_from_kopeks(amount_kopeks),
-            'amount_toman': display_amount_from_kopeks(amount_kopeks),
+            'amount_rubles': amount_kopeks,
+            'amount_toman': amount_kopeks,
             'formatted_amount': settings.format_price(amount_kopeks),
             'new_balance_kopeks': new_balance_kopeks,
             'new_balance_rubles': display_balance_from_storage(new_balance_kopeks),

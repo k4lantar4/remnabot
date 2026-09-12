@@ -221,7 +221,7 @@ async def test_return_to_saved_cart_skips_edit_when_message_matches(
             '📊 Трафик: 40 ГБ\n'
             '🌍 Страны: Russia, USA\n'
             '📱 Устройства: 3\n\n'
-            '💎 Общая стоимость: 440 تومان\n\n'
+            '💎 Общая стоимость: 44\u00a0000 تومان\n\n'
             'Подтверждаете покупку?'
         )
 

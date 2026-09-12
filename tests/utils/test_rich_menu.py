@@ -254,7 +254,9 @@ async def test_builder_balance_matches_screenshot_toman_not_catalog_scale(monkey
 
     assert '26,800' in html_out
     assert settings.format_balance(26_800, language='fa') in html_out
-    assert settings.format_price(26_800, language='fa') not in html_out
+    # 268 was the shape when the balance went through the old catalog formatter. Since Phase C
+    # format_price is format_balance, so the guard is the rendered number, not which helper ran.
+    assert '268 تومان' not in html_out
 
 
 async def test_builder_links_username_used_instead_of_name(monkeypatch):

@@ -49,7 +49,7 @@ router = APIRouter()
 
 
 def _format_price(kopeks: int) -> float:
-    return round(kopeks / 100, 2)
+    return float(kopeks)
 
 
 def _serialize_option(option: PollOption) -> PollQuestionOptionResponse:

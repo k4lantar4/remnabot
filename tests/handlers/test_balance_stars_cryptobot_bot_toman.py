@@ -72,7 +72,7 @@ def crypto_service(monkeypatch):
 
 async def test_bot_stars_invoice_is_priced_in_toman(stars_service):
     message = _message()
-    await stars_handler.process_stars_payment_amount(message, _user(), 5_000_000, _state())
+    await stars_handler.process_stars_payment_amount(message, _user(), 50_000, _state())
 
     kwargs = stars_service.create_stars_invoice.await_args.kwargs
     assert kwargs['stars_amount'] == 28
@@ -84,14 +84,14 @@ async def test_bot_stars_invoice_is_priced_in_toman(stars_service):
 async def test_bot_stars_refused_without_rate(stars_service, monkeypatch):
     monkeypatch.setattr(settings, 'TELEGRAM_STARS_TOMAN_PER_STAR', None, raising=False)
     message = _message()
-    await stars_handler.process_stars_payment_amount(message, _user(), 5_000_000, _state())
+    await stars_handler.process_stars_payment_amount(message, _user(), 50_000, _state())
     stars_service.create_stars_invoice.assert_not_awaited()
     assert '₽' not in message.answer.await_args.args[0]
 
 
 async def test_bot_cryptobot_invoice_is_priced_in_toman(crypto_service):
     message = _message()
-    await cryptobot_handler.process_cryptobot_payment_amount(message, _user(), MagicMock(), 20_000_000, _state())
+    await cryptobot_handler.process_cryptobot_payment_amount(message, _user(), MagicMock(), 200_000, _state())
 
     kwargs = crypto_service.create_cryptobot_payment.await_args.kwargs
     assert Decimal(str(kwargs['amount_usd'])) == Decimal('2.11')
@@ -103,17 +103,17 @@ async def test_bot_cryptobot_invoice_is_priced_in_toman(crypto_service):
 
 async def test_bot_cryptobot_below_min_names_toman(crypto_service):
     message = _message()
-    await cryptobot_handler.process_cryptobot_payment_amount(message, _user(), MagicMock(), 5_000_000, _state())
+    await cryptobot_handler.process_cryptobot_payment_amount(message, _user(), MagicMock(), 50_000, _state())
     crypto_service.create_cryptobot_payment.assert_not_awaited()
     text = message.answer.await_args.args[0]
     assert '95,000' in text and '₽' not in text
 
 
 @pytest.mark.parametrize(
-    ('method', 'typed', 'expected_kopeks'),
-    [('cryptobot', '۲۰۰,۰۰۰', 20_000_000), ('stars', '1000000', 100_000_000)],
+    ('method', 'typed', 'expected_toman'),
+    [('cryptobot', '۲۰۰,۰۰۰', 200_000), ('stars', '1000000', 1_000_000)],
 )
-async def test_typed_toman_reaches_toman_rate_handlers(monkeypatch, method, typed, expected_kopeks):
+async def test_typed_toman_reaches_toman_rate_handlers(monkeypatch, method, typed, expected_toman):
     from app.handlers.balance import main as balance_main
 
     routed: list[tuple[str, int]] = []
@@ -131,4 +131,4 @@ async def test_typed_toman_reaches_toman_rate_handlers(monkeypatch, method, type
 
     await balance_main.process_topup_amount(message, _user(), state)
 
-    assert routed == [(method, expected_kopeks)]
+    assert routed == [(method, expected_toman)]

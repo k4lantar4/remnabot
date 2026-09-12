@@ -1,11 +1,10 @@
-"""The wallet balance is shown in Toman, not divided by 100.
+"""Every amount a user or admin reads is shown in Toman, not divided by 100.
 
-``User.balance_kopeks`` holds raw Toman since Phase B, and ``settings.format_balance`` shows it 1:1.
-``settings.format_price`` is the catalog formatter (price_kopeks / 100). Cabinet and miniapp
-``balance_label`` fields, bot screens and admin notifications passed the balance to
-``format_price``, so a 150,000-Toman wallet read «1,500 تومان».
-
-Presentation only: no charge, credit or stored scale changes here (that is Phase C).
+Written for Phase B, where ``settings.format_price`` was a separate catalog formatter
+(``price_kopeks / 100``) and passing a balance to it made a 150,000-Toman wallet read
+«1,500 تومان». Phase C collapsed the two: ``format_price`` is now an alias of
+``format_balance``, so the two formatters can no longer disagree, and what these tests still
+pin is that each screen prints the stored number.
 """
 
 from __future__ import annotations
@@ -28,7 +27,6 @@ TABLES = list(Base.metadata.sorted_tables)
 
 BALANCE_TOMAN = 150_000
 BALANCE_LABEL = settings.format_balance(BALANCE_TOMAN)  # «150,000 تومان»
-WRONG_LABEL = settings.format_price(BALANCE_TOMAN)  # «1,500 تومان»
 
 GUARDED = [ROOT / 'app']
 
@@ -54,7 +52,7 @@ def _format_price_on_balance() -> list[str]:
     return hits
 
 
-def test_no_balance_is_formatted_as_a_catalog_price():
+def test_no_balance_reaches_for_the_legacy_catalog_formatter():
     assert _format_price_on_balance() == []
 
 
@@ -222,7 +220,7 @@ async def test_subscription_purchase_notification_shows_the_toman_balance(notifi
 
     message = _only_message(notifier)
     assert f'Баланс: {BALANCE_LABEL}' in message
-    assert settings.format_price(20_000_000) in message  # the price stays a catalog price
+    assert settings.format_balance(20_000_000) in message
 
 
 @pytest.mark.asyncio
@@ -291,7 +289,7 @@ async def test_subscription_update_notification_shows_the_toman_balance(notifier
 
     message = _only_message(notifier)
     assert f'Баланс: {BALANCE_LABEL}' in message
-    assert settings.format_price(1_000_000) in message  # the add-on price stays a catalog price
+    assert settings.format_balance(1_000_000) in message
 
 
 @pytest.mark.asyncio
@@ -302,7 +300,6 @@ async def test_withdrawal_request_notification_shows_toman_amounts(notifier):
     message = _only_message(notifier)
     assert f'Сумма: {settings.format_balance(50_000)}' in message
     assert f'Баланс: {BALANCE_LABEL}' in message
-    assert WRONG_LABEL not in message
 
 
 # ---------------------------------------------------------------- user-facing top-up messages

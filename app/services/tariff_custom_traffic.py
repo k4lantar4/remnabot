@@ -2,23 +2,29 @@
 
 from decimal import Decimal, InvalidOperation
 
+from app.utils.price_display import normalize_display_amount_text
 
-def parse_positive_rubles_to_kopeks(raw: str) -> int:
-    """Parse a positive ruble amount without floating-point rounding."""
-    normalized = raw.strip().replace(',', '.')
+
+def parse_positive_toman(raw: str) -> int:
+    """Parse a positive whole-Toman price without floating-point rounding.
+
+    Since revision 0115 ``traffic_price_per_gb_kopeks`` holds Toman 1:1, so the typed number is the
+    stored number. Input goes through the same normalizer as every other typed amount (Persian
+    digits, thousands separators, a trailing currency word), and a fractional Toman is rejected
+    rather than rounded away — at this scale it is a typo, not a precision.
+    """
     try:
-        rubles = Decimal(normalized)
+        toman = Decimal(normalize_display_amount_text(raw))
     except InvalidOperation as exc:
         raise ValueError('invalid price') from exc
 
-    if not rubles.is_finite() or rubles <= 0:
+    if not toman.is_finite() or toman <= 0:
         raise ValueError('price must be positive and finite')
 
-    kopeks = rubles * Decimal(100)
-    if kopeks != kopeks.to_integral_value():
-        raise ValueError('price must have at most two decimal places')
+    if toman != toman.to_integral_value():
+        raise ValueError('price must be a whole number of Toman')
 
-    return int(kopeks)
+    return int(toman)
 
 
 def parse_positive_gb(raw: str) -> int:

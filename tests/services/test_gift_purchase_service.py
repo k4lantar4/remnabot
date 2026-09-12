@@ -40,7 +40,6 @@ from app.services.gift_purchase_service import (
     purchase_gift_from_balance,
     quote_gift_purchase,
 )
-from app.utils.price_display import catalog_price_in_toman
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -312,7 +311,7 @@ async def test_purchase_gift_from_balance_success_bot_mode(monkeypatch):
         assert isinstance(result, GiftPurchaseResult)
         assert result.is_idempotent_replay is False
         # the Toman balance loses the Toman price (catalog 24,000 = 240 Toman); the row stays catalog
-        assert result.remaining_balance_kopeks == 50000 - catalog_price_in_toman(24000)
+        assert result.remaining_balance_kopeks == 50000 - 24000
         assert result.quote.final_price_kopeks == 24000
 
         # Verify GuestPurchase fields
@@ -344,7 +343,7 @@ async def test_purchase_gift_from_balance_success_bot_mode(monkeypatch):
 
         # Verify buyer balance and promo offer consumption
         await db.refresh(buyer)
-        assert buyer.balance_kopeks == 50000 - catalog_price_in_toman(24000)
+        assert buyer.balance_kopeks == 50000 - 24000
         assert buyer.promo_offer_discount_percent == 0
 
         # Verify side effects were emitted
@@ -407,7 +406,7 @@ async def test_purchase_gift_insufficient_balance_rolls_back(monkeypatch):
 
         buyer = User(
             telegram_id=999,
-            balance_kopeks=150,  # Toman; the gift costs 270 Toman (catalog 27,000)
+            balance_kopeks=150,  # Toman; the gift costs 27,000 Toman
             promo_offer_discount_percent=10,
         )
         tariff = Tariff(
@@ -431,7 +430,7 @@ async def test_purchase_gift_insufficient_balance_rolls_back(monkeypatch):
 
         assert exc_info.value.required_kopeks == 27000
         assert exc_info.value.available_kopeks == 150
-        assert exc_info.value.missing_toman == 120
+        assert exc_info.value.missing_toman == 26_850
 
         # State preserved
         await db.refresh(buyer)
@@ -550,7 +549,7 @@ async def test_idempotent_replay_and_conflict(monkeypatch):
             idempotency_key=idempotency_key,
         )
         assert res1.is_idempotent_replay is False
-        assert res1.remaining_balance_kopeks == 100000 - catalog_price_in_toman(30000)
+        assert res1.remaining_balance_kopeks == 100000 - 30000
 
         # Second call: exact same input -> idempotent replay
         res2 = await purchase_gift_from_balance(
@@ -564,7 +563,7 @@ async def test_idempotent_replay_and_conflict(monkeypatch):
         assert res2.is_idempotent_replay is True
         assert res2.purchase.id == res1.purchase.id
         assert res2.transaction.id == res1.transaction.id
-        assert res2.remaining_balance_kopeks == 100000 - catalog_price_in_toman(30000)  # No second debit
+        assert res2.remaining_balance_kopeks == 100000 - 30000  # No second debit
 
         # Verify only 1 purchase and 1 transaction exist in DB
         purchases = (await db.execute(select(GuestPurchase))).scalars().all()
@@ -593,7 +592,7 @@ async def test_idempotent_replay_and_conflict(monkeypatch):
             idempotency_key='different-checkout-id-456',
         )
         assert res3.is_idempotent_replay is False
-        assert res3.remaining_balance_kopeks == 100000 - catalog_price_in_toman(30000) - catalog_price_in_toman(40000)
+        assert res3.remaining_balance_kopeks == 100000 - 30000 - 40000
         purchases_after = (await db.execute(select(GuestPurchase))).scalars().all()
         assert len(purchases_after) == 2
 

@@ -29,7 +29,8 @@ from app.utils.price_display import render_addon_insufficient_funds, user_can_af
 from app.utils.topup_suggestion import suggest_topup_amount_toman
 
 
-def _price_kopeks(cart_data: dict) -> int:
+def _cart_price_toman(cart_data: dict) -> int:
+    """Cart price in Toman. The ``price_kopeks`` key name is legacy; since Phase C it holds Toman."""
     try:
         return int(cart_data.get('price_kopeks') or 0)
     except (TypeError, ValueError):
@@ -44,12 +45,12 @@ async def resume_addon_cart_from_button(
 ) -> None:
     """Довести докупку до конца по явному нажатию; при нехватке — снова к пополнению."""
     texts = get_texts(db_user.language)
-    price = _price_kopeks(cart_data)
+    price = _cart_price_toman(cart_data)
 
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
         text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=price,
+            price_toman=price,
             balance_toman=db_user.balance_kopeks,
         )
         await callback.message.edit_text(

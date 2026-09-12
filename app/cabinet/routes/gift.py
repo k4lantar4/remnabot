@@ -52,6 +52,7 @@ from app.utils.gift_links import (
     build_gift_claim_artifacts,
 )
 from app.utils.promo_offer import get_user_active_promo_discount_percent
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.gift import (
@@ -119,9 +120,12 @@ async def get_gift_config(
             periods.append(
                 GiftConfigTariffPeriod(
                     days=quote.period_days,
-                    price_kopeks=quote.final_price_kopeks,
+                    # Wire contract: the cabinet still divides catalog prices by 100; the label is Toman.
+                    price_kopeks=wire_catalog_kopeks(quote.final_price_kopeks),
                     price_label=settings.format_price(quote.final_price_kopeks),
-                    original_price_kopeks=quote.original_price_kopeks if quote.discount_percent > 0 else None,
+                    original_price_kopeks=(
+                        wire_catalog_kopeks(quote.original_price_kopeks) if quote.discount_percent > 0 else None
+                    ),
                     discount_percent=quote.discount_percent if quote.discount_percent > 0 else None,
                 )
             )
@@ -153,12 +157,14 @@ async def get_gift_config(
         raw_options = method_data.get('options')
         if raw_options:
             sub_options = [GiftConfigSubOption(id=opt['id'], name=opt.get('name', opt['id'])) for opt in raw_options]
+        min_amount = method_data.get('min_amount_kopeks')
+        max_amount = method_data.get('max_amount_kopeks')
         payment_methods.append(
             GiftConfigPaymentMethod(
                 method_id=method_data['id'],
                 display_name=method_data['name'],
-                min_amount_kopeks=method_data.get('min_amount_kopeks'),
-                max_amount_kopeks=method_data.get('max_amount_kopeks'),
+                min_amount_kopeks=wire_catalog_kopeks(min_amount) if min_amount is not None else None,
+                max_amount_kopeks=wire_catalog_kopeks(max_amount) if max_amount is not None else None,
                 sub_options=sub_options,
             )
         )

@@ -23,7 +23,8 @@ from app.services.subscription_renewal_service import (
     calculate_missing_amount,
 )
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -88,10 +89,10 @@ async def get_renewal_options(
         options.append(
             RenewalOptionResponse(
                 period_days=period,
-                price_kopeks=pricing.final_total,
-                price_rubles=pricing.final_total / 100,
+                price_kopeks=wire_catalog_kopeks(pricing.final_total),
+                price_rubles=pricing.final_total,
                 discount_percent=combined_discount,
-                original_price_kopeks=original_price if combined_discount > 0 else None,
+                original_price_kopeks=wire_catalog_kopeks(original_price) if combined_discount > 0 else None,
             )
         )
 
@@ -259,7 +260,7 @@ async def renew_subscription(
             user,
             subscription,
             pricing,
-            charge_balance_amount=catalog_price_in_toman(price_kopeks),
+            charge_balance_amount=price_kopeks,
             description=renewal_description,
             payment_method=PaymentMethod.BALANCE,
         )

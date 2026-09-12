@@ -106,13 +106,14 @@ class TestGiftButtonFallbacks:
         _, kb = _render_period_selection(mock_user, offer)
         buttons = [b for row in kb.inline_keyboard for b in row]
 
+        # Quote prices are Toman 1:1 since 0115, so a 30,000 quote reads 30,000 — not 300.
         p30_btn = next(b for b in buttons if b.callback_data == 'gift_period:1:30')
         assert '30 дн.' in p30_btn.text
-        assert '300' in p30_btn.text
+        assert '30\u00a0000' in p30_btn.text
 
         p90_btn = next(b for b in buttons if b.callback_data == 'gift_period:1:90')
         assert '90 дн.' in p90_btn.text
-        assert '800' in p90_btn.text
+        assert '80\u00a0000' in p90_btn.text
         assert '-11%' in p90_btn.text
 
         back_btn = next(b for b in buttons if b.callback_data == 'gift_back_tariffs')

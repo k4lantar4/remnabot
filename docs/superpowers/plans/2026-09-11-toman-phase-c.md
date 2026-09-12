@@ -221,39 +221,93 @@ Each task is one PR, mergeable on its own.
   the log), idempotency, the marker row, the display invariant
   (`format_price(before) == format_balance(after)`), and the pre-cutoff refusal.
 
-### Task 3 — Collapse the helpers and the two formatters (**ships the data revision `0115`**)
+### Task 3 — Collapse the helpers, ship `0115`, and freeze the wire — **done (remnabot#65)**
 
-- **Repo/files:** `remnabot` — `app/utils/price_display.py`, `app/config.py`,
-  `app/database/crud/transaction.py`, then the ~150 `catalog_price_in_toman` call sites and the
-  `user_can_afford` / `missing_toman` callers across `app/handlers/**`, `app/services/**`,
-  `app/cabinet/routes/**`, `app/webapi/routes/miniapp.py`, `app/plugins/c2c/**` (C2C should come out
-  unchanged except imports — it is the reference for "correct"). Also fix the `referral_contest_events`
-  restore writer (F-057) so both writers are Toman. 37 test files reference the helpers.
-- **Deploy coupling:** this is the task that makes `0115` reachable, so the code and the rescale
-  land in the same merge. The PR must say that the first restart after it applies `0115`.
-- **Test first:** balance 150,000 vs tariff 200,000 → refused, 50,000 shortfall; balance 250,000 →
-  exactly 200,000 debited, row `-200000`, history «200,000 تومان»; deposit 50,000 → «50,000 تومان».
-  Extend the AST guard to fail on any `// 100` / `* 100` near an amount outside `wire_scale.py`.
+**Re-scoped 2026-09-12, mid-execution.** Tasks 3, 4 and 5 as originally written are *not*
+separable, and this is the single most important correction to this plan.
 
-### Task 4 — Freeze the HTTP contract with one explicit serializer
+The original split assumed the HTTP contract could be frozen later, in Task 4. It cannot: `0115` —
+the divide-by-100 on the stored amounts — ships with Task 3. From the moment Task 3 merges, every
+response field the cabinet divides by 100 renders **100x too small** unless the backend has already
+multiplied it back. The same argument applies to Task 5: an admin editor that still multiplies a
+typed amount by 100 writes a 100x-too-large row into a Toman column on the first save after the
+merge. So the deliverable is one PR containing three things that must land together:
 
-- **Repo/files:** `remnabot` — new `app/utils/wire_scale.py`, applied in `app/cabinet/routes/**` and
-  `app/webapi/routes/miniapp.py`; tests `tests/cabinet/test_wire_scale_contract.py`,
-  `tests/test_miniapp_payments.py`.
-- **Interfaces:** `wire_catalog_kopeks(toman)` / `toman_from_wire_catalog(kopeks)` — the only `* 100`
-  left in the codebase. Outbound: tariff `price_kopeks` and period prices, `total_price_kopeks`,
-  `missing_amount_kopeks`, method `min/max_amount_kopeks`, `quick_amounts`, admin `*_kopeks` editors.
-  Inbound: `TopUpRequest.amount_kopeks`, `/balance/stars-invoice`, the admin tariff/limit editors.
-  Unchanged: `amount_rubles`, `balance_kopeks`, `missing_amount`, the `*_toman` stats twins.
-- **Test first:** golden-JSON contract tests recorded from `origin/main` before the migration.
+1. the helper/formatter collapse (original Task 3),
+2. the outbound/inbound wire boundary for every field the cabinet divides or multiplies (Task 4),
+3. the admin and config inputs (Task 5).
 
-### Task 5 — Admin/bot inputs and config defaults on the Toman scale
+Tasks 4 and 5 are therefore **absorbed here** and left in this document only as the field lists
+they contributed.
 
-- **Repo/files:** `remnabot` — `app/config.py` catalog defaults, `payment_method_config_service.py`,
-  the bot admin editors that parse typed amounts ×100, and the numeric catalog keys in
-  `remnabot/.env` (Decision 3). The deferred gateways' `*_MIN/MAX_AMOUNT_KOPEKS` stay ruble kopeks.
-- **Test first:** per editor, type 50,000 → stored 50,000 → «50,000 تومان»; 1,000,000 persists in the
-  payment-method limit editor (no int32 overflow — F-052).
+#### How the surfaces were found (not by chasing test failures)
+
+Two audits drive the work, because reacting to red tests gives no coverage guarantee:
+
+- **`frontend` audit** — every argument reaching `formatPrice`, `catalogPriceInToman`,
+  `userCanAfford`, `missingToman`, `KOPEKS_DIVISOR` or a literal `/ 100`, plus every request field
+  built with `* 100`. Result: **25 distinct `*_kopeks` response fields** and 8 request fields.
+  Of the 25, `balance_kopeks` is a false positive (it is the *undivided* first argument of
+  `userCanAfford`) and `referrer_fixed_kopeks` / `referee_fixed_kopeks` are pre-existing bugs
+  (those columns were already Toman, and `AdminReferralLevels.tsx` divides them anyway).
+- **`amount_columns.scale_of()` audit** — the 68 classified money columns decide each backend site:
+  storage (delete the hop), inbound wire, outbound wire, ruble gateway (leave), percentage (leave).
+
+#### Done on the branch
+
+| Area | What landed |
+|---|---|
+| Helpers | `catalog_price_in_toman`, `_BALANCE_SCALE_TRANSACTION_TYPES`, `display_amount_from_kopeks`, `kopeks_from_display_amount`, `missing_toman_on_catalog_scale`, `format_transaction_amount_for_display` deleted; `format_price` is an alias of `format_balance` |
+| Migration | `0115` moved from `migrations/phase_c/` into the Alembic chain |
+| Storage sweep | ~366 inline `// 100` / `* 100` sites; 9 `models.py` properties; the `CASE` in `crud/transaction.py` |
+| Config | 17 catalog defaults in `config.py` divided by 100 |
+| Wire boundary | `app/utils/wire_scale.py` plus: balance top-up limits and quick amounts, traffic packages, device prices, server/country prices, renewal options, trial price, tariff purchase options and periods, subscription daily price, tariff-switch preview, classic purchase payloads, gift config, public landing, admin landings stats, admin tariffs, admin users' tariff sheet and gifts, admin servers, admin squads, admin coupons, admin promo groups, admin payment methods, admin wheel and the user spin history |
+| Admin inputs | The bot's poll-reward and pricing parsers no longer multiply a typed amount by 100 |
+| Guard | `tests/utils/test_phase_c_single_scale.py` (21 tests) — AST guards for scale hops, for a factor hidden in a default argument, and a structural percentage rule (`a / b * 100` is a share, not a unit change); the money-name list was widened to `total`, `value`, `sum`, `revenue`, `payout`, `bonus`, `threshold`, `earning`, `reward`, `prize`, `spent`, `fee`, which surfaced 30 further real leftovers, all fixed |
+
+Size so far: **~160 files**, 6 commits plus uncommitted work. This is far larger than the original
+Task 3 estimate, which is why this section was rewritten before finishing.
+
+#### How the 21 failures resolved (2026-09-12)
+
+| # | Cause | Verdict |
+|---|---|---|
+| A | `render_addon_insufficient_funds()` called with the old `price_kopeks=` keyword at six sites | **Real bug this branch introduced** — a `TypeError` in the bot's addon, cart-resume and classic-purchase flows. Fixed; the values already carried Toman, only the keyword was wrong. |
+| B | Stars and CryptoBot credit paths | Code was right, expectations were stale: `process_referral_topup` takes Toman 1:1 now. The legacy USD→RUB path keeps upstream's conversion but loses the kopek hop, because it credits a Toman column. |
+| C | Bot admin and bot gift screens | Mostly test-side, plus **one real Task 5 gap**: `traffic_price_per_gb_kopeks` still ran the typed number through a rubles-to-kopeks parser. Now `parse_positive_toman`, normalizing through `normalize_display_amount_text` like every other typed amount. |
+| D | Cabinet switch preview | Test-side: assert the wire value, as the sibling shortfall assertion already did. |
+| E | "the two formatters disagree" | Premise gone; rewritten to pin that `format_price` is an alias and can no longer disagree. |
+| F | Daily-charge recovery, gift purchase, referral commission | Test-side; `GiftInsufficientBalanceError` also stopped describing one side as catalog. |
+
+Suite after the work: **6140 passed, 9 skipped, 0 failed**; `ruff format --check` and `ruff check`
+clean over the whole tree. Findings deleted as subsumed: F-010, F-012, F-052, F-057, F-058.
+
+#### Carried into deploy and Phase C-2
+
+- The numeric catalog keys in `remnabot/.env` (Decision 3) — divide by 100 **at deploy time**,
+  together with the restart, because `.env` is untracked and would otherwise drift from the code.
+  Never a token, a secret or a `*_ENABLED` flag.
+- **The first restart after this merge applies `0115`.**
+- Live verification: tariff 30-day `period_prices` reads `1000000` today and displays
+  «10,000 تومان»; after the merge it must read `10000` and display the same.
+- `TopUpRequest.amount_kopeks` still caps at `le=2_000_000_000` on the wire, i.e. a single cabinet
+  top-up of at most **20,000,000 Toman** (what remained of F-052 once the int32 column ceiling
+  became 2.1 billion Toman). It lifts when Phase C-2 removes the ×100 from the wire.
+
+### Task 4 — Freeze the HTTP contract with one explicit serializer — **absorbed into Task 3**
+
+Kept for its field lists. `wire_catalog_kopeks(toman)` / `toman_from_wire_catalog(kopeks)` are the
+only `* 100` left in the backend. Outbound: tariff prices and period prices, `total_price_kopeks`,
+`missing_amount_kopeks`, method `min/max_amount_kopeks`, `quick_amounts`, the admin `*_kopeks`
+editors. Inbound: `TopUpRequest.amount_kopeks`, `/balance/stars-invoice`, the admin tariff, server,
+coupon, promo-group, payment-method and wheel-prize editors. Unchanged: `amount_rubles`,
+`balance_kopeks`, `missing_amount`, the `*_toman` stats twins.
+
+### Task 5 — Admin/bot inputs and config defaults on the Toman scale — **absorbed into Task 3**
+
+Kept for its list: `app/config.py` catalog defaults, `payment_method_config_service.py`, the bot
+admin editors that parse typed amounts ×100, and the numeric catalog keys in `remnabot/.env`
+(Decision 3). The deferred gateways' `*_MIN/MAX_AMOUNT_KOPEKS` stay ruble kopeks.
 
 ### Task 6 — Scale marker guard + deploy/rollback runbook
 
@@ -267,7 +321,7 @@ Each task is one PR, mergeable on its own.
 
 ## Cross-repo contract
 
-None in this plan — the JSON contract is frozen by Task 4 and the cabinet ships nothing.
+None in this plan — the JSON contract is frozen inside Task 3 and the cabinet ships nothing.
 
 **Follow-up plan (Phase C-2, after this one is deployed and stable):** remove `wire_scale.py` screen
 by screen — backend adds the Toman-scale field next to the old one (additive), the cabinet switches

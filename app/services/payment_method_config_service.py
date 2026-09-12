@@ -8,7 +8,6 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database.models import PaymentMethodConfig, PromoGroup
 from app.utils import toman_rates
-from app.utils.price_display import kopeks_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
@@ -53,8 +52,8 @@ def _toman_rate_limits(is_ready, limits_toman) -> dict:
         return {'default_min': 0, 'default_max': 0}
     min_toman, max_toman = limits_toman()
     return {
-        'default_min': kopeks_from_display_amount(min_toman),
-        'default_max': kopeks_from_display_amount(max_toman),
+        'default_min': min_toman,
+        'default_max': max_toman,
     }
 
 
@@ -370,7 +369,7 @@ def normalize_quick_amounts(values: list | None) -> list[int] | None:
         if value <= 0:
             raise ValueError('quick_amounts items must be positive')
         if value > MAX_QUICK_AMOUNT_KOPEKS:
-            raise ValueError(f'quick_amounts items must not exceed {MAX_QUICK_AMOUNT_KOPEKS // 100} rub')
+            raise ValueError(f'quick_amounts items must not exceed {MAX_QUICK_AMOUNT_KOPEKS} rub')
         unique.add(value)
     if len(unique) > MAX_QUICK_AMOUNTS:
         raise ValueError(f'quick_amounts cannot have more than {MAX_QUICK_AMOUNTS} items')

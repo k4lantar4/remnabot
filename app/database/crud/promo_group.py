@@ -133,7 +133,7 @@ async def create_promo_group(
         promo_group.traffic_discount_percent,
         promo_group.device_discount_percent,
         normalized_period_discounts,
-        (auto_assign_total_spent_kopeks or 0) / 100,
+        auto_assign_total_spent_kopeks or 0,
         'on' if promo_group.apply_discounts_to_addons else 'off',
     )
 

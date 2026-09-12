@@ -32,9 +32,15 @@ def _install_all(monkeypatch, configs) -> None:
     monkeypatch.setattr(ReferralRewardLevelService, 'get_all', classmethod(lambda cls, db: fake_all(db)))
 
 
-def test_catalog_formatter_would_show_the_toman_reward_100x_smaller():
-    """The premise: the two formatters disagree, so picking the balance one matters."""
-    assert settings.format_price(REWARD_TOMAN) != REWARD_LABEL
+def test_the_two_formatters_can_no_longer_disagree():
+    """What made this file necessary is gone: Phase C left one formatter.
+
+    These screens used to have to reach for ``format_balance`` deliberately, because
+    ``format_price`` divided by 100 and would have shown a 50,000-Toman reward as «500». Since the
+    collapse ``format_price`` is an alias, so picking the wrong one is no longer possible — and the
+    assertions below pin the rendered label rather than the choice of helper.
+    """
+    assert settings.format_price(REWARD_TOMAN) == REWARD_LABEL
 
 
 # ---------------------------------------------------------------- reward descriptions (bot, cabinet, miniapp)

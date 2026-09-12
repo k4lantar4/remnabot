@@ -29,11 +29,10 @@ from app.services.payment_verification_service import (
 )
 from app.utils import toman_rates
 from app.utils.price_display import (
-    catalog_price_in_toman,
     display_balance_from_storage,
     display_transaction_amount_from_storage,
-    kopeks_from_display_amount,
 )
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -120,7 +119,7 @@ async def get_transactions(
                 id=t.id,
                 type=t.type,
                 amount_kopeks=amount_kopeks,
-                amount_rubles=display_transaction_amount_from_storage(amount_kopeks, t.type),
+                amount_rubles=display_transaction_amount_from_storage(amount_kopeks),
                 description=t.description,
                 payment_method=t.payment_method,
                 is_completed=t.is_completed,
@@ -214,11 +213,13 @@ async def get_payment_methods(
                 id=method_id,
                 name=method_data['name'],
                 description=method_data.get('description'),
-                min_amount_kopeks=method_data['min_amount_kopeks'],
-                max_amount_kopeks=method_data['max_amount_kopeks'],
+                # The cabinet divides these by 100 (TopUpMethodSelect.tsx), so they leave on the
+                # frozen catalog wire scale even though the columns are Toman since revision 0115.
+                min_amount_kopeks=wire_catalog_kopeks(method_data['min_amount_kopeks']),
+                max_amount_kopeks=wire_catalog_kopeks(method_data['max_amount_kopeks']),
                 is_available=True,
                 options=options,
-                quick_amounts=method_data.get('quick_amounts') or [],
+                quick_amounts=[wire_catalog_kopeks(amount) for amount in (method_data.get('quick_amounts') or [])],
                 open_url_direct=bool(method_data.get('open_url_direct', False)),
             )
         )
@@ -242,22 +243,31 @@ def _check_topup_allowed(user: User, texts) -> None:
 
 
 def _check_topup_amount(amount_kopeks: int, method: PaymentMethodResponse, texts) -> None:
-    """Range check on the cabinet top-up scale (Toman x100); the message names Toman limits."""
-    if amount_kopeks < method.min_amount_kopeks:
+    """Range check for a top-up, done in Toman.
+
+    Both sides arrive on the frozen catalog wire scale — the request because the cabinet multiplies
+    by 100, the limits because ``_build_payment_methods`` serialises them that way for the same
+    client. They are brought down to Toman here so the comparison and the message agree, and so the
+    message names the limit the user actually sees.
+    """
+    amount_toman = toman_from_wire_catalog(amount_kopeks)
+    min_toman = toman_from_wire_catalog(method.min_amount_kopeks)
+    max_toman = toman_from_wire_catalog(method.max_amount_kopeks)
+    if amount_toman < min_toman:
         raise _topup_error(
             status.HTTP_400_BAD_REQUEST,
             texts,
             'CABINET_TOPUP_AMOUNT_TOO_LOW',
             'Minimum top-up amount is {amount}.',
-            amount=texts.format_balance(catalog_price_in_toman(method.min_amount_kopeks)),
+            amount=texts.format_balance(min_toman),
         )
-    if amount_kopeks > method.max_amount_kopeks:
+    if amount_toman > max_toman:
         raise _topup_error(
             status.HTTP_400_BAD_REQUEST,
             texts,
             'CABINET_TOPUP_AMOUNT_TOO_HIGH',
             'Maximum top-up amount is {amount}.',
-            amount=texts.format_balance(catalog_price_in_toman(method.max_amount_kopeks)),
+            amount=texts.format_balance(max_toman),
         )
 
 
@@ -294,7 +304,7 @@ async def create_stars_invoice(
     _check_topup_amount(request.amount_kopeks, method, texts)
 
     try:
-        quote = toman_rates.quote_stars_for_toman(catalog_price_in_toman(request.amount_kopeks))
+        quote = toman_rates.quote_stars_for_toman(toman_from_wire_catalog(request.amount_kopeks))
     except toman_rates.TomanRateUnavailable:
         raise _method_unavailable(texts)
 
@@ -330,7 +340,7 @@ async def create_stars_invoice(
         return StarsInvoiceResponse(
             invoice_url=invoice_url,
             stars_amount=quote.stars,
-            amount_kopeks=kopeks_from_display_amount(quote.credit_toman),
+            amount_kopeks=wire_catalog_kopeks(quote.credit_toman),
         )
 
     except TelegramAPIError as e:
@@ -360,7 +370,7 @@ async def create_topup(
 
     _check_topup_amount(request.amount_kopeks, method, texts)
 
-    amount_rubles = request.amount_kopeks / 100
+    amount_rubles = request.amount_kopeks
     payment_url = None
     payment_id = None
     cabinet_return_url = f'{settings.CABINET_URL.rstrip("/")}/balance/top-up/result?method={request.payment_method}'
@@ -417,7 +427,7 @@ async def create_topup(
             if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
                 raise _method_unavailable(texts)
 
-            topup_toman = catalog_price_in_toman(request.amount_kopeks)
+            topup_toman = toman_from_wire_catalog(request.amount_kopeks)
             try:
                 amount_usdt = toman_rates.quote_usdt_for_toman(topup_toman)
             except toman_rates.TomanRateUnavailable:
@@ -1337,7 +1347,7 @@ def _record_to_response(record: PendingPayment) -> PendingPaymentResponse:
         method_display=method_display_name(record.method),
         identifier=record.identifier,
         amount_kopeks=record.amount_kopeks,
-        amount_rubles=record.amount_kopeks / 100,
+        amount_rubles=record.amount_kopeks,
         status=record.status or '',
         status_emoji=status_emoji,
         status_text=status_text,

@@ -14,7 +14,6 @@ from app.services.payment_service import PaymentService
 from app.states import BalanceStates
 from app.utils import toman_rates
 from app.utils.decorators import error_handler
-from app.utils.price_display import catalog_price_in_toman, kopeks_from_display_amount
 
 
 logger = structlog.get_logger(__name__)
@@ -91,7 +90,7 @@ async def process_stars_payment_amount(message: types.Message, db_user: User, am
         await message.answer(texts.t('STARS_TOPUP_UNAVAILABLE', '⚠️ Telegram Stars top-up is not available right now.'))
         return
 
-    topup_toman = catalog_price_in_toman(amount_kopeks)
+    topup_toman = amount_kopeks
     min_toman, max_toman = toman_rates.stars_topup_limits_toman()
     if not min_toman <= topup_toman <= max_toman:
         await message.answer(
@@ -107,7 +106,7 @@ async def process_stars_payment_amount(message: types.Message, db_user: User, am
 
         payment_service = PaymentService(message.bot)
         invoice_link = await payment_service.create_stars_invoice(
-            amount_kopeks=kopeks_from_display_amount(quote.credit_toman),
+            amount_kopeks=quote.credit_toman,
             title=texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up'),
             description=texts.t(
                 'STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)'

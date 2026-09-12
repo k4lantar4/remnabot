@@ -36,7 +36,7 @@ async def _notify_admins_about_auto_assignment(
         reason = (
             f'Автоназначение за траты {settings.format_price(total_spent_kopeks)}'
             if hasattr(settings, 'format_price')
-            else f'Автоназначение за траты {total_spent_kopeks / 100:.2f}₽'
+            else f'Автоназначение за траты {total_spent_kopeks:.2f}₽'
         )
         await notification_service.send_user_promo_group_change_notification(
             db,
@@ -169,7 +169,7 @@ async def maybe_assign_promo_group_by_total_spent(
                 'Пользователю назначена промогруппа за траты',
                 telegram_id=user.telegram_id,
                 target_group_name=target_group.name,
-                total_spent=total_spent / 100,
+                total_spent=total_spent,
             )
         else:
             await sync_user_primary_promo_group(db, user_id)

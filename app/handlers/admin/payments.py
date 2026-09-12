@@ -799,7 +799,7 @@ async def export_payments(
             'method_display': _method_display(record.method),
             'identifier': record.identifier,
             'amount_kopeks': record.amount_kopeks,
-            'amount_rubles': record.amount_kopeks / 100,
+            'amount_rubles': record.amount_kopeks,
             'status': record.status,
             'is_paid': record.is_paid,
             'created_at': record.created_at.isoformat() if record.created_at else None,

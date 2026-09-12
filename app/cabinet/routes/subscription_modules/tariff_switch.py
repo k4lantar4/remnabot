@@ -29,11 +29,10 @@ from app.services.tariff_switch_policy import (
     switch_direction_refusal,
 )
 from app.utils.price_display import (
-    catalog_price_in_toman,
     missing_toman,
-    missing_toman_on_catalog_scale,
     user_can_afford,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import TariffPurchaseRequest
@@ -178,7 +177,7 @@ async def preview_tariff_switch(
         'new_tariff_id': new_tariff.id,
         'new_tariff_name': new_tariff.name,
         'remaining_days': remaining_days,
-        'upgrade_cost_kopeks': upgrade_cost,
+        'upgrade_cost_kopeks': wire_catalog_kopeks(upgrade_cost),
         'upgrade_cost_label': settings.format_price(upgrade_cost) if upgrade_cost > 0 else 'Бесплатно',
         'balance_kopeks': balance,
         # Когда есть нехватка <1₽ (FX-rounding), показ копеек обязателен — без него
@@ -187,7 +186,7 @@ async def preview_tariff_switch(
         'has_enough_balance': has_enough,
         # The cabinet's InsufficientBalancePrompt renders this field as catalog kopeks (÷100 for the
         # label and the prefilled top-up), so it carries the Toman shortfall on the catalog scale.
-        'missing_amount_kopeks': missing_toman_on_catalog_scale(balance, upgrade_cost),
+        'missing_amount_kopeks': wire_catalog_kopeks(missing_toman(balance, upgrade_cost)),
         'missing_amount_label': settings.format_balance(missing) if missing > 0 else '',
         'is_upgrade': is_upgrade,
     }
@@ -195,8 +194,8 @@ async def preview_tariff_switch(
     # Add discount info if applicable
     if period_discount_percent > 0 and discount_value > 0:
         response['discount_percent'] = period_discount_percent
-        response['discount_kopeks'] = discount_value
-        response['base_upgrade_cost_kopeks'] = base_upgrade_cost
+        response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+        response['base_upgrade_cost_kopeks'] = wire_catalog_kopeks(base_upgrade_cost)
 
     return response
 
@@ -387,7 +386,7 @@ async def switch_tariff(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(upgrade_cost),
+            upgrade_cost,
             description,
             consume_promo_offer=switch_result.offer_discount_pct > 0,
             mark_as_paid_subscription=True,

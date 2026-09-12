@@ -39,7 +39,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
 from app.utils.pagination import paginate_list
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
@@ -632,7 +632,7 @@ async def execute_change_devices(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price),
+                price,
                 f'Изменение количества устройств с {current_devices} до {new_devices_count}',
             )
 
@@ -676,7 +676,7 @@ async def execute_change_devices(
                         .execution_options(populate_existing=True)
                     )
                     refund_user = user_refund.scalar_one()
-                    refund_user.balance_kopeks += catalog_price_in_toman(price)
+                    refund_user.balance_kopeks += price
                     await db.commit()
                 await callback.answer(
                     f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',
@@ -692,7 +692,7 @@ async def execute_change_devices(
                     .execution_options(populate_existing=True)
                 )
                 refund_user = user_refund.scalar_one()
-                refund_user.balance_kopeks += catalog_price_in_toman(price)
+                refund_user.balance_kopeks += price
                 await db.commit()
                 await callback.answer(
                     '⚠️ Изменение уже применено. Баланс возвращён.',
@@ -811,7 +811,7 @@ async def execute_change_devices(
             telegram_id=db_user.telegram_id,
             current_devices=current_devices,
             new_devices_count=new_devices_count,
-            price=price / 100,
+            price=price,
         )
 
     except Exception as e:
@@ -1594,10 +1594,10 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
     logger.info(
         'Добавление устройств: ₽/мес × = ₽ (скидка ₽)',
         devices_count=devices_count,
-        discounted_per_month=discounted_per_month / 100,
+        discounted_per_month=discounted_per_month,
         period_label=period_label,
-        price=price / 100,
-        total_discount=total_discount / 100,
+        price=price,
+        total_discount=total_discount,
     )
 
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
@@ -1654,7 +1654,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
 
     try:
         success = await subtract_user_balance(
-            db, db_user, catalog_price_in_toman(price), f'Добавление {devices_count} устройств на {period_label}'
+            db, db_user, price, f'Добавление {devices_count} устройств на {period_label}'
         )
 
         if not success:
@@ -1681,7 +1681,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
                 select(User).where(User.id == db_user.id).with_for_update().execution_options(populate_existing=True)
             )
             refund_user = user_refund.scalar_one()
-            refund_user.balance_kopeks += catalog_price_in_toman(price)
+            refund_user.balance_kopeks += price
             await db.commit()
             await callback.answer(
                 f'⚠️ Лимит устройств ({max_devices}) превышен. Баланс возвращён.',
@@ -1749,7 +1749,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             '✅ Пользователь добавил устройств за ₽',
             telegram_id=db_user.telegram_id,
             devices_count=devices_count,
-            price=price / 100,
+            price=price,
         )
 
     except Exception as e:

@@ -185,7 +185,7 @@ def _serialize_leaderboard_item(row) -> ReferralContestLeaderboardItem:
         full_name=user.full_name,
         referrals_count=int(referrals_count or 0),
         total_amount_kopeks=total_amount_kopeks,
-        total_amount_rubles=round(total_amount_kopeks / 100, 2),
+        total_amount_rubles=float(total_amount_kopeks),
     )
 
 
@@ -212,7 +212,7 @@ def _serialize_event(
         ),
         event_type=event.event_type,
         amount_kopeks=amount_kopeks,
-        amount_rubles=round(amount_kopeks / 100, 2),
+        amount_rubles=float(amount_kopeks),
         occurred_at=event.occurred_at,
     )
 

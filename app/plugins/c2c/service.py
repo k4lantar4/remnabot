@@ -352,7 +352,7 @@ class C2cPaymentService:
                 from app.services.referral_service import process_referral_topup
 
                 # Referral service expects catalog kopeks scale (÷100 → Toman).
-                await process_referral_topup(db, user.id, balance_credit_toman * 100, self.bot)
+                await process_referral_topup(db, user.id, balance_credit_toman, self.bot)
             except Exception as error:
                 logger.error('C2C referral topup error', user_id=user.id, error=error)
 

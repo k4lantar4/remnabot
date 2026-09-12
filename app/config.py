@@ -332,30 +332,30 @@ class Settings(BaseSettings):
     SERVER_STATUS_REQUEST_TIMEOUT: int = 10
     SERVER_STATUS_ITEMS_PER_PAGE: int = 10
 
-    BASE_SUBSCRIPTION_PRICE: int = 50000
+    BASE_SUBSCRIPTION_PRICE: int = 500
     AVAILABLE_SUBSCRIPTION_PERIODS: str = '14,30,60,90,180,360'
     AVAILABLE_RENEWAL_PERIODS: str = '30,90,180'
-    PRICE_14_DAYS: int = 50000
-    PRICE_30_DAYS: int = 99000
-    PRICE_60_DAYS: int = 189000
-    PRICE_90_DAYS: int = 269000
-    PRICE_180_DAYS: int = 499000
-    PRICE_360_DAYS: int = 899000
+    PRICE_14_DAYS: int = 500
+    PRICE_30_DAYS: int = 990
+    PRICE_60_DAYS: int = 1890
+    PRICE_90_DAYS: int = 2690
+    PRICE_180_DAYS: int = 4990
+    PRICE_360_DAYS: int = 8990
     PAID_SUBSCRIPTION_USER_TAG: str | None = None
 
-    PRICE_TRAFFIC_5GB: int = 2000
-    PRICE_TRAFFIC_10GB: int = 3500
-    PRICE_TRAFFIC_25GB: int = 7000
-    PRICE_TRAFFIC_50GB: int = 11000
-    PRICE_TRAFFIC_100GB: int = 15000
-    PRICE_TRAFFIC_250GB: int = 17000
-    PRICE_TRAFFIC_500GB: int = 19000
-    PRICE_TRAFFIC_1000GB: int = 19500
-    PRICE_TRAFFIC_UNLIMITED: int = 20000
+    PRICE_TRAFFIC_5GB: int = 20
+    PRICE_TRAFFIC_10GB: int = 35
+    PRICE_TRAFFIC_25GB: int = 70
+    PRICE_TRAFFIC_50GB: int = 110
+    PRICE_TRAFFIC_100GB: int = 150
+    PRICE_TRAFFIC_250GB: int = 170
+    PRICE_TRAFFIC_500GB: int = 190
+    PRICE_TRAFFIC_1000GB: int = 195
+    PRICE_TRAFFIC_UNLIMITED: int = 200
 
     TRAFFIC_PACKAGES_CONFIG: str = ''
 
-    PRICE_PER_DEVICE: int = 5000
+    PRICE_PER_DEVICE: int = 50
     DEVICES_SELECTION_ENABLED: bool = True
     DEVICES_SELECTION_DISABLED_AMOUNT: int | None = None
 
@@ -2218,37 +2218,19 @@ class Settings(BaseSettings):
         round_kopeks: bool | None = None,
         language: str | None = None,
     ) -> str:
+        """Format a catalog price for display.
+
+        Since Phase C (revision ``0115``) catalog prices are stored in Toman 1:1, exactly like
+        balances, so this is :meth:`format_balance` under its historical name. It is kept as an
+        alias rather than removed because ~330 call sites read naturally as "format a price", and
+        because having two formatters that could disagree was the shape of F-058.
+
+        The ``price_kopeks`` parameter name and the unused ``round_kopeks`` flag are likewise
+        historical: rounding kopeks is meaningless once nothing is stored in kopeks, but the
+        keyword is still passed by existing callers.
         """
-        Форматирует цену в копейках для отображения пользователю.
-
-        Args:
-            price_kopeks: Сумма в копейках
-            round_kopeks: Если True, округляет копейки (≤50 вниз, >50 коп вверх).
-                         Если None, использует настройку PRICE_ROUNDING_ENABLED.
-            language: Язык для группировки тысяч (fa/ru/en); None — без группировки.
-
-        Returns:
-            Отформатированная строка цены (например, "150 تومان")
-        """
-        should_round = round_kopeks if round_kopeks is not None else self.PRICE_ROUNDING_ENABLED
-        suffix = self._price_display_suffix()
-
-        sign = '-' if price_kopeks < 0 else ''
-        abs_kopeks = abs(price_kopeks)
-        rubles, kopeks = divmod(abs_kopeks, 100)
-
-        if should_round:
-            if kopeks > 50:
-                rubles += 1
-            kopeks = 0
-
-        grouped_rubles = self._group_balance_digits(rubles, language)
-
-        if kopeks:
-            value = f'{sign}{grouped_rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
-            return f'{value}{suffix}'
-
-        return f'{sign}{grouped_rubles}{suffix}'
+        _ = round_kopeks
+        return self.format_balance(price_kopeks, language=language)
 
     def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
         lang = (language or 'fa').split('-')[0].lower()
@@ -2305,7 +2287,7 @@ class Settings(BaseSettings):
             return None
 
     def kopeks_to_rubles(self, kopeks: int) -> float:
-        return kopeks / 100
+        return kopeks
 
     def rubles_to_kopeks(self, rubles: float) -> int:
         return int(rubles * 100)

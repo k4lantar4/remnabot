@@ -79,7 +79,13 @@ async def test_over_cap_rejected_without_crediting() -> None:
     assert '₽' not in message.answer.await_args.args[0]
 
 
-async def test_user_transactions_card_uses_scale_per_type() -> None:
+async def test_user_transactions_card_renders_every_type_on_one_scale() -> None:
+    """Phase C: a deposit and a subscription charge of the same size read the same.
+
+    The card used to pick a scale per transaction type — deposits 1:1, catalog charges divided by
+    100 — so these two rows rendered 100x apart. `_BALANCE_SCALE_TRANSACTION_TYPES` is gone with
+    that split, and a type that nobody remembered to classify can no longer render 100x off.
+    """
     user = SimpleNamespace(id=7833, telegram_id=6371108688, email=None, balance_kopeks=172_700, full_name='Ali')
     transactions = [
         SimpleNamespace(
@@ -104,5 +110,5 @@ async def test_user_transactions_card_uses_scale_per_type() -> None:
 
     text = callback.message.edit_text.await_args.args[0]
     assert settings.format_balance(172_700) in text
-    assert settings.format_balance(1_000_000) in text
-    assert settings.format_balance(10_000) in text
+    assert text.count(settings.format_balance(1_000_000)) == 2, 'both rows read their stored Toman'
+    assert settings.format_balance(10_000) not in text, 'no type is divided by 100 any more'

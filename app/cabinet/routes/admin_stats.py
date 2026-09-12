@@ -945,7 +945,7 @@ async def get_recent_payments(
                     username=user.username,
                     display_name=display_name,
                     amount_kopeks=abs(trans.amount_kopeks),
-                    amount_rubles=abs(display_transaction_amount_from_storage(trans.amount_kopeks, trans.type)),
+                    amount_rubles=abs(display_transaction_amount_from_storage(trans.amount_kopeks)),
                     type=trans.type,
                     type_display=type_display.get(trans.type, trans.type),
                     payment_method=trans.payment_method,

@@ -2075,7 +2075,7 @@ class Tariff(Base):
 
     def get_daily_price_rubles(self) -> float:
         """Возвращает суточную цену в рублях."""
-        return self.daily_price_kopeks / 100 if self.daily_price_kopeks else 0
+        return float(self.daily_price_kopeks) if self.daily_price_kopeks else 0
 
     def get_price_for_custom_days(self, days: int) -> int | None:
         """Возвращает цену для произвольного количества дней."""
@@ -2769,7 +2769,7 @@ class Transaction(Base):
 
     @property
     def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
+        return float(self.amount_kopeks)
 
 
 class SubscriptionConversion(Base):
@@ -2798,7 +2798,7 @@ class SubscriptionConversion(Base):
 
     @property
     def first_payment_amount_rubles(self) -> float:
-        return (self.first_payment_amount_kopeks or 0) / 100
+        return float(self.first_payment_amount_kopeks or 0)
 
     def __repr__(self):
         return f'<SubscriptionConversion(user_id={self.user_id}, converted_at={self.converted_at})>'
@@ -3055,7 +3055,7 @@ class ReferralEarning(Base):
 
     @property
     def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
+        return float(self.amount_kopeks)
 
 
 class WithdrawalRequestStatus(Enum):
@@ -3099,7 +3099,7 @@ class WithdrawalRequest(Base):
 
     @property
     def amount_rubles(self) -> float:
-        return self.amount_kopeks / 100
+        return float(self.amount_kopeks)
 
 
 class PartnerApplication(Base):
@@ -3295,7 +3295,7 @@ class Squad(Base):
 
     @property
     def price_rubles(self) -> float:
-        return self.price_kopeks / 100
+        return float(self.price_kopeks)
 
 
 class ServiceRule(Base):
@@ -3718,7 +3718,7 @@ class ServerSquad(Base):
 
     @property
     def price_rubles(self) -> float:
-        return self.price_kopeks / 100
+        return float(self.price_kopeks)
 
     @property
     def is_full(self) -> bool:
@@ -4318,12 +4318,12 @@ class WheelSpin(Base):
     @property
     def prize_value_rubles(self) -> float:
         """Стоимость приза в рублях."""
-        return self.prize_value_kopeks / 100
+        return float(self.prize_value_kopeks)
 
     @property
     def payment_value_rubles(self) -> float:
         """Стоимость оплаты в рублях."""
-        return self.payment_value_kopeks / 100
+        return float(self.payment_value_kopeks)
 
     def __repr__(self) -> str:
         return f"<WheelSpin id={self.id} user_id={self.user_id} prize='{self.prize_display_name}'>"

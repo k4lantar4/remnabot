@@ -700,8 +700,8 @@ async def show_detailed_stats(
         f'❌ Рефералов не оплатили: <b>{stats.get("unpaid_count", 0)}</b>',
         '',
         '<b>💰 СУММЫ:</b>',
-        f'   🛒 Покупки подписок: <b>{stats.get("subscription_total", 0) // 100} руб.</b>',
-        f'   📥 Пополнения баланса: <b>{stats.get("deposit_total", 0) // 100} руб.</b>',
+        f'   🛒 Покупки подписок: <b>{settings.format_price(stats.get("subscription_total", 0))}</b>',
+        f'   📥 Пополнения баланса: <b>{settings.format_price(stats.get("deposit_total", 0))}</b>',
     ]
 
     if virtual_count > 0:
@@ -756,7 +756,7 @@ async def show_detailed_stats_page(
                 f'  📨 Приглашено: {p["total_referrals"]}',
                 f'  💰 Оплатили: {p["paid_referrals"]}',
                 f'  ❌ Не оплатили: {p["unpaid_referrals"]}',
-                f'  💵 Сумма: {p["total_paid_amount"] // 100} руб.',
+                f'  💵 Сумма: {p["total_paid_amount"]} руб.',
                 '',  # Пустая строка для разделения
             ]
         )
@@ -850,8 +850,8 @@ async def sync_contest(
         f'❌ Рефералов не оплатили: <b>{stats.get("unpaid_count", 0)}</b>',
         '',
         '<b>💰 СУММЫ:</b>',
-        f'   🛒 Покупки подписок: <b>{stats.get("subscription_total", 0) // 100} руб.</b>',
-        f'   📥 Пополнения баланса: <b>{stats.get("deposit_total", 0) // 100} руб.</b>',
+        f'   🛒 Покупки подписок: <b>{settings.format_price(stats.get("subscription_total", 0))}</b>',
+        f'   📥 Пополнения баланса: <b>{settings.format_price(stats.get("deposit_total", 0))}</b>',
     ]
 
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -879,7 +879,7 @@ async def sync_contest(
         '',
         f'💳 Рефералов оплатили: <b>{detailed_stats.get("paid_count", 0)}</b>',
         f'❌ Рефералов не оплатили: <b>{detailed_stats.get("unpaid_count", 0)}</b>',
-        f'🛒 Покупки подписок: <b>{detailed_stats["total_paid_amount"] // 100} руб.</b>',
+        f'🛒 Покупки подписок: <b>{detailed_stats["total_paid_amount"]} руб.</b>',
     ]
 
     await callback.message.edit_text(
@@ -922,8 +922,8 @@ async def debug_contest_transactions(
         await callback.message.answer(f'❌ Ошибка: {debug_data["error"]}')
         return
 
-    deposit_total = debug_data.get('deposit_total_kopeks', 0) // 100
-    subscription_total = debug_data.get('subscription_total_kopeks', 0) // 100
+    deposit_total = debug_data.get('deposit_total_kopeks', 0)
+    subscription_total = debug_data.get('subscription_total_kopeks', 0)
 
     lines = [
         '🔍 <b>Отладка транзакций конкурса</b>',
@@ -947,9 +947,7 @@ async def debug_contest_transactions(
     if txs_in:
         lines.append(f'✅ <b>Транзакции в периоде</b> (первые {len(txs_in)}):')
         for tx in txs_in[:5]:  # Показываем максимум 5
-            lines.append(
-                f'  • {tx["created_at"][:10]} | {tx["type"]} | {tx["amount_kopeks"] // 100}₽ | user={tx["user_id"]}'
-            )
+            lines.append(f'  • {tx["created_at"][:10]} | {tx["type"]} | {tx["amount_kopeks"]}₽ | user={tx["user_id"]}')
         if len(txs_in) > 5:
             lines.append(f'  ... и ещё {len(txs_in) - 5}')
     else:
@@ -962,9 +960,7 @@ async def debug_contest_transactions(
     if txs_out:
         lines.append(f'❌ <b>Транзакции вне периода</b> (первые {len(txs_out)}):')
         for tx in txs_out[:5]:
-            lines.append(
-                f'  • {tx["created_at"][:10]} | {tx["type"]} | {tx["amount_kopeks"] // 100}₽ | user={tx["user_id"]}'
-            )
+            lines.append(f'  • {tx["created_at"][:10]} | {tx["type"]} | {tx["amount_kopeks"]}₽ | user={tx["user_id"]}')
         if len(txs_out) > 5:
             lines.append(f'  ... и ещё {len(txs_out) - 5}')
     else:

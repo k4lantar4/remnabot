@@ -27,8 +27,9 @@ from ..dependencies import get_db_session, require_api_token
 router = APIRouter()
 
 
-def _kopeks_to_rubles(value: float | None) -> float:
-    return round((value or 0) / 100, 2)
+def _display_amount(value: float | None) -> float:
+    """Every sum here is a Toman column since revision 0115, so the display amount is the sum."""
+    return round(value or 0, 2)
 
 
 async def _get_overview(db: AsyncSession) -> dict[str, object]:
@@ -91,7 +92,7 @@ async def _get_overview(db: AsyncSession) -> dict[str, object]:
             'active': active_users,
             'blocked': blocked_users,
             'balance_kopeks': int(total_balance_kopeks),
-            'balance_rubles': _kopeks_to_rubles(total_balance_kopeks),
+            'balance_rubles': _display_amount(total_balance_kopeks),
         },
         'subscriptions': {
             'active': active_subscriptions,
@@ -102,7 +103,7 @@ async def _get_overview(db: AsyncSession) -> dict[str, object]:
         },
         'payments': {
             'today_kopeks': int(today_transactions),
-            'today_rubles': _kopeks_to_rubles(today_transactions),
+            'today_rubles': _display_amount(today_transactions),
         },
     }
 
@@ -273,24 +274,24 @@ async def stats_full(
 
     transactions_totals = {
         **transactions_totals,
-        'income_rubles': _kopeks_to_rubles(transactions_totals.get('income_kopeks')),
-        'expenses_rubles': _kopeks_to_rubles(transactions_totals.get('expenses_kopeks')),
-        'profit_rubles': _kopeks_to_rubles(transactions_totals.get('profit_kopeks')),
+        'income_rubles': _display_amount(transactions_totals.get('income_kopeks')),
+        'expenses_rubles': _display_amount(transactions_totals.get('expenses_kopeks')),
+        'profit_rubles': _display_amount(transactions_totals.get('profit_kopeks')),
         'subscription_income_kopeks': abs(transactions_totals.get('subscription_income_kopeks', 0)),
-        'subscription_income_rubles': _kopeks_to_rubles(abs(transactions_totals.get('subscription_income_kopeks', 0))),
+        'subscription_income_rubles': _display_amount(abs(transactions_totals.get('subscription_income_kopeks', 0))),
     }
 
     transactions_today = {
         **transactions_today,
-        'income_rubles': _kopeks_to_rubles(transactions_today.get('income_kopeks')),
+        'income_rubles': _display_amount(transactions_today.get('income_kopeks')),
     }
 
     referral_stats = {
         **referral_stats,
-        'total_paid_rubles': _kopeks_to_rubles(referral_stats.get('total_paid_kopeks')),
-        'today_earnings_rubles': _kopeks_to_rubles(referral_stats.get('today_earnings_kopeks')),
-        'week_earnings_rubles': _kopeks_to_rubles(referral_stats.get('week_earnings_kopeks')),
-        'month_earnings_rubles': _kopeks_to_rubles(referral_stats.get('month_earnings_kopeks')),
+        'total_paid_rubles': _display_amount(referral_stats.get('total_paid_kopeks')),
+        'today_earnings_rubles': _display_amount(referral_stats.get('today_earnings_kopeks')),
+        'week_earnings_rubles': _display_amount(referral_stats.get('week_earnings_kopeks')),
+        'month_earnings_rubles': _display_amount(referral_stats.get('month_earnings_kopeks')),
     }
 
     return {

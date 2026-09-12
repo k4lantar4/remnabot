@@ -27,9 +27,7 @@ from app.database.models import PaymentMethod, ServerSquad, Subscription, Subscr
 from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
 from app.utils.price_display import (
-    catalog_price_in_toman,
     missing_toman,
-    missing_toman_on_catalog_scale,
     user_can_afford,
 )
 from app.utils.pricing_utils import (
@@ -39,6 +37,7 @@ from app.utils.pricing_utils import (
     format_period_description,
     validate_pricing_calculation,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
@@ -60,14 +59,14 @@ class PurchaseTrafficOption:
         payload: dict[str, Any] = {
             'value': self.value,
             'label': self.label,
-            'price_kopeks': self.price_per_month,
+            'price_kopeks': wire_catalog_kopeks(self.price_per_month),
             'price_label': self.price_label,
             'is_available': self.is_available,
         }
         if self.original_price_per_month is not None and (
             self.original_price_label and self.original_price_per_month != self.price_per_month
         ):
-            payload['original_price_kopeks'] = self.original_price_per_month
+            payload['original_price_kopeks'] = wire_catalog_kopeks(self.original_price_per_month)
             payload['original_price_label'] = self.original_price_label
         if self.discount_percent:
             payload['discount_percent'] = self.discount_percent
@@ -116,14 +115,14 @@ class PurchaseServerOption:
         payload: dict[str, Any] = {
             'uuid': self.uuid,
             'name': self.name,
-            'price_kopeks': self.price_per_month,
+            'price_kopeks': wire_catalog_kopeks(self.price_per_month),
             'price_label': self.price_label,
             'is_available': self.is_available,
         }
         if self.original_price_per_month is not None and (
             self.original_price_label and self.original_price_per_month != self.price_per_month
         ):
-            payload['original_price_kopeks'] = self.original_price_per_month
+            payload['original_price_kopeks'] = wire_catalog_kopeks(self.original_price_per_month)
             payload['original_price_label'] = self.original_price_label
         if self.discount_percent:
             payload['discount_percent'] = self.discount_percent
@@ -170,11 +169,11 @@ class PurchaseDevicesConfig:
             'max': self.maximum,
             'default': self.default,
             'current': self.current,
-            'price_per_device_kopeks': self.discounted_price_per_device,
+            'price_per_device_kopeks': wire_catalog_kopeks(self.discounted_price_per_device),
             'price_per_device_label': self.price_label,
         }
         if self.price_per_device and self.price_per_device != self.discounted_price_per_device:
-            payload['price_per_device_original_kopeks'] = self.price_per_device
+            payload['price_per_device_original_kopeks'] = wire_catalog_kopeks(self.price_per_device)
             if self.original_price_label:
                 payload['price_per_device_original_label'] = self.original_price_label
         if self.discount_percent:
@@ -210,9 +209,9 @@ class PurchasePeriodConfig:
             'period': self.days,
             'months': self.months,
             'label': self.label,
-            'price_kopeks': self.base_price,
+            'price_kopeks': wire_catalog_kopeks(self.base_price),
             'price_label': self.base_price_label,
-            'per_month_price_kopeks': self.per_month_price,
+            'per_month_price_kopeks': wire_catalog_kopeks(self.per_month_price),
             'per_month_price_label': self.per_month_price_label,
             'is_available': True,
             'traffic': self.traffic.to_payload(),
@@ -222,7 +221,7 @@ class PurchasePeriodConfig:
         if self.discount_percent:
             payload['discount_percent'] = self.discount_percent
         if self.base_price_original and self.base_price_original_label and self.base_price_original != self.base_price:
-            payload['original_price_kopeks'] = self.base_price_original
+            payload['original_price_kopeks'] = wire_catalog_kopeks(self.base_price_original)
             payload['original_price_label'] = self.base_price_original_label
         return payload
 
@@ -939,7 +938,7 @@ class MiniAppSubscriptionPurchaseService:
         # This payload also backs the cabinet purchase preview, whose InsufficientBalancePrompt renders
         # missing_amount_kopeks as catalog kopeks (÷100 for the label and the prefilled top-up): the
         # field carries the Toman shortfall on the catalog scale.
-        missing_catalog_scale = missing_toman_on_catalog_scale(context.balance_kopeks, pricing.final_total)
+        missing_catalog_scale = wire_catalog_kopeks(missing)
         status_message = ''
         if missing > 0:
             status_message = texts.t(
@@ -950,12 +949,12 @@ class MiniAppSubscriptionPurchaseService:
         per_month_price = calculate_price_per_month(pricing.final_total, pricing.selection.period.days)
 
         return {
-            'total_price_kopeks': pricing.final_total,
-            'totalPriceKopeks': pricing.final_total,
+            'total_price_kopeks': wire_catalog_kopeks(pricing.final_total),
+            'totalPriceKopeks': wire_catalog_kopeks(pricing.final_total),
             'total_price_label': texts.format_price(pricing.final_total),
             'totalPriceLabel': texts.format_price(pricing.final_total),
-            'original_price_kopeks': pricing.base_original_total if total_discount else None,
-            'originalPriceKopeks': pricing.base_original_total if total_discount else None,
+            'original_price_kopeks': wire_catalog_kopeks(pricing.base_original_total) if total_discount else None,
+            'originalPriceKopeks': wire_catalog_kopeks(pricing.base_original_total) if total_discount else None,
             'original_price_label': texts.format_price(pricing.base_original_total) if total_discount else None,
             'originalPriceLabel': texts.format_price(pricing.base_original_total) if total_discount else None,
             'discount_percent': overall_discount_percent,
@@ -974,8 +973,8 @@ class MiniAppSubscriptionPurchaseService:
             else None,
             'discount_lines': discount_lines,
             'discountLines': discount_lines,
-            'per_month_price_kopeks': per_month_price,
-            'perMonthPriceKopeks': per_month_price,
+            'per_month_price_kopeks': wire_catalog_kopeks(per_month_price),
+            'perMonthPriceKopeks': wire_catalog_kopeks(per_month_price),
             'per_month_price_label': texts.format_price(per_month_price),
             'perMonthPriceLabel': texts.format_price(per_month_price),
             'breakdown': [{'label': item['label'], 'value': item['value']} for item in breakdown],
@@ -1022,7 +1021,7 @@ class MiniAppSubscriptionPurchaseService:
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(pricing.final_total),
+            pricing.final_total,
             description,
             consume_promo_offer=pricing.promo_discount_value > 0,
             mark_as_paid_subscription=True,

@@ -29,6 +29,7 @@ from app.database.crud.wheel import (
 )
 from app.database.models import User
 from app.services.wheel_service import wheel_service
+from app.utils.wire_scale import wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
@@ -195,7 +196,7 @@ async def get_spin_history(
                 prize_display_name=spin.prize_display_name,
                 emoji=emoji,
                 color=color,
-                prize_value_kopeks=spin.prize_value_kopeks,
+                prize_value_kopeks=wire_catalog_kopeks(spin.prize_value_kopeks),
                 created_at=spin.created_at,
             )
         )

@@ -39,7 +39,7 @@ def _safe_format_price(amount_kopeks: int) -> str:
         return settings.format_price(amount_kopeks)
     except Exception as error:  # pragma: no cover - defensive logging
         logger.error('Не удалось отформатировать сумму', amount_kopeks=amount_kopeks, error=error)
-        return f'{amount_kopeks / 100:.2f} ₽'
+        return f'{amount_kopeks:.2f} ₽'
 
 
 async def _safe_delete_message(message: types.Message) -> None:
@@ -656,8 +656,9 @@ def _parse_reward_amount(message_text: str) -> int | None:
     if value < 0:
         value = Decimal(0)
 
-    kopeks = int((value * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
-    return max(0, kopeks)
+    # Toman is stored 1:1 since revision 0115 — the typed number is the stored number.
+    toman = int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return max(0, toman)
 
 
 @admin_required

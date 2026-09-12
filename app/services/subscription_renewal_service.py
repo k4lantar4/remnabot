@@ -26,7 +26,6 @@ from app.services.admin_notification_service import AdminNotificationService
 from app.services.pricing_engine import RenewalPricing
 from app.services.remnawave_service import RemnaWaveConfigurationError
 from app.services.subscription_service import SubscriptionService
-from app.utils.price_display import catalog_price_in_toman
 from app.utils.pricing_utils import calculate_price_per_month
 
 
@@ -148,7 +147,7 @@ class SubscriptionRenewalPricing:
 class SubscriptionRenewalResult:
     subscription: Subscription
     transaction: Transaction | None
-    total_amount_kopeks: int  # catalog scale (price_kopeks)
+    total_amount_kopeks: int  # Toman (the column keeps its historical name)
     charged_from_balance_kopeks: int  # balance scale: Toman actually debited
     old_end_date: datetime | None
 
@@ -378,7 +377,7 @@ class SubscriptionRenewalService:
         # final_total is a catalog price (price_kopeks, Toman x 100); the balance is Toman 1:1, so
         # the debit (and the compensating refund below) is always in Toman. Explicit callers
         # (cabinet, CryptoBot webhook) already pass Toman; the transaction row keeps final_total.
-        final_total_toman = catalog_price_in_toman(final_total)
+        final_total_toman = final_total
         charge_from_balance = charge_balance_amount
         if charge_from_balance is None:
             charge_from_balance = final_total_toman
@@ -626,7 +625,7 @@ class SubscriptionRenewalService:
 
 def calculate_missing_amount(balance_toman: int, price_kopeks: int) -> int:
     """Missing Toman to cover a catalog-scale renewal price."""
-    price_toman = catalog_price_in_toman(price_kopeks)
+    price_toman = price_kopeks
     if price_toman <= 0:
         return 0
     return max(0, price_toman - balance_toman)

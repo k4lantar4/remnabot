@@ -6,9 +6,9 @@ pre-migration numbers, a rollback of Phase C would silently rewrite real money.
 0114 (the bookkeeping tables) runs first here, as it will in the chain; that it changes nothing on
 its own is asserted in ``test_0114_scale_tables.py``.
 
-0115 itself is **staged** in ``migrations/phase_c/`` rather than in ``migrations/alembic/versions/``
-until plan Task 3, so that no restart can apply it before the code that reads Toman exists. These
-tests run it from the staging directory, so the round-trip stays protected meanwhile.
+0115 was staged outside ``migrations/alembic/versions/`` until plan Task 3, so that no restart
+could apply it before the code that reads Toman existed. Task 3 shipped that code, so it now sits in
+the chain as the head — and the first restart after that merge is what rescales the database.
 """
 
 from __future__ import annotations
@@ -30,8 +30,7 @@ from app.config import settings
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / 'migrations' / 'alembic' / 'versions'
-STAGING = ROOT / 'migrations' / 'phase_c'
-REVISION_FILE = STAGING / '0115_toman_phase_c_catalog_scale.py'
+REVISION_FILE = VERSIONS / '0115_toman_phase_c_catalog_scale.py'
 TABLES_REVISION_FILE = VERSIONS / '0114_toman_phase_c_scale_tables.py'
 
 
@@ -213,15 +212,15 @@ def _value(conn, table: str, column: str, row_id: int):
 # ── chain ─────────────────────────────────────────────────────────────────────
 
 
-def test_the_data_revision_is_staged_outside_the_alembic_chain() -> None:
-    """Until Task 3 no restart may apply it: Alembic only scans ``migrations/alembic/versions``."""
+def test_the_data_revision_is_the_head_of_the_chain() -> None:
+    """Task 3 shipped the code that reads Toman, so the rescale is reachable — and is the head."""
     assert REVISION_FILE.exists()
-    assert not (VERSIONS / REVISION_FILE.name).exists()
+    assert not (ROOT / 'migrations' / 'phase_c').exists(), 'the staging directory should be gone'
 
     script = _script_directory()
     chain = [rev.revision for rev in script.walk_revisions(base='base', head=script.get_current_head())]
-    assert '0115' not in chain
-    assert script.get_heads() == ['0114']
+    assert '0115' in chain
+    assert script.get_heads() == ['0115']
 
 
 def test_0115_revises_0114() -> None:
@@ -282,14 +281,21 @@ def test_upgrade_divides_catalog_columns_only() -> None:
 
 
 def test_displayed_amount_is_unchanged_by_the_migration() -> None:
-    """What the user reads must be identical before (format_price) and after (format_balance)."""
+    """What the user reads must be identical before and after the rescale.
+
+    The comparison cannot use ``settings.format_price`` for the "before" side any more: Phase C made
+    it an alias of ``format_balance`` in the same change that ships this revision, so it no longer
+    models the old behaviour. The old formatter floored ``kopeks // 100`` and rendered that, which is
+    spelled out here — if this and the migration ever disagree, a price changes under the user.
+    """
     conn = _seeded_connection()
     before = {row_id: _value(conn, 'transactions', 'amount_kopeks', row_id) for row_id in (1, 2)}
     _run(conn, 'upgrade')
 
     for row_id, before_value in before.items():
         after_value = _value(conn, 'transactions', 'amount_kopeks', row_id)
-        assert settings.format_price(abs(before_value)) == settings.format_balance(abs(after_value))
+        old_rendering = settings.format_balance(abs(before_value) // 100)
+        assert old_rendering == settings.format_balance(abs(after_value))
     conn.close()
 
 

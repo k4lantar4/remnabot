@@ -111,7 +111,6 @@ from app.states import SubscriptionStates
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import (
     PriceInfo,
-    catalog_price_in_toman,
     format_price_text,
     missing_toman,
     render_addon_insufficient_funds,
@@ -1035,7 +1034,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
                 # the keyboard prefills a Toman top-up: the required catalog price in Toman
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=catalog_price_in_toman(error.required_amount),
+                    amount_kopeks=error.required_amount,
                 ),
             )
             await callback.answer()
@@ -1595,7 +1594,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
     if total_price > 0 and not user_can_afford(db_user.balance_kopeks, total_price):
         insufficient_text, missing_amount = render_addon_insufficient_funds(
             texts,
-            price_kopeks=total_price,
+            price_toman=total_price,
             balance_toman=db_user.balance_kopeks,
         )
         insufficient_keyboard = get_insufficient_balance_keyboard_with_cart(
@@ -1989,7 +1988,7 @@ async def confirm_extend_subscription(
             offer_discount=pricing.promo_offer_discount,
             final_total=pricing.final_total,
         )
-        logger.info('💎 ИТОГО: ₽', price=price / 100)
+        logger.info('💎 ИТОГО: ₽', price=price)
 
     except Exception as e:
         logger.error('⚠ ОШИБКА РАСЧЕТА ЦЕНЫ', error=e)
@@ -1999,7 +1998,7 @@ async def confirm_extend_subscription(
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=price,
+            price_toman=price,
             balance_toman=db_user.balance_kopeks,
         )
 
@@ -2088,7 +2087,7 @@ async def confirm_extend_subscription(
         '✅ Пользователь продлил подписку на дней за ₽',
         telegram_id=db_user.telegram_id,
         days=days,
-        price=price / 100,
+        price=price,
     )
 
     await callback.answer()
@@ -2333,9 +2332,9 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             logger.error(
                 'Цена выросла для пользователя кэш=₽, пересчет=₽, разница=+₽ (>₽). Покупка заблокирована.',
                 telegram_id=db_user.telegram_id,
-                cached_total_price=cached_total_price / 100,
-                final_price=final_price / 100,
-                price_difference=price_difference / 100,
+                cached_total_price=cached_total_price,
+                final_price=final_price,
+                price_difference=price_difference,
                 max_allowed_increase=max_allowed_increase / 100,
             )
             await callback.answer('Цена изменилась. Пожалуйста, начните оформление заново.', show_alert=True)
@@ -2344,15 +2343,15 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             logger.warning(
                 'Небольшой рост цены для пользователя кэш=₽, пересчет=₽. Используем пересчитанную цену.',
                 telegram_id=db_user.telegram_id,
-                cached_total_price=cached_total_price / 100,
-                final_price=final_price / 100,
+                cached_total_price=cached_total_price,
+                final_price=final_price,
             )
     elif price_difference < -100:  # цена снизилась более чем на 1₽
         logger.info(
             'Цена снизилась для пользователя кэш=₽, пересчет=₽. Применяем новую цену.',
             telegram_id=db_user.telegram_id,
-            cached_total_price=cached_total_price / 100,
-            final_price=final_price / 100,
+            cached_total_price=cached_total_price,
+            final_price=final_price,
         )
 
     # --- Logging ---
@@ -2362,52 +2361,46 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
     base_discount_percent = details['base_discount_percent']
 
     logger.info('Расчет покупки подписки на дней ( мес)', data=data['period_days'], months_in_period=months_in_period)
-    base_log = f'   Период: {base_price_original / 100}₽'
+    base_log = f'   Период: {base_price_original}₽'
     if base_discount_total and base_discount_total > 0:
-        base_log += f' → {base_price / 100}₽ (скидка {base_discount_percent}%: -{base_discount_total / 100}₽)'
+        base_log += f' → {base_price} (скидка {base_discount_percent}%: -{base_discount_total})'
     logger.info(base_log)
     if details['total_traffic_price'] > 0:
         traffic_msg = (
-            f'   Трафик: {details["traffic_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_traffic_price"] / 100}₽'
+            f'   Трафик: {details["traffic_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_traffic_price"]}₽'
         )
         if details['traffic_discount_total'] > 0:
-            traffic_msg += (
-                f' (скидка {details["traffic_discount_percent"]}%: -{details["traffic_discount_total"] / 100}₽)'
-            )
+            traffic_msg += f' (скидка {details["traffic_discount_percent"]}%: -{details["traffic_discount_total"]})'
         logger.info(traffic_msg)
     if details['total_servers_price'] > 0:
         servers_msg = (
-            f'   Серверы: {details["servers_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_servers_price"] / 100}₽'
+            f'   Серверы: {details["servers_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_servers_price"]}₽'
         )
         if details['servers_discount_total'] > 0:
-            servers_msg += (
-                f' (скидка {details["servers_discount_percent"]}%: -{details["servers_discount_total"] / 100}₽)'
-            )
+            servers_msg += f' (скидка {details["servers_discount_percent"]}%: -{details["servers_discount_total"]})'
         logger.info(servers_msg)
     if details['total_devices_price'] > 0:
         devices_msg = (
-            f'   Устройства: {details["devices_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_devices_price"] / 100}₽'
+            f'   Устройства: {details["devices_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_devices_price"]}₽'
         )
         if details['devices_discount_total'] > 0:
-            devices_msg += (
-                f' (скидка {details["devices_discount_percent"]}%: -{details["devices_discount_total"] / 100}₽)'
-            )
+            devices_msg += f' (скидка {details["devices_discount_percent"]}%: -{details["devices_discount_total"]})'
         logger.info(devices_msg)
     if promo_offer_discount_value > 0:
         logger.info(
-            'Промо-предложение: -₽ (%)',
-            promo_offer_discount_value=promo_offer_discount_value / 100,
+            'Промо-предложение: - (%)',
+            promo_offer_discount_value=promo_offer_discount_value,
             promo_offer_discount_percent=promo_offer_discount_percent,
         )
-    logger.info('ИТОГО: ₽', final_price=final_price / 100)
+    logger.info('ИТОГО: ₽', final_price=final_price)
 
     if final_price > 0 and not user_can_afford(db_user.balance_kopeks, final_price):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=final_price,
+            price_toman=final_price,
             balance_toman=db_user.balance_kopeks,
         )
 
@@ -2438,7 +2431,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(final_price),
+            final_price,
             f'Покупка подписки на {data["period_days"]} дней',
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -2447,7 +2440,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         if not success:
             message_text, missing_toman = render_addon_insufficient_funds(
                 texts,
-                price_kopeks=final_price,
+                price_toman=final_price,
                 balance_toman=db_user.balance_kopeks,
             )
 
@@ -2513,7 +2506,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                         'Записана конверсия: дн. триал → дн. платная за ₽',
                         trial_duration=trial_duration,
                         period_days=period_days,
-                        final_price=final_price / 100,
+                        final_price=final_price,
                     )
                 except Exception as conversion_error:
                     logger.error('Ошибка записи конверсии', conversion_error=conversion_error)
@@ -2856,7 +2849,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             'Пользователь купил подписку на дней за ₽',
             telegram_id=db_user.telegram_id,
             data=data['period_days'],
-            final_price=final_price / 100,
+            final_price=final_price,
         )
 
     except Exception as e:
@@ -3096,7 +3089,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
         db_user = await lock_user_for_pricing(db, db_user.id)
         daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, db_user)
-        # daily_price — цена каталога (×100), баланс — томаны.
+        # daily_price и баланс — одна шкала (томаны) после ревизии 0115.
         if daily_price > 0 and not user_can_afford(db_user.balance_kopeks, daily_price):
             await callback.answer(
                 texts.t(
@@ -3117,7 +3110,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
             deducted = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(daily_price),
+                daily_price,
                 f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                 mark_as_paid_subscription=True,
             )
@@ -3305,7 +3298,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
         return
 
     # Debit the Toman price; the transaction row below keeps the catalog trial_price_kopeks.
-    trial_price_toman = catalog_price_in_toman(trial_price_kopeks)
+    trial_price_toman = trial_price_kopeks
     success = await subtract_user_balance(
         db,
         db_user,
@@ -3881,7 +3874,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
                 logger.warning('Не удалось получить курс USD', rate_error=rate_error)
                 usd_rate = 95.0
 
-            amount_rubles = trial_price_kopeks / 100
+            amount_rubles = trial_price_kopeks
             amount_usd = round(amount_rubles / usd_rate, 2)
             if amount_usd < 1:
                 amount_usd = 1.0
@@ -4594,7 +4587,7 @@ async def _extend_existing_subscription(
     if price_kopeks > 0 and not user_can_afford(db_user.balance_kopeks, price_kopeks):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=price_kopeks,
+            price_toman=price_kopeks,
             balance_toman=db_user.balance_kopeks,
         )
 
@@ -4634,7 +4627,7 @@ async def _extend_existing_subscription(
     success = await subtract_user_balance(
         db,
         db_user,
-        catalog_price_in_toman(price_kopeks),
+        price_kopeks,
         f'Продление подписки на {period_days} дней',
         consume_promo_offer=consume_promo,
         mark_as_paid_subscription=True,
@@ -4697,7 +4690,7 @@ async def _extend_existing_subscription(
             await add_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 'Возврат: ошибка продления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,
@@ -4780,6 +4773,6 @@ async def _extend_existing_subscription(
         '✅ Пользователь продлил подписку на дней за ₽',
         telegram_id=db_user.telegram_id,
         period_days=period_days,
-        price_kopeks=price_kopeks / 100,
+        price_kopeks=price_kopeks,
     )
     await callback.answer()

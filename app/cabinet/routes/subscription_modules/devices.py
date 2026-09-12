@@ -39,7 +39,8 @@ from app.localization.texts import get_texts
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import DevicePurchaseRequest
@@ -243,7 +244,7 @@ async def purchase_devices_legacy(
             count=request.devices
         )
 
-    charge_toman = catalog_price_in_toman(total_price)
+    charge_toman = total_price
     success = await subtract_user_balance(
         db=db,
         user=user,
@@ -255,7 +256,7 @@ async def purchase_devices_legacy(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=texts.t('CABINET_INSUFFICIENT_BALANCE_RETRY', 'Insufficient funds'),
         )
-    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    # The payment row is Toman, like every amount since revision 0115.
     await create_transaction(
         db=db,
         user_id=user.id,
@@ -486,7 +487,7 @@ async def purchase_devices(
 
         # Ensure minimum price after discount (except for 100% discount)
         if devices_discount_percent < 100:
-            price_kopeks = max(100, price_kopeks)
+            price_kopeks = max(1, price_kopeks)  # 1 Toman floor
 
         # Check balance (skip for 100% discount): catalog price vs the Toman balance
         if price_kopeks > 0 and not user_can_afford(user.balance_kopeks, price_kopeks):
@@ -541,7 +542,7 @@ async def purchase_devices(
                 count=request.devices
             )
 
-        charge_toman = catalog_price_in_toman(price_kopeks)
+        charge_toman = price_kopeks
         success = await subtract_user_balance(
             db=db,
             user=user,
@@ -553,7 +554,7 @@ async def purchase_devices(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=texts.t('CABINET_INSUFFICIENT_BALANCE_RETRY', 'Insufficient funds'),
             )
-        # The payment row stays on the catalog scale, as the tariff purchase records it.
+        # The payment row is Toman, like every amount since revision 0115.
         await create_transaction(
             db=db,
             user_id=user.id,
@@ -676,7 +677,7 @@ async def purchase_devices(
             'message': texts.t('DEVICES_ADDON_ADDED', 'Добавлено {count} устройств').format(count=request.devices),
             'devices_added': request.devices,
             'new_device_limit': subscription.device_limit,
-            'price_kopeks': price_kopeks,
+            'price_kopeks': wire_catalog_kopeks(price_kopeks),
             'price_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
             'balance_label': settings.format_balance(user.balance_kopeks),
@@ -684,8 +685,8 @@ async def purchase_devices(
 
         if devices_discount_percent > 0:
             response['discount_percent'] = devices_discount_percent
-            response['discount_kopeks'] = discount_value
-            response['base_price_kopeks'] = base_price_prorated
+            response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+            response['base_price_kopeks'] = wire_catalog_kopeks(base_price_prorated)
 
         return response
 
@@ -782,7 +783,7 @@ async def save_devices_cart(
 
     base_total_price = int(device_price * chargeable_devices * effective_days / total_days)
     if chargeable_devices > 0:
-        base_total_price = max(100, base_total_price)  # Minimum 1 ruble
+        base_total_price = max(1, base_total_price)  # 1 Toman floor
 
     # Apply discount from promo group
     period_hint_days = days_left
@@ -792,7 +793,7 @@ async def save_devices_cart(
 
     # Ensure minimum price after discount (except for 100% discount)
     if devices_discount_percent < 100 and price_kopeks > 0:
-        price_kopeks = max(100, price_kopeks)
+        price_kopeks = max(1, price_kopeks)  # 1 Toman floor
 
     # Save cart for auto-purchase after balance top-up
     cart_data = {
@@ -916,7 +917,7 @@ async def get_device_price(
     # Calculate base price before discount (total first, then floor)
     base_total_price = int(device_price * chargeable_devices * effective_days / total_days)
     if chargeable_devices > 0:
-        base_total_price = max(100, base_total_price)
+        base_total_price = max(1, base_total_price)  # 1 Toman floor
 
     # Apply discount from promo group
     period_hint_days = days_left
@@ -927,29 +928,33 @@ async def get_device_price(
 
     # Ensure minimum price after discount (except for 100% discount)
     if devices_discount_percent < 100 and total_price_kopeks > 0:
-        total_price_kopeks = max(100, total_price_kopeks)
+        total_price_kopeks = max(1, total_price_kopeks)  # 1 Toman floor
     price_per_device_kopeks = total_price_kopeks // devices if devices > 0 else 0
 
+    # Every *_kopeks price here is on the catalog wire scale (the cabinet divides by 100);
+    # the labels are the Toman numbers.
     response: dict[str, Any] = {
         'available': True,
         'devices': devices,
-        'price_per_device_kopeks': price_per_device_kopeks,
+        'price_per_device_kopeks': wire_catalog_kopeks(price_per_device_kopeks),
         'price_per_device_label': settings.format_price(price_per_device_kopeks),
-        'total_price_kopeks': total_price_kopeks,
+        'total_price_kopeks': wire_catalog_kopeks(total_price_kopeks),
         'total_price_label': settings.format_price(total_price_kopeks),
         'current_device_limit': current_devices,
         'max_device_limit': max_device_limit,
         'can_add': can_add,
         'days_left': days_left,
-        'base_device_price_kopeks': device_price,
+        'base_device_price_kopeks': wire_catalog_kopeks(device_price),
     }
 
     # Add discount info if applicable
     if devices_discount_percent > 0:
         response['discount_percent'] = devices_discount_percent
-        response['discount_kopeks'] = discount_value
-        response['base_total_price_kopeks'] = base_total_price
-        response['original_price_per_device_kopeks'] = base_total_price // devices if devices > 0 else 0
+        response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+        response['base_total_price_kopeks'] = wire_catalog_kopeks(base_total_price)
+        response['original_price_per_device_kopeks'] = wire_catalog_kopeks(
+            base_total_price // devices if devices > 0 else 0
+        )
 
     return response
 

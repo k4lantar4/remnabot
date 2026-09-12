@@ -148,7 +148,7 @@ class CampaignStatisticsResponse(BaseModel):
     avg_first_payment_kopeks: int = 0
     avg_first_payment_rubles: float = 0.0
     # Display Toman, normalized per source scale. Prefer these over *_kopeks: revenue
-    # *_kopeks hold a Toman deposit sum, avg_first_payment_kopeks a catalog ×100 price.
+    # Every *_kopeks field here holds Toman; the names are historical.
     balance_issued_toman: int = 0
     total_revenue_toman: int = 0
     avg_revenue_per_user_toman: int = 0
@@ -284,7 +284,7 @@ class AdminCampaignChartDataResponse(BaseModel):
     total_deposits_kopeks: int = 0
     total_spending_kopeks: int = 0
     total_deposits_toman: int = 0  # balance scale → 1:1
-    total_spending_toman: int = 0  # subscription payments, catalog scale → ÷100
+    total_spending_toman: int = 0  # subscription payments, Toman 1:1
     daily_stats: list[AdminDailyStatItem] = []
     period_comparison: AdminPeriodComparison
     top_registrations: list[AdminTopRegistrationItem] = []

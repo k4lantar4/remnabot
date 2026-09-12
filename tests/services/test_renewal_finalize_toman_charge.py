@@ -30,8 +30,9 @@ from tests.fixtures.sqlite_memory import memory_session
 
 TABLES = list(Base.metadata.sorted_tables)
 
-RENEWAL_KOPEKS = 20_000_000  # catalog: a 200,000-Toman 30-day renewal
+# A 200,000-Toman 30-day renewal: stored, charged and recorded as the same number.
 RENEWAL_TOMAN = 200_000
+RENEWAL_KOPEKS = RENEWAL_TOMAN
 
 
 class _FakePanelSync:

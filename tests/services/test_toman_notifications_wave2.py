@@ -1,10 +1,10 @@
-"""Server-side notifications and admin screens show wallet amounts in Toman (wave 2, Task 4).
+"""Server-side notifications and admin screens show every amount in Toman (wave 2, Task 4).
 
-The wallet balance, referral terms (``REFERRAL_*_KOPEKS``, Toman since #35), referral commissions and
-``ReferralEarning`` sums are raw Toman. They were shown with ``/ 100`` or ``format_price`` (the catalog
-formatter), so a 150,000-Toman balance read «1,500». Catalog prices (a daily tariff's price) keep
-``format_price``. Poll rewards are typed and stored on the catalog scale (x100), like prices, and were
-credited to the wallet unconverted (100x).
+Written when the wallet balance, referral terms (``REFERRAL_*_KOPEKS``), referral commissions and
+``ReferralEarning`` sums were raw Toman while catalog prices were not: shown with ``/ 100`` or the
+catalog ``format_price``, a 150,000-Toman balance read «1,500». Phase C removed the split — prices,
+rewards and balances are all stored and shown as the same number — so these tests now pin that each
+notification prints what is stored.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from app.localization.texts import get_texts
 ROOT = Path(__file__).resolve().parents[2]
 
 BALANCE_TOMAN = 150_000
-DAILY_PRICE_KOPEKS = 1_000_000  # catalog: a 10,000-Toman day
+DAILY_PRICE_KOPEKS = 1_000_000  # a 1,000,000-Toman day (the column name is legacy)
 
 
 def _toman(amount: int) -> str:
@@ -291,13 +291,13 @@ async def test_webapi_deposit_reports_the_new_balance_in_toman(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_poll_reward_credits_the_toman_amount(monkeypatch):
-    """The admin types 10,000 Toman; it is stored x100 like a price and shown with format_price."""
+    """The admin types 10,000 Toman; it is stored, credited and shown as that same number."""
     from app.database.models import TransactionType
     from app.services import poll_service
 
     credit = AsyncMock(return_value=True)
     monkeypatch.setattr(poll_service, 'add_user_balance', credit)
-    poll = SimpleNamespace(reward_enabled=True, reward_amount_kopeks=1_000_000, title='Q')
+    poll = SimpleNamespace(reward_enabled=True, reward_amount_kopeks=10_000, title='Q')
     response = SimpleNamespace(poll=poll, reward_given=False, reward_amount_kopeks=0, user=SimpleNamespace(id=1))
     db = SimpleNamespace(refresh=AsyncMock())
 

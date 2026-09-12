@@ -585,7 +585,7 @@ class ReportingService:
         return f'{start_date.strftime("%d.%m.%Y")} - {end_date.strftime("%d.%m.%Y")}'
 
     def _format_amount(self, amount_kopeks: int) -> str:
-        rubles = (amount_kopeks or 0) / 100
+        rubles = amount_kopeks or 0
         return f'{rubles:,.2f} ₽'.replace(',', ' ')
 
 

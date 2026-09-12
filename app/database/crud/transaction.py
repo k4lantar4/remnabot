@@ -1,12 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import Integer, and_, case, func, or_, select
+from sqlalchemy import Integer, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.models import PaymentMethod, Transaction, TransactionType, User
-from app.utils.price_display import BALANCE_SCALE_TRANSACTION_TYPES, storage_sum_to_display_toman
+from app.utils.price_display import storage_sum_to_display_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -38,26 +38,22 @@ def display_toman_from_type_sums(rows) -> int:
     (subscription_payment, gift_payment) ×100 — a single SQL sum across both is
     meaningless, so callers group by type and convert here.
     """
-    return sum(storage_sum_to_display_toman(int(total or 0), tx_type) for tx_type, total in rows)
+    return sum(storage_sum_to_display_toman(int(total or 0)) for _tx_type, total in rows)
 
 
 def transaction_toman_amount():
     """Per-row ``|amount_kopeks|`` of a ``Transaction`` in display Toman (SQL expression).
 
-    Balance-scale types count 1:1, catalog types are divided by 100 per row — the same
-    floor as ``catalog_price_in_toman``, i.e. what the wallet was actually charged. Typing
-    ``abs`` as Integer makes ``//`` render as plain integer division on PostgreSQL and
-    SQLite (no FLOOR/NUMERIC), so sums stay integers.
+    Since Phase C (revision ``0115``) every row is stored in Toman 1:1, whatever its type, so this
+    is a plain ``abs()``. It used to be a ``CASE`` that divided catalog types by 100 — a per-row
+    scale decision driven by a hand-maintained list of transaction types, where a newly added type
+    silently landed on the wrong side and made a report 100x off.
     """
-    amount = func.abs(Transaction.amount_kopeks, type_=Integer)
-    return case(
-        (Transaction.type.in_(BALANCE_SCALE_TRANSACTION_TYPES), amount),
-        else_=amount // 100,
-    )
+    return func.abs(Transaction.amount_kopeks, type_=Integer)
 
 
 def transaction_toman_sum():
-    """``COALESCE(SUM(...), 0)`` of ``transaction_toman_amount`` — safe across mixed-scale rows."""
+    """``COALESCE(SUM(...), 0)`` of :func:`transaction_toman_amount`."""
     return func.coalesce(func.sum(transaction_toman_amount()), 0)
 
 
@@ -142,7 +138,7 @@ async def create_transaction(
     logger.info(
         '💳 Создана транзакция',
         type_value=type.value,
-        amount_kopeks=stored_amount / 100,
+        amount_kopeks=stored_amount,
         user_id=user_id,
     )
 
@@ -159,7 +155,7 @@ async def create_transaction(
                     'user_id': user_id,
                     'type': type.value,
                     'amount_kopeks': abs(amount_kopeks),
-                    'amount_rubles': abs(amount_kopeks) / 100,
+                    'amount_rubles': abs(amount_kopeks),
                     'payment_method': payment_method.value if payment_method else None,
                     'external_id': external_id,
                     'is_completed': is_completed,
@@ -232,7 +228,7 @@ async def emit_transaction_side_effects(
                 'user_id': user_id,
                 'type': type.value,
                 'amount_kopeks': abs(amount_kopeks),
-                'amount_rubles': abs(amount_kopeks) / 100,
+                'amount_rubles': abs(amount_kopeks),
                 'payment_method': payment_method.value if payment_method else None,
                 'external_id': external_id,
                 'is_completed': is_completed,
@@ -405,7 +401,7 @@ async def get_transactions_statistics(
         )
     )
     total_expenses = expenses_result.scalar()
-    total_expenses_toman = storage_sum_to_display_toman(int(total_expenses or 0), TransactionType.WITHDRAWAL.value)
+    total_expenses_toman = storage_sum_to_display_toman(int(total_expenses or 0))
 
     subscription_income_result = await db.execute(
         select(func.coalesce(func.sum(func.abs(Transaction.amount_kopeks)), 0)).where(
@@ -462,7 +458,7 @@ async def get_transactions_statistics(
         entry = payment_methods.setdefault(row.payment_method, {'count': 0, 'amount': 0, 'amount_toman': 0})
         entry['count'] += row.count
         entry['amount'] += amount
-        entry['amount_toman'] += storage_sum_to_display_toman(amount, row.type)
+        entry['amount_toman'] += storage_sum_to_display_toman(amount)
 
     today = datetime.now(UTC).date()
     today_result = await db.execute(
@@ -500,9 +496,7 @@ async def get_transactions_statistics(
             'profit_kopeks': total_income - total_expenses,
             'profit_toman': total_income_toman - total_expenses_toman,
             'subscription_income_kopeks': subscription_income,
-            'subscription_income_toman': storage_sum_to_display_toman(
-                int(subscription_income or 0), TransactionType.SUBSCRIPTION_PAYMENT.value
-            ),
+            'subscription_income_toman': storage_sum_to_display_toman(int(subscription_income or 0)),
         },
         'today': {
             'transactions_count': transactions_today,
@@ -542,7 +536,7 @@ async def get_revenue_by_period(db: AsyncSession, days: int = 30) -> list[dict]:
         amount = int(row.amount or 0)
         entry = by_date.setdefault(row.date, {'date': row.date, 'amount_kopeks': 0, 'amount_toman': 0})
         entry['amount_kopeks'] += amount
-        entry['amount_toman'] += storage_sum_to_display_toman(amount, row.type)
+        entry['amount_toman'] += storage_sum_to_display_toman(amount)
     return list(by_date.values())
 
 

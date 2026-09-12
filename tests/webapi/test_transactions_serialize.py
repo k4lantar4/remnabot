@@ -1,7 +1,11 @@
-"""Web API ``amount_rubles`` follows each transaction type's storage scale (F-030).
+"""Web API ``amount_rubles`` is the stored number, whatever the transaction type.
 
-Balance-scale types (deposit, withdrawal, …) are stored Toman 1:1; catalog-scale
-ones (subscription_payment) are ×100. A flat ÷100 made a 50,000-Toman deposit 500.
+This test was written for F-030, when ``amount_rubles`` had to follow each type's storage scale:
+deposits were Toman 1:1 while subscription payments were ×100, and a flat ÷100 turned a
+50,000-Toman deposit into 500. Revision ``0115`` put every row on the Toman scale, so the rule it
+guards is now the simple one — no type decides anything, and no division happens.
+
+The 100x shapes are asserted explicitly, because getting them back is the regression that matters.
 """
 
 from datetime import UTC, datetime
@@ -31,16 +35,25 @@ def _tx(tx_type: str, amount: int) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize(
-    ('tx_type', 'stored', 'expected'),
+    ('tx_type', 'stored'),
     [
-        ('deposit', 50_000, 50_000.0),
-        ('withdrawal', -30_000, -30_000.0),
-        ('referral_reward', 20_000, 20_000.0),
-        ('subscription_payment', 5_000_000, 50_000.0),
+        ('deposit', 50_000),
+        ('withdrawal', -30_000),
+        ('referral_reward', 20_000),
+        ('subscription_payment', -50_000),
+        ('gift_payment', -24_000),
     ],
 )
-def test_amount_rubles_is_display_toman(tx_type: str, stored: int, expected: float) -> None:
+def test_amount_rubles_is_the_stored_toman(tx_type: str, stored: int) -> None:
     response = _serialize(_tx(tx_type, stored))
 
-    assert response.amount_rubles == expected
+    assert response.amount_rubles == float(stored)
     assert response.amount_kopeks == stored
+
+
+def test_no_type_is_divided_by_a_hundred() -> None:
+    """The bug this file exists for: a 50,000-Toman row rendering as 500."""
+    for tx_type in ('deposit', 'subscription_payment'):
+        response = _serialize(_tx(tx_type, 50_000))
+        assert response.amount_rubles == 50_000.0
+        assert response.amount_rubles != 500.0

@@ -870,8 +870,8 @@ def _parse_price_input(text: str) -> int:
     if value < 0:
         raise ValueError('negative')
 
-    kopeks = int((value * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
-    return kopeks
+    # Toman is stored 1:1 since revision 0115 — the typed number is the stored number.
+    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def _resolve_label(section: str, key: str, language: str) -> str:
