@@ -547,11 +547,20 @@ class SubscriptionService:
                 # Создание нового аккаунта на транзиентной ошибке даёт дубль
                 # ровно тогда, когда оригинал жив и панель просто моргнула.
                 raise
-            except Exception:
+            except RemnaWaveAPIError as error:
+                # F-018: only a proven "user not found" (A025/A063, or a 404 about
+                # the user) may fall through to adoption/creation — the account was
+                # deleted in the panel. Anything else (500, 429, a 404 about a squad,
+                # a failed traffic reset after a successful PATCH) means "don't
+                # know", and creating here would duplicate a live, paid account.
+                # The caller (`create_remnawave_user`) rolls back and logs it.
+                if not is_user_not_found_error(error):
+                    raise
                 logger.warning(
-                    '⚠️ Не удалось найти Remnawave юзера по id подписки, создаём нового',
+                    '⚠️ Панельный юзер подписки удалён в панели, создаём нового',
                     subscription_id=subscription.id,
                     remnawave_id=subscription.remnawave_id,
+                    error=error,
                 )
 
         # Строка могла быть привязана к панели ДО апгрейда на 3.0.0: числового
