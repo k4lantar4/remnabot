@@ -4,7 +4,8 @@
 **Repos:** `remnabot` first (tasks 1-2, additive API + one additive migration), then `frontend`
 (tasks 3-4).
 **Upstream basis:** `remnabot` origin/main `1505af7e`, upstream/main `9fcebfd7`; `frontend`
-origin/main `e1016515`, upstream/main `57810c7d`.
+origin/main `e1016515`, upstream/main `57810c7d`. Re-checked at execution start: `remnabot` origin/main
+`08194b09` (after the top-up plan, #78/#79), upstream/main still `9fcebfd7`; migration head `0118`.
 **Order:** execute after `2026-09-12-cabinet-topup-three-methods.md` has merged in both repos — this
 plan is also that plan's mandatory admin-parity deliverable (workspace `CLAUDE.md` → Admin parity).
 
@@ -61,7 +62,8 @@ Existing rows stay valid with both columns NULL; nothing reads them as required.
 **Scale.** Receipt amounts are Toman 1:1; the API sends `amount_toman` (display) alongside
 `amount_kopeks` (×100, for symmetry with the other cabinet payment responses) and the approve request
 takes `amount_kopeks` on the cabinet scale, converted at the same single boundary the user-side plan
-introduced (`config_helpers.receipt_toman_from_cabinet_amount`). No dual-scale logic is added
+introduced (`app/utils/wire_scale.py`: `wire_catalog_kopeks` outbound, `toman_from_wire_catalog` inbound — the
+`config_helpers` names this plan first used were never created). No dual-scale logic is added
 anywhere else; Phase C stays out of scope.
 
 **Error cases:** a receipt decided by the other channel between load and click → 409 carrying the
@@ -99,7 +101,7 @@ approve/reject, editing a decided receipt, and any change to the bot's admin inb
 - Test: `remnabot/tests/cabinet/test_admin_c2c_receipts_list.py`.
 
 **Interfaces consumed:** `C2cReceipt` / `C2cReceiptStatus`, `media.make_media_token`,
-`config_helpers.cabinet_amount_from_receipt_toman` and `get_card_by_index`,
+`wire_scale.wire_catalog_kopeks`, `config_helpers.get_card_by_index`,
 `require_permission('payments:read')`.
 
 **Interfaces produced (consumed by tasks 2-4):**
@@ -136,7 +138,7 @@ the approve/reject routes (403) while still reading the list.
 ### Task 2 — Backend: approve and reject from the cabinet
 
 **Repo + files:**
-- `remnabot/migrations/alembic/versions/0114_c2c_receipt_reviewer.py` (new, additive and idempotent:
+- `remnabot/migrations/alembic/versions/0119_c2c_receipt_reviewer.py` (new, revises `0118`; additive and idempotent:
   `reviewed_by_user_id INTEGER NULL REFERENCES users(id)`, `reviewed_via VARCHAR(16) NULL`).
 - `remnabot/app/database/models.py` — the two columns on `C2cReceipt`.
 - `remnabot/app/plugins/c2c/decision.py` (new) — `resolved_receipt_message(db, receipt, admin_label, *,
@@ -153,7 +155,7 @@ the approve/reject routes (403) while still reading the list.
 **Interfaces consumed:** `C2cPaymentService.approve_receipt` / `reject_receipt`,
 `reject_reasons.get_reject_reason_codes()`, `decision.resolved_receipt_message` /
 `sync_group_admin_message`, `bot_factory.create_bot`, `require_permission('payments:edit')`,
-`config_helpers.receipt_toman_from_cabinet_amount`.
+`wire_scale.toman_from_wire_catalog`.
 
 **Interfaces produced (consumed by task 4):**
 ```
@@ -179,7 +181,8 @@ untouched; rejecting with `silent` sends no user message; an unknown reason code
 **Persian/i18n:** the reject-reason labels already exist as `C2C_REJECT_REASON_*` /
 `C2C_ADMIN_REJECT_BTN_*` in the locales and are reused; add only the new API error strings
 (`CABINET_C2C_ADMIN_ALREADY_PROCESSED`, `CABINET_C2C_ADMIN_BAD_REASON`,
-`CABINET_C2C_ADMIN_AMOUNT_OUT_OF_RANGE`) to all five baked locales plus the runtime `locales/fa.json`.
+`CABINET_C2C_ADMIN_AMOUNT_OUT_OF_RANGE`) to all five baked locales plus the runtime `locales/` copies
+(`en`, `fa`, `ru`), byte-identical to the baked ones.
 
 ### Task 3 — Frontend: admin menu item and the receipts list screen
 
