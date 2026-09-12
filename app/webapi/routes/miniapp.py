@@ -3223,7 +3223,7 @@ async def get_subscription_details(
                 id=group.id,
                 name=group.name,
                 threshold_kopeks=threshold,
-                threshold_rubles=round(threshold / 100, 2),
+                threshold_rubles=threshold,
                 threshold_label=settings.format_price(threshold),
                 is_reached=total_spent_kopeks >= threshold,
                 is_current=bool(promo_group and promo_group.id == group.id),

@@ -30,6 +30,7 @@ from app.database.crud.promocode import (
 )
 from app.database.crud.tariff import get_tariff_by_id
 from app.database.models import PromoCode, PromoCodeType, PromoCodeUse, PromoGroup, User
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -233,7 +234,15 @@ def _normalize_period_discounts(group: PromoGroup) -> dict[int, int]:
     return normalized
 
 
+def _auto_assign_threshold_toman(payload: PromoGroupCreateRequest | PromoGroupUpdateRequest) -> int | None:
+    """The auto-assign spend threshold arrives x100 (the cabinet multiplies it); store Toman."""
+    if payload.auto_assign_total_spent_kopeks is None:
+        return None
+    return toman_from_wire_catalog(payload.auto_assign_total_spent_kopeks)
+
+
 def _serialize_promo_group(group: PromoGroup, members_count: int = 0) -> PromoGroupResponse:
+    threshold = group.auto_assign_total_spent_kopeks
     return PromoGroupResponse(
         id=group.id,
         name=group.name,
@@ -241,7 +250,7 @@ def _serialize_promo_group(group: PromoGroup, members_count: int = 0) -> PromoGr
         traffic_discount_percent=group.traffic_discount_percent,
         device_discount_percent=group.device_discount_percent,
         period_discounts=_normalize_period_discounts(group),
-        auto_assign_total_spent_kopeks=group.auto_assign_total_spent_kopeks,
+        auto_assign_total_spent_kopeks=wire_catalog_kopeks(threshold) if threshold is not None else None,
         apply_discounts_to_addons=group.apply_discounts_to_addons,
         is_default=group.is_default,
         members_count=members_count,
@@ -667,7 +676,7 @@ async def create_promo_group_endpoint(
             traffic_discount_percent=payload.traffic_discount_percent,
             device_discount_percent=payload.device_discount_percent,
             period_discounts=payload.period_discounts,
-            auto_assign_total_spent_kopeks=payload.auto_assign_total_spent_kopeks,
+            auto_assign_total_spent_kopeks=_auto_assign_threshold_toman(payload),
             apply_discounts_to_addons=payload.apply_discounts_to_addons,
             is_default=payload.is_default,
         )
@@ -704,7 +713,7 @@ async def update_promo_group_endpoint(
             traffic_discount_percent=payload.traffic_discount_percent,
             device_discount_percent=payload.device_discount_percent,
             period_discounts=payload.period_discounts,
-            auto_assign_total_spent_kopeks=payload.auto_assign_total_spent_kopeks,
+            auto_assign_total_spent_kopeks=_auto_assign_threshold_toman(payload),
             apply_discounts_to_addons=payload.apply_discounts_to_addons,
             is_default=payload.is_default,
         )

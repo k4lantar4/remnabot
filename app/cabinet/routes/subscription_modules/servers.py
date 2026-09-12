@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import User
 from app.services.subscription_service import SubscriptionService
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from .helpers import resolve_subscription
@@ -76,10 +77,11 @@ async def get_available_countries(
                 'uuid': server.squad_uuid,
                 'name': server.display_name,
                 'country_code': server.country_code,
-                'base_price_kopeks': base_price,
-                'price_kopeks': prorated_price,  # Prorated price with discount
-                'price_per_month_kopeks': discounted_price,  # Monthly price with discount
-                'price_rubles': prorated_price / 100,
+                # Catalog wire scale — the cabinet divides these by 100.
+                'base_price_kopeks': wire_catalog_kopeks(base_price),
+                'price_kopeks': wire_catalog_kopeks(prorated_price),  # Prorated price with discount
+                'price_per_month_kopeks': wire_catalog_kopeks(discounted_price),  # Monthly price with discount
+                'price_rubles': prorated_price,
                 'is_available': server.is_available and not server.is_full,
                 'is_connected': server.squad_uuid in connected_squads,
                 'has_discount': servers_discount_percent > 0,

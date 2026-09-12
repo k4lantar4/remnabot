@@ -156,7 +156,7 @@ async def test_cabinet_device_purchase_charges_the_toman_amount(monkeypatch):
         subscription = await db.get(Subscription, 10)
 
     assert subscription.device_limit == 2
-    assert response['price_kopeks'] == DEVICE_PRICE_KOPEKS
+    assert response['price_kopeks'] == DEVICE_PRICE_TOMAN * 100  # catalog wire scale, the cabinet divides
     assert response['balance_kopeks'] == 50_000 - DEVICE_PRICE_TOMAN
 
 

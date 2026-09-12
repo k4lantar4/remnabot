@@ -68,6 +68,7 @@ from app.utils.price_display import (
 )
 from app.utils.subscription_utils import coerce_panel_device_limit
 from app.utils.timezone import panel_datetime_to_utc
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.users import (
@@ -2101,16 +2102,16 @@ async def get_user_available_tariffs(
         is_available = tariff.is_available_for_promo_group(user.promo_group_id)
         requires_promo_group = bool(tariff.allowed_promo_groups)
 
-        # Build period prices
+        # Build period prices: stored Toman -> `price_kopeks` on the frozen x100 wire, `price_rubles` plain Toman
         period_prices = []
         if tariff.period_prices:
-            for days_str, price_kopeks in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
+            for days_str, price_toman in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
                 days = int(days_str)
                 period_prices.append(
                     PeriodPriceInfo(
                         days=days,
-                        price_kopeks=price_kopeks,
-                        price_rubles=price_kopeks,
+                        price_kopeks=wire_catalog_kopeks(price_toman),
+                        price_rubles=price_toman,
                     )
                 )
 
@@ -2127,15 +2128,19 @@ async def get_user_available_tariffs(
                 display_order=tariff.display_order,
                 period_prices=period_prices,
                 is_daily=tariff.is_daily,
-                daily_price_kopeks=tariff.daily_price_kopeks,
+                daily_price_kopeks=wire_catalog_kopeks(tariff.daily_price_kopeks),
                 custom_days_enabled=tariff.custom_days_enabled,
-                price_per_day_kopeks=tariff.price_per_day_kopeks,
+                price_per_day_kopeks=wire_catalog_kopeks(tariff.price_per_day_kopeks),
                 min_days=tariff.min_days,
                 max_days=tariff.max_days,
-                device_price_kopeks=tariff.device_price_kopeks,
+                device_price_kopeks=(
+                    wire_catalog_kopeks(tariff.device_price_kopeks) if tariff.device_price_kopeks is not None else None
+                ),
                 max_device_limit=tariff.max_device_limit,
                 traffic_topup_enabled=tariff.traffic_topup_enabled,
-                traffic_topup_packages=tariff.traffic_topup_packages or {},
+                traffic_topup_packages={
+                    str(gb): wire_catalog_kopeks(price) for gb, price in (tariff.traffic_topup_packages or {}).items()
+                },
                 max_topup_traffic_gb=tariff.max_topup_traffic_gb,
                 is_available=is_available,
                 requires_promo_group=requires_promo_group,
@@ -3484,9 +3489,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             title=t.description,
             amount_kopeks=t.amount_kopeks,
             amount_toman=(
-                display_transaction_amount_from_storage(t.amount_kopeks)
-                if t.amount_kopeks is not None
-                else None
+                display_transaction_amount_from_storage(t.amount_kopeks) if t.amount_kopeks is not None else None
             ),
             timestamp=t.created_at,
             meta={'payment_method': t.payment_method, 'is_completed': t.is_completed},
@@ -4608,7 +4611,8 @@ def _build_gift_item(
         tariff_name=tariff_name,
         period_days=p.period_days,
         device_limit=device_limit,
-        amount_kopeks=p.amount_kopeks,
+        # Gift purchase price is a catalog amount: the cabinet GiftsTab divides it by 100.
+        amount_kopeks=wire_catalog_kopeks(p.amount_kopeks),
         payment_method=p.payment_method,
         gift_recipient_type=p.gift_recipient_type,
         gift_recipient_value=p.gift_recipient_value,

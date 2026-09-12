@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import Subscription, User
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...schemas.subscription import (
     ServerInfo,
@@ -220,7 +221,8 @@ def _subscription_to_response(
         traffic_purchases=traffic_purchases or [],
         is_daily=is_daily,
         is_daily_paused=is_daily_paused,
-        daily_price_kopeks=daily_price_kopeks,
+        # The cabinet divides this by 100 (formatPrice): catalog wire scale.
+        daily_price_kopeks=wire_catalog_kopeks(daily_price_kopeks) if daily_price_kopeks is not None else None,
         next_daily_charge_at=next_daily_charge_at,
         tariff_id=tariff_id,
         tariff_name=tariff_name,

@@ -65,9 +65,7 @@ async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -
             _result(  # by payment method
                 rows=[
                     SimpleNamespace(payment_method='card', type='deposit', count=1, total_amount=50_000),
-                    SimpleNamespace(
-                        payment_method='card', type='subscription_payment', count=1, total_amount=100_000
-                    ),
+                    SimpleNamespace(payment_method='card', type='subscription_payment', count=1, total_amount=100_000),
                 ]
             ),
             _result(scalar=0),  # today count

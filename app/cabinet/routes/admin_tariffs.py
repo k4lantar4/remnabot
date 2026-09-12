@@ -22,6 +22,7 @@ from app.database.crud.tariff import (
     update_tariff,
 )
 from app.database.models import PromoGroup, Subscription, SubscriptionStatus, Tariff, Transaction, TransactionType, User
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.tariffs import (
@@ -96,18 +97,36 @@ async def _get_tariff_promo_groups(db: AsyncSession, tariff: Tariff) -> list[Pro
 
 
 def _period_prices_to_list(period_prices: dict) -> list[PeriodPrice]:
-    """Convert period_prices dict to list."""
+    """Stored Toman period prices -> the wire (``price_kopeks`` x100, ``price_rubles`` plain Toman)."""
     if not period_prices:
         return []
     return [
-        PeriodPrice(days=int(days), price_kopeks=price)
+        PeriodPrice(days=int(days), price_kopeks=wire_catalog_kopeks(price), price_rubles=price)
         for days, price in sorted(period_prices.items(), key=lambda x: int(x[0]))
     ]
 
 
 def _period_prices_to_dict(period_prices: list[PeriodPrice]) -> dict:
-    """Convert period_prices list to dict."""
-    return {str(pp.days): pp.price_kopeks for pp in period_prices}
+    """Wire period prices -> the stored Toman dict."""
+    return {str(pp.days): toman_from_wire_catalog(pp.price_kopeks) for pp in period_prices}
+
+
+def _topup_packages_to_wire(packages: dict | None) -> dict[str, int]:
+    """Stored ``{gb: Toman}`` -> ``{gb: x100}``; the cabinet divides the values on display."""
+    return {str(gb): wire_catalog_kopeks(price) for gb, price in (packages or {}).items()}
+
+
+def _topup_packages_from_wire(packages: dict) -> dict[str, int]:
+    """``{gb: x100}`` from the cabinet -> stored ``{gb: Toman}``."""
+    return {str(gb): toman_from_wire_catalog(price) for gb, price in packages.items()}
+
+
+def _optional_wire(amount: int | None) -> int | None:
+    return wire_catalog_kopeks(amount) if amount is not None else None
+
+
+def _optional_toman(amount: int | None) -> int | None:
+    return toman_from_wire_catalog(amount) if amount is not None else None
 
 
 @router.get('', response_model=TariffListResponse)
@@ -130,7 +149,7 @@ async def list_tariffs(
                 is_active=tariff.is_active,
                 is_trial_available=tariff.is_trial_available,
                 is_daily=tariff.is_daily,
-                daily_price_kopeks=tariff.daily_price_kopeks,
+                daily_price_kopeks=wire_catalog_kopeks(tariff.daily_price_kopeks),
                 lava_product_id=tariff.lava_product_id,
                 allow_traffic_topup=tariff.allow_traffic_topup,
                 show_in_gift=tariff.show_in_gift,
@@ -241,11 +260,11 @@ async def get_tariff(
         is_trial_available=tariff.is_trial_available,
         allow_traffic_topup=tariff.allow_traffic_topup,
         traffic_topup_enabled=tariff.traffic_topup_enabled,
-        traffic_topup_packages=tariff.traffic_topup_packages or {},
+        traffic_topup_packages=_topup_packages_to_wire(tariff.traffic_topup_packages),
         max_topup_traffic_gb=tariff.max_topup_traffic_gb,
         traffic_limit_gb=tariff.traffic_limit_gb,
         device_limit=tariff.device_limit,
-        device_price_kopeks=tariff.device_price_kopeks,
+        device_price_kopeks=_optional_wire(tariff.device_price_kopeks),
         max_device_limit=tariff.max_device_limit,
         tier_level=tariff.tier_level,
         display_order=tariff.display_order,
@@ -257,17 +276,17 @@ async def get_tariff(
         subscriptions_count=subs_count,
         # Произвольное количество дней
         custom_days_enabled=tariff.custom_days_enabled,
-        price_per_day_kopeks=tariff.price_per_day_kopeks,
+        price_per_day_kopeks=wire_catalog_kopeks(tariff.price_per_day_kopeks),
         min_days=tariff.min_days,
         max_days=tariff.max_days,
         # Произвольный трафик при покупке
         custom_traffic_enabled=tariff.custom_traffic_enabled,
-        traffic_price_per_gb_kopeks=tariff.traffic_price_per_gb_kopeks,
+        traffic_price_per_gb_kopeks=wire_catalog_kopeks(tariff.traffic_price_per_gb_kopeks),
         min_traffic_gb=tariff.min_traffic_gb,
         max_traffic_gb=tariff.max_traffic_gb,
         # Дневной тариф
         is_daily=tariff.is_daily,
-        daily_price_kopeks=tariff.daily_price_kopeks,
+        daily_price_kopeks=wire_catalog_kopeks(tariff.daily_price_kopeks),
         lava_product_id=tariff.lava_product_id,
         # Режим сброса трафика
         traffic_reset_mode=tariff.traffic_reset_mode,
@@ -303,11 +322,11 @@ async def create_new_tariff(
         is_active=request.is_active,
         allow_traffic_topup=request.allow_traffic_topup,
         traffic_topup_enabled=request.traffic_topup_enabled,
-        traffic_topup_packages=request.traffic_topup_packages,
+        traffic_topup_packages=_topup_packages_from_wire(request.traffic_topup_packages),
         max_topup_traffic_gb=request.max_topup_traffic_gb,
         traffic_limit_gb=request.traffic_limit_gb,
         device_limit=request.device_limit,
-        device_price_kopeks=request.device_price_kopeks,
+        device_price_kopeks=_optional_toman(request.device_price_kopeks),
         max_device_limit=request.max_device_limit,
         tier_level=request.tier_level,
         period_prices=period_prices_dict,
@@ -316,17 +335,17 @@ async def create_new_tariff(
         promo_group_ids=request.promo_group_ids or None,
         # Произвольное количество дней
         custom_days_enabled=request.custom_days_enabled,
-        price_per_day_kopeks=request.price_per_day_kopeks,
+        price_per_day_kopeks=toman_from_wire_catalog(request.price_per_day_kopeks),
         min_days=request.min_days,
         max_days=request.max_days,
         # Произвольный трафик при покупке
         custom_traffic_enabled=request.custom_traffic_enabled,
-        traffic_price_per_gb_kopeks=request.traffic_price_per_gb_kopeks,
+        traffic_price_per_gb_kopeks=toman_from_wire_catalog(request.traffic_price_per_gb_kopeks),
         min_traffic_gb=request.min_traffic_gb,
         max_traffic_gb=request.max_traffic_gb,
         # Дневной тариф
         is_daily=request.is_daily,
-        daily_price_kopeks=request.daily_price_kopeks,
+        daily_price_kopeks=toman_from_wire_catalog(request.daily_price_kopeks),
         lava_product_id=request.lava_product_id,
         # Режим сброса трафика
         traffic_reset_mode=request.traffic_reset_mode,
@@ -377,7 +396,7 @@ async def update_existing_tariff(
     if request.traffic_topup_enabled is not None:
         updates['traffic_topup_enabled'] = request.traffic_topup_enabled
     if request.traffic_topup_packages is not None:
-        updates['traffic_topup_packages'] = request.traffic_topup_packages
+        updates['traffic_topup_packages'] = _topup_packages_from_wire(request.traffic_topup_packages)
     if request.max_topup_traffic_gb is not None:
         updates['max_topup_traffic_gb'] = request.max_topup_traffic_gb
     if request.traffic_limit_gb is not None:
@@ -385,7 +404,7 @@ async def update_existing_tariff(
     if request.device_limit is not None:
         updates['device_limit'] = request.device_limit
     if request.device_price_kopeks is not None:
-        updates['device_price_kopeks'] = request.device_price_kopeks
+        updates['device_price_kopeks'] = toman_from_wire_catalog(request.device_price_kopeks)
     if request.max_device_limit is not None:
         updates['max_device_limit'] = request.max_device_limit
     if request.tier_level is not None:
@@ -405,7 +424,7 @@ async def update_existing_tariff(
     if request.custom_days_enabled is not None:
         updates['custom_days_enabled'] = request.custom_days_enabled
     if request.price_per_day_kopeks is not None:
-        updates['price_per_day_kopeks'] = request.price_per_day_kopeks
+        updates['price_per_day_kopeks'] = toman_from_wire_catalog(request.price_per_day_kopeks)
     if request.min_days is not None:
         updates['min_days'] = request.min_days
     if request.max_days is not None:
@@ -414,7 +433,7 @@ async def update_existing_tariff(
     if request.custom_traffic_enabled is not None:
         updates['custom_traffic_enabled'] = request.custom_traffic_enabled
     if request.traffic_price_per_gb_kopeks is not None:
-        updates['traffic_price_per_gb_kopeks'] = request.traffic_price_per_gb_kopeks
+        updates['traffic_price_per_gb_kopeks'] = toman_from_wire_catalog(request.traffic_price_per_gb_kopeks)
     if request.min_traffic_gb is not None:
         updates['min_traffic_gb'] = request.min_traffic_gb
     if request.max_traffic_gb is not None:
@@ -425,7 +444,7 @@ async def update_existing_tariff(
     if request.lava_product_id is not None:
         updates['lava_product_id'] = request.lava_product_id.strip() or None
     if request.daily_price_kopeks is not None:
-        updates['daily_price_kopeks'] = request.daily_price_kopeks
+        updates['daily_price_kopeks'] = toman_from_wire_catalog(request.daily_price_kopeks)
     # Режим сброса трафика (None допускается как значение для сброса к глобальной настройке)
     if 'traffic_reset_mode' in request.model_fields_set:
         updates['traffic_reset_mode'] = request.traffic_reset_mode
@@ -609,7 +628,7 @@ async def get_tariff_stats(
             Transaction.is_completed == True,
         )
     )
-    revenue_kopeks = revenue_result.scalar() or 0
+    revenue_toman = revenue_result.scalar() or 0
 
     return TariffStatsResponse(
         id=tariff_id,
@@ -617,8 +636,8 @@ async def get_tariff_stats(
         subscriptions_count=total_count,
         active_subscriptions=active_count,
         trial_subscriptions=trial_count,
-        revenue_kopeks=revenue_kopeks,
-        revenue_rubles=revenue_kopeks,
+        revenue_kopeks=wire_catalog_kopeks(revenue_toman),
+        revenue_rubles=revenue_toman,
     )
 
 

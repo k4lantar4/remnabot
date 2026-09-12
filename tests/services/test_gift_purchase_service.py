@@ -406,7 +406,7 @@ async def test_purchase_gift_insufficient_balance_rolls_back(monkeypatch):
 
         buyer = User(
             telegram_id=999,
-            balance_kopeks=150,  # Toman; the gift costs 270 Toman (catalog 27,000)
+            balance_kopeks=150,  # Toman; the gift costs 27,000 Toman
             promo_offer_discount_percent=10,
         )
         tariff = Tariff(
@@ -430,7 +430,7 @@ async def test_purchase_gift_insufficient_balance_rolls_back(monkeypatch):
 
         assert exc_info.value.required_kopeks == 27000
         assert exc_info.value.available_kopeks == 150
-        assert exc_info.value.missing_toman == 120
+        assert exc_info.value.missing_toman == 26_850
 
         # State preserved
         await db.refresh(buyer)

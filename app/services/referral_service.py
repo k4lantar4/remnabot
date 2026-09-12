@@ -1035,7 +1035,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                         logger.info(
                             '💰 Комиссия с пополнения: получил ₽ (до первого бонуса)',
                             telegram_id=referrer.telegram_id,
-                            commission_amount=commission_amount / 100,
+                            commission_amount=commission_amount,
                         )
 
                         if bot:
@@ -1140,9 +1140,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                     )
 
                     referrer_id = referrer.telegram_id or referrer.email or f'user#{referrer.id}'
-                    logger.info(
-                        '💰 Реферер получил бонус ₽', referrer_id=referrer_id, inviter_bonus=inviter_bonus / 100
-                    )
+                    logger.info('💰 Реферер получил бонус', referrer_id=referrer_id, inviter_bonus=inviter_bonus)
 
                     if bot:
                         # The fixed bonus, the top-up and the commission are all Toman (balance scale).
@@ -1218,7 +1216,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                 logger.info(
                     '💰 Комиссия с пополнения: получил ₽',
                     referrer_id=referrer_id,
-                    commission_amount=commission_amount / 100,
+                    commission_amount=commission_amount,
                 )
 
                 if bot:
@@ -1274,7 +1272,7 @@ async def process_referral_purchase(
 
         commission_percent = get_effective_referral_commission_percent(referrer)
 
-        # The purchase is a catalog price (Toman x 100); the commission lands 1:1 in the Toman balance.
+        # Purchase, commission and balance are all Toman since revision 0115 — no conversion left.
         commission_amount = int(purchase_amount_kopeks * commission_percent / 100)
 
         if commission_amount > 0:

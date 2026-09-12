@@ -656,8 +656,9 @@ def _parse_reward_amount(message_text: str) -> int | None:
     if value < 0:
         value = Decimal(0)
 
-    kopeks = int((value * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
-    return max(0, kopeks)
+    # Toman is stored 1:1 since revision 0115 — the typed number is the stored number.
+    toman = int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return max(0, toman)
 
 
 @admin_required

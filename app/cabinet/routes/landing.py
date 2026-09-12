@@ -42,6 +42,7 @@ from app.utils.cache import RateLimitCache, cache
 from app.utils.gift_links import (
     build_gift_claim_artifacts,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
@@ -480,9 +481,12 @@ async def _load_landing_tariffs(
                 LandingTariffPeriod(
                     days=days,
                     label=_period_label(days),
-                    price_kopeks=price,
+                    # Wire contract: the cabinet still divides catalog prices by 100; labels are Toman.
+                    price_kopeks=wire_catalog_kopeks(price),
                     price_label=settings.format_price(price),
-                    original_price_kopeks=original_price_kopeks,
+                    original_price_kopeks=(
+                        wire_catalog_kopeks(original_price_kopeks) if original_price_kopeks is not None else None
+                    ),
                     original_price_label=original_price_label,
                     discount_percent=effective_discount,
                 )
@@ -501,7 +505,7 @@ async def _load_landing_tariffs(
                 tier_level=tariff.tier_level,
                 periods=periods,
                 is_daily=bool(tariff.is_daily),
-                daily_price_kopeks=tariff.daily_price_kopeks or 0,
+                daily_price_kopeks=wire_catalog_kopeks(tariff.daily_price_kopeks or 0),
             )
         )
 
@@ -751,6 +755,8 @@ async def get_landing_config(
             if resolved:
                 resolved_sub_options = resolved
 
+        min_amount = m.get('min_amount_kopeks')
+        max_amount = m.get('max_amount_kopeks')
         payment_methods.append(
             LandingPaymentMethod(
                 method_id=method_id,
@@ -758,8 +764,8 @@ async def get_landing_config(
                 description=m.get('description'),
                 icon_url=m.get('icon_url'),
                 sort_order=m.get('sort_order', 0),
-                min_amount_kopeks=m.get('min_amount_kopeks'),
-                max_amount_kopeks=m.get('max_amount_kopeks'),
+                min_amount_kopeks=wire_catalog_kopeks(min_amount) if min_amount is not None else None,
+                max_amount_kopeks=wire_catalog_kopeks(max_amount) if max_amount is not None else None,
                 currency=m.get('currency'),
                 sub_options=resolved_sub_options,
             )

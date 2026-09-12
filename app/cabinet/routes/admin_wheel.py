@@ -33,6 +33,7 @@ from app.database.crud.wheel import (
 )
 from app.database.models import User
 from app.services.wheel_service import wheel_service
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
@@ -58,7 +59,7 @@ async def get_admin_wheel_config(
             display_name=p.display_name,
             emoji=p.emoji,
             color=p.color,
-            prize_value_kopeks=p.prize_value_kopeks,
+            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
             sort_order=p.sort_order,
             manual_probability=p.manual_probability,
             is_active=p.is_active,
@@ -121,7 +122,7 @@ async def update_admin_wheel_config(
             display_name=p.display_name,
             emoji=p.emoji,
             color=p.color,
-            prize_value_kopeks=p.prize_value_kopeks,
+            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
             sort_order=p.sort_order,
             manual_probability=p.manual_probability,
             is_active=p.is_active,
@@ -171,7 +172,7 @@ async def get_prizes(
             display_name=p.display_name,
             emoji=p.emoji,
             color=p.color,
-            prize_value_kopeks=p.prize_value_kopeks,
+            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
             sort_order=p.sort_order,
             manual_probability=p.manual_probability,
             is_active=p.is_active,
@@ -200,7 +201,7 @@ async def create_prize(
         prize_type=request.prize_type.value,
         prize_value=request.prize_value,
         display_name=request.display_name,
-        prize_value_kopeks=request.prize_value_kopeks,
+        prize_value_kopeks=toman_from_wire_catalog(request.prize_value_kopeks),
         emoji=request.emoji,
         color=request.color,
         sort_order=request.sort_order,
@@ -221,7 +222,7 @@ async def create_prize(
         display_name=prize.display_name,
         emoji=prize.emoji,
         color=prize.color,
-        prize_value_kopeks=prize.prize_value_kopeks,
+        prize_value_kopeks=wire_catalog_kopeks(prize.prize_value_kopeks),
         sort_order=prize.sort_order,
         manual_probability=prize.manual_probability,
         is_active=prize.is_active,
@@ -247,6 +248,10 @@ async def update_prize(
     if update_data.get('prize_type'):
         update_data['prize_type'] = update_data['prize_type'].value
 
+    # The editor sends the prize value on the frozen x100 wire; storage is Toman.
+    if update_data.get('prize_value_kopeks') is not None:
+        update_data['prize_value_kopeks'] = toman_from_wire_catalog(update_data['prize_value_kopeks'])
+
     if not update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -271,7 +276,7 @@ async def update_prize(
         display_name=prize.display_name,
         emoji=prize.emoji,
         color=prize.color,
-        prize_value_kopeks=prize.prize_value_kopeks,
+        prize_value_kopeks=wire_catalog_kopeks(prize.prize_value_kopeks),
         sort_order=prize.sort_order,
         manual_probability=prize.manual_probability,
         is_active=prize.is_active,
@@ -323,15 +328,25 @@ async def get_statistics(
     """Получить статистику колеса."""
     stats = await wheel_service.get_statistics(db, date_from, date_to)
 
+    # The statistics sum Toman columns; the cabinet divides the revenue, the payout and each top win
+    # by 100, so the whole response leaves on the catalog wire scale rather than mixing two.
     return WheelStatisticsResponse(
         total_spins=stats['total_spins'],
-        total_revenue_kopeks=stats['total_revenue_kopeks'],
-        total_payout_kopeks=stats['total_payout_kopeks'],
+        total_revenue_kopeks=wire_catalog_kopeks(stats['total_revenue_kopeks']),
+        total_payout_kopeks=wire_catalog_kopeks(stats['total_payout_kopeks']),
         actual_rtp_percent=stats['actual_rtp_percent'],
         configured_rtp_percent=stats['configured_rtp_percent'],
-        spins_by_payment_type=stats['spins_by_payment_type'],
-        prizes_distribution=stats['prizes_distribution'],
-        top_wins=stats['top_wins'],
+        spins_by_payment_type={
+            payment_type: {**totals, 'total_kopeks': wire_catalog_kopeks(totals['total_kopeks'])}
+            for payment_type, totals in stats['spins_by_payment_type'].items()
+        },
+        prizes_distribution=[
+            {**prize, 'total_kopeks': wire_catalog_kopeks(prize['total_kopeks'])}
+            for prize in stats['prizes_distribution']
+        ],
+        top_wins=[
+            {**win, 'prize_value_kopeks': wire_catalog_kopeks(win['prize_value_kopeks'])} for win in stats['top_wins']
+        ],
         period_from=stats['period_from'],
         period_to=stats['period_to'],
     )
@@ -365,11 +380,11 @@ async def get_all_spins_endpoint(
             username=spin.user.username if spin.user else None,
             payment_type=spin.payment_type,
             payment_amount=spin.payment_amount,
-            payment_value_kopeks=spin.payment_value_kopeks,
+            payment_value_kopeks=wire_catalog_kopeks(spin.payment_value_kopeks),
             prize_type=spin.prize_type,
             prize_value=spin.prize_value,
             prize_display_name=spin.prize_display_name,
-            prize_value_kopeks=spin.prize_value_kopeks,
+            prize_value_kopeks=wire_catalog_kopeks(spin.prize_value_kopeks),
             is_applied=spin.is_applied,
             created_at=spin.created_at,
         )

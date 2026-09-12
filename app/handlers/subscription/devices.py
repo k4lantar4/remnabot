@@ -1594,10 +1594,10 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
     logger.info(
         'Добавление устройств: ₽/мес × = ₽ (скидка ₽)',
         devices_count=devices_count,
-        discounted_per_month=discounted_per_month / 100,
+        discounted_per_month=discounted_per_month,
         period_label=period_label,
         price=price,
-        total_discount=total_discount / 100,
+        total_discount=total_discount,
     )
 
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):

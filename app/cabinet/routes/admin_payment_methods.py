@@ -18,6 +18,7 @@ from app.services.payment_method_config_service import (
     update_config,
     update_sort_order,
 )
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -45,7 +46,7 @@ class PaymentMethodConfigResponse(BaseModel):
     sub_options: dict | None = None
     available_sub_options: list[SubOptionInfo] | None = None
     quick_amounts: list[int] | None = None
-    default_quick_amounts: list[int] = Field(default_factory=lambda: list(DEFAULT_QUICK_AMOUNTS))
+    default_quick_amounts: list[int]
     min_amount_kopeks: int | None = None
     max_amount_kopeks: int | None = None
     default_min_amount_kopeks: int
@@ -118,8 +119,21 @@ class PromoGroupSimple(BaseModel):
 # ============ Helpers ============
 
 
+def _optional_wire(amount_toman: int | None) -> int | None:
+    return wire_catalog_kopeks(amount_toman) if amount_toman is not None else None
+
+
+def _amounts_on_wire(amounts: list[int] | None) -> list[int] | None:
+    return [wire_catalog_kopeks(amount) for amount in amounts] if amounts is not None else None
+
+
 def _enrich_config(config, defaults: dict) -> PaymentMethodConfigResponse:
-    """Enrich a PaymentMethodConfig with env-var defaults."""
+    """Enrich a PaymentMethodConfig with env-var defaults.
+
+    Limits and quick amounts are stored Toman; the cabinet editor still reads them on the old x100
+    wire (``AdminPaymentMethodEdit`` divides ``quick_amounts`` and sends the limits back on the same
+    scale), so they cross the boundary through ``wire_scale`` here and nowhere else.
+    """
     method_def = defaults.get(config.method_id, {})
 
     available_sub_options = None
@@ -136,11 +150,12 @@ def _enrich_config(config, defaults: dict) -> PaymentMethodConfigResponse:
         default_display_name=method_def.get('default_display_name', config.method_id),
         sub_options=config.sub_options,
         available_sub_options=available_sub_options,
-        quick_amounts=getattr(config, 'quick_amounts', None),
-        min_amount_kopeks=config.min_amount_kopeks,
-        max_amount_kopeks=config.max_amount_kopeks,
-        default_min_amount_kopeks=method_def.get('default_min', 1000),
-        default_max_amount_kopeks=method_def.get('default_max', 10000000),
+        quick_amounts=_amounts_on_wire(getattr(config, 'quick_amounts', None)),
+        default_quick_amounts=_amounts_on_wire(list(DEFAULT_QUICK_AMOUNTS)),
+        min_amount_kopeks=_optional_wire(config.min_amount_kopeks),
+        max_amount_kopeks=_optional_wire(config.max_amount_kopeks),
+        default_min_amount_kopeks=wire_catalog_kopeks(method_def.get('default_min', 1000)),
+        default_max_amount_kopeks=wire_catalog_kopeks(method_def.get('default_max', 10000000)),
         user_type_filter=config.user_type_filter,
         first_topup_filter=config.first_topup_filter,
         promo_group_filter_mode=config.promo_group_filter_mode,
@@ -232,20 +247,22 @@ async def update_payment_method(
     if request.sub_options is not None:
         data['sub_options'] = request.sub_options
 
+    # The editor sends amounts on the old x100 wire (validated by `normalize_quick_amounts` on that
+    # scale, as before Phase C); they are stored Toman.
     if request.reset_quick_amounts:
         data['quick_amounts'] = None
     elif request.quick_amounts is not None:
-        data['quick_amounts'] = request.quick_amounts
+        data['quick_amounts'] = [toman_from_wire_catalog(amount) for amount in request.quick_amounts]
 
     if request.reset_min_amount:
         data['min_amount_kopeks'] = None
     elif request.min_amount_kopeks is not None:
-        data['min_amount_kopeks'] = request.min_amount_kopeks
+        data['min_amount_kopeks'] = toman_from_wire_catalog(request.min_amount_kopeks)
 
     if request.reset_max_amount:
         data['max_amount_kopeks'] = None
     elif request.max_amount_kopeks is not None:
-        data['max_amount_kopeks'] = request.max_amount_kopeks
+        data['max_amount_kopeks'] = toman_from_wire_catalog(request.max_amount_kopeks)
 
     if request.user_type_filter is not None:
         data['user_type_filter'] = request.user_type_filter

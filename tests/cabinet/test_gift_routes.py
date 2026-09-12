@@ -168,9 +168,9 @@ async def test_gift_config_filters_tariffs_and_orders(monkeypatch):
         assert config.tariffs[0].name == 'Tariff Alpha'
         assert len(config.tariffs[0].periods) == 2
         assert config.tariffs[0].periods[0].days == 30
-        assert config.tariffs[0].periods[0].price_kopeks == 20000
+        assert config.tariffs[0].periods[0].price_kopeks == 2_000_000  # 20,000 Toman on the x100 wire
         assert config.tariffs[0].periods[1].days == 90
-        assert config.tariffs[0].periods[1].price_kopeks == 50000
+        assert config.tariffs[0].periods[1].price_kopeks == 5_000_000
 
 
 @pytest.mark.asyncio
@@ -204,8 +204,8 @@ async def test_gift_config_personalized_quote_fields(monkeypatch):
         assert config.active_discount_percent == 20
         period = config.tariffs[0].periods[0]
         assert period.days == 30
-        assert period.price_kopeks == 8000
-        assert period.original_price_kopeks == 10000
+        assert period.price_kopeks == 800_000  # 8,000 Toman on the x100 wire
+        assert period.original_price_kopeks == 1_000_000
         assert period.discount_percent == 20
 
 

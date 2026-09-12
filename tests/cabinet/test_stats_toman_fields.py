@@ -215,9 +215,7 @@ async def test_sales_renewals_tab_toman_fields(monkeypatch):
 
     async with memory_session(monkeypatch, TABLES) as db:
         await _seed_base(db)
-        db.add(
-            _tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -15_000, days_ago=1, description='Продление')
-        )
+        db.add(_tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -15_000, days_ago=1, description='Продление'))
         await db.flush()
 
         renewals = await route.get_renewals_stats(days=0, start_date=None, end_date=None, admin=ADMIN, db=db)

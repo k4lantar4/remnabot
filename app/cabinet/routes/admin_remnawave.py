@@ -17,6 +17,7 @@ from app.database.crud.server_squad import (
 from app.database.models import User
 from app.utils.cache import cache
 from app.utils.panel_node_usage import normalize_node_usage
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.remnawave import (
@@ -114,6 +115,13 @@ def _get_service() -> RemnaWaveService:
             detail='RemnaWave service is not available',
         )
     return RemnaWaveService()
+
+
+def _local_price_on_wire(local) -> int | None:
+    """Local squad price (stored Toman) -> the x100 value the squad pages still divide; unsynced -> None."""
+    if local is None or local.price_kopeks is None:
+        return None
+    return wire_catalog_kopeks(local.price_kopeks)
 
 
 def _ensure_configured(service: RemnaWaveService) -> None:
@@ -649,7 +657,7 @@ async def list_squads(
                 country_code=local.country_code if local else None,
                 is_available=local.is_available if local else None,
                 is_trial_eligible=local.is_trial_eligible if local else None,
-                price_kopeks=local.price_kopeks if local else None,
+                price_kopeks=_local_price_on_wire(local),
                 max_users=local.max_users if local else None,
                 current_users=local.current_users if local else None,
                 is_synced=local is not None,
@@ -693,7 +701,7 @@ async def get_squad_details(
         description=local.description if local else None,
         is_available=local.is_available if local else None,
         is_trial_eligible=local.is_trial_eligible if local else None,
-        price_kopeks=local.price_kopeks if local else None,
+        price_kopeks=_local_price_on_wire(local),
         max_users=local.max_users if local else None,
         current_users=local.current_users if local else None,
         sort_order=local.sort_order if local else None,

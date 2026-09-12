@@ -137,8 +137,8 @@ async def test_limited_subscription_is_charged_and_restored(monkeypatch):
     assert stats['limit_recovered'] == 1
     assert subscription.status == SubscriptionStatus.ACTIVE.value
     assert subscription.traffic_used_gb == 0.0
-    # daily_price_kopeks=1000 is a catalog price (10 Toman); the balance is Toman.
-    assert user.balance_kopeks == 99_990
+    # daily_price_kopeks=1000 is 1,000 Toman since 0115, charged against a Toman balance.
+    assert user.balance_kopeks == 99_000
     assert panel.calls[0]['reset_traffic'] is True
     # Панель снимает LIMITED не всегда сама — возврат просит её об этом явно.
     assert panel.enabled == [9001]

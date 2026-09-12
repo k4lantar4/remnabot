@@ -177,7 +177,7 @@ async def preview_tariff_switch(
         'new_tariff_id': new_tariff.id,
         'new_tariff_name': new_tariff.name,
         'remaining_days': remaining_days,
-        'upgrade_cost_kopeks': upgrade_cost,
+        'upgrade_cost_kopeks': wire_catalog_kopeks(upgrade_cost),
         'upgrade_cost_label': settings.format_price(upgrade_cost) if upgrade_cost > 0 else 'Бесплатно',
         'balance_kopeks': balance,
         # Когда есть нехватка <1₽ (FX-rounding), показ копеек обязателен — без него
@@ -194,8 +194,8 @@ async def preview_tariff_switch(
     # Add discount info if applicable
     if period_discount_percent > 0 and discount_value > 0:
         response['discount_percent'] = period_discount_percent
-        response['discount_kopeks'] = discount_value
-        response['base_upgrade_cost_kopeks'] = base_upgrade_cost
+        response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+        response['base_upgrade_cost_kopeks'] = wire_catalog_kopeks(base_upgrade_cost)
 
     return response
 

@@ -61,7 +61,8 @@ class TestPurchaseOptionsDailyPrice:
             display_order=1,
         )
         data = await _build_tariff_response(SimpleNamespace(), tariff, user=_user(group_pct=0, offer_pct=20))
-        assert data['daily_price_kopeks'] == 1500, 'промокод накладывает клиент, а не сервер'
+        # 1500 Toman in storage → 150000 on the catalog wire scale the cabinet divides by 100
+        assert data['daily_price_kopeks'] == 150_000, 'промокод накладывает клиент, а не сервер'
         assert 'original_daily_price_kopeks' not in data
         assert 'daily_discount_percent' not in data
 
@@ -84,6 +85,6 @@ class TestPurchaseOptionsDailyPrice:
             display_order=1,
         )
         data = await _build_tariff_response(SimpleNamespace(), tariff, user=_user(group_pct=20, offer_pct=20))
-        assert data['daily_price_kopeks'] == 1200
-        assert data['original_daily_price_kopeks'] == 1500
+        assert data['daily_price_kopeks'] == 120_000  # 1200 Toman on the wire scale
+        assert data['original_daily_price_kopeks'] == 150_000
         assert data['daily_discount_percent'] == 20

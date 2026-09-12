@@ -203,7 +203,8 @@ async def test_cabinet_switch_preview_allows_a_balance_covering_the_toman_price(
 
     assert response['can_switch'] is True
     assert response['missing_amount_kopeks'] == 0
-    assert response['upgrade_cost_kopeks'] == PRICE_KOPEKS
+    # Same wire contract as the shortfall above: the cabinet divides this field by 100.
+    assert response['upgrade_cost_kopeks'] == PRICE_TOMAN * 100
 
 
 @pytest.mark.asyncio

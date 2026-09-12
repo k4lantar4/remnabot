@@ -126,15 +126,14 @@ class GiftInsufficientBalanceError(GiftError):
     """Raised when buyer balance is insufficient to complete the gift debit."""
 
     def __init__(self, required_kopeks: int, available_kopeks: int) -> None:
-        super().__init__(
-            f'Insufficient balance: required {required_kopeks} (catalog), available {available_kopeks} (Toman)'
-        )
-        self.required_kopeks = required_kopeks  # catalog price_kopeks
-        self.available_kopeks = available_kopeks  # stored balance, Toman 1:1
+        super().__init__(f'Insufficient balance: required {required_kopeks} Toman, available {available_kopeks} Toman')
+        # Both are Toman since revision 0115; the ``_kopeks`` names are kept for the call sites.
+        self.required_kopeks = required_kopeks
+        self.available_kopeks = available_kopeks
 
     @property
     def missing_toman(self) -> int:
-        """Toman shortfall (balance scale) — for display and the top-up prefill."""
+        """Toman shortfall — for display and the top-up prefill."""
         return missing_toman(self.available_kopeks, self.required_kopeks)
 
 

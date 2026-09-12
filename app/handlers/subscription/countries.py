@@ -330,7 +330,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             cost_per_month=cost_per_month,
             charged_days=charged_days,
             total_cost=total_cost,
-            total_discount=total_discount / 100,
+            total_discount=total_discount,
         )
 
     # balance is Toman 1:1; total_cost is a catalog price (server price_kopeks, prorated)

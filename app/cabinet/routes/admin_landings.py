@@ -25,6 +25,7 @@ from app.database.crud.landing import (
     update_landing_order,
 )
 from app.database.models import GuestPurchase, GuestPurchaseStatus, LandingPage, Tariff, User
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from .branding import ALLOWED_BG_TYPES, _validate_settings
@@ -933,7 +934,7 @@ async def get_landing_stats(
                     date=day_str,
                     created=day_created,
                     purchases=r.purchases,
-                    revenue_kopeks=r.revenue_kopeks,
+                    revenue_kopeks=wire_catalog_kopeks(r.revenue_kopeks),
                     gifts=r.gifts,
                 )
             )
@@ -969,7 +970,7 @@ async def get_landing_stats(
             tariff_id=r.tariff_id,
             tariff_name=r.tariff_name,
             purchases=r.purchases,
-            revenue_kopeks=r.revenue_kopeks,
+            revenue_kopeks=wire_catalog_kopeks(r.revenue_kopeks),
         )
         for r in tariff_result.all()
     ]
@@ -986,7 +987,9 @@ async def get_landing_stats(
         .order_by(func.count(GuestPurchase.id).desc())
     )
     payment_method_stats = [
-        LandingPaymentMethodStat(method=r.method, purchases=r.purchases, revenue_kopeks=r.revenue_kopeks)
+        LandingPaymentMethodStat(
+            method=r.method, purchases=r.purchases, revenue_kopeks=wire_catalog_kopeks(r.revenue_kopeks)
+        )
         for r in pm_result.all()
     ]
 
@@ -1012,13 +1015,15 @@ async def get_landing_stats(
         host_counts[host] += r.purchases
     source_stats = [LandingSourceStat(source=h, purchases=c) for h, c in host_counts.most_common(8)]
 
+    # Wire contract: AdminLandingStats.tsx divides every *_kopeks money field by 100 (KOPEKS_DIVISOR);
+    # the sums and the average are computed in Toman above and scaled once here.
     return LandingStatsResponse(
         total_purchases=total_created,
-        total_revenue_kopeks=total_revenue_kopeks,
+        total_revenue_kopeks=wire_catalog_kopeks(total_revenue_kopeks),
         total_gifts=total_gifts,
         total_gifts_claimed=total_gifts_claimed,
         total_regular=total_regular,
-        avg_purchase_kopeks=avg_purchase_kopeks,
+        avg_purchase_kopeks=wire_catalog_kopeks(avg_purchase_kopeks),
         total_created=total_created,
         total_successful=total_successful,
         conversion_rate=conversion_rate,
@@ -1100,7 +1105,7 @@ async def get_landing_purchases(
             gift_recipient_value=row.gift_recipient_value,
             tariff_name=row.tariff_name,
             period_days=row.period_days,
-            amount_kopeks=row.amount_kopeks,
+            amount_kopeks=wire_catalog_kopeks(row.amount_kopeks),
             currency=row.currency,
             payment_method=row.payment_method,
             status=row.status,

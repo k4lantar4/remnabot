@@ -700,8 +700,8 @@ async def show_detailed_stats(
         f'❌ Рефералов не оплатили: <b>{stats.get("unpaid_count", 0)}</b>',
         '',
         '<b>💰 СУММЫ:</b>',
-        f'   🛒 Покупки подписок: <b>{stats.get("subscription_total", 0) // 100} руб.</b>',
-        f'   📥 Пополнения баланса: <b>{stats.get("deposit_total", 0) // 100} руб.</b>',
+        f'   🛒 Покупки подписок: <b>{settings.format_price(stats.get("subscription_total", 0))}</b>',
+        f'   📥 Пополнения баланса: <b>{settings.format_price(stats.get("deposit_total", 0))}</b>',
     ]
 
     if virtual_count > 0:
@@ -850,8 +850,8 @@ async def sync_contest(
         f'❌ Рефералов не оплатили: <b>{stats.get("unpaid_count", 0)}</b>',
         '',
         '<b>💰 СУММЫ:</b>',
-        f'   🛒 Покупки подписок: <b>{stats.get("subscription_total", 0) // 100} руб.</b>',
-        f'   📥 Пополнения баланса: <b>{stats.get("deposit_total", 0) // 100} руб.</b>',
+        f'   🛒 Покупки подписок: <b>{settings.format_price(stats.get("subscription_total", 0))}</b>',
+        f'   📥 Пополнения баланса: <b>{settings.format_price(stats.get("deposit_total", 0))}</b>',
     ]
 
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup

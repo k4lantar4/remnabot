@@ -836,7 +836,7 @@ class ReferralDiagnosticsService:
                                 logger.info(
                                     '💰 Начислен бонус рефереру ₽',
                                     telegram_id=referrer.telegram_id or referrer.id,
-                                    inviter_bonus=inviter_bonus / 100,
+                                    inviter_bonus=inviter_bonus,
                                 )
 
                                 # Добавляем в активные конкурсы рефералов
@@ -857,8 +857,8 @@ class ReferralDiagnosticsService:
             logger.info(
                 '✅ Исправлено рефералов: начислено бонусов: ₽ + ₽',
                 users_fixed=report.users_fixed,
-                bonuses_to_referrals=report.bonuses_to_referrals / 100,
-                bonuses_to_referrers=report.bonuses_to_referrers / 100,
+                bonuses_to_referrals=report.bonuses_to_referrals,
+                bonuses_to_referrers=report.bonuses_to_referrers,
             )
         else:
             logger.info('📋 Предпросмотр: рефералов будут исправлены', users_fixed=report.users_fixed)
@@ -1113,8 +1113,8 @@ class ReferralDiagnosticsService:
             await db.commit()
             logger.info(
                 '✅ Начислено бонусов: ₽ рефералам + ₽ рефереерам',
-                bonuses_to_referrals=report.bonuses_to_referrals / 100,
-                bonuses_to_referrers=report.bonuses_to_referrers / 100,
+                bonuses_to_referrals=report.bonuses_to_referrals,
+                bonuses_to_referrers=report.bonuses_to_referrers,
             )
 
         return report

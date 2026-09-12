@@ -291,9 +291,7 @@ def _cryptobot_renewal_request(method: str | None = 'cryptobot') -> MiniAppSubsc
 async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch):
     # Balance 50,000 Toman, renewal 200,000 Toman (stored 1:1 since Phase C), 1 USDT = 100,000 Toman.
     user = types.SimpleNamespace(id=15, telegram_id=15, balance_kopeks=50_000, language='fa', tariff_id=None)
-    created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000
-    )
+    created_calls = _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000)
 
     response = await miniapp.submit_subscription_renewal_endpoint(
         _cryptobot_renewal_request(), db=types.SimpleNamespace()
@@ -325,9 +323,7 @@ async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch
 async def test_submit_subscription_renewal_rounds_up_cryptobot_amount(monkeypatch):
     # Renewal 95,120 Toman, empty balance, 1 USDT = 95,000 Toman → 1.00126 USDT, rounded up.
     user = types.SimpleNamespace(id=42, telegram_id=42, balance_kopeks=0, language='fa', tariff_id=None)
-    created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=95_120, toman_per_usdt=95_000
-    )
+    created_calls = _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=95_120, toman_per_usdt=95_000)
 
     response = await miniapp.submit_subscription_renewal_endpoint(
         _cryptobot_renewal_request(), db=types.SimpleNamespace()
@@ -355,9 +351,7 @@ async def test_submit_subscription_renewal_cryptobot_refuses_without_toman_rate(
 async def test_submit_subscription_renewal_cryptobot_minimum_is_in_toman(monkeypatch):
     # Missing 50,000 Toman is below the 1 USDT minimum (= 100,000 Toman).
     user = types.SimpleNamespace(id=17, telegram_id=17, balance_kopeks=150_000, language='fa', tariff_id=None)
-    created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000
-    )
+    created_calls = _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000)
 
     with pytest.raises(miniapp.HTTPException) as exc_info:
         await miniapp.submit_subscription_renewal_endpoint(_cryptobot_renewal_request(), db=types.SimpleNamespace())

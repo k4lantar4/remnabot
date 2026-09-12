@@ -19,6 +19,7 @@ catalog scale (the cabinet divides by 100 itself), and that boundary lives in
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -185,9 +186,47 @@ RUBLE_GATEWAYS = (
 #: denominator of "per cent" and has nothing to do with kopeks. Same for basis points.
 PERCENT_WORDS = ('percent', 'pct', 'bps', 'discount', 'commission', 'rate', 'ratio', 'share')
 
+#: A name with one of these in it is an amount of money, whatever else it is called.
+MONEY_WORDS = (
+    'kopek',
+    'price',
+    'pricing',
+    'amount',
+    'balance',
+    'toman',
+    'cost',
+    'total',
+    'bonus',
+    'spent',
+    'revenue',
+    'payout',
+    'earning',
+    'reward',
+    'prize',
+    'threshold',
+    'value',
+    'sum',
+    'fee',
+)
+
+_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+
+
+def _is_money_name(name: str) -> bool:
+    return any(word in name.lower() for word in MONEY_WORDS)
+
 
 def _is_percentage_math(source: str) -> bool:
-    return any(word in source.lower() for word in PERCENT_WORDS)
+    """``x * percent / 100`` — but ``commission_amount / 100`` is an amount wearing a percent word.
+
+    An identifier that is itself money (``commission_amount``, ``discount_value``) does not make
+    the expression percentage arithmetic; only a percent word outside the money names does.
+    """
+    for identifier in _IDENTIFIER.findall(source):
+        lowered = identifier.lower()
+        if any(word in lowered for word in PERCENT_WORDS) and not _is_money_name(lowered):
+            return True
+    return False
 
 
 def _percentage_numerators(tree: ast.AST) -> set[int]:
@@ -197,6 +236,16 @@ def _percentage_numerators(tree: ast.AST) -> set[int]:
         for node in ast.walk(tree)
         if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.FloorDiv))
     }
+
+
+def _is_ratio_times_hundred(node: ast.BinOp) -> bool:
+    """``a / b * 100`` — a share rendered as a percentage, not a change of unit.
+
+    The division already cancels the unit, so the operands may well be money (``paid / total``,
+    ``total_payout / total_revenue``) without the ×100 meaning kopeks. Structure decides here;
+    names cannot.
+    """
+    return isinstance(node.op, ast.Mult) and isinstance(node.left, ast.BinOp) and isinstance(node.left.op, ast.Div)
 
 
 def _is_ruble_gateway(path: Path) -> bool:
@@ -232,7 +281,7 @@ def _model_offenders() -> list[str]:
                 continue
             if not (isinstance(node.right, ast.Constant) and node.right.value == 100):
                 continue
-            if _is_percentage_math(ast.unparse(node)) or id(node) in ratios:
+            if _is_percentage_math(ast.unparse(node)) or id(node) in ratios or _is_ratio_times_hundred(node):
                 continue
             columns = [
                 a.attr
@@ -261,12 +310,12 @@ def _scaling_literals(path: Path) -> list[str]:
         if not (isinstance(node.right, ast.Constant) and node.right.value == 100):
             continue
         source = ast.unparse(node.left)
-        if not any(word in source.lower() for word in ('kopek', 'price', 'amount', 'balance', 'toman', 'cost')):
+        if not _is_money_name(source):
             continue
         # A ruble gateway's own settings and columns keep ruble-kopek semantics wherever they appear.
         if any(name in source.lower() for name in RUBLE_GATEWAYS):
             continue
-        if _is_percentage_math(ast.unparse(node)) or id(node) in ratios:
+        if _is_percentage_math(ast.unparse(node)) or id(node) in ratios or _is_ratio_times_hundred(node):
             continue
         hits.append(f'{path.relative_to(APP_ROOT)}:{node.lineno}: {ast.unparse(node)}')
 
