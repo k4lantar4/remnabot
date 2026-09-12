@@ -1,7 +1,14 @@
-"""0114 moves catalog amounts onto the Toman 1:1 scale, reversibly.
+"""0115 moves catalog amounts onto the Toman 1:1 scale, reversibly.
 
 The round-trip matters more than the division itself: if ``downgrade()`` cannot restore the exact
 pre-migration numbers, a rollback of Phase C would silently rewrite real money.
+
+0114 (the bookkeeping tables) runs first here, as it will in the chain; that it changes nothing on
+its own is asserted in ``test_0114_scale_tables.py``.
+
+0115 itself is **staged** in ``migrations/phase_c/`` rather than in ``migrations/alembic/versions/``
+until plan Task 3, so that no restart can apply it before the code that reads Toman exists. These
+tests run it from the staging directory, so the round-trip stays protected meanwhile.
 """
 
 from __future__ import annotations
@@ -23,19 +30,29 @@ from app.config import settings
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / 'migrations' / 'alembic' / 'versions'
-REVISION_FILE = VERSIONS / '0114_toman_phase_c_catalog_scale.py'
+STAGING = ROOT / 'migrations' / 'phase_c'
+REVISION_FILE = STAGING / '0115_toman_phase_c_catalog_scale.py'
+TABLES_REVISION_FILE = VERSIONS / '0114_toman_phase_c_scale_tables.py'
 
 
 def _script_directory() -> ScriptDirectory:
     return ScriptDirectory.from_config(Config(str(ROOT / 'alembic.ini')))
 
 
-def _load_revision():
-    spec = importlib.util.spec_from_file_location('rev_0114', REVISION_FILE)
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _load_revision():
+    return _load('rev_0115', REVISION_FILE)
+
+
+def _load_tables_revision():
+    return _load('rev_0114', TABLES_REVISION_FILE)
 
 
 # ── schema and seed ───────────────────────────────────────────────────────────
@@ -170,11 +187,15 @@ def _seeded_connection(*, extra_transactions: list[dict] | None = None):
 
 
 def _run(conn, direction: str) -> None:
-    rev = _load_revision()
-    ctx = MigrationContext.configure(conn)
-    with Operations.context(ctx):
-        getattr(rev, direction)()
-    conn.commit()
+    """Apply the Phase C pair in chain order: 0114 then 0115 up, the reverse down."""
+    order = [_load_tables_revision(), _load_revision()]
+    if direction == 'downgrade':
+        order.reverse()
+    for rev in order:
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            getattr(rev, direction)()
+        conn.commit()
 
 
 def _snapshot(conn) -> dict[str, list[tuple]]:
@@ -192,14 +213,21 @@ def _value(conn, table: str, column: str, row_id: int):
 # ── chain ─────────────────────────────────────────────────────────────────────
 
 
-def test_0114_is_the_single_head() -> None:
-    assert _script_directory().get_heads() == ['0114']
+def test_the_data_revision_is_staged_outside_the_alembic_chain() -> None:
+    """Until Task 3 no restart may apply it: Alembic only scans ``migrations/alembic/versions``."""
+    assert REVISION_FILE.exists()
+    assert not (VERSIONS / REVISION_FILE.name).exists()
+
+    script = _script_directory()
+    chain = [rev.revision for rev in script.walk_revisions(base='base', head=script.get_current_head())]
+    assert '0115' not in chain
+    assert script.get_heads() == ['0114']
 
 
-def test_0114_revises_0113() -> None:
+def test_0115_revises_0114() -> None:
     rev = _load_revision()
-    assert rev.revision == '0114'
-    assert rev.down_revision == '0113'
+    assert rev.revision == '0115'
+    assert rev.down_revision == '0114'
 
 
 def test_cutoff_constant_matches_the_settings_value() -> None:

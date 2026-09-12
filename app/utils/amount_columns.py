@@ -20,6 +20,14 @@ from typing import Literal, NamedTuple
 
 AmountColumnKind = Literal['int', 'json_values']
 
+#: Bookkeeping tables of the Phase C scale change. ``0114`` creates them (structural, safe on its
+#: own); ``0115`` fills them together with the code that reads Toman. **The tables existing means
+#: nothing** — only a ``TOMAN_SCALE`` row in ``amount_scale_state`` declares the stored amounts to be
+#: Toman 1:1.
+AMOUNT_SCALE_STATE_TABLE = 'amount_scale_state'
+AMOUNT_SCALE_ROUNDING_LOG_TABLE = 'amount_scale_rounding_log'
+TOMAN_SCALE = 'toman'
+
 #: Column names that look like money and therefore must be classified below.
 MONEY_COLUMN_NAME_PATTERN = re.compile(r'kopeks|price|amount', re.IGNORECASE)
 

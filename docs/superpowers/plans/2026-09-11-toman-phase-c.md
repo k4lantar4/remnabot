@@ -13,13 +13,13 @@ skill; execute with `plan-execution`, one PR per task.
 ## Decisions — answered by the user 2026-09-12
 
 1. **Deploy window — approved, no constraint here.** This whole VPS is test/development and
-   production runs on a separate machine, so the short read/write outage while revision `0114` runs
+   production runs on a separate machine, so the short read/write outage while revision `0115` runs
    (the bot migrates at start, and the cabinet API is the same container) is fine. The question is
    re-opened **only for the future production cutover**, not for this environment.
 2. **Ruble-era rows — convert them, don't leave them.** There are **zero** such rows in this database
    (0 transactions, 0 c2c_receipts, 0 users before `BALANCE_TOMAN_CUTOFF_UTC = 2026-06-05T00:00:00Z`,
    queried 2026-09-11), so this is a rule the migration carries for the future production-data merge,
-   not something testable against real rows here. Revision `0114` therefore keeps the conversion of
+   not something testable against real rows here. Revision `0115` therefore keeps the conversion of
    pre-cutoff rows behind an explicit, defaulted-off switch and refuses to guess.
    **❓ Still open:** converting ruble amounts to Toman needs a **ruble→Toman rate**, which is a
    business number — the user must give it before the pre-cutoff branch can be enabled. Until then
@@ -58,14 +58,14 @@ Phase C removes the class instead of the instances (workspace `CLAUDE.md` → Cu
 The authoritative, machine-checked list is `app/utils/amount_columns.py` (Task 1): 68 money columns,
 each classified as catalog x100, Toman 1:1, or a payment provider's own currency/unit. Highlights:
 
-Already **Toman 1:1** — revision `0114` must not touch these: `users.balance_kopeks`;
+Already **Toman 1:1** — revision `0115` must not touch these: `users.balance_kopeks`;
 `transactions.amount_kopeks` for `deposit, withdrawal, refund, failed_refund, referral_reward,
 poll_reward`; `c2c_receipts.amount_kopeks` / `approved_amount_kopeks`; `referral_earnings`;
 `withdrawal_requests`; `advertising_campaigns.balance_bonus_kopeks` (+ registrations);
 `promocodes.balance_bonus_kopeks` (a *percent* for `PromoCodeType.DISCOUNT`);
 `referral_reward_levels.referrer_fixed_kopeks` / `referee_fixed_kopeks`.
 
-**Catalog x100** — what `0114` divides by 100: the `tariffs` price columns incl. `period_prices`
+**Catalog x100** — what `0115` divides by 100: the `tariffs` price columns incl. `period_prices`
 (JSON); `transactions.amount_kopeks` for `subscription_payment, gift_payment`;
 **`subscription_events.amount_kopeks` for `event_type IN (purchase, renewal, activation)` only** —
 this column turned out to be mixed-scale exactly like `transactions` (`balance_topup` mirrors a
@@ -85,18 +85,20 @@ the `wheel_prizes` / `wheel_spins` value columns; `referral_contest_events` /
 ### Migrate the data, not just the read path
 
 A read-path-only change would keep two scales in the DB and only move the conversion — i.e. not
-Phase C. So: **one Alembic revision (`0114`, `down_revision = '0113'`) divides the
-catalog columns by 100**, and the backend code stops converting. Consequences that shape the tasks:
+Phase C. So: **the data revision `0115` divides the catalog columns by 100**, split from the
+structural `0114` so that no commit on `main` is ever unsafe to restart, and the backend code stops converting. Consequences that shape the tasks:
 
 - **Rounding:** integer division truncating toward zero, the same floor `catalog_price_in_toman`
   already applies, so *every displayed number stays identical*. Dev DB has exactly one catalog row
   that isn't divisible by 100 — `transactions.id=320`, `-13` ("افزودن 2 دستگاه برای 208 روز", the
   known device-pricing rounding artifact) → becomes `0`, which is what it already displays.
-- **Idempotency:** one revision, one transaction (PostgreSQL DDL+DML is transactional), guarded by
-  `alembic_version` and by the marker table `amount_scale_state` (one row, `scale='toman'`) the
-  revision creates and the downgrade drops. *Implementation note (Task 2):* the marker and the log
-  live in their own two tables rather than in `system_settings` rows, so the admin-editable settings
-  store is not polluted with synthetic keys and the downgrade can simply drop them.
+- **Idempotency:** one data revision, one transaction (PostgreSQL DDL+DML is transactional), guarded
+  by `alembic_version` and by the marker row in `amount_scale_state` (`scale='toman'`) that `0115`
+  writes and its downgrade deletes. *Implementation note:* the marker and the rounding log live in
+  their own two tables (created by `0114`) rather than in `system_settings` rows, so the
+  admin-editable settings store is not polluted with synthetic keys. **The tables existing means
+  nothing — only the row says the database is on the Toman scale**, which is what the Task 6 startup
+  guard reads.
 - **Reversible:** `downgrade()` multiplies the same columns by 100. The non-round rows are the only
   lossy ones; the upgrade stores their pre-image in `amount_scale_rounding_log`, and the downgrade
   restores each one exactly before dropping the table.
@@ -129,7 +131,7 @@ frontend follows later in Phase C-2, backend-first and additive as the workspace
 
 ### What replaces `_BALANCE_SCALE_TRANSACTION_TYPES`
 
-**Nothing — it is deleted, not moved.** After `0114`, every row of `transactions.amount_kopeks` is
+**Nothing — it is deleted, not moved.** After `0115`, every row of `transactions.amount_kopeks` is
 Toman, so the type no longer decides anything:
 
 | Deleted | Becomes |
@@ -160,7 +162,7 @@ pricing (F-013, F-029, F-047), and enabling any payment method.
 ## Vs. upstream
 
 - **Ours (must survive an upstream merge):** the whole Toman scale — `price_display.py`,
-  `format_balance`, `toman_rates.py`, the C2C plugin, and now `amount_columns.py` + revision `0114`.
+  `format_balance`, `toman_rates.py`, the C2C plugin, and now `amount_columns.py` + revisions `0114`/`0115`.
   Upstream is a ruble product and will keep writing `price_kopeks` as kopeks; every upstream merge
   after this must be triaged for new money columns — the Task 1 guard test is what catches it
   (a new upstream column fails CI until it is classified).
@@ -170,7 +172,7 @@ pricing (F-013, F-029, F-047), and enabling any payment method.
 - **Hot files** (`purchase.py`, `tariff_purchase.py`, `balance/main.py`, `texts.py`, `inline.py`) are
   touched only by deleting conversion calls — no restructuring, to keep the merge diff small.
 - No deferred gateway is re-enabled or depended on; their payment tables are explicitly excluded from
-  `0114`, and their `*_MIN/MAX_AMOUNT_KOPEKS` settings keep ruble-kopek semantics (Task 5 leaves them,
+  `0115`, and their `*_MIN/MAX_AMOUNT_KOPEKS` settings keep ruble-kopek semantics (Task 5 leaves them,
   and documents why).
 
 ---
@@ -179,13 +181,13 @@ pricing (F-013, F-029, F-047), and enabling any payment method.
 
 Each task is one PR, mergeable on its own.
 
-> ⚠️ **Deploy coupling — do not restart the live bot between Task 2 and Task 3.** The bot runs
-> `alembic upgrade head` at start, so the first restart after Task 2 merges will divide the live
-> database while the code still reads catalog kopeks: every price would render 100x too small and
-> purchase math would be wrong until Task 3 is deployed. Merging Task 2 is safe; *restarting* is not.
-> The live environment therefore stays on the pre-migration image until Task 3 merges, and both PR
-> bodies say so. If main has to become restart-safe before Task 3 is ready, move the rescale out of
-> `0114` into a `0115` that ships with Task 3.
+> **Invariant: every commit on `main` is restart-safe.** The bot runs `alembic upgrade head` at
+> start, so a revision that rescales stored amounts must never be reachable before the code that
+> reads Toman. Phase C's database work is therefore split: `0114` only creates the two bookkeeping
+> tables and changes no amount (safe to apply at any time, asserted by
+> `tests/database/test_0114_scale_tables.py::test_0114_changes_no_amount`), while the divide-by-100,
+> the rounding log and the `toman` marker live in `0115`, which **merges together with the Task 3
+> code**. Until Task 3, a restart applies `0114` only: two empty tables, no amount touched.
 
 ### Task 1 — Money-column inventory + guard test (no behavior change) — **done (remnabot#61)**
 
@@ -200,11 +202,13 @@ Each task is one PR, mergeable on its own.
   carry a row filter that matches their type set, `json_values` matches the real column type, and no
   gateway table is on the catalog scale.
 
-### Task 2 — Alembic revision `0114`: divide the catalog columns by 100 — **done (this PR)**
+### Task 2 — Alembic `0114`: the bookkeeping tables (no data change) — **done (remnabot#63, split in #64)**
 
-- **Repo/files:** `remnabot` — `migrations/alembic/versions/0114_toman_phase_c_catalog_scale.py`
-  (`revision = '0114'`, `down_revision = '0113'`); test `tests/database/test_0114_catalog_scale.py`
-  (next to the other revision tests, not a new `tests/migrations/` directory).
+- **Repo/files:** `remnabot` — `migrations/alembic/versions/0114_toman_phase_c_scale_tables.py`
+  (`revision = '0114'`, `down_revision = '0113'`), test `tests/database/test_0114_scale_tables.py`;
+  the data revision `0115_toman_phase_c_catalog_scale.py` and its round-trip test
+  `tests/database/test_0115_catalog_scale.py` are written and tested but only become reachable with
+  Task 3 (next to the other revision tests, not a new `tests/migrations/` directory).
 - **Interfaces:** consumes Task 1's tuples. Creates `amount_scale_state` (`scale='toman'`, read by
   Task 6's startup guard) and `amount_scale_rounding_log`. `upgrade()` divides by 100 with the sign
   kept and the magnitude floored — what the display layer already does — per `ColumnRef.kind` and
@@ -217,7 +221,7 @@ Each task is one PR, mergeable on its own.
   the log), idempotency, the marker row, the display invariant
   (`format_price(before) == format_balance(after)`), and the pre-cutoff refusal.
 
-### Task 3 — Collapse the helpers and the two formatters
+### Task 3 — Collapse the helpers and the two formatters (**ships the data revision `0115`**)
 
 - **Repo/files:** `remnabot` — `app/utils/price_display.py`, `app/config.py`,
   `app/database/crud/transaction.py`, then the ~150 `catalog_price_in_toman` call sites and the
@@ -225,6 +229,8 @@ Each task is one PR, mergeable on its own.
   `app/cabinet/routes/**`, `app/webapi/routes/miniapp.py`, `app/plugins/c2c/**` (C2C should come out
   unchanged except imports — it is the reference for "correct"). Also fix the `referral_contest_events`
   restore writer (F-057) so both writers are Toman. 37 test files reference the helpers.
+- **Deploy coupling:** this is the task that makes `0115` reachable, so the code and the rescale
+  land in the same merge. The PR must say that the first restart after it applies `0115`.
 - **Test first:** balance 150,000 vs tariff 200,000 → refused, 50,000 shortfall; balance 250,000 →
   exactly 200,000 debited, row `-200000`, history «200,000 تومان»; deposit 50,000 → «50,000 تومان».
   Extend the AST guard to fail on any `// 100` / `* 100` near an amount outside `wire_scale.py`.
@@ -254,7 +260,7 @@ Each task is one PR, mergeable on its own.
 - **Repo/files:** `remnabot` — startup check reading `system_settings['amount_scale']`,
   `docs/deploy/phase-c-runbook.md`, test `tests/database/test_amount_scale_guard.py`.
 - **Runbook:** deploy = pull + `docker compose -f docker-compose.dev.yml restart bot` (migration runs
-  at start) + the verification queries. Rollback = `alembic downgrade 0113` **then** the previous
+  at start) + the verification queries. Rollback = `alembic downgrade 0114` **then** the previous
   image, never the image alone.
 
 ---
