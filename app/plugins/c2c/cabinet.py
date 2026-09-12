@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot_factory import create_bot
@@ -63,7 +64,9 @@ def rejection_reason_for_user(receipt: C2cReceipt, texts) -> str | None:
 
 
 async def _own_open_pending(db: AsyncSession, user: User, receipt_id: int) -> C2cReceipt:
-    pending = await c2c_crud.get_pending_receipt_for_user(db, user.id)
+    # Locked until the caller commits: a parallel session must not re-price the receipt while it is
+    # being submitted, or the admin would approve an amount other than the one in their message.
+    pending = await c2c_crud.get_pending_receipt_for_user_for_update(db, user.id)
     if not pending or pending.id != receipt_id:
         raise C2cCabinetError(NOT_FOUND)
     if has_receipt(pending):
@@ -86,29 +89,39 @@ async def start_cabinet_receipt(db: AsyncSession, user: User, amount_toman: int)
     await c2c_crud.expire_stale_c2c_receipts(db)
     await db.commit()
 
-    pending = await c2c_crud.get_pending_receipt_for_user(db, user.id)
-    if pending:
-        if has_receipt(pending):
-            raise C2cCabinetError(ALREADY_SUBMITTED, receipt=pending)
-        now = datetime.now(UTC)
-        pending.amount_kopeks = amount_toman
-        pending.card_index = card_index
-        pending.card_label = card.get('label')
-        pending.expires_at = now + timedelta(hours=settings.C2C_RECEIPT_TTL_HOURS)
-        pending.updated_at = now
-        await db.flush()
-        receipt = pending
-    else:
-        receipt = await c2c_crud.create_pending_receipt(
-            db,
-            user_id=user.id,
-            amount_kopeks=amount_toman,
-            card_index=card_index,
-            card_label=card.get('label'),
-        )
+    for attempt in range(2):
+        pending = await c2c_crud.get_pending_receipt_for_user_for_update(db, user.id)
+        if pending:
+            if has_receipt(pending):
+                raise C2cCabinetError(ALREADY_SUBMITTED, receipt=pending)
+            now = datetime.now(UTC)
+            pending.amount_kopeks = amount_toman
+            pending.card_index = card_index
+            pending.card_label = card.get('label')
+            pending.expires_at = now + timedelta(hours=settings.C2C_RECEIPT_TTL_HOURS)
+            pending.updated_at = now
+            await db.flush()
+            await db.commit()
+            return pending
+        try:
+            receipt = await c2c_crud.create_pending_receipt(
+                db,
+                user_id=user.id,
+                amount_kopeks=amount_toman,
+                card_index=card_index,
+                card_label=card.get('label'),
+            )
+        except IntegrityError:
+            # A parallel session inserted this user's pending receipt first
+            # (uq_c2c_receipts_user_pending): re-price that one instead of failing.
+            await db.rollback()
+            if attempt:
+                raise
+            continue
+        await db.commit()
+        return receipt
 
-    await db.commit()
-    return receipt
+    raise AssertionError('unreachable')  # pragma: no cover
 
 
 async def attach_cabinet_receipt(

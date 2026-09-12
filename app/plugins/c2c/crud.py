@@ -22,6 +22,25 @@ async def get_pending_receipt_for_user(db: AsyncSession, user_id: int) -> C2cRec
     return result.scalar_one_or_none()
 
 
+async def get_pending_receipt_for_user_for_update(db: AsyncSession, user_id: int) -> C2cReceipt | None:
+    """The user's pending receipt, row-locked until commit and re-read from the database.
+
+    For callers that change a pending receipt while another request may do the same (the cabinet
+    re-pricing a session while its receipt is being submitted). ``populate_existing`` matters: a
+    copy already in the session's identity map would otherwise be returned unrefreshed.
+    """
+    result = await db.execute(
+        select(C2cReceipt)
+        .where(
+            C2cReceipt.user_id == user_id,
+            C2cReceipt.status == C2cReceiptStatus.PENDING.value,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_pending_receipt(
     db: AsyncSession,
     *,

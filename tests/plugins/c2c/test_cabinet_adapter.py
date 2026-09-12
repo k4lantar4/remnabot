@@ -11,9 +11,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.database.models import C2cReceiptStatus
-from app.plugins.c2c import cabinet
+from app.plugins.c2c import cabinet, crud as real_crud
 from app.plugins.c2c.constants import C2C_RECEIPT_TYPE_PHOTO, C2C_RECEIPT_TYPE_TEXT
 
 
@@ -51,6 +52,7 @@ def _db():
     db = MagicMock()
     db.commit = AsyncMock()
     db.flush = AsyncMock()
+    db.rollback = AsyncMock()
     return db
 
 
@@ -58,7 +60,9 @@ def _db():
 def crud(monkeypatch):
     fake = SimpleNamespace(
         expire_stale_c2c_receipts=AsyncMock(return_value=0),
+        # Unlocked read: only `current` may use it. Anything that changes a receipt locks the row.
         get_pending_receipt_for_user=AsyncMock(return_value=None),
+        get_pending_receipt_for_user_for_update=AsyncMock(return_value=None),
         create_pending_receipt=AsyncMock(
             side_effect=lambda db, **kw: _receipt(
                 id=9,
@@ -108,7 +112,7 @@ async def test_start_creates_a_pending_receipt_in_toman(crud):
 
 async def test_start_reuses_a_receipt_less_pending_instead_of_inserting(crud):
     pending = _receipt()
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
 
     receipt = await cabinet.start_cabinet_receipt(_db(), _user(), 150_000)
 
@@ -122,7 +126,7 @@ async def test_start_reuses_a_receipt_less_pending_instead_of_inserting(crud):
 
 async def test_start_refuses_while_a_submitted_receipt_is_pending(crud):
     pending = _receipt(receipt_type=C2C_RECEIPT_TYPE_PHOTO)
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
         await cabinet.start_cabinet_receipt(_db(), _user(), 150_000)
@@ -142,12 +146,27 @@ async def test_start_without_cards_is_unavailable(crud):
     assert exc.value.code == cabinet.UNAVAILABLE
 
 
+async def test_start_reprices_the_receipt_a_parallel_session_just_inserted(crud):
+    # Two first sessions at once: both see no pending row, the second insert hits the
+    # one-pending-per-user unique index. It must re-price the winner's row, not answer 500.
+    winner = _receipt(id=11)
+    crud.create_pending_receipt.side_effect = IntegrityError('INSERT', {}, Exception('uq_c2c_receipts_user_pending'))
+    crud.get_pending_receipt_for_user_for_update.side_effect = [None, winner]
+    db = _db()
+
+    receipt = await cabinet.start_cabinet_receipt(db, _user(), 150_000)
+
+    db.rollback.assert_awaited_once()
+    assert receipt is winner
+    assert winner.amount_kopeks == 150_000
+
+
 # ---- attach ---------------------------------------------------------------
 
 
 async def test_attach_image_with_note_submits_one_photo_receipt(crud, service):
     pending = _receipt()
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
     db = _db()
     user = _user()
 
@@ -167,8 +186,19 @@ async def test_attach_image_with_note_submits_one_photo_receipt(crud, service):
     db.commit.assert_awaited()
 
 
+async def test_attach_reads_the_pending_row_under_lock(crud, service):
+    # Without the lock a parallel /c2c/session could re-price the receipt while the admin
+    # message is being sent, and the admin would approve an amount they never saw.
+    crud.get_pending_receipt_for_user_for_update.return_value = _receipt()
+
+    await cabinet.attach_cabinet_receipt(_db(), _user(), 7, media_file_id='f', media_type='photo', text=None)
+
+    crud.get_pending_receipt_for_user_for_update.assert_awaited_once()
+    crud.get_pending_receipt_for_user.assert_not_awaited()
+
+
 async def test_attach_text_only_submits_a_text_receipt(crud, service):
-    crud.get_pending_receipt_for_user.return_value = _receipt()
+    crud.get_pending_receipt_for_user_for_update.return_value = _receipt()
 
     await cabinet.attach_cabinet_receipt(_db(), _user(), 7, media_file_id=None, media_type=None, text='ref 123456')
 
@@ -179,7 +209,7 @@ async def test_attach_text_only_submits_a_text_receipt(crud, service):
 
 
 async def test_attach_empty_submission_is_rejected(crud, service):
-    crud.get_pending_receipt_for_user.return_value = _receipt()
+    crud.get_pending_receipt_for_user_for_update.return_value = _receipt()
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
         await cabinet.attach_cabinet_receipt(_db(), _user(), 7, media_file_id=None, media_type=None, text='   ')
@@ -189,7 +219,7 @@ async def test_attach_empty_submission_is_rejected(crud, service):
 
 
 async def test_attach_to_someone_elses_or_missing_receipt_is_not_found(crud, service):
-    crud.get_pending_receipt_for_user.return_value = _receipt(id=8)
+    crud.get_pending_receipt_for_user_for_update.return_value = _receipt(id=8)
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
         await cabinet.attach_cabinet_receipt(_db(), _user(), 7, media_file_id='f', media_type='photo', text=None)
@@ -199,7 +229,7 @@ async def test_attach_to_someone_elses_or_missing_receipt_is_not_found(crud, ser
 
 
 async def test_attach_twice_is_already_submitted(crud, service):
-    crud.get_pending_receipt_for_user.return_value = _receipt(receipt_type=C2C_RECEIPT_TYPE_PHOTO)
+    crud.get_pending_receipt_for_user_for_update.return_value = _receipt(receipt_type=C2C_RECEIPT_TYPE_PHOTO)
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
         await cabinet.attach_cabinet_receipt(_db(), _user(), 7, media_file_id='f', media_type='photo', text=None)
@@ -210,7 +240,7 @@ async def test_attach_twice_is_already_submitted(crud, service):
 
 async def test_attach_when_admin_chat_fails_keeps_the_receipt_pending(crud, service):
     pending = _receipt()
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
     service.submit_receipt.return_value = (False, 'Failed to notify administrators', None)
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
@@ -243,7 +273,7 @@ async def test_current_by_id_follows_a_processed_receipt_of_the_same_user_only(c
 
 async def test_cancel_closes_a_receipt_less_pending(crud):
     pending = _receipt()
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
     db = _db()
 
     receipt = await cabinet.cancel_cabinet_receipt(db, _user(), 7)
@@ -256,10 +286,27 @@ async def test_cancel_closes_a_receipt_less_pending(crud):
 
 async def test_cancel_refuses_a_submitted_receipt(crud):
     pending = _receipt(receipt_type=C2C_RECEIPT_TYPE_PHOTO)
-    crud.get_pending_receipt_for_user.return_value = pending
+    crud.get_pending_receipt_for_user_for_update.return_value = pending
 
     with pytest.raises(cabinet.C2cCabinetError) as exc:
         await cabinet.cancel_cabinet_receipt(_db(), _user(), 7)
 
     assert exc.value.code == cabinet.ALREADY_SUBMITTED
     assert pending.status == C2cReceiptStatus.PENDING.value
+
+
+# ---- crud -----------------------------------------------------------------
+
+
+async def test_locked_pending_lookup_selects_for_update_and_refreshes_the_row():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=result)
+
+    assert await real_crud.get_pending_receipt_for_user_for_update(db, 42) is None
+
+    statement = db.execute.await_args.args[0]
+    assert statement._for_update_arg is not None
+    # A row already in the session's identity map must be re-read, or the lock guards stale data.
+    assert statement.get_execution_options().get('populate_existing') is True
