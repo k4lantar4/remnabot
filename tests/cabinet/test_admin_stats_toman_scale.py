@@ -86,6 +86,30 @@ async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -
     assert totals['profit_kopeks'] == 130_000
 
 
+async def test_payment_method_breakdown_counts_only_real_payment_methods() -> None:
+    """F-062: wallet-paid (``balance``) purchases are not income, so the per-method lines must use
+    the same ``REAL_PAYMENT_METHODS`` filter as the income total they are meant to add up to."""
+    db = AsyncMock()
+    db.execute = AsyncMock(
+        side_effect=[
+            _result(rows=[('deposit', 50_000)]),  # income
+            _result(scalar=0),  # withdrawals
+            _result(scalar=0),  # subscription income
+            _result(rows=[]),  # by type
+            _result(rows=[]),  # by payment method
+            _result(scalar=0),  # today count
+            _result(rows=[]),  # today income
+        ]
+    )
+
+    await get_transactions_statistics(db, start_date=NOW, end_date=NOW)
+
+    income_sql = str(db.execute.await_args_list[0].args[0])
+    methods_sql = str(db.execute.await_args_list[4].args[0])
+    assert 'transactions.payment_method IN' in income_sql
+    assert 'transactions.payment_method IN' in methods_sql
+
+
 async def test_recent_payments_amounts_and_totals_in_toman() -> None:
     deposit = SimpleNamespace(
         id=10,

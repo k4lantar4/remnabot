@@ -45,7 +45,7 @@ from app.database.models import (
     YooKassaPayment,
 )
 from app.utils.toman_rates import parse_toman_topup_payload
-from app.utils.wire_scale import wire_catalog_kopeks
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
@@ -68,6 +68,16 @@ class PendingPayment:
     user: User
     payment: Any
     expires_at: datetime | None = None
+
+    @property
+    def amount_toman(self) -> float:
+        """Display amount of ``amount_kopeks``, which records carry on the x100 wire scale.
+
+        ``amount_kopeks`` stays on that scale because the cabinet (``TopUpResult.tsx``) divides it by
+        100; everything that prints or exports a plain amount (``amount_rubles``, the admin bot) reads
+        this instead.
+        """
+        return toman_from_wire_catalog(self.amount_kopeks)
 
     def is_recent(self, max_age: timedelta = PENDING_MAX_AGE) -> bool:
         return (datetime.now(UTC) - self.created_at) <= max_age

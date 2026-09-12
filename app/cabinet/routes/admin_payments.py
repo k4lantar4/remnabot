@@ -27,7 +27,6 @@ from app.services.payment_verification_service import (
     method_display_name,
     run_manual_check,
 )
-from app.utils.wire_scale import toman_from_wire_catalog
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -308,7 +307,7 @@ def _record_to_response(record: PendingPayment) -> PendingPaymentResponse:
         method_display=method_display_name(record.method),
         identifier=record.identifier,
         amount_kopeks=record.amount_kopeks,
-        amount_rubles=toman_from_wire_catalog(record.amount_kopeks),
+        amount_rubles=record.amount_toman,
         status=record.status or '',
         status_emoji=status_emoji,
         status_text=status_text,

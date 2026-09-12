@@ -34,9 +34,8 @@ REAL_PAYMENT_METHODS = [m.value for m in PaymentMethod if m.value not in _NON_GA
 def display_toman_from_type_sums(rows) -> int:
     """Per-type raw ``amount_kopeks`` sums → one display-Toman total.
 
-    Deposits and other balance-scale types are stored Toman 1:1, catalog types
-    (subscription_payment, gift_payment) ×100 — a single SQL sum across both is
-    meaningless, so callers group by type and convert here.
+    Since Phase C (revision ``0115``) every type is stored Toman 1:1, so this is a plain sum; the
+    per-type grouping callers still pass in is harmless and kept for their existing row shape.
     """
     return sum(storage_sum_to_display_toman(int(total or 0)) for _tx_type, total in rows)
 
@@ -447,11 +446,14 @@ async def get_transactions_statistics(
                 Transaction.is_completed == True,
                 Transaction.created_at >= start_date,
                 Transaction.created_at <= end_date,
+                # Same filter as the income total: wallet-paid purchases (``balance``) spend money
+                # already counted as a deposit, so listing them per method overstates income.
+                Transaction.payment_method.in_(REAL_PAYMENT_METHODS),
             )
         )
         .group_by(Transaction.payment_method, Transaction.type)
     )
-    # Grouped by type too: one method carries deposits (1:1) and subscription payments (×100).
+    # Every transaction type is stored Toman 1:1 since Phase C (revision 0115); one line per method.
     payment_methods: dict = {}
     for row in payment_methods_result:
         amount = int(row.total_amount or 0)
