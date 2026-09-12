@@ -1,6 +1,7 @@
 # User notifications and flow result messages — audit and fix plan
 
-**Status:** active (plan only; no task started)
+**Status:** active (plan only; no task started). Product rulings Q1-Q6 answered 2026-09-12 (see
+"Rulings"); task 8 defaults (R2.1-R2.8) and the quiet-hours scope await the user's confirmation.
 **Repos:** `remnabot` (tasks 1, 2, 3, 4, 6a, 6b, bot half of 7), then `frontend` (tasks 5, 5b,
 frontend half of 7). Task 4 merges before task 5.
 Each task is its own PR, mergeable on its own; the order below is a recommendation, not a
@@ -77,7 +78,9 @@ Out of scope here (gateways stay disabled, not touched).
 | C4 | M | `monitoring_service.py:876` | Trial warning window hardcoded 2h; `settings.get_trial_warning_hours()` (`config.py:2318`, exposed in admin settings) has no caller |
 | C5 | M | `monitoring_service.py:2521-2539` | Traffic warning doesn't name the tariff (only `Subscription.user` loaded) |
 | C6 | M | `plugins/c2c/service.py:390-412` + `payment/common.py:396-487` | `send_cart_notification_after_topup` always returns False, so after a C2C approve whose saved-cart auto-purchase *succeeded* the user also gets `PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED` ("return to checkout") |
-| C7 | L | `monitoring_service.py:2605-2607` | Low-balance quiet hours 22-09 **UTC** (= 01:30-12:30 Tehran) — see ❓Q3 |
+| C7 | M | `monitoring_service.py:2605-2607` | Low-balance quiet hours 22-09 **UTC** (= 01:30-12:30 Tehran); ruling Q3: Tehran 00:00-06:00 → task 8 |
+| C9 | H | `monitoring_service.py:750-830` (`_check_expiring_subscriptions`), `:1230-1375` (follow-ups), `:566-612` (expired), `:2468-2560` (traffic), `daily_subscription_service._notify_daily_charge` | Every reminder is sent **per subscription**. DB 2026-09-12: user 433 (39 active, 4 expired, 3 tariffs) has 9 `expiring/3` + 4 `expiring/1` rows = 13 separate Telegram messages in two days; 7 of their subs end within 3 days (2 on 09-12, 3 on 09-15), user 97 got 4. Follow-ups (`expired_1d`, winback wave 2/3) run per expired subscription with a 30-day lookback (`:1240`) and are skipped only while another sub is active — a user whose subs have all lapsed gets 3 messages *per* subscription, and a new `discount_offers` row per subscription. → task 8 |
+| C10 | M | dates in all monitoring/auto-purchase notices (`format_local_datetime`, `strftime('%d.%m.%Y')`) | Gregorian; ruling Q5: Jalali (`app/utils/jalali_datetime.format_user_datetime`, as the C2C card) |
 | C8 | L | stale scale comments `monitoring_service.py:3199`, `daily_subscription_service.py:161`, `plugins/c2c/service.py:354` | Still say "catalog ×100" |
 
 ### D. Cabinet flows: the user gets no (or a silent) result — H/M
@@ -86,10 +89,10 @@ Out of scope here (gateways stay disabled, not touched).
 |---|---|---|---|
 | D1 | H | frontend `src/pages/RenewSubscription.tsx:60-66` | Renewal success only navigates; no confirmation, amount or new end date. Backend returns `new_end_date`, `amount_paid_kopeks` (`renewal.py:289-293`) |
 | D2 | H | frontend `src/components/subscription/sheets/{DeviceTopupSheet:63, TrafficTopupSheet:62, ServerManagementSheet:79, SwitchTariffSheet:107, DeviceReductionSheet:64}.tsx` | Every add-on / switch sheet closes silently on success |
-| D3 | M | backend `app/cabinet/routes/subscription_modules/*`, `subscription_renewal_service.py:604` | No cabinet action (purchase, renew, switch, trial, devices, traffic, servers, daily pause/resume, autopay, promo) sends a Telegram notice or websocket event to a Telegram user; `purchase.py:559, 1246` and `coupon.py:63` notify email-only users only. Bot-made twins do notify — see ❓Q1 |
+| D3 | M | backend `app/cabinet/routes/subscription_modules/*`, `subscription_renewal_service.py:604` | No cabinet action (purchase, renew, switch, trial, devices, traffic, servers, daily pause/resume, autopay, promo) sends a Telegram notice or websocket event to a Telegram user; `purchase.py:559, 1246` and `coupon.py:63` notify email-only users only. Bot-made twins do notify — ruling Q1: bot sends a Telegram confirmation for cabinet purchase/renewal/switch → task 7 |
 | D4 | M | `app/services/payment/common.py:188` is the only `balance.topup` caller | Emitted only on YooKassa and C2C approve; Stars (`stars.py:544`) and CryptoBot (`cryptobot.py:700`) credits send Telegram only — the cabinet success modal never appears for them (the `TopUpResult` page polls instead) |
 | D5 | M | `plugins/c2c/service.py:259-324`; `plugins/c2c/cabinet.py:63`; `service.py:285` | C2C reject: Telegram only, no websocket; cabinet learns only by polling `/c2c/current`; default reason `'Rejected by administrator'` English, returned raw |
-| D6 | L | `app/cabinet/routes/websocket.py:294-589` | 15 `notify_user_*` helpers (expiring, expired, autopay.*, daily_debit, traffic_reset, referral.*, account.*, payment_received, balance_change) never called although `WebSocketNotifications.tsx` handles every one — see ❓Q2 |
+| D6 | L | `app/cabinet/routes/websocket.py:294-589` | 15 `notify_user_*` helpers (expiring, expired, autopay.*, daily_debit, traffic_reset, referral.*, account.*, payment_received, balance_change) never called although `WebSocketNotifications.tsx` handles every one — ruling Q2: wire them for scheduled events → tasks 7 + 8 |
 | D7 | L | `app/cabinet/routes/notifications.py:124-151` | `/notifications/test` and `/history` are stubs (test says "you will receive a message shortly", sends nothing) |
 | D8 | H | frontend `src/components/SuccessNotificationModal.tsx:213, 222, 232, 241` | `successNotification.devicesAdded/totalDevices/trafficAdded/totalTraffic` values contain `{{count}}` but are called without params → literal placeholder; `+` in front of a renewal *price* (`:203`); "GB" hardcoded (`:234, :243`); "go to subscription" always opens the list (`:142`), `subscription_id` in the payload ignored |
 | D9 | M | frontend `src/pages/Subscription.tsx:500-509` (autopay toggle), `:560-567` (daily pause/resume), `src/pages/Profile.tsx:242-247, 703-705` (prefs), `src/pages/Dashboard.tsx:144-155` / `Subscriptions.tsx:132-145` (trial), `ReferralWithdrawalRequest.tsx:33-40, 110-113`, `GiftSubscription.tsx:460-497, 822-834` | Autopay toggle and prefs save swallow errors entirely; pause/resume, trial activation, withdrawal and gift succeed silently; withdrawal drops the backend reason; gift compares against an English literal; the threshold input saves on every keystroke |
@@ -120,7 +123,7 @@ traffic_purchased` send `amount_rubles = amount_kopeks` (`websocket.py:377, 396,
 Phase C that value is Toman; the frontend reads `amount_rubles` first (`src/utils/balanceScale.ts:33`),
 so the modal amount is right. Only the field names are misleading.
 
-### G. Emails — L (no email-only users here)
+### G. Emails — deferred (ruling Q4: no email-only users for now)
 
 `app/cabinet/services/email_templates.py`: 26 notification templates (balance, subscription ×4,
 winback ×3, autopay ×3, daily ×2, traffic reset, ban/unban/warning, referral ×2, partner ×2,
@@ -135,7 +138,7 @@ email with `strftime('%d.%m.%Y')` UTC dates. Existing F-033 (low-balance email/w
 - Withdrawal create/cancel (`withdrawal.py`) gives the user no confirmation and Russian cancel errors
   (E3); partner application approve/reject and withdrawal approve/reject notify email-only users
   only (`admin_withdrawals.py:246, 297`) — a Telegram partner learns nothing. Covered by task 6 for
-  text; delivery follows ❓Q1.
+  text; delivery follows ruling Q1 (Telegram confirmation) where the action is a purchase/renewal/switch.
 
 ## Design
 
@@ -147,7 +150,7 @@ bot. Cabinet errors become `{code, message}` with `message = texts.t(KEY)` in th
 (the pattern `CABINET_INSUFFICIENT_BALANCE` already uses); the frontend keeps showing `message`, so no
 frontend change is needed for E. Cabinet results reuse the existing `SuccessNotificationModal`
 (`showSuccessModal` in `src/store/successNotification.ts`) fed from the HTTP response, not from a
-websocket event, so they work with or without ❓Q1/Q2. Nothing touches `wire_scale.py` except F1
+websocket event, so they don't depend on task 7's events. Nothing touches `wire_scale.py` except F1
 calling it.
 
 Out of scope: admin-chat texts (`AdminNotificationService`, F-009 part B), panel-webhook notices
@@ -164,6 +167,13 @@ Out of scope: admin-chat texts (`AdminNotificationService`, F-009 part B), panel
 - No deferred gateway is enabled or depended on; their Russian notices are left untouched.
 
 ## Tasks
+
+Cross-cutting rule for tasks 1, 2, 3, 7, 8 (ruling Q5): every date a user notice shows goes through
+`format_user_datetime` (Jalali for fa, Gregorian for other languages — the helper already decides),
+never `format_local_datetime` / `strftime`. Tests assert a Jalali date for the fa user.
+
+Recommended order: 8 first (it reshapes the senders 1 and 2 edit, so doing 1/2 first means editing
+the same code twice), then 1, 2, 3, 4, 5, 5b, 6a, 6b, 7.
 
 Every bot task: worktree from `origin/main`, TDD on the rendered text/keyboard for a fa user in
 tariffs mode (balance 50,000; tariff price 10,000; tariff name set; subscription id in the button
@@ -225,8 +235,14 @@ byte-identical, fa = English placeholder until `translation-fixer` writes Persia
   19 callers) and have C2C read the cart *after* the auto-purchase attempt. Gift button →
   `build_miniapp_or_callback_button` to the cabinet gift page (grep frontend routes for the gift
   activation path; if none takes an id, keep callback and record a FINDINGS entry).
-- **Test:** each sender renders fa, no Cyrillic, tariff named; C2C approve with a successful cart
-  purchase sends no `PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED`; failed purchase still does.
+  Q6 default (one combined message): when the saved-cart auto-purchase succeeds, the top-up success
+  notice is not sent separately; the auto-purchase notice gains a first line
+  `TOPUP_CREDITED_LINE` (`{amount}`) and ends with the remaining balance. Applies to C2C, Stars,
+  CryptoBot and manual top-ups alike (all go through `send_cart_notification_after_topup`).
+- **Test:** each sender renders fa, no Cyrillic, tariff named, Jalali end date; C2C approve with a
+  successful cart purchase sends exactly one message (credited amount + tariff + end date + balance)
+  and no `PAYMENT_TOPUP_CART_AUTOPURCHASE_FAILED`; a failed purchase still sends the top-up notice
+  with the failure line.
 - **i18n:** `DAILY_TRAFFIC_RESET_NOTICE`, `MANUAL_TOPUP_NOTICE`, `TOPUP_SUCCESS_NO_SUBSCRIPTION`
   (A11), `GIFT_RECEIVED_*` (3), `REFERRAL_PURCHASE_COMMISSION_NOTICE`, `STARS_TOPUP_*_BUTTON` (2),
   `PROMOCODE_BALANCE_BONUS_LINE`, devices/traffic auto-purchase default texts moved to keys. →
@@ -299,27 +315,99 @@ byte-identical, fa = English placeholder until `translation-fixer` writes Persia
   (existing tests cover `{code,message}`).
 - **i18n:** ~120 `CABINET_ERR_*` keys → **translation-fixer** (large batch; hand over per PR).
 
-### Task 7 — Cabinet live events for bot-side and payment events (D3, D4, D5, D6) · M · both — after ❓Q1/Q2
+### Task 7 — Cabinet actions confirm in Telegram; payment and scheduled events reach the cabinet (D3, D4, D5, D6) · M · both
 
-- **Repo + files:** `remnabot` `app/services/payment/{stars,cryptobot}.py` (call
-  `notify_user_balance_topup` as `common.py:188` does), `plugins/c2c/service.py` reject (new
-  `notify_user_c2c_rejected` in `websocket.py`, event `balance.c2c_rejected {receipt_id, reason}`),
-  and — per ❓Q2 — monitoring/daily senders calling the existing `notify_user_*` helpers; per ❓Q1 a
-  shared `notify_user_subscription_result(user, subscription, kind, amount)` called from cabinet
-  routes that sends the Telegram notice the bot twin sends. `frontend`
-  `src/components/WebSocketNotifications.tsx` handler for `balance.c2c_rejected` (invalidate
-  `['c2c-current']`, toast with reason). Tests: `tests/services/test_topup_ws_events.py`; frontend
-  handler visual — verify live.
-- **Interfaces:** event names above; payload amounts via `display_balance_from_storage` (Toman), as
-  `balance.topup` already does.
-- **i18n:** `wsNotifications.c2c.rejectedTitle` in frontend en/fa → **translation-fixer**.
-- Deferred, L: G (fa email templates) and D7 `/history` — only if ❓Q4 says email users are expected
-  before release. F-033/F-034 stay in FINDINGS.
+Rulings Q1 + Q2 (2026-09-12). Depends on task 8 for the scheduled-event payload shape.
+
+- **Repo + files:** `remnabot`
+  - Q1: new `app/services/user_action_notice.py` with
+    `notify_user_subscription_result(db, user, subscription, kind: Literal['purchase','renewal','tariff_switch'], amount_toman: int, old_tariff_name: str | None = None)`
+    — Telegram only when `user.telegram_id`, text/keyboard built by a static
+    `build_subscription_result_notice(texts, user, subscription, kind, amount_toman, balance_toman, old_tariff_name)`
+    (tariff name, Jalali end date, amount, new balance, button to `/subscriptions/{id}` via task 3's
+    `build_subscription_result_keyboard`). Called after commit from `purchase.py` (tariff purchase),
+    `subscription_renewal_service.finalize` for cabinet `/renew` only (autopay already has its own
+    notice — pass `source` and skip `autopay`), and `tariff_switch.py`. Gated by
+    `settings.is_notifications_enabled()`; failures logged, never fail the request.
+  - Stars/CryptoBot credits (`payment/stars.py`, `payment/cryptobot.py`) call `notify_user_balance_topup`
+    as `common.py:188` does; C2C reject gets `notify_user_c2c_rejected` in `websocket.py`
+    (event `balance.c2c_rejected {receipt_id, reason}`).
+  - Q2: every scheduled user notice that task 8 aggregates also emits one websocket event per
+    aggregated message, using the existing helpers where the shape fits
+    (`notify_user_subscription_expiring/expired`, `notify_user_autopay_*`, `notify_user_daily_debit`,
+    `notify_user_traffic_reset`) and adding a `subscriptions: [{id, tariff_name, end_date, price_toman}]`
+    list to their payloads (additive).
+  - Tests: `tests/services/test_user_action_notice.py` (render for fa: tariff, Jalali date, amounts,
+    URL), `tests/services/test_topup_ws_events.py`.
+- **frontend:** `src/components/WebSocketNotifications.tsx` — handler for `balance.c2c_rejected`
+  (invalidate `['c2c-current']`, toast with reason); expiring/expired/autopay/daily toasts read the
+  `subscriptions` list: one subscription → tariff name + click to `/subscriptions/{id}`, several →
+  "N subscriptions" + click to `/subscriptions`. Mapping in `src/utils/wsSubscriptionSummary.ts` with a
+  unit test; toast visuals verified live.
+- **Interfaces:** event names and `subscriptions` field above; amounts in the payload are Toman
+  (`display_balance_from_storage`), as `balance.topup` already does.
+- **i18n:** bot `CABINET_ACTION_PURCHASE_NOTICE`, `CABINET_ACTION_RENEWAL_NOTICE`,
+  `CABINET_ACTION_TARIFF_SWITCH_NOTICE`; frontend `wsNotifications.c2c.rejectedTitle`,
+  `wsNotifications.subscription.expiringMany` (`{{count}}`) → **translation-fixer**.
+- Bot PR merges before the frontend PR (additive payload fields). Deferred per Q4: G (fa email
+  templates), D7 `/history`. F-033/F-034 stay in FINDINGS.
+
+### Task 8 — Reminders for many subscriptions: per-subscription targeting, abandonment cut-off, one message per user (C7, C9) · H · bot
+
+Ruling Q2 (2026-09-12): a user or partner with many (e.g. 100) lapsed subscriptions must not be
+harassed with repeated reminders; several subscriptions go into one message. The numbers below are
+**recommended defaults, marked R2.x — the user confirms them before this task starts.** Where a
+default becomes a setting it goes to `data/notification_settings.json` (the winback settings file)
+with the recommended value, editable later; no `.env` flag is flipped.
+
+**Recommended defaults (to confirm):**
+
+| # | Rule | Default | Evidence / reasoning |
+|---|---|---|---|
+| R2.1 | Aggregation unit | One Telegram message **per user per checkpoint per cycle** (expiring 3d, expiring 1d, expired, follow-up, autopay failed, traffic, daily charge), listing every subscription that hit it. Dedup rows in `sent_notifications` stay **per subscription** (unchanged table), so a subscription is never listed twice for the same checkpoint | User 433 received 13 separate "expiring" messages in two days (9 at 3d, 4 at 1d); 7 of their subs end within 3 days, 3 on the same day |
+| R2.2 | List length | Show up to **5** subscriptions (tariff name, Jalali end date, renewal price), then "+N more"; buttons: renew for a single subscription, otherwise one "my subscriptions" button (cabinet list) | Telegram keyboards past a handful of buttons are unusable; the cabinet list already shows the rest |
+| R2.3 | Abandonment | A subscription expired **more than 7 days** ago is abandoned: no expired/follow-up/winback reminders for it, ever (it stays renewable in the cabinet). Replaces the 30-day lookback (`monitoring_service.py:1240`) | The last current step, winback wave 3, fires at day 5 (`trigger_days: 5`); 7 days covers it plus two cycles of slack. User 433's expired subs are from 07-30, 08-15, 08-29 and 09-10 — only 09-10 is still in scope |
+| R2.4 | Follow-up series per user | Expired-1d + winback waves run for **one subscription per user**: the most recently expired one, and only while the user has no active subscription (today's skip, kept). The message names that tariff and says "and N other expired subscriptions" when more exist | Stops 3 messages × N subscriptions; one winback offer per user is what the discount is for |
+| R2.5 | Winback offer frequency | At most **one winback discount offer per user per 30 days** (checked against `discount_offers` created in the last 30 days), whatever the number of subscriptions | Today a new `discount_offers` row is created per expired subscription |
+| R2.6 | Expiring reminders — which subscriptions | Only subscriptions that are paid, not daily, not trial, and **not with autopay on and enough balance** for the quoted renewal (those will renew; they are listed only if autopay would fail). Keep `AUTOPAY_WARNING_DAYS` checkpoints and the user's `subscription_expiry_days` | Fixes C1 at the selection level; 3 of user 7833's 4 subs have autopay on |
+| R2.7 | Traffic and daily-charge notices | Traffic warning aggregated per user per 24h (Redis key per user instead of per sub); daily charge: one message per user per daily-charge run listing each charged subscription and the final balance | Same per-subscription pattern as R2.1 |
+| R2.8 | Quiet hours | Ruling Q3: **00:00-06:00 Asia/Tehran**. Recommended scope: **all scheduled user notices** of the monitoring cycle and daily charges are held and sent in the first cycle after 06:00 (not dropped). Event-driven notices (payment credited, C2C decision, cabinet actions) are never held | Today only low-balance has quiet hours, in UTC (`:2605-2607`) |
+
+Partners: the same rules apply; a partner is not special-cased (no partner policy invented). If the
+user wants a digest-only mode for partners with many subscriptions, that is a new question.
+
+- **Repo + files:** `remnabot` `app/services/monitoring_service.py`,
+  `app/services/daily_subscription_service.py`, `app/services/notification_settings_service.py`
+  (new getters with the defaults above), `data/notification_settings.json` default keys
+  (`expired_abandon_after_days: 7`, `winback_offer_min_interval_days: 30`,
+  `aggregate_list_limit: 5`, `quiet_hours: {"start": "00:00", "end": "06:00"}`),
+  new `app/services/notification_aggregation.py`; `app/handlers/admin/messages.py:1843, 1894`
+  (F-045: dedupe broadcast recipients by user — same root cause, close it here); tests
+  `tests/services/test_notification_aggregation.py`, `tests/services/test_monitoring_multi_subscription.py`.
+- **Interfaces (produces, used by tasks 1, 2, 7):**
+  - `collect_user_batches(items: list[Subscription]) -> dict[int, list[Subscription]]` (group by user,
+    order by end_date).
+  - `build_expiring_digest(texts, user, subs: list[Subscription], quotes: dict[int, int | None], days: int) -> tuple[str, InlineKeyboardMarkup]`
+    — single-subscription case renders exactly the task-1/2 message; several → digest.
+  - `build_expired_followup(texts, user, sub, other_expired_count, kind) -> tuple[str, InlineKeyboardMarkup]`.
+  - `is_abandoned(sub, now, abandon_days) -> bool`, `in_quiet_hours(now_tehran, window) -> bool`.
+  - `MonitoringService` checks call these and record one `sent_notifications` row per listed subscription.
+- **Test (failing first):** user with 7 subs expiring within 3 days → one message listing 5 + "+2",
+  7 dedup rows, second cycle sends nothing; sub expired 8 days ago → no follow-up; user with 4 expired
+  subs and none active → one expired-1d message naming the latest and "3 others"; second winback
+  within 30 days → none; 01:00 Tehran → held, 06:10 → sent; admin broadcast to a user with 2 expiring
+  subs → one recipient.
+- **i18n:** `NOTIFY_DIGEST_EXPIRING` (`{count}`, `{days_text}`, `{lines}`), `NOTIFY_DIGEST_LINE`
+  (`{tariff}`, `{end_date}`, `{price}`), `NOTIFY_DIGEST_MORE` (`{count}`), `NOTIFY_OTHER_EXPIRED`
+  (`{count}`), `NOTIFY_DIGEST_DAILY_CHARGE` → **translation-fixer**.
+- **Size:** one conversation if R2.x are confirmed as written; if the scope grows (e.g. a partner
+  digest mode), stop and split.
 
 ## Hand-offs summary
 
 | Task | Repo | translation-fixer | payment-fixer | admin-fixer |
 |---|---|---|---|---|
+| 8 | bot | yes | — | parity check: the new `notification_settings.json` keys have no cabinet admin screen (winback waves are bot-admin only) — hand to admin-fixer after merge |
 | 1 | bot | yes | — | — |
 | 2 | bot | yes | review C2 quote only if it differs from autopay's charge | — |
 | 3 | bot | yes | — | — |
@@ -327,24 +415,32 @@ byte-identical, fa = English placeholder until `translation-fixer` writes Persia
 | 5 | frontend | yes | — | not needed |
 | 5b | frontend | yes | — | not needed |
 | 6a/6b | bot | yes (large) | — | — |
-| 7 | both | yes | — | check if Q1 adds a user preference |
+| 7 | both | yes | — | not needed (no new user preference) |
 
-## ❓ Questions (product decisions, not derivable from code)
+## Rulings (user, 2026-09-12)
 
-- **Q1.** When a Telegram user buys/renews/switches/adds devices **in the cabinet**, should the bot
-  also DM them a confirmation (as it does for the same action done in the bot), or is the cabinet
-  result screen (task 5) enough now that the bot's user side is legacy?
-- **Q2.** Should cabinet toasts appear for scheduled events (expiry reminder, autopay success/fail,
-  daily charge, traffic reset) for Telegram users too — i.e. both Telegram and a toast — or stay
-  Telegram-only?
-- **Q3.** Low-balance quiet hours: keep "no alerts at night" in Tehran time, and which window
-  (today's code: 22:00-09:00 UTC)?
-- **Q4.** Email-only users are not expected before release? If they are, fa email templates (G) move
-  up from L.
-- **Q5.** Dates in user notices: Gregorian `dd.mm.YYYY` (monitoring) or Jalali (C2C already uses
-  Jalali)? One rule for all notices.
-- **Q6.** After a C2C/Stars top-up that auto-completes a saved purchase, should the user get one
-  combined message (top-up + purchase) or two?
+- **Q1 — yes.** A purchase, renewal or tariff change made in the cabinet gets a Telegram confirmation
+  from the bot (task 7).
+- **Q2 — yes, and reshape the sending.** Scheduled events also show in the cabinet (task 7); sending
+  must fit multi-subscription users: target per subscription, stop on abandoned subscriptions,
+  aggregate several subscriptions into one message (task 8; defaults R2.1-R2.8 await confirmation).
+- **Q3 — quiet hours 00:00-06:00 Asia/Tehran** (task 8, R2.8).
+- **Q4 — no email-only users for now;** fa email templates deferred (G).
+- **Q5 — Jalali dates** in notifications (cross-cutting rule above tasks).
+- **Q6 — user undecided; plan default:** after a top-up that auto-completes a saved purchase, send
+  **one combined message** (amount credited + subscription purchased/renewed with tariff, Jalali end
+  date and remaining balance) instead of two — the top-up was only the means to the purchase, and two
+  messages seconds apart, the first saying "return to checkout", read as a failure (C6). Implemented in
+  task 3; revisit only if the user objects.
+
+## ❓ Remaining questions
+
+- **R2.1-R2.8** — confirm or change the task 8 defaults (7-day abandonment, one follow-up series per
+  user, one winback offer per 30 days, list of 5, aggregation per checkpoint).
+- **R2.8 scope** — hold *all* scheduled user notices during 00:00-06:00 Tehran, or only low-balance
+  (today's scope)?
+- **Q6 default** — one combined message after an auto-completed purchase (plan default) unless you
+  prefer two.
 
 ## Smoke test
 
