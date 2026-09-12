@@ -1,6 +1,6 @@
 # Missing upstream tables (`coupons`, `platega_subscriptions`) break admin Activity
 
-Status: done — revision `0117_create_deferred_upstream_tables` (remnabot#70, 2026-09-12).
+Status: done — revision `0117_create_deferred_upstream_tables` (remnabot#74, 2026-09-12).
 Option 1 ("create the tables") was chosen by the user on 2026-09-12, after the same two 500s were
 hit again while running the S-020 smoke items.
 Repos: remnabot only
