@@ -200,8 +200,9 @@ class UserActivityItem(BaseModel):
     source: str | None = None  # 'bot' | 'cabinet' — где произошло действие, если известно
     title: str | None = None
     amount_kopeks: int | None = None
-    # Display Toman (signed) when the source's storage scale is known — set for
-    # transactions; None elsewhere, where clients keep the legacy ÷100 reading.
+    # Display Toman (signed). Since Phase C (revision 0115) every source table of this feed stores
+    # Toman 1:1, so every mapper fills it. ``amount_kopeks`` stays on the frozen catalog wire scale
+    # for older clients, which divide it by 100 — a client that reads ``amount_toman`` must not.
     amount_toman: float | None = None
     timestamp: datetime
     meta: dict[str, Any] | None = None

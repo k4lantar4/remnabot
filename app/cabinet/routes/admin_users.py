@@ -3482,6 +3482,12 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
         SubscriptionEvent.event_type != 'promocode_activation',
     )
 
+    # Every mapper below fills ``amount_toman``: since revision 0115 all of these source tables
+    # (transactions, subscription_events, wheel_spins, poll_responses, guest_purchases,
+    # referral_earnings, withdrawal_requests) store Toman 1:1. The cabinet prefers that field and
+    # only falls back to dividing ``amount_kopeks`` by 100 when it is absent
+    # (frontend ``src/utils/adminBalance.ts`` ``activityAmountToman``), which would show 1/100 of
+    # the real amount.
     def _map_transaction(t: Transaction) -> UserActivityItem:
         return UserActivityItem(
             type='transaction',
@@ -3501,6 +3507,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             subtype=e.event_type,
             title=e.message,
             amount_kopeks=e.amount_kopeks,
+            amount_toman=e.amount_kopeks,
             timestamp=e.occurred_at,
             meta=e.extra if isinstance(e.extra, dict) else None,
         )
@@ -3528,6 +3535,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             source='bot',
             title=w.prize_display_name,
             amount_kopeks=w.prize_value_kopeks,
+            amount_toman=w.prize_value_kopeks,
             timestamp=w.created_at,
         )
 
@@ -3536,6 +3544,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             type='poll',
             source='bot',
             amount_kopeks=p.reward_amount_kopeks if p.reward_given else None,
+            amount_toman=p.reward_amount_kopeks if p.reward_given else None,
             timestamp=p.completed_at,
         )
 
@@ -3545,6 +3554,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             subtype=g.status,
             title=g.gift_recipient_value,
             amount_kopeks=g.amount_kopeks,
+            amount_toman=g.amount_kopeks,
             timestamp=g.paid_at or g.created_at,
         )
 
@@ -3553,6 +3563,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             type='gift_received',
             subtype=g.status,
             amount_kopeks=g.amount_kopeks,
+            amount_toman=g.amount_kopeks,
             timestamp=g.delivered_at or g.created_at,
         )
 
@@ -3561,6 +3572,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             type='referral_earning',
             subtype=e.reason,
             amount_kopeks=e.amount_kopeks,
+            amount_toman=e.amount_kopeks,
             timestamp=e.created_at,
         )
 
@@ -3577,6 +3589,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             type='withdrawal',
             subtype=w.status,
             amount_kopeks=w.amount_kopeks,
+            amount_toman=w.amount_kopeks,
             timestamp=w.created_at,
         )
 

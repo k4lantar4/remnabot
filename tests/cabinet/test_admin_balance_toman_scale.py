@@ -150,7 +150,14 @@ def test_activity_subscription_payment_has_toman_amount() -> None:
     assert item.amount_toman == -10_000
 
 
-def test_activity_non_transaction_sources_leave_toman_unset() -> None:
+def test_activity_non_transaction_sources_also_report_toman() -> None:
+    """Every source table stores Toman 1:1 since revision 0115, so none may fall back to ÷100.
+
+    This used to assert the opposite: while wheel prizes were stored on the catalog scale, leaving
+    ``amount_toman`` unset let the cabinet divide ``amount_kopeks`` by 100 and get the right number.
+    After 0115 that fallback shows 1/100 of the real amount — see
+    ``tests/cabinet/test_admin_money_wire_scale.py``.
+    """
     wheel = SimpleNamespace(
         prize_type='balance',
         prize_display_name='x',
@@ -159,4 +166,4 @@ def test_activity_non_transaction_sources_leave_toman_unset() -> None:
     )
     item = _activity_sources(1)['wheel_spin'][3](wheel)
 
-    assert item.amount_toman is None
+    assert item.amount_toman == 5_000
