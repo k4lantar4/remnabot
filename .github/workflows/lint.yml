@@ -1,8 +1,9 @@
 name: Lint
 
 on:
+  # Feature branches are covered by their pull_request run.
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: ['**']
   # release.yml runs this workflow with `uses:`; without this trigger a v* tag run fails at startup.

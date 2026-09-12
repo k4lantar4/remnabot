@@ -1,9 +1,9 @@
 name: CodeQL
 
 on:
+  # Not on pull_request: the slowest check (~4.5 min) would gate every merge,
+  # while alerts from the push to main land in the Security tab all the same.
   push:
-    branches: [main, dev]
-  pull_request:
     branches: [main, dev]
   schedule:
     # Еженедельный полный проход, чтобы ловить новые правила даже без коммитов.
