@@ -15,19 +15,28 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot_factory import create_bot
 from app.cabinet.routes.media import make_media_token
 from app.cabinet.schemas.c2c_receipts import (
     C2cReceiptAdminDetail,
     C2cReceiptAdminItem,
     C2cReceiptAdminListResponse,
     C2cReceiptAdminStats,
+    C2cReceiptApproveRequest,
+    C2cReceiptRejectRequest,
     C2cReceiptReviewerInfo,
     C2cReceiptUserInfo,
+    C2cRejectReasonItem,
 )
+from app.config import settings
 from app.database.models import C2cReceipt, User
+from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
 from app.plugins.c2c.config_helpers import get_card_by_index
-from app.utils.wire_scale import wire_catalog_kopeks
+from app.plugins.c2c.decision import resolved_receipt_message, sync_group_admin_message
+from app.plugins.c2c.reject_reasons import get_admin_reject_button_label, get_reject_reason_codes
+from app.plugins.c2c.service import C2cPaymentService
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -172,10 +181,127 @@ async def c2c_receipt_stats(
     return C2cReceiptAdminStats(total=sum(counts.values()), **counts)
 
 
+def _admin_texts(admin: User):
+    return get_texts(getattr(admin, 'language', None) or settings.DEFAULT_LANGUAGE)
+
+
+def _error(status_code: int, texts, key: str, default: str, **fmt) -> HTTPException:
+    message = texts.t(key, default)
+    return HTTPException(status_code=status_code, detail=message.format(**fmt) if fmt else message)
+
+
+def _decision_error(message: str, texts) -> HTTPException:
+    """Map ``C2cPaymentService`` failure messages to HTTP; the service's strings are its contract."""
+    if message == 'Already processed':
+        # Decided by the other channel meanwhile: the screen refetches to show who and when.
+        return _error(
+            status.HTTP_409_CONFLICT,
+            texts,
+            'CABINET_C2C_ADMIN_ALREADY_PROCESSED',
+            'This receipt has already been reviewed.',
+        )
+    if message in {'Receipt not found', 'User not found'}:
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Receipt not found')
+    logger.error('C2C receipt decision failed in the cabinet', message=message)
+    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Receipt decision failed')
+
+
+async def _sync_group_post(db: AsyncSession, bot, receipt: C2cReceipt, admin: User) -> None:
+    """Rewrite the Telegram group post to its resolved form. The money moved already: never fail here."""
+    try:
+        body, keyboard = await resolved_receipt_message(db, receipt, admin.username or str(admin.id))
+        await sync_group_admin_message(bot, receipt, status_html=body, reply_markup=keyboard)
+    except Exception as error:
+        logger.warning('Could not sync the C2C group post after a cabinet decision', receipt_id=receipt.id, error=error)
+
+
+@router.get('/reject-reasons', response_model=list[C2cRejectReasonItem])
+async def list_c2c_reject_reasons(
+    admin: User = Depends(require_permission('payments:read')),
+) -> list[C2cRejectReasonItem]:
+    texts = _admin_texts(admin)
+    return [
+        C2cRejectReasonItem(code=code, label=get_admin_reject_button_label(code, texts))
+        for code in get_reject_reason_codes()
+    ]
+
+
 @router.get('/{receipt_id}', response_model=C2cReceiptAdminDetail)
 async def get_c2c_receipt(
     receipt_id: int,
     admin: User = Depends(require_permission('payments:read')),
     db: AsyncSession = Depends(get_cabinet_db),
 ) -> C2cReceiptAdminDetail:
+    return await load_receipt_detail(db, receipt_id)
+
+
+@router.post('/{receipt_id}/approve', response_model=C2cReceiptAdminDetail)
+async def approve_c2c_receipt(
+    receipt_id: int,
+    payload: C2cReceiptApproveRequest,
+    admin: User = Depends(require_permission('payments:edit')),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> C2cReceiptAdminDetail:
+    texts = _admin_texts(admin)
+    credit_toman = None
+    if payload.amount_kopeks is not None:
+        credit_toman = toman_from_wire_catalog(payload.amount_kopeks)
+        if not settings.C2C_MIN_AMOUNT_KOPEKS <= credit_toman <= settings.C2C_MAX_AMOUNT_KOPEKS:
+            raise _error(
+                status.HTTP_400_BAD_REQUEST,
+                texts,
+                'CABINET_C2C_ADMIN_AMOUNT_OUT_OF_RANGE',
+                'The amount must be between {min} and {max}.',
+                min=texts.format_balance(settings.C2C_MIN_AMOUNT_KOPEKS),
+                max=texts.format_balance(settings.C2C_MAX_AMOUNT_KOPEKS),
+            )
+
+    async with create_bot() as bot:
+        success, message, receipt = await C2cPaymentService(bot).approve_receipt(
+            db,
+            receipt_id,
+            admin.telegram_id,
+            credited_amount_kopeks=credit_toman,
+            reviewed_by_user_id=admin.id,
+            reviewed_via='cabinet',
+        )
+        if not success:
+            raise _decision_error(message, texts)
+        await _sync_group_post(db, bot, receipt, admin)
+
+    return await load_receipt_detail(db, receipt_id)
+
+
+@router.post('/{receipt_id}/reject', response_model=C2cReceiptAdminDetail)
+async def reject_c2c_receipt(
+    receipt_id: int,
+    payload: C2cReceiptRejectRequest,
+    admin: User = Depends(require_permission('payments:edit')),
+    db: AsyncSession = Depends(get_cabinet_db),
+) -> C2cReceiptAdminDetail:
+    texts = _admin_texts(admin)
+    if payload.reason_key not in get_reject_reason_codes():
+        raise _error(
+            status.HTTP_400_BAD_REQUEST,
+            texts,
+            'CABINET_C2C_ADMIN_BAD_REASON',
+            'Choose a valid rejection reason.',
+        )
+
+    # The comment is for admins only: the user is told the catalog reason for ``reason_key``.
+    comment = (payload.comment or '').strip() or None
+    async with create_bot() as bot:
+        success, message, receipt = await C2cPaymentService(bot).reject_receipt(
+            db,
+            receipt_id,
+            admin.telegram_id,
+            reason=comment,
+            reason_key=payload.reason_key,
+            reviewed_by_user_id=admin.id,
+            reviewed_via='cabinet',
+        )
+        if not success:
+            raise _decision_error(message, texts)
+        await _sync_group_post(db, bot, receipt, admin)
+
     return await load_receipt_detail(db, receipt_id)
