@@ -13,6 +13,7 @@ from app.config import settings
 from app.database.models import C2cReceiptStatus, User
 from app.localization.texts import get_texts
 from app.plugins.c2c import crud as c2c_crud
+from app.plugins.c2c.admin_messages import build_c2c_admin_receipt_body
 from app.plugins.c2c.constants import (
     C2C_CALLBACK_APPROVE_PREFIX,
     C2C_CALLBACK_CUSTOM_AMOUNT_PREFIX,
