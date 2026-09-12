@@ -1,11 +1,11 @@
 # User notifications and flow result messages — audit and fix plan
 
-**Status:** active (plan only; no task started). Product rulings Q1-Q6 answered 2026-09-12 (see
-"Rulings"); task 8 defaults (R2.1-R2.8) and the quiet-hours scope await the user's confirmation.
+**Status:** active — **approved 2026-09-12, ready to execute** (no task started). All product
+questions answered (see "Rulings"); start with task 8 (see "Execution order").
 **Repos:** `remnabot` (tasks 1, 2, 3, 4, 6a, 6b, bot half of 7), then `frontend` (tasks 5, 5b,
 frontend half of 7). Task 4 merges before task 5.
-Each task is its own PR, mergeable on its own; the order below is a recommendation, not a
-dependency chain unless a task says so.
+Each task is its own PR, mergeable on its own; follow "Execution order" (hard dependencies: 8 before
+1-2, 4 before 5, bot PR before frontend PR in 7).
 **Upstream basis:** `remnabot` origin/main `08194b09`, upstream/main `9fcebfd7`; `frontend`
 origin/main `090e992f`.
 **Audit:** notif-fixer, 2026-09-12, read-only (no sender called). Live env at audit time:
@@ -172,8 +172,24 @@ Cross-cutting rule for tasks 1, 2, 3, 7, 8 (ruling Q5): every date a user notice
 `format_user_datetime` (Jalali for fa, Gregorian for other languages — the helper already decides),
 never `format_local_datetime` / `strftime`. Tests assert a Jalali date for the fa user.
 
-Recommended order: 8 first (it reshapes the senders 1 and 2 edit, so doing 1/2 first means editing
-the same code twice), then 1, 2, 3, 4, 5, 5b, 6a, 6b, 7.
+### Execution order
+
+One task = one fresh conversation = one PR (plus a linked frontend PR where noted). Each starts with
+`plan-execution` on this file, e.g. the phrase «تسک 8 از پلن 2026-09-12-user-notifications-and-flow-results رو اجرا کن».
+Tasks with pending Persian wait for `translation-fixer` on their branch before merge.
+
+1. **Task 8** — multi-subscription aggregation, abandonment, configurable quiet hours (bot; then
+   admin-fixer parity). First, because it reshapes the senders tasks 1-2 edit.
+2. **Task 1** — monitoring reminders: Russian, buttons, trial window (bot).
+3. **Task 2** — expiry reminder truth + renewal price (bot).
+4. **Task 3** — post-payment / auto-purchase notices, combined message (bot).
+5. **Task 4** — cabinet response amount scale (bot, payment-fixer). Must merge before 5.
+6. **Task 5** — cabinet result confirmations (frontend).
+7. **Task 5b** — silent successes, swallowed errors, fa keys, card signals (frontend).
+8. **Task 6a**, then **6b** — localize cabinet API errors (bot, two PRs).
+9. **Task 7** — Telegram confirmations for cabinet actions + cabinet events (bot PR, then frontend PR).
+
+Tasks 4, 6a and 6b touch no file tasks 1-3/8 touch and may run in parallel sessions with them.
 
 Every bot task: worktree from `origin/main`, TDD on the rendered text/keyboard for a fa user in
 tariffs mode (balance 50,000; tariff price 10,000; tariff name set; subscription id in the button
@@ -355,12 +371,13 @@ Rulings Q1 + Q2 (2026-09-12). Depends on task 8 for the scheduled-event payload 
 ### Task 8 — Reminders for many subscriptions: per-subscription targeting, abandonment cut-off, one message per user (C7, C9) · H · bot
 
 Ruling Q2 (2026-09-12): a user or partner with many (e.g. 100) lapsed subscriptions must not be
-harassed with repeated reminders; several subscriptions go into one message. The numbers below are
-**recommended defaults, marked R2.x — the user confirms them before this task starts.** Where a
-default becomes a setting it goes to `data/notification_settings.json` (the winback settings file)
-with the recommended value, editable later; no `.env` flag is flipped.
+harassed with repeated reminders; several subscriptions go into one message. **R2.1-R2.7 approved
+by the user as written (2026-09-12); R2.8 approved in the configurable form below.** R2.3-R2.5 limits
+are read through `NotificationSettingsService` getters whose defaults are the approved values
+(overridable in `data/notification_settings.json`, like the winback waves); quiet hours are `settings`
+fields exposed in the admin settings screen. No `.env` flag is flipped.
 
-**Recommended defaults (to confirm):**
+**Approved rules:**
 
 | # | Rule | Default | Evidence / reasoning |
 |---|---|---|---|
@@ -371,16 +388,20 @@ with the recommended value, editable later; no `.env` flag is flipped.
 | R2.5 | Winback offer frequency | At most **one winback discount offer per user per 30 days** (checked against `discount_offers` created in the last 30 days), whatever the number of subscriptions | Today a new `discount_offers` row is created per expired subscription |
 | R2.6 | Expiring reminders — which subscriptions | Only subscriptions that are paid, not daily, not trial, and **not with autopay on and enough balance** for the quoted renewal (those will renew; they are listed only if autopay would fail). Keep `AUTOPAY_WARNING_DAYS` checkpoints and the user's `subscription_expiry_days` | Fixes C1 at the selection level; 3 of user 7833's 4 subs have autopay on |
 | R2.7 | Traffic and daily-charge notices | Traffic warning aggregated per user per 24h (Redis key per user instead of per sub); daily charge: one message per user per daily-charge run listing each charged subscription and the final balance | Same per-subscription pattern as R2.1 |
-| R2.8 | Quiet hours | Ruling Q3: **00:00-06:00 Asia/Tehran**. Recommended scope: **all scheduled user notices** of the monitoring cycle and daily charges are held and sent in the first cycle after 06:00 (not dropped). Event-driven notices (payment credited, C2C decision, cabinet actions) are never held | Today only low-balance has quiet hours, in UTC (`:2605-2607`) |
+| R2.8 | Quiet hours (configurable) | Owner-editable in the cabinet admin settings (category `NOTIFICATIONS`, tree node `notif_user`, via `system_settings_service` — the `NOTIFICATION_` prefix already maps there, `system_settings_service.py:507`): `NOTIFICATION_QUIET_HOURS_ENABLED: bool = True`, `NOTIFICATION_QUIET_HOURS_START: str = '00:00'`, `NOTIFICATION_QUIET_HOURS_END: str = '06:00'` (local time = `settings.TZ`, live `Asia/Tehran`; a window crossing midnight is allowed), `NOTIFICATION_QUIET_HOURS_TYPES: str` (comma list). **Chosen default types** (reminders and informational notices that lose nothing by waiting): `expiring`, `expired_followup` (expired-1d + winback waves), `traffic_warning`, `low_balance`, `daily_charge`. **Default exempt** (time-critical — delaying them breaks service or the offer): `expired` (access just cut), `trial_ending` (2h window would pass), `autopay_failed` (last chance before cut-off), `daily_insufficient` (subscription paused), `trial_channel_unsubscribed`. Held notices are sent in the first cycle after the window ends, not dropped. Event-driven notices (payment credited, C2C decision, cabinet actions, tickets) are never held and are not selectable | Today only low-balance has quiet hours, hardcoded 22-09 UTC (`:2605-2607`); ruling Q3 + R2.8 answer |
 
 Partners: the same rules apply; a partner is not special-cased (no partner policy invented). If the
 user wants a digest-only mode for partners with many subscriptions, that is a new question.
 
 - **Repo + files:** `remnabot` `app/services/monitoring_service.py`,
   `app/services/daily_subscription_service.py`, `app/services/notification_settings_service.py`
-  (new getters with the defaults above), `data/notification_settings.json` default keys
-  (`expired_abandon_after_days: 7`, `winback_offer_min_interval_days: 30`,
-  `aggregate_list_limit: 5`, `quiet_hours: {"start": "00:00", "end": "06:00"}`),
+  (new getters `get_expired_abandon_after_days()` = 7, `get_winback_offer_min_interval_days()` = 30,
+  `get_aggregate_list_limit()` = 5, overridable by the same-named keys in
+  `data/notification_settings.json`), `app/config.py` (the four `NOTIFICATION_QUIET_HOURS_*` fields
+  and a parsed accessor `settings.get_quiet_hours() -> QuietHours(enabled, start: time, end: time, types: frozenset[str])`
+  that ignores unknown type names and falls back to the defaults on a malformed time),
+  `app/services/system_settings_service.py` (description/hint for the four keys so the admin screen
+  explains them; category comes from the prefix), `.env.example` (documented, commented defaults),
   new `app/services/notification_aggregation.py`; `app/handlers/admin/messages.py:1843, 1894`
   (F-045: dedupe broadcast recipients by user — same root cause, close it here); tests
   `tests/services/test_notification_aggregation.py`, `tests/services/test_monitoring_multi_subscription.py`.
@@ -390,13 +411,22 @@ user wants a digest-only mode for partners with many subscriptions, that is a ne
   - `build_expiring_digest(texts, user, subs: list[Subscription], quotes: dict[int, int | None], days: int) -> tuple[str, InlineKeyboardMarkup]`
     — single-subscription case renders exactly the task-1/2 message; several → digest.
   - `build_expired_followup(texts, user, sub, other_expired_count, kind) -> tuple[str, InlineKeyboardMarkup]`.
-  - `is_abandoned(sub, now, abandon_days) -> bool`, `in_quiet_hours(now_tehran, window) -> bool`.
+  - `is_abandoned(sub, now, abandon_days) -> bool`,
+    `should_hold_for_quiet_hours(notice_type: str, now_utc: datetime, quiet: QuietHours) -> bool`
+    (converts to `settings.TZ`; type names are the R2.8 list). Held notices need no queue: the
+    dedup row is not written, so the next cycle after the window picks them up again.
   - `MonitoringService` checks call these and record one `sent_notifications` row per listed subscription.
 - **Test (failing first):** user with 7 subs expiring within 3 days → one message listing 5 + "+2",
   7 dedup rows, second cycle sends nothing; sub expired 8 days ago → no follow-up; user with 4 expired
   subs and none active → one expired-1d message naming the latest and "3 others"; second winback
-  within 30 days → none; 01:00 Tehran → held, 06:10 → sent; admin broadcast to a user with 2 expiring
-  subs → one recipient.
+  within 30 days → none; 01:00 Tehran → `expiring` held, `expired` sent; 06:10 → held one sent;
+  `NOTIFICATION_QUIET_HOURS_TYPES=` (empty) → nothing held; window `22:00-07:00` crosses midnight;
+  `ENABLED=false` → nothing held; admin broadcast to a user with 2 expiring subs → one recipient.
+- **Admin parity (mandatory, `admin-fixer` after the bot PR):** confirm the four
+  `NOTIFICATION_QUIET_HOURS_*` settings appear and save under the cabinet admin settings node
+  `notif_user` (`frontend/src/components/admin/constants.ts:129`), with fa labels/hints
+  (`admin.settings.settingNames.*` in `frontend/src/locales/fa.json`), and decide whether
+  `…_TYPES` needs a multi-select instead of a free-text comma list (frontend PR if so).
 - **i18n:** `NOTIFY_DIGEST_EXPIRING` (`{count}`, `{days_text}`, `{lines}`), `NOTIFY_DIGEST_LINE`
   (`{tariff}`, `{end_date}`, `{price}`), `NOTIFY_DIGEST_MORE` (`{count}`), `NOTIFY_OTHER_EXPIRED`
   (`{count}`), `NOTIFY_DIGEST_DAILY_CHARGE` → **translation-fixer**.
@@ -407,7 +437,7 @@ user wants a digest-only mode for partners with many subscriptions, that is a ne
 
 | Task | Repo | translation-fixer | payment-fixer | admin-fixer |
 |---|---|---|---|---|
-| 8 | bot | yes | — | parity check: the new `notification_settings.json` keys have no cabinet admin screen (winback waves are bot-admin only) — hand to admin-fixer after merge |
+| 8 | bot (+ frontend if admin-fixer adds a multi-select) | yes | — | **required**: quiet-hours settings visible and editable in cabinet admin settings (`notif_user`), fa labels; R2.3-R2.5 JSON limits have no cabinet screen (same as winback waves today) — admin-fixer records it as a finding if it isn't built |
 | 1 | bot | yes | — | — |
 | 2 | bot | yes | review C2 quote only if it differs from autopay's charge | — |
 | 3 | bot | yes | — | — |
@@ -423,24 +453,18 @@ user wants a digest-only mode for partners with many subscriptions, that is a ne
   from the bot (task 7).
 - **Q2 — yes, and reshape the sending.** Scheduled events also show in the cabinet (task 7); sending
   must fit multi-subscription users: target per subscription, stop on abandoned subscriptions,
-  aggregate several subscriptions into one message (task 8; defaults R2.1-R2.8 await confirmation).
-- **Q3 — quiet hours 00:00-06:00 Asia/Tehran** (task 8, R2.8).
+  aggregate several subscriptions into one message (task 8). **R2.1-R2.7 approved as proposed.**
+- **Q3 / R2.8 — quiet hours configurable by the owner** in cabinet admin settings: the window (default
+  00:00-06:00, `settings.TZ` = Asia/Tehran) and which scheduled notice types respect it (defaults
+  chosen in task 8's R2.8 row). Admin-parity check by `admin-fixer` is part of task 8.
 - **Q4 — no email-only users for now;** fa email templates deferred (G).
 - **Q5 — Jalali dates** in notifications (cross-cutting rule above tasks).
-- **Q6 — user undecided; plan default:** after a top-up that auto-completes a saved purchase, send
-  **one combined message** (amount credited + subscription purchased/renewed with tariff, Jalali end
-  date and remaining balance) instead of two — the top-up was only the means to the purchase, and two
-  messages seconds apart, the first saying "return to checkout", read as a failure (C6). Implemented in
-  task 3; revisit only if the user objects.
+- **Q6 — one combined message (approved default):** after a top-up that auto-completes a saved
+  purchase, send one message (amount credited + subscription purchased/renewed with tariff, Jalali end
+  date and remaining balance) instead of two — the top-up was only the means to the purchase (C6).
+  Implemented in task 3.
 
-## ❓ Remaining questions
-
-- **R2.1-R2.8** — confirm or change the task 8 defaults (7-day abandonment, one follow-up series per
-  user, one winback offer per 30 days, list of 5, aggregation per checkpoint).
-- **R2.8 scope** — hold *all* scheduled user notices during 00:00-06:00 Tehran, or only low-balance
-  (today's scope)?
-- **Q6 default** — one combined message after an auto-completed purchase (plan default) unless you
-  prefer two.
+No open questions remain.
 
 ## Smoke test
 
