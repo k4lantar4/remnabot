@@ -1988,7 +1988,7 @@ async def confirm_extend_subscription(
             offer_discount=pricing.promo_offer_discount,
             final_total=pricing.final_total,
         )
-        logger.info('💎 ИТОГО: ₽', price=price / 100)
+        logger.info('💎 ИТОГО: ₽', price=price)
 
     except Exception as e:
         logger.error('⚠ ОШИБКА РАСЧЕТА ЦЕНЫ', error=e)
@@ -2087,7 +2087,7 @@ async def confirm_extend_subscription(
         '✅ Пользователь продлил подписку на дней за ₽',
         telegram_id=db_user.telegram_id,
         days=days,
-        price=price / 100,
+        price=price,
     )
 
     await callback.answer()
@@ -2332,9 +2332,9 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             logger.error(
                 'Цена выросла для пользователя кэш=₽, пересчет=₽, разница=+₽ (>₽). Покупка заблокирована.',
                 telegram_id=db_user.telegram_id,
-                cached_total_price=cached_total_price / 100,
-                final_price=final_price / 100,
-                price_difference=price_difference / 100,
+                cached_total_price=cached_total_price,
+                final_price=final_price,
+                price_difference=price_difference,
                 max_allowed_increase=max_allowed_increase / 100,
             )
             await callback.answer('Цена изменилась. Пожалуйста, начните оформление заново.', show_alert=True)
@@ -2343,15 +2343,15 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             logger.warning(
                 'Небольшой рост цены для пользователя кэш=₽, пересчет=₽. Используем пересчитанную цену.',
                 telegram_id=db_user.telegram_id,
-                cached_total_price=cached_total_price / 100,
-                final_price=final_price / 100,
+                cached_total_price=cached_total_price,
+                final_price=final_price,
             )
     elif price_difference < -100:  # цена снизилась более чем на 1₽
         logger.info(
             'Цена снизилась для пользователя кэш=₽, пересчет=₽. Применяем новую цену.',
             telegram_id=db_user.telegram_id,
-            cached_total_price=cached_total_price / 100,
-            final_price=final_price / 100,
+            cached_total_price=cached_total_price,
+            final_price=final_price,
         )
 
     # --- Logging ---
@@ -2361,14 +2361,14 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
     base_discount_percent = details['base_discount_percent']
 
     logger.info('Расчет покупки подписки на дней ( мес)', data=data['period_days'], months_in_period=months_in_period)
-    base_log = f'   Период: {base_price_original / 100}₽'
+    base_log = f'   Период: {base_price_original}₽'
     if base_discount_total and base_discount_total > 0:
-        base_log += f' → {base_price / 100}₽ (скидка {base_discount_percent}%: -{base_discount_total / 100}₽)'
+        base_log += f' → {base_price}₽ (скидка {base_discount_percent}%: -{base_discount_total / 100}₽)'
     logger.info(base_log)
     if details['total_traffic_price'] > 0:
         traffic_msg = (
-            f'   Трафик: {details["traffic_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_traffic_price"] / 100}₽'
+            f'   Трафик: {details["traffic_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_traffic_price"]}₽'
         )
         if details['traffic_discount_total'] > 0:
             traffic_msg += (
@@ -2377,8 +2377,8 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         logger.info(traffic_msg)
     if details['total_servers_price'] > 0:
         servers_msg = (
-            f'   Серверы: {details["servers_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_servers_price"] / 100}₽'
+            f'   Серверы: {details["servers_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_servers_price"]}₽'
         )
         if details['servers_discount_total'] > 0:
             servers_msg += (
@@ -2387,8 +2387,8 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         logger.info(servers_msg)
     if details['total_devices_price'] > 0:
         devices_msg = (
-            f'   Устройства: {details["devices_price_per_month"] / 100}₽/мес'
-            f' × {months_in_period} = {details["total_devices_price"] / 100}₽'
+            f'   Устройства: {details["devices_price_per_month"]}₽/мес'
+            f' × {months_in_period} = {details["total_devices_price"]}₽'
         )
         if details['devices_discount_total'] > 0:
             devices_msg += (
@@ -2401,7 +2401,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             promo_offer_discount_value=promo_offer_discount_value / 100,
             promo_offer_discount_percent=promo_offer_discount_percent,
         )
-    logger.info('ИТОГО: ₽', final_price=final_price / 100)
+    logger.info('ИТОГО: ₽', final_price=final_price)
 
     if final_price > 0 and not user_can_afford(db_user.balance_kopeks, final_price):
         message_text, missing_toman = render_addon_insufficient_funds(
@@ -2512,7 +2512,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
                         'Записана конверсия: дн. триал → дн. платная за ₽',
                         trial_duration=trial_duration,
                         period_days=period_days,
-                        final_price=final_price / 100,
+                        final_price=final_price,
                     )
                 except Exception as conversion_error:
                     logger.error('Ошибка записи конверсии', conversion_error=conversion_error)
@@ -2855,7 +2855,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             'Пользователь купил подписку на дней за ₽',
             telegram_id=db_user.telegram_id,
             data=data['period_days'],
-            final_price=final_price / 100,
+            final_price=final_price,
         )
 
     except Exception as e:
@@ -3095,7 +3095,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
 
         db_user = await lock_user_for_pricing(db, db_user.id)
         daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, db_user)
-        # daily_price — цена каталога (×100), баланс — томаны.
+        # daily_price и баланс — одна шкала (томаны) после ревизии 0115.
         if daily_price > 0 and not user_can_afford(db_user.balance_kopeks, daily_price):
             await callback.answer(
                 texts.t(
@@ -3880,7 +3880,7 @@ async def handle_trial_payment_method(callback: types.CallbackQuery, db_user: Us
                 logger.warning('Не удалось получить курс USD', rate_error=rate_error)
                 usd_rate = 95.0
 
-            amount_rubles = trial_price_kopeks / 100
+            amount_rubles = trial_price_kopeks
             amount_usd = round(amount_rubles / usd_rate, 2)
             if amount_usd < 1:
                 amount_usd = 1.0
@@ -4779,6 +4779,6 @@ async def _extend_existing_subscription(
         '✅ Пользователь продлил подписку на дней за ₽',
         telegram_id=db_user.telegram_id,
         period_days=period_days,
-        price_kopeks=price_kopeks / 100,
+        price_kopeks=price_kopeks,
     )
     await callback.answer()

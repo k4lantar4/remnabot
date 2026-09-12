@@ -23,7 +23,6 @@ from app.states import BalanceStates
 from app.utils.decorators import error_handler
 from app.utils.price_display import (
     balance_from_display_amount,
-    is_balance_scale_transaction,
     missing_toman,
     user_can_afford,
 )
@@ -317,10 +316,7 @@ async def show_balance_history(callback: types.CallbackQuery, db_user: User, db:
         is_credit = transaction.type in CREDIT_TRANSACTION_TYPES
         emoji = '💰' if is_credit else '💸'
         abs_amount = abs(transaction.amount_kopeks)
-        if is_balance_scale_transaction(transaction.type):
-            formatted = texts.format_balance(abs_amount)
-        else:
-            formatted = texts.format_price(abs_amount)
+        formatted = texts.format_balance(abs_amount)
         amount_text = f'+{formatted}' if is_credit else f'-{formatted}'
 
         text += f'{emoji} {amount_text}\n'
@@ -618,7 +614,7 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
             amount_kopeks = balance_from_display_amount(amount_text)
         else:
             amount_rubles = float(amount_text.replace(',', '.'))
-            amount_kopeks = int(amount_rubles * 100)
+            amount_kopeks = int(amount_rubles)
 
         if payment_method != 'c2c' and payment_method not in _TOMAN_RATE_METHODS:
             if amount_rubles < 1:

@@ -1374,7 +1374,7 @@ async def get_trial_info(
             device_limit=device_limit,
             requires_payment=requires_payment,
             price_kopeks=price_kopeks,
-            price_rubles=price_kopeks / 100,
+            price_rubles=price_kopeks,
             reason_unavailable='You already have an active subscription',
         )
 
@@ -1386,7 +1386,7 @@ async def get_trial_info(
             device_limit=device_limit,
             requires_payment=requires_payment,
             price_kopeks=price_kopeks,
-            price_rubles=price_kopeks / 100,
+            price_rubles=price_kopeks,
             reason_unavailable='Trial already used',
         )
 
@@ -1397,7 +1397,7 @@ async def get_trial_info(
         device_limit=device_limit,
         requires_payment=requires_payment,
         price_kopeks=price_kopeks,
-        price_rubles=price_kopeks / 100,
+        price_rubles=price_kopeks,
     )
 
 

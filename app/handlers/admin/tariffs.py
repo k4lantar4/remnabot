@@ -604,7 +604,6 @@ async def start_edit_daily_price(
         return
 
     current_price = getattr(tariff, 'daily_price_kopeks', 0)
-    current_price / 100 if current_price else 0
 
     await state.set_state(AdminStates.editing_tariff_daily_price)
     await state.update_data(tariff_id=tariff_id, language=db_user.language)
@@ -642,7 +641,7 @@ async def process_daily_price_input(
         if price_rubles <= 0:
             raise ValueError('Цена должна быть положительной')
 
-        price_kopeks = int(price_rubles * 100)
+        price_kopeks = int(price_rubles)
     except ValueError:
         await message.answer(
             '❌ Некорректная цена. Введите положительное число.\nПример: <code>50</code> или <code>99.90</code>',

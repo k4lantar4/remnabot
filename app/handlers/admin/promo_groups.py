@@ -261,7 +261,7 @@ def _parse_auto_assign_threshold_input(value: str) -> int:
     if amount < 0:
         raise ValueError
 
-    kopeks = int((amount * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    kopeks = int((amount).quantize(Decimal(1), rounding=ROUND_HALF_UP))
     return max(0, kopeks)
 
 

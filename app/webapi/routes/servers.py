@@ -88,7 +88,7 @@ def _serialize_server(server: ServerSquad) -> ServerResponse:
         is_available=bool(server.is_available),
         is_trial_eligible=bool(server.is_trial_eligible),
         price_kopeks=int(server.price_kopeks or 0),
-        price_rubles=round((server.price_kopeks or 0) / 100, 2),
+        price_rubles=round(server.price_kopeks or 0, 2),
         description=server.description,
         sort_order=int(server.sort_order or 0),
         max_users=server.max_users,

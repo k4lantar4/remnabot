@@ -649,7 +649,7 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about successful autopay."""
         context = {
-            # The renewal price is a catalog price (x100).
+            # Renewal price and wallet are both Toman.
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks,
             'amount_toman': amount_kopeks,
@@ -882,7 +882,7 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about daily subscription debit."""
         context = {
-            # The daily price is a catalog price (x100); the wallet left is Toman.
+            # Daily price and wallet are both Toman.
             'amount_kopeks': amount_kopeks,
             'amount_rubles': amount_kopeks,
             'amount_toman': amount_kopeks,

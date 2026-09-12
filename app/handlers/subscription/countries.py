@@ -327,9 +327,9 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
     if added_names:
         logger.info(
             'Стоимость новых серверов: ₽/мес × дн./30 = ₽ (скидка ₽)',
-            cost_per_month=cost_per_month / 100,
+            cost_per_month=cost_per_month,
             charged_days=charged_days,
-            total_cost=total_cost / 100,
+            total_cost=total_cost,
             total_discount=total_discount / 100,
         )
 
@@ -507,7 +507,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             telegram_id=db_user.telegram_id,
             added_count=len(added),
             removed_count=len(removed),
-            total_cost=total_cost / 100,
+            total_cost=total_cost,
         )
 
     except Exception as e:

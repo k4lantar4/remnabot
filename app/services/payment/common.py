@@ -346,7 +346,7 @@ class PaymentCommonMixin:
             logger.info(
                 'Обработан успешный платеж',
                 payment_id=payment_id,
-                amount_kopeks=amount_kopeks / 100,
+                amount_kopeks=amount_kopeks,
                 user_id=user_id,
                 payment_method=payment_method,
             )

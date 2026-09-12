@@ -29,7 +29,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 CATALOG_WIRE_FACTOR = 100
 
 
-def wire_catalog_kopeks(amount_toman: int | float) -> int:
+def wire_catalog_kopeks(amount_toman: float) -> int:
     """Toman → the catalog-scale integer the cabinet still divides by 100 (outbound)."""
     try:
         decimal_amount = Decimal(str(amount_toman))

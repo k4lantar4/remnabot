@@ -93,7 +93,7 @@ async def get_traffic_packages(
         return TrafficPackageResponse(
             gb=gb,
             price_kopeks=final_price,
-            price_rubles=final_price / 100,
+            price_rubles=final_price,
             is_unlimited=is_unlimited,
             discount_percent=percent,
             base_price_kopeks=base_price_kopeks if has_discount else None,
@@ -667,7 +667,7 @@ async def switch_traffic_package(
                 },
             )
 
-        # Charge the Toman amount; the payment row below stays on the catalog scale
+        # Charge and record the same Toman amount.
         description = texts.t('TRAFFIC_SWITCH_DESCRIPTION', 'Traffic upgrade from {old}GB to {new}GB').format(
             old=current_traffic, new=new_traffic
         )

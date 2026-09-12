@@ -7,7 +7,7 @@
 уведомления админам. Источник: upstream 8fe30849.
 
 У нас сверху (Phase B): цены — каталожные (÷100 при показе), баланс — томаны 1:1.
-С баланса уходит ``catalog_price_in_toman(цена)``, а строка транзакции остаётся
+С баланса уходит ``цена``, а строка транзакции остаётся
 на каталожной шкале.
 """
 
@@ -25,7 +25,6 @@ from app.config import settings
 from app.database.models import Base, Subscription, TrafficPurchase, Transaction, TransactionType, User
 from app.services import subscription_auto_purchase_service as auto_service
 from app.services.user_cart_service import UserCartService
-from app.utils.price_display import catalog_price_in_toman
 from app.utils.pricing_utils import calculate_prorated_price
 from tests.fixtures.sqlite_memory import memory_session
 
@@ -199,7 +198,7 @@ async def test_topup_really_buys_traffic_from_saved_cart(monkeypatch, cart_servi
 
     assert succeeded is True
     assert after.traffic == 200, 'гигабайты начислены'
-    assert BALANCE - after.balance == catalog_price_in_toman(expected_price), 'с баланса ушли томаны, не каталог'
+    assert BALANCE - after.balance == expected_price, 'с баланса ушли томаны, не каталог'
     # Строка транзакции — на каталожной шкале; списания хранятся со знаком минус.
     assert [abs(p.amount_kopeks) for p in after.payments] == [expected_price]
     assert [p.traffic_gb for p in after.purchases] == [100]
@@ -222,7 +221,7 @@ async def test_topup_really_buys_devices_from_saved_cart(monkeypatch, cart_servi
     catalog_charge = abs(after.payments[0].amount_kopeks)
     # 2 устройства × цена × остаток дней / 30, но не меньше минимальной суммы.
     assert 100 <= catalog_charge <= DEVICE_PRICE * 2
-    assert charged_toman == catalog_price_in_toman(catalog_charge)
+    assert charged_toman == catalog_charge
     assert await cart_service.get_user_cart(USER_ID) is None
 
 

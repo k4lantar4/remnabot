@@ -2287,7 +2287,7 @@ class Settings(BaseSettings):
             return None
 
     def kopeks_to_rubles(self, kopeks: int) -> float:
-        return kopeks / 100
+        return kopeks
 
     def rubles_to_kopeks(self, rubles: float) -> int:
         return int(rubles * 100)

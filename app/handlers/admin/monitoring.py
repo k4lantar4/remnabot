@@ -1283,7 +1283,7 @@ async def receipts_link_old_callback(callback: CallbackQuery):
             incomes_by_amount = {}
             for income in incomes:
                 amount = float(income.get('totalAmount', income.get('amount', 0)))
-                amount_kopeks = int(amount * 100)
+                amount_kopeks = int(amount)
                 if amount_kopeks not in incomes_by_amount:
                     incomes_by_amount[amount_kopeks] = []
                 incomes_by_amount[amount_kopeks].append(income)

@@ -359,7 +359,7 @@ async def create_topup(
 
     _check_topup_amount(request.amount_kopeks, method, texts)
 
-    amount_rubles = request.amount_kopeks / 100
+    amount_rubles = request.amount_kopeks
     payment_url = None
     payment_id = None
     cabinet_return_url = f'{settings.CABINET_URL.rstrip("/")}/balance/top-up/result?method={request.payment_method}'
@@ -1336,7 +1336,7 @@ def _record_to_response(record: PendingPayment) -> PendingPaymentResponse:
         method_display=method_display_name(record.method),
         identifier=record.identifier,
         amount_kopeks=record.amount_kopeks,
-        amount_rubles=record.amount_kopeks / 100,
+        amount_rubles=record.amount_kopeks,
         status=record.status or '',
         status_emoji=status_emoji,
         status_text=status_text,

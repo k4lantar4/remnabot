@@ -551,7 +551,7 @@ class UserService:
                     'Админ пополнил баланс пользователя на ₽',
                     admin_id=admin_id,
                     user_id=user_id,
-                    amount_kopeks=amount_kopeks / 100,
+                    amount_kopeks=amount_kopeks,
                 )
                 success = True
             else:
@@ -568,7 +568,7 @@ class UserService:
                         'Админ списал с баланса пользователя ₽',
                         admin_id=admin_id,
                         user_id=user_id,
-                        value=abs(amount_kopeks) / 100,
+                        value=abs(amount_kopeks),
                     )
 
             # Отправляем уведомление пользователю, если операция прошла успешно

@@ -1006,7 +1006,7 @@ async def process_referral_topup(db: AsyncSession, user_id: int, topup_amount_ko
                 logger.info(
                     'Пополнение на ₽ меньше минимума для первого бонуса, но комиссия будет начислена',
                     user_id=user_id,
-                    topup_amount_kopeks=topup_amount_kopeks / 100,
+                    topup_amount_kopeks=topup_amount_kopeks,
                 )
 
                 if commission_amount > 0 and await _is_commission_limit_reached(db, referrer.id, user.id):

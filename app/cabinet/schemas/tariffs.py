@@ -15,7 +15,7 @@ class PeriodPrice(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         if self.price_rubles is None:
-            self.price_rubles = self.price_kopeks / 100
+            self.price_rubles = self.price_kopeks
 
 
 class ServerTrafficLimit(BaseModel):

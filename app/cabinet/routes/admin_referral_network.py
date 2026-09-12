@@ -63,7 +63,7 @@ MAX_REFERRAL_DEPTH = 50
 class SpentTotals(NamedTuple):
     """A spend aggregate as the raw storage sum (old ``*_kopeks`` fields) and in display Toman.
 
-    Spending is subscription payments today (catalog scale, x100); ``toman`` is normalized
+    Spending is subscription payments today (Toman, like every row); ``toman`` is normalized
     per row type, so it stays right if ``SPENT_TRANSACTION_TYPES`` ever gains a balance type.
     """
 

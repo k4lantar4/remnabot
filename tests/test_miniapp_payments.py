@@ -29,7 +29,6 @@ from app.services.subscription_renewal_service import (
     decode_payment_payload,
     encode_payment_payload,
 )
-from app.utils.price_display import catalog_price_in_toman
 from app.utils.toman_rates import parse_toman_topup_payload
 from app.webapi.routes import miniapp
 from app.webapi.schemas.miniapp import (
@@ -161,9 +160,7 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
 
     async def fake_finalize(db, u, sub, pricing, *, charge_balance_amount=None, description=None, payment_method=None):
         # mirrors finalize(): the default debit is the Toman price of the catalog final_total
-        charge = (
-            charge_balance_amount if charge_balance_amount is not None else catalog_price_in_toman(pricing.final_total)
-        )
+        charge = charge_balance_amount if charge_balance_amount is not None else pricing.final_total
         captured['charge'] = charge
         captured['description'] = description
         return SubscriptionRenewalResult(

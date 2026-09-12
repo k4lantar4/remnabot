@@ -2110,7 +2110,7 @@ async def get_user_available_tariffs(
                     PeriodPriceInfo(
                         days=days,
                         price_kopeks=price_kopeks,
-                        price_rubles=price_kopeks / 100,
+                        price_rubles=price_kopeks,
                     )
                 )
 

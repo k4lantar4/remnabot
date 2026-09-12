@@ -321,7 +321,7 @@ class FortuneWheelService:
         user.balance_kopeks -= kopeks
         logger.info(
             '💫 Списано ₽ (⭐) с баланса user_id',
-            kopeks=round(kopeks / 100, 2),
+            kopeks=kopeks,
             spin_cost_stars=config.spin_cost_stars,
             user_id=user.id,
         )
@@ -444,14 +444,14 @@ class FortuneWheelService:
                             db,
                             user,
                             balance_bonus,
-                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней → {balance_bonus / 100:.2f}₽',
+                            description=f'Выигрыш в колесе удачи: {prize.prize_value} дней → {balance_bonus:.2f}₽',
                             create_transaction=True,
                             commit=False,
                         )
                         logger.info(
                             '💰 Суточный тариф: дней конвертированы в ₽ для user_id',
                             prize_value=prize.prize_value,
-                            balance_bonus=round(balance_bonus / 100, 2),
+                            balance_bonus=round(balance_bonus, 2),
                             user_id=user.id,
                         )
                     else:

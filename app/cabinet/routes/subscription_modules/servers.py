@@ -213,9 +213,7 @@ async def update_countries(
 
     # Deduct balance and update subscription (the Toman price; the transaction row keeps the catalog total)
     if added and total_cost > 0:
-        success = await subtract_user_balance(
-            db, user, total_cost, f'Adding countries: {", ".join(added_names)}'
-        )
+        success = await subtract_user_balance(db, user, total_cost, f'Adding countries: {", ".join(added_names)}')
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

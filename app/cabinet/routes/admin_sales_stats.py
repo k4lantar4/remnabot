@@ -1203,7 +1203,7 @@ class DepositsStatsResponse(BaseModel):
     total_amount_kopeks: int
     avg_deposit_kopeks: int
     # This tab sums deposits (balance scale) together with direct gateway
-    # subscription payments (catalog scale): only the *_toman fields are meaningful.
+    # subscription payments: every field is Toman, the *_toman twins are kept for the contract.
     total_amount_toman: int = 0
     avg_deposit_toman: int = 0
     by_method: list[DepositByMethodItem]

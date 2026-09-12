@@ -77,7 +77,7 @@ async def charge_trial_activation_if_required(
 ) -> int:
     """Charges the user's balance if paid trial activation is enabled.
 
-    Returns the charged price on the catalog scale (price_kopeks) — the value callers display with
+    Returns the charged price in Toman — the value callers display with
     format_price and hand back to revert_trial_activation. The balance itself is debited in Toman.
     If payment is not required or the configured price is zero, the function returns ``0``.
     """

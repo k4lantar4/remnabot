@@ -419,7 +419,7 @@ async def _do_add_balance(
         return BulkUserResult(
             user_id=user.id,
             success=True,
-            message=f'Would add {amount_kopeks / 100:.2f}₽ to balance',
+            message=f'Would add {amount_kopeks:.2f}₽ to balance',
             username=user.username,
         )
 
@@ -443,7 +443,7 @@ async def _do_add_balance(
     return BulkUserResult(
         user_id=user.id,
         success=True,
-        message=f'Added {amount_kopeks / 100:.2f}₽ to balance',
+        message=f'Added {amount_kopeks:.2f}₽ to balance',
         username=user.username,
     )
 

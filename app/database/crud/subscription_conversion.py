@@ -36,7 +36,7 @@ async def create_subscription_conversion(
         user_id=user_id,
         trial_duration_days=trial_duration_days,
         first_paid_period_days=first_paid_period_days,
-        first_payment_amount_kopeks=first_payment_amount_kopeks / 100,
+        first_payment_amount_kopeks=first_payment_amount_kopeks,
     )
 
     return conversion

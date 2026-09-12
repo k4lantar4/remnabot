@@ -811,7 +811,7 @@ async def execute_change_devices(
             telegram_id=db_user.telegram_id,
             current_devices=current_devices,
             new_devices_count=new_devices_count,
-            price=price / 100,
+            price=price,
         )
 
     except Exception as e:
@@ -1596,7 +1596,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
         devices_count=devices_count,
         discounted_per_month=discounted_per_month / 100,
         period_label=period_label,
-        price=price / 100,
+        price=price,
         total_discount=total_discount / 100,
     )
 
@@ -1749,7 +1749,7 @@ async def confirm_add_devices(callback: types.CallbackQuery, db_user: User, db: 
             '✅ Пользователь добавил устройств за ₽',
             telegram_id=db_user.telegram_id,
             devices_count=devices_count,
-            price=price / 100,
+            price=price,
         )
 
     except Exception as e:

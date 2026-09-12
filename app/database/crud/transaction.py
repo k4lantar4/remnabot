@@ -138,7 +138,7 @@ async def create_transaction(
     logger.info(
         '💳 Создана транзакция',
         type_value=type.value,
-        amount_kopeks=stored_amount / 100,
+        amount_kopeks=stored_amount,
         user_id=user_id,
     )
 
@@ -155,7 +155,7 @@ async def create_transaction(
                     'user_id': user_id,
                     'type': type.value,
                     'amount_kopeks': abs(amount_kopeks),
-                    'amount_rubles': abs(amount_kopeks) / 100,
+                    'amount_rubles': abs(amount_kopeks),
                     'payment_method': payment_method.value if payment_method else None,
                     'external_id': external_id,
                     'is_completed': is_completed,
@@ -228,7 +228,7 @@ async def emit_transaction_side_effects(
                 'user_id': user_id,
                 'type': type.value,
                 'amount_kopeks': abs(amount_kopeks),
-                'amount_rubles': abs(amount_kopeks) / 100,
+                'amount_rubles': abs(amount_kopeks),
                 'payment_method': payment_method.value if payment_method else None,
                 'external_id': external_id,
                 'is_completed': is_completed,

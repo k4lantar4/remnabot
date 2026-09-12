@@ -44,8 +44,8 @@ from app.database.models import (
     WataPayment,
     YooKassaPayment,
 )
-from app.utils.wire_scale import wire_catalog_kopeks
 from app.utils.toman_rates import parse_toman_topup_payload
+from app.utils.wire_scale import wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)

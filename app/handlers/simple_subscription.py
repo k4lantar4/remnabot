@@ -695,14 +695,12 @@ async def handle_simple_subscription_pay_with_balance(
         logger.info(
             'Пользователь успешно купил подписку с баланса',
             telegram_id=db_user.telegram_id,
-            price_kopeks=price_kopeks / 100,
+            price_kopeks=price_kopeks,
         )
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(
-                db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot)
         logger.error(
             'Ошибка оплаты простой подписки с баланса для пользователя',
             db_user_id=db_user.id,
@@ -1130,7 +1128,7 @@ async def handle_simple_subscription_payment_method(
                 await callback.answer('❌ Оплата через CryptoBot временно недоступна', show_alert=True)
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_kopeks
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через CryptoBot',
@@ -1241,7 +1239,7 @@ async def handle_simple_subscription_payment_method(
                 await callback.answer('❌ Оплата через Heleket временно недоступна', show_alert=True)
                 return
 
-            amount_rubles = price_kopeks / 100
+            amount_rubles = price_kopeks
             if amount_rubles < 100 or amount_rubles > 100000:
                 await callback.answer(
                     '❌ Сумма должна быть от 100 до 100 000 ₽ для оплаты через Heleket',
@@ -2460,14 +2458,12 @@ async def confirm_simple_subscription_purchase(
         logger.info(
             'Пользователь успешно купил подписку с баланса',
             telegram_id=db_user.telegram_id,
-            price_kopeks=price_kopeks / 100,
+            price_kopeks=price_kopeks,
         )
 
     except Exception as error:
         if charged and not delivered:  # first: the log line below reads the user a failed commit may expire
-            await refund_undelivered_debit(
-                db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, price_kopeks, refund_reason, promo_snapshot=promo_snapshot)
         logger.error(
             'Ошибка подтверждения простой подписки с баланса для пользователя',
             db_user_id=db_user.id,

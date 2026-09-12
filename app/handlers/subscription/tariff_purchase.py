@@ -1681,9 +1681,7 @@ async def select_tariff_period(
     final_price = result.final_total
     original_price = result.original_total
     total_discount = result.promo_group_discount + result.promo_offer_discount
-    discount_percent = (
-        round((1 - final_price / original_price) * 100) if original_price > 0 and total_discount > 0 else 0
-    )
+    discount_percent = round(1 - final_price / original_price) if original_price > 0 and total_discount > 0 else 0
     shown_device_limit = device_limit if device_limit is not None else tariff.device_limit
 
     # Проверяем баланс
@@ -2600,7 +2598,7 @@ def get_tariff_extend_keyboard(
         total_original = base_price + devices_cost
         has_discount = price < total_original and total_original > 0
         if has_discount:
-            combined_pct = round((1 - price / total_original) * 100)
+            combined_pct = round(1 - price / total_original)
             price_text = f'{format_price_kopeks(price)} 🔥−{combined_pct}%'
         else:
             price_text = format_price_kopeks(price)
@@ -2877,9 +2875,7 @@ async def select_tariff_extend_period(
     final_price = result.final_total
     original_price = result.original_total
     total_discount = result.promo_group_discount + result.promo_offer_discount
-    discount_percent = (
-        round((1 - final_price / original_price) * 100) if original_price > 0 and total_discount > 0 else 0
-    )
+    discount_percent = round(1 - final_price / original_price) if original_price > 0 and total_discount > 0 else 0
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
@@ -3211,9 +3207,7 @@ async def confirm_tariff_extend(
     except Exception as e:
         logger.error('Ошибка при продлении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(
-                db, db_user, final_price, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, final_price, refund_reason, promo_snapshot=promo_snapshot)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_RENEW_ERROR', '❌ Произошла ошибка при продлении подписки')
@@ -3701,9 +3695,7 @@ async def select_tariff_switch_period(
     final_price = result.final_total
     original_price = result.original_total
     total_discount = result.promo_group_discount + result.promo_offer_discount
-    discount_percent = (
-        round((1 - final_price / original_price) * 100) if original_price > 0 and total_discount > 0 else 0
-    )
+    discount_percent = round(1 - final_price / original_price) if original_price > 0 and total_discount > 0 else 0
 
     # Проверяем баланс
     user_balance = db_user.balance_kopeks or 0
@@ -4062,9 +4054,7 @@ async def confirm_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при переключении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(
-                db, db_user, final_price, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, final_price, refund_reason, promo_snapshot=promo_snapshot)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
@@ -4360,9 +4350,7 @@ async def confirm_daily_tariff_switch(
     except Exception as e:
         logger.error('Ошибка при смене на суточный тариф', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(
-                db, db_user, final_daily_price, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, final_daily_price, refund_reason, promo_snapshot=promo_snapshot)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')
@@ -5392,9 +5380,7 @@ async def confirm_instant_switch(
     except Exception as e:
         logger.error('Ошибка при мгновенном переключении тарифа', error=e, exc_info=True)
         if charged and not delivered:
-            await refund_undelivered_debit(
-                db, db_user, upgrade_cost, refund_reason, promo_snapshot=promo_snapshot
-            )
+            await refund_undelivered_debit(db, db_user, upgrade_cost, refund_reason, promo_snapshot=promo_snapshot)
         try:
             await callback.message.edit_text(
                 texts.t('TARIFF_SWITCH_ERROR', '❌ Произошла ошибка при переключении тарифа')

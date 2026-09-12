@@ -30,7 +30,6 @@ from app.database.models import (
     tariff_promo_groups,
 )
 from app.services.gift_purchase_service import GIFT_ENABLED_KEY, is_gift_enabled
-from app.utils.price_display import catalog_price_in_toman
 from tests.fixtures.sqlite_memory import memory_session
 
 
@@ -257,7 +256,7 @@ async def test_purchase_gift_balance_success(monkeypatch):
 
         # Check user balance: the Toman wallet loses the Toman price (catalog 30,000 = 300 Toman)
         await db.refresh(user)
-        assert user.balance_kopeks == 50000 - catalog_price_in_toman(30000)
+        assert user.balance_kopeks == 50000 - 30000
 
         # Check transaction
         tx_res = await db.execute(select(Transaction).where(Transaction.user_id == 10))

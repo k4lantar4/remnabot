@@ -147,7 +147,7 @@ class SubscriptionRenewalPricing:
 class SubscriptionRenewalResult:
     subscription: Subscription
     transaction: Transaction | None
-    total_amount_kopeks: int  # catalog scale (price_kopeks)
+    total_amount_kopeks: int  # Toman (the column keeps its historical name)
     charged_from_balance_kopeks: int  # balance scale: Toman actually debited
     old_end_date: datetime | None
 

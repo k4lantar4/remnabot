@@ -295,7 +295,7 @@ async def _process_single_subscription(
     # Сумма пополнения = нехватка (минимум YOOKASSA_MIN_AMOUNT_KOPEKS)
     min_amount = settings.YOOKASSA_MIN_AMOUNT_KOPEKS
     topup_amount_kopeks = max(shortage, min_amount)
-    topup_amount_rubles = topup_amount_kopeks / 100
+    topup_amount_rubles = topup_amount_kopeks
 
     # Создаём автоплатёж
     yookassa_service = payment_service.yookassa_service
@@ -419,7 +419,7 @@ async def _process_single_subscription(
                     notification_type=NotificationType.PAYMENT_RECEIVED,
                     context={
                         'amount_kopeks': topup_amount_kopeks,
-                        'amount_rubles': topup_amount_kopeks / 100,
+                        'amount_rubles': topup_amount_kopeks,
                         'formatted_amount': settings.format_price(topup_amount_kopeks),
                     },
                 )

@@ -510,7 +510,7 @@ async def on_purchase(db: AsyncSession, user_id: int, amount_kopeks: int) -> Non
         except Exception:
             pass
 
-        amount_rubles = amount_kopeks / 100
+        amount_rubles = amount_kopeks
         payload = _ecommerce_purchase_payload(row.yandex_cid, amount_rubles)
         success = await _post_collect(payload, 'purchase', row.yandex_cid)
         if success:
@@ -527,7 +527,7 @@ async def on_purchase(db: AsyncSession, user_id: int, amount_kopeks: int) -> Non
             row = await get_cid(db, user_id)
         yclid = _normalize_yclid(getattr(row, 'yclid', None)) if row else None
         if yclid:
-            await _upload_offline_conversion_yclid(yclid, amount_kopeks / 100, int(time.time()))
+            await _upload_offline_conversion_yclid(yclid, amount_kopeks, int(time.time()))
     except Exception as exc:
         logger.error('purchase offline conversion (yclid) failed', user_id=user_id, error=str(exc))
 

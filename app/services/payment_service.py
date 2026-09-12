@@ -925,7 +925,7 @@ class PaymentService(
                 logger.warning('CryptoBot is not enabled, cannot create guest payment')
                 return None
 
-            amount_rubles = amount_kopeks / 100
+            amount_rubles = amount_kopeks
             try:
                 amount_usd = await currency_converter.rub_to_usd(amount_rubles)
             except Exception as conv_error:
@@ -1446,7 +1446,7 @@ class PaymentService(
                 logger.error('TELEGRAM_STARS_RATE_RUB is not positive, cannot create Stars invoice')
                 return None
 
-            amount_rubles = amount_kopeks / 100
+            amount_rubles = amount_kopeks
             stars_amount = max(1, round(amount_rubles / rate))
 
             payload = f'guest_purchase_{purchase_token}'

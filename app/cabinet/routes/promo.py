@@ -202,7 +202,7 @@ async def get_loyalty_tiers(
     """Get all loyalty tiers (promo groups with auto-assign thresholds) and user's progress."""
     # Get user's total spent
     total_spent_kopeks = await get_user_total_spent_kopeks(db, user.id)
-    total_spent_rubles = total_spent_kopeks / 100
+    total_spent_rubles = total_spent_kopeks
 
     # Get all auto-assign promo groups (sorted by threshold ascending)
     auto_groups = await get_auto_assign_promo_groups(db)
@@ -214,7 +214,7 @@ async def get_loyalty_tiers(
 
     for group in auto_groups:
         threshold_kopeks = group.auto_assign_total_spent_kopeks or 0
-        threshold_rubles = threshold_kopeks / 100
+        threshold_rubles = threshold_kopeks
         is_achieved = total_spent_kopeks >= threshold_kopeks
 
         # Track highest achieved tier as "current" (by spending, not by assignment)

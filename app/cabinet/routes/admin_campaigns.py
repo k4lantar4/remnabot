@@ -312,7 +312,7 @@ async def get_campaign_stats(
             registrations=stats['registrations'],
             balance_issued_kopeks=stats['balance_issued'],
             # Balance bonuses and revenue (a sum of deposits) are raw Toman post-Phase-B —
-            # divisor=1. Only the first payment (a subscription price) is catalog ×100.
+            # divisor=1 — every amount is Toman since revision 0115.
             balance_issued_rubles=_safe_div(stats['balance_issued'], divisor=1),
             subscription_issued=stats['subscription_issued'],
             last_registration=stats['last_registration'],

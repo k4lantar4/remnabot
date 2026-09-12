@@ -28,8 +28,8 @@ class QuickAmountsStates(StatesGroup):
 
 def _format_rubles(amount_kopeks: int) -> str:
     if amount_kopeks % 100 == 0:
-        return str(amount_kopeks // 100)
-    return f'{amount_kopeks / 100:.2f}'
+        return str(amount_kopeks)
+    return f'{amount_kopeks:.2f}'
 
 
 def _format_amounts_line(quick_amounts: list[int] | None) -> str:
@@ -199,7 +199,7 @@ async def process_quick_amounts(message: Message, state: FSMContext, **kwargs) -
     except (ValueError, OverflowError):
         await message.answer(
             f'❌ Неверный формат. Отправьте до {MAX_QUICK_AMOUNTS} положительных сумм в рублях через запятую '
-            f'(не более {MAX_QUICK_AMOUNT_KOPEKS // 100} ₽ каждая), '
+            f'(не более {MAX_QUICK_AMOUNT_KOPEKS} ₽ каждая), '
             'например: <code>100, 300, 500, 1000</code>'
         )
         return

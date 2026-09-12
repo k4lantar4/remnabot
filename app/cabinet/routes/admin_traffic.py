@@ -725,7 +725,7 @@ async def export_traffic_csv(
         # Enrichment columns
         enr = enrichment.get(item.user_id)
         row['Connected Devices'] = enr.devices_connected if enr else 0
-        row['Total Spent (RUB)'] = round(enr.total_spent_kopeks / 100, 2) if enr else 0
+        row['Total Spent (RUB)'] = round(enr.total_spent_kopeks, 2) if enr else 0
         row['Sub Start'] = enr.subscription_start_date or '' if enr else ''
         row['Sub End'] = enr.subscription_end_date or '' if enr else ''
         row['Last Node'] = enr.last_node_name or '' if enr else ''

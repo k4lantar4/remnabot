@@ -76,7 +76,7 @@ class CryptoBotPaymentMixin:
                 amount=amount_str,
                 asset=asset,
                 description=description,
-                payload=payload or f'balance_topup_{user_id}_{int(amount_usd * 100)}',
+                payload=payload or f'balance_topup_{user_id}_{int(amount_usd)}',
                 expires_in=settings.get_cryptobot_invoice_expires_seconds(),
             )
 
@@ -133,7 +133,7 @@ class CryptoBotPaymentMixin:
         try:
             amount_rubles = await currency_converter.usd_to_rub(amount_usd)
             amount_rubles_rounded = math.ceil(amount_rubles)
-            amount_kopeks = int(amount_rubles_rounded * 100)
+            amount_kopeks = int(amount_rubles_rounded)
             conversion_rate = amount_rubles / amount_usd if amount_usd > 0 else 0
             logger.info(
                 'Конвертация USD->RUB',
@@ -147,7 +147,7 @@ class CryptoBotPaymentMixin:
                 'Ошибка конвертации валют для платежа , используем курс 1:1', invoice_id=invoice_id, error=error
             )
             amount_rubles_rounded = math.ceil(amount_usd)
-            amount_kopeks = int(amount_rubles_rounded * 100)
+            amount_kopeks = int(amount_rubles_rounded)
             conversion_rate = 1.0
         return amount_kopeks, amount_rubles_rounded, conversion_rate
 

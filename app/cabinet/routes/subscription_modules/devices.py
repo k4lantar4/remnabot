@@ -255,7 +255,7 @@ async def purchase_devices_legacy(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=texts.t('CABINET_INSUFFICIENT_BALANCE_RETRY', 'Insufficient funds'),
         )
-    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    # The payment row is Toman, like every amount since revision 0115.
     await create_transaction(
         db=db,
         user_id=user.id,
@@ -553,7 +553,7 @@ async def purchase_devices(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=texts.t('CABINET_INSUFFICIENT_BALANCE_RETRY', 'Insufficient funds'),
             )
-        # The payment row stays on the catalog scale, as the tariff purchase records it.
+        # The payment row is Toman, like every amount since revision 0115.
         await create_transaction(
             db=db,
             user_id=user.id,

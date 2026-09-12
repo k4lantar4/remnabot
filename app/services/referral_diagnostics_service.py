@@ -798,7 +798,7 @@ class ReferralDiagnosticsService:
                                 logger.info(
                                     '💰 Начислен бонус рефералу ₽',
                                     telegram_id=user.telegram_id,
-                                    REFERRAL_FIRST_TOPUP_BONUS_KOPEKS=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS / 100,
+                                    REFERRAL_FIRST_TOPUP_BONUS_KOPEKS=settings.REFERRAL_FIRST_TOPUP_BONUS_KOPEKS,
                                 )
 
                         # 4. Начисляем бонус рефереру
@@ -1063,7 +1063,7 @@ class ReferralDiagnosticsService:
                         logger.info(
                             '💰 Начислен бонус рефералу ₽',
                             telegram_id=referral.telegram_id,
-                            referral_bonus_amount=missing.referral_bonus_amount / 100,
+                            referral_bonus_amount=missing.referral_bonus_amount,
                         )
 
                 # Начисляем бонус рефереру
@@ -1094,7 +1094,7 @@ class ReferralDiagnosticsService:
                         logger.info(
                             '💰 Начислен бонус рефереру ₽',
                             telegram_id=referrer.telegram_id,
-                            referrer_bonus_amount=missing.referrer_bonus_amount / 100,
+                            referrer_bonus_amount=missing.referrer_bonus_amount,
                         )
 
                         # Добавляем в активные конкурсы рефералов

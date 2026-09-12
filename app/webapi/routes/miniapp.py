@@ -103,7 +103,6 @@ from app.utils.price_display import (
     missing_toman,
     user_can_afford,
 )
-from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_price_per_month,
@@ -122,6 +121,7 @@ from app.utils.user_utils import (
     get_effective_referral_commission_percent,
     get_user_referral_summary,
 )
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_db_session
 from ..schemas.miniapp import (
@@ -611,7 +611,7 @@ def _normalize_amount_kopeks(
     except (InvalidOperation, ValueError):
         return None
 
-    normalized = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    normalized = int((decimal_amount).to_integral_value(rounding=ROUND_HALF_UP))
     return normalized if normalized >= 0 else None
 
 
@@ -1299,12 +1299,12 @@ async def create_payment_link(
         if amount_kopeks < min_amount_kopeks:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount is below minimum ({min_amount_kopeks / 100:.2f} RUB)',
+                detail=f'Amount is below minimum ({min_amount_kopeks:.2f} RUB)',
             )
         if amount_kopeks > max_amount_kopeks:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                detail=f'Amount exceeds maximum ({max_amount_kopeks / 100:.2f} RUB)',
+                detail=f'Amount exceeds maximum ({max_amount_kopeks:.2f} RUB)',
             )
 
         payment_service = PaymentService()
@@ -2448,7 +2448,7 @@ def _format_bonus_label(amount_kopeks: int) -> str | None:
     try:
         return settings.format_price(amount_kopeks)
     except Exception:  # pragma: no cover - defensive
-        return f'{amount_kopeks / 100:.2f}'
+        return f'{amount_kopeks:.2f}'
 
 
 async def _find_active_test_access_offers(
@@ -3577,7 +3577,7 @@ async def get_subscription_details(
         ),
         auto_assign_promo_groups=auto_promo_levels,
         total_spent_kopeks=total_spent_kopeks,
-        total_spent_rubles=round(total_spent_kopeks / 100, 2),
+        total_spent_rubles=round(total_spent_kopeks, 2),
         total_spent_label=settings.format_price(total_spent_kopeks),
         subscription_type=('trial' if subscription and subscription.is_trial else ('paid' if subscription else 'none')),
         autopay_enabled=autopay_enabled,

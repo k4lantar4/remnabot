@@ -14,7 +14,6 @@ from app.external.telegram_stars import TelegramStarsService
 from app.localization.loader import DEFAULT_LANGUAGE
 from app.localization.texts import Texts, get_texts
 from app.services.payment_service import PaymentService
-from app.utils.price_display import format_transaction_amount_for_display
 from app.utils.toman_rates import TOMAN_TOPUP_PAYLOAD_PREFIX
 
 
@@ -88,7 +87,7 @@ async def _handle_wheel_spin_payment(
             await db.commit()
             await message.answer(
                 '❌ Для использования колеса удачи необходима активная подписка.\n'
-                f'💰 {stars_amount} Stars возвращены на баланс в виде {kopeks_fallback / 100:.0f} ₽.',
+                f'💰 {stars_amount} Stars возвращены на баланс в виде {kopeks_fallback:.0f} ₽.',
             )
             logger.warning(
                 'Wheel spin without subscription, refunded to balance',
@@ -128,7 +127,7 @@ async def _handle_wheel_spin_payment(
                 await db.commit()
                 await message.answer(
                     '❌ Достигнут дневной лимит спинов.\n'
-                    f'💰 {stars_amount} Stars возвращены на баланс в виде {kopeks_fallback / 100:.0f} ₽.',
+                    f'💰 {stars_amount} Stars возвращены на баланс в виде {kopeks_fallback:.0f} ₽.',
                 )
                 logger.warning(
                     'Wheel spin over daily limit, refunded to balance',
@@ -393,7 +392,7 @@ async def _handle_guest_purchase_payment(
         # Verify Stars amount matches expected price (±5% tolerance for conversion rounding)
         existing = await get_purchase_by_token(db, purchase_token)
         if existing and existing.amount_kopeks:
-            expected_stars = max(1, settings.rubles_to_stars(existing.amount_kopeks / 100))
+            expected_stars = max(1, settings.rubles_to_stars(existing.amount_kopeks))
             tolerance = max(1, round(expected_stars * 0.05))
             if abs(stars_amount - expected_stars) > tolerance:
                 logger.error(
@@ -628,9 +627,7 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
                 db, payment.telegram_payment_charge_id, PaymentMethod.TELEGRAM_STARS
             )
             if transaction is not None:
-                amount_text = format_transaction_amount_for_display(
-                    transaction.amount_kopeks, transaction.type, texts.format_balance, texts.format_price
-                )
+                amount_text = texts.format_balance(abs(transaction.amount_kopeks))
             else:
                 amount_text = '—'
 

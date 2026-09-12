@@ -618,7 +618,7 @@ async def get_tariff_stats(
         active_subscriptions=active_count,
         trial_subscriptions=trial_count,
         revenue_kopeks=revenue_kopeks,
-        revenue_rubles=revenue_kopeks / 100,
+        revenue_rubles=revenue_kopeks,
     )
 
 

@@ -159,7 +159,7 @@ async def get_available_polls(
         # Convert kopeks to rubles for display
         reward_amount = None
         if response.poll.reward_amount_kopeks:
-            reward_amount = response.poll.reward_amount_kopeks // 100
+            reward_amount = response.poll.reward_amount_kopeks
 
         polls.append(
             PollInfo(
@@ -204,7 +204,7 @@ async def get_poll_details(
     # Convert kopeks to rubles for display
     reward_amount = None
     if response.poll.reward_amount_kopeks:
-        reward_amount = response.poll.reward_amount_kopeks // 100
+        reward_amount = response.poll.reward_amount_kopeks
 
     return PollInfo(
         id=response.poll.id,

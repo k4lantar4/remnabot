@@ -57,7 +57,6 @@ from app.utils.photo_message import safe_edit_or_resend
 from app.utils.price_display import (
     ADMIN_BALANCE_EDIT_MAX_TOMAN,
     balance_from_display_amount,
-    format_transaction_amount_for_display,
     missing_toman,
     user_can_afford,
 )
@@ -1102,10 +1101,7 @@ async def show_user_transactions(callback: types.CallbackQuery, db_user: User, d
 
         for transaction in transactions:
             type_emoji = '📈' if transaction.amount_kopeks > 0 else '📉'
-            # deposit/withdrawal are stored Toman 1:1, subscription_payment ×100.
-            amount_text = format_transaction_amount_for_display(
-                transaction.amount_kopeks, transaction.type, settings.format_balance, settings.format_price
-            )
+            amount_text = settings.format_balance(abs(transaction.amount_kopeks))
             text += f'{type_emoji} {amount_text}\n'
             text += f'📋 {html.escape(transaction.description or "")}\n'
             text += f'📅 {format_datetime(transaction.created_at)}\n\n'

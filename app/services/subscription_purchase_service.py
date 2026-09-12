@@ -30,7 +30,6 @@ from app.utils.price_display import (
     missing_toman,
     user_can_afford,
 )
-from app.utils.wire_scale import wire_catalog_kopeks
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_months_from_days,
@@ -38,6 +37,7 @@ from app.utils.pricing_utils import (
     format_period_description,
     validate_pricing_calculation,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
