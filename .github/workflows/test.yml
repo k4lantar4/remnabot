@@ -16,12 +16,6 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # EXPERIMENT: serial vs xdist timing, reverted before merge.
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [serial, xdist]
-    name: test (${{ matrix.mode }})
     steps:
       - uses: actions/checkout@v4
 
@@ -33,12 +27,6 @@ jobs:
 
       - run: uv sync --group dev
 
-      - run: nproc
-
+      # One worker per runner CPU (4): measured 4:20 serial vs 2:00 here.
       - name: Run tests
-        run: |
-          if [ "${{ matrix.mode }}" = xdist ]; then
-            uv run pytest -n auto --durations=30
-          else
-            uv run pytest --durations=30
-          fi
+        run: uv run pytest -n auto
