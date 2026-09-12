@@ -51,7 +51,8 @@ def test_0111_is_on_the_linear_chain() -> None:
     revision = script.get_revision('0111')
     assert revision is not None
     assert revision.down_revision == '0104'
-    assert script.get_current_head() == '0113'
+    # 0111 must stay on the chain that leads to whatever the current head is.
+    assert '0111' in [rev.revision for rev in script.walk_revisions(base='base', head=script.get_current_head())]
 
 
 def test_0111_revises_grafted_remnabot_0104() -> None:

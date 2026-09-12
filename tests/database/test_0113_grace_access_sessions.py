@@ -92,8 +92,11 @@ def _run(direction: str, conn) -> None:
         getattr(rev, direction)()
 
 
-def test_0113_is_the_single_head() -> None:
-    assert _script_directory().get_heads() == ['0113']
+def test_0113_is_on_the_single_linear_chain() -> None:
+    script = _script_directory()
+    heads = script.get_heads()
+    assert len(heads) == 1, heads
+    assert '0113' in [rev.revision for rev in script.walk_revisions(base='base', head=heads[0])]
 
 
 def test_0113_revises_0112() -> None:
