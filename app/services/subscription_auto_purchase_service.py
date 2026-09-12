@@ -1574,7 +1574,7 @@ async def _auto_purchase_daily_tariff(
 
 
 async def _record_addon_payment(db: AsyncSession, user: User, price_kopeks: int, description: str) -> None:
-    """Record an add-on payment on the catalog scale, after its Toman charge went through.
+    """Record an add-on payment row, after its Toman charge went through.
 
     Kept out of the charge's try-block: the balance is already taken, so a failed row
     must not turn the purchase into "not bought".
@@ -1753,7 +1753,7 @@ async def _auto_add_devices(
         )
         return False
 
-    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    # The row records the same Toman number that was charged, as the tariff purchase does.
     await _record_addon_payment(db, user, price_kopeks, description)
 
     # Re-lock subscription after subtract_user_balance committed (released locks)
@@ -2114,7 +2114,7 @@ async def _auto_add_traffic(
         )
         return False
 
-    # The payment row stays on the catalog scale, as the tariff purchase records it.
+    # The row records the same Toman number that was charged, as the tariff purchase does.
     await _record_addon_payment(db, user, price_kopeks, description)
 
     # Add traffic

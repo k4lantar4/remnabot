@@ -766,8 +766,9 @@ async def start_test_referral_earning(
 async def process_test_referral_earning(message: types.Message, db_user: User, db: AsyncSession, state: FSMContext):
     """Обрабатывает ввод тестового начисления.
 
-    Сумма вводится в туманах и хранится 1:1 — как и настоящие начисления:
-    ``balance_kopeks`` и ``ReferralEarning.amount_kopeks`` после Phase B держат туманы.
+    Сумма вводится в туманах и хранится 1:1 — как и настоящие начисления: после Phase C
+    каждая денежная колонка, включая ``balance_kopeks`` и ``ReferralEarning.amount_kopeks``,
+    хранит туманы.
     """
     texts = get_texts(db_user.language)
     if not settings.REFERRAL_WITHDRAWAL_TEST_MODE:

@@ -820,7 +820,7 @@ async def process_withdrawal_amount(message: types.Message, db_user: User, db: A
 
     try:
         # The typed amount is Toman, the same unit the screen shows; the wallet and
-        # WithdrawalRequest.amount_kopeks store Toman 1:1 (Phase B), so no x100 here.
+        # WithdrawalRequest.amount_kopeks stores Toman 1:1, like every amount since Phase C — no x100 here.
         amount_kopeks = balance_from_display_amount(message.text or '')
 
         if amount_kopeks <= 0:

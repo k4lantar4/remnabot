@@ -2560,7 +2560,7 @@ class MonitoringService:
     def _build_low_balance_alert(user: Any, balance: int, threshold: int) -> tuple[str, InlineKeyboardMarkup]:
         """Render the low-balance alert text and its top-up keyboard.
 
-        ``balance`` (``User.balance_kopeks``) is raw Toman (Phase B) and the cabinet stores
+        ``balance`` (``User.balance_kopeks``) is raw Toman and the cabinet stores
         ``balance_low_threshold`` as the number the user typed, compared 1:1 with the balance,
         so both are printed with ``format_balance`` — no ÷100.
         """
