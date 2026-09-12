@@ -1,6 +1,7 @@
 # Missing upstream tables (`coupons`, `platega_subscriptions`) break admin Activity
 
-Status: done — revision `0117_create_deferred_upstream_tables` (remnabot#74, 2026-09-12).
+Status: done — revision `0118_create_deferred_upstream_tables` (remnabot#74, 2026-09-12), after
+`0117_guest_purchase_campaign_and_idempotency` (remnabot#71) closed the column half.
 Option 1 ("create the tables") was chosen by the user on 2026-09-12, after the same two 500s were
 hit again while running the S-020 smoke items.
 Repos: remnabot only
@@ -95,18 +96,20 @@ Re-measured on the dev database at head `0116` (`Base.metadata` vs. `information
 eight tables and two columns were missing, exactly the 2026-09-10 snapshot plus
 `grace_access_sessions` now created by `0113`.
 
-Revision `0117` creates seven of them — `cispay_payments`, `platega_subscriptions`,
-`lava_subscriptions`, `recurrent_payments`, `coupon_batches`, `coupons`, `legal_consents` — and
-adds `guest_purchases.campaign_slug` / `idempotency_key` with upstream's unique index on the key.
-Every table is inspector-guarded, so the revision is a no-op on a fresh `create_all` database.
-Creating a deferred gateway's table is not enabling it: the `*_ENABLED` flags stay off.
+Revision `0118` creates seven of the tables — `cispay_payments`, `platega_subscriptions`,
+`lava_subscriptions`, `recurrent_payments`, `coupon_batches`, `coupons`, `legal_consents`. Every
+one is inspector-guarded, so the revision is a no-op on a fresh `create_all` database. Creating a
+deferred gateway's table is not enabling it: the `*_ENABLED` flags stay off.
+
+The two `guest_purchases` columns were closed separately by revision `0117` (remnabot#71, F-066)
+while this work was in review — which is also why this revision is `0118` and not `0117`.
 
 `referral_reward_levels` was deliberately left out: it is deferred by product decision M4-T1, and
 `tests/database/test_0111_remnawave_id.py::FORBIDDEN_TABLES` still guards it. The cabinet screen
 `/admin/partners/referral-levels` therefore still has no table behind it — decide that with the
 referral-levels feature, not here.
 
-`tests/database/test_0117_deferred_upstream_tables.py` asserts each created table has exactly the
+`tests/database/test_0118_deferred_upstream_tables.py` asserts each created table has exactly the
 columns its model declares (`Base.metadata`), so a migrated database ends up with what a fresh
 install gets. What is still missing is a guard that would have caught this class of drift in the
 first place — it needs a Postgres service in CI, recorded as `F-074`.

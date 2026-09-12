@@ -57,10 +57,12 @@ def _run(direction: str, conn) -> None:
         getattr(rev, direction)()
 
 
-def test_0117_is_the_single_head_on_the_linear_chain() -> None:
+def test_0117_is_on_the_single_linear_chain() -> None:
     script = _script_directory()
     heads = script.get_heads()
-    assert heads == ['0117'], heads
+    # 0117 was the head when it was written; later revisions sit on top of it. What must hold
+    # forever is that the chain has exactly one head and 0117 is on the way to it.
+    assert len(heads) == 1, heads
     assert '0117' in [rev.revision for rev in script.walk_revisions(base='base', head=heads[0])]
 
 

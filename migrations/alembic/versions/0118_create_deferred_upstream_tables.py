@@ -1,21 +1,22 @@
-"""0117: create the upstream tables our lineage deferred, and the two guest_purchases columns
+"""0118: create the upstream tables our lineage deferred at the 0095 fork
 
 At 0095 our Alembic chain forked from upstream's under the same numbers (ours
-``0095_partner_panel_fields`` … ``0116_topup_packages_toman_scale``). Upstream's
+``0095_partner_panel_fields`` … ``0117_guest_purchase_campaign_and_idempotency``). Upstream's
 ``0095_add_coupons``, ``0099_add_platega_subscriptions``, ``0100_platega_sub_unique_alive``,
-``0102_coupon_max_per_user``, ``0106``/``0107`` (guest-purchase columns) and the deferred-gateway
-revisions were archived rather than grafted — but their models and the code reading them came in
-with every upstream sync. Only databases built by ``Base.metadata.create_all`` ever had the
-tables, so on a migrated database:
+``0102_coupon_max_per_user`` and the deferred-gateway revisions were archived rather than grafted
+— but their models and the code reading them came in with every upstream sync. Only databases
+built by ``Base.metadata.create_all`` ever had the tables, so on a migrated database:
 
   * ``GET /cabinet/admin/payments`` → 500, ``relation "cispay_payments" does not exist``
     (``payment_verification_service.list_recent_pending_payments`` queries every gateway);
   * ``GET /cabinet/admin/users/{id}/activity`` → 500 for every user, ``relation "coupons"``
     (the ``coupon`` source in ``_activity_sources``);
   * ``subscription_dedup_service`` logs ``relation "platega_subscriptions" does not exist`` on
-    startup, poisoning the transaction it runs in;
-  * the gift/guest flow selects ``guest_purchases.idempotency_key``, which no migrated database
-    has — an ORM ``SELECT`` names every mapped column.
+    startup, poisoning the transaction it runs in.
+
+The column half of the same fork — ``guest_purchases.campaign_slug`` / ``idempotency_key``,
+upstream's archived ``0106``/``0107`` — is revision ``0117``, which landed while this one was in
+review. Nothing to repeat here.
 
 Creating a deferred gateway's table is **not** enabling it: CisPay, Platega and Lava stay off by
 their ``*_ENABLED`` flags (workspace policy: disabled gateways are never deleted, never enabled).
@@ -27,8 +28,8 @@ by ``tests/database/test_0111_remnawave_id.py::FORBIDDEN_TABLES``.
 Idempotent by inspector guard: a no-op on a fresh database that ``create_all`` already populated,
 and safe to re-run on a partially migrated one.
 
-Revision ID: 0117
-Revises: 0116
+Revision ID: 0118
+Revises: 0117
 Create Date: 2026-09-12
 """
 
@@ -39,17 +40,14 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = '0117'
-down_revision: Union[str, None] = '0116'
+revision: str = '0118'
+down_revision: Union[str, None] = '0117'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 #: Statuses that count as a live recurring binding (upstream ``0100``): at most one per
 #: subscription, so a racing "enable" loses on the index and reuses the winner's row.
 _ALIVE_STATES_SQL = "status IN ('PENDING', 'ACTIVE', 'PAST_DUE')"
-
-_GUEST_PURCHASES = 'guest_purchases'
-_IDEMPOTENCY_INDEX = 'ux_guest_purchases_idempotency_key'
 
 #: Dropped by ``downgrade`` in reverse order — ``coupons`` before the batches it references.
 _TABLES_IN_CREATE_ORDER = (
@@ -65,14 +63,6 @@ _TABLES_IN_CREATE_ORDER = (
 
 def _table_names(inspector: sa.Inspector) -> set[str]:
     return set(inspector.get_table_names())
-
-
-def _column_names(inspector: sa.Inspector, table: str) -> set[str]:
-    return {column['name'] for column in inspector.get_columns(table)}
-
-
-def _index_names(inspector: sa.Inspector, table: str) -> set[str]:
-    return {str(item['name']) for item in inspector.get_indexes(table) if item.get('name')}
 
 
 def _create_cispay_payments() -> None:
@@ -294,46 +284,17 @@ _CREATORS = {
 }
 
 
-def _add_guest_purchase_columns(inspector: sa.Inspector) -> None:
-    if _GUEST_PURCHASES not in _table_names(inspector):
-        return
-
-    existing = _column_names(inspector, _GUEST_PURCHASES)
-    if 'campaign_slug' not in existing:
-        op.add_column(_GUEST_PURCHASES, sa.Column('campaign_slug', sa.String(length=64), nullable=True))
-    if 'idempotency_key' not in existing:
-        op.add_column(_GUEST_PURCHASES, sa.Column('idempotency_key', sa.String(length=64), nullable=True))
-
-    inspector = sa.inspect(op.get_bind())
-    if _IDEMPOTENCY_INDEX not in _index_names(inspector, _GUEST_PURCHASES):
-        # Unique over a nullable column: existing rows keep NULL and do not collide, while a
-        # retried gift purchase finds its own row instead of creating a second charge.
-        op.create_index(_IDEMPOTENCY_INDEX, _GUEST_PURCHASES, ['idempotency_key'], unique=True)
-
-
 def upgrade() -> None:
-    inspector = sa.inspect(op.get_bind())
-    existing = _table_names(inspector)
+    existing = _table_names(sa.inspect(op.get_bind()))
 
     for table in _TABLES_IN_CREATE_ORDER:
         if table not in existing:
             _CREATORS[table]()
 
-    _add_guest_purchase_columns(sa.inspect(op.get_bind()))
-
 
 def downgrade() -> None:
-    inspector = sa.inspect(op.get_bind())
-
-    if _GUEST_PURCHASES in _table_names(inspector):
-        if _IDEMPOTENCY_INDEX in _index_names(inspector, _GUEST_PURCHASES):
-            op.drop_index(_IDEMPOTENCY_INDEX, table_name=_GUEST_PURCHASES)
-        existing = _column_names(inspector, _GUEST_PURCHASES)
-        for column in ('idempotency_key', 'campaign_slug'):
-            if column in existing:
-                op.drop_column(_GUEST_PURCHASES, column)
-
     existing = _table_names(sa.inspect(op.get_bind()))
+
     for table in reversed(_TABLES_IN_CREATE_ORDER):
         if table in existing:
             op.drop_table(table)
