@@ -25,13 +25,39 @@ from app.database.crud.landing import (
     update_landing_order,
 )
 from app.database.models import GuestPurchase, GuestPurchaseStatus, LandingPage, Tariff, User
-from app.utils.wire_scale import wire_catalog_kopeks
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 from .branding import ALLOWED_BG_TYPES, _validate_settings
 
 
 logger = structlog.get_logger(__name__)
+
+
+#: Amount fields inside every entry of ``landing_pages.payment_methods``. The column is stored on
+#: the Toman 1:1 scale like every other amount since Phase C, but the admin editor seeds these two
+#: from the admin payment-methods API, which still speaks the frozen wire scale (Toman x100). They
+#: are therefore converted in and out here, so the cabinet's contract is unchanged while exactly one
+#: scale reaches the database — the public landing route reads them as Toman (FINDINGS F-071).
+_METHOD_AMOUNT_FIELDS = ('min_amount_kopeks', 'max_amount_kopeks')
+
+
+def _payment_methods_to_storage(methods: list) -> list[dict]:
+    """Admin wire (Toman x100) -> stored Toman 1:1."""
+    stored = []
+    for method in methods:
+        data = method.model_dump() if hasattr(method, 'model_dump') else dict(method)
+        for field in _METHOD_AMOUNT_FIELDS:
+            if data.get(field) is not None:
+                data[field] = toman_from_wire_catalog(data[field])
+        stored.append(data)
+    return stored
+
+
+def _payment_method_limit_to_wire(amount_toman: int | None) -> int | None:
+    """Stored Toman 1:1 -> admin wire (Toman x100)."""
+    return wire_catalog_kopeks(amount_toman) if amount_toman is not None else None
+
 
 router = APIRouter(prefix='/admin/landings', tags=['Cabinet Admin Landings'])
 
@@ -669,7 +695,7 @@ async def create_landing_page(
         footer_text=request.footer_text,
         allowed_tariff_ids=request.allowed_tariff_ids,
         allowed_periods=request.allowed_periods,
-        payment_methods=[m.model_dump() for m in request.payment_methods],
+        payment_methods=_payment_methods_to_storage(request.payment_methods),
         gift_enabled=request.gift_enabled,
         custom_css=request.custom_css,
         meta_title=request.meta_title,
@@ -748,7 +774,7 @@ async def update_landing_page(
     if 'features' in data and data['features'] is not None:
         data['features'] = [f.model_dump() if hasattr(f, 'model_dump') else f for f in data['features']]
     if 'payment_methods' in data and data['payment_methods'] is not None:
-        data['payment_methods'] = [m.model_dump() if hasattr(m, 'model_dump') else m for m in data['payment_methods']]
+        data['payment_methods'] = _payment_methods_to_storage(data['payment_methods'])
 
     # Cascade-clear all discount fields when discount_percent is explicitly set to None
     if 'discount_percent' in data and data['discount_percent'] is None:
@@ -1143,8 +1169,8 @@ def _landing_to_detail(landing: LandingPage) -> LandingDetailResponse:
             description=m.get('description'),
             icon_url=m.get('icon_url'),
             sort_order=m.get('sort_order', 0),
-            min_amount_kopeks=m.get('min_amount_kopeks'),
-            max_amount_kopeks=m.get('max_amount_kopeks'),
+            min_amount_kopeks=_payment_method_limit_to_wire(m.get('min_amount_kopeks')),
+            max_amount_kopeks=_payment_method_limit_to_wire(m.get('max_amount_kopeks')),
             currency=m.get('currency'),
             return_url=m.get('return_url'),
             sub_options=m.get('sub_options'),

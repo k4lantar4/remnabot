@@ -18,7 +18,7 @@ import re
 from typing import Literal, NamedTuple
 
 
-AmountColumnKind = Literal['int', 'json_values']
+AmountColumnKind = Literal['int', 'json_values', 'json_records']
 
 #: Bookkeeping tables of the Phase C scale change. ``0114`` creates them (structural, safe on its
 #: own); ``0115`` fills them together with the code that reads Toman. **The tables existing means
@@ -40,6 +40,10 @@ class ColumnRef(NamedTuple):
 
     ``kind='json_values'`` means the JSON payload is a mapping/list whose *values* are the amounts
     (``tariffs.period_prices``, ``payment_method_configs.quick_amounts``).
+
+    ``kind='json_records'`` means the payload is a list of objects and only some of their *fields*
+    are amounts; ``note`` names them (``landing_pages.payment_methods``). Such a column has to be
+    classified by meaning — nothing in its name says money.
 
     ``where`` is a SQL predicate naming the subset of rows that sit on this scale, for the two
     columns that are mixed-scale per row type. ``None`` means the whole column.
@@ -151,6 +155,13 @@ TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('advertising_campaigns', 'balance_bonus_kopeks', note='credited 1:1 by campaign_service'),
     ColumnRef('c2c_receipts', 'amount_kopeks'),
     ColumnRef('c2c_receipts', 'approved_amount_kopeks'),
+    ColumnRef(
+        'landing_pages',
+        'payment_methods',
+        'json_records',
+        note='per-method min_amount_kopeks/max_amount_kopeks; the public landing route reads them '
+        'as Toman, so admin_landings converts the wire scale at the boundary (FINDINGS F-071)',
+    ),
     ColumnRef(
         'promocodes',
         'balance_bonus_kopeks',
