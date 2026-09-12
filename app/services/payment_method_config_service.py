@@ -45,8 +45,9 @@ def get_display_name_override(method_id: str) -> str | None:
 def _toman_rate_limits(is_ready, limits_toman) -> dict:
     """Default min/max for a method quoted from a fixed Toman rate (Stars, CryptoBot).
 
-    Top-up amounts travel between cabinet/bot and these limits as Toman x100, so the Toman limits
-    are put on that scale. Without a rate the method is not configured and the limits are moot.
+    Like every other entry in this mapping the limits are plain Toman — the cabinet's x100 wire
+    scale is applied once, in the route. Without a rate the method is not configured and the limits
+    are moot.
     """
     if not is_ready():
         return {'default_min': 0, 'default_max': 0}
@@ -59,8 +60,22 @@ def _toman_rate_limits(is_ready, limits_toman) -> dict:
 
 # Mapping: method_id -> (default_display_name_func, is_configured_func, default_min, default_max, has_sub_options)
 def _get_method_defaults() -> dict:
-    """Get default configuration for each payment method based on env vars."""
+    """Get default configuration for each payment method based on env vars.
+
+    Every ``default_min``/``default_max`` here is Toman 1:1 (the scale the database has used since
+    Phase C revision 0115); the cabinet's x100 wire scale is applied by the route that serialises
+    them, never here.
+    """
     return {
+        # Card-to-card is our primary method, so it leads both this mapping and DEFAULT_METHOD_ORDER.
+        # Its limits are the same Toman numbers the bot-side C2C flow compares against.
+        'c2c': {
+            'default_display_name': settings.get_c2c_display_name(),
+            'is_configured': settings.is_c2c_enabled(),
+            'default_min': settings.C2C_MIN_AMOUNT_KOPEKS,
+            'default_max': settings.C2C_MAX_AMOUNT_KOPEKS,
+            'available_sub_options': None,
+        },
         'telegram_stars': {
             'default_display_name': settings.get_telegram_stars_display_name(),
             'is_configured': toman_rates.is_stars_toman_ready(),
@@ -323,6 +338,7 @@ def _get_overpay_sub_options() -> list[dict]:
 
 # Default order of methods
 DEFAULT_METHOD_ORDER = [
+    'c2c',
     'telegram_stars',
     'tribute',
     'cryptobot',
