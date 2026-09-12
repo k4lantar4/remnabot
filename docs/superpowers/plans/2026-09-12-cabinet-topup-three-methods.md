@@ -145,7 +145,7 @@ test user 7830: `/balance/top-up` renders «Telegram Stars — 10,000 – 100,00
 expected until task 2. (The 500 in that page's console is the pre-existing missing-table error tracked
 by `2026-09-10-missing-upstream-tables.md`, unrelated.)
 
-### Task 2 — `c2c` becomes a known cabinet payment method
+### Task 2 — `c2c` becomes a known cabinet payment method — **DONE (`ce6bc99a`)**
 
 **Repo + files:**
 - `remnabot/app/services/payment_method_config_service.py` — add a `'c2c'` entry to
@@ -174,7 +174,24 @@ those limits ×100; `DEFAULT_METHOD_ORDER[0] == 'c2c'`.
 **Persian/i18n:** none in the bot (the name comes from `C2C_DISPLAY_NAME`); the cabinet-side
 description key comes in task 4.
 
-### Task 3 — Cabinet C2C endpoints (adapter in the plugin, thin routes in `balance.py`)
+### Task 3 — Cabinet C2C endpoints (adapter in the plugin, thin routes in `balance.py`) — **DONE (branch `feat/cabinet-c2c-topup`)**
+
+**As built — deviations from the text below (the interface block is updated to match):**
+- The adapter takes and stores **Toman** (`start_cabinet_receipt(db, user, amount_toman)`); the route
+  converts the wire amount with `toman_from_wire_catalog` first. All four adapter functions return the
+  `C2cReceipt` and raise `C2cCabinetError(code)` (`unavailable`, `already_submitted`, `empty`,
+  `not_found`, `admin_unreachable`); the route maps the code to 400/409/400/404/502.
+- The amount range is checked by the route against the `c2c` entry of `/balance/payment-methods` (the
+  same `_check_topup_amount` Stars and CryptoBot use), so an admin override of the limits applies.
+  Hence no `CABINET_C2C_METHOD_UNAVAILABLE` / `_AMOUNT_TOO_LOW` / `_AMOUNT_TOO_HIGH` keys: the existing
+  `CABINET_TOPUP_*` keys are reused. New keys: `CABINET_C2C_RECEIPT_ALREADY_SUBMITTED`,
+  `CABINET_C2C_RECEIPT_EMPTY`, `CABINET_C2C_RECEIPT_NOT_FOUND`, `CABINET_C2C_ADMIN_UNREACHABLE`.
+- `GET /c2c/current` takes an optional `?receipt_id=`: without it, the pending receipt or 204; with it,
+  that receipt (the user's own only) in any status — this is how the task 4 page sees
+  `approved`/`rejected` after the receipt leaves pending. The task 5 banner calls it without the param.
+- `C2cReceiptStateResponse` also carries `card_number`, `card_holder`, `guide_text`, set only while the
+  receipt is pending with nothing attached, so a page opened on an existing session can show the card
+  again. `rejection_reason` is resolved to the user-facing text the bot's rejection message uses.
 
 **Repo + files:**
 - `remnabot/app/plugins/c2c/cabinet.py` (new — the cabinet adapter; the bot adapter stays in
@@ -197,7 +214,7 @@ description key comes in task 4.
 ```
 POST /cabinet/balance/c2c/session   {amount_kopeks}                    -> C2cSessionResponse
 POST /cabinet/balance/c2c/receipt   {receipt_id, media_file_id?, media_type?, text?} -> C2cReceiptStateResponse
-GET  /cabinet/balance/c2c/current                                      -> C2cReceiptStateResponse | 204
+GET  /cabinet/balance/c2c/current[?receipt_id=N]                       -> C2cReceiptStateResponse | 204
 POST /cabinet/balance/c2c/cancel    {receipt_id}                       -> C2cReceiptStateResponse
 
 C2cSessionResponse:      receipt_id:int, status:str, amount_kopeks:int, amount_toman:int,
@@ -206,13 +223,18 @@ C2cSessionResponse:      receipt_id:int, status:str, amount_kopeks:int, amount_t
 C2cReceiptStateResponse: receipt_id:int, status:str ("pending"|"approved"|"rejected"|"expired"|"cancelled"),
                          has_receipt:bool, amount_kopeks:int, amount_toman:int,
                          approved_amount_toman:int|None, rejection_reason:str|None,
-                         card_label:str|None, created_at:datetime, expires_at:datetime|None,
+                         card_label:str|None, card_number:str|None, card_holder:str|None,
+                         guide_text:str|None, created_at:datetime, expires_at:datetime|None,
                          processed_at:datetime|None
+Errors: 400 method unavailable / amount out of range / empty receipt, 403 top-up restricted,
+        404 receipt not found or closed, 409 receipt already submitted, 502 admin chat unreachable.
+Request limits: media_type "photo"|"document", text ≤ 500 chars (it goes into a Telegram caption).
 ```
-Adapter functions: `start_cabinet_receipt(db, user, amount_kopeks) -> C2cReceipt`,
-`attach_cabinet_receipt(db, user, receipt_id, *, media_file_id, media_type, text) -> tuple[bool, str]`,
-`current_cabinet_receipt(db, user) -> C2cReceipt | None`,
-`cancel_cabinet_receipt(db, user, receipt_id) -> C2cReceipt`.
+Adapter functions (`app/plugins/c2c/cabinet.py`, Toman in and out):
+`start_cabinet_receipt(db, user, amount_toman) -> C2cReceipt`,
+`attach_cabinet_receipt(db, user, receipt_id, *, media_file_id, media_type, text) -> C2cReceipt`,
+`current_cabinet_receipt(db, user, *, receipt_id=None) -> C2cReceipt | None`,
+`cancel_cabinet_receipt(db, user, receipt_id) -> C2cReceipt`; errors raise `C2cCabinetError(code)`.
 
 Rules the adapter must implement (all mirror the bot's `process_c2c_payment_amount`, do not invent new
 ones): one pending receipt per user — if it has no receipt attached yet, update its amount and card
