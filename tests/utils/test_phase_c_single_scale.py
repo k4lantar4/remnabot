@@ -273,6 +273,36 @@ def _scaling_literals(path: Path) -> list[str]:
     return hits
 
 
+def test_no_helper_hides_a_scale_factor_in_a_default_argument() -> None:
+    """A literal 100 in a signature is the same bug wearing a disguise.
+
+    ``admin_campaigns._safe_div(value, divisor=100)`` was exactly this: the division read as
+    ``value / divisor``, so scanning for ``/ 100`` never saw it, and every campaign amount would have
+    rendered 100x too small after the rescale. Catching the shape, not just the expression, is what
+    stops it coming back through a new helper.
+    """
+    offenders: list[str] = []
+
+    for path in sorted(APP_ROOT.rglob('*.py')):
+        if path.name == 'wire_scale.py' or _is_ruble_gateway(path):
+            continue
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            args = node.args
+            defaults = list(zip(args.args[len(args.args) - len(args.defaults) :], args.defaults, strict=False))
+            defaults += list(zip(args.kwonlyargs, args.kw_defaults, strict=False))
+            for arg, default in defaults:
+                if not isinstance(default, ast.Constant) or default.value != 100:
+                    continue
+                if not any(w in arg.arg.lower() for w in ('divisor', 'factor', 'scale', 'multiplier')):
+                    continue
+                offenders.append(f'{path.relative_to(APP_ROOT)}:{node.lineno}: {node.name}({arg.arg}=100)')
+
+    assert offenders == [], 'scale factor hidden in a default argument:\n' + '\n'.join(offenders)
+
+
 def test_no_amount_is_scaled_by_100_outside_the_wire_boundary() -> None:
     """After Phase C the only scale hop left in the backend is the frozen HTTP contract.
 

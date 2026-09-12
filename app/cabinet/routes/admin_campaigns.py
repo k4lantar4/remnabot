@@ -56,9 +56,15 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix='/admin/campaigns', tags=['Cabinet Admin Campaigns'])
 
 
-def _safe_div(value: float | None, divisor: int = 100) -> float:
-    """Safely divide kopeks to rubles, handling None values."""
-    return (value or 0) / divisor
+def _display_amount(value: float | None) -> float:
+    """The ``*_rubles`` twin of a stored amount, tolerating NULL.
+
+    This used to divide by 100 unless a caller passed ``divisor=1``, because campaign amounts were a
+    mix: balance bonuses were Toman 1:1 while the first payment was a catalog price. Revision 0115
+    put them on one scale, so every field here is the stored number and the divisor is gone — a
+    default of 100 would now render every campaign amount 100x too small.
+    """
+    return float(value or 0)
 
 
 def _get_partner_name(campaign: AdvertisingCampaign) -> str | None:
@@ -94,7 +100,7 @@ async def get_overview(
             total_balance_issued_kopeks=overview['balance_total'],
             # balance_total is a sum of balance_bonus_kopeks, a raw Toman amount
             # post-Phase-B, not kopeks — divisor=1, don't divide by 100.
-            total_balance_issued_rubles=_safe_div(overview['balance_total'], divisor=1),
+            total_balance_issued_rubles=_display_amount(overview['balance_total']),
             total_balance_issued_toman=overview['balance_total'],
             total_subscription_issued=overview['subscription_total'],
             total_tariff_issued=tariff_count,
@@ -241,7 +247,7 @@ async def get_campaign(
         is_active=campaign.is_active,
         balance_bonus_kopeks=campaign.balance_bonus_kopeks or 0,
         # raw Toman amount post-Phase-B, not kopeks — divisor=1.
-        balance_bonus_rubles=_safe_div(campaign.balance_bonus_kopeks, divisor=1),
+        balance_bonus_rubles=_display_amount(campaign.balance_bonus_kopeks),
         subscription_duration_days=campaign.subscription_duration_days,
         subscription_traffic_gb=campaign.subscription_traffic_gb,
         subscription_device_limit=campaign.subscription_device_limit,
@@ -313,15 +319,15 @@ async def get_campaign_stats(
             balance_issued_kopeks=stats['balance_issued'],
             # Balance bonuses and revenue (a sum of deposits) are raw Toman post-Phase-B —
             # divisor=1 — every amount is Toman since revision 0115.
-            balance_issued_rubles=_safe_div(stats['balance_issued'], divisor=1),
+            balance_issued_rubles=_display_amount(stats['balance_issued']),
             subscription_issued=stats['subscription_issued'],
             last_registration=stats['last_registration'],
             total_revenue_kopeks=stats['total_revenue_kopeks'],
-            total_revenue_rubles=_safe_div(stats['total_revenue_kopeks'], divisor=1),
+            total_revenue_rubles=_display_amount(stats['total_revenue_kopeks']),
             avg_revenue_per_user_kopeks=stats['avg_revenue_per_user_kopeks'],
-            avg_revenue_per_user_rubles=_safe_div(stats['avg_revenue_per_user_kopeks'], divisor=1),
+            avg_revenue_per_user_rubles=_display_amount(stats['avg_revenue_per_user_kopeks']),
             avg_first_payment_kopeks=stats['avg_first_payment_kopeks'],
-            avg_first_payment_rubles=_safe_div(stats['avg_first_payment_kopeks']),
+            avg_first_payment_rubles=_display_amount(stats['avg_first_payment_kopeks']),
             balance_issued_toman=stats['balance_issued_toman'],
             total_revenue_toman=stats['total_revenue_toman'],
             avg_revenue_per_user_toman=stats['avg_revenue_per_user_toman'],

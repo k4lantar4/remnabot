@@ -27,8 +27,9 @@ from tests.fixtures.sqlite_memory import memory_session
 TABLES = list(Base.metadata.sorted_tables)
 ROOT = Path(__file__).resolve().parents[2]
 
-DAILY_PRICE_KOPEKS = 1_000_000  # catalog: 10,000 Toman per day
-DAILY_PRICE_TOMAN = 10_000
+# Stored and charged are one number since revision 0115.
+DAILY_PRICE_TOMAN = 10_000  # per day
+DAILY_PRICE_KOPEKS = DAILY_PRICE_TOMAN
 
 
 class _FakePanelSync:
@@ -219,8 +220,17 @@ def _amount_argument(call: ast.Call) -> ast.expr | None:
 
 
 @pytest.mark.parametrize(('relative', 'function_name'), DAILY_CHARGE_SITES.items())
-def test_balance_never_moves_by_the_catalog_price(relative, function_name):
-    """Every charge or refund of the daily fee passes a Toman amount, never ``daily_price``."""
+def test_every_daily_charge_site_still_moves_the_balance(relative, function_name):
+    """The daily fee is charged and refunded at each of these sites.
+
+    This guard used to assert that none of them passed ``daily_price`` — the catalog variable — to a
+    balance call, because doing so charged 100x. Revision ``0115`` put ``daily_price_kopeks`` on the
+    Toman scale, so ``daily_price`` is the right thing to pass and the old assertion would now be
+    backwards. "Nothing converts anywhere" is asserted once, in ``test_phase_c_single_scale.py``.
+
+    What is still worth pinning here is the site list itself: if a charge path stops moving the
+    balance, this list is stale and the rest of the file is testing nothing.
+    """
     func = _function(relative, function_name)
     calls = [
         node
@@ -230,8 +240,3 @@ def test_balance_never_moves_by_the_catalog_price(relative, function_name):
         in BALANCE_CALLS
     ]
     assert calls, f'{relative}:{function_name}: no balance call found; guard is stale'
-    for call in calls:
-        amount = _amount_argument(call)
-        assert not (isinstance(amount, ast.Name) and amount.id == 'daily_price'), (
-            f'{relative}:{function_name}:{call.lineno} moves the balance by the catalog price'
-        )

@@ -54,9 +54,10 @@ TABLES = (
 
 ADMIN = SimpleNamespace(id=999, telegram_id=999)
 
-SUBSCRIPTION_CATALOG = 1_000_000  # catalog scale → 10,000 Toman
+# Subscription payments and deposits are the same scale since revision 0115.
 SUBSCRIPTION_TOMAN = 10_000
-DEPOSIT_TOMAN = 50_000  # balance scale, 1:1
+SUBSCRIPTION_CATALOG = SUBSCRIPTION_TOMAN
+DEPOSIT_TOMAN = 50_000
 MIXED_TOMAN = SUBSCRIPTION_TOMAN + DEPOSIT_TOMAN  # 60,000
 
 PARTNER_ID = 1
@@ -148,7 +149,7 @@ async def test_sales_summary_revenue_toman_mixes_deposits_subscriptions_and_gift
             _tx(
                 BUYER_ID,
                 TransactionType.SUBSCRIPTION_PAYMENT.value,
-                -700_000,
+                -7_000,
                 method='balance',
                 description='Докупка трафика 10 ГБ',
             )
@@ -160,7 +161,7 @@ async def test_sales_summary_revenue_toman_mixes_deposits_subscriptions_and_gift
                 contact_value='@friend',
                 is_gift=True,
                 period_days=30,
-                amount_kopeks=300_000,  # catalog price of the gift → 3,000 Toman
+                amount_kopeks=3_000,  # the gift price, Toman like every row
                 payment_method='c2c',
                 status='delivered',
                 paid_at=_days_ago(1),
@@ -173,10 +174,10 @@ async def test_sales_summary_revenue_toman_mixes_deposits_subscriptions_and_gift
     assert summary.total_revenue_toman == MIXED_TOMAN + 3_000
     assert summary.manual_topup_toman == 20_000
     assert summary.addon_revenue_toman == 7_000
-    # Old fields untouched.
-    assert summary.total_revenue_kopeks == SUBSCRIPTION_CATALOG + DEPOSIT_TOMAN + 300_000
+    # The *_kopeks twins are kept for the HTTP contract; since Phase C they carry the same Toman.
+    assert summary.total_revenue_kopeks == SUBSCRIPTION_CATALOG + DEPOSIT_TOMAN + 3_000
     assert summary.manual_topup_kopeks == 20_000
-    assert summary.addon_revenue_kopeks == 700_000
+    assert summary.addon_revenue_kopeks == 7_000
 
 
 async def test_sales_deposits_tab_toman_fields(monkeypatch):
@@ -215,7 +216,7 @@ async def test_sales_renewals_tab_toman_fields(monkeypatch):
     async with memory_session(monkeypatch, TABLES) as db:
         await _seed_base(db)
         db.add(
-            _tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -1_500_000, days_ago=1, description='Продление')
+            _tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -15_000, days_ago=1, description='Продление')
         )
         await db.flush()
 
@@ -224,7 +225,7 @@ async def test_sales_renewals_tab_toman_fields(monkeypatch):
     assert renewals.total_revenue_toman == 25_000
     assert renewals.current_period.revenue_toman == 25_000
     assert renewals.previous_period.revenue_toman == 0
-    assert renewals.total_revenue_kopeks == 2_500_000
+    assert renewals.total_revenue_kopeks == 25_000
 
 
 async def test_sales_addons_tab_toman_fields(monkeypatch):
@@ -232,15 +233,15 @@ async def test_sales_addons_tab_toman_fields(monkeypatch):
 
     async with memory_session(monkeypatch, TABLES) as db:
         await _seed_base(db)
-        db.add(_tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -700_000, description='Докупка трафика 10 ГБ'))
-        db.add(_tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -300_000, description='Докупка 1 устройств'))
+        db.add(_tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -7_000, description='Докупка трафика 10 ГБ'))
+        db.add(_tx(BUYER_ID, TransactionType.SUBSCRIPTION_PAYMENT.value, -3_000, description='Докупка 1 устройств'))
         await db.flush()
 
         addons = await route.get_addons_stats(days=0, start_date=None, end_date=None, admin=ADMIN, db=db)
 
     assert addons.addon_revenue_toman == 7_000
     assert addons.device_revenue_toman == 3_000
-    assert addons.addon_revenue_kopeks == 700_000
+    assert addons.addon_revenue_kopeks == 7_000
 
 
 # ============ Admin campaigns + dashboard ============
