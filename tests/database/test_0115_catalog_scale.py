@@ -26,6 +26,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
 from app.config import settings
+from app.utils.amount_columns import CATALOG_SCALE_COLUMNS, COLUMNS_RESCALED_AFTER_0115
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +64,7 @@ _tariffs = sa.Table(
     _metadata,
     sa.Column('id', sa.Integer, primary_key=True),
     sa.Column('period_prices', sa.JSON),
+    sa.Column('traffic_topup_packages', sa.JSON),
     sa.Column('device_price_kopeks', sa.Integer),
     sa.Column('traffic_price_per_gb_kopeks', sa.Integer),
     sa.Column('daily_price_kopeks', sa.Integer),
@@ -121,6 +123,7 @@ SEED = {
         {
             'id': 1,
             'period_prices': {'30': 5_000_000, '90': 12_000_000},
+            'traffic_topup_packages': {'10': 3_000_000},
             'device_price_kopeks': 100_000,
             'traffic_price_per_gb_kopeks': 700_000,
             'daily_price_kopeks': 1_000_000,
@@ -212,15 +215,36 @@ def _value(conn, table: str, column: str, row_id: int):
 # ── chain ─────────────────────────────────────────────────────────────────────
 
 
-def test_the_data_revision_is_the_head_of_the_chain() -> None:
-    """Task 3 shipped the code that reads Toman, so the rescale is reachable — and is the head."""
+def test_the_data_revision_is_reachable_in_the_chain() -> None:
+    """Task 3 shipped the code that reads Toman, so the rescale is reachable from the head.
+
+    0115 was the head when it merged; 0116 (the one catalog column it could not see) now follows it.
+    """
     assert REVISION_FILE.exists()
     assert not (ROOT / 'migrations' / 'phase_c').exists(), 'the staging directory should be gone'
 
     script = _script_directory()
     chain = [rev.revision for rev in script.walk_revisions(base='base', head=script.get_current_head())]
     assert '0115' in chain
-    assert script.get_heads() == ['0115']
+    assert len(script.get_heads()) == 1, 'the chain must stay linear'
+
+
+def test_0115_leaves_later_classified_columns_to_their_own_revision() -> None:
+    """A column classified as catalog after 0115 shipped is divided by its own revision, not here.
+
+    ``tariffs.traffic_topup_packages`` is the case: 0116 owns it, so replaying the chain on an old
+    dump must not divide it twice. See ``test_0116_topup_packages_scale.py``.
+    """
+    assert ('tariffs', 'traffic_topup_packages') in COLUMNS_RESCALED_AFTER_0115
+    for table, column in COLUMNS_RESCALED_AFTER_0115:
+        assert (table, column) in {(ref.table, ref.column) for ref in CATALOG_SCALE_COLUMNS}
+
+    conn = _seeded_connection()
+    _run(conn, 'upgrade')
+
+    assert _load_revision()._scaled_payload(_value(conn, 'tariffs', 'traffic_topup_packages', 1), divide=False) == {
+        '10': 300_000_000
+    }
 
 
 def test_0115_revises_0114() -> None:

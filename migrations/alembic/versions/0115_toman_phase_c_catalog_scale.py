@@ -46,6 +46,7 @@ from app.utils.amount_columns import (
     AMOUNT_SCALE_ROUNDING_LOG_TABLE,
     AMOUNT_SCALE_STATE_TABLE,
     CATALOG_SCALE_COLUMNS,
+    COLUMNS_RESCALED_AFTER_0115,
     TOMAN_SCALE,
     ColumnRef,
 )
@@ -216,6 +217,10 @@ def _rescale_json_column(bind: sa.engine.Connection, ref: ColumnRef, *, divide: 
 def _rescale_all(bind: sa.engine.Connection, tables: set[str], *, divide: bool) -> None:
     inspector = sa.inspect(bind)
     for ref in CATALOG_SCALE_COLUMNS:
+        if (ref.table, ref.column) in COLUMNS_RESCALED_AFTER_0115:
+            # Classified as catalog only after this revision had shipped, so a later revision owns
+            # it. Skipping it here is what keeps a replay of the chain from dividing it twice.
+            continue
         if not _present_columns(inspector, tables, ref):
             continue
         if ref.kind == 'json_values':

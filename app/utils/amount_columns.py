@@ -29,7 +29,10 @@ AMOUNT_SCALE_ROUNDING_LOG_TABLE = 'amount_scale_rounding_log'
 TOMAN_SCALE = 'toman'
 
 #: Column names that look like money and therefore must be classified below.
-MONEY_COLUMN_NAME_PATTERN = re.compile(r'kopeks|price|amount', re.IGNORECASE)
+#: ``packages`` is here because ``tariffs.traffic_topup_packages`` is a ``{gb: price}`` map whose
+#: name says nothing about money — it slipped past ``0115`` for exactly that reason and kept
+#: charging 100x until ``0116`` (see that revision).
+MONEY_COLUMN_NAME_PATTERN = re.compile(r'kopeks|price|amount|packages', re.IGNORECASE)
 
 
 class ColumnRef(NamedTuple):
@@ -113,6 +116,12 @@ CATALOG_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('tariffs', 'price_per_day_kopeks'),
     ColumnRef('tariffs', 'traffic_price_per_gb_kopeks'),
     ColumnRef(
+        'tariffs',
+        'traffic_topup_packages',
+        'json_values',
+        note='{gb: price} map; missed by 0115 because the name has no money word — rescaled by 0116',
+    ),
+    ColumnRef(
         'transactions',
         'amount_kopeks',
         where="type IN ('subscription_payment', 'gift_payment')",
@@ -123,6 +132,16 @@ CATALOG_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('wheel_prizes', 'promo_balance_bonus_kopeks', note='see FINDINGS F-010'),
     ColumnRef('wheel_spins', 'payment_value_kopeks'),
     ColumnRef('wheel_spins', 'prize_value_kopeks'),
+)
+
+
+#: Columns added to :data:`CATALOG_SCALE_COLUMNS` after revision ``0115`` had already shipped.
+#: ``0115`` skips them and its own follow-up revision divides them instead, so replaying the
+#: chain on a pre-Phase-C dump converts every column exactly once, in either order.
+COLUMNS_RESCALED_AFTER_0115: frozenset[tuple[str, str]] = frozenset(
+    {
+        ('tariffs', 'traffic_topup_packages'),  # 0116
+    }
 )
 
 
