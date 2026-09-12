@@ -1,9 +1,19 @@
 # C2C (card-to-card) wallet top-up in the cabinet — Implementation Plan
 
-- **Status:** active — awaiting the user's design approval; no implementation yet.
+- **Status:** approved 2026-09-12 (design rulings folded in below); implementation not started.
 - **Repos:** `remnabot` first (Tasks 1-4, additive API), then `frontend` (Tasks 5-7). One PR per repo, linked.
 - **Upstream basis:** remnabot `origin/main` d83ded23 (upstream `main` 9fcebfd7 = v4.10.0, merge-base 89fa7dc5);
   frontend `origin/main` 91009e94 (upstream merge-base 5ade78f5).
+- **Rebase required before Task 1:** the branch was cut at d83ded23; `origin/main` has since moved to
+  97b1e469 (grace-access migration `0113`, Toman Phase C catalog-scale migration `0114`, remnabot#63).
+  Rebase onto `origin/main` first, then re-check `alembic heads` — this plan's migration is renumbered to
+  **`0115`** because 0113 and 0114 are both taken.
+- **Phase C coupling — do not restart the bot container:** as of 2026-09-12 `origin/main` is not
+  restart-safe (revision `0114` divides catalog prices by 100 while the reading code is only adapted in
+  Phase C Task 3, which is unwritten). Another session is moving that data step into a later revision.
+  Until it reports the all-clear: do not pull `/opt/project/remnabot` to `main` and do not restart or
+  rebuild the bot container. This plan needs neither — C2C amounts ride the balance scale (Toman 1:1),
+  which Phase C does not touch.
 - **Branches/worktrees:** remnabot `feat/c2c-cabinet-topup` (`.claude/worktrees/c2c-cabinet-topup`),
   frontend `feat/c2c-cabinet-topup` (create it when Task 5 starts).
 
@@ -38,16 +48,25 @@ app/plugins/c2c/
   handlers/        unchanged behaviour; call flow.py / review.py instead of inline logic
 ```
 
-- **Data model (migration `0113_c2c_receipt_source_reviewer`):** add `c2c_receipts.source` (`'bot' |
+- **Data model (migration `0115_c2c_receipt_source_reviewer`):** add `c2c_receipts.source` (`'bot' |
   'cabinet'`, NOT NULL, server default `'bot'`) and `reviewed_by_user_id` (FK `users.id`, nullable). The
   `reviewed_by_telegram_id` column stays and is filled when the actor has one. `amount_kopeks` keeps its
   name (it already holds Toman 1:1). No change to any upstream table.
 - **User flow (cabinet):** `POST /cabinet/c2c/receipts {amount_toman}` → `flow.start_topup` (restriction,
   enabled, admin chat, reviewable-pending → 409, min/max, `get_next_card()`, lazy expiry, reuse the
   awaiting-receipt row or create one) → the response carries the card (label, number, holder), amount,
-  `expires_at`. The user copies the card number, pays, then `POST /cabinet/c2c/receipts/{id}/submit`
+  `expires_at`. **Re-starting while a receipt is still awaiting its image (user ruling 2026-09-12):** the
+  existing row is reused, its `amount_kopeks` and `expires_at` are updated to the new request, and the
+  **card already shown to the user is kept** (`card_index` / `card_label` unchanged, no rotation) — the
+  user must never be told to pay one card and then be shown another mid-flow. `get_next_card()` rotation
+  happens only when a genuinely new row is created. A receipt that already carries a submitted receipt is
+  not reusable and yields 409 `c2c.review_pending` instead.
+  The user copies the card number, pays, then `POST /cabinet/c2c/receipts/{id}/submit`
   (multipart: `receipt_type=photo` + `file`, or `receipt_type=text` + `text`). The server sends the
-  **bytes straight to the admin group** (no `/media/upload` staging, so the user never supplies a
+  **bytes straight to the admin group** (confirmed by the user 2026-09-12: Telegram is the only store for
+  the image — we keep no copy of our own, accepting that a submit fails with 502 `c2c.notify_failed` if
+  Telegram is unreachable and that deleting the admin-group message loses the image for disputes)
+  (no `/media/upload` staging, so the user never supplies a
   `file_id`) and stores the `file_id` Telegram returns, so the cabinet admin can show the image through
   the existing signed `/cabinet/media/{file_id}?token=` proxy. The status is read from
   `GET /cabinet/c2c/receipts/current` (polled) plus the existing `balance.topup` websocket event.
@@ -57,10 +76,15 @@ app/plugins/c2c/
   message to the user (existing), plus a websocket event (`balance.topup` via the existing success path on
   approval; a new `c2c.receipt_rejected` on rejection). Row lock + `c2c:{id}` external id already make a
   simultaneous Telegram and cabinet approval safe; the loser gets "already processed" → HTTP 409.
-- **Owner-only:** the admin API uses a new dependency `require_c2c_owner` = `is_user_admin_by_env(user)`
-  (ADMIN_IDS / ADMIN_EMAILS — the "Superadmin" of the workspace rules); RBAC roles get 403. No new RBAC
-  permission, no role change. The frontend page sits behind the existing `payments:edit` permission and
-  shows the 403 as "owner only".
+- **Review access (user ruling 2026-09-12):** the admin API uses a new dependency `require_c2c_reviewer`,
+  which passes for `is_user_admin_by_env(user)` (ADMIN_IDS / ADMIN_EMAILS — the workspace "Superadmin")
+  **or** for any user holding the existing RBAC permission `payments:edit`. Rationale: such a user can
+  already approve and reject the same receipt with the Telegram admin-group buttons, so restricting the
+  cabinet would make it strictly less capable than Telegram for the same person. No new RBAC permission is
+  defined and no role's permission set changes — `payments:edit` is reused as-is. The frontend page sits
+  behind that same `payments:edit` permission, so the guard matches on both sides; the 403 code stays
+  `c2c.owner_only` for anyone without it. Every review records its actor (`reviewed_by_user_id`, plus
+  `reviewed_by_telegram_id` when the actor has one), so a non-owner reviewer is always attributable.
 - **Direct link:** every admin-group receipt post gets a URL button «باز کردن در پنل» →
   `{CABINET_URL}/admin/c2c-receipts/{id}` when `CABINET_URL` is configured (it is:
   `https://panel.rookari.com`). The Telegram buttons keep working.
@@ -96,7 +120,7 @@ app/plugins/c2c/
 ## Vs. upstream
 
 - **Ours (must survive merges):** everything C2C — all new code lives in `app/plugins/c2c/**` (bot) and
-  `src/**/c2c*` / `src/pages/*C2c*` (frontend), plus migration 0113.
+  `src/**/c2c*` / `src/pages/*C2c*` (frontend), plus migration 0115.
 - **Upstream touch points (named, minimal):** `app/cabinet/routes/__init__.py` (+2 `include_router`
   lines), `app/services/payment_method_config_service.py` (+1 defaults entry, +1 order entry),
   `app/cabinet/routes/balance.py` (`/topup` with `payment_method='c2c'` → 400 `c2c.use_dedicated_flow`
@@ -123,14 +147,23 @@ app/plugins/c2c/
   - `async start_topup(db, user, amount_toman: int, *, source: str = 'bot') -> C2cStartResult` — flushes, does
     not commit; the caller commits.
   - `def c2c_limits_toman() -> tuple[int, int]` (from `C2C_MIN/MAX_AMOUNT_KOPEKS`, already Toman).
-- **Test first:** each error code; reuse of an awaiting-receipt row updates amount/card/expiry; a new row gets
-  `source`; `REVIEW_PENDING` when a reviewable receipt exists. Bot handler tests unchanged and green.
+- **Concurrency:** one pending receipt per user is enforced by the partial unique index
+  `uq_c2c_receipts_user_pending` (migration 0088), which is **not** declared in `C2cReceipt.__table_args__`
+  — the ORM does not know about it. A simultaneous double-start therefore surfaces as a raw
+  `IntegrityError` on flush, not as a failed read-then-write check. `start_topup` must catch that
+  `IntegrityError`, roll back, re-read the now-committed row and return it (reuse path), or map it to 409
+  `c2c.review_pending`; it must never escape as a 500. Task 2 also adds the index to `__table_args__` so
+  the model matches the database.
+- **Test first:** each error code; reuse of an awaiting-receipt row updates amount and expiry but **keeps
+  the card**; a genuinely new row rotates the card; a new row gets `source`; `REVIEW_PENDING` when a
+  reviewable receipt exists; a simulated `IntegrityError` on insert resolves to the reuse path, not a 500.
+  Bot handler tests unchanged and green.
 - **i18n:** none (bot texts unchanged).
 
 ### Task 2 — Model, submission with uploaded bytes, `review.py`, `admin_sync.py`, verifier seam (remnabot)
 
 - **Files:** `app/database/models.py` (`C2cReceipt.source`, `reviewed_by_user_id`); create
-  `migrations/alembic/versions/0113_c2c_receipt_source_reviewer.py` (down_revision = current head, check
+  `migrations/alembic/versions/0115_c2c_receipt_source_reviewer.py` (down_revision = current head, check
   `alembic heads`); `app/plugins/c2c/service.py`; create `app/plugins/c2c/review.py`,
   `app/plugins/c2c/admin_sync.py` (move `sync_c2c_group_admin_message` + `_resolved_receipt_message` out of
   `handlers/admin.py`, which then imports them), `app/plugins/c2c/verification.py`;
@@ -192,7 +225,8 @@ app/plugins/c2c/
   `app/cabinet/routes/__init__.py`, `app/services/payment_method_config_service.py`. Tests:
   `tests/plugins/c2c/test_cabinet_admin_routes.py`, `tests/services/test_payment_method_c2c_entry.py`.
 - **Interfaces (produces, consumed by Task 7):**
-  - `require_c2c_owner` dependency → 403 `c2c.owner_only` for anyone not `is_user_admin_by_env`.
+  - `require_c2c_reviewer` dependency → 403 `c2c.owner_only` for anyone who is neither
+    `is_user_admin_by_env` nor a holder of RBAC `payments:edit`.
   - `GET /cabinet/admin/c2c/receipts?status=review|pending|approved|rejected|expired|cancelled|all&page=1&per_page=20`
     → `{items: C2cAdminReceiptListItem[], total, page, per_page, counts: {review, approved, rejected, expired, cancelled}}`
     (`review` = reviewable pending, the default).
@@ -250,7 +284,9 @@ app/plugins/c2c/
 - **Behaviour:** list with status tabs + counts (default «در انتظار بررسی»), rows → detail; detail shows the
   image (tap to enlarge) or text, user link to `/admin/users/:id`, amount, card label, source, timestamps;
   actions while under review: «تأیید», «تأیید با مبلغ دیگر» (number input within `min/max_toman`), «رد» with
-  the six reasons; 409 → refetch and show "already processed by …"; 403 `c2c.owner_only` → explanatory empty
+  the reason list — which the API serves from `get_reject_reason_codes()` (`app/plugins/c2c/reject_reasons.py`)
+  rather than the page hardcoding today's six, so the cabinet and the Telegram buttons cannot drift apart
+  when a reason is added; 409 → refetch and show "already processed by …"; 403 `c2c.owner_only` → explanatory empty
   state. The list uses `AdminBackButton to="/admin"` (nav-coverage test). Pattern: `AdminWithdrawals*`.
 - **Test:** `adminNavCoverage.test.ts` stays green; the rest is visual — verify live, including opening
   the Telegram post's link while logged out (log in, then land on the receipt).
