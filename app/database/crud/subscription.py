@@ -21,6 +21,7 @@ from app.database.models import (
     Transaction,
     TransactionType,
     User,
+    UserPromoGroup,
     UserStatus,
 )
 from app.utils.timezone import format_local_datetime
@@ -3106,11 +3107,19 @@ async def get_active_subscriptions_by_user_id(db: AsyncSession, user_id: int) ->
 
 
 async def get_subscription_by_id_for_user(db: AsyncSession, subscription_id: int, user_id: int) -> Subscription | None:
-    """Get subscription by ID with ownership check (IDOR protection)."""
+    """Get subscription by ID with ownership check (IDOR protection).
+
+    populate_existing=True re-populates the caller's already-loaded User, so the promo
+    relationships must be reloaded here: otherwise they come back unloaded and pricing
+    (User.get_primary_promo_group) lazy-loads in async -> MissingGreenlet (F-081).
+    """
     result = await db.execute(
         select(Subscription)
         .options(
-            selectinload(Subscription.user),
+            selectinload(Subscription.user)
+            .selectinload(User.user_promo_groups)
+            .selectinload(UserPromoGroup.promo_group),
+            selectinload(Subscription.user).selectinload(User.promo_group),
             selectinload(Subscription.tariff),
         )
         .where(
