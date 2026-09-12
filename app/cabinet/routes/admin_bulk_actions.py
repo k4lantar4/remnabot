@@ -33,6 +33,7 @@ from app.database.models import (
     User,
     UserPromoGroup,
 )
+from app.utils.price_display import balance_from_display_amount
 
 from ..dependencies import get_cabinet_db, require_permission
 from ..schemas.bulk_actions import (
@@ -83,13 +84,30 @@ def _require_traffic_gb(params: BulkActionParams) -> int:
     return params.traffic_gb
 
 
-def _require_amount_kopeks(params: BulkActionParams) -> int:
-    if not params.amount_kopeks or params.amount_kopeks <= 0:
+def _resolve_balance_amount_toman(params: BulkActionParams) -> int:
+    """The Toman to credit each selected user.
+
+    ``users.balance_kopeks`` is Toman 1:1, so both fields describe Toman: ``amount_display`` is the
+    number the owner typed and ``amount_kopeks`` is the legacy raw storage amount. Neither is ever
+    multiplied by 100 — that was FINDINGS F-068, where the cabinet inflated every credit 100x.
+    """
+    if params.amount_display is not None and params.amount_kopeks is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail='params.amount_kopeks must be a positive integer for add_balance action',
+            detail='Pass either params.amount_display or params.amount_kopeks for add_balance action, not both',
         )
-    return params.amount_kopeks
+
+    if params.amount_display is not None:
+        amount_toman = balance_from_display_amount(params.amount_display)
+    else:
+        amount_toman = params.amount_kopeks or 0
+
+    if amount_toman <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='params.amount_display must be a positive Toman amount for add_balance action',
+        )
+    return amount_toman
 
 
 def _require_device_limit(params: BulkActionParams) -> int:
@@ -413,20 +431,20 @@ async def _do_add_balance(
     params: BulkActionParams,
     dry_run: bool,
 ) -> BulkUserResult:
-    amount_kopeks = params.amount_kopeks  # already validated
+    amount_toman = _resolve_balance_amount_toman(params)
 
     if dry_run:
         return BulkUserResult(
             user_id=user.id,
             success=True,
-            message=f'Would add {amount_kopeks:.2f}₽ to balance',
+            message=f'Would add {settings.format_balance(amount_toman)} to balance',
             username=user.username,
         )
 
     success = await add_user_balance(
         db=db,
         user=user,
-        amount_kopeks=amount_kopeks,
+        amount_kopeks=amount_toman,
         description=params.balance_description,
         create_transaction=True,
         transaction_type=TransactionType.DEPOSIT,
@@ -443,7 +461,7 @@ async def _do_add_balance(
     return BulkUserResult(
         user_id=user.id,
         success=True,
-        message=f'Added {amount_kopeks:.2f}₽ to balance',
+        message=f'Added {settings.format_balance(amount_toman)} to balance',
         username=user.username,
     )
 
@@ -833,7 +851,7 @@ async def _validate_and_prepare(
     elif action == BulkActionType.ADD_TRAFFIC:
         _require_traffic_gb(params)
     elif action == BulkActionType.ADD_BALANCE:
-        _require_amount_kopeks(params)
+        _resolve_balance_amount_toman(params)
     elif action == BulkActionType.SET_DEVICES:
         _require_device_limit(params)
     elif action == BulkActionType.GRANT_SUBSCRIPTION:

@@ -27,6 +27,10 @@ from app.utils.amount_columns import (
 MIXED_SCALE_COLUMNS = {('transactions', 'amount_kopeks'), ('subscription_events', 'amount_kopeks')}
 
 
+def _model_columns() -> set[tuple[str, str]]:
+    return {(table.name, column.name) for table in Base.metadata.tables.values() for column in table.columns}
+
+
 def _model_money_columns() -> set[tuple[str, str]]:
     return {
         (table.name, column.name)
@@ -49,7 +53,14 @@ def test_every_money_column_in_the_models_is_classified() -> None:
 
 
 def test_no_classified_column_is_missing_from_the_models() -> None:
-    stale = sorted(set(ALL_CLASSIFIED_COLUMNS) - _model_money_columns())
+    """Compared against *every* column, not only the money-named ones.
+
+    A column may be classified because of what it holds rather than what it is called —
+    ``landing_pages.payment_methods`` carries per-method limits and no money word in its name. That
+    is exactly the blind spot the ``0116`` post-mortem asked to close, so listing such a column must
+    not read as stale here.
+    """
+    stale = sorted(set(ALL_CLASSIFIED_COLUMNS) - _model_columns())
     assert not stale, f'Listed columns that no longer exist in the models (renamed or dropped?): {stale}'
 
 
@@ -93,7 +104,7 @@ def test_json_kind_matches_the_actual_column_type() -> None:
     for ref in _all_refs():
         column = tables[ref.table].columns[ref.column]
         is_json = isinstance(column.type, JSON)
-        assert is_json == (ref.kind == 'json_values'), (
+        assert is_json == (ref.kind in {'json_values', 'json_records'}), (
             f'{ref.table}.{ref.column}: kind={ref.kind!r} but the column type is {column.type}'
         )
 
