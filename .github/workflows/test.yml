@@ -1,10 +1,17 @@
 name: Test
 
 on:
+  # Feature branches are covered by their pull_request run; a push trigger on
+  # every branch ran the suite twice per PR push.
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: ['**']
+
+# A new push to a PR supersedes the run for the previous commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
