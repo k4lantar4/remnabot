@@ -119,7 +119,7 @@ async def get_transactions(
                 id=t.id,
                 type=t.type,
                 amount_kopeks=amount_kopeks,
-                amount_rubles=display_transaction_amount_from_storage(amount_kopeks, t.type),
+                amount_rubles=display_transaction_amount_from_storage(amount_kopeks),
                 description=t.description,
                 payment_method=t.payment_method,
                 is_completed=t.is_completed,

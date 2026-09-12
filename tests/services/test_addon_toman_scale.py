@@ -1,15 +1,14 @@
 """Add-on purchases (extra devices, extra traffic) take the Toman amount off the Toman balance.
 
 Add-on prices (``device_price_kopeks``, traffic top-up packages, ``PRICE_PER_DEVICE``,
-``TRAFFIC_*_PACKAGES_CONFIG``) are catalog prices: Toman x 100, shown via ``format_price``.
-``User.balance_kopeks`` holds raw Toman (Phase B). The tariff purchase / renewal / daily paths
-convert with ``user_can_afford`` / ``catalog_price_in_toman``; the add-on paths compared the
-catalog number with the balance and passed it straight to ``subtract_user_balance``. A
-10,000-Toman device therefore needed (and took) 1,000,000 Toman, and the insufficient-funds
-shortfall mixed both scales. Same bug class as the recurring daily charge (PR #21).
+``TRAFFIC_*_PACKAGES_CONFIG``) used to be catalog prices — Toman x 100 — while
+``User.balance_kopeks`` held raw Toman. The add-on paths compared the catalog number with the
+balance and passed it straight to ``subtract_user_balance``, so a 10,000-Toman device needed (and
+took) 1,000,000 Toman and the insufficient-funds shortfall mixed both scales. Same bug class as the
+recurring daily charge (PR #21).
 
-Transaction rows stay on the catalog scale (``subscription_payment`` is a catalog type), exactly
-like the tariff purchase records them.
+Revision ``0115`` put the price columns on the Toman scale, so the seed below is Toman and the
+charge, the shortfall and the ledger row are all the same number.
 """
 
 from __future__ import annotations
@@ -33,10 +32,12 @@ from tests.fixtures.sqlite_memory import memory_session
 TABLES = list(Base.metadata.sorted_tables)
 ROOT = Path(__file__).resolve().parents[2]
 
-DEVICE_PRICE_KOPEKS = 1_000_000  # catalog: 10,000 Toman per device per month
-DEVICE_PRICE_TOMAN = 10_000
-TRAFFIC_10GB_KOPEKS = 3_000_000  # catalog: 30,000 Toman for a 10 GB top-up
-TRAFFIC_10GB_TOMAN = 30_000
+# Stored and charged are the same number since Phase C; both names are kept so the assertions
+# still read as "the price column" and "the Toman charge".
+DEVICE_PRICE_TOMAN = 10_000  # per device per month
+DEVICE_PRICE_KOPEKS = DEVICE_PRICE_TOMAN
+TRAFFIC_10GB_TOMAN = 30_000  # a 10 GB top-up
+TRAFFIC_10GB_KOPEKS = TRAFFIC_10GB_TOMAN
 
 
 class _FakePanelSync:
@@ -244,8 +245,8 @@ async def test_cabinet_traffic_switch_charges_the_toman_amount(monkeypatch):
         Settings,
         'get_traffic_packages',
         lambda self: [
-            {'gb': 100, 'price': 1_000_000, 'enabled': True},
-            {'gb': 200, 'price': 3_000_000, 'enabled': True},
+            {'gb': 100, 'price': 10_000, 'enabled': True},
+            {'gb': 200, 'price': 30_000, 'enabled': True},
         ],
     )
     monkeypatch.setattr(cabinet_traffic, 'SubscriptionService', lambda: _FakePanelSync())
@@ -256,11 +257,13 @@ async def test_cabinet_traffic_switch_charges_the_toman_amount(monkeypatch):
             request=TrafficPurchaseRequest(gb=200), user=user, db=db, subscription_id=None
         )
 
-        (charged_catalog,) = await _payments(db)
-        assert charged_catalog > 50_000  # catalog scale: the old code could never afford it
-        assert await _balance(db) == 50_000 - charged_catalog // 100
+        # Switching charges the prorated difference, 30,000 - 10,000. Charged, recorded and
+        # deducted are one number now; the old code put 2,000,000 in the ledger for the same switch.
+        (charged,) = await _payments(db)
+        assert charged == 20_000
+        assert await _balance(db) == 50_000 - charged
 
-    assert response['charged_kopeks'] == charged_catalog
+    assert response['charged_kopeks'] == charged
 
 
 # ---------------------------------------------------------------- Mini App
@@ -284,9 +287,10 @@ async def test_miniapp_traffic_topup_charges_the_toman_amount(monkeypatch):
         payload = MiniAppTrafficTopupRequest.model_validate({'initData': 'stub', 'gb': 10})
         await miniapp.purchase_traffic_topup_endpoint(payload=payload, db=db)
 
-        (charged_catalog,) = await _payments(db)
-        assert charged_catalog > 50_000
-        assert await _balance(db) == 50_000 - charged_catalog // 100
+        # The 10 GB package is TRAFFIC_10GB_TOMAN; ledger row and deduction are the same number.
+        (charged,) = await _payments(db)
+        assert charged == TRAFFIC_10GB_TOMAN
+        assert await _balance(db) == 50_000 - charged
 
 
 # ---------------------------------------------------------------- saved cart after a top-up
@@ -388,37 +392,29 @@ def _amount_argument(call: ast.Call) -> ast.expr | None:
     return call.args[2] if len(call.args) > 2 else None
 
 
-def _is_toman(expr: ast.expr | None) -> bool:
-    if isinstance(expr, ast.Call) and _call_name(expr) == 'catalog_price_in_toman':
-        return True
-    return isinstance(expr, ast.Name) and expr.id.endswith('_toman')
-
-
 @pytest.mark.parametrize(('relative', 'function_name'), SITES)
-def test_addon_balance_moves_and_checks_use_toman(relative, function_name):
-    """Every add-on charge / refund moves a Toman amount; every check goes through user_can_afford."""
+def test_addon_balance_moves_go_through_the_affordability_helper(relative, function_name):
+    """Every add-on charge moves the balance, and none of them compares ``balance_kopeks`` inline.
+
+    Before Phase C this guard also checked *which scale* each amount was on, because the add-on
+    paths were the ones that kept passing a catalog price to ``subtract_user_balance``. Revision
+    ``0115`` removed the second scale, so that half of the check has no meaning left and
+    ``test_phase_c_single_scale.py`` now owns "nothing converts".
+
+    What survives is the discipline that made the bug findable: affordability is decided by
+    ``user_can_afford``, never by an inline comparison against the balance column.
+    """
     func = _function(relative, function_name)
     where = f'{relative}:{function_name}'
     moved = False
+
     for node in ast.walk(func):
         if isinstance(node, ast.Call) and _call_name(node) in BALANCE_CALLS:
             moved = True
-            assert _is_toman(_amount_argument(node)), f'{where}:{node.lineno} moves the balance by a catalog price'
-            if _call_name(node) == 'subtract_user_balance':
-                records = [k for k in node.keywords if k.arg == 'create_transaction']
-                assert not (records and getattr(records[0].value, 'value', False) is True), (
-                    f'{where}:{node.lineno} would record the Toman charge as a catalog-scale payment'
-                )
-        if isinstance(node, ast.AugAssign) and ast.unparse(node.target).endswith('balance_kopeks'):
-            assert _is_toman(node.value), f'{where}:{node.lineno} refunds a catalog price into the balance'
         if isinstance(node, ast.Compare):
             assert 'balance_kopeks' not in ast.unparse(node), (
-                f'{where}:{node.lineno} compares the Toman balance directly; use user_can_afford'
+                f'{where}:{node.lineno} compares the balance directly; use user_can_afford'
             )
-        if isinstance(node, ast.Call) and _call_name(node) == 'format_price':
-            shown = ' '.join(ast.unparse(arg) for arg in node.args)
-            assert 'balance' not in shown and 'missing' not in shown, (
-                f'{where}:{node.lineno} formats a Toman amount with the catalog formatter'
-            )
+
     if function_name not in {'confirm_change_devices', 'confirm_switch_traffic'}:
         assert moved, f'{where}: no balance call found; guard is stale'

@@ -115,21 +115,21 @@ async def test_referral_bonus_context_is_toman():
     assert ctx['formatted_reward'] == settings.format_balance(25_000)
 
 
-async def test_daily_debit_amount_is_catalog_and_balance_is_toman():
+async def test_daily_debit_amount_and_balance_are_the_same_scale():
     service, ctx = _capturing_service()
-    # daily_price_kopeks is catalog: 500,000 → 5,000 Toman charged; wallet left with 145,000 Toman.
-    await service.notify_daily_debit(user=_USER, amount_kopeks=500_000, new_balance_kopeks=145_000)
+    # Both sides are Toman since revision 0115: 5,000 charged, 145,000 left.
+    await service.notify_daily_debit(user=_USER, amount_kopeks=5_000, new_balance_kopeks=145_000)
     assert ctx['amount_rubles'] == 5000
-    assert ctx['formatted_amount'] == settings.format_price(500_000)
+    assert ctx['formatted_amount'] == settings.format_balance(5_000)
     assert ctx['new_balance_rubles'] == 145000
     assert ctx['formatted_balance'] == settings.format_balance(145_000)
 
 
-async def test_autopay_success_amount_is_catalog():
+async def test_autopay_success_amount_is_toman():
     service, ctx = _capturing_service()
-    await service.notify_autopay_success(user=_USER, amount_kopeks=7_000_000, new_expires_at=datetime.now(UTC))
+    await service.notify_autopay_success(user=_USER, amount_kopeks=70_000, new_expires_at=datetime.now(UTC))
     assert ctx['amount_rubles'] == 70000
-    assert ctx['formatted_amount'] == settings.format_price(7_000_000)
+    assert ctx['formatted_amount'] == settings.format_balance(70_000)
 
 
 async def test_email_amount_alias_for_referral_bonus_is_toman(monkeypatch):
@@ -181,7 +181,7 @@ async def test_toman_twins_are_in_the_context():
     await service.notify_referral_bonus(user=_USER, bonus_kopeks=25_000, referral_name='Ali')
     assert ctx['bonus_toman'] == 25000
     service, ctx = _capturing_service()
-    await service.notify_daily_debit(user=_USER, amount_kopeks=500_000, new_balance_kopeks=145_000)
+    await service.notify_daily_debit(user=_USER, amount_kopeks=5_000, new_balance_kopeks=145_000)
     assert ctx['amount_toman'] == 5000
     assert ctx['new_balance_toman'] == 145000
 
@@ -201,7 +201,7 @@ def _user_row(user_id: int = 1, balance: int = AVAILABLE, language: str = 'fa') 
 
 
 async def test_spending_is_summed_in_toman(monkeypatch, _withdrawals_on):
-    """subscription_payment rows are catalog (×100), withdrawal rows Toman: sum them per scale."""
+    """Every transaction row is Toman since revision 0115, so the sum is a plain SUM."""
     now = datetime.now(UTC)
     async with memory_session(monkeypatch, TABLES) as db:
         db.add(_user_row())
@@ -220,7 +220,7 @@ async def test_spending_is_summed_in_toman(monkeypatch, _withdrawals_on):
                 Transaction(
                     user_id=1,
                     type=TransactionType.SUBSCRIPTION_PAYMENT.value,
-                    amount_kopeks=-7_000_000,
+                    amount_kopeks=-70_000,
                     description='sub',
                     is_completed=True,
                     created_at=now - timedelta(days=5),

@@ -84,7 +84,7 @@ class ReferralWithdrawalService:
             .where(*conditions)
             .group_by(Transaction.type)
         )
-        return sum(storage_sum_to_display_toman(total or 0, tx_type) for tx_type, total in result.all())
+        return sum(storage_sum_to_display_toman(total or 0) for _tx_type, total in result.all())
 
     async def get_user_spending(self, db: AsyncSession, user_id: int) -> int:
         """

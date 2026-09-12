@@ -2861,7 +2861,7 @@ def _serialize_transaction(transaction: Transaction) -> MiniAppTransaction:
         id=transaction.id,
         type=transaction.type,
         amount_kopeks=transaction.amount_kopeks,
-        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks, transaction.type), 2),
+        amount_rubles=round(display_transaction_amount_from_storage(transaction.amount_kopeks), 2),
         description=transaction.description,
         payment_method=transaction.payment_method,
         external_id=transaction.external_id,

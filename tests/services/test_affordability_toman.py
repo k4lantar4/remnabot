@@ -1,17 +1,17 @@
 """Balance checks, shortfalls and debits compare the Toman balance with the Toman price.
 
-``User.balance_kopeks`` is raw Toman since Phase B; tariff prices, switch costs, server and traffic
-prices and the trial activation price are catalog ``price_kopeks`` (Toman x 100). These paths
-compared the two directly, reported ``price - balance`` as the shortfall and debited the catalog
-number: a 200,000-Toman tariff switch needed (and took) 20,000,000 Toman.
+These paths once mixed two scales: ``User.balance_kopeks`` was raw Toman while tariff prices, switch
+costs, server and traffic prices and the trial activation price were catalog ``price_kopeks``
+(Toman x 100). Comparing them directly reported ``price - balance`` as the shortfall and debited the
+catalog number, so a 200,000-Toman tariff switch needed — and took — 20,000,000 Toman.
 
-Fixed per site as check + debit + refund together (the PR #27 / #32 pattern): affordability via
-``user_can_afford``, shortfall via ``missing_toman`` (Toman), debit and refund via
-``catalog_price_in_toman``. Transaction rows stay on the catalog scale (``subscription_payment``).
+Revision ``0115`` moved the catalog columns onto the Toman scale, so there is no conversion left to
+get wrong: a price, a balance and a ledger row are all the same kind of number. What this file still
+does is pin every surface with the same figures, which is what makes a regression at any one of them
+visible.
 
-Every surface is pinned with the same numbers: a 150,000-Toman balance against a 200,000-Toman
-price (catalog 20,000,000) is refused with a 50,000-Toman shortfall; a 250,000-Toman balance gets
-exactly 200,000 debited.
+A 150,000-Toman balance against a 200,000-Toman price is refused with a 50,000-Toman shortfall; a
+250,000-Toman balance gets exactly 200,000 debited and the ledger row reads -200,000.
 """
 
 from __future__ import annotations
@@ -33,8 +33,10 @@ from tests.fixtures.sqlite_memory import memory_session
 
 TABLES = list(Base.metadata.sorted_tables)
 
-PRICE_KOPEKS = 20_000_000  # catalog
+# Since Phase C the stored price *is* the Toman price; the name is kept so the call sites that
+# read as "the catalog column" still say so.
 PRICE_TOMAN = 200_000
+PRICE_KOPEKS = PRICE_TOMAN
 SHORT_BALANCE = 150_000
 SHORTFALL_TOMAN = 50_000
 RICH_BALANCE = 250_000
@@ -497,7 +499,7 @@ async def test_trial_service_debits_and_refunds_the_toman_price(monkeypatch, pai
         user = await _seed(db, balance_toman=RICH_BALANCE, with_subscription=False)
         charged = await trial.charge_trial_activation_if_required(db, user)
 
-        assert charged == PRICE_KOPEKS  # the catalog price callers display with format_price
+        assert charged == PRICE_KOPEKS  # the Toman price callers display with format_balance
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
 
@@ -736,8 +738,14 @@ def _undecorated(module, name):
 
 
 ADMIN_FLOWS = {
-    'subscription': ('admin_buy_subscription_confirm', 'admin_buy_subscription_execute', 'a_b_c_d_1_30_20000000'),
-    'tariff': ('admin_buy_tariff_confirm', 'admin_buy_tariff_execute', 'a_b_c_d_1_2_30_20000000'),
+    # The trailing field is the price carried in the callback data — Toman, like the column it came
+    # from. A mismatch with the stored price makes the handler re-read the tariff and log a change.
+    'subscription': (
+        'admin_buy_subscription_confirm',
+        'admin_buy_subscription_execute',
+        f'a_b_c_d_1_30_{PRICE_KOPEKS}',
+    ),
+    'tariff': ('admin_buy_tariff_confirm', 'admin_buy_tariff_execute', f'a_b_c_d_1_2_30_{PRICE_KOPEKS}'),
 }
 
 

@@ -1259,7 +1259,7 @@ def _serialize_admin_transaction(t: Transaction) -> UserTransactionItem:
         id=t.id,
         type=t.type,
         amount_kopeks=amount,
-        amount_rubles=display_transaction_amount_from_storage(amount, t.type),
+        amount_rubles=display_transaction_amount_from_storage(amount),
         description=t.description,
         payment_method=t.payment_method,
         is_completed=t.is_completed,
@@ -3484,7 +3484,7 @@ def _activity_sources(user_id: int) -> dict[str, tuple]:
             title=t.description,
             amount_kopeks=t.amount_kopeks,
             amount_toman=(
-                display_transaction_amount_from_storage(t.amount_kopeks, t.type)
+                display_transaction_amount_from_storage(t.amount_kopeks)
                 if t.amount_kopeks is not None
                 else None
             ),
