@@ -7,6 +7,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect, text
 
+from app.database.amount_scale_guard import declare_toman_scale_on_fresh_db
+
 
 logger = structlog.get_logger(__name__)
 
@@ -178,6 +180,7 @@ async def run_alembic_upgrade() -> None:
     if db_state == 'fresh':
         logger.warning('Обнаружена пустая БД — создание схемы из моделей + stamp head')
         await _bootstrap_fresh_db()
+        await declare_toman_scale_on_fresh_db()
         await _ensure_runtime_schema_guards()
         await _stamp_alembic_revision('head')
         return

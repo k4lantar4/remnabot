@@ -12,6 +12,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from app.bot import setup_bot
 from app.config import settings
+from app.database.amount_scale_guard import assert_toman_amount_scale
 from app.database.database import sync_postgres_sequences
 from app.database.migrations import run_alembic_upgrade
 from app.database.models import PaymentMethod
@@ -216,6 +217,9 @@ async def main():
                 'Пропущено',
                 'SKIP_MIGRATION=true',
             )
+
+        # Runs even with SKIP_MIGRATION: a database not on the Toman scale would be charged 100x.
+        await assert_toman_amount_scale()
 
         async with timeline.stage(
             'Инициализация базы данных',
