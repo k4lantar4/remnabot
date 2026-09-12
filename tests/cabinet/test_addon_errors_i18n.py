@@ -38,7 +38,7 @@ class _FakePanelSync:
 def _rows(
     language: str,
     *,
-    device_price_kopeks: int | None = 1_000_000,
+    device_price_kopeks: int | None = 10_000,
     max_device_limit: int | None = 10,
     device_limit: int = 1,
     traffic_topup_enabled: bool = True,
@@ -63,14 +63,14 @@ def _rows(
             description='',
             is_active=True,
             is_daily=False,
-            period_prices={'30': 1_000_000},
+            period_prices={'30': 10_000},
             traffic_limit_gb=100,
             traffic_reset_mode='NO_RESET',
             device_limit=1,
             max_device_limit=max_device_limit,
             device_price_kopeks=device_price_kopeks,
             traffic_topup_enabled=traffic_topup_enabled,
-            traffic_topup_packages={'10': 3_000_000},
+            traffic_topup_packages={'10': 30_000},
             max_topup_traffic_gb=max_topup_traffic_gb,
             allowed_squads=['squad-1'],
             display_order=1,
@@ -343,8 +343,8 @@ def _two_traffic_packages(monkeypatch):
         Settings,
         'get_traffic_packages',
         lambda self: [
-            {'gb': 100, 'price': 1_000_000, 'enabled': True},
-            {'gb': 200, 'price': 3_000_000, 'enabled': True},
+            {'gb': 100, 'price': 10_000, 'enabled': True},
+            {'gb': 200, 'price': 30_000, 'enabled': True},
         ],
     )
 

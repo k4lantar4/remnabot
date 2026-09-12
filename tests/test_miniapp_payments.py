@@ -191,7 +191,7 @@ async def test_submit_subscription_renewal_uses_balance_when_sufficient(monkeypa
     assert response.subscription_id == 77
     assert response.renewed_until is not None
     assert 'Подписка' in (response.message or '')
-    assert captured['charge'] == 100  # 10,000 catalog kopeks = 100 Toman
+    assert captured['charge'] == 10_000  # stored and charged are the same number since Phase C
 
 
 def _renewal_pricing(final_total_kopeks: int) -> RenewalPricing:
@@ -289,10 +289,10 @@ def _cryptobot_renewal_request(method: str | None = 'cryptobot') -> MiniAppSubsc
 
 @pytest.mark.anyio('asyncio')
 async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch):
-    # Balance 50,000 Toman, renewal 200,000 Toman (catalog 20,000,000 kopeks), 1 USDT = 100,000 Toman.
+    # Balance 50,000 Toman, renewal 200,000 Toman (stored 1:1 since Phase C), 1 USDT = 100,000 Toman.
     user = types.SimpleNamespace(id=15, telegram_id=15, balance_kopeks=50_000, language='fa', tariff_id=None)
     created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=20_000_000, toman_per_usdt=100_000
+        monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000
     )
 
     response = await miniapp.submit_subscription_renewal_endpoint(
@@ -317,7 +317,7 @@ async def test_submit_subscription_renewal_returns_cryptobot_invoice(monkeypatch
     assert response.payment_payload and response.payment_payload.startswith('subscription_renewal')
     descriptor = decode_payment_payload(response.payment_payload, expected_user_id=15)
     assert descriptor is not None
-    assert descriptor.total_amount_kopeks == 20_000_000
+    assert descriptor.total_amount_kopeks == 200_000
     assert descriptor.missing_amount_kopeks == 150_000
 
 
@@ -326,7 +326,7 @@ async def test_submit_subscription_renewal_rounds_up_cryptobot_amount(monkeypatc
     # Renewal 95,120 Toman, empty balance, 1 USDT = 95,000 Toman → 1.00126 USDT, rounded up.
     user = types.SimpleNamespace(id=42, telegram_id=42, balance_kopeks=0, language='fa', tariff_id=None)
     created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=9_512_000, toman_per_usdt=95_000
+        monkeypatch, user=user, final_total_kopeks=95_120, toman_per_usdt=95_000
     )
 
     response = await miniapp.submit_subscription_renewal_endpoint(
@@ -341,7 +341,7 @@ async def test_submit_subscription_renewal_rounds_up_cryptobot_amount(monkeypatc
 @pytest.mark.anyio('asyncio')
 async def test_submit_subscription_renewal_cryptobot_refuses_without_toman_rate(monkeypatch):
     user = types.SimpleNamespace(id=16, telegram_id=16, balance_kopeks=50_000, language='fa', tariff_id=None)
-    created_calls = _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=20_000_000, toman_per_usdt=None)
+    created_calls = _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=None)
 
     with pytest.raises(miniapp.HTTPException) as exc_info:
         await miniapp.submit_subscription_renewal_endpoint(_cryptobot_renewal_request(), db=types.SimpleNamespace())
@@ -356,7 +356,7 @@ async def test_submit_subscription_renewal_cryptobot_minimum_is_in_toman(monkeyp
     # Missing 50,000 Toman is below the 1 USDT minimum (= 100,000 Toman).
     user = types.SimpleNamespace(id=17, telegram_id=17, balance_kopeks=150_000, language='fa', tariff_id=None)
     created_calls = _setup_cryptobot_renewal(
-        monkeypatch, user=user, final_total_kopeks=20_000_000, toman_per_usdt=100_000
+        monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000
     )
 
     with pytest.raises(miniapp.HTTPException) as exc_info:
@@ -373,7 +373,7 @@ async def test_submit_subscription_renewal_cryptobot_minimum_is_in_toman(monkeyp
 @pytest.mark.anyio('asyncio')
 async def test_submit_subscription_renewal_without_method_reports_missing_toman(monkeypatch):
     user = types.SimpleNamespace(id=18, telegram_id=18, balance_kopeks=50_000, language='fa', tariff_id=None)
-    _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=20_000_000, toman_per_usdt=100_000)
+    _setup_cryptobot_renewal(monkeypatch, user=user, final_total_kopeks=200_000, toman_per_usdt=100_000)
 
     with pytest.raises(miniapp.HTTPException) as exc_info:
         await miniapp.submit_subscription_renewal_endpoint(
@@ -408,20 +408,20 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
     subscription = types.SimpleNamespace(
         id=77, connected_squads=[], traffic_limit_gb=100, device_limit=5, tariff=None, tariff_id=None
     )
-    # Balance 200,000 Toman; renewal 500,000 Toman (catalog 50,000,000 kopeks); CryptoBot pays 300,000 Toman.
+    # Balance 200,000 Toman; renewal 500,000 Toman (stored 1:1); CryptoBot pays 300,000 Toman.
     user = types.SimpleNamespace(id=5, balance_kopeks=200_000, subscription=subscription)
 
     pricing_model = SubscriptionRenewalPricing(
         period_days=30,
         period_id='days:30',
         months=1,
-        base_original_total=60_000_000,
-        discounted_total=50_000_000,
-        final_total=50_000_000,
+        base_original_total=600_000,
+        discounted_total=500_000,
+        final_total=500_000,
         promo_discount_value=0,
         promo_discount_percent=0,
         overall_discount_percent=0,
-        per_month=50_000_000,
+        per_month=500_000,
         server_ids=[11, 22],
         details={'servers_individual_prices': [500, 500]},
     )
@@ -430,7 +430,7 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
         user_id=5,
         subscription_id=77,
         period_days=30,
-        total_amount_kopeks=50_000_000,
+        total_amount_kopeks=500_000,
         missing_amount_kopeks=300_000,
         pricing_snapshot=pricing_model.to_payload(),
     )
@@ -488,7 +488,7 @@ async def test_cryptobot_renewal_uses_pricing_snapshot(monkeypatch):
 
     assert result is True
     assert captured['pricing'].server_ids == [11, 22]
-    assert captured['pricing'].final_total == 50_000_000
+    assert captured['pricing'].final_total == 500_000
     # Balance part in Toman: 500,000 - 300,000 paid via CryptoBot.
     assert captured['charge'] == 200_000
     assert captured['payment_method'] == PaymentMethod.CRYPTOBOT
@@ -509,7 +509,7 @@ async def test_cryptobot_renewal_accepts_changed_pricing_without_snapshot(monkey
         user_id=8,
         subscription_id=55,
         period_days=30,
-        total_amount_kopeks=5_000_000,
+        total_amount_kopeks=50_000,
         missing_amount_kopeks=10_000,
     )
 
@@ -527,13 +527,13 @@ async def test_cryptobot_renewal_accepts_changed_pricing_without_snapshot(monkey
         period_days=30,
         period_id='days:30',
         months=1,
-        base_original_total=4_800_000,
-        discounted_total=4_800_000,
-        final_total=4_800_000,
+        base_original_total=48_000,
+        discounted_total=48_000,
+        final_total=48_000,
         promo_discount_value=0,
         promo_discount_percent=0,
         overall_discount_percent=0,
-        per_month=4_800_000,
+        per_month=48_000,
         server_ids=[],
         details={},
     )
@@ -580,7 +580,7 @@ async def test_cryptobot_renewal_accepts_changed_pricing_without_snapshot(monkey
 
     assert result is True
     # With C-4 fix: recalculated price (48,000 Toman) < descriptor (50,000 Toman) → use recalculated
-    assert captured['pricing'].final_total == 4_800_000
+    assert captured['pricing'].final_total == 48_000
     # M-5 fix, in Toman: required_balance = max(0, 48,000 - 10,000 paid via CryptoBot) = 38,000
     assert captured['charge'] == 38_000
 
@@ -599,13 +599,13 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
         period_days=30,
         period_id='days:30',
         months=1,
-        base_original_total=9_000_000,
-        discounted_total=9_000_000,
-        final_total=9_000_000,
+        base_original_total=90_000,
+        discounted_total=90_000,
+        final_total=90_000,
         promo_discount_value=0,
         promo_discount_percent=0,
         overall_discount_percent=0,
-        per_month=9_000_000,
+        per_month=90_000,
         server_ids=[5, 6],
         details={'servers_individual_prices': [300, 300]},
     )
@@ -614,7 +614,7 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
         user_id=21,
         subscription_id=91,
         period_days=30,
-        total_amount_kopeks=9_000_000,
+        total_amount_kopeks=90_000,
         missing_amount_kopeks=30_000,
         pricing_snapshot=pricing_model.to_payload(),
     )
@@ -718,7 +718,7 @@ async def test_cryptobot_webhook_uses_inline_payload_when_db_missing(monkeypatch
     result = await mixin.process_cryptobot_webhook(DummyDb(), webhook_payload)
 
     assert result is True
-    assert captured['pricing'].final_total == 9_000_000
+    assert captured['pricing'].final_total == 90_000
     # 90,000 Toman renewal - 30,000 Toman paid via CryptoBot = 60,000 Toman from balance.
     assert captured['charge'] == 60_000
     assert captured['payment_method'] == PaymentMethod.CRYPTOBOT

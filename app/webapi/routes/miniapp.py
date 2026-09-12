@@ -928,14 +928,17 @@ async def create_payment_link(
             )
         quote = toman_rates.quote_stars_for_toman(topup_toman)
         stars_amount = quote.stars
-        amount_kopeks = quote.credit_toman
+        # The Stars gateway takes the Toman credit; the response field keeps the catalog wire scale
+        # the miniapp still divides by 100. Reusing one variable for both is how this rendered 100x off.
+        credit_toman = quote.credit_toman
+        amount_kopeks = wire_catalog_kopeks(credit_toman)
 
         bot = create_bot()
         invoice_payload = toman_rates.build_toman_topup_payload(user.id, quote.credit_toman, nonce=int(time.time()))
         try:
             payment_service = PaymentService(bot)
             invoice_link = await payment_service.create_stars_invoice(
-                amount_kopeks=amount_kopeks,
+                amount_kopeks=credit_toman,
                 title=texts.t('STARS_TOPUP_INVOICE_TITLE', 'Balance top-up'),
                 description=texts.t(
                     'STARS_TOPUP_INVOICE_DESCRIPTION', 'Top up your balance by {amount} ({stars} ⭐)'

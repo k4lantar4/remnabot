@@ -37,7 +37,7 @@ def _rows(
     language: str,
     *,
     balance: int = 500_000,
-    device_price_kopeks: int | None = 1_000_000,
+    device_price_kopeks: int | None = 10_000,
     traffic_topup_enabled: bool = True,
 ) -> list:
     now = datetime.now(UTC)
@@ -57,7 +57,7 @@ def _rows(
             description='',
             is_active=True,
             is_daily=False,
-            period_prices={'30': 1_000_000},
+            period_prices={'30': 10_000},
             traffic_limit_gb=100,
             traffic_reset_mode='NO_RESET',
             device_limit=1,
@@ -276,11 +276,11 @@ async def test_traffic_switch_descriptions_in_user_language(
         Settings,
         'get_traffic_packages',
         lambda self: [
-            {'gb': 100, 'price': 1_000_000, 'enabled': True},
-            {'gb': 200, 'price': 3_000_000, 'enabled': True},
+            {'gb': 100, 'price': 10_000, 'enabled': True},
+            {'gb': 200, 'price': 30_000, 'enabled': True},
         ],
     )
-    monkeypatch.setattr(Settings, 'get_traffic_price', lambda self, gb: {100: 1_000_000, 200: 3_000_000}.get(gb, 0))
+    monkeypatch.setattr(Settings, 'get_traffic_price', lambda self, gb: {100: 10_000, 200: 30_000}.get(gb, 0))
 
     async with memory_session(monkeypatch, TABLES) as db:
         await _seed_and_authorize(monkeypatch, db, language)
