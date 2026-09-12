@@ -428,8 +428,9 @@ async def test_process_cryptobot_webhook_success(monkeypatch: pytest.MonkeyPatch
     result = await service.process_cryptobot_webhook(fake_session, payload)
 
     assert result is True
-    assert transactions and transactions[0]['amount_kopeks'] == 14000
-    assert user.balance_kopeks == 14000
+    # ceil(12.50 USD x 140 RUB/USD) credited into the Toman balance column: no kopek hop since Phase C.
+    assert transactions and transactions[0]['amount_kopeks'] == 140
+    assert user.balance_kopeks == 140
     assert payment.transaction_id == 888
     assert bot.sent_messages
     assert admin_calls

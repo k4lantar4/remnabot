@@ -98,8 +98,8 @@ async def test_legacy_balance_payload_keeps_old_handling(harness):
     assert harness.created[0]['amount_kopeks'] == 15_000
 
 
-async def test_finalize_passes_referral_base_on_catalog_scale(monkeypatch):
-    """process_referral_topup expects catalog x100; a 51,800 T credit is 5,180,000 there."""
+async def test_finalize_passes_the_referral_base_in_toman(monkeypatch):
+    """process_referral_topup takes Toman 1:1 since Phase C: a 51,800 T credit is 51,800 there."""
     captured: dict[str, Any] = {}
 
     async def _referral(db, user_id, amount, bot):
@@ -160,4 +160,4 @@ async def test_finalize_passes_referral_base_on_catalog_scale(monkeypatch):
     )
     assert ok is True
     assert user.balance_kopeks == 61_800
-    assert captured['amount'] == 5_180_000
+    assert captured['amount'] == 51_800
