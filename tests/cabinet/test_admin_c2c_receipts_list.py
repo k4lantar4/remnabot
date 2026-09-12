@@ -150,6 +150,7 @@ async def test_status_filters_return_their_rows_newest_first(monkeypatch):
         ('#2', [2]),
         ('500,000', [3]),
         ('nobody', []),
+        ('123456789012345678901234', []),
     ],
 )
 async def test_search_matches_user_and_receipt_fields(monkeypatch, search, expected):

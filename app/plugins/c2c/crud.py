@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, joinedload
 
@@ -186,6 +186,7 @@ async def expire_stale_c2c_receipts(db: AsyncSession) -> int:
 
 _SEARCH_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
 _INT32_MAX = 2**31 - 1
+_INT64_MAX = 2**63 - 1  # beyond bigint the driver cannot even bind the value
 
 
 def _receipt_search_clause(term: str):
@@ -197,6 +198,8 @@ def _receipt_search_clause(term: str):
     digits = normalized.replace(',', '').replace('٬', '').replace(' ', '')
     if digits.isdigit():
         number = int(digits)
+        if number > _INT64_MAX:
+            return false()
         clauses = [User.telegram_id == number]
         if number <= _INT32_MAX:
             clauses += [C2cReceipt.id == number, User.id == number, C2cReceipt.amount_kopeks == number]

@@ -209,7 +209,9 @@ def _decision_error(message: str, texts) -> HTTPException:
 async def _sync_group_post(db: AsyncSession, bot, receipt: C2cReceipt, admin: User) -> None:
     """Rewrite the Telegram group post to its resolved form. The money moved already: never fail here."""
     try:
-        body, keyboard = await resolved_receipt_message(db, receipt, admin.username or str(admin.id))
+        # Same label the bot records (username, else telegram id); the post prints it as @label.
+        label = admin.username or str(admin.telegram_id or admin.id)
+        body, keyboard = await resolved_receipt_message(db, receipt, label)
         await sync_group_admin_message(bot, receipt, status_html=body, reply_markup=keyboard)
     except Exception as error:
         logger.warning('Could not sync the C2C group post after a cabinet decision', receipt_id=receipt.id, error=error)
