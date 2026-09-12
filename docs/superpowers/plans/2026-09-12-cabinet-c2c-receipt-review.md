@@ -135,6 +135,13 @@ the approve/reject routes (403) while still reading the list.
 
 **Persian/i18n:** none (this task returns data, not prose; status labels are rendered in the frontend).
 
+**As built (DONE):** the detail carries `receipt_media_file_id` + `receipt_media_token` instead of
+`receipt_media_url` — the ticket-attachment contract; the cabinet builds the URL with
+`ticketsApi.getMediaUrl(fileId, token)` on its own API base, because a backend `url_for` URL loses
+Caddy's `/api` prefix. `card_number_masked` is `**** 1234`, and `null` once the receipt's rotation index
+no longer carries its `card_label`. Pagination defaults: `page=1`, `per_page=20` (max 100); `date_to` is
+exclusive. The permission test inspects each route's `require_permission` closure.
+
 ### Task 2 — Backend: approve and reject from the cabinet
 
 **Repo + files:**
@@ -183,6 +190,13 @@ untouched; rejecting with `silent` sends no user message; an unknown reason code
 (`CABINET_C2C_ADMIN_ALREADY_PROCESSED`, `CABINET_C2C_ADMIN_BAD_REASON`,
 `CABINET_C2C_ADMIN_AMOUNT_OUT_OF_RANGE`) to all five baked locales plus the runtime `locales/` copies
 (`en`, `fa`, `ru`), byte-identical to the baked ones.
+
+**As built (DONE):** errors are a plain localized `detail` string, like every other cabinet top-up error
+— the 409 does not carry `status`; the screen refetches the receipt instead. `comment` is stored as
+`rejection_reason` for admins only; the user is told the catalog text for `reason_key`. Approve/reject
+pass `admin.telegram_id` (may be `null` for an email-only admin) plus `reviewed_by_user_id=admin.id`,
+`reviewed_via='cabinet'`. `C2cReceipt.user` now names `foreign_keys=[user_id]` (the second FK to `users`
+made it ambiguous).
 
 ### Task 3 — Frontend: admin menu item and the receipts list screen
 
