@@ -122,10 +122,11 @@ def test_admin_manual_withdrawal_row_is_negative_toman() -> None:
     assert item.amount_rubles == -50_000
 
 
-def test_admin_subscription_payment_row_stays_catalog_scale() -> None:
-    item = _serialize_admin_transaction(_tx('subscription_payment', -1_000_000, payment_method='balance'))
+def test_admin_subscription_payment_row_reads_as_its_stored_toman() -> None:
+    """Before Phase C this row was stored x100 and had to be divided for display."""
+    item = _serialize_admin_transaction(_tx('subscription_payment', -10_000, payment_method='balance'))
 
-    assert item.amount_kopeks == -1_000_000
+    assert item.amount_kopeks == -10_000
     assert item.amount_rubles == -10_000
 
 
@@ -144,7 +145,7 @@ def test_activity_deposit_has_toman_amount() -> None:
 
 
 def test_activity_subscription_payment_has_toman_amount() -> None:
-    item = _transaction_mapper()(_tx('subscription_payment', -1_000_000, payment_method='balance'))
+    item = _transaction_mapper()(_tx('subscription_payment', -10_000, payment_method='balance'))
 
     assert item.amount_toman == -10_000
 

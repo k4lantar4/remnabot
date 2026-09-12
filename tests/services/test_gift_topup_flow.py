@@ -281,7 +281,7 @@ class TestGiftInsufficientBalanceAndCart:
             ),
             patch(
                 'app.handlers.subscription.gift.purchase_gift_from_balance',
-                # 100 Toman on the wallet against a catalog price of 30,050 (300 Toman)
+                # 100 Toman on the wallet against a 30,050-Toman gift (one scale since revision 0115)
                 AsyncMock(side_effect=GiftInsufficientBalanceError(required_kopeks=30050, available_kopeks=100)),
             ),
         ):
@@ -295,7 +295,7 @@ class TestGiftInsufficientBalanceAndCart:
             assert saved_cart['tariff_id'] == 1
             assert saved_cart['period_days'] == 30
             assert saved_cart['total_price'] == 30050
-            assert saved_cart['missing_amount'] == 200  # Toman shortfall, like every saved cart
+            assert saved_cart['missing_amount'] == 29_950  # 30,050 - 100, both Toman
             assert saved_cart['saved_cart'] is True
             assert saved_cart['return_to_cart'] is True
             assert saved_cart['user_id'] == mock_db_user.id
@@ -307,7 +307,7 @@ class TestGiftInsufficientBalanceAndCart:
             assert mock_callback.message.edit_text.called
             edit_kwargs = mock_callback.message.edit_text.call_args[1]
             text = mock_callback.message.edit_text.call_args[0][0]
-            assert '200' in text
+            assert '29,950' in text or '29\u00a0950' in text
             reply_markup = edit_kwargs.get('reply_markup')
             assert reply_markup is not None
             callbacks = _callbacks(reply_markup)
@@ -560,7 +560,7 @@ class TestGiftTopupSuccessKeyboardAndResume:
 
             assert mock_callback.message.edit_text.called
             text = mock_callback.message.edit_text.call_args[0][0]
-            assert '200' in text
+            assert '29,950' in text or '29\u00a0950' in text
             reply_markup = mock_callback.message.edit_text.call_args[1]['reply_markup']
             assert 'return_to_gift_cart' in _callbacks(reply_markup)
 
@@ -653,7 +653,7 @@ class TestGiftTopupSuccessKeyboardAndResume:
             # Render confirmation summary with new price
             assert mock_callback.message.edit_text.called
             text = mock_callback.message.edit_text.call_args[0][0]
-            assert '380' in text
+            assert '38,000' in text or '38\u00a0000' in text
             reply_markup = mock_callback.message.edit_text.call_args[1]['reply_markup']
             assert 'gift_confirm' in _callbacks(reply_markup)
 

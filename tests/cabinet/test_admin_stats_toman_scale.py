@@ -19,10 +19,11 @@ from app.database.crud.transaction import (
 NOW = datetime(2026, 9, 10, 18, 0, tzinfo=UTC)
 
 
-def test_type_sums_convert_each_scale() -> None:
+def test_type_sums_no_longer_convert_per_type() -> None:
+    """Both rows are Toman since revision 0115, so the sum is |deposit| + |payment|."""
     rows = [('deposit', 1_000_000), ('subscription_payment', -1_000_000)]
 
-    assert display_toman_from_type_sums(rows) == 1_010_000
+    assert display_toman_from_type_sums(rows) == 2_000_000
 
 
 def test_type_sums_empty_is_zero() -> None:
@@ -43,13 +44,13 @@ async def test_revenue_chart_has_toman_per_day() -> None:
     rows = [
         SimpleNamespace(date=day, type='deposit', amount=5_000_000),
         SimpleNamespace(date=day, type='subscription_payment', amount=1_000_000),
-    ]
+    ]  # both Toman
     db = AsyncMock()
     db.execute = AsyncMock(return_value=_result(rows=rows))
 
     data = await get_revenue_by_period(db, days=30)
 
-    assert data == [{'date': day, 'amount_kopeks': 6_000_000, 'amount_toman': 5_010_000}]
+    assert data == [{'date': day, 'amount_kopeks': 6_000_000, 'amount_toman': 6_000_000}]
 
 
 async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -> None:
@@ -57,15 +58,15 @@ async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -
     db = AsyncMock()
     db.execute = AsyncMock(
         side_effect=[
-            _result(rows=[('deposit', 50_000), ('subscription_payment', 10_000_000)]),  # income
+            _result(rows=[('deposit', 50_000), ('subscription_payment', 100_000)]),  # income
             _result(scalar=20_000),  # withdrawals
-            _result(scalar=10_000_000),  # subscription income
+            _result(scalar=100_000),  # subscription income
             _result(rows=[]),  # by type
             _result(  # by payment method
                 rows=[
                     SimpleNamespace(payment_method='card', type='deposit', count=1, total_amount=50_000),
                     SimpleNamespace(
-                        payment_method='card', type='subscription_payment', count=1, total_amount=10_000_000
+                        payment_method='card', type='subscription_payment', count=1, total_amount=100_000
                     ),
                 ]
             ),
@@ -80,10 +81,11 @@ async def test_transactions_statistics_has_toman_expenses_profit_and_methods() -
     assert totals['income_toman'] == 150_000
     assert totals['expenses_toman'] == 20_000
     assert totals['profit_toman'] == 130_000
-    assert stats['by_payment_method']['card'] == {'count': 2, 'amount': 10_050_000, 'amount_toman': 150_000}
-    # legacy raw keys keep their meaning for the cabinet / web API consumers
-    assert totals['income_kopeks'] == 10_050_000
-    assert totals['profit_kopeks'] == 10_030_000
+    assert stats['by_payment_method']['card'] == {'count': 2, 'amount': 150_000, 'amount_toman': 150_000}
+    # The raw keys stay in the payload for the cabinet / web API; since Phase C they carry the same
+    # Toman as their *_toman twins, because there is no second scale left to convert from.
+    assert totals['income_kopeks'] == 150_000
+    assert totals['profit_kopeks'] == 130_000
 
 
 async def test_recent_payments_amounts_and_totals_in_toman() -> None:
@@ -100,7 +102,7 @@ async def test_recent_payments_amounts_and_totals_in_toman() -> None:
     purchase = SimpleNamespace(
         id=11,
         user_id=7833,
-        amount_kopeks=-1_000_000,
+        amount_kopeks=-10_000,
         type='subscription_payment',
         payment_method='balance',
         description='روزانه',
@@ -127,7 +129,7 @@ async def test_recent_payments_amounts_and_totals_in_toman() -> None:
     assert by_id[10].amount_rubles == 50_000
     assert by_id[11].amount_rubles == 10_000
     assert response.total_today_toman == 50_000
-    assert response.total_week_toman == 1_052_000
-    # legacy raw sums keep their old meaning (sum of stored values)
+    # 1,050,000 deposit + 200,000 subscription payment, both Toman since revision 0115.
+    assert response.total_week_toman == 1_250_000
     assert response.total_today_kopeks == 50_000
     assert response.total_week_kopeks == 1_250_000

@@ -87,14 +87,14 @@ async def test_traffic_packages_expose_promo_group_discount(classic_mode):
 
     pkg50 = next(p for p in result if p.gb == 50)
     assert pkg50.discount_percent == 20
-    assert pkg50.base_price_kopeks == 10000  # original (struck through in UI)
-    assert pkg50.price_kopeks == 8000  # discounted price shown to the user
-    assert pkg50.price_rubles == pytest.approx(80.0)
+    assert pkg50.base_price_kopeks == 1000000  # original (struck through in UI)
+    assert pkg50.price_kopeks == 800000  # discounted price shown to the user
+    assert pkg50.price_rubles == pytest.approx(8000.0)
 
     pkg100 = next(p for p in result if p.gb == 100)
     assert pkg100.discount_percent == 20
-    assert pkg100.base_price_kopeks == 18000
-    assert pkg100.price_kopeks == 14400
+    assert pkg100.base_price_kopeks == 1800000
+    assert pkg100.price_kopeks == 1440000
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_traffic_packages_no_discount_when_group_has_none(classic_mode):
     pkg50 = next(p for p in result if p.gb == 50)
     assert pkg50.discount_percent == 0
     assert pkg50.base_price_kopeks is None  # no strike-through when nothing is discounted
-    assert pkg50.price_kopeks == 10000
+    assert pkg50.price_kopeks == 1000000
 
 
 @pytest.mark.asyncio
@@ -120,7 +120,7 @@ async def test_traffic_packages_respect_apply_discounts_to_addons_flag(classic_m
     pkg50 = next(p for p in result if p.gb == 50)
     assert pkg50.discount_percent == 0
     assert pkg50.base_price_kopeks is None
-    assert pkg50.price_kopeks == 10000
+    assert pkg50.price_kopeks == 1000000
 
 
 @pytest.mark.asyncio
@@ -157,20 +157,25 @@ async def test_traffic_packages_apply_discount_in_tariff_mode(monkeypatch):
 
     pkg50 = next(p for p in result if p.gb == 50)
     assert pkg50.discount_percent == 25
-    assert pkg50.base_price_kopeks == 10000
-    assert pkg50.price_kopeks == 7500  # 25% off
+    assert pkg50.base_price_kopeks == 1000000
+    assert pkg50.price_kopeks == 750000  # 25% off
 
 
 @pytest.mark.asyncio
-async def test_traffic_packages_floor_displayed_price_at_one_ruble(monkeypatch):
-    """An extreme discount never displays below 1₽ — matching POST's max(100,...) floor."""
+async def test_traffic_packages_floor_displayed_price_at_one_toman(monkeypatch):
+    """An extreme discount never displays below 1 Toman — matching POST's floor.
+
+    The floor used to be ``max(100, ...)`` because prices were stored x100; since revision 0115 it
+    is ``max(1, ...)`` on the same real amount. The package here is priced so the discount actually
+    reaches zero, which is the case the floor exists for.
+    """
     settings_cls = type(traffic_route.settings)
     monkeypatch.setattr(settings_cls, 'is_tariffs_mode', lambda self: False)
     monkeypatch.setattr(settings_cls, 'is_traffic_topup_enabled', lambda self: True)
     monkeypatch.setattr(
         settings_cls,
         'get_traffic_topup_packages',
-        lambda self: [{'gb': 5, 'price': 5000, 'enabled': True}],
+        lambda self: [{'gb': 5, 'price': 50, 'enabled': True}],
     )
 
     async def _fake_resolve(db, user, subscription_id):
@@ -178,14 +183,14 @@ async def test_traffic_packages_floor_displayed_price_at_one_ruble(monkeypatch):
 
     monkeypatch.setattr(traffic_route, 'resolve_subscription', _fake_resolve)
 
-    user = _make_user(traffic_discount_percent=99)  # 99% of 5000 = 50 kopeks → floored to 100
+    user = _make_user(traffic_discount_percent=99)  # 99% of 50 Toman rounds to 0 → floored to 1
 
     result = await traffic_route.get_traffic_packages(user=user, db=object(), subscription_id=None)
 
     pkg = result[0]
     assert pkg.discount_percent == 99
-    assert pkg.base_price_kopeks == 5000
-    assert pkg.price_kopeks == 100  # floored to 1₽, not 0.50₽
+    assert pkg.base_price_kopeks == 5000  # 50 Toman on the wire scale
+    assert pkg.price_kopeks == 100  # 1 Toman, the floor — not 0
     assert pkg.discount_kopeks == 4900  # base − floored price
 
 
@@ -230,5 +235,5 @@ async def test_traffic_packages_default_group_uses_prorated_period_hint(monkeypa
 
     pkg = result[0]
     assert pkg.discount_percent == 15
-    assert pkg.base_price_kopeks == 10000
-    assert pkg.price_kopeks == 8500  # 15% off
+    assert pkg.base_price_kopeks == 1000000
+    assert pkg.price_kopeks == 850000  # 15% off

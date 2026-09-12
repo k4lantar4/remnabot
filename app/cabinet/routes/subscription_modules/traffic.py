@@ -31,6 +31,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.cache import RateLimitCache, cache, cache_key
 from app.utils.price_display import user_can_afford
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -86,18 +87,21 @@ async def get_traffic_packages(
         discount = _apply_addon_discount(user, 'traffic', base_price_kopeks, period_hint_days)
         percent = discount['percent']
         final_price = discount['discounted']
-        # POST floors the charge at 100 kopeks unless the discount is 100%.
+        # POST floors the charge at 1 Toman unless the discount is 100%.
         if 0 < percent < 100 and final_price > 0:
-            final_price = max(100, final_price)
+            final_price = max(1, final_price)
         has_discount = percent > 0
+        # ``price_kopeks`` and its friends are read by the cabinet through ``formatPrice``, which
+        # still divides by 100, so they leave on the frozen catalog wire scale. ``price_rubles`` is
+        # already display Toman and needs no conversion.
         return TrafficPackageResponse(
             gb=gb,
-            price_kopeks=final_price,
+            price_kopeks=wire_catalog_kopeks(final_price),
             price_rubles=final_price,
             is_unlimited=is_unlimited,
             discount_percent=percent,
-            base_price_kopeks=base_price_kopeks if has_discount else None,
-            discount_kopeks=(base_price_kopeks - final_price) if has_discount else None,
+            base_price_kopeks=wire_catalog_kopeks(base_price_kopeks) if has_discount else None,
+            discount_kopeks=wire_catalog_kopeks(base_price_kopeks - final_price) if has_discount else None,
         )
 
     # Режим тарифов - берём пакеты из тарифа
