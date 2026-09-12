@@ -1,6 +1,6 @@
 # Un-defer grace access: create `grace_access_sessions` (remnabot)
 
-**Status:** done — approved and executed in remnabot#61 (revision `0113_create_grace_access_sessions`).
+**Status:** done — approved and executed in remnabot#62 (revision `0113_create_grace_access_sessions`).
 Grace mode stays off (`GRACE_ACCESS_MODE` unchanged); enabling it still needs the business numbers
 in "Decision needed before execution" §2. Re-verified against upstream `v4.10.0`: no grace-related
 change since the v4.8.0 basis below.
