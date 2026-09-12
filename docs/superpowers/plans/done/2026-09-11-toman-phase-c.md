@@ -1,8 +1,9 @@
 # Toman Phase C — one scale (Toman 1:1) everywhere in storage and backend logic
 
-**Status:** active — Tasks 1-5 done and deployed (remnabot#61, #63, #64, #65, plus the follow-ups
-#66 and #67); only Task 6 is left. Revisions `0114`, `0115` and `0116` are applied on this VPS and
-the cabinet was verified against them on 2026-09-12.
+**Status:** done — Tasks 1-5 done and deployed (remnabot#61, #63, #64, #65, plus the follow-ups
+#66 and #67); Task 6 (startup scale guard + `docs/deploy/phase-c-runbook.md`) in the PR that moved
+this file to `plans/done/`. Revisions `0114`, `0115` and `0116` are applied on this VPS and the
+cabinet was verified against them on 2026-09-12. Phase C-2 (retiring the wire x100) is not planned yet.
 **Repos:** `remnabot` only. The cabinet (`frontend`) is deliberately **not** touched: this plan keeps
 the HTTP contract byte-identical. The frontend change is the follow-up plan "Phase C-2" (last section).
 **Upstream basis:** remnabot `origin/main` `cf47f3cf`, `upstream/main` `9fcebfd7` (2026-09-11);
@@ -345,8 +346,12 @@ kopeks), **F-072** (tariff custom-days / custom-traffic have no admin form at al
 
 ### Task 6 — Scale marker guard + deploy/rollback runbook
 
-- **Repo/files:** `remnabot` — startup check reading `system_settings['amount_scale']`,
-  `docs/deploy/phase-c-runbook.md`, test `tests/database/test_amount_scale_guard.py`.
+- **Repo/files:** `remnabot` — startup check reading the latest `amount_scale_state` row
+  (`app/database/amount_scale_guard.py`, called from `main.py` after the migration stage, also under
+  `SKIP_MIGRATION`), `docs/deploy/phase-c-runbook.md`, test `tests/database/test_amount_scale_guard.py`.
+- **Fresh databases:** they are built from the models and stamped at head, so no revision writes the
+  marker; `run_alembic_upgrade` declares `toman` on them (`declare_toman_scale_on_fresh_db`), or a
+  brand-new install could never start.
 - **Runbook:** deploy = pull + `docker compose -f docker-compose.dev.yml restart bot` (migration runs
   at start) + the verification queries. Rollback = `alembic downgrade 0114` **then** the previous
   image, never the image alone. Write it from what the 2026-09-12 deploy actually needed: take a

@@ -121,7 +121,7 @@ def _guard_pre_cutoff_rows(bind: sa.engine.Connection, tables: set[str]) -> None
             f'before {PRE_TOMAN_CUTOFF_UTC.isoformat()} ({offenders}), i.e. pre-Phase-B amounts '
             'that are neither catalog kopeks nor Toman. They must be converted with a '
             'ruble-to-Toman rate, which is a business number that has to be supplied before this '
-            'migration can run. See docs/superpowers/plans/2026-09-11-toman-phase-c.md, decision 2.'
+            'migration can run. See docs/superpowers/plans/done/2026-09-11-toman-phase-c.md, decision 2.'
         )
 
 
