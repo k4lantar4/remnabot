@@ -58,7 +58,11 @@ class SubscriptionEnrichmentInfo(BaseModel):
 
 class UserTrafficEnrichment(BaseModel):
     devices_connected: int = 0
+    # Sum of the user's transactions. Since revision 0115 every transaction row is Toman 1:1, so
+    # ``total_spent_toman`` carries it plainly; the legacy ``total_spent_kopeks`` twin keeps the
+    # name older clients divide by 100 and must not be read on its own.
     total_spent_kopeks: int = 0
+    total_spent_toman: int = 0
     # Primary subscription dates (backward compat — reflect the active/first sub)
     subscription_start_date: str | None = None
     subscription_end_date: str | None = None

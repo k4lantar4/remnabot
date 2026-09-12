@@ -581,6 +581,7 @@ async def _build_enrichment(
         enrichment[uid] = UserTrafficEnrichment(
             devices_connected=devices_by_user.get(uid, 0),
             total_spent_kopeks=spending_map.get(uid, 0),
+            total_spent_toman=spending_map.get(uid, 0),
             subscription_start_date=start_date,
             subscription_end_date=end_date,
             last_node_name=last_node_name,
@@ -725,7 +726,7 @@ async def export_traffic_csv(
         # Enrichment columns
         enr = enrichment.get(item.user_id)
         row['Connected Devices'] = enr.devices_connected if enr else 0
-        row['Total Spent (RUB)'] = round(enr.total_spent_kopeks, 2) if enr else 0
+        row['Total Spent (Toman)'] = enr.total_spent_toman if enr else 0
         row['Sub Start'] = enr.subscription_start_date or '' if enr else ''
         row['Sub End'] = enr.subscription_end_date or '' if enr else ''
         row['Last Node'] = enr.last_node_name or '' if enr else ''
