@@ -1,4 +1,4 @@
-"""0113: Toman Phase C — store catalog amounts in Toman 1:1
+"""0114: Toman Phase C — store catalog amounts in Toman 1:1
 
 Balances have been stored in Toman 1:1 since Phase B, while catalog prices stayed on the x100
 ``price_kopeks`` scale. Every hop that mixed the two produced the same 100x bug over and over
@@ -17,8 +17,8 @@ Pre-Phase-B (ruble-era) rows must be *converted*, not silently divided (user dec
 and converting them needs a ruble→Toman rate, which is a business number nobody has given yet.
 So the upgrade refuses to run while such rows exist instead of guessing.
 
-Revision ID: 0113
-Revises: 0112
+Revision ID: 0114
+Revises: 0113
 Create Date: 2026-09-12
 """
 
@@ -34,8 +34,8 @@ from alembic import op
 from app.utils.amount_columns import CATALOG_SCALE_COLUMNS, ColumnRef
 
 
-revision: str = '0113'
-down_revision: Union[str, None] = '0112'
+revision: str = '0114'
+down_revision: Union[str, None] = '0113'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -45,7 +45,7 @@ ROUNDING_LOG_TABLE = 'amount_scale_rounding_log'
 TOMAN_SCALE = 'toman'
 
 #: Mirrors ``settings.BALANCE_TOMAN_CUTOFF_UTC``; kept as a literal so the revision imports no
-#: configuration. ``tests/database/test_0113_catalog_scale.py`` pins the two together.
+#: configuration. ``tests/database/test_0114_catalog_scale.py`` pins the two together.
 PRE_TOMAN_CUTOFF_UTC = datetime(2026, 6, 5, tzinfo=UTC)
 
 #: Tables whose rows would be ruble-era if they predate the cutoff.
@@ -96,7 +96,7 @@ def _guard_pre_cutoff_rows(bind: sa.engine.Connection, tables: set[str]) -> None
 
     if offenders:
         raise RuntimeError(
-            'Toman Phase C (revision 0113) refuses to run: this database still holds rows from '
+            'Toman Phase C (revision 0114) refuses to run: this database still holds rows from '
             f'before {PRE_TOMAN_CUTOFF_UTC.isoformat()} ({offenders}), i.e. pre-Phase-B amounts '
             'that are neither catalog kopeks nor Toman. They must be converted with a '
             'ruble-to-Toman rate, which is a business number that has to be supplied before this '

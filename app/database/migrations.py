@@ -84,15 +84,15 @@ async def _drop_grace_delete_guard(conn, dialect: str) -> None:
     if (await conn.execute(text(exists_sql))).scalar() is None:
         return
     await conn.execute(text(drop_sql))
-    logger.warning('Удалён guard удаления подписок: таблицы grace_access_sessions нет (отложена в 0111)')
+    logger.warning('Удалён guard удаления подписок: таблицы grace_access_sessions нет (создаётся в 0113)')
 
 
 async def _ensure_runtime_schema_guards() -> None:
     """Install DDL guards that ``metadata.create_all`` cannot express.
 
-    The grace delete-guard reads ``grace_access_sessions``, which the remnabot lineage deliberately
-    defers (0111). A guard without its table makes every subscription delete fail, so the guard
-    exists only while the table does, and an orphaned one is dropped.
+    The grace delete-guard reads ``grace_access_sessions``, which 0111 deferred and 0113 finally
+    creates. A guard without its table makes every subscription delete fail, so the guard exists
+    only while the table does, and an orphaned one (a DB still below 0113) is dropped.
     """
     from app.database.database import engine
 

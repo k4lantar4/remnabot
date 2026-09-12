@@ -1,6 +1,9 @@
 # Un-defer grace access: create `grace_access_sessions` (remnabot)
 
-**Status:** active — **awaiting design approval** (migration → architectural; no code until approved)
+**Status:** done — approved and executed in remnabot#62 (revision `0113_create_grace_access_sessions`).
+Grace mode stays off (`GRACE_ACCESS_MODE` unchanged); enabling it still needs the business numbers
+in "Decision needed before execution" §2. Re-verified against upstream `v4.10.0`: no grace-related
+change since the v4.8.0 basis below.
 **Repos:** `remnabot` only. The cabinet already ships the admin grace screens; no frontend change.
 **Upstream basis:** v4.8.0 (`1fe2b47a`, 2026-09-09); the table comes from upstream migration
 `0097_add_grace_access.py` (`67d45b6a`, fixes in `35206d7b` / PR #3075) plus the `remnawave_id`

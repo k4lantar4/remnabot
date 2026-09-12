@@ -29,6 +29,7 @@ FORBIDDEN_TABLES = (
     'coupons',
     'legal_consents',
     'referral_reward_levels',
+    # Deferred by 0111 and created by its own revision, 0113 — never by 0111 itself.
     'grace_access_sessions',
 )
 

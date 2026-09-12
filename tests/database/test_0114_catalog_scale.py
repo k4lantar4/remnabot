@@ -1,4 +1,4 @@
-"""0113 moves catalog amounts onto the Toman 1:1 scale, reversibly.
+"""0114 moves catalog amounts onto the Toman 1:1 scale, reversibly.
 
 The round-trip matters more than the division itself: if ``downgrade()`` cannot restore the exact
 pre-migration numbers, a rollback of Phase C would silently rewrite real money.
@@ -23,7 +23,7 @@ from app.config import settings
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / 'migrations' / 'alembic' / 'versions'
-REVISION_FILE = VERSIONS / '0113_toman_phase_c_catalog_scale.py'
+REVISION_FILE = VERSIONS / '0114_toman_phase_c_catalog_scale.py'
 
 
 def _script_directory() -> ScriptDirectory:
@@ -31,7 +31,7 @@ def _script_directory() -> ScriptDirectory:
 
 
 def _load_revision():
-    spec = importlib.util.spec_from_file_location('rev_0113', REVISION_FILE)
+    spec = importlib.util.spec_from_file_location('rev_0114', REVISION_FILE)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -192,14 +192,14 @@ def _value(conn, table: str, column: str, row_id: int):
 # ── chain ─────────────────────────────────────────────────────────────────────
 
 
-def test_0113_is_the_single_head() -> None:
-    assert _script_directory().get_heads() == ['0113']
+def test_0114_is_the_single_head() -> None:
+    assert _script_directory().get_heads() == ['0114']
 
 
-def test_0113_revises_0112() -> None:
+def test_0114_revises_0113() -> None:
     rev = _load_revision()
-    assert rev.revision == '0113'
-    assert rev.down_revision == '0112'
+    assert rev.revision == '0114'
+    assert rev.down_revision == '0113'
 
 
 def test_cutoff_constant_matches_the_settings_value() -> None:
