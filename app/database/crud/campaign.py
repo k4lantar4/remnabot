@@ -452,8 +452,8 @@ async def get_campaign_statistics(
         'trial_conversion_rate': trial_conversion_rate,
         'avg_revenue_per_user_kopeks': avg_revenue_per_user,
         'avg_first_payment_kopeks': avg_first_payment,
-        # *_toman twins in display Toman. Revenue is real deposits (balance scale);
-        # first payments are subscription prices (catalog scale); bonuses are Toman.
+        # *_toman twins in display Toman. Since Phase C every source row is already Toman, so the
+        # twins equal their legacy fields; they stay because the cabinet reads the twins.
         'total_revenue_toman': deposits_toman,
         'avg_revenue_per_user_toman': avg_revenue_per_user_toman,
         'avg_first_payment_toman': avg_first_payment,

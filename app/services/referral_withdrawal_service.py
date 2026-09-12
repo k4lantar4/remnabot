@@ -69,8 +69,8 @@ class ReferralWithdrawalService:
     async def _sum_spending_toman(self, db: AsyncSession, user_id: int, since: datetime | None = None) -> int:
         """Spending in Toman.
 
-        Every transaction row is Toman 1:1 since revision 0115, whatever its type
-        (Phase B), so each type is summed on its own and converted before adding them up.
+        Every transaction row is Toman 1:1 since revision ``0115``, whatever its type, so the
+        per-type sums here need no conversion before being added up.
         """
         conditions = [
             Transaction.user_id == user_id,

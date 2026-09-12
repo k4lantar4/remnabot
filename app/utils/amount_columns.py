@@ -1,8 +1,8 @@
 """Every money column in the schema, classified by the scale its integer is stored on.
 
-Background: balances are stored in Toman 1:1 ("Phase B") while catalog prices are still stored
-x100 (`price_kopeks`). Toman Phase C moves the catalog columns to Toman 1:1 as well, in Alembic
-revision ``0113``, after which the whole database is on one scale.
+Background: before Toman Phase C, balances were stored in Toman 1:1 while catalog prices were
+stored x100 (`price_kopeks`). Alembic revision ``0115`` divided the catalog columns, so the whole
+database is now on one scale — Toman 1:1 — and this module records which column was on which side.
 
 This module is the single source of truth for that migration and for the guard test in
 ``tests/utils/test_amount_columns.py``: the test fails when a money column exists in
@@ -81,7 +81,7 @@ PRE_PHASE_C_TOMAN_TRANSACTION_TYPES: frozenset[str] = frozenset(
 CATALOG_SCALE_SUBSCRIPTION_EVENT_TYPES: frozenset[str] = frozenset({'purchase', 'renewal', 'activation'})
 
 
-#: Catalog scale (x100) today — revision ``0113`` divides these by 100.
+#: Held the catalog scale (x100); revision ``0115`` divided them and they are Toman 1:1 now.
 CATALOG_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('coupon_batches', 'wholesale_price_kopeks', note='shown with format_price'),
     ColumnRef('discount_offers', 'bonus_amount_kopeks', note='display-only today, see FINDINGS F-035'),
@@ -145,7 +145,7 @@ COLUMNS_RESCALED_AFTER_0115: frozenset[tuple[str, str]] = frozenset(
 )
 
 
-#: Already Toman 1:1 — revision ``0113`` must not touch these.
+#: Were already Toman 1:1 before Phase C — revision ``0115`` must not touch these.
 TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('advertising_campaign_registrations', 'balance_bonus_kopeks'),
     ColumnRef('advertising_campaigns', 'balance_bonus_kopeks', note='credited 1:1 by campaign_service'),
@@ -154,7 +154,7 @@ TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef(
         'promocodes',
         'balance_bonus_kopeks',
-        note='raw Toman post-Phase-B; for PromoCodeType.DISCOUNT it is a percent, not money',
+        note='raw Toman before Phase C too; for PromoCodeType.DISCOUNT it is a percent, not money',
     ),
     ColumnRef('referral_earnings', 'amount_kopeks'),
     ColumnRef('referral_reward_levels', 'referee_fixed_kopeks'),
@@ -166,7 +166,7 @@ TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
 
 #: Not Toman at all: a payment provider's own currency (ruble kopeks, USDT, …) or a non-money unit.
 #: Deferred Russian gateways keep their tables untouched by Phase C, by the workspace rule that we
-#: never edit their flows. Revision ``0113`` must not touch these either.
+#: never edit their flows. Revision ``0115`` must not touch these either.
 PROVIDER_CURRENCY_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('antilopay_payments', 'amount_kopeks'),
     ColumnRef('apple_transactions', 'amount_kopeks'),

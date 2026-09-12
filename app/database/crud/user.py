@@ -85,8 +85,8 @@ def _build_spending_stats_select():
     Returns:
         Tuple колонок (user_id, total_spent, purchase_count, total_spent_toman)
 
-    total_spent — сырая сумма (подписки хранятся в каталожном масштабе ×100);
-    total_spent_toman — та же сумма в отображаемых томанах, по типу каждой строки.
+    total_spent — сырая сумма строк подписок; после Phase C она уже в туманах,
+    поэтому total_spent_toman совпадает с ней и сохранён только потому, что его читает кабинет.
     """
 
     return (

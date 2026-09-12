@@ -30,7 +30,7 @@ class NotificationSettingsResponse(BaseModel):
     traffic_warning_enabled: bool = True
     traffic_warning_percent: int = 80
     balance_low_enabled: bool = False
-    balance_low_threshold: int = DEFAULT_BALANCE_LOW_THRESHOLD  # Toman, compared 1:1 with balance_kopeks (Phase B)
+    balance_low_threshold: int = DEFAULT_BALANCE_LOW_THRESHOLD  # Toman, compared 1:1 with balance_kopeks
     news_enabled: bool = True
     promo_offers_enabled: bool = True
 
