@@ -220,8 +220,7 @@ async def reward_user_for_poll(
     response.reward_given = True
     response.reward_amount_kopeks = poll.reward_amount_kopeks
 
-    # The reward is typed and stored like a price (catalog scale, x100) and shown with format_price;
-    # the wallet and the poll_reward row are Toman.
+    # Typed, stored, credited and shown as the same Toman number since revision 0115.
     success = await add_user_balance(
         db,
         user,

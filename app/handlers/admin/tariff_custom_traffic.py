@@ -13,7 +13,7 @@ from app.database.models import Tariff, User
 from app.localization.texts import get_texts
 from app.services.tariff_custom_traffic import (
     parse_positive_gb,
-    parse_positive_rubles_to_kopeks,
+    parse_positive_toman,
     validate_custom_traffic_configuration,
 )
 from app.states import AdminStates
@@ -340,22 +340,21 @@ async def process_custom_traffic_price_input(
         return
 
     try:
-        price_kopeks = parse_positive_rubles_to_kopeks(message.text or '')
+        price_toman = parse_positive_toman(message.text or '')
     except ValueError:
         await message.answer(
-            '❌ Некорректная цена. Введите положительную сумму в рублях '
-            'с точностью не более двух знаков.\nПример: <code>2</code> или <code>2.50</code>',
+            '❌ Некорректная цена. Введите положительную сумму в томанах целым числом.\nПример: <code>2500</code>',
             parse_mode='HTML',
         )
         return
 
-    tariff = await update_tariff(db, tariff, traffic_price_per_gb_kopeks=price_kopeks)
+    tariff = await update_tariff(db, tariff, traffic_price_per_gb_kopeks=price_toman)
     await _send_custom_traffic_update_result(
         message,
         db_user,
         state,
         tariff,
-        f'✅ Цена за 1 ГБ установлена: {format_price_kopeks(price_kopeks)}',
+        f'✅ Цена за 1 ГБ установлена: {format_price_kopeks(price_toman)}',
     )
 
 

@@ -83,7 +83,7 @@ def test_tariff_card_renders_custom_traffic_status_and_navigation() -> None:
 
     assert '<b>Произвольный трафик:</b>' in rendered
     assert '✅ Включено' in rendered
-    assert 'Цена за 1 ГБ: 2 ₽' in rendered
+    assert 'Цена за 1 ГБ: 200 ₽' in rendered
     assert 'Минимальный объём: 5 ГБ' in rendered
     assert 'Максимальный объём: 100 ГБ' in rendered
     assert 'admin_tariff_edit_custom_traffic:7' in callbacks
@@ -178,9 +178,10 @@ async def test_disable_preserves_price_and_bounds(monkeypatch) -> None:
     assert tariff.max_traffic_gb == 100
 
 
-async def test_price_input_converts_rubles_exactly_and_updates_only_price(monkeypatch) -> None:
+async def test_price_input_stores_the_typed_toman_and_updates_only_price(monkeypatch) -> None:
+    """Since 0115 the column is Toman 1:1, so a typed 2,500 is stored as 2500, not 250000."""
     tariff = _tariff()
-    message = _message('2,50')
+    message = _message('2,500')
     state = _state()
     updates = []
 
@@ -201,14 +202,14 @@ async def test_price_input_converts_rubles_exactly_and_updates_only_price(monkey
         state,
     )
 
-    assert updates == [{'traffic_price_per_gb_kopeks': 250}]
+    assert updates == [{'traffic_price_per_gb_kopeks': 2500}]
     state.clear.assert_awaited_once()
-    assert '2.50 ₽' in message.answer.await_args.args[0]
+    assert '2500 ₽' in message.answer.await_args.args[0]
 
 
 async def test_invalid_price_keeps_fsm_active_and_does_not_write(monkeypatch) -> None:
     tariff = _tariff()
-    message = _message('1.001')
+    message = _message('1.5')  # a fractional Toman is a typo, not a price
     state = _state()
     update = AsyncMock()
 

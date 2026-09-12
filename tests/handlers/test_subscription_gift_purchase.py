@@ -326,7 +326,7 @@ class TestGiftBalanceConfirmation:
             # Assert summary was re-rendered with new price
             assert mock_callback.message.edit_text.called
             text = mock_callback.message.edit_text.call_args[0][0]
-            assert '380' in text  # 38000 kopeks = 380 RUB
+            assert '38\u00a0000' in text  # the fresh quote is 38,000 Toman, stored and shown 1:1
 
     @pytest.mark.asyncio
     async def test_purchase_restricted_clears_fsm_and_shows_alert(
