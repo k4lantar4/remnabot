@@ -126,7 +126,7 @@ def test_0116_is_the_head_and_follows_0115() -> None:
     assert rev.down_revision == '0115'
 
     script = ScriptDirectory.from_config(Config(str(ROOT / 'alembic.ini')))
-    assert script.get_heads() == ['0116']
+    assert script.get_heads() == ['0117']
 
 
 def test_the_column_is_classified_as_catalog_and_owned_by_this_revision() -> None:
