@@ -7,7 +7,8 @@
 - **Rebase required before Task 1:** the branch was cut at d83ded23; `origin/main` has since moved to
   97b1e469 (grace-access migration `0113`, Toman Phase C catalog-scale migration `0114`, remnabot#63).
   Rebase onto `origin/main` first, then re-check `alembic heads` — this plan's migration is renumbered to
-  **`0115`** because 0113 and 0114 are both taken.
+  **`0115`** because 0113 and 0114 are both taken. The Phase C session has confirmed it will take 0116+
+  and will not reuse 0115 even if 0114 is reverted, so this number is final — do not renumber again.
 - **Phase C coupling — do not restart the bot container:** as of 2026-09-12 `origin/main` is not
   restart-safe (revision `0114` divides catalog prices by 100 while the reading code is only adapted in
   Phase C Task 3, which is unwritten). Another session is moving that data step into a later revision.
@@ -103,7 +104,21 @@ app/plugins/c2c/
   no ×100 anywhere in it. The only ×100 value is the methods-list entry, which follows the existing
   convention of that endpoint (F-012) and is only used by the Balance grid label; the C2C page reads its
   limits from `/cabinet/c2c/config`. `_BALANCE_SCALE_TRANSACTION_TYPES` is untouched (C2C credits
-  `deposit`, already there).
+  `deposit`, already there — still present and still in use on `origin/main` at
+  `app/utils/price_display.py:40`, consumed by `crud/transaction.py` and `handlers/balance/main.py`).
+  Phase C Task 1 (remnabot#61, merged) added `app/utils/amount_columns.py` alongside it — a
+  classification of money *columns* guarded by `tests/utils/test_amount_columns.py`, which reflects
+  `Base.metadata` and fails on any unclassified column matching `looks_like_money_column`. Both C2C money
+  columns are already classified there as **Toman 1:1** (`TOMAN_SCALE_COLUMNS`: `c2c_receipts.amount_kopeks`,
+  `c2c_receipts.approved_amount_kopeks`), independently confirming this plan's scale assumption. The two
+  columns migration 0115 adds (`source`, `reviewed_by_user_id`) are not money columns, so the guard does
+  not apply — but read `amount_columns.py` rather than the older list when in doubt after the rebase.
+- **Wire scale / F-012 (confirmed by the Phase C session 2026-09-12):** Phase C deliberately *freezes* the
+  HTTP contract — its Task 4 funnels the remaining ×100 into one serializer (`wire_scale.py`) so responses
+  keep their present shape and the cabinet needs no change. Collapsing the wire scale is a separate later
+  plan ("C-2"), which subsumes F-012. So the methods-list entry here must follow the endpoint's existing
+  ×100 convention, as planned: matching its neighbours is correct, and pre-empting a scale that is not
+  being changed yet would leave an inconsistent value to migrate.
 - **Errors:** API errors return `{"detail": {"code": "c2c.<code>", "message": <en fallback>}}`; the
   frontend localizes by code. Codes: `c2c.unavailable` (503), `c2c.restricted` (403, + reason),
   `c2c.review_pending` (409), `c2c.amount_too_low` / `c2c.amount_too_high` (400, + min/max),
