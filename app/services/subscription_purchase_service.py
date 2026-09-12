@@ -933,11 +933,11 @@ class MiniAppSubscriptionPurchaseService:
                 promo_item['discountLabel'] = promo_discount_line
             breakdown.append(promo_item)
 
-        # balance is Toman 1:1; final_total is a catalog price.
+        # Both sides are Toman 1:1 since Phase C.
         missing = missing_toman(context.balance_kopeks, pricing.final_total)
-        # This payload also backs the cabinet purchase preview, whose InsufficientBalancePrompt renders
-        # missing_amount_kopeks as catalog kopeks (÷100 for the label and the prefilled top-up): the
-        # field carries the Toman shortfall on the catalog scale.
+        # This payload also backs the cabinet purchase preview, whose InsufficientBalancePrompt still
+        # divides missing_amount_kopeks by 100 (for the label and the prefilled top-up), so the
+        # shortfall goes out through the wire boundary.
         missing_catalog_scale = wire_catalog_kopeks(missing)
         status_message = ''
         if missing > 0:

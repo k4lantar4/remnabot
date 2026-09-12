@@ -2272,7 +2272,7 @@ class User(Base):
 
     @property
     def balance_rubles(self) -> float:
-        """Display Toman: balance_kopeks column stores integer Toman 1:1 (Phase B)."""
+        """Display Toman: the balance_kopeks column stores integer Toman 1:1."""
         return float(self.balance_kopeks)
 
     @property

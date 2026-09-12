@@ -141,7 +141,7 @@ class UserListItem(BaseModel):
 
     # Stats
     total_spent_kopeks: int = 0
-    # Display Toman: spending is subscription payments (catalog scale ÷100).
+    # Display Toman. Equal to total_spent_kopeks since Phase C; kept because the cabinet reads it.
     total_spent_toman: int = 0
     purchase_count: int = 0
 
@@ -266,7 +266,7 @@ class UserDetailResponse(BaseModel):
 
     # Stats
     total_spent_kopeks: int = 0
-    # Display Toman: spending is subscription payments (catalog scale ÷100).
+    # Display Toman. Equal to total_spent_kopeks since Phase C; kept because the cabinet reads it.
     total_spent_toman: int = 0
     purchase_count: int = 0
     used_promocodes: int = 0

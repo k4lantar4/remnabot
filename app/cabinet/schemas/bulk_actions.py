@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.utils.price_display import ADMIN_BALANCE_EDIT_MAX_TOMAN
+
 
 class BulkActionType(StrEnum):
     EXTEND_SUBSCRIPTION = 'extend_subscription'
@@ -24,7 +26,22 @@ class BulkActionParams(BaseModel):
     days: int | None = Field(None, ge=1, le=3650)
     tariff_id: int | None = Field(None, gt=0)
     traffic_gb: int | None = Field(None, ge=1, le=10000)
-    amount_kopeks: int | None = Field(None, ge=1, le=2_000_000_000)
+    #: Legacy: the raw balance storage amount, which is Toman 1:1 (``users.balance_kopeks``).
+    #: Kept so an admin tab opened before the fix keeps crediting exactly what it credited before.
+    amount_kopeks: int | None = Field(
+        None,
+        ge=1,
+        le=2_000_000_000,
+        description='Legacy: raw balance storage amount (Toman 1:1)',
+    )
+    #: The Toman the owner typed, credited 1:1 — the same contract as the single-user editor
+    #: (``UpdateBalanceRequest.amount_display``), including its per-user cap.
+    amount_display: float | None = Field(
+        None,
+        gt=0,
+        le=ADMIN_BALANCE_EDIT_MAX_TOMAN,
+        description='Display Toman — the same number the owner sees as the balance, credited 1:1',
+    )
     balance_description: str = Field(default='Массовое начисление баланса', max_length=500)
     promo_group_id: int | None = None
     device_limit: int | None = Field(None, ge=1, le=50)

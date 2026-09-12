@@ -184,8 +184,8 @@ async def preview_tariff_switch(
         # юзер видит "Баланс 150 ₽, не хватает 0 ₽" и думает что баг.
         'balance_label': settings.format_balance(balance, round_kopeks=False),
         'has_enough_balance': has_enough,
-        # The cabinet's InsufficientBalancePrompt renders this field as catalog kopeks (÷100 for the
-        # label and the prefilled top-up), so it carries the Toman shortfall on the catalog scale.
+        # The cabinet's InsufficientBalancePrompt still divides this field by 100 (for the label and
+        # the prefilled top-up), so the shortfall goes out through the wire boundary, not raw.
         'missing_amount_kopeks': wire_catalog_kopeks(missing_toman(balance, upgrade_cost)),
         'missing_amount_label': settings.format_balance(missing) if missing > 0 else '',
         'is_upgrade': is_upgrade,

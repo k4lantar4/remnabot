@@ -682,7 +682,7 @@ def _spin(**overrides) -> SimpleNamespace:
 
 
 @pytest.mark.asyncio
-async def test_admin_prizes_value_on_the_wire_and_promo_bonus_toman() -> None:
+async def test_admin_prizes_value_and_promo_bonus_on_the_wire() -> None:
     from app.cabinet.routes import admin_wheel
 
     with (
@@ -692,7 +692,7 @@ async def test_admin_prizes_value_on_the_wire_and_promo_bonus_toman() -> None:
         [prize] = await admin_wheel.get_prizes(admin=ADMIN, db=AsyncMock())
 
     assert prize.prize_value_kopeks == WIRE
-    assert prize.promo_balance_bonus_kopeks == TOMAN
+    assert prize.promo_balance_bonus_kopeks == WIRE
 
 
 @pytest.mark.asyncio
@@ -727,7 +727,9 @@ async def test_admin_wheel_config_prizes_value_on_the_wire() -> None:
         )
 
     assert listed.prizes[0].prize_value_kopeks == WIRE
+    assert listed.prizes[0].promo_balance_bonus_kopeks == WIRE
     assert updated.prizes[0].prize_value_kopeks == WIRE
+    assert updated.prizes[0].promo_balance_bonus_kopeks == WIRE
 
 
 @pytest.mark.asyncio
@@ -735,7 +737,11 @@ async def test_create_prize_stores_toman_and_echoes_wire() -> None:
     from app.cabinet.routes import admin_wheel
 
     request = admin_wheel.CreatePrizeRequest(
-        prize_type='balance_bonus', prize_value=TOMAN, display_name='Cash', prize_value_kopeks=WIRE
+        prize_type='balance_bonus',
+        prize_value=TOMAN,
+        display_name='Cash',
+        prize_value_kopeks=WIRE,
+        promo_balance_bonus_kopeks=WIRE,
     )
 
     with (
@@ -745,7 +751,9 @@ async def test_create_prize_stores_toman_and_echoes_wire() -> None:
         response = await admin_wheel.create_prize(request, admin=ADMIN, db=AsyncMock())
 
     assert create_mock.call_args.kwargs['prize_value_kopeks'] == TOMAN
+    assert create_mock.call_args.kwargs['promo_balance_bonus_kopeks'] == TOMAN
     assert response.prize_value_kopeks == WIRE
+    assert response.promo_balance_bonus_kopeks == WIRE
 
 
 @pytest.mark.asyncio
@@ -754,10 +762,17 @@ async def test_update_prize_stores_toman_and_leaves_other_fields_alone() -> None
 
     with patch.object(admin_wheel, 'update_wheel_prize', AsyncMock(return_value=_prize())) as update_mock:
         await admin_wheel.update_prize(
-            9, admin_wheel.UpdatePrizeRequest(prize_value_kopeks=WIRE, sort_order=2), admin=ADMIN, db=AsyncMock()
+            9,
+            admin_wheel.UpdatePrizeRequest(prize_value_kopeks=WIRE, promo_balance_bonus_kopeks=WIRE, sort_order=2),
+            admin=ADMIN,
+            db=AsyncMock(),
         )
 
-    assert update_mock.call_args.kwargs == {'prize_value_kopeks': TOMAN, 'sort_order': 2}
+    assert update_mock.call_args.kwargs == {
+        'prize_value_kopeks': TOMAN,
+        'promo_balance_bonus_kopeks': TOMAN,
+        'sort_order': 2,
+    }
 
 
 @pytest.mark.asyncio

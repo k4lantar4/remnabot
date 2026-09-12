@@ -573,7 +573,7 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about balance top-up."""
         context = {
-            # A top-up is a Toman deposit and the wallet is Toman: both 1:1 (Phase B).
+            # A top-up is a Toman deposit and the wallet is Toman: both 1:1.
             # ``*_rubles`` is the historic placeholder name; ``*_toman`` says what it holds.
             'amount_kopeks': amount_kopeks,
             'amount_rubles': display_balance_from_storage(amount_kopeks),
@@ -755,7 +755,7 @@ class NotificationDeliveryService:
             reward_parts.append(f'{bonus_days} дн. подписки{tariff_suffix}')
 
         context = {
-            # A referral bonus is credited to the Toman wallet (Phase B).
+            # A referral bonus is credited to the Toman wallet.
             'bonus_kopeks': bonus_kopeks,
             'bonus_rubles': display_balance_from_storage(bonus_kopeks),
             'bonus_toman': display_balance_from_storage(bonus_kopeks),
@@ -829,7 +829,7 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about withdrawal request approval."""
         context = {
-            # WithdrawalRequest.amount_kopeks is Toman 1:1 (Phase B).
+            # WithdrawalRequest.amount_kopeks is Toman 1:1.
             'amount_kopeks': amount_kopeks,
             'amount_rubles': display_balance_from_storage(amount_kopeks),
             'amount_toman': display_balance_from_storage(amount_kopeks),
@@ -855,7 +855,7 @@ class NotificationDeliveryService:
     ) -> bool:
         """Notify user about withdrawal request rejection."""
         context = {
-            # WithdrawalRequest.amount_kopeks is Toman 1:1 (Phase B).
+            # WithdrawalRequest.amount_kopeks is Toman 1:1.
             'amount_kopeks': amount_kopeks,
             'amount_rubles': display_balance_from_storage(amount_kopeks),
             'amount_toman': display_balance_from_storage(amount_kopeks),

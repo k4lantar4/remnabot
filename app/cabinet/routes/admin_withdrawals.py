@@ -61,7 +61,7 @@ _REJECTED_DEFAULT = (
 def _decision_message(user: User, withdrawal: WithdrawalRequest, key: str, default: str, comment: str | None) -> str:
     """Telegram text for the user, in their language — the same texts the bot's admin screen sends.
 
-    ``withdrawal.amount_kopeks`` is Toman 1:1 (Phase B). The message is sent with parse_mode=HTML,
+    ``withdrawal.amount_kopeks`` is Toman 1:1, like every stored amount since Phase C. The message is sent with parse_mode=HTML,
     so the admin's free-text comment is escaped.
     """
     texts = get_texts(user.language)

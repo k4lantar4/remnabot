@@ -11,7 +11,7 @@ from typing import Any
 from app.database.models import User
 
 
-# Toman, compared 1:1 with balance_kopeks (Phase B). Applies only to users who never saved a threshold.
+# Toman, compared 1:1 with balance_kopeks. Applies only to users who never saved a threshold.
 DEFAULT_BALANCE_LOW_THRESHOLD = 100_000
 
 # Defaults match the frontend and cabinet/routes/notifications.py

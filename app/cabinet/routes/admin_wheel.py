@@ -31,12 +31,41 @@ from app.database.crud.wheel import (
     update_wheel_config,
     update_wheel_prize,
 )
-from app.database.models import User
+from app.database.models import User, WheelPrize
 from app.services.wheel_service import wheel_service
 from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _prize_on_the_wire(prize: WheelPrize) -> WheelPrizeAdminResponse:
+    """Serialize a prize for the cabinet editor.
+
+    Both money columns are stored Toman since revision ``0115``; the editor still speaks the old
+    x100 catalog wire, so both go out through :func:`wire_catalog_kopeks` (F-069: the promo balance
+    bonus used to bypass the boundary, which made the wheel form the only admin screen asking for
+    two different units side by side).
+    """
+    return WheelPrizeAdminResponse(
+        id=prize.id,
+        config_id=prize.config_id,
+        prize_type=prize.prize_type,
+        prize_value=prize.prize_value,
+        display_name=prize.display_name,
+        emoji=prize.emoji,
+        color=prize.color,
+        prize_value_kopeks=wire_catalog_kopeks(prize.prize_value_kopeks),
+        sort_order=prize.sort_order,
+        manual_probability=prize.manual_probability,
+        is_active=prize.is_active,
+        promo_balance_bonus_kopeks=wire_catalog_kopeks(prize.promo_balance_bonus_kopeks or 0),
+        promo_subscription_days=prize.promo_subscription_days or 0,
+        promo_traffic_gb=prize.promo_traffic_gb or 0,
+        created_at=prize.created_at,
+        updated_at=prize.updated_at,
+    )
+
 
 router = APIRouter(prefix='/admin/wheel', tags=['Admin Fortune Wheel'])
 
@@ -50,27 +79,7 @@ async def get_admin_wheel_config(
     config = await get_or_create_wheel_config(db)
     prizes = await get_wheel_prizes(db, config.id, active_only=False)
 
-    prizes_response = [
-        WheelPrizeAdminResponse(
-            id=p.id,
-            config_id=p.config_id,
-            prize_type=p.prize_type,
-            prize_value=p.prize_value,
-            display_name=p.display_name,
-            emoji=p.emoji,
-            color=p.color,
-            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
-            sort_order=p.sort_order,
-            manual_probability=p.manual_probability,
-            is_active=p.is_active,
-            promo_balance_bonus_kopeks=p.promo_balance_bonus_kopeks or 0,
-            promo_subscription_days=p.promo_subscription_days or 0,
-            promo_traffic_gb=p.promo_traffic_gb or 0,
-            created_at=p.created_at,
-            updated_at=p.updated_at,
-        )
-        for p in prizes
-    ]
+    prizes_response = [_prize_on_the_wire(p) for p in prizes]
 
     return AdminWheelConfigResponse(
         id=config.id,
@@ -113,27 +122,7 @@ async def update_admin_wheel_config(
     # Возвращаем полную конфигурацию
     prizes = await get_wheel_prizes(db, config.id, active_only=False)
 
-    prizes_response = [
-        WheelPrizeAdminResponse(
-            id=p.id,
-            config_id=p.config_id,
-            prize_type=p.prize_type,
-            prize_value=p.prize_value,
-            display_name=p.display_name,
-            emoji=p.emoji,
-            color=p.color,
-            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
-            sort_order=p.sort_order,
-            manual_probability=p.manual_probability,
-            is_active=p.is_active,
-            promo_balance_bonus_kopeks=p.promo_balance_bonus_kopeks or 0,
-            promo_subscription_days=p.promo_subscription_days or 0,
-            promo_traffic_gb=p.promo_traffic_gb or 0,
-            created_at=p.created_at,
-            updated_at=p.updated_at,
-        )
-        for p in prizes
-    ]
+    prizes_response = [_prize_on_the_wire(p) for p in prizes]
 
     return AdminWheelConfigResponse(
         id=config.id,
@@ -163,27 +152,7 @@ async def get_prizes(
     config = await get_or_create_wheel_config(db)
     prizes = await get_wheel_prizes(db, config.id, active_only=False)
 
-    return [
-        WheelPrizeAdminResponse(
-            id=p.id,
-            config_id=p.config_id,
-            prize_type=p.prize_type,
-            prize_value=p.prize_value,
-            display_name=p.display_name,
-            emoji=p.emoji,
-            color=p.color,
-            prize_value_kopeks=wire_catalog_kopeks(p.prize_value_kopeks),
-            sort_order=p.sort_order,
-            manual_probability=p.manual_probability,
-            is_active=p.is_active,
-            promo_balance_bonus_kopeks=p.promo_balance_bonus_kopeks or 0,
-            promo_subscription_days=p.promo_subscription_days or 0,
-            promo_traffic_gb=p.promo_traffic_gb or 0,
-            created_at=p.created_at,
-            updated_at=p.updated_at,
-        )
-        for p in prizes
-    ]
+    return [_prize_on_the_wire(p) for p in prizes]
 
 
 @router.post('/prizes', response_model=WheelPrizeAdminResponse, status_code=status.HTTP_201_CREATED)
@@ -207,31 +176,14 @@ async def create_prize(
         sort_order=request.sort_order,
         manual_probability=request.manual_probability,
         is_active=request.is_active,
-        promo_balance_bonus_kopeks=request.promo_balance_bonus_kopeks,
+        promo_balance_bonus_kopeks=toman_from_wire_catalog(request.promo_balance_bonus_kopeks),
         promo_subscription_days=request.promo_subscription_days,
         promo_traffic_gb=request.promo_traffic_gb,
     )
 
     logger.info('🎁 Admin created prize', telegram_id=admin.telegram_id, display_name=prize.display_name)
 
-    return WheelPrizeAdminResponse(
-        id=prize.id,
-        config_id=prize.config_id,
-        prize_type=prize.prize_type,
-        prize_value=prize.prize_value,
-        display_name=prize.display_name,
-        emoji=prize.emoji,
-        color=prize.color,
-        prize_value_kopeks=wire_catalog_kopeks(prize.prize_value_kopeks),
-        sort_order=prize.sort_order,
-        manual_probability=prize.manual_probability,
-        is_active=prize.is_active,
-        promo_balance_bonus_kopeks=prize.promo_balance_bonus_kopeks or 0,
-        promo_subscription_days=prize.promo_subscription_days or 0,
-        promo_traffic_gb=prize.promo_traffic_gb or 0,
-        created_at=prize.created_at,
-        updated_at=prize.updated_at,
-    )
+    return _prize_on_the_wire(prize)
 
 
 @router.put('/prizes/{prize_id}', response_model=WheelPrizeAdminResponse)
@@ -248,9 +200,10 @@ async def update_prize(
     if update_data.get('prize_type'):
         update_data['prize_type'] = update_data['prize_type'].value
 
-    # The editor sends the prize value on the frozen x100 wire; storage is Toman.
-    if update_data.get('prize_value_kopeks') is not None:
-        update_data['prize_value_kopeks'] = toman_from_wire_catalog(update_data['prize_value_kopeks'])
+    # The editor sends both money fields on the frozen x100 wire; storage is Toman.
+    for field in ('prize_value_kopeks', 'promo_balance_bonus_kopeks'):
+        if update_data.get(field) is not None:
+            update_data[field] = toman_from_wire_catalog(update_data[field])
 
     if not update_data:
         raise HTTPException(
@@ -268,24 +221,7 @@ async def update_prize(
 
     logger.info('🎁 Admin updated prize', telegram_id=admin.telegram_id, prize_id=prize_id, update_data=update_data)
 
-    return WheelPrizeAdminResponse(
-        id=prize.id,
-        config_id=prize.config_id,
-        prize_type=prize.prize_type,
-        prize_value=prize.prize_value,
-        display_name=prize.display_name,
-        emoji=prize.emoji,
-        color=prize.color,
-        prize_value_kopeks=wire_catalog_kopeks(prize.prize_value_kopeks),
-        sort_order=prize.sort_order,
-        manual_probability=prize.manual_probability,
-        is_active=prize.is_active,
-        promo_balance_bonus_kopeks=prize.promo_balance_bonus_kopeks or 0,
-        promo_subscription_days=prize.promo_subscription_days or 0,
-        promo_traffic_gb=prize.promo_traffic_gb or 0,
-        created_at=prize.created_at,
-        updated_at=prize.updated_at,
-    )
+    return _prize_on_the_wire(prize)
 
 
 @router.delete('/prizes/{prize_id}', status_code=status.HTTP_204_NO_CONTENT)

@@ -1,8 +1,8 @@
 """Every money column in the schema, classified by the scale its integer is stored on.
 
-Background: balances are stored in Toman 1:1 ("Phase B") while catalog prices are still stored
-x100 (`price_kopeks`). Toman Phase C moves the catalog columns to Toman 1:1 as well, in Alembic
-revision ``0113``, after which the whole database is on one scale.
+Background: before Toman Phase C, balances were stored in Toman 1:1 while catalog prices were
+stored x100 (`price_kopeks`). Alembic revision ``0115`` divided the catalog columns, so the whole
+database is now on one scale — Toman 1:1 — and this module records which column was on which side.
 
 This module is the single source of truth for that migration and for the guard test in
 ``tests/utils/test_amount_columns.py``: the test fails when a money column exists in
@@ -18,7 +18,7 @@ import re
 from typing import Literal, NamedTuple
 
 
-AmountColumnKind = Literal['int', 'json_values']
+AmountColumnKind = Literal['int', 'json_values', 'json_records']
 
 #: Bookkeeping tables of the Phase C scale change. ``0114`` creates them (structural, safe on its
 #: own); ``0115`` fills them together with the code that reads Toman. **The tables existing means
@@ -40,6 +40,10 @@ class ColumnRef(NamedTuple):
 
     ``kind='json_values'`` means the JSON payload is a mapping/list whose *values* are the amounts
     (``tariffs.period_prices``, ``payment_method_configs.quick_amounts``).
+
+    ``kind='json_records'`` means the payload is a list of objects and only some of their *fields*
+    are amounts; ``note`` names them (``landing_pages.payment_methods``). Such a column has to be
+    classified by meaning — nothing in its name says money.
 
     ``where`` is a SQL predicate naming the subset of rows that sit on this scale, for the two
     columns that are mixed-scale per row type. ``None`` means the whole column.
@@ -81,7 +85,7 @@ PRE_PHASE_C_TOMAN_TRANSACTION_TYPES: frozenset[str] = frozenset(
 CATALOG_SCALE_SUBSCRIPTION_EVENT_TYPES: frozenset[str] = frozenset({'purchase', 'renewal', 'activation'})
 
 
-#: Catalog scale (x100) today — revision ``0113`` divides these by 100.
+#: Held the catalog scale (x100); revision ``0115`` divided them and they are Toman 1:1 now.
 CATALOG_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('coupon_batches', 'wholesale_price_kopeks', note='shown with format_price'),
     ColumnRef('discount_offers', 'bonus_amount_kopeks', note='display-only today, see FINDINGS F-035'),
@@ -145,16 +149,23 @@ COLUMNS_RESCALED_AFTER_0115: frozenset[tuple[str, str]] = frozenset(
 )
 
 
-#: Already Toman 1:1 — revision ``0113`` must not touch these.
+#: Were already Toman 1:1 before Phase C — revision ``0115`` must not touch these.
 TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('advertising_campaign_registrations', 'balance_bonus_kopeks'),
     ColumnRef('advertising_campaigns', 'balance_bonus_kopeks', note='credited 1:1 by campaign_service'),
     ColumnRef('c2c_receipts', 'amount_kopeks'),
     ColumnRef('c2c_receipts', 'approved_amount_kopeks'),
     ColumnRef(
+        'landing_pages',
+        'payment_methods',
+        'json_records',
+        note='per-method min_amount_kopeks/max_amount_kopeks; the public landing route reads them '
+        'as Toman, so admin_landings converts the wire scale at the boundary (FINDINGS F-071)',
+    ),
+    ColumnRef(
         'promocodes',
         'balance_bonus_kopeks',
-        note='raw Toman post-Phase-B; for PromoCodeType.DISCOUNT it is a percent, not money',
+        note='raw Toman before Phase C too; for PromoCodeType.DISCOUNT it is a percent, not money',
     ),
     ColumnRef('referral_earnings', 'amount_kopeks'),
     ColumnRef('referral_reward_levels', 'referee_fixed_kopeks'),
@@ -166,7 +177,7 @@ TOMAN_SCALE_COLUMNS: tuple[ColumnRef, ...] = (
 
 #: Not Toman at all: a payment provider's own currency (ruble kopeks, USDT, …) or a non-money unit.
 #: Deferred Russian gateways keep their tables untouched by Phase C, by the workspace rule that we
-#: never edit their flows. Revision ``0113`` must not touch these either.
+#: never edit their flows. Revision ``0115`` must not touch these either.
 PROVIDER_CURRENCY_COLUMNS: tuple[ColumnRef, ...] = (
     ColumnRef('antilopay_payments', 'amount_kopeks'),
     ColumnRef('apple_transactions', 'amount_kopeks'),
