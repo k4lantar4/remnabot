@@ -1,6 +1,6 @@
 # Card-to-card receipt review in the cabinet admin
 
-**Status:** active
+**Status:** done — remnabot#84 (tasks 1-2, migration `0119`), frontend#28 (tasks 3-4)
 **Repos:** `remnabot` first (tasks 1-2, additive API + one additive migration), then `frontend`
 (tasks 3-4).
 **Upstream basis:** `remnabot` origin/main `1505af7e`, upstream/main `9fcebfd7`; `frontend`
@@ -227,6 +227,10 @@ state rather than a spinner. Visuals — verify live with `run-cabinet` as the o
 **Persian/i18n:** `admin.nav.c2cReceipts` and `admin.c2cReceipts.*` (title, filters, status labels,
 search hint, table headers, empty state) in **both** `fa.json` and `en.json`, Latin digits.
 
+**As built (DONE):** query/param logic in `src/utils/adminC2cReceipts.ts` (unit-tested); the period
+defaults to all time so an old pending receipt never drops out of the queue; keys also in `ru.json`
+(`locales.test.ts` requires every `en` key there).
+
 ### Task 4 — Frontend: receipt detail with approve and reject
 
 **Repo + files:** `frontend/src/pages/AdminC2cReceiptDetail.tsx` (new),
@@ -251,6 +255,13 @@ receipt. Visuals — verify live with `run-cabinet` as the owner, including a re
 balance change the test user's cabinet receives over the websocket.
 
 **Persian/i18n:** `admin.c2cReceipts.detail.*` and the reason labels in `fa.json` + `en.json`.
+
+**As built (DONE):** the image URL comes from `ticketsApi.getMediaUrl(receipt_media_file_id,
+receipt_media_token)`; reason labels come from `/reject-reasons` (localized server-side), so no reason
+keys were added to the cabinet locales. A 409 invalidates the `admin-c2c-receipts` prefix (detail, list
+and stats refetch). The "admin note" row is hidden when `rejection_reason` only repeats the reason key,
+which is what bot rejections store. Receipt images uploaded through a different Telegram bot (old test
+data) cannot be downloaded — Telegram rejects their `file_id` — which is data, not a code defect.
 
 ## Cross-repo contract
 
