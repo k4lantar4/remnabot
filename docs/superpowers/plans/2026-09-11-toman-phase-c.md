@@ -177,8 +177,15 @@ pricing (F-013, F-029, F-047), and enabling any payment method.
 
 ## Tasks
 
-Each task is one PR, mergeable on its own. Tasks 1–2 are inert (no behavior change); behavior changes
-only when Task 3 merges, which is why Tasks 2 and 3 must deploy together — note it in both PR bodies.
+Each task is one PR, mergeable on its own.
+
+> ⚠️ **Deploy coupling — do not restart the live bot between Task 2 and Task 3.** The bot runs
+> `alembic upgrade head` at start, so the first restart after Task 2 merges will divide the live
+> database while the code still reads catalog kopeks: every price would render 100x too small and
+> purchase math would be wrong until Task 3 is deployed. Merging Task 2 is safe; *restarting* is not.
+> The live environment therefore stays on the pre-migration image until Task 3 merges, and both PR
+> bodies say so. If main has to become restart-safe before Task 3 is ready, move the rescale out of
+> `0113` into a `0114` that ships with Task 3.
 
 ### Task 1 — Money-column inventory + guard test (no behavior change) — **done (remnabot#61)**
 
