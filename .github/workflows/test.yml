@@ -27,5 +27,6 @@ jobs:
 
       - run: uv sync --group dev
 
+      # One worker per runner CPU (4): measured 4:20 serial vs 2:00 here.
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest -n auto
