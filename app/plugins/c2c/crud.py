@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import contains_eager, joinedload
 
 from app.config import settings
-from app.database.models import C2cReceipt, C2cReceiptStatus
+from app.database.models import C2cReceipt, C2cReceiptStatus, User
 
 
 async def get_pending_receipt_for_user(db: AsyncSession, user_id: int) -> C2cReceipt | None:
@@ -180,3 +180,152 @@ async def expire_stale_c2c_receipts(db: AsyncSession) -> int:
 
     await db.flush()
     return len(rows)
+
+
+# ---- cabinet admin review: search over every receipt ----------------------------------------
+
+_SEARCH_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
+_INT32_MAX = 2**31 - 1
+_INT64_MAX = 2**63 - 1  # beyond bigint the driver cannot even bind the value
+
+
+def _receipt_search_clause(term: str):
+    """Match a receipt by ``#id``, a number (receipt/user/telegram id, exact Toman amount) or user text."""
+    normalized = term.translate(_SEARCH_DIGITS)
+    if normalized.startswith('#') and normalized[1:].isdigit():
+        return C2cReceipt.id == int(normalized[1:])
+
+    digits = normalized.replace(',', '').replace('٬', '').replace(' ', '')
+    if digits.isdigit():
+        number = int(digits)
+        if number > _INT64_MAX:
+            return false()
+        clauses = [User.telegram_id == number]
+        if number <= _INT32_MAX:
+            clauses += [C2cReceipt.id == number, User.id == number, C2cReceipt.amount_kopeks == number]
+        return or_(*clauses)
+
+    text = normalized.lstrip('@').replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    pattern = f'%{text}%'
+    full_name = func.coalesce(User.first_name, '') + ' ' + func.coalesce(User.last_name, '')
+    return or_(
+        User.username.ilike(pattern, escape='\\'),
+        User.first_name.ilike(pattern, escape='\\'),
+        User.last_name.ilike(pattern, escape='\\'),
+        User.email.ilike(pattern, escape='\\'),
+        full_name.ilike(pattern, escape='\\'),
+    )
+
+
+def _receipt_search_filters(
+    *,
+    status: str | None,
+    search: str | None,
+    date_from: datetime | None,
+    date_to: datetime | None,
+) -> list:
+    filters = []
+    if status and status != 'all':
+        filters.append(C2cReceipt.status == status)
+    if date_from is not None:
+        filters.append(C2cReceipt.created_at >= date_from)
+    if date_to is not None:
+        filters.append(C2cReceipt.created_at < date_to)
+    term = (search or '').strip()
+    if term:
+        filters.append(_receipt_search_clause(term))
+    return filters
+
+
+async def search_receipts(
+    db: AsyncSession,
+    *,
+    status: str | None = 'all',
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int,
+    offset: int,
+) -> list[C2cReceipt]:
+    filters = _receipt_search_filters(status=status, search=search, date_from=date_from, date_to=date_to)
+    result = await db.execute(
+        select(C2cReceipt)
+        .join(User, C2cReceipt.user_id == User.id)
+        .options(contains_eager(C2cReceipt.user))
+        .where(*filters)
+        .order_by(C2cReceipt.created_at.desc(), C2cReceipt.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().unique().all())
+
+
+async def count_receipts(
+    db: AsyncSession,
+    *,
+    status: str | None = 'all',
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> int:
+    filters = _receipt_search_filters(status=status, search=search, date_from=date_from, date_to=date_to)
+    result = await db.execute(
+        select(func.count(C2cReceipt.id))
+        .select_from(C2cReceipt)
+        .join(User, C2cReceipt.user_id == User.id)
+        .where(*filters)
+    )
+    return int(result.scalar_one() or 0)
+
+
+async def receipt_status_counts(
+    db: AsyncSession,
+    *,
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> dict[str, int]:
+    """Per-status counts of the filtered set, every status present (zero when absent)."""
+    filters = _receipt_search_filters(status='all', search=search, date_from=date_from, date_to=date_to)
+    result = await db.execute(
+        select(C2cReceipt.status, func.count(C2cReceipt.id))
+        .select_from(C2cReceipt)
+        .join(User, C2cReceipt.user_id == User.id)
+        .where(*filters)
+        .group_by(C2cReceipt.status)
+    )
+    counts = {status.value: 0 for status in C2cReceiptStatus}
+    for status, count in result.all():
+        counts[status] = int(count)
+    return counts
+
+
+async def get_receipt_with_user_for_admin(db: AsyncSession, receipt_id: int) -> C2cReceipt | None:
+    result = await db.execute(
+        select(C2cReceipt)
+        .options(joinedload(C2cReceipt.user))
+        .where(C2cReceipt.id == receipt_id)
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_reviewer_users(
+    db: AsyncSession,
+    *,
+    user_ids: set[int],
+    telegram_ids: set[int],
+) -> tuple[dict[int, User], dict[int, User]]:
+    """Reviewers by ``users.id`` and by telegram id (receipts decided in the bot before 0119)."""
+    clauses = []
+    if user_ids:
+        clauses.append(User.id.in_(user_ids))
+    if telegram_ids:
+        clauses.append(User.telegram_id.in_(telegram_ids))
+    if not clauses:
+        return {}, {}
+    result = await db.execute(select(User).where(or_(*clauses)))
+    users = list(result.scalars().all())
+    by_id = {user.id: user for user in users if user.id in user_ids}
+    by_telegram = {user.telegram_id: user for user in users if user.telegram_id in telegram_ids}
+    return by_id, by_telegram

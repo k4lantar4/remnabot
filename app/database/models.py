@@ -1072,6 +1072,8 @@ class C2cReceipt(Base):
     admin_chat_id = Column(BigInteger, nullable=True)
     admin_message_id = Column(BigInteger, nullable=True)
     reviewed_by_telegram_id = Column(BigInteger, nullable=True)
+    reviewed_by_user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_via = Column(String(16), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     rejection_reason_key = Column(String(32), nullable=True)
     approved_amount_kopeks = Column(Integer, nullable=True)
@@ -1083,7 +1085,7 @@ class C2cReceipt(Base):
     expires_at = Column(AwareDateTime(), nullable=True)
     processed_at = Column(AwareDateTime(), nullable=True)
 
-    user = relationship('User', backref='c2c_receipts')
+    user = relationship('User', backref='c2c_receipts', foreign_keys=[user_id])
     transaction = relationship('Transaction', backref='c2c_receipt')
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper

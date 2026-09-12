@@ -162,6 +162,8 @@ class C2cPaymentService:
         admin_telegram_id: int,
         *,
         credited_amount_kopeks: int | None = None,
+        reviewed_by_user_id: int | None = None,
+        reviewed_via: str = 'bot',
     ) -> tuple[bool, str, C2cReceipt | None]:
         receipt = await c2c_crud.get_c2c_receipt_for_update(db, receipt_id)
         if not receipt:
@@ -175,6 +177,8 @@ class C2cPaymentService:
             receipt.status = C2cReceiptStatus.APPROVED.value
             receipt.transaction_id = existing.id
             receipt.reviewed_by_telegram_id = admin_telegram_id
+            receipt.reviewed_by_user_id = reviewed_by_user_id
+            receipt.reviewed_via = reviewed_via
             receipt.processed_at = datetime.now(UTC)
             await db.commit()
             return True, 'Already credited', receipt
@@ -237,6 +241,8 @@ class C2cPaymentService:
         receipt.status = C2cReceiptStatus.APPROVED.value
         receipt.transaction_id = transaction.id
         receipt.reviewed_by_telegram_id = admin_telegram_id
+        receipt.reviewed_by_user_id = reviewed_by_user_id
+        receipt.reviewed_via = reviewed_via
         receipt.processed_at = datetime.now(UTC)
         receipt.updated_at = datetime.now(UTC)
         await db.commit()
@@ -265,6 +271,8 @@ class C2cPaymentService:
         reason: str | None = None,
         reason_key: str | None = None,
         notify_user: bool = True,
+        reviewed_by_user_id: int | None = None,
+        reviewed_via: str = 'bot',
     ) -> tuple[bool, str, C2cReceipt | None]:
         receipt = await c2c_crud.get_c2c_receipt_for_update(db, receipt_id)
         if not receipt:
@@ -278,6 +286,8 @@ class C2cPaymentService:
 
         receipt.status = C2cReceiptStatus.REJECTED.value
         receipt.reviewed_by_telegram_id = admin_telegram_id
+        receipt.reviewed_by_user_id = reviewed_by_user_id
+        receipt.reviewed_via = reviewed_via
         receipt.rejection_reason_key = reason_key
         receipt.rejection_reason = reason or reason_key or 'Rejected by administrator'
         receipt.processed_at = datetime.now(UTC)
