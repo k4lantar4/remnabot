@@ -120,13 +120,17 @@ def _value(conn, tariff_id: int, gb: str) -> int:
 # ── chain ─────────────────────────────────────────────────────────────────────
 
 
-def test_0116_is_the_head_and_follows_0115() -> None:
+def test_0116_is_on_the_single_linear_chain_and_follows_0115() -> None:
     rev = _load('rev_0116', REVISION_FILE)
     assert rev.revision == '0116'
     assert rev.down_revision == '0115'
 
+    # 0116 was the head when it was written; later revisions (0117 …) may sit on top of it, but
+    # the lineage must stay a single chain — a second head would mean a fork nobody can upgrade.
     script = ScriptDirectory.from_config(Config(str(ROOT / 'alembic.ini')))
-    assert script.get_heads() == ['0117']
+    heads = script.get_heads()
+    assert len(heads) == 1, heads
+    assert '0116' in [revision.revision for revision in script.walk_revisions(base='base', head=heads[0])]
 
 
 def test_the_column_is_classified_as_catalog_and_owned_by_this_revision() -> None:
