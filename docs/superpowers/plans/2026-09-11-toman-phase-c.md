@@ -221,7 +221,7 @@ Each task is one PR, mergeable on its own.
   the log), idempotency, the marker row, the display invariant
   (`format_price(before) == format_balance(after)`), and the pre-cutoff refusal.
 
-### Task 3 — Collapse the helpers, ship `0115`, and freeze the wire — **in progress (branch `refactor/phase-c-toman-helpers`)**
+### Task 3 — Collapse the helpers, ship `0115`, and freeze the wire — **done (remnabot#PRNUM)**
 
 **Re-scoped 2026-09-12, mid-execution.** Tasks 3, 4 and 5 as originally written are *not*
 separable, and this is the single most important correction to this plan.
@@ -268,27 +268,31 @@ Two audits drive the work, because reacting to red tests gives no coverage guara
 Size so far: **~160 files**, 6 commits plus uncommitted work. This is far larger than the original
 Task 3 estimate, which is why this section was rewritten before finishing.
 
-#### Remaining, grouped by cause (21 failing tests as of 2026-09-12)
+#### How the 21 failures resolved (2026-09-12)
 
-| # | Cause | Tests | Verdict |
-|---|---|---|---|
-| A | `render_addon_insufficient_funds()` is still called with the old `price_kopeks=` / `balance_kopeks=` keywords at `handlers/subscription/addon_cart.py:50` and `handlers/subscription/purchase.py:1595,1999` | 3 | **Real bug introduced by this branch** — `TypeError` at runtime in the bot's addon flow. Fix first. |
-| B | CryptoBot and Stars credit paths: the webhook credits the quoted Toman, the tests still expect the amount ×100 | 5 | Decide per site whether the branch or the test is right; this is the live payment path, so read `payment_verification_service` before touching either. |
-| C | Bot admin and bot gift screens seeded with ×100 amounts, or asserting a ÷100 label | 7 | Test-side: move the seeds to Toman. |
-| D | Cabinet switch-preview / addon tests asserting the Toman number where the response now carries the wire value | 3 | Test-side: assert the wire value. |
-| E | `test_referral_level_notifications.py::test_catalog_formatter_would_show_the_toman_reward_100x_smaller` asserts the two formatters *differ* | 1 | The premise is gone — one formatter now. Rewrite the test around what still holds. |
-| F | Remaining scale mismatches in daily-charge recovery, gift purchase service and referral purchase commission | 2 | Read each; may be a real seed bug rather than a scale bug. |
+| # | Cause | Verdict |
+|---|---|---|
+| A | `render_addon_insufficient_funds()` called with the old `price_kopeks=` keyword at six sites | **Real bug this branch introduced** — a `TypeError` in the bot's addon, cart-resume and classic-purchase flows. Fixed; the values already carried Toman, only the keyword was wrong. |
+| B | Stars and CryptoBot credit paths | Code was right, expectations were stale: `process_referral_topup` takes Toman 1:1 now. The legacy USD→RUB path keeps upstream's conversion but loses the kopek hop, because it credits a Toman column. |
+| C | Bot admin and bot gift screens | Mostly test-side, plus **one real Task 5 gap**: `traffic_price_per_gb_kopeks` still ran the typed number through a rubles-to-kopeks parser. Now `parse_positive_toman`, normalizing through `normalize_display_amount_text` like every other typed amount. |
+| D | Cabinet switch preview | Test-side: assert the wire value, as the sibling shortfall assertion already did. |
+| E | "the two formatters disagree" | Premise gone; rewritten to pin that `format_price` is an alias and can no longer disagree. |
+| F | Daily-charge recovery, gift purchase, referral commission | Test-side; `GiftInsufficientBalanceError` also stopped describing one side as catalog. |
 
-#### Still to do after the tests are green
+Suite after the work: **6140 passed, 9 skipped, 0 failed**; `ruff format --check` and `ruff check`
+clean over the whole tree. Findings deleted as subsumed: F-010, F-012, F-052, F-057, F-058.
 
-- `ruff format --check` and `ruff check` over the whole tree.
-- Re-check and delete the findings this PR subsumes: F-052, F-057, F-058, F-010 (partly), F-012.
+#### Carried into deploy and Phase C-2
+
 - The numeric catalog keys in `remnabot/.env` (Decision 3) — divide by 100 **at deploy time**,
-  together with the restart, because `.env` is not in git and would otherwise drift from the code.
+  together with the restart, because `.env` is untracked and would otherwise drift from the code.
   Never a token, a secret or a `*_ENABLED` flag.
-- Deploy note in the PR body: **the first restart after this merge applies `0115`.**
+- **The first restart after this merge applies `0115`.**
 - Live verification: tariff 30-day `period_prices` reads `1000000` today and displays
   «10,000 تومان»; after the merge it must read `10000` and display the same.
+- `TopUpRequest.amount_kopeks` still caps at `le=2_000_000_000` on the wire, i.e. a single cabinet
+  top-up of at most **20,000,000 Toman** (what remained of F-052 once the int32 column ceiling
+  became 2.1 billion Toman). It lifts when Phase C-2 removes the ×100 from the wire.
 
 ### Task 4 — Freeze the HTTP contract with one explicit serializer — **absorbed into Task 3**
 
