@@ -1594,7 +1594,7 @@ async def return_to_saved_cart(callback: types.CallbackQuery, state: FSMContext,
     if total_price > 0 and not user_can_afford(db_user.balance_kopeks, total_price):
         insufficient_text, missing_amount = render_addon_insufficient_funds(
             texts,
-            price_kopeks=total_price,
+            price_toman=total_price,
             balance_toman=db_user.balance_kopeks,
         )
         insufficient_keyboard = get_insufficient_balance_keyboard_with_cart(
@@ -1998,7 +1998,7 @@ async def confirm_extend_subscription(
     if price > 0 and not user_can_afford(db_user.balance_kopeks, price):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=price,
+            price_toman=price,
             balance_toman=db_user.balance_kopeks,
         )
 
@@ -2363,7 +2363,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
     logger.info('Расчет покупки подписки на дней ( мес)', data=data['period_days'], months_in_period=months_in_period)
     base_log = f'   Период: {base_price_original}₽'
     if base_discount_total and base_discount_total > 0:
-        base_log += f' → {base_price}₽ (скидка {base_discount_percent}%: -{base_discount_total / 100}₽)'
+        base_log += f' → {base_price} (скидка {base_discount_percent}%: -{base_discount_total})'
     logger.info(base_log)
     if details['total_traffic_price'] > 0:
         traffic_msg = (
@@ -2371,9 +2371,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             f' × {months_in_period} = {details["total_traffic_price"]}₽'
         )
         if details['traffic_discount_total'] > 0:
-            traffic_msg += (
-                f' (скидка {details["traffic_discount_percent"]}%: -{details["traffic_discount_total"] / 100}₽)'
-            )
+            traffic_msg += f' (скидка {details["traffic_discount_percent"]}%: -{details["traffic_discount_total"]})'
         logger.info(traffic_msg)
     if details['total_servers_price'] > 0:
         servers_msg = (
@@ -2381,9 +2379,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             f' × {months_in_period} = {details["total_servers_price"]}₽'
         )
         if details['servers_discount_total'] > 0:
-            servers_msg += (
-                f' (скидка {details["servers_discount_percent"]}%: -{details["servers_discount_total"] / 100}₽)'
-            )
+            servers_msg += f' (скидка {details["servers_discount_percent"]}%: -{details["servers_discount_total"]})'
         logger.info(servers_msg)
     if details['total_devices_price'] > 0:
         devices_msg = (
@@ -2391,14 +2387,12 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
             f' × {months_in_period} = {details["total_devices_price"]}₽'
         )
         if details['devices_discount_total'] > 0:
-            devices_msg += (
-                f' (скидка {details["devices_discount_percent"]}%: -{details["devices_discount_total"] / 100}₽)'
-            )
+            devices_msg += f' (скидка {details["devices_discount_percent"]}%: -{details["devices_discount_total"]})'
         logger.info(devices_msg)
     if promo_offer_discount_value > 0:
         logger.info(
-            'Промо-предложение: -₽ (%)',
-            promo_offer_discount_value=promo_offer_discount_value / 100,
+            'Промо-предложение: - (%)',
+            promo_offer_discount_value=promo_offer_discount_value,
             promo_offer_discount_percent=promo_offer_discount_percent,
         )
     logger.info('ИТОГО: ₽', final_price=final_price)
@@ -2406,7 +2400,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
     if final_price > 0 and not user_can_afford(db_user.balance_kopeks, final_price):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=final_price,
+            price_toman=final_price,
             balance_toman=db_user.balance_kopeks,
         )
 
@@ -2446,7 +2440,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         if not success:
             message_text, missing_toman = render_addon_insufficient_funds(
                 texts,
-                price_kopeks=final_price,
+                price_toman=final_price,
                 balance_toman=db_user.balance_kopeks,
             )
 
@@ -4593,7 +4587,7 @@ async def _extend_existing_subscription(
     if price_kopeks > 0 and not user_can_afford(db_user.balance_kopeks, price_kopeks):
         message_text, missing_toman = render_addon_insufficient_funds(
             texts,
-            price_kopeks=price_kopeks,
+            price_toman=price_kopeks,
             balance_toman=db_user.balance_kopeks,
         )
 

@@ -12,10 +12,10 @@
 * общий обработчик кнопки требовал у корзины ``period_days`` — у докупки его
   нет и быть не может.
 
-У нас сверху: цена в корзине — каталожная (``price_kopeks``, ÷100 при показе), а
-баланс — томаны 1:1 (Phase B). Кнопка сравнивает их через ``user_can_afford`` и
-показывает тот же экран нехватки, что и остальные докупки
-(``render_addon_insufficient_funds``). Сравнение «как есть» ошибалось бы в 100 раз.
+У нас сверху: после Phase C и цена в корзине, и баланс — томаны 1:1; ключ
+``price_kopeks`` остался только как имя поля. Кнопка сравнивает их через
+``user_can_afford`` и показывает тот же экран нехватки, что и остальные докупки
+(``render_addon_insufficient_funds``).
 
 Сторож в конце: каждая корзина докупки в коде (бот и кабинет, 8 мест) обязана
 нести ``'return_to_cart': True`` — новая без флага не соберётся.
@@ -37,8 +37,8 @@ from app.services.user_cart_service import UserCartService
 APP_ROOT = Path(__file__).resolve().parents[2] / 'app'
 ADDON_MODES = {'add_traffic', 'add_devices'}
 
-# 5000 на каталожной шкале = 50 томанов.
-CART_PRICE = 5000
+# Корзина стоит 50 томанов (ключ ``price_kopeks`` — легаси-имя, шкала томанов).
+CART_PRICE = 50
 
 
 class _MockRedis:
@@ -200,11 +200,11 @@ async def test_button_with_still_insufficient_balance_sends_back_to_topup():
 
 
 @pytest.mark.asyncio
-async def test_button_compares_toman_balance_with_catalog_price():
-    """60 томанов хватает на корзину в 50 томанов (5000 по каталогу).
+async def test_button_compares_the_balance_with_the_cart_price_on_one_scale():
+    """60 томанов хватает на корзину в 50 томанов — обе стороны на одной шкале.
 
-    Сравнение «баланс < price_kopeks» как есть (60 < 5000) отправило бы человека
-    пополнять баланс, которого уже хватает, — ровно 100-кратная ошибка шкалы.
+    До Phase C цена корзины была каталожной (5000), и сравнение «как есть»
+    отправило бы человека пополнять баланс, которого уже хватает.
     """
     from app.handlers.subscription.addon_cart import resume_addon_cart_from_button
 
