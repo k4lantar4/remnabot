@@ -221,7 +221,7 @@ Each task is one PR, mergeable on its own.
   the log), idempotency, the marker row, the display invariant
   (`format_price(before) == format_balance(after)`), and the pre-cutoff refusal.
 
-### Task 3 — Collapse the helpers, ship `0115`, and freeze the wire — **done (remnabot#PRNUM)**
+### Task 3 — Collapse the helpers, ship `0115`, and freeze the wire — **done (remnabot#65)**
 
 **Re-scoped 2026-09-12, mid-execution.** Tasks 3, 4 and 5 as originally written are *not*
 separable, and this is the single most important correction to this plan.
