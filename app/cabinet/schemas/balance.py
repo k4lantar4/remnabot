@@ -1,7 +1,7 @@
 """Balance and payment schemas for cabinet."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -95,6 +95,61 @@ class StarsInvoiceResponse(BaseModel):
     invoice_url: str
     stars_amount: int
     amount_kopeks: int
+
+
+class C2cSessionRequest(BaseModel):
+    """Start (or re-price) the user's card-to-card top-up."""
+
+    amount_kopeks: int = Field(..., ge=1, le=2_000_000_000, description='Amount on the cabinet wire scale (Toman x100)')
+
+
+class C2cReceiptSubmitRequest(BaseModel):
+    """Receipt for a pending card-to-card top-up: an uploaded image, a note, or both."""
+
+    receipt_id: int
+    media_file_id: str | None = Field(None, max_length=512, description='file_id from /cabinet/media/upload')
+    media_type: Literal['photo', 'document'] | None = None
+    text: str | None = Field(None, max_length=500)
+
+
+class C2cCancelRequest(BaseModel):
+    """Cancel a pending card-to-card top-up that has no receipt yet."""
+
+    receipt_id: int
+
+
+class C2cSessionResponse(BaseModel):
+    """Card to transfer to, for the user's pending card-to-card top-up."""
+
+    receipt_id: int
+    status: str
+    # amount_kopeks is the cabinet wire scale (Toman x100); amount_toman is the same amount 1:1.
+    amount_kopeks: int
+    amount_toman: int
+    card_label: str
+    card_number: str
+    card_holder: str | None = None
+    guide_text: str
+    expires_at: datetime | None = None
+
+
+class C2cReceiptStateResponse(BaseModel):
+    """State of a card-to-card top-up. Card fields are set only while the transfer is still due."""
+
+    receipt_id: int
+    status: str
+    has_receipt: bool
+    amount_kopeks: int
+    amount_toman: int
+    approved_amount_toman: int | None = None
+    rejection_reason: str | None = None
+    card_label: str | None = None
+    card_number: str | None = None
+    card_holder: str | None = None
+    guide_text: str | None = None
+    created_at: datetime
+    expires_at: datetime | None = None
+    processed_at: datetime | None = None
 
 
 class PendingPaymentResponse(BaseModel):

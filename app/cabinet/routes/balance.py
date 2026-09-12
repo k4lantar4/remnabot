@@ -4,7 +4,7 @@ import math
 import time
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from app.database.crud.saved_payment_method import (
 from app.database.crud.user import get_user_by_id
 from app.database.models import PaymentMethod, Transaction, User
 from app.localization.texts import get_texts
+from app.plugins.c2c import cabinet as c2c_cabinet
 from app.services.payment_method_config_service import get_enabled_methods_for_user
 from app.services.payment_service import PaymentService
 from app.services.payment_verification_service import (
@@ -37,6 +38,11 @@ from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
     BalanceResponse,
+    C2cCancelRequest,
+    C2cReceiptStateResponse,
+    C2cReceiptSubmitRequest,
+    C2cSessionRequest,
+    C2cSessionResponse,
     ManualCheckResponse,
     PaymentMethodResponse,
     PendingPaymentListResponse,
@@ -278,6 +284,156 @@ def _method_unavailable(texts) -> HTTPException:
         'CABINET_TOPUP_METHOD_UNAVAILABLE',
         'This payment method is not available right now.',
     )
+
+
+_C2C_ERRORS = {
+    c2c_cabinet.ALREADY_SUBMITTED: (
+        status.HTTP_409_CONFLICT,
+        'CABINET_C2C_RECEIPT_ALREADY_SUBMITTED',
+        'Your card transfer receipt is already under review.',
+    ),
+    c2c_cabinet.EMPTY: (
+        status.HTTP_400_BAD_REQUEST,
+        'CABINET_C2C_RECEIPT_EMPTY',
+        'Attach the receipt image or write the transfer details.',
+    ),
+    c2c_cabinet.NOT_FOUND: (
+        status.HTTP_404_NOT_FOUND,
+        'CABINET_C2C_RECEIPT_NOT_FOUND',
+        'This card transfer was not found or is already closed.',
+    ),
+    c2c_cabinet.ADMIN_UNREACHABLE: (
+        status.HTTP_502_BAD_GATEWAY,
+        'CABINET_C2C_ADMIN_UNREACHABLE',
+        'Your receipt could not be sent for review. Please try again.',
+    ),
+}
+
+
+def _c2c_error(error: c2c_cabinet.C2cCabinetError, texts) -> HTTPException:
+    if error.code not in _C2C_ERRORS:
+        return _method_unavailable(texts)
+    status_code, key, default = _C2C_ERRORS[error.code]
+    return _topup_error(status_code, texts, key, default)
+
+
+def _c2c_state(receipt, texts) -> C2cReceiptStateResponse:
+    card = None
+    if receipt.status == 'pending' and not c2c_cabinet.has_receipt(receipt):
+        card = c2c_cabinet.card_for_receipt(receipt)
+    return C2cReceiptStateResponse(
+        receipt_id=receipt.id,
+        status=receipt.status,
+        has_receipt=c2c_cabinet.has_receipt(receipt),
+        amount_kopeks=wire_catalog_kopeks(receipt.amount_kopeks),
+        amount_toman=receipt.amount_kopeks,
+        approved_amount_toman=receipt.approved_amount_kopeks,
+        rejection_reason=c2c_cabinet.rejection_reason_for_user(receipt, texts),
+        card_label=receipt.card_label,
+        card_number=card['number'] if card else None,
+        card_holder=(card.get('holder') or None) if card else None,
+        guide_text=settings.C2C_GUIDE_TEXT if card else None,
+        created_at=receipt.created_at,
+        expires_at=receipt.expires_at,
+        processed_at=receipt.processed_at,
+    )
+
+
+@router.post('/c2c/session', response_model=C2cSessionResponse)
+async def start_c2c_session(
+    request: C2cSessionRequest,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """Start a card-to-card top-up: assign a card and hold the user's single pending receipt."""
+    texts = get_texts(getattr(user, 'language', None))
+    _check_topup_allowed(user, texts)
+
+    methods = await get_payment_methods(user=user, db=db)
+    method = next((m for m in methods if m.id == 'c2c'), None)
+    if not method or not method.is_available:
+        raise _method_unavailable(texts)
+
+    _check_topup_amount(request.amount_kopeks, method, texts)
+
+    try:
+        receipt = await c2c_cabinet.start_cabinet_receipt(db, user, toman_from_wire_catalog(request.amount_kopeks))
+    except c2c_cabinet.C2cCabinetError as error:
+        raise _c2c_error(error, texts)
+
+    card = c2c_cabinet.card_for_receipt(receipt)
+    if not card:
+        raise _method_unavailable(texts)
+
+    return C2cSessionResponse(
+        receipt_id=receipt.id,
+        status=receipt.status,
+        amount_kopeks=wire_catalog_kopeks(receipt.amount_kopeks),
+        amount_toman=receipt.amount_kopeks,
+        card_label=receipt.card_label or card['label'],
+        card_number=card['number'],
+        card_holder=card.get('holder') or None,
+        guide_text=settings.C2C_GUIDE_TEXT,
+        expires_at=receipt.expires_at,
+    )
+
+
+@router.post('/c2c/receipt', response_model=C2cReceiptStateResponse)
+async def submit_c2c_receipt(
+    request: C2cReceiptSubmitRequest,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """Attach the receipt (uploaded image file_id and/or a note) and forward it to the admin group."""
+    texts = get_texts(getattr(user, 'language', None))
+    _check_topup_allowed(user, texts)
+
+    try:
+        receipt = await c2c_cabinet.attach_cabinet_receipt(
+            db,
+            user,
+            request.receipt_id,
+            media_file_id=request.media_file_id,
+            media_type=request.media_type,
+            text=request.text,
+        )
+    except c2c_cabinet.C2cCabinetError as error:
+        raise _c2c_error(error, texts)
+
+    return _c2c_state(receipt, texts)
+
+
+@router.get(
+    '/c2c/current',
+    response_model=C2cReceiptStateResponse,
+    responses={204: {'description': 'No card-to-card top-up in progress'}},
+)
+async def get_current_c2c_receipt(
+    receipt_id: int | None = Query(None, description='Follow this receipt after it leaves pending'),
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """The user's pending card-to-card top-up, or the given receipt in whatever status it reached."""
+    texts = get_texts(getattr(user, 'language', None))
+    receipt = await c2c_cabinet.current_cabinet_receipt(db, user, receipt_id=receipt_id)
+    if receipt is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return _c2c_state(receipt, texts)
+
+
+@router.post('/c2c/cancel', response_model=C2cReceiptStateResponse)
+async def cancel_c2c_receipt(
+    request: C2cCancelRequest,
+    user: User = Depends(get_current_cabinet_user),
+    db: AsyncSession = Depends(get_cabinet_db),
+):
+    """Cancel a pending card-to-card top-up that has no receipt attached yet."""
+    texts = get_texts(getattr(user, 'language', None))
+    try:
+        receipt = await c2c_cabinet.cancel_cabinet_receipt(db, user, request.receipt_id)
+    except c2c_cabinet.C2cCabinetError as error:
+        raise _c2c_error(error, texts)
+    return _c2c_state(receipt, texts)
 
 
 @router.post('/stars-invoice', response_model=StarsInvoiceResponse)
