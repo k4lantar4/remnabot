@@ -14,7 +14,6 @@ from app.services.payment_service import PaymentService
 from app.states import BalanceStates
 from app.utils import toman_rates
 from app.utils.decorators import error_handler
-from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -105,7 +104,7 @@ async def process_cryptobot_payment_amount(
         return
 
     # amount_kopeks is the bot's top-up scale (Toman x100); the balance is credited in Toman.
-    topup_toman = catalog_price_in_toman(amount_kopeks)
+    topup_toman = amount_kopeks
     min_toman, max_toman = toman_rates.cryptobot_topup_limits_toman()
     if not min_toman <= topup_toman <= max_toman:
         await message.answer(

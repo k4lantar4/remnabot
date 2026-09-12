@@ -1,12 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import Integer, and_, case, func, or_, select
+from sqlalchemy import Integer, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.models import PaymentMethod, Transaction, TransactionType, User
-from app.utils.price_display import BALANCE_SCALE_TRANSACTION_TYPES, storage_sum_to_display_toman
+from app.utils.price_display import storage_sum_to_display_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -44,20 +44,16 @@ def display_toman_from_type_sums(rows) -> int:
 def transaction_toman_amount():
     """Per-row ``|amount_kopeks|`` of a ``Transaction`` in display Toman (SQL expression).
 
-    Balance-scale types count 1:1, catalog types are divided by 100 per row — the same
-    floor as ``catalog_price_in_toman``, i.e. what the wallet was actually charged. Typing
-    ``abs`` as Integer makes ``//`` render as plain integer division on PostgreSQL and
-    SQLite (no FLOOR/NUMERIC), so sums stay integers.
+    Since Phase C (revision ``0115``) every row is stored in Toman 1:1, whatever its type, so this
+    is a plain ``abs()``. It used to be a ``CASE`` that divided catalog types by 100 — a per-row
+    scale decision driven by a hand-maintained list of transaction types, where a newly added type
+    silently landed on the wrong side and made a report 100x off.
     """
-    amount = func.abs(Transaction.amount_kopeks, type_=Integer)
-    return case(
-        (Transaction.type.in_(BALANCE_SCALE_TRANSACTION_TYPES), amount),
-        else_=amount // 100,
-    )
+    return func.abs(Transaction.amount_kopeks, type_=Integer)
 
 
 def transaction_toman_sum():
-    """``COALESCE(SUM(...), 0)`` of ``transaction_toman_amount`` — safe across mixed-scale rows."""
+    """``COALESCE(SUM(...), 0)`` of :func:`transaction_toman_amount`."""
     return func.coalesce(func.sum(transaction_toman_amount()), 0)
 
 

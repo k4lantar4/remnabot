@@ -1543,7 +1543,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
     from app.database.models import PaymentMethod, TransactionType
     from app.services.subscription_renewal_service import SubscriptionRenewalService, calculate_missing_amount
     from app.services.subscription_service import SubscriptionService
-    from app.utils.price_display import catalog_price_in_toman, user_can_afford
+    from app.utils.price_display import user_can_afford
 
     if settings.is_multi_tariff_enabled():
         from app.database.crud.subscription import get_active_subscriptions_by_user_id
@@ -1683,7 +1683,7 @@ async def handle_activate_button(callback: types.CallbackQuery, db_user: User, d
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(best_price),
+                best_price,
                 f'Активация подписки на {best_period} дней',
                 mark_as_paid_subscription=True,
                 consume_promo_offer=consume_promo,

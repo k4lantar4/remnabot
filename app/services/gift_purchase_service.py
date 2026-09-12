@@ -26,7 +26,7 @@ from app.database.models import (
 )
 from app.services.guest_purchase_service import create_purchase
 from app.services.pricing_engine import RenewalPricing, pricing_engine
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -455,7 +455,7 @@ async def purchase_gift_from_balance(
         balance_ok = await subtract_user_balance(
             db,
             buyer,
-            catalog_price_in_toman(fresh_price),
+            fresh_price,
             description=tx_description,
             create_transaction=False,
             consume_promo_offer=consume_promo,

@@ -23,7 +23,7 @@ from app.services.subscription_renewal_service import (
     calculate_missing_amount,
 )
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -259,7 +259,7 @@ async def renew_subscription(
             user,
             subscription,
             pricing,
-            charge_balance_amount=catalog_price_in_toman(price_kopeks),
+            charge_balance_amount=price_kopeks,
             description=renewal_description,
             payment_method=PaymentMethod.BALANCE,
         )

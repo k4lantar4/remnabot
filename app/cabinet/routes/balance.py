@@ -29,11 +29,10 @@ from app.services.payment_verification_service import (
 )
 from app.utils import toman_rates
 from app.utils.price_display import (
-    catalog_price_in_toman,
     display_balance_from_storage,
     display_transaction_amount_from_storage,
-    kopeks_from_display_amount,
 )
+from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
 from ..schemas.balance import (
@@ -249,7 +248,7 @@ def _check_topup_amount(amount_kopeks: int, method: PaymentMethodResponse, texts
             texts,
             'CABINET_TOPUP_AMOUNT_TOO_LOW',
             'Minimum top-up amount is {amount}.',
-            amount=texts.format_balance(catalog_price_in_toman(method.min_amount_kopeks)),
+            amount=texts.format_balance(method.min_amount_kopeks),
         )
     if amount_kopeks > method.max_amount_kopeks:
         raise _topup_error(
@@ -257,7 +256,7 @@ def _check_topup_amount(amount_kopeks: int, method: PaymentMethodResponse, texts
             texts,
             'CABINET_TOPUP_AMOUNT_TOO_HIGH',
             'Maximum top-up amount is {amount}.',
-            amount=texts.format_balance(catalog_price_in_toman(method.max_amount_kopeks)),
+            amount=texts.format_balance(method.max_amount_kopeks),
         )
 
 
@@ -294,7 +293,7 @@ async def create_stars_invoice(
     _check_topup_amount(request.amount_kopeks, method, texts)
 
     try:
-        quote = toman_rates.quote_stars_for_toman(catalog_price_in_toman(request.amount_kopeks))
+        quote = toman_rates.quote_stars_for_toman(toman_from_wire_catalog(request.amount_kopeks))
     except toman_rates.TomanRateUnavailable:
         raise _method_unavailable(texts)
 
@@ -330,7 +329,7 @@ async def create_stars_invoice(
         return StarsInvoiceResponse(
             invoice_url=invoice_url,
             stars_amount=quote.stars,
-            amount_kopeks=kopeks_from_display_amount(quote.credit_toman),
+            amount_kopeks=wire_catalog_kopeks(quote.credit_toman),
         )
 
     except TelegramAPIError as e:
@@ -417,7 +416,7 @@ async def create_topup(
             if not settings.is_cryptobot_enabled() or not toman_rates.is_cryptobot_toman_ready():
                 raise _method_unavailable(texts)
 
-            topup_toman = catalog_price_in_toman(request.amount_kopeks)
+            topup_toman = toman_from_wire_catalog(request.amount_kopeks)
             try:
                 amount_usdt = toman_rates.quote_usdt_for_toman(topup_toman)
             except toman_rates.TomanRateUnavailable:

@@ -30,7 +30,7 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.cache import RateLimitCache, cache, cache_key
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import (
@@ -353,7 +353,7 @@ async def purchase_traffic(
         traffic_description = texts.t('TRAFFIC_TOPUP_DESCRIPTION', 'Докупка {gb} ГБ трафика').format(gb=request.gb)
 
     # Списываем баланс
-    success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), traffic_description)
+    success = await subtract_user_balance(db, user, final_price, traffic_description)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -671,7 +671,7 @@ async def switch_traffic_package(
         description = texts.t('TRAFFIC_SWITCH_DESCRIPTION', 'Traffic upgrade from {old}GB to {new}GB').format(
             old=current_traffic, new=new_traffic
         )
-        success = await subtract_user_balance(db, user, catalog_price_in_toman(final_price), description)
+        success = await subtract_user_balance(db, user, final_price, description)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

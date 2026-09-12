@@ -27,7 +27,6 @@ from app.services.subscription_renewal_service import (
 from app.utils import toman_rates
 from app.utils.currency_converter import currency_converter
 from app.utils.payment_logger import payment_logger as logger
-from app.utils.price_display import catalog_price_in_toman, kopeks_from_display_amount
 from app.utils.user_utils import format_referrer_info
 
 
@@ -290,7 +289,7 @@ class CryptoBotPaymentMixin:
 
                 if toman_payload is not None:
                     amount_kopeks = toman_payload.toman  # Toman 1:1, the users.balance_kopeks scale
-                    referral_amount_kopeks = kopeks_from_display_amount(amount_kopeks)
+                    referral_amount_kopeks = amount_kopeks
                     amount_rubles_rounded = amount_kopeks
                     conversion_rate = 0.0
                     transaction_description = user_texts.t(
@@ -570,7 +569,7 @@ class CryptoBotPaymentMixin:
         # (calculate_missing_amount), and finalize() charges the balance in Toman.
         required_balance = max(
             0,
-            catalog_price_in_toman(pricing_model.final_total) - descriptor.missing_amount_kopeks,
+            pricing_model.final_total - descriptor.missing_amount_kopeks,
         )
 
         current_balance = getattr(user, 'balance_kopeks', 0)

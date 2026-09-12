@@ -25,7 +25,7 @@ from app.services.subscription_checkout_service import (
 )
 from app.services.subscription_service import SubscriptionService
 from app.states import SubscriptionStates
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_prorated_price,
@@ -384,7 +384,7 @@ async def apply_countries_changes(callback: types.CallbackQuery, db_user: User, 
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(total_cost),
+                total_cost,
                 f'Добавление стран: {", ".join(added_names)} за {charged_days} дн.',
             )
             if not success:
@@ -930,7 +930,7 @@ async def confirm_add_countries_to_subscription(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(total_price),
+                total_price,
                 f'Добавление стран к подписке: {", ".join(new_countries_names)}',
             )
 

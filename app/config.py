@@ -2218,37 +2218,19 @@ class Settings(BaseSettings):
         round_kopeks: bool | None = None,
         language: str | None = None,
     ) -> str:
+        """Format a catalog price for display.
+
+        Since Phase C (revision ``0115``) catalog prices are stored in Toman 1:1, exactly like
+        balances, so this is :meth:`format_balance` under its historical name. It is kept as an
+        alias rather than removed because ~330 call sites read naturally as "format a price", and
+        because having two formatters that could disagree was the shape of F-058.
+
+        The ``price_kopeks`` parameter name and the unused ``round_kopeks`` flag are likewise
+        historical: rounding kopeks is meaningless once nothing is stored in kopeks, but the
+        keyword is still passed by existing callers.
         """
-        Форматирует цену в копейках для отображения пользователю.
-
-        Args:
-            price_kopeks: Сумма в копейках
-            round_kopeks: Если True, округляет копейки (≤50 вниз, >50 коп вверх).
-                         Если None, использует настройку PRICE_ROUNDING_ENABLED.
-            language: Язык для группировки тысяч (fa/ru/en); None — без группировки.
-
-        Returns:
-            Отформатированная строка цены (например, "150 تومان")
-        """
-        should_round = round_kopeks if round_kopeks is not None else self.PRICE_ROUNDING_ENABLED
-        suffix = self._price_display_suffix()
-
-        sign = '-' if price_kopeks < 0 else ''
-        abs_kopeks = abs(price_kopeks)
-        rubles, kopeks = divmod(abs_kopeks, 100)
-
-        if should_round:
-            if kopeks > 50:
-                rubles += 1
-            kopeks = 0
-
-        grouped_rubles = self._group_balance_digits(rubles, language)
-
-        if kopeks:
-            value = f'{sign}{grouped_rubles}.{kopeks:02d}'.rstrip('0').rstrip('.')
-            return f'{value}{suffix}'
-
-        return f'{sign}{grouped_rubles}{suffix}'
+        _ = round_kopeks
+        return self.format_balance(price_kopeks, language=language)
 
     def _group_balance_digits(self, abs_amount: int, language: str | None) -> str:
         lang = (language or 'fa').split('-')[0].lower()

@@ -29,7 +29,7 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.states import SubscriptionStates
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import (
     calculate_prorated_price,
 )
@@ -367,7 +367,7 @@ async def confirm_reset_traffic(
 
     try:
         # Debit the Toman price; the transaction row below keeps the catalog reset_price.
-        success = await subtract_user_balance(db, db_user, catalog_price_in_toman(reset_price), 'Сброс трафика')
+        success = await subtract_user_balance(db, db_user, reset_price, 'Сброс трафика')
 
         if not success:
             await callback.answer('⌛ Ошибка списания средств', show_alert=True)
@@ -663,7 +663,7 @@ async def add_traffic(callback: types.CallbackQuery, db_user: User, db: AsyncSes
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(price),
+            price,
             f'Добавление {traffic_gb} ГБ трафика',
         )
 
@@ -983,7 +983,7 @@ async def execute_switch_traffic(
             success = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_difference),
+                price_difference,
                 f'Переключение трафика с {current_traffic}GB на {new_traffic_gb}GB',
             )
 

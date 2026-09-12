@@ -70,7 +70,7 @@ from app.utils.cache import cache
 from app.utils.formatters import format_username_link
 from app.utils.message_patch import caption_exceeds_telegram_limit
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button, build_subscription_extend_button
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 from app.utils.promo_offer import get_user_active_promo_discount_percent
 from app.utils.rich_notify import try_send_rich_notification
 from app.utils.subscription_utils import (
@@ -1604,7 +1604,7 @@ class MonitoringService:
                     # charge_amount is the catalog price (the ledger row and the notifications format it
                     # with format_price); the Toman balance is checked against and debited its Toman value.
                     charge_amount = renewal_cost
-                    charge_toman = catalog_price_in_toman(charge_amount)
+                    charge_toman = charge_amount
                     promo_discount_percent = get_user_active_promo_discount_percent(user)
 
                     autopay_key = f'autopay_{user.id}_{subscription.id}'

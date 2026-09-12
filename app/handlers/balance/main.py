@@ -24,7 +24,6 @@ from app.utils.decorators import error_handler
 from app.utils.price_display import (
     balance_from_display_amount,
     is_balance_scale_transaction,
-    kopeks_from_display_amount,
     missing_toman,
     user_can_afford,
 )
@@ -614,9 +613,9 @@ async def process_topup_amount(message: types.Message, db_user: User, state: FSM
         if payment_method == 'c2c':
             amount_kopeks = balance_from_display_amount(amount_text)
         elif payment_method in _TOMAN_RATE_METHODS:
-            # Typed Toman (fa digits, separators) → the Toman x100 scale these handlers take; their
-            # own limits come from the fixed Toman rate, not the ruble bounds below.
-            amount_kopeks = kopeks_from_display_amount(balance_from_display_amount(amount_text))
+            # Typed Toman (fa digits, separators) → stored Toman; these handlers take their own
+            # limits from the fixed Toman rate, not the ruble bounds below.
+            amount_kopeks = balance_from_display_amount(amount_text)
         else:
             amount_rubles = float(amount_text.replace(',', '.'))
             amount_kopeks = int(amount_rubles * 100)

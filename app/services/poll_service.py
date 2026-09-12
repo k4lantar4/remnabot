@@ -21,7 +21,6 @@ from app.database.models import (
     User,
 )
 from app.localization.texts import get_texts
-from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -226,7 +225,7 @@ async def reward_user_for_poll(
     success = await add_user_balance(
         db,
         user,
-        catalog_price_in_toman(poll.reward_amount_kopeks),
+        poll.reward_amount_kopeks,
         description,
         transaction_type=TransactionType.POLL_REWARD,
     )

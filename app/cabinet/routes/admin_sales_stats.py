@@ -28,7 +28,6 @@ from app.database.models import (
     TransactionType,
     User,
 )
-from app.utils.price_display import catalog_price_in_toman
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -165,7 +164,7 @@ async def get_sales_summary(
         gift_revenue = gift_revenue_result.scalar() or 0
         total_revenue += gift_revenue
         # GuestPurchase.amount_kopeks is a catalog price (tariff/gift quote).
-        total_revenue_toman += catalog_price_in_toman(gift_revenue)
+        total_revenue_toman += gift_revenue
 
         # Manual top-ups by admins
         manual_topup_result = await db.execute(

@@ -27,11 +27,10 @@ from app.database.models import PaymentMethod, ServerSquad, Subscription, Subscr
 from app.localization.texts import get_texts
 from app.services.subscription_service import SubscriptionService
 from app.utils.price_display import (
-    catalog_price_in_toman,
     missing_toman,
-    missing_toman_on_catalog_scale,
     user_can_afford,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 from app.utils.pricing_utils import (
     apply_percentage_discount,
     calculate_months_from_days,
@@ -939,7 +938,7 @@ class MiniAppSubscriptionPurchaseService:
         # This payload also backs the cabinet purchase preview, whose InsufficientBalancePrompt renders
         # missing_amount_kopeks as catalog kopeks (÷100 for the label and the prefilled top-up): the
         # field carries the Toman shortfall on the catalog scale.
-        missing_catalog_scale = missing_toman_on_catalog_scale(context.balance_kopeks, pricing.final_total)
+        missing_catalog_scale = wire_catalog_kopeks(missing)
         status_message = ''
         if missing > 0:
             status_message = texts.t(
@@ -1022,7 +1021,7 @@ class MiniAppSubscriptionPurchaseService:
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(pricing.final_total),
+            pricing.final_total,
             description,
             consume_promo_offer=pricing.promo_discount_value > 0,
             mark_as_paid_subscription=True,

@@ -1,11 +1,20 @@
-"""
-Unified price display system for all subscription and balance pricing.
+"""Pricing and price display, on one scale.
 
-This module provides a centralized way to:
-- Calculate prices with all applicable discounts (promo groups, promo offers)
-- Format price buttons consistently across all flows
-- Ensure uniform discount display throughout the application
-- Convert between stored kopeks and user-facing display amounts (÷100 / ×100)
+This module centralises:
+- price calculation with all applicable discounts (promo groups, promo offers)
+- consistent price-button and price-text formatting across every flow
+
+It no longer converts between scales. Before Phase C, catalog prices were stored as ``price_kopeks``
+(Toman x100) while balances were Toman 1:1, and the helpers here translated between the two; getting
+the direction wrong at any hop rendered or charged 100x off, which is what remnabot #32…#56 kept
+fixing one site at a time. Revision ``0115`` divided the catalog columns by 100, so a price and a
+balance are now the same kind of number and comparing them is plain arithmetic.
+
+``user_can_afford`` and ``missing_toman`` survive as one-line helpers on purpose: they give the
+comparison a name to grep for, and they keep their call sites unchanged across the migration.
+
+The one boundary that still speaks the old scale is the HTTP contract the cabinet consumes; it lives
+in :mod:`app.utils.wire_scale` and nowhere else.
 """
 
 import re
@@ -25,99 +34,39 @@ logger = structlog.get_logger(__name__)
 ADMIN_BALANCE_EDIT_MAX_TOMAN = 10_000_000
 
 
-def display_amount_from_kopeks(kopeks: int) -> float:
-    """User-facing display unit for catalog prices (kopeks ÷ 100)."""
-    return kopeks / 100
-
-
 def display_balance_from_storage(amount_toman: int) -> float:
-    """API balance_rubles: stored integer is Toman 1:1 (Phase B)."""
+    """API ``balance_rubles``: the stored integer is Toman 1:1."""
     return float(amount_toman)
 
 
-# Balance movements stored 1:1 with balance_kopeks after Phase B.
-# Catalog charges (subscription/gift) stay on price_kopeks scale until Phase C.
-_BALANCE_SCALE_TRANSACTION_TYPES = frozenset(
-    {
-        'deposit',
-        'withdrawal',
-        'refund',
-        'failed_refund',
-        'referral_reward',
-        'poll_reward',
-    }
-)
+def storage_sum_to_display_toman(raw_sum: int) -> int:
+    """Display Toman for a summed amount. Since Phase C the sum is already Toman — only |x|."""
+    return abs(int(raw_sum or 0))
 
 
-# Same set, for SQL ``IN (...)`` clauses (``app.database.crud.transaction.transaction_toman_amount``).
-BALANCE_SCALE_TRANSACTION_TYPES: tuple[str, ...] = tuple(sorted(_BALANCE_SCALE_TRANSACTION_TYPES))
+def display_transaction_amount_from_storage(amount_kopeks: int) -> float:
+    """User-facing ``amount_rubles`` for a transaction row, sign preserved.
 
-
-def is_balance_scale_transaction(tx_type: str) -> bool:
-    """True when transaction.amount_kopeks uses balance Toman 1:1 storage."""
-    return tx_type in _BALANCE_SCALE_TRANSACTION_TYPES
-
-
-def storage_sum_to_display_toman(raw_sum: int, tx_type: str) -> int:
-    """Convert a per-type raw amount sum to display Toman integer."""
-    if is_balance_scale_transaction(tx_type):
-        return abs(raw_sum)
-    return abs(raw_sum) // 100
-
-
-def format_transaction_amount_for_display(amount_kopeks: int, tx_type: str, format_balance, format_price) -> str:
-    """Format a single transaction row amount using the correct scale helper."""
-    if is_balance_scale_transaction(tx_type):
-        return format_balance(abs(amount_kopeks))
-    return format_price(abs(amount_kopeks))
-
-
-def display_transaction_amount_from_storage(amount_kopeks: int, tx_type: str) -> float:
+    Before Phase C this had to know the transaction type, because catalog charges were stored x100
+    and balance movements 1:1. Revision ``0115`` put every row on the Toman scale, so the type
+    decides nothing and the hand-maintained list of "balance-scale types" is gone.
     """
-    User-facing amount_rubles for a transaction row.
-
-    Balance-scale types: 1:1 Toman (Phase B). Catalog-scale types: ÷100 (Phase C).
-    """
-    abs_amount = abs(amount_kopeks)
-    if is_balance_scale_transaction(tx_type):
-        value = float(abs_amount)
-    else:
-        value = abs_amount / 100
-    return -value if amount_kopeks < 0 else value
+    return float(amount_kopeks)
 
 
-def catalog_price_in_toman(price_kopeks: int) -> int:
-    """Convert catalog price_kopeks to Toman for balance comparison/charge."""
-    return price_kopeks // 100
+def user_can_afford(balance_toman: int, price_toman: int) -> bool:
+    """True when the stored balance covers the price. Both sides are Toman since Phase C."""
+    return int(balance_toman or 0) >= int(price_toman or 0)
 
 
-def user_can_afford(balance_toman: int, price_kopeks: int) -> bool:
-    """True when stored balance (Toman) covers catalog price."""
-    return balance_toman >= catalog_price_in_toman(price_kopeks)
+def missing_toman(balance_toman: int, price_toman: int) -> int:
+    """Toman shortfall of a balance against a price; 0 when affordable."""
+    return max(0, int(price_toman or 0) - int(balance_toman or 0))
 
 
-def missing_toman(balance_toman: int, price_kopeks: int) -> int:
-    """Toman shortfall of a stored (Toman) balance against a catalog price; 0 when affordable."""
-    return max(0, catalog_price_in_toman(price_kopeks) - int(balance_toman or 0))
-
-
-def missing_toman_on_catalog_scale(balance_toman: int, price_kopeks: int) -> int:
-    """The Toman shortfall expressed on the catalog scale (x100).
-
-    Only for existing API fields a client already renders as catalog kopeks: the cabinet's
-    ``InsufficientBalancePrompt`` divides ``missing_amount_kopeks`` by 100 for both the label and
-    the prefilled top-up amount, so a 50,000-Toman shortfall must arrive as 5,000,000 there.
-    """
-    return kopeks_from_display_amount(missing_toman(balance_toman, price_kopeks))
-
-
-def render_addon_insufficient_funds(texts, *, price_kopeks: int, balance_toman: int) -> tuple[str, int]:
-    """Persian/HTML insufficient-funds copy with Toman missing for C2C top-up.
-
-    Catalog price stays on ``format_price`` (÷100). Balance and shortfall use
-    ``format_balance`` (1:1) so the C2C card amount matches the کسری line.
-    """
-    missing_toman = max(0, catalog_price_in_toman(price_kopeks) - int(balance_toman or 0))
+def render_addon_insufficient_funds(texts, *, price_toman: int, balance_toman: int) -> tuple[str, int]:
+    """Persian/HTML insufficient-funds copy with the Toman shortfall for a C2C top-up."""
+    shortfall = missing_toman(balance_toman, price_toman)
     message = texts.t(
         'ADDON_INSUFFICIENT_FUNDS_MESSAGE',
         (
@@ -128,11 +77,11 @@ def render_addon_insufficient_funds(texts, *, price_kopeks: int, balance_toman: 
             'Выберите способ пополнения. Сумма подставится автоматически.'
         ),
     ).format(
-        required=texts.format_price(price_kopeks, round_kopeks=False),
+        required=texts.format_balance(price_toman, round_kopeks=False),
         balance=texts.format_balance(balance_toman, round_kopeks=False),
-        missing=texts.format_balance(missing_toman, round_kopeks=False),
+        missing=texts.format_balance(shortfall, round_kopeks=False),
     )
-    return message, missing_toman
+    return message, shortfall
 
 
 _PERSIAN_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
@@ -173,23 +122,6 @@ def balance_from_display_amount(amount: float | Decimal | str) -> int:
         raise ValueError('Invalid display amount') from exc
     toman = int(decimal_amount.to_integral_value(rounding=ROUND_HALF_UP))
     return sign * toman
-
-
-def kopeks_from_display_amount(amount: float | Decimal) -> int:
-    """
-    Convert display unit to kopeks (single ×100, ROUND_HALF_UP).
-
-    Preserves sign for negative adjustments (e.g. -50 display → -5000 kopeks).
-    """
-    try:
-        decimal_amount = Decimal(str(amount))
-        sign = -1 if decimal_amount < 0 else 1
-        decimal_amount = abs(decimal_amount)
-        decimal_amount = decimal_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    except InvalidOperation as exc:
-        raise ValueError('Invalid display amount') from exc
-    kopeks = int((decimal_amount * 100).to_integral_value(rounding=ROUND_HALF_UP))
-    return sign * kopeks
 
 
 @dataclass

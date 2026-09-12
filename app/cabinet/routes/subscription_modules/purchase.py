@@ -51,7 +51,7 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.tariff_switch_policy import remaining_days_for_switch, tariff_switch_allowed
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 from app.utils.pricing_utils import calculate_price_per_month, format_period_description
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -909,7 +909,7 @@ async def purchase_tariff(
             description += f' (скидка {discount_percent}%)'
         if promo_offer_discount_value > 0:
             description += f' (промо -{promo_offer_discount_percent}%)'
-        charge_toman = catalog_price_in_toman(price_kopeks)
+        charge_toman = price_kopeks
         # Plain values: _refund_charge runs after db.rollback() and puts the consumed offer back.
         promo_snapshot = snapshot_promo_offer(user, promo_offer_discount_value > 0)
         success = await subtract_user_balance(
@@ -1451,7 +1451,7 @@ async def activate_trial(
         success = await subtract_user_balance(
             db,
             user,
-            catalog_price_in_toman(price_kopeks),
+            price_kopeks,
             trial_description,
             mark_as_paid_subscription=True,
         )

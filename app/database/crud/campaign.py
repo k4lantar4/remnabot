@@ -17,7 +17,6 @@ from app.database.models import (
     TransactionType,
     User,
 )
-from app.utils.price_display import catalog_price_in_toman
 
 
 logger = structlog.get_logger(__name__)
@@ -457,7 +456,7 @@ async def get_campaign_statistics(
         # first payments are subscription prices (catalog scale); bonuses are Toman.
         'total_revenue_toman': deposits_toman,
         'avg_revenue_per_user_toman': avg_revenue_per_user_toman,
-        'avg_first_payment_toman': catalog_price_in_toman(avg_first_payment),
+        'avg_first_payment_toman': avg_first_payment,
         'balance_issued_toman': total_balance,
     }
 

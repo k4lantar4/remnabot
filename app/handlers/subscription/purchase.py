@@ -111,7 +111,6 @@ from app.states import SubscriptionStates
 from app.utils.jalali_datetime import format_user_datetime
 from app.utils.price_display import (
     PriceInfo,
-    catalog_price_in_toman,
     format_price_text,
     missing_toman,
     render_addon_insufficient_funds,
@@ -1035,7 +1034,7 @@ async def activate_trial(callback: types.CallbackQuery, db_user: User, db: Async
                 # the keyboard prefills a Toman top-up: the required catalog price in Toman
                 reply_markup=get_insufficient_balance_keyboard(
                     db_user.language,
-                    amount_kopeks=catalog_price_in_toman(error.required_amount),
+                    amount_kopeks=error.required_amount,
                 ),
             )
             await callback.answer()
@@ -2438,7 +2437,7 @@ async def confirm_purchase(callback: types.CallbackQuery, state: FSMContext, db_
         success = await subtract_user_balance(
             db,
             db_user,
-            catalog_price_in_toman(final_price),
+            final_price,
             f'Покупка подписки на {data["period_days"]} дней',
             consume_promo_offer=promo_offer_discount_value > 0,
             mark_as_paid_subscription=True,
@@ -3117,7 +3116,7 @@ async def handle_toggle_daily_subscription_pause(callback: types.CallbackQuery, 
             deducted = await subtract_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(daily_price),
+                daily_price,
                 f'Суточная оплата тарифа «{tariff.name}» (возобновление)',
                 mark_as_paid_subscription=True,
             )
@@ -3305,7 +3304,7 @@ async def handle_trial_pay_with_balance(callback: types.CallbackQuery, db_user: 
         return
 
     # Debit the Toman price; the transaction row below keeps the catalog trial_price_kopeks.
-    trial_price_toman = catalog_price_in_toman(trial_price_kopeks)
+    trial_price_toman = trial_price_kopeks
     success = await subtract_user_balance(
         db,
         db_user,
@@ -4634,7 +4633,7 @@ async def _extend_existing_subscription(
     success = await subtract_user_balance(
         db,
         db_user,
-        catalog_price_in_toman(price_kopeks),
+        price_kopeks,
         f'Продление подписки на {period_days} дней',
         consume_promo_offer=consume_promo,
         mark_as_paid_subscription=True,
@@ -4697,7 +4696,7 @@ async def _extend_existing_subscription(
             await add_user_balance(
                 db,
                 db_user,
-                catalog_price_in_toman(price_kopeks),
+                price_kopeks,
                 'Возврат: ошибка продления подписки',
                 create_transaction=True,
                 transaction_type=TransactionType.REFUND,

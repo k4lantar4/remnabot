@@ -111,7 +111,7 @@ async def update_countries(
     from app.database.crud.user import subtract_user_balance
     from app.database.models import TransactionType
     from app.localization.texts import get_texts
-    from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+    from app.utils.price_display import missing_toman, user_can_afford
     from app.utils.pricing_utils import apply_percentage_discount, calculate_prorated_price
 
     subscription = await resolve_subscription(db, user, subscription_id)
@@ -214,7 +214,7 @@ async def update_countries(
     # Deduct balance and update subscription (the Toman price; the transaction row keeps the catalog total)
     if added and total_cost > 0:
         success = await subtract_user_balance(
-            db, user, catalog_price_in_toman(total_cost), f'Adding countries: {", ".join(added_names)}'
+            db, user, total_cost, f'Adding countries: {", ".join(added_names)}'
         )
         if not success:
             raise HTTPException(

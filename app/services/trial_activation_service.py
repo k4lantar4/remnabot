@@ -10,7 +10,7 @@ from app.database.crud.subscription import decrement_subscription_server_counts
 from app.database.crud.transaction import create_transaction
 from app.database.crud.user import add_user_balance, subtract_user_balance
 from app.database.models import PaymentMethod, Subscription, TransactionType, User
-from app.utils.price_display import catalog_price_in_toman, missing_toman, user_can_afford
+from app.utils.price_display import missing_toman, user_can_afford
 
 
 logger = structlog.get_logger(__name__)
@@ -91,7 +91,7 @@ async def charge_trial_activation_if_required(
     success = await subtract_user_balance(
         db,
         user,
-        catalog_price_in_toman(price_kopeks),
+        price_kopeks,
         charge_description,
         mark_as_paid_subscription=True,
     )
@@ -132,7 +132,7 @@ async def refund_trial_activation_charge(
     success = await add_user_balance(
         db,
         user,
-        catalog_price_in_toman(amount_kopeks),
+        amount_kopeks,
         refund_description,
         transaction_type=TransactionType.REFUND,
     )

@@ -39,7 +39,7 @@ from app.localization.texts import get_texts
 from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
-from app.utils.price_display import catalog_price_in_toman, user_can_afford
+from app.utils.price_display import user_can_afford
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import DevicePurchaseRequest
@@ -243,7 +243,7 @@ async def purchase_devices_legacy(
             count=request.devices
         )
 
-    charge_toman = catalog_price_in_toman(total_price)
+    charge_toman = total_price
     success = await subtract_user_balance(
         db=db,
         user=user,
@@ -541,7 +541,7 @@ async def purchase_devices(
                 count=request.devices
             )
 
-        charge_toman = catalog_price_in_toman(price_kopeks)
+        charge_toman = price_kopeks
         success = await subtract_user_balance(
             db=db,
             user=user,
