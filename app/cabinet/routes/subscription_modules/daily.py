@@ -97,7 +97,8 @@ async def toggle_subscription_pause(
 
     # If resuming, check balance and charge
     if not new_paused_state:
-        # daily_price is a catalog price (Toman x 100); the balance is Toman.
+        # daily_price and the balance are both Toman. /pause is not a wire-scaled path, so the 402
+        # sends them bare and the cabinet reads the shortfall on the Toman scale.
         if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,

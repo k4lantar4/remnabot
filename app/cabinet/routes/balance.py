@@ -23,6 +23,7 @@ from app.services.payment_service import PaymentService
 from app.services.payment_verification_service import (
     SUPPORTED_MANUAL_CHECK_METHODS,
     PendingPayment,
+    _parse_cryptobot_amount,
     get_payment_record,
     list_recent_pending_payments,
     method_display_name,
@@ -1630,20 +1631,33 @@ async def get_latest_payment_by_method(
             detail='No recent payments found',
         )
 
+    amount_kopeks, amount_is_toman = _latest_payment_amount(payment_method, payment)
     record = PendingPayment(
         local_id=payment.id,
         method=payment_method,
         identifier=str(getattr(payment, 'correlation_id', None) or payment.id),
-        amount_kopeks=payment.amount_kopeks,
+        amount_kopeks=amount_kopeks,
         status=payment.status or '',
         is_paid=bool(payment.is_paid),
         created_at=payment.created_at,
         expires_at=getattr(payment, 'expires_at', None),
         user=payment.user,
         payment=payment,
+        amount_is_toman=amount_is_toman,
     )
 
     return _record_to_response(record)
+
+
+def _latest_payment_amount(method: PaymentMethod, payment) -> tuple[int, bool]:
+    """``(amount_kopeks, amount_is_toman)`` for ``/latest``, read the way the list path reads that method.
+
+    ``CryptoBotPayment`` has no ``amount_kopeks`` column (only the crypto ``amount``), so its amount
+    comes from the invoice payload, as in ``_fetch_cryptobot_payments``.
+    """
+    if method == PaymentMethod.CRYPTOBOT:
+        return _parse_cryptobot_amount(payment)
+    return payment.amount_kopeks, False
 
 
 @router.get('/pending-payments/{method}/{payment_id}', response_model=PendingPaymentResponse)
