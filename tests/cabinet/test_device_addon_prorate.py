@@ -46,7 +46,7 @@ def _cabinet_quote(device_price_kopeks: int, devices: int, days_left: int) -> in
     """Mirror the cabinet inline formula in devices.py (no cap)."""
     base = int(device_price_kopeks * devices * days_left / 30)
     if devices > 0 and device_price_kopeks > 0:
-        base = max(100, base)  # Минимум 1 рубль
+        base = max(1, base)  # 1 Toman floor (was max(100, …), one ruble, before Phase C)
     return base
 
 
@@ -86,9 +86,11 @@ def test_short_remainder_is_prorated_down() -> None:
     assert _bot_quote(5000, 5) < _bot_quote(5000, 30)
 
 
-def test_one_ruble_floor_for_paid_devices() -> None:
-    """Tiny prorated amounts floor to 1₽ (100 kopeks)."""
-    assert _bot_quote(100, 1) == 100  # 100 × 1/30 = 3 → floored to 100
+def test_one_toman_floor_for_paid_devices() -> None:
+    """Tiny prorated amounts floor to 1 Toman — not 100, the pre-Phase-C one-ruble floor (F-101)."""
+    assert _bot_quote(100, 1) == 3  # 100 Toman × 1/30 = 3, charged as is
+    assert _bot_quote(20, 1) == 1  # 20 × 1/30 = 0 → floored to 1 Toman
+    assert _cabinet_quote(20, 1, 1) == 1
 
 
 def test_free_devices_cost_nothing() -> None:

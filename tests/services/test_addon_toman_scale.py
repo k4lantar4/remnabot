@@ -51,7 +51,12 @@ class _FakePanelSync:
         return True
 
 
-def _rows(*, balance_toman: int) -> list:
+def _rows(
+    *,
+    balance_toman: int,
+    device_price: int = DEVICE_PRICE_KOPEKS,
+    traffic_10gb_price: int = TRAFFIC_10GB_KOPEKS,
+) -> list:
     now = datetime.now(UTC)
     return [
         User(
@@ -74,9 +79,9 @@ def _rows(*, balance_toman: int) -> list:
             traffic_reset_mode='NO_RESET',
             device_limit=1,
             max_device_limit=10,
-            device_price_kopeks=DEVICE_PRICE_KOPEKS,
+            device_price_kopeks=device_price,
             traffic_topup_enabled=True,
-            traffic_topup_packages={'10': TRAFFIC_10GB_KOPEKS},
+            traffic_topup_packages={'10': traffic_10gb_price},
             max_topup_traffic_gb=0,
             allowed_squads=['squad-1'],
             display_order=1,
@@ -119,8 +124,8 @@ def _isolate(monkeypatch):
     monkeypatch.setattr(websocket_module, 'notify_user_traffic_purchased', AsyncMock(), raising=False)
 
 
-async def _seed(db, *, balance_toman: int) -> User:
-    db.add_all(_rows(balance_toman=balance_toman))
+async def _seed(db, *, balance_toman: int, **prices: int) -> User:
+    db.add_all(_rows(balance_toman=balance_toman, **prices))
     await db.commit()
     return await db.get(User, 1)
 
@@ -352,6 +357,109 @@ async def test_saved_device_cart_waits_when_the_toman_amount_is_not_covered(monk
 
         assert bought is False
         assert await _balance(db) == 4_000
+
+
+# ---------------------------------------------------------------- the 1 Toman minimum charge (F-101)
+#
+# Before Phase C a paid add-on was floored at ``max(100, price)`` — 100 kopeks, one ruble. On Toman
+# storage that 100 means 100 Toman, so an add-on priced below it was silently charged 100.
+TINY_PRICE_TOMAN = 50
+
+
+@pytest.mark.asyncio
+async def test_cabinet_traffic_purchase_charges_a_tiny_price_not_100(monkeypatch):
+    import app.cabinet.routes.subscription_modules.traffic as cabinet_traffic
+    from app.cabinet.schemas.subscription import TrafficPurchaseRequest
+
+    monkeypatch.setattr(cabinet_traffic, 'SubscriptionService', lambda: _FakePanelSync())
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=50_000, traffic_10gb_price=TINY_PRICE_TOMAN)
+
+        await cabinet_traffic.purchase_traffic(
+            request=TrafficPurchaseRequest(gb=10), user=user, db=db, subscription_id=None
+        )
+
+        assert await _payments(db) == [TINY_PRICE_TOMAN]
+        assert await _balance(db) == 50_000 - TINY_PRICE_TOMAN
+
+
+@pytest.mark.asyncio
+async def test_cabinet_device_purchase_charges_a_tiny_price_not_100(monkeypatch):
+    import app.cabinet.routes.subscription_modules.devices as cabinet_devices
+    from app.cabinet.schemas.subscription import DevicePurchaseRequest
+
+    monkeypatch.setattr(cabinet_devices, 'SubscriptionService', lambda: _FakePanelSync())
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=50_000, device_price=TINY_PRICE_TOMAN)
+
+        await cabinet_devices.purchase_devices(
+            request=DevicePurchaseRequest(devices=1), subscription_id=None, user=user, db=db
+        )
+
+        assert await _payments(db) == [TINY_PRICE_TOMAN]
+        assert await _balance(db) == 50_000 - TINY_PRICE_TOMAN
+
+
+@pytest.mark.asyncio
+async def test_cabinet_legacy_device_purchase_charges_a_tiny_price_not_100(monkeypatch):
+    import app.cabinet.routes.subscription_modules.devices as cabinet_devices
+    from app.cabinet.schemas.subscription import DevicePurchaseRequest
+
+    monkeypatch.setattr(cabinet_devices, 'SubscriptionService', lambda: _FakePanelSync())
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=50_000, device_price=TINY_PRICE_TOMAN)
+
+        await cabinet_devices.purchase_devices_legacy(
+            request=DevicePurchaseRequest(devices=1), subscription_id=None, user=user, db=db
+        )
+
+        assert await _payments(db) == [TINY_PRICE_TOMAN]
+
+
+@pytest.mark.asyncio
+async def test_saved_device_cart_charges_a_tiny_price_not_100(monkeypatch):
+    import app.services.subscription_auto_purchase_service as auto_module
+
+    monkeypatch.setattr(auto_module, 'SubscriptionService', lambda: _FakePanelSync())
+    monkeypatch.setattr(auto_module, '_delete_cart_for_subscription', AsyncMock())
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed(db, balance_toman=50_000, device_price=TINY_PRICE_TOMAN)
+        cart = {'cart_mode': 'add_devices', 'devices_to_add': 1, 'price_kopeks': TINY_PRICE_TOMAN}
+
+        bought = await auto_module._auto_add_devices(db, user, cart, bot=None)
+
+        assert bought is True
+        assert await _payments(db) == [TINY_PRICE_TOMAN]
+
+
+# Bot user-side handlers/keyboards are legacy (left untouched by ruling) and miniapp.py is being
+# reworked in a parallel branch; they still carry the old floor and are tracked outside this guard.
+_LEGACY_FLOOR_FILES = {
+    'app/handlers/subscription/traffic.py',
+    'app/keyboards/inline.py',
+    'app/webapi/routes/miniapp.py',
+}
+
+
+def test_no_new_one_ruble_floor_on_toman_amounts():
+    """``max(100, amount)`` is the pre-Phase-C "1 ruble" floor; a Toman amount floors at 1."""
+    offenders = []
+    for path in sorted((ROOT / 'app').rglob('*.py')):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative in _LEGACY_FLOOR_FILES:
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == 'max'
+                and len(node.args) == 2
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == 100
+            ):
+                offenders.append(f'{relative}:{node.lineno}: {ast.unparse(node)}')
+
+    assert offenders == [], 'one-ruble floor on a Toman amount:\n' + '\n'.join(offenders)
 
 
 # ---------------------------------------------------------------- guard over every add-on site

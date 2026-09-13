@@ -58,7 +58,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.formatters import format_days_declension
 from app.utils.price_display import missing_toman, user_can_afford
-from app.utils.pricing_utils import format_period_description
+from app.utils.pricing_utils import floor_paid_charge, format_period_description
 from app.utils.timezone import format_email_datetime, format_local_datetime
 
 
@@ -1713,7 +1713,7 @@ async def _auto_add_devices(
         devices_discount_percent,
     )
     price_kopeks = int(discounted_per_month * days_left / 30)
-    price_kopeks = max(100, price_kopeks)
+    price_kopeks = floor_paid_charge(price_kopeks)
 
     if price_kopeks != cart_price_kopeks:
         logger.warning(

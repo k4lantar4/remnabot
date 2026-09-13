@@ -31,6 +31,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.cache import RateLimitCache, cache, cache_key
 from app.utils.price_display import user_can_afford
+from app.utils.pricing_utils import floor_paid_charge
 from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -300,7 +301,7 @@ async def purchase_traffic(
 
     # Ensure minimum price after discount (except for 100% discount)
     if traffic_discount_percent < 100 and final_price > 0:
-        final_price = max(100, final_price)
+        final_price = floor_paid_charge(final_price)
 
     # Проверяем баланс
     if final_price > 0 and not user_can_afford(user.balance_kopeks, final_price):
