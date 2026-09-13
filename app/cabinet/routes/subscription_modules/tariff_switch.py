@@ -495,133 +495,158 @@ async def switch_tariff(
         subscription.is_daily_paused = False
 
     subscription.updated_at = datetime.now(UTC)
+    balance_after_switch = user.balance_kopeks
+    new_tariff_id = new_tariff.id
+    new_tariff_name = new_tariff.name
+    switched_user_id = user.id
     await db.commit()
 
-    # Emit deferred side-effects after atomic commit
-    if upgrade_cost > 0 and switch_transaction:
-        from app.database.crud.transaction import emit_transaction_side_effects
-
-        await emit_transaction_side_effects(
-            db,
-            switch_transaction,
-            amount_kopeks=upgrade_cost,
-            user_id=user.id,
-            type=TransactionType.SUBSCRIPTION_PAYMENT,
-            payment_method=PaymentMethod.BALANCE,
-        )
-
-    # Sync with RemnaWave (optionally reset traffic based on admin setting)
-    should_reset_traffic = reset_used_traffic
-    # Refresh subscription after commit (all objects are expired)
-    await db.refresh(subscription)
-
+    # The switch and its charge are committed: from here on a failure must not reach the user
+    # as an error, or they would retry and pay again (F-061).
     try:
-        subscription_service = SubscriptionService()
-        _has_panel = (
-            getattr(subscription, 'remnawave_id', None)
-            if settings.is_multi_tariff_enabled()
-            else getattr(user, 'remnawave_id', None)
-        )
-        if _has_panel:
-            await subscription_service.update_remnawave_user(
-                db,
-                subscription,
-                reset_traffic=should_reset_traffic,
-                reset_reason='смена тарифа',
-                sync_squads=True,
-            )
-        else:
-            await subscription_service.create_remnawave_user(
-                db,
-                subscription,
-                reset_traffic=should_reset_traffic,
-                reset_reason='смена тарифа',
-            )
-    except Exception as e:
-        logger.error('Failed to sync tariff switch with RemnaWave', error=e)
-        from app.services.remnawave_retry_queue import remnawave_retry_queue
+        # Emit deferred side-effects after atomic commit
+        if upgrade_cost > 0 and switch_transaction:
+            from app.database.crud.transaction import emit_transaction_side_effects
 
-        remnawave_retry_queue.enqueue(
-            subscription_id=subscription.id,
-            user_id=user.id,
-            action='update' if _has_panel else 'create',
-        )
+            await emit_transaction_side_effects(
+                db,
+                switch_transaction,
+                amount_kopeks=upgrade_cost,
+                user_id=user.id,
+                type=TransactionType.SUBSCRIPTION_PAYMENT,
+                payment_method=PaymentMethod.BALANCE,
+            )
 
-    # Reset all devices on tariff switch
-    devices_reset = False
-    _switch_panel_user_id = (
-        subscription.remnawave_id
-        if settings.is_multi_tariff_enabled() and subscription.remnawave_id
-        else user.remnawave_id
-    )
-    if _switch_panel_user_id:
+        # Sync with RemnaWave (optionally reset traffic based on admin setting)
+        should_reset_traffic = reset_used_traffic
+        # Refresh subscription after commit (all objects are expired)
+        await db.refresh(subscription)
+
         try:
-            service = RemnaWaveService()
-            async with service.get_api_client() as api:
-                # 3.0.0: сброс делается одним delete-all и исключений наружу не
-                # бросает — сбой панели приходит как False, поэтому флаг ставим
-                # по результату, а не по «не упало».
-                devices_reset = await api.reset_user_devices(_switch_panel_user_id)
-                if devices_reset:
-                    logger.info('Reset all devices for user on tariff switch', user_id=user.id)
-                else:
-                    logger.error('Failed to reset devices on tariff switch', user_id=user.id)
-        except Exception as e:
-            logger.error('Failed to reset devices on tariff switch', error=e)
-
-    await db.refresh(user)
-    await db.refresh(subscription)
-
-    # Отправляем уведомление админам о смене тарифа
-    try:
-        from app.bot_factory import create_bot
-        from app.services.admin_notification_service import AdminNotificationService
-
-        if getattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False):
-            bot = create_bot()
-            try:
-                notification_service = AdminNotificationService(bot)
-                await notification_service.send_subscription_purchase_notification(
-                    db=db,
-                    user=user,
-                    subscription=subscription,
-                    transaction=switch_transaction if upgrade_cost > 0 else None,
-                    period_days=remaining_days if remaining_days > 0 else new_period_days,
-                    was_trial_conversion=False,
-                    amount_kopeks=upgrade_cost,
-                    purchase_type='tariff_switch',
+            subscription_service = SubscriptionService()
+            _has_panel = (
+                getattr(subscription, 'remnawave_id', None)
+                if settings.is_multi_tariff_enabled()
+                else getattr(user, 'remnawave_id', None)
+            )
+            if _has_panel:
+                await subscription_service.update_remnawave_user(
+                    db,
+                    subscription,
+                    reset_traffic=should_reset_traffic,
+                    reset_reason='смена тарифа',
+                    sync_squads=True,
                 )
-            finally:
-                await bot.session.close()
-    except Exception as e:
-        logger.error('Failed to send admin notification for tariff switch', error=e)
+            else:
+                await subscription_service.create_remnawave_user(
+                    db,
+                    subscription,
+                    reset_traffic=should_reset_traffic,
+                    reset_reason='смена тарифа',
+                )
+        except Exception as e:
+            logger.error('Failed to sync tariff switch with RemnaWave', error=e)
+            from app.services.remnawave_retry_queue import remnawave_retry_queue
 
-    # Refresh expired objects after db.commit() in _record_subscription_event
-    await db.refresh(subscription)
-    await db.refresh(user)
+            remnawave_retry_queue.enqueue(
+                subscription_id=subscription.id,
+                user_id=user.id,
+                action='update' if _has_panel else 'create',
+            )
 
-    # Yandex.Metrika offline conversion: the request-body CID for a paid tariff
-    # switch (upgrade_cost > 0) is now persisted BEFORE create_transaction above,
-    # so the central purchase event fired by the SUBSCRIPTION_PAYMENT sees the
-    # CID and does not race it (#558449). Nothing to do here.
+        # Reset all devices on tariff switch
+        devices_reset = False
+        _switch_panel_user_id = (
+            subscription.remnawave_id
+            if settings.is_multi_tariff_enabled() and subscription.remnawave_id
+            else user.remnawave_id
+        )
+        if _switch_panel_user_id:
+            try:
+                service = RemnaWaveService()
+                async with service.get_api_client() as api:
+                    # 3.0.0: сброс делается одним delete-all и исключений наружу не
+                    # бросает — сбой панели приходит как False, поэтому флаг ставим
+                    # по результату, а не по «не упало».
+                    devices_reset = await api.reset_user_devices(_switch_panel_user_id)
+                    if devices_reset:
+                        logger.info('Reset all devices for user on tariff switch', user_id=user.id)
+                    else:
+                        logger.error('Failed to reset devices on tariff switch', user_id=user.id)
+            except Exception as e:
+                logger.error('Failed to reset devices on tariff switch', error=e)
 
-    response: dict[str, Any] = {
-        'success': True,
-        'message': f"Switched from '{old_tariff_name}' to '{new_tariff.name}'"
-        + (' (devices reset)' if devices_reset else ''),
-        'subscription': _subscription_to_response(subscription, user=user),
-        'old_tariff_name': old_tariff_name,
-        'new_tariff_id': new_tariff.id,
-        'new_tariff_name': new_tariff.name,
-        'charged_kopeks': upgrade_cost,
-        'balance_kopeks': user.balance_kopeks,
-        'balance_label': settings.format_balance(user.balance_kopeks),
-    }
+        await db.refresh(user)
+        await db.refresh(subscription)
 
-    # Add discount info if applicable
-    if period_discount_percent > 0 and discount_value > 0:
-        response['discount_percent'] = period_discount_percent
-        response['discount_kopeks'] = discount_value
-        response['base_charged_kopeks'] = base_upgrade_cost
+        # Отправляем уведомление админам о смене тарифа
+        try:
+            from app.bot_factory import create_bot
+            from app.services.admin_notification_service import AdminNotificationService
 
-    return response
+            if getattr(settings, 'ADMIN_NOTIFICATIONS_ENABLED', False):
+                bot = create_bot()
+                try:
+                    notification_service = AdminNotificationService(bot)
+                    await notification_service.send_subscription_purchase_notification(
+                        db=db,
+                        user=user,
+                        subscription=subscription,
+                        transaction=switch_transaction if upgrade_cost > 0 else None,
+                        period_days=remaining_days if remaining_days > 0 else new_period_days,
+                        was_trial_conversion=False,
+                        amount_kopeks=upgrade_cost,
+                        purchase_type='tariff_switch',
+                    )
+                finally:
+                    await bot.session.close()
+        except Exception as e:
+            logger.error('Failed to send admin notification for tariff switch', error=e)
+
+        # Refresh expired objects after db.commit() in _record_subscription_event
+        await db.refresh(subscription)
+        await db.refresh(user)
+
+        # Yandex.Metrika offline conversion: the request-body CID for a paid tariff
+        # switch (upgrade_cost > 0) is now persisted BEFORE create_transaction above,
+        # so the central purchase event fired by the SUBSCRIPTION_PAYMENT sees the
+        # CID and does not race it (#558449). Nothing to do here.
+
+        response: dict[str, Any] = {
+            'success': True,
+            'message': f"Switched from '{old_tariff_name}' to '{new_tariff.name}'"
+            + (' (devices reset)' if devices_reset else ''),
+            'subscription': _subscription_to_response(subscription, user=user),
+            'old_tariff_name': old_tariff_name,
+            'new_tariff_id': new_tariff.id,
+            'new_tariff_name': new_tariff.name,
+            'charged_kopeks': upgrade_cost,
+            'balance_kopeks': user.balance_kopeks,
+            'balance_label': settings.format_balance(user.balance_kopeks),
+        }
+
+        # Add discount info if applicable
+        if period_discount_percent > 0 and discount_value > 0:
+            response['discount_percent'] = period_discount_percent
+            response['discount_kopeks'] = discount_value
+            response['base_charged_kopeks'] = base_upgrade_cost
+
+        return response
+    except Exception as post_commit_error:
+        logger.error(
+            'Tariff switch committed; a post-commit step failed',
+            user_id=switched_user_id,
+            new_tariff_id=new_tariff_id,
+            error=post_commit_error,
+        )
+        return {
+            'success': True,
+            'message': f"Switched from '{old_tariff_name}' to '{new_tariff_name}'",
+            'subscription': None,
+            'old_tariff_name': old_tariff_name,
+            'new_tariff_id': new_tariff_id,
+            'new_tariff_name': new_tariff_name,
+            'charged_kopeks': upgrade_cost,
+            'balance_kopeks': balance_after_switch,
+            'balance_label': settings.format_balance(balance_after_switch),
+        }

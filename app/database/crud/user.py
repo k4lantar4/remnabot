@@ -779,6 +779,10 @@ async def subtract_user_balance(
         logger.error('   ❌ НЕДОСТАТОЧНО СРЕДСТВ!')
         return False
 
+    # Once the debit is committed the money is gone: a later failure (refresh, side effects) must
+    # not make the caller believe the charge failed (F-061).
+    committed = False
+    user_id = user.id
     try:
         old_balance = user.balance_kopeks
         user.balance_kopeks -= amount_kopeks
@@ -794,21 +798,34 @@ async def subtract_user_balance(
         user.updated_at = datetime.now(UTC)
 
         if create_transaction:
-            from app.database.crud.transaction import (
-                create_transaction as create_trans,
-            )
+            from app.database.crud import transaction as transaction_crud
 
-            await create_trans(
+            # The row is flushed, not committed, so this function knows exactly when the commit
+            # happened; its side effects then fire as create_transaction(commit=True) would.
+            transaction = await transaction_crud.create_transaction(
                 db=db,
-                user_id=user.id,
+                user_id=user_id,
                 type=transaction_type,
                 amount_kopeks=amount_kopeks,
                 description=description,
                 payment_method=payment_method,
-                commit=commit,
+                commit=False,
             )
+            if commit:
+                await db.commit()
+                committed = True
+                await transaction_crud.emit_transaction_side_effects(
+                    db,
+                    transaction,
+                    amount_kopeks=amount_kopeks,
+                    user_id=user_id,
+                    type=transaction_type,
+                    payment_method=PaymentMethod(transaction.payment_method) if transaction.payment_method else None,
+                    description=description,
+                )
         elif commit:
             await db.commit()
+            committed = True
         else:
             await db.flush()
 
@@ -867,6 +884,14 @@ async def subtract_user_balance(
         return True
 
     except Exception as e:
+        if committed:
+            logger.warning(
+                'Balance debit committed; a post-commit step failed',
+                user_id=user_id,
+                amount_kopeks=amount_kopeks,
+                error=e,
+            )
+            return True
         logger.error('❌ ОШИБКА СПИСАНИЯ', error=e)
         if commit:
             await db.rollback()
