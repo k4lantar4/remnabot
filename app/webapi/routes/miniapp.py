@@ -7217,66 +7217,89 @@ async def switch_tariff_endpoint(
         else:
             logger.info('🔄 Смена с суточного на обычный тариф: очищены daily поля')
 
+    balance_after_switch = user.balance_kopeks
+    new_tariff_id = new_tariff.id
+    new_tariff_name = new_tariff.name
+    switched_user_id = user.id
     await db.commit()
 
-    # Emit deferred side-effects after atomic commit
-    if upgrade_cost > 0 and switch_transaction:
-        from app.database.crud.transaction import emit_transaction_side_effects
-
-        await emit_transaction_side_effects(
-            db,
-            switch_transaction,
-            amount_kopeks=upgrade_cost,
-            user_id=user.id,
-            type=TransactionType.SUBSCRIPTION_PAYMENT,
-            payment_method=PaymentMethod.BALANCE,
-        )
-
-    await db.refresh(subscription)
-    await db.refresh(user)
-
-    # Синхронизируем с RemnaWave (опционально сбрасываем трафик по настройке)
-    should_reset_traffic = reset_used_traffic
+    # The switch and its charge are committed: from here on a failure must not reach the user
+    # as an error, or they would retry and pay again (F-061).
     try:
-        service = SubscriptionService()
-        await service.update_remnawave_user(
-            db,
-            subscription,
-            reset_traffic=should_reset_traffic,
-            reset_reason='смена тарифа',
-            sync_squads=True,
-        )
-    except Exception as e:
-        logger.error('Ошибка синхронизации с RemnaWave при смене тарифа', error=e)
-        from app.services.remnawave_retry_queue import remnawave_retry_queue
+        # Emit deferred side-effects after atomic commit
+        if upgrade_cost > 0 and switch_transaction:
+            from app.database.crud.transaction import emit_transaction_side_effects
 
-        if hasattr(subscription, 'id') and hasattr(subscription, 'user_id'):
-            remnawave_retry_queue.enqueue(
-                subscription_id=subscription.id,
-                user_id=subscription.user_id,
-                action='update',
+            await emit_transaction_side_effects(
+                db,
+                switch_transaction,
+                amount_kopeks=upgrade_cost,
+                user_id=user.id,
+                type=TransactionType.SUBSCRIPTION_PAYMENT,
+                payment_method=PaymentMethod.BALANCE,
             )
 
-    lang = getattr(user, 'language', settings.DEFAULT_LANGUAGE)
-    if upgrade_cost > 0:
-        if lang == 'ru':
-            message = f"Тариф изменён на '{new_tariff.name}'. Списано {settings.format_price(upgrade_cost)}"
-        else:
-            message = f"Switched to '{new_tariff.name}'. Charged {settings.format_price(upgrade_cost)}"
-    elif lang == 'ru':
-        message = f"Тариф изменён на '{new_tariff.name}'"
-    else:
-        message = f"Switched to '{new_tariff.name}'"
+        await db.refresh(subscription)
+        await db.refresh(user)
 
-    return MiniAppTariffSwitchResponse(
-        success=True,
-        message=message,
-        tariff_id=new_tariff.id,
-        tariff_name=new_tariff.name,
-        charged_kopeks=upgrade_cost,
-        balance_kopeks=user.balance_kopeks,
-        balance_label=settings.format_balance(user.balance_kopeks),
-    )
+        # Синхронизируем с RemnaWave (опционально сбрасываем трафик по настройке)
+        should_reset_traffic = reset_used_traffic
+        try:
+            service = SubscriptionService()
+            await service.update_remnawave_user(
+                db,
+                subscription,
+                reset_traffic=should_reset_traffic,
+                reset_reason='смена тарифа',
+                sync_squads=True,
+            )
+        except Exception as e:
+            logger.error('Ошибка синхронизации с RemnaWave при смене тарифа', error=e)
+            from app.services.remnawave_retry_queue import remnawave_retry_queue
+
+            if hasattr(subscription, 'id') and hasattr(subscription, 'user_id'):
+                remnawave_retry_queue.enqueue(
+                    subscription_id=subscription.id,
+                    user_id=subscription.user_id,
+                    action='update',
+                )
+
+        lang = getattr(user, 'language', settings.DEFAULT_LANGUAGE)
+        if upgrade_cost > 0:
+            if lang == 'ru':
+                message = f"Тариф изменён на '{new_tariff.name}'. Списано {settings.format_price(upgrade_cost)}"
+            else:
+                message = f"Switched to '{new_tariff.name}'. Charged {settings.format_price(upgrade_cost)}"
+        elif lang == 'ru':
+            message = f"Тариф изменён на '{new_tariff.name}'"
+        else:
+            message = f"Switched to '{new_tariff.name}'"
+
+        return MiniAppTariffSwitchResponse(
+            success=True,
+            message=message,
+            tariff_id=new_tariff.id,
+            tariff_name=new_tariff.name,
+            charged_kopeks=upgrade_cost,
+            balance_kopeks=user.balance_kopeks,
+            balance_label=settings.format_balance(user.balance_kopeks),
+        )
+    except Exception as post_commit_error:
+        logger.error(
+            'Tariff switch committed; a post-commit step failed',
+            user_id=switched_user_id,
+            new_tariff_id=new_tariff_id,
+            error=post_commit_error,
+        )
+        return MiniAppTariffSwitchResponse(
+            success=True,
+            message=f"Switched to '{new_tariff_name}'",
+            tariff_id=new_tariff_id,
+            tariff_name=new_tariff_name,
+            charged_kopeks=upgrade_cost,
+            balance_kopeks=balance_after_switch,
+            balance_label=settings.format_balance(balance_after_switch),
+        )
 
 
 @router.post('/subscription/traffic-topup')
