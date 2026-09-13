@@ -88,3 +88,30 @@ class TestPurchaseOptionsDailyPrice:
         assert data['daily_price_kopeks'] == 120_000  # 1200 Toman on the wire scale
         assert data['original_daily_price_kopeks'] == 150_000
         assert data['daily_discount_percent'] == 20
+
+    @pytest.mark.asyncio
+    async def test_daily_price_for_wholesale_partner(self):
+        """F-013: the card shows the partner the wholesale price every daily charge takes."""
+        from app.cabinet.routes.subscription_modules.purchase import _build_tariff_response
+        from app.database.models import Tariff
+
+        tariff = Tariff(
+            id=9,
+            name='روزانه',
+            description='',
+            is_active=True,
+            is_daily=True,
+            daily_price_kopeks=10_000,
+            period_prices={},
+            traffic_limit_gb=2,
+            device_limit=1,
+            allowed_squads=[],
+            display_order=1,
+        )
+        partner = _user(group_pct=10, offer_pct=0)
+        partner.partner_status = 'approved'
+        partner.wholesale_discount_bps = 3000
+        data = await _build_tariff_response(SimpleNamespace(), tariff, user=partner)
+        assert data['daily_price_kopeks'] == 700_000  # 7,000 Toman on the wire scale
+        assert data['original_daily_price_kopeks'] == 1_000_000
+        assert data['daily_discount_percent'] == 30

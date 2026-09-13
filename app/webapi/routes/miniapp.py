@@ -3242,6 +3242,9 @@ async def get_subscription_details(
     if active_discount_expires_at and active_discount_expires_at <= now:
         active_discount_expires_at = None
         active_discount_percent = 0
+    if PricingEngine.uses_wholesale_pricing(user):
+        # Wholesale replaces the promo offer, so a partner is never shown one it does not get.
+        active_discount_percent = 0
 
     available_promo_offers = await list_active_discount_offers_for_user(db, user.id)
 
@@ -6388,6 +6391,11 @@ async def _build_tariff_model(
                     )
                 )
 
+    # Approved partner: branch on the rate itself; the rounded percent is display only
+    # (a 50 bps partner rounds to 0% but is still charged wholesale at checkout).
+    is_wholesale = PricingEngine.uses_wholesale_pricing(user)
+    wholesale_pct = round(PricingEngine.get_wholesale_discount_bps(user) / 100) if is_wholesale else 0
+
     periods: list[MiniAppTariffPeriod] = []
     if tariff.period_prices:
         for period_str, original_price_kopeks in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
@@ -6396,7 +6404,11 @@ async def _build_tariff_model(
             # Применяем скидку промогруппы + promo-offer (stacked)
             group_pct = promo_group.get_discount_percent('period', period_days) if promo_group else 0
             offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-            if group_pct > 0 or offer_pct > 0:
+            if is_wholesale:
+                # Approved partner: wholesale replaces group and offer, as checkout charges it.
+                price_kopeks, _ = PricingEngine.apply_wholesale_discount(original_price_kopeks, user)
+                discount_percent = wholesale_pct
+            elif group_pct > 0 or offer_pct > 0:
                 price_kopeks, _, _ = PricingEngine.apply_stacked_discounts(original_price_kopeks, group_pct, offer_pct)
                 # Комбинированный процент для отображения
                 remaining = (100 - group_pct) * (100 - offer_pct)
@@ -6450,7 +6462,10 @@ async def _build_tariff_model(
     daily_price_kopeks = raw_daily_price_kopeks
 
     # Применяем скидку промогруппы + promo-offer для суточного тарифа (period_hint=1)
-    if is_daily and daily_price_kopeks > 0:
+    if is_daily and daily_price_kopeks > 0 and is_wholesale:
+        # Approved partner: the wholesale per-day price every daily charge takes.
+        daily_price_kopeks, _ = PricingEngine.daily_group_price(raw_daily_price_kopeks, user)
+    elif is_daily and daily_price_kopeks > 0:
         daily_group_pct = (
             promo_group.get_discount_percent('period', 1)
             if promo_group and hasattr(promo_group, 'get_discount_percent')
@@ -6500,7 +6515,10 @@ async def _build_current_tariff_model(db: AsyncSession, tariff, promo_group=None
     # Применяем скидку промогруппы + promo-offer для 30-дневного периода
     group_pct = promo_group.get_discount_percent('period', 30) if promo_group else 0
     offer_pct = get_user_active_promo_discount_percent(user) if user else 0
-    if group_pct > 0 or offer_pct > 0:
+    if PricingEngine.uses_wholesale_pricing(user):
+        # Approved partner: wholesale replaces group and offer, as checkout charges it.
+        monthly_price, _ = PricingEngine.apply_wholesale_discount(monthly_price, user)
+    elif group_pct > 0 or offer_pct > 0:
         monthly_price, _, _ = PricingEngine.apply_stacked_discounts(monthly_price, group_pct, offer_pct)
 
     # Суточный тариф

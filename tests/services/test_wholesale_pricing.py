@@ -81,5 +81,46 @@ def test_price_display_rejected_uses_retail_not_wholesale():
     assert info.base_price == 10000
 
 
+def _partner_with_group(*, status: str, bps: int, group_pct: int = 10) -> SimpleNamespace:
+    group = SimpleNamespace(id=7, name='g', get_discount_percent=lambda _cat, _days: group_pct)
+    return SimpleNamespace(
+        partner_status=status,
+        wholesale_discount_bps=bps,
+        promo_group=None,
+        get_primary_promo_group=lambda: group if group_pct else None,
+        promo_offer_discount_percent=0,
+        promo_offer_discount_expires_at=None,
+    )
+
+
+class TestDailyGroupPriceWholesale:
+    """F-013: the per-day price of a daily tariff takes the partner's wholesale rate."""
+
+    def test_approved_partner_pays_wholesale_not_group(self):
+        user = _partner_with_group(status=PartnerStatus.APPROVED.value, bps=3000, group_pct=10)
+        assert PricingEngine.daily_group_price(10_000, user) == (7_000, 30)
+
+    def test_wholesale_replaces_a_larger_group_discount(self):
+        user = _partner_with_group(status=PartnerStatus.APPROVED.value, bps=3000, group_pct=50)
+        assert PricingEngine.daily_group_price(10_000, user) == (7_000, 30)
+
+    def test_fractional_bps_floors_price_and_rounds_percent(self):
+        user = _partner_with_group(status=PartnerStatus.APPROVED.value, bps=175, group_pct=0)
+        assert PricingEngine.daily_group_price(10_001, user) == (10_001 * (10000 - 175) // 10000, 2)
+
+    def test_pending_partner_keeps_group_only(self):
+        user = _partner_with_group(status=PartnerStatus.PENDING.value, bps=3000, group_pct=10)
+        assert PricingEngine.daily_group_price(10_000, user) == (9_000, 10)
+
+    def test_zero_bps_keeps_group_only(self):
+        user = _partner_with_group(status=PartnerStatus.APPROVED.value, bps=0, group_pct=10)
+        assert PricingEngine.daily_group_price(10_000, user) == (9_000, 10)
+
+    def test_no_user_and_zero_price(self):
+        assert PricingEngine.daily_group_price(10_000, None) == (10_000, 0)
+        partner = _partner_with_group(status=PartnerStatus.APPROVED.value, bps=3000)
+        assert PricingEngine.daily_group_price(0, partner) == (0, 0)
+
+
 def test_no_custom_pricing_seam():
     assert importlib.util.find_spec('app.custom.pricing') is None
