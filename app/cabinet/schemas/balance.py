@@ -67,7 +67,9 @@ class PaymentMethodResponse(BaseModel):
 class TopUpRequest(BaseModel):
     """Request to create payment for balance top-up."""
 
-    amount_kopeks: int = Field(..., ge=1000, le=2_000_000_000, description='Amount in kopeks (min 10 rubles)')
+    # ge=1, not a money floor: the bound would mean a different amount on each wire scale
+    # (X-Amount-Scale); the per-method minimum is enforced by the route.
+    amount_kopeks: int = Field(..., ge=1, le=2_000_000_000, description='Amount on the request wire scale')
     payment_method: str = Field(..., description='Payment method ID')
     payment_option: str | None = Field(None, description='Payment option (e.g. Platega method code)')
 
@@ -86,7 +88,7 @@ class TopUpResponse(BaseModel):
 class StarsInvoiceRequest(BaseModel):
     """Request to create Telegram Stars invoice for balance top-up."""
 
-    amount_kopeks: int = Field(..., ge=100, le=2_000_000_000, description='Amount in kopeks (min 1 ruble)')
+    amount_kopeks: int = Field(..., ge=1, le=2_000_000_000, description='Amount on the request wire scale')
 
 
 class StarsInvoiceResponse(BaseModel):

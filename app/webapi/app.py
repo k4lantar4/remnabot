@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.cabinet.apple_iap import apple_iap_only_router
 from app.config import settings
+from app.utils.wire_scale import AMOUNT_SCALE_HEADER
 from app.webapi.docs import add_redoc_endpoint
 
-from .middleware import RequestLoggingMiddleware
+from .middleware import AmountScaleMiddleware, RequestLoggingMiddleware
 from .routes import (
     backups,
     ban_notifications,
@@ -198,13 +199,18 @@ def create_web_api_app(lifespan: Any = None) -> FastAPI:
     cabinet_origins = settings.get_cabinet_allowed_origins()
     all_origins = list(set(allowed_origins + cabinet_origins))
 
+    # Innermost of the stack: every route, cabinet or not, runs inside the request's amount scale.
+    app.add_middleware(AmountScaleMiddleware)
+
+    cors_headers = ['Authorization', 'Content-Type', 'X-CSRF-Token', 'X-Telegram-Init-Data', AMOUNT_SCALE_HEADER]
     if '*' in all_origins:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=['*'],
             allow_credentials=False,
             allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-            allow_headers=['Authorization', 'Content-Type', 'X-CSRF-Token', 'X-Telegram-Init-Data'],
+            allow_headers=cors_headers,
+            expose_headers=[AMOUNT_SCALE_HEADER],
         )
     else:
         app.add_middleware(
@@ -212,7 +218,8 @@ def create_web_api_app(lifespan: Any = None) -> FastAPI:
             allow_origins=all_origins,
             allow_credentials=True,
             allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-            allow_headers=['Authorization', 'Content-Type', 'X-CSRF-Token', 'X-Telegram-Init-Data'],
+            allow_headers=cors_headers,
+            expose_headers=[AMOUNT_SCALE_HEADER],
         )
 
     if settings.WEB_API_REQUEST_LOGGING:
