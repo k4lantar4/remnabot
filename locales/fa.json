@@ -1893,7 +1893,7 @@
   "TRIAL_ACTIVATION_ERROR": "❌ خطا در فعال‌سازی آزمایشی. وجه به موجودی بازگردانده شد.",
   "TRIAL_PAYMENT_CHARGED_NOTE": "💳 از موجودی شما {amount} کسر شد.",
   "TRIAL_CHANNEL_UNSUBSCRIBED": "\n🚫 <b>دسترسی متوقف شد</b>\n\nعضویت شما در کانال یافت نشد، آزمایشی غیرفعال شد.\n\nعضو شوید و «{check_button}» بزنید.",
-  "TRIAL_ENDING_SOON": "\n🎁 <b>آزمایشی به‌زودی تمام می‌شود!</b>\n\nچند ساعت تا انقضا مانده.\n\n💎 <b>بدون VPN نمانید!</b>\n\n🔥 <b>پیشنهاد ویژه:</b>\n• ۳۰ روز فقط {price}\n• ترافیک نامحدود\n• همه سرورها\n• سرعت تا ۱ گیگ\n\n⚡️ قبل از پایان اقدام کنید!\n",
+  "TRIAL_ENDING_SOON": "🎁 <b>Your trial{tariff_label} ends soon</b>\n\nIt expires in {hours} h. Buy a subscription to stay connected.",
   "TRIAL_INACTIVE_1H": "⏳ <b>یک ساعت گذشت و اتصال برقرار نشده</b>\n\nراهنما را ببینید. آماده کمک هستیم!",
   "TRIAL_INACTIVE_24H": "⏳ <b>یک روز گذشته و ترافیکی نبوده</b>\n\nراهنما را ببینید یا با پشتیبانی تماس بگیرید!",
   "TRIAL_SERVER_DEFAULT_NAME": "🎯 سرور آزمایشی",
@@ -2631,5 +2631,17 @@
   "NOTIFY_DIGEST_DAILY_CHARGE_LINE": "• {tariff}: {amount}",
   "NOTIFY_DIGEST_TRAFFIC": "⚠️ <b>ترافیک {count} اشتراک شما رو به اتمام است</b>\n\n{lines}",
   "NOTIFY_DIGEST_TRAFFIC_LINE": "• {tariff}: {used} / {limit} گیگ ({percent}%)",
-  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>تمدید خودکار {count} اشتراک انجام نشد</b>\n\n{lines}\n\nموجودی: {balance}\nمبلغ لازم: {required}\n\nبرای اینکه دسترسی‌تان قطع نشود، حسابتان را شارژ کنید."
+  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>تمدید خودکار {count} اشتراک انجام نشد</b>\n\n{lines}\n\nموجودی: {balance}\nمبلغ لازم: {required}\n\nبرای اینکه دسترسی‌تان قطع نشود، حسابتان را شارژ کنید.",
+  "SUBSCRIPTION_EXPIRED_NOTICE": "⛔ <b>Subscription{tariff_label} expired</b>\n\nRenew it to get your access back.\n\n🔧 Server access stays blocked until you renew.",
+  "WINBACK_CLAIM_DISCOUNT_BUTTON": "🎁 Claim discount",
+  "NOTIFY_TARIFF_LABEL": "\n📦 Tariff: «{name}»",
+  "AUTOPAY_FAILED_TOPUP_BUTTON": "💳 Top up balance",
+  "AUTOPAY_FAILED_SUBSCRIPTION_BUTTON": "📱 Renew subscription",
+  "AUTOPAY_FAIL_REASON_FINAL": "Final reminder: your subscription ends soon — not enough balance",
+  "AUTOPAY_FAIL_REASON_CHARGE_ERROR": "The charge could not be made",
+  "AUTOPAY_FAIL_REASON_INSUFFICIENT": "Not enough balance",
+  "AUTOPAY_LEGACY_PAUSED": "⚠️ <b>Autopay paused</b>\n\nYour subscription was created before tariffs, so autopay needs a tariff first.\n\nOpen the renewal page and choose a tariff.",
+  "BTN_MY_SUBSCRIPTIONS": "📱 My subscriptions",
+  "BTN_MY_SUBSCRIPTION": "📱 My subscription",
+  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 Open subscription"
 }

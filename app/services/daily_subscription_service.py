@@ -171,8 +171,7 @@ class DailySubscriptionService:
         daily_price, _ = PricingEngine.daily_group_price(raw_daily_price, user)
 
         # Проверяем баланс (при 100% скидке — пропускаем)
-        # daily_price — цена каталога (×100), баланс — томаны: сравниваем и списываем
-        # через catalog_price_in_toman, как при активации тарифа.
+        # daily_price and the balance are both Toman (one scale since Phase C).
         if daily_price > 0 and not user_can_afford(user.balance_kopeks, daily_price):
             # Недостаточно средств - приостанавливаем подписку
             await suspend_daily_subscription_insufficient_balance(db, subscription)
@@ -371,7 +370,7 @@ class DailySubscriptionService:
     async def _notify_daily_charge(self, user, subscription, amount_kopeks: int):
         """Уведомляет пользователя о суточном списании.
 
-        ``amount_kopeks`` is the catalog daily price (format_price); the balance left is Toman (format_balance).
+        ``amount_kopeks`` is the daily price and the balance left is Toman, like every amount since Phase C.
         """
         texts = get_texts(getattr(user, 'language', 'ru'))
 
@@ -461,7 +460,7 @@ class DailySubscriptionService:
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         texts = get_texts(getattr(user, 'language', 'ru'))
-        # required_amount is the catalog daily price; the balance is Toman.
+        # required_amount and the balance are both Toman.
         required_label = settings.format_price(required_amount)
         balance_label = settings.format_balance(user.balance_kopeks)
 
