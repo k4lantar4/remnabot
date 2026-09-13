@@ -2645,5 +2645,14 @@
   "AUTOPAY_LEGACY_PAUSED": "⚠️ <b>پرداخت خودکار متوقف شد</b>\n\nاشتراک شما پیش از راه‌اندازی سرویس‌ها ساخته شده است، برای همین پرداخت خودکار فقط بعد از انتخاب یک سرویس کار می‌کند.\n\nصفحه‌ی تمدید را باز کنید و سرویس خود را انتخاب کنید.",
   "BTN_MY_SUBSCRIPTIONS": "📱 اشتراک‌های من",
   "BTN_MY_SUBSCRIPTION": "📱 اشتراک من",
-  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 مشاهده‌ی اشتراک"
+  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 مشاهده‌ی اشتراک",
+  "DAILY_TRAFFIC_RESET_NOTICE": "ℹ️ <b>Extra traffic reset</b>\n\nThe extra traffic you bought ({reset_gb} GB) was reset because 30 days have passed since the first purchase.{tariff_label}\n\nCurrent traffic limit: {limit_gb} GB\n\nYou can buy extra traffic again at any time.",
+  "MANUAL_TOPUP_NOTICE": "✅ <b>Balance topped up</b>\n\n💰 Amount: {amount}\n💳 Current balance: {balance}\n🆔 Transaction: {transaction_id}",
+  "GIFT_RECEIVED_NOTICE": "🎁 <b>You received a VPN subscription as a gift!</b>\n{details}{sender}{note}",
+  "GIFT_RECEIVED_FROM": "\nFrom: {name}",
+  "GIFT_RECEIVED_PENDING_HINT": "\n\nYou already have an active subscription. Tap the button below to activate the gift (your current subscription will be replaced).",
+  "GIFT_RECEIVED_ACTIVATE_BUTTON": "🎁 Activate gift",
+  "REFERRAL_PURCHASE_COMMISSION_NOTICE": "💰 <b>Purchase commission!</b>\n\nYour referral <b>{name}</b> made a purchase of {amount}\n\n🎁 Your commission ({percent}%): {commission}\n\n💎 The funds have been added to your balance.",
+  "PROMOCODE_BALANCE_BONUS_LINE": "💰 Balance topped up by {amount}",
+  "STARS_SUBSCRIPTION_ACTIVATED": "✅ <b>Subscription activated!</b>\n\n📅 Period: {period} days\n📱 Devices: {devices}\n📊 Traffic: {traffic}\n⭐ Paid: {stars} ⭐ ({amount}){tariff_label}\n\n🔗 Open «My subscription» to connect."
 }

@@ -1,9 +1,10 @@
 # User notifications and flow result messages — audit and fix plan
 
 **Status:** active — approved 2026-09-12. Done: task 8 (remnabot#90), task 4 (remnabot#92; F3 needed
-no change, F2 fixed in #82), task 1 (remnabot#95), task 2 (branch `fix/expiry-reminder-price`; task 8 had already
+no change, F2 fixed in #82), task 1 (remnabot#95), task 2 (remnabot#96; task 8 had already
 added the resolver and quote as `_renewal_period_days` / `_quote_renewal_price`, so task 2 only
-consumes them). Next in "Execution order": task 3. All product questions answered (see "Rulings").
+consumes them), task 3a (branch `fix/post-payment-notices`; task 3 split by the user 2026-09-13,
+see task 3). Next in "Execution order": task 3b. All product questions answered (see "Rulings").
 **Repos:** `remnabot` (tasks 1, 2, 3, 4, 6a, 6b, bot half of 7), then `frontend` (tasks 5, 5b,
 frontend half of 7). Task 4 merges before task 5.
 Each task is its own PR, mergeable on its own; follow "Execution order" (hard dependencies: 8 before
@@ -238,6 +239,17 @@ byte-identical, fa = English placeholder until `translation-fixer` writes Persia
   from autopay's charge.
 
 ### Task 3 — Post-payment and auto-purchase notices (A8-A13, A16, A17, B2-B6, C6) · H
+
+**Split 2026-09-13 (user): two PRs.** **3a** = texts and buttons (A8-A13, A16, A17, B2-B5), no
+payment-flow change — done: `build_subscription_result_keyboard` + `format_notice_datetime` (Jalali);
+`user_service.send_topup_success_to_user` (A11) has no caller and was left untouched; the cabinet has
+no gift-activation page by id, so the gift button stays a callback (F-104); the other promo-code
+effect lines stay Russian (F-105). **3b** = B6 + C6 + Q6 combined message. Found while scoping 3b:
+only C2C sends the top-up notice *after* `send_cart_notification_after_topup`; CryptoBot
+(`payment/cryptobot.py` `_deliver_user_topup_notification` before the cart call, ~435-441) and manual
+top-up (`manual_topup_service.py` `_notify_user` before the cart call, ~220-227) send it before, so
+Q6 there means reordering those two flows; check where Stars (`_finalize_stars_balance_topup`) sends
+its user notice before coding.
 
 - **Repo + files:** `remnabot` `app/services/subscription_auto_purchase_service.py`,
   `daily_subscription_service.py`, `manual_topup_service.py`, `user_service.py`,

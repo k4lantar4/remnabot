@@ -41,3 +41,9 @@ def format_user_datetime(
     naive_local = localized.replace(tzinfo=None)
     jalali_dt = jdatetime.datetime.fromgregorian(datetime=naive_local)
     return jalali_dt.strftime(fmt)
+
+
+def format_notice_datetime(dt: datetime | None, language: str | None) -> str:
+    """Date and time shown in a user notice: Jalali for fa, Gregorian otherwise."""
+    fmt = '%Y/%m/%d %H:%M' if is_jalali_language(language) else '%d.%m.%Y %H:%M'
+    return format_user_datetime(dt, language=language or '', fmt=fmt)

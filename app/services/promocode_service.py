@@ -491,10 +491,14 @@ class PromoCodeService:
         ):
             await add_user_balance(db, user, promocode.balance_bonus_kopeks, f'Бонус по промокоду {promocode.code}')
 
-            # balance_bonus_kopeks is already a Toman amount (see promocodes.py
-            # admin handler) — add_user_balance above credits it 1:1, so display
-            # it 1:1 too, don't divide by 100.
-            effects.append(f'💰 Баланс пополнен на {promocode.balance_bonus_kopeks}₽')
+            from app.localization.texts import get_texts
+
+            # balance_bonus_kopeks is a Toman amount credited 1:1 above.
+            effects.append(
+                get_texts(getattr(user, 'language', None))
+                .t('PROMOCODE_BALANCE_BONUS_LINE', '💰 Balance topped up by {amount}')
+                .format(amount=settings.format_balance(promocode.balance_bonus_kopeks))
+            )
 
         if promocode.type == PromoCodeType.TRIAL_SUBSCRIPTION.value:
             from app.database.crud.subscription import create_trial_subscription

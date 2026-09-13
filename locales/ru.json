@@ -2645,5 +2645,14 @@
   "AUTOPAY_LEGACY_PAUSED": "⚠️ <b>Автоплатёж приостановлен</b>\n\nВаша подписка была создана до введения тарифов, поэтому для автоплатежа нужно выбрать тариф.\n\nОткройте страницу продления и выберите тариф.",
   "BTN_MY_SUBSCRIPTIONS": "📱 Мои подписки",
   "BTN_MY_SUBSCRIPTION": "📱 Моя подписка",
-  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 Открыть подписку"
+  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 Открыть подписку",
+  "DAILY_TRAFFIC_RESET_NOTICE": "ℹ️ <b>Сброс докупленного трафика</b>\n\nВаш докупленный трафик ({reset_gb} ГБ) был сброшен, так как прошло 30 дней с момента первой докупки.{tariff_label}\n\nТекущий лимит трафика: {limit_gb} ГБ\n\nВы можете докупить трафик снова в любое время.",
+  "MANUAL_TOPUP_NOTICE": "✅ <b>Баланс пополнен</b>\n\n💰 Сумма: {amount}\n💳 Текущий баланс: {balance}\n🆔 Транзакция: {transaction_id}",
+  "GIFT_RECEIVED_NOTICE": "🎁 <b>Вам подарили VPN подписку!</b>\n{details}{sender}{note}",
+  "GIFT_RECEIVED_FROM": "\nОт: {name}",
+  "GIFT_RECEIVED_PENDING_HINT": "\n\nУ вас уже есть активная подписка. Нажмите кнопку ниже, чтобы активировать подарок (текущая подписка будет заменена).",
+  "GIFT_RECEIVED_ACTIVATE_BUTTON": "🎁 Активировать подарок",
+  "REFERRAL_PURCHASE_COMMISSION_NOTICE": "💰 <b>Комиссия с покупки!</b>\n\nВаш реферал <b>{name}</b> совершил покупку на {amount}\n\n🎁 Ваша комиссия ({percent}%): {commission}\n\n💎 Средства зачислены на ваш баланс.",
+  "PROMOCODE_BALANCE_BONUS_LINE": "💰 Баланс пополнен на {amount}",
+  "STARS_SUBSCRIPTION_ACTIVATED": "✅ <b>Подписка успешно активирована!</b>\n\n📅 Период: {period} дней\n📱 Устройства: {devices}\n📊 Трафик: {traffic}\n⭐ Оплата: {stars} ⭐ ({amount}){tariff_label}\n\n🔗 Для подключения перейдите в раздел 'Моя подписка'"
 }

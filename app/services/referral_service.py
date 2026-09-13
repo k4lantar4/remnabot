@@ -1296,12 +1296,20 @@ async def process_referral_purchase(
 
             if bot:
                 purchase_commission_notification = (
-                    f'💰 <b>Комиссия с покупки!</b>\n\n'
-                    f'Ваш реферал <b>{html.escape(user.full_name)}</b> совершил покупку на '
-                    f'{settings.format_price(purchase_amount_kopeks)}\n\n'
-                    f'🎁 Ваша комиссия ({commission_percent}%): '
-                    f'{settings.format_balance(commission_amount)}\n\n'
-                    f'💎 Средства зачислены на ваш баланс.'
+                    get_texts(getattr(referrer, 'language', None))
+                    .t(
+                        'REFERRAL_PURCHASE_COMMISSION_NOTICE',
+                        '💰 <b>Purchase commission!</b>\n\n'
+                        'Your referral <b>{name}</b> made a purchase of {amount}\n\n'
+                        '🎁 Your commission ({percent}%): {commission}\n\n'
+                        '💎 The funds have been added to your balance.',
+                    )
+                    .format(
+                        name=html.escape(user.full_name),
+                        amount=settings.format_price(purchase_amount_kopeks),
+                        percent=commission_percent,
+                        commission=settings.format_balance(commission_amount),
+                    )
                 )
                 await send_referral_notification(
                     bot,

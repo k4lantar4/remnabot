@@ -319,13 +319,21 @@ async def _notify_user(
             logger.warning('Не удалось собрать клавиатуру уведомления о пополнении', user_id=user.id, error=error)
 
         try:
+            from app.localization.texts import get_texts
+
+            texts = get_texts(getattr(user, 'language', None))
             await bot.send_message(
                 user.telegram_id,
-                (
-                    '✅ <b>Баланс пополнен</b>\n\n'
-                    f'💰 Сумма: {settings.format_balance(amount_kopeks)}\n'
-                    f'💳 Текущий баланс: {settings.format_balance(user.balance_kopeks)}\n'
-                    f'🆔 Транзакция: {transaction.id}'
+                texts.t(
+                    'MANUAL_TOPUP_NOTICE',
+                    '✅ <b>Balance topped up</b>\n\n'
+                    '💰 Amount: {amount}\n'
+                    '💳 Current balance: {balance}\n'
+                    '🆔 Transaction: {transaction_id}',
+                ).format(
+                    amount=settings.format_balance(amount_kopeks),
+                    balance=settings.format_balance(user.balance_kopeks),
+                    transaction_id=transaction.id,
                 ),
                 parse_mode='HTML',
                 reply_markup=keyboard,
