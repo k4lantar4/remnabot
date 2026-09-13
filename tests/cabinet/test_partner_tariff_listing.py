@@ -85,6 +85,26 @@ async def test_cabinet_partner_period_prices_equal_checkout(subscription_devices
 
 
 @pytest.mark.asyncio
+async def test_low_rate_partner_whose_percent_rounds_to_zero_still_lists_checkout_price():
+    """50 bps rounds to a 0% label, but checkout still charges wholesale, not group/offer."""
+    from app.cabinet.routes.subscription_modules.purchase import _build_tariff_response
+    from app.webapi.routes.miniapp import _build_tariff_model
+
+    tariff = _tariff()
+    partner = _user(partner=True)
+    partner.wholesale_discount_bps = 50
+    checkout = await pricing_engine.calculate_tariff_purchase_price(tariff, 30, user=partner)
+    assert checkout.final_total == 99_500
+
+    data = await _build_tariff_response(SimpleNamespace(), tariff, user=partner)
+    assert data['periods'][0]['price_kopeks'] == wire_catalog_kopeks(99_500)
+    assert data['device_price_kopeks'] == wire_catalog_kopeks(4_975)
+
+    model = await _build_tariff_model(None, tariff, promo_group=partner.get_primary_promo_group(), user=partner)
+    assert model.periods[0].price_kopeks == 99_500
+
+
+@pytest.mark.asyncio
 async def test_cabinet_partner_device_and_custom_day_prices_are_wholesale():
     from app.cabinet.routes.subscription_modules.purchase import _build_tariff_response
 

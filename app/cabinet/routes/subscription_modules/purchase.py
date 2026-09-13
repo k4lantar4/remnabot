@@ -160,10 +160,10 @@ async def _build_tariff_response(
                 tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
             )
 
-    # Approved partner: display percent of the wholesale rate (0 for everyone else).
-    wholesale_pct = (
-        round(PricingEngine.get_wholesale_discount_bps(user) / 100) if PricingEngine.uses_wholesale_pricing(user) else 0
-    )
+    # Approved partner: branch on the rate itself; the rounded percent is display only
+    # (a 50 bps partner rounds to 0% but is still charged wholesale at checkout).
+    is_wholesale = PricingEngine.uses_wholesale_pricing(user)
+    wholesale_pct = round(PricingEngine.get_wholesale_discount_bps(user) / 100) if is_wholesale else 0
 
     periods = []
     if tariff.period_prices:
@@ -183,7 +183,7 @@ async def _build_tariff_response(
             original_price = base_tariff_price + extra_devices_cost
             discount_amount = 0
 
-            if wholesale_pct:
+            if is_wholesale:
                 # Approved partner: wholesale on the undiscounted subtotal, as checkout charges it
                 # (PricingEngine._calculate_tariff_core) — it replaces group and offer.
                 final_price, discount_amount = PricingEngine.apply_wholesale_discount(original_price, user)
@@ -259,7 +259,7 @@ async def _build_tariff_response(
     price_per_day = tariff.price_per_day_kopeks or 0
     original_price_per_day = price_per_day
     custom_days_discount_percent = 0
-    if wholesale_pct and price_per_day > 0:
+    if is_wholesale and price_per_day > 0:
         price_per_day, _ = PricingEngine.apply_wholesale_discount(price_per_day, user)
         custom_days_discount_percent = wholesale_pct
     elif promo_group and price_per_day > 0:
@@ -271,7 +271,7 @@ async def _build_tariff_response(
     device_price = tariff.device_price_kopeks if tariff.device_price_kopeks is not None else 0
     original_device_price = device_price
     device_discount_percent = 0
-    if wholesale_pct and device_price > 0:
+    if is_wholesale and device_price > 0:
         device_price, _ = PricingEngine.apply_wholesale_discount(device_price, user)
         device_discount_percent = wholesale_pct
     elif promo_group and device_price > 0:
