@@ -130,6 +130,7 @@ async def test_a_subscription_is_listed_only_at_its_most_urgent_checkpoint(expir
 
     calls = service._send_subscription_expiring_notification.await_args_list
     assert [(c.args[1].id, c.args[2]) for c in calls] == [(1, 1), (2, 3)]
+    assert [c.kwargs['quote'] for c in calls] == [10_000, 10_000]
     assert sent == {(1, 'expiring', 1), (2, 'expiring', 3)}
     service._send_digest.assert_not_awaited()
 

@@ -199,3 +199,112 @@ async def test_trial_window_follows_the_setting(monkeypatch):
 
         service._send_trial_ending_notification.assert_awaited_once()
         assert service._send_trial_ending_notification.await_args.args[2] == 5
+
+
+# --- Task 2: expiry reminder truth and renewal price (C1, C2, C3) ---
+
+JALALI_DATE = re.compile(r'14\d\d/\d\d/\d\d')
+
+
+def _price_line(price: int) -> str:
+    return get_texts('fa').t('SUBSCRIPTION_RENEWAL_PRICE_LINE').format(price=settings.format_price(price))
+
+
+def test_expiring_notice_quotes_the_renewal_price_and_a_jalali_date():
+    text, keyboard = MonitoringService._build_expiring_notice(
+        get_texts('fa'), _user(), _subscription(), 3, quote=10_000
+    )
+
+    _assert_readable(text, keyboard)
+    assert _price_line(10_000).strip() in text
+    assert JALALI_DATE.search(text), text
+    assert 'Pro' in text
+    assert f'{CABINET}/subscriptions/42/renew' in _urls(keyboard)
+
+
+def test_expiring_notice_without_a_quote_has_no_price_line(monkeypatch):
+    monkeypatch.setattr(settings, 'PRICE_30_DAYS', 990)
+    text, _ = MonitoringService._build_expiring_notice(get_texts('fa'), _user(), _subscription(), 3, quote=None)
+
+    _assert_readable(text)
+    prefix = get_texts('fa').t('SUBSCRIPTION_RENEWAL_PRICE_LINE').split('{price}')[0].strip()
+    assert prefix not in text
+    assert '990' not in text
+
+
+def test_expiring_notice_with_autopay_on_does_not_claim_it_will_renew():
+    texts = get_texts('fa')
+    subscription = _subscription()
+    subscription.autopay_enabled = True
+
+    text, _ = MonitoringService._build_expiring_notice(texts, _user(), subscription, 1, quote=90_000)
+
+    _assert_readable(text)
+    assert texts.t('AUTOPAY_STATUS_NO_CARD') not in text
+    assert (
+        texts.t('AUTOPAY_STATUS_PENDING_BALANCE').format(
+            balance=settings.format_balance(50_000), price=settings.format_price(90_000)
+        )
+        in text
+    )
+
+
+async def test_expiring_sender_passes_the_quote_to_the_notice():
+    service = MonitoringService.__new__(MonitoringService)
+    service._send_message_with_logo = AsyncMock()
+
+    assert await service._send_subscription_expiring_notification(_user(), _subscription(), 3, quote=10_000)
+
+    assert _price_line(10_000).strip() in service._send_message_with_logo.await_args.kwargs['text']
+
+
+async def test_expired_day1_without_a_quote_skips_the_price_instead_of_price_30_days(monkeypatch):
+    monkeypatch.setattr(settings, 'PRICE_30_DAYS', 990)
+    service = MonitoringService.__new__(MonitoringService)
+    service._send_message_with_logo = AsyncMock()
+    service._quote_renewal_price = AsyncMock(return_value=None)
+    subscription = _subscription()
+
+    assert await service._send_expired_day1_notification(None, _user(), subscription)
+
+    text = service._send_message_with_logo.await_args.kwargs['text']
+    _assert_readable(text)
+    assert '990' not in text
+    service._quote_renewal_price.assert_awaited_once()
+    assert service._quote_renewal_price.await_args.args[1] is subscription
+
+
+async def test_expired_day1_quotes_the_renewal_price():
+    service = MonitoringService.__new__(MonitoringService)
+    service._send_message_with_logo = AsyncMock()
+    service._quote_renewal_price = AsyncMock(return_value=10_000)
+
+    assert await service._send_expired_day1_notification(None, _user(), _subscription())
+
+    assert _price_line(10_000).strip() in service._send_message_with_logo.await_args.kwargs['text']
+
+
+async def test_partner_quote_includes_the_wholesale_discount():
+    from app.database.models import PartnerStatus
+    from app.services.pricing_engine import pricing_engine
+
+    tariff = SimpleNamespace(
+        id=1,
+        name='Pro',
+        is_daily=False,
+        period_prices={'30': 10_000},
+        device_price_kopeks=0,
+        device_limit=1,
+        get_available_periods=lambda: [30],
+        get_shortest_period=lambda: 30,
+    )
+    subscription = SimpleNamespace(id=42, tariff_id=1, tariff=tariff, device_limit=1, autopay_period_days=None)
+    partner = SimpleNamespace(
+        id=7, language='fa', balance_kopeks=0, partner_status=PartnerStatus.APPROVED.value, wholesale_discount_bps=2500
+    )
+    service = MonitoringService.__new__(MonitoringService)
+
+    quote = await service._quote_renewal_price(None, subscription, partner)
+
+    expected = await pricing_engine.calculate_renewal_price(None, subscription, 30, user=partner)
+    assert quote == expected.final_total == 7_500

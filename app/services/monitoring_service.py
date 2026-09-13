@@ -991,6 +991,7 @@ class MonitoringService:
                             listed[0],
                             days,
                             has_saved_card=listed[0].autopay_enabled and user.id in users_with_cards,
+                            quote=quotes[listed[0].id],
                         )
                     else:
                         text, keyboard = build_expiring_digest(
@@ -2146,6 +2147,87 @@ class MonitoringService:
         return texts.t('AUTOPAY_FAIL_REASON_INSUFFICIENT', 'Not enough balance')
 
     @staticmethod
+    def _renewal_price_line(texts: Any, quote: int | None) -> str:
+        if quote is None:
+            return ''
+        return texts.t('SUBSCRIPTION_RENEWAL_PRICE_LINE', '\n\n💎 Renewal price: {price}').format(
+            price=settings.format_price(quote)
+        )
+
+    @staticmethod
+    def _build_expiring_notice(
+        texts: Any, user: Any, subscription: Any, days: int, *, quote: int | None, has_saved_card: bool = False
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        from app.utils.formatters import format_days_declension
+
+        if subscription.autopay_enabled and has_saved_card:
+            autopay_status = texts.t('AUTOPAY_STATUS_CARD_ACTIVE', '✅ Enabled — automatic card charge scheduled')
+            action_text = texts.t('AUTOPAY_ACTION_CHECK_BALANCE', '💰 Your current balance: {balance}').format(
+                balance=settings.format_balance(user.balance_kopeks)
+            )
+        elif subscription.autopay_enabled and quote is not None and not user_can_afford(user.balance_kopeks, quote):
+            # Autopay already ran this cycle and could not renew for lack of balance (C1).
+            autopay_status = texts.t(
+                'AUTOPAY_STATUS_PENDING_BALANCE',
+                '⚠️ Enabled, but your balance ({balance}) is less than the renewal price ({price}) — top up so it can renew',
+            ).format(balance=settings.format_balance(user.balance_kopeks), price=settings.format_price(quote))
+            action_text = ''
+        elif subscription.autopay_enabled:
+            # Without a quote we can't promise a renewal.
+            autopay_status = (
+                texts.t('AUTOPAY_STATUS_NO_CARD', '✅ Enabled — subscription will renew automatically')
+                if quote is not None
+                else texts.t('AUTOPAY_STATUS_ENABLED', 'enabled')
+            )
+            action_text = texts.t('AUTOPAY_ACTION_CHECK_BALANCE', '💰 Your current balance: {balance}').format(
+                balance=settings.format_balance(user.balance_kopeks)
+            )
+        else:
+            autopay_status = texts.t('AUTOPAY_STATUS_OFF', "❌ Disabled — don't forget to renew manually!")
+            if settings.ENABLE_AUTOPAY:
+                action_text = texts.t('AUTOPAY_ACTION_ENABLE', '💡 Enable autopay or renew your subscription manually')
+            else:
+                action_text = texts.t('AUTOPAY_ACTION_RENEW', '💡 Renew your subscription manually')
+
+        tariff = getattr(subscription, 'tariff', None)
+        tariff_label = f' «{tariff.name}»' if settings.is_multi_tariff_enabled() and tariff else ''
+        message = texts.t(
+            'SUBSCRIPTION_EXPIRING_PAID',
+            '\n⚠️ <b>Subscription{tariff_label} expires in {days_text}!</b>\n\n'
+            'Your paid subscription ends on {end_date}.{price_line}\n\n'
+            '💳 <b>Autopay:</b> {autopay_status}\n\n'
+            '{action_text}\n',
+        ).format(
+            # Кастомные/старые локали используют {days} вместо {days_text} —
+            # передаём оба, иначе .format() падает с KeyError('days') (#2737).
+            days=days,
+            days_text=format_days_declension(days, getattr(user, 'language', None) or settings.DEFAULT_LANGUAGE),
+            end_date=MonitoringService._notice_datetime(user, subscription.end_date),
+            price_line=MonitoringService._renewal_price_line(texts, quote),
+            autopay_status=autopay_status,
+            action_text=action_text,
+            tariff_label=tariff_label,
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    build_subscription_extend_button(
+                        texts.t('BTN_RENEW_SUBSCRIPTION', '⏰ Renew subscription'), subscription.id
+                    )
+                ],
+                [
+                    build_miniapp_or_callback_button(
+                        text=texts.t('BTN_TOPUP_BALANCE', '💳 Top up balance'),
+                        callback_data='balance_topup',
+                    )
+                ],
+                [MonitoringService._subscriptions_list_button(texts)],
+            ]
+        )
+        return message, keyboard
+
+    @staticmethod
     def _subscriptions_list_button(texts: Any):
         multi = settings.is_multi_tariff_enabled()
         return build_miniapp_or_callback_button(
@@ -2220,86 +2302,17 @@ class MonitoringService:
             return False
 
     async def _send_subscription_expiring_notification(
-        self, user: User, subscription: Subscription, days: int, *, has_saved_card: bool = False
+        self,
+        user: User,
+        subscription: Subscription,
+        days: int,
+        *,
+        has_saved_card: bool = False,
+        quote: int | None = None,
     ) -> bool:
         try:
-            from app.utils.formatters import format_days_declension
-
-            texts = get_texts(user.language)
-            days_text = format_days_declension(days, user.language)
-
-            if subscription.autopay_enabled and has_saved_card:
-                autopay_status = texts.t(
-                    'AUTOPAY_STATUS_CARD_ACTIVE',
-                    '✅ Включен — будет автоматическое списание с карты',
-                )
-                action_text = texts.t(
-                    'AUTOPAY_ACTION_CHECK_BALANCE',
-                    '💰 Убедитесь, что на балансе достаточно средств: {balance}',
-                ).format(balance=texts.format_balance(user.balance_kopeks))
-            elif subscription.autopay_enabled:
-                autopay_status = texts.t(
-                    'AUTOPAY_STATUS_NO_CARD',
-                    '✅ Включен — подписка продлится автоматически',
-                )
-                action_text = texts.t(
-                    'AUTOPAY_ACTION_CHECK_BALANCE',
-                    '💰 Убедитесь, что на балансе достаточно средств: {balance}',
-                ).format(balance=texts.format_balance(user.balance_kopeks))
-            else:
-                autopay_status = texts.t(
-                    'AUTOPAY_STATUS_OFF',
-                    '❌ Отключен — не забудьте продлить вручную!',
-                )
-                if settings.ENABLE_AUTOPAY:
-                    action_text = texts.t(
-                        'AUTOPAY_ACTION_ENABLE',
-                        '💡 Включите автоплатеж или продлите подписку вручную',
-                    )
-                else:
-                    action_text = texts.t(
-                        'AUTOPAY_ACTION_RENEW',
-                        '💡 Продлите подписку вручную',
-                    )
-
-            end_date = format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M')
-            # Add tariff name for multi-subscription clarity
-            tariff_label = ''
-            if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-                tariff_label = f' «{subscription.tariff.name}»'
-            message = texts.t(
-                'SUBSCRIPTION_EXPIRING_PAID',
-                '\n⚠️ <b>Подписка{tariff_label} истекает через {days_text}!</b>\n\n'
-                'Ваша платная подписка истекает {end_date}.\n\n'
-                '💳 <b>Автоплатеж:</b> {autopay_status}\n\n'
-                '{action_text}\n',
-            ).format(
-                # Кастомные/старые локали используют {days} вместо {days_text} —
-                # передаём оба, иначе .format() падает с KeyError('days') (#2737).
-                days=days,
-                days_text=days_text,
-                end_date=end_date,
-                autopay_status=autopay_status,
-                action_text=action_text,
-                tariff_label=tariff_label,
-            )
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        build_subscription_extend_button(
-                            texts.t('BTN_RENEW_SUBSCRIPTION', '⏰ Продлить подписку'),
-                            subscription.id,
-                        )
-                    ],
-                    [
-                        build_miniapp_or_callback_button(
-                            text=texts.t('BTN_TOPUP_BALANCE', '💳 Пополнить баланс'),
-                            callback_data='balance_topup',
-                        )
-                    ],
-                    [self._subscriptions_list_button(texts)],
-                ]
+            message, keyboard = self._build_expiring_notice(
+                get_texts(user.language), user, subscription, days, quote=quote, has_saved_card=has_saved_card
             )
 
             await self._send_message_with_logo(
@@ -2461,31 +2474,21 @@ class MonitoringService:
             if settings.is_multi_tariff_enabled() and tariff:
                 tariff_label = f' «{tariff.name}»'
 
-            renewal_period = (tariff.get_shortest_period() if tariff else None) or 30
-            try:
-                from app.services.pricing_engine import pricing_engine
-
-                pricing = await pricing_engine.calculate_renewal_price(db, subscription, renewal_period, user=user)
-                renewal_price_kopeks = pricing.final_total
-            except Exception as price_error:
-                logger.warning(
-                    'Не удалось рассчитать цену продления для уведомления expired_1d, используем PRICE_30_DAYS',
-                    subscription_id=subscription.id,
-                    user_id=user.id,
-                    error=str(price_error),
-                )
-                renewal_price_kopeks = settings.PRICE_30_DAYS
+            # Same period and price autopay would charge; no price line when pricing fails (C3).
+            quote = await self._quote_renewal_price(db, subscription, user)
 
             template = texts.get(
                 'SUBSCRIPTION_EXPIRED_1D',
                 (
-                    '⛔ <b>Подписка{tariff_label} закончилась</b>\n\n'
-                    'Доступ был отключён {end_date}. Продлите подписку, чтобы вернуться в сервис.'
+                    '⛔ <b>Subscription{tariff_label} expired</b>\n\n'
+                    'Access was disabled on {end_date}. Renew to return to the service.{price_line}'
                 ),
             )
             message = template.format(
                 end_date=self._notice_datetime(user, subscription.end_date),
-                price=settings.format_price(renewal_price_kopeks),
+                # Custom locales may still use the older {price} placeholder.
+                price=settings.format_price(quote) if quote is not None else '—',
+                price_line=self._renewal_price_line(texts, quote),
                 tariff_label=tariff_label,
             ) + other_expired_line(texts, other_expired_count)
 
