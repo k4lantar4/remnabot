@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import structlog
@@ -58,6 +59,19 @@ from app.external.remnawave_api import (
 from app.localization.texts import get_texts
 from app.services.balance_refund import restore_promo_offer, snapshot_promo_offer
 from app.services.grace_access_runtime import update_panel_user_grace_safe
+from app.services.notification_aggregation import (
+    AutopayFailure,
+    build_autopay_failed_digest,
+    build_expired_digest,
+    build_expiring_digest,
+    build_traffic_digest,
+    collect_user_batches,
+    is_abandoned,
+    other_expired_line,
+    pick_followup_subscription,
+    should_hold_for_quiet_hours,
+    tariff_label,
+)
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
@@ -343,6 +357,118 @@ class MonitoringService:
 
         return False
 
+    @staticmethod
+    def _held_for_quiet_hours(notice_type: str) -> bool:
+        return should_hold_for_quiet_hours(notice_type, datetime.now(UTC), settings.get_quiet_hours())
+
+    @staticmethod
+    def _renewal_period_days(subscription: Subscription) -> int:
+        """Renewal period autopay charges for; expiry reminders quote the same one.
+
+        Order: the subscription's autopay_period_days, then DEFAULT_AUTOPAY_PERIOD_DAYS, then the
+        tariff's shortest period, then 30. resolve_autopay_period_candidate is fail-closed: it only
+        accepts periods the tariff (or, without a tariff, the settings) actually sells.
+        """
+        tariff = getattr(subscription, 'tariff', None)
+        return (
+            resolve_autopay_period_candidate(getattr(subscription, 'autopay_period_days', None), tariff)
+            or resolve_autopay_period_candidate(getattr(settings, 'DEFAULT_AUTOPAY_PERIOD_DAYS', 0), tariff)
+            or (tariff.get_shortest_period() if tariff else None)
+            or 30
+        )
+
+    async def _quote_renewal_price(self, db: AsyncSession, subscription: Subscription, user: User) -> int | None:
+        try:
+            from app.services.pricing_engine import pricing_engine
+
+            pricing = await pricing_engine.calculate_renewal_price(
+                db, subscription, self._renewal_period_days(subscription), user=user
+            )
+            return pricing.final_total
+        except Exception as error:
+            logger.warning(
+                'Не удалось рассчитать цену продления для напоминания',
+                subscription_id=subscription.id,
+                error=str(error),
+            )
+            return None
+
+    async def _send_digest(self, user: User, text: str, keyboard: InlineKeyboardMarkup, context: str) -> bool:
+        """Send one multi-subscription digest; an unreachable user counts as delivered, like the single senders."""
+        try:
+            await self._send_message_with_logo(
+                chat_id=user.telegram_id,
+                text=text,
+                parse_mode='HTML',
+                reply_markup=keyboard,
+                user=user,
+            )
+            return True
+        except (TelegramForbiddenError, TelegramBadRequest) as exc:
+            if await self._handle_unreachable_user(user, exc, context):
+                return True
+            logger.error('Ошибка Telegram API при отправке сводки', context=context, user_id=user.id, exc=exc)
+            return False
+        except Exception as error:
+            logger.error('Ошибка отправки сводки', context=context, user_id=user.id, error=error)
+            return False
+
+    async def _has_recent_winback_offer(
+        self, db: AsyncSession, user_id: int, subscription_id: int, now: datetime
+    ) -> bool:
+        """R2.5: a winback offer made for another subscription of the user within the interval blocks a new one.
+
+        The waves of the subscription the series runs for are not blocked by each other.
+        """
+        from app.database.models import DiscountOffer
+
+        interval_days = NotificationSettingsService.get_winback_offer_min_interval_days()
+        if interval_days <= 0:
+            return False
+        result = await db.execute(
+            select(DiscountOffer.id)
+            .where(
+                DiscountOffer.user_id == user_id,
+                DiscountOffer.notification_type.in_(('expired_discount_wave2', 'expired_discount_wave3')),
+                DiscountOffer.created_at >= now - timedelta(days=interval_days),
+                or_(DiscountOffer.subscription_id.is_(None), DiscountOffer.subscription_id != subscription_id),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def _flush_autopay_failures(self, db: AsyncSession, pending: list[tuple[int, AutopayFailure]]) -> None:
+        """One autopay-failed message per user per cycle (R2.1); users are re-read after the charge loop."""
+        by_user: dict[int, list[AutopayFailure]] = {}
+        for user_id, failure in pending:
+            by_user.setdefault(user_id, []).append(failure)
+
+        limit = NotificationSettingsService.get_aggregate_list_limit()
+        for user_id, failures in by_user.items():
+            try:
+                user = await get_user_by_id(db, user_id)
+                if not user or not user.telegram_id:
+                    continue
+                if len(failures) == 1:
+                    failure = failures[0]
+                    snapshot = SimpleNamespace(
+                        tariff=SimpleNamespace(name=failure.tariff_name) if failure.tariff_name else None
+                    )
+                    await self._send_autopay_failed_notification(
+                        user,
+                        user.balance_kopeks,
+                        failure.required,
+                        subscription=snapshot,
+                        is_final=failure.is_final,
+                    )
+                    continue
+                text, keyboard = build_autopay_failed_digest(
+                    get_texts(user.language), user, failures, balance=user.balance_kopeks, limit=limit
+                )
+                await self._send_digest(user, text, keyboard, 'сводка неудачных автоплатежей')
+            except Exception as error:
+                logger.error('Ошибка отправки уведомлений о неудачных автоплатежах', user_id=user_id, error=error)
+
     async def start_monitoring(self):
         if self.is_running:
             logger.warning('Мониторинг уже запущен')
@@ -520,13 +646,20 @@ class MonitoringService:
         current_time: datetime,
         *,
         cause: str = 'insufficient_balance',
+        pending: list[tuple[int, AutopayFailure]] | None = None,
     ) -> None:
         """Send an autopay-failure notification iff policy allows it this tick, then
         record state. Policy = decide_autopay_fail_notification() + AUTOPAY_FAIL_* config.
 
         `cause` ('charge_error' | 'insufficient_balance') selects the email/non-Telegram
-        reason wording so a non-balance charge failure isn't mislabelled as low balance."""
+        reason wording so a non-balance charge failure isn't mislabelled as low balance.
+
+        With `pending`, a Telegram notice is collected instead of sent, so the autopay loop
+        can send one message per user (`_flush_autopay_failures`)."""
         if not NotificationSettingsService.are_notifications_globally_enabled():
+            return
+        # Held: no state is recorded, so the next cycle after the quiet window decides again.
+        if self._held_for_quiet_hours('autopay_failed'):
             return
 
         cycle_token = int(subscription.end_date.timestamp())
@@ -547,9 +680,24 @@ class MonitoringService:
 
         is_final = reason == 'final'
         if user.telegram_id and self.bot:
-            await self._send_autopay_failed_notification(
-                user, user.balance_kopeks, charge_amount, subscription=subscription, is_final=is_final
-            )
+            if pending is not None:
+                tariff = getattr(subscription, 'tariff', None)
+                pending.append(
+                    (
+                        user.id,
+                        AutopayFailure(
+                            subscription.id,
+                            tariff.name if tariff else None,
+                            subscription.end_date,
+                            charge_amount,
+                            is_final,
+                        ),
+                    )
+                )
+            else:
+                await self._send_autopay_failed_notification(
+                    user, user.balance_kopeks, charge_amount, subscription=subscription, is_final=is_final
+                )
         elif not user.telegram_id:
             if is_final:
                 reason_text = 'Последнее напоминание: подписка скоро отключится — недостаточно средств'
@@ -568,6 +716,9 @@ class MonitoringService:
             from app.database.crud.subscription import is_recently_updated_by_webhook
 
             expired_subscriptions = await get_expired_subscriptions(db)
+            now = datetime.now(UTC)
+            # One "expired" message per user per cycle (R2.1): collected in the loop, sent after it.
+            to_notify: dict[int, tuple[User, list[tuple[Subscription, str | None]]]] = {}
 
             for subscription in expired_subscriptions:
                 if is_recently_updated_by_webhook(subscription):
@@ -604,12 +755,33 @@ class MonitoringService:
                             .limit(1)
                         )
                         skip_notify = skip_notify or other_active.scalar_one_or_none() is not None
+                    # Status flipped long after the end date (e.g. the bot was down): abandoned, no notice (R2.3).
+                    skip_notify = skip_notify or is_abandoned(
+                        subscription, now, NotificationSettingsService.get_expired_abandon_after_days()
+                    )
                     if not skip_notify:
-                        await self._send_subscription_expired_notification(user, subscription, tariff_name=_tariff_name)
+                        to_notify.setdefault(user.id, (user, []))[1].append((subscription, _tariff_name))
 
                 logger.info(
                     "🔴 Подписка пользователя истекла и статус изменен на 'expired'", user_id=subscription.user_id
                 )
+
+            limit = NotificationSettingsService.get_aggregate_list_limit() if to_notify else 0
+            for user, items in to_notify.values():
+                if len(items) == 1 or not user.telegram_id:
+                    first_subscription, first_tariff_name = items[0]
+                    await self._send_subscription_expired_notification(
+                        user, first_subscription, tariff_name=first_tariff_name
+                    )
+                    continue
+                snapshots = [
+                    SimpleNamespace(
+                        id=sub.id, end_date=sub.end_date, tariff=SimpleNamespace(name=name) if name else None
+                    )
+                    for sub, name in items
+                ]
+                text, keyboard = build_expired_digest(get_texts(user.language), user, snapshots, limit=limit)
+                await self._send_digest(user, text, keyboard, 'сводка истёкших подписок')
 
             if expired_subscriptions:
                 await self._log_monitoring_event(
@@ -751,111 +923,96 @@ class MonitoringService:
         if not NotificationSettingsService.are_notifications_globally_enabled():
             return
 
-        try:
-            warning_days = settings.get_autopay_warning_days()
-            all_processed_users = set()
+        # Held: no dedup row is written, so the first cycle after the quiet window sends it.
+        if self._held_for_quiet_hours('expiring'):
+            return
 
+        try:
+            from app.utils.notification_prefs import (
+                get_subscription_expiry_days,
+                is_subscription_expiry_enabled,
+            )
+
+            # Most urgent checkpoint first: a subscription it lists is not listed again by a later one.
+            warning_days = sorted(set(settings.get_autopay_warning_days()))
+            by_days = {days: await self._get_expiring_paid_subscriptions(db, days) for days in warning_days}
+            limit = NotificationSettingsService.get_aggregate_list_limit()
+
+            # Batch-запрос: собираем user_id с autopay и проверяем наличие карт одним запросом
+            users_with_cards: set[int] = set()
+            if settings.ENABLE_AUTOPAY and settings.YOOKASSA_RECURRENT_ENABLED:
+                autopay_user_ids = list({s.user_id for subs in by_days.values() for s in subs if s.autopay_enabled})
+                if autopay_user_ids:
+                    from app.database.crud.saved_payment_method import get_user_ids_with_active_payment_methods
+
+                    users_with_cards = await get_user_ids_with_active_payment_methods(db, autopay_user_ids)
+
+            claimed: set[int] = set()
             for days in warning_days:
-                expiring_subscriptions = await self._get_expiring_paid_subscriptions(db, days)
+                candidates = [s for s in by_days[days] if s.id not in claimed]
+                claimed.update(s.id for s in by_days[days])
                 sent_count = 0
 
-                # Batch-запрос: собираем user_id с autopay и проверяем наличие карт одним запросом
-                users_with_cards: set[int] = set()
-                if settings.ENABLE_AUTOPAY and settings.YOOKASSA_RECURRENT_ENABLED:
-                    autopay_user_ids = [s.user_id for s in expiring_subscriptions if s.autopay_enabled]
-                    if autopay_user_ids:
-                        from app.database.crud.saved_payment_method import get_user_ids_with_active_payment_methods
-
-                        users_with_cards = await get_user_ids_with_active_payment_methods(db, autopay_user_ids)
-
-                from app.utils.notification_prefs import (
-                    get_subscription_expiry_days,
-                    is_subscription_expiry_enabled,
-                )
-
-                for subscription in expiring_subscriptions:
-                    user = await get_user_by_id(db, subscription.user_id)
-                    if not user:
+                # One message per user per checkpoint, listing every subscription that hit it (R2.1).
+                for user_id, subscriptions in collect_user_batches(candidates).items():
+                    user = subscriptions[0].user or await get_user_by_id(db, user_id)
+                    if not user or not is_subscription_expiry_enabled(user):
+                        continue
+                    if days > get_subscription_expiry_days(user):
                         continue
 
-                    # Respect user notification preferences
-                    if not is_subscription_expiry_enabled(user):
+                    listed: list[Subscription] = []
+                    quotes: dict[int, int | None] = {}
+                    for subscription in subscriptions:
+                        if await notification_sent(db, user.id, subscription.id, 'expiring', days):
+                            continue
+                        quote = await self._quote_renewal_price(db, subscription, user)
+                        # R2.6: autopay on and enough balance — it will renew, nothing to remind.
+                        if (
+                            subscription.autopay_enabled
+                            and quote is not None
+                            and user_can_afford(user.balance_kopeks, quote)
+                        ):
+                            continue
+                        listed.append(subscription)
+                        quotes[subscription.id] = quote
+
+                    if not listed:
                         continue
 
-                    # Check if user's preferred days threshold matches this check
-                    user_expiry_days = get_subscription_expiry_days(user)
-                    if days > user_expiry_days:
-                        continue
-
-                    # Use user.id + subscription.id for key to support multiple subscriptions per user
-                    sub_key = f'user_{user.id}_sub_{subscription.id}_today'
-                    user_identifier = user.telegram_id or f'email:{user.id}'
-
-                    if (
-                        await notification_sent(db, user.id, subscription.id, 'expiring', days)
-                        or sub_key in all_processed_users
-                    ):
-                        logger.debug(
-                            'Уведомление уже отправлено, пропускаем',
-                            user_identifier=user_identifier,
-                            days=days,
-                        )
-                        continue
-
-                    has_saved_card = subscription.autopay_enabled and user.id in users_with_cards
-
-                    should_send = True
-                    for other_days in warning_days:
-                        if other_days < days:
-                            other_subs = await self._get_expiring_paid_subscriptions(db, other_days)
-                            if any(s.id == subscription.id for s in other_subs):
-                                should_send = False
-                                logger.debug(
-                                    '🎯 Пропускаем уведомление на дней для пользователя есть более срочное на дней',
-                                    days=days,
-                                    user_identifier=user_identifier,
-                                    other_days=other_days,
-                                )
-                                break
-
-                    if not should_send:
-                        continue
-
-                    # Handle email-only users via notification delivery service
                     if not user.telegram_id:
                         success = await notification_delivery_service.notify_subscription_expiring(
                             user=user,
                             days_left=days,
-                            expires_at=subscription.end_date,
+                            expires_at=listed[0].end_date,
                         )
-                        if success:
-                            await record_notification(db, user.id, subscription.id, 'expiring', days)
-                            all_processed_users.add(sub_key)
-                            sent_count += 1
-                            logger.info(
-                                '✅ Email-пользователю отправлено уведомление об истечении подписки через дней',
-                                user_id=user.id,
-                                days=days,
-                            )
+                    elif not self.bot:
                         continue
-
-                    if self.bot:
+                    elif len(listed) == 1:
                         success = await self._send_subscription_expiring_notification(
-                            user, subscription, days, has_saved_card=has_saved_card
+                            user,
+                            listed[0],
+                            days,
+                            has_saved_card=listed[0].autopay_enabled and user.id in users_with_cards,
                         )
-                        if success:
-                            await record_notification(db, user.id, subscription.id, 'expiring', days)
-                            all_processed_users.add(sub_key)
-                            sent_count += 1
-                            logger.info(
-                                '✅ Пользователю отправлено уведомление об истечении подписки через дней',
-                                telegram_id=user.telegram_id,
-                                days=days,
-                            )
-                        else:
-                            logger.warning(
-                                '❌ Не удалось отправить уведомление пользователю', telegram_id=user.telegram_id
-                            )
+                    else:
+                        text, keyboard = build_expiring_digest(
+                            get_texts(user.language), user, listed, quotes, days, limit=limit
+                        )
+                        success = await self._send_digest(user, text, keyboard, 'сводка истекающих подписок')
+
+                    if not success:
+                        logger.warning('❌ Не удалось отправить уведомление об истечении', user_id=user.id, days=days)
+                        continue
+                    for subscription in listed:
+                        await record_notification(db, user.id, subscription.id, 'expiring', days)
+                    sent_count += 1
+                    logger.info(
+                        '✅ Отправлено уведомление об истечении подписок',
+                        user_id=user.id,
+                        days=days,
+                        subscriptions=len(listed),
+                    )
 
                 if sent_count > 0:
                     await self._log_monitoring_event(
@@ -1232,12 +1389,15 @@ class MonitoringService:
             return
         if not self.bot:
             return
+        # Held: no dedup row is written, so the first cycle after the quiet window sends it.
+        if self._held_for_quiet_hours('expired_followup'):
+            return
 
         try:
             now = datetime.now(UTC)
 
-            # Lookback window — don't re-check subscriptions expired more than 30 days ago
-            lookback = now - timedelta(days=30)
+            # R2.3: a subscription expired longer ago than this is abandoned — no follow-up for it, ever.
+            lookback = now - timedelta(days=NotificationSettingsService.get_expired_abandon_after_days())
 
             result = await db.execute(
                 select(Subscription)
@@ -1261,33 +1421,32 @@ class MonitoringService:
 
             # Исключаем суточные тарифы - для них отдельная логика
             subscriptions = [
-                sub for sub in all_subscriptions if not (sub.tariff and getattr(sub.tariff, 'is_daily', False))
+                sub
+                for sub in all_subscriptions
+                if sub.end_date is not None and not (sub.tariff and getattr(sub.tariff, 'is_daily', False))
             ]
 
             sent_day1 = 0
             sent_wave2 = 0
             sent_wave3 = 0
 
-            for subscription in subscriptions:
-                user = subscription.user
+            from app.utils.notification_prefs import is_subscription_expiry_enabled
+
+            # R2.4: the series runs for one subscription per user — the most recently expired one.
+            for user_subscriptions in collect_user_batches(subscriptions).values():
+                user = user_subscriptions[0].user
                 if not user:
                     continue
-
-                from app.utils.notification_prefs import is_subscription_expiry_enabled
 
                 if not is_subscription_expiry_enabled(user):
                     continue
 
-                if subscription.end_date is None:
-                    continue
-
-                # Skip if user has another ACTIVE subscription — they still have service
+                # Skip if user has an ACTIVE subscription — they still have service
                 if settings.is_multi_tariff_enabled():
                     other_active = await db.execute(
                         select(Subscription.id)
                         .where(
                             Subscription.user_id == user.id,
-                            Subscription.id != subscription.id,
                             Subscription.status == SubscriptionStatus.ACTIVE.value,
                             Subscription.end_date > now,
                         )
@@ -1295,6 +1454,8 @@ class MonitoringService:
                     )
                     if other_active.scalar_one_or_none() is not None:
                         continue
+
+                subscription, other_expired_count = pick_followup_subscription(user_subscriptions)
 
                 time_since_end = now - subscription.end_date
                 if time_since_end.total_seconds() < 0:
@@ -1305,14 +1466,18 @@ class MonitoringService:
                 # Day 1 reminder
                 if NotificationSettingsService.is_expired_1d_enabled() and 1 <= days_since < 2:
                     if not await notification_sent(db, user.id, subscription.id, 'expired_1d'):
-                        success = await self._send_expired_day1_notification(db, user, subscription)
+                        success = await self._send_expired_day1_notification(
+                            db, user, subscription, other_expired_count=other_expired_count
+                        )
                         if success:
                             await record_notification(db, user.id, subscription.id, 'expired_1d')
                             sent_day1 += 1
 
                 # Second wave (2-3 days) discount
                 if NotificationSettingsService.is_second_wave_enabled() and 2 <= days_since < 4:
-                    if not await notification_sent(db, user.id, subscription.id, 'expired_discount_wave2'):
+                    if not await notification_sent(
+                        db, user.id, subscription.id, 'expired_discount_wave2'
+                    ) and not await self._has_recent_winback_offer(db, user.id, subscription.id, now):
                         percent = NotificationSettingsService.get_second_wave_discount_percent()
                         valid_hours = NotificationSettingsService.get_second_wave_valid_hours()
                         offer = await upsert_discount_offer(
@@ -1332,6 +1497,7 @@ class MonitoringService:
                             offer.expires_at,
                             offer.id,
                             'second',
+                            other_expired_count=other_expired_count,
                         )
                         if success:
                             await record_notification(db, user.id, subscription.id, 'expired_discount_wave2')
@@ -1341,7 +1507,9 @@ class MonitoringService:
                 if NotificationSettingsService.is_third_wave_enabled():
                     trigger_days = NotificationSettingsService.get_third_wave_trigger_days()
                     if trigger_days <= days_since < trigger_days + 1:
-                        if not await notification_sent(db, user.id, subscription.id, 'expired_discount_wave3'):
+                        if not await notification_sent(
+                            db, user.id, subscription.id, 'expired_discount_wave3'
+                        ) and not await self._has_recent_winback_offer(db, user.id, subscription.id, now):
                             percent = NotificationSettingsService.get_third_wave_discount_percent()
                             valid_hours = NotificationSettingsService.get_third_wave_valid_hours()
                             offer = await upsert_discount_offer(
@@ -1362,6 +1530,7 @@ class MonitoringService:
                                 offer.id,
                                 'third',
                                 trigger_days=trigger_days,
+                                other_expired_count=other_expired_count,
                             )
                             if success:
                                 await record_notification(db, user.id, subscription.id, 'expired_discount_wave3')
@@ -1390,7 +1559,11 @@ class MonitoringService:
             select(Subscription)
             .join(User, Subscription.user_id == User.id)
             .options(
-                selectinload(Subscription.user),
+                # Promo groups are loaded because the reminder quotes the renewal price (pricing_engine).
+                selectinload(Subscription.user).options(
+                    selectinload(User.promo_group),
+                    selectinload(User.user_promo_groups).selectinload(UserPromoGroup.promo_group),
+                ),
                 selectinload(Subscription.tariff),
             )
             .where(
@@ -1514,6 +1687,8 @@ class MonitoringService:
             # session не поддерживает (напр. lock_user_for_pricing c
             # populate_existing=True разгружает Subscription.user backref).
             autopay_pairs: list[tuple[int, int]] = [(s.id, s.user_id) for s in autopay_subscriptions]
+            # Telegram autopay-failed notices, sent one per user after the loop (R2.1).
+            pending_failures: list[tuple[int, AutopayFailure]] = []
 
             for sub_id_local, sub_user_id_local in autopay_pairs:
                 try:
@@ -1549,22 +1724,9 @@ class MonitoringService:
 
                     user_identifier = user.telegram_id or f'email:{user.id}'
 
-                    # Период продления выбирается с такой иерархией:
-                    #   1. subscription.autopay_period_days — выбор пользователя/админа
-                    #   2. settings.DEFAULT_AUTOPAY_PERIOD_DAYS — глобальный дефолт из .env
-                    #   3. tariff.get_shortest_period() — самый дешёвый период тарифа (legacy)
-                    #   4. 30 — финальный fallback, если тарифа нет
-                    # resolve_autopay_period_candidate работает fail-closed: пропускает только
-                    # значения из tariff.get_available_periods() или (для классических подписок
-                    # без тарифа) settings.get_available_renewal_periods().
-                    tariff = getattr(subscription, 'tariff', None)
-
-                    autopay_period = (
-                        resolve_autopay_period_candidate(getattr(subscription, 'autopay_period_days', None), tariff)
-                        or resolve_autopay_period_candidate(getattr(settings, 'DEFAULT_AUTOPAY_PERIOD_DAYS', 0), tariff)
-                        or (tariff.get_shortest_period() if tariff else None)
-                        or 30
-                    )
+                    # Период продления: autopay_period_days → DEFAULT_AUTOPAY_PERIOD_DAYS →
+                    # самый короткий период тарифа → 30 (см. _renewal_period_days).
+                    autopay_period = self._renewal_period_days(subscription)
 
                     try:
                         from app.database.crud.user import lock_user_for_pricing
@@ -1779,7 +1941,12 @@ class MonitoringService:
                         else:
                             failed_count += 1
                             await self._maybe_notify_autopay_failure(
-                                user, charge_amount, subscription, current_time, cause='charge_error'
+                                user,
+                                charge_amount,
+                                subscription,
+                                current_time,
+                                cause='charge_error',
+                                pending=pending_failures,
                             )
                             logger.warning(
                                 '💳 Ошибка списания средств для автопродления пользователя',
@@ -1787,7 +1954,9 @@ class MonitoringService:
                             )
                     else:
                         failed_count += 1
-                        await self._maybe_notify_autopay_failure(user, charge_amount, subscription, current_time)
+                        await self._maybe_notify_autopay_failure(
+                            user, charge_amount, subscription, current_time, pending=pending_failures
+                        )
                         logger.warning(
                             '💳 Недостаточно средств для автопродления у пользователя',
                             user_identifier=user_identifier,
@@ -1813,6 +1982,8 @@ class MonitoringService:
                             rollback_error=rollback_error,
                         )
                     continue
+
+            await self._flush_autopay_failures(db, pending_failures)
 
             if processed_count > 0 or failed_count > 0:
                 await self._log_monitoring_event(
@@ -2135,7 +2306,9 @@ class MonitoringService:
             )
             return False
 
-    async def _send_expired_day1_notification(self, db: AsyncSession, user: User, subscription: Subscription) -> bool:
+    async def _send_expired_day1_notification(
+        self, db: AsyncSession, user: User, subscription: Subscription, *, other_expired_count: int = 0
+    ) -> bool:
         try:
             if not user.telegram_id:
                 return await notification_delivery_service.send_notification(
@@ -2175,7 +2348,7 @@ class MonitoringService:
                 end_date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M'),
                 price=settings.format_price(renewal_price_kopeks),
                 tariff_label=tariff_label,
-            )
+            ) + other_expired_line(texts, other_expired_count)
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -2238,6 +2411,8 @@ class MonitoringService:
         offer_id: int,
         wave: str,
         trigger_days: int = None,
+        *,
+        other_expired_count: int = 0,
     ) -> bool:
         try:
             if not user.telegram_id:
@@ -2280,7 +2455,7 @@ class MonitoringService:
                 expires_at=format_local_datetime(expires_at, '%d.%m.%Y %H:%M'),
                 trigger_days=trigger_days or '',
                 tariff_label=tariff_label,
-            )
+            ) + other_expired_line(texts, other_expired_count)
 
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -2469,6 +2644,9 @@ class MonitoringService:
         """Check subscriptions approaching traffic limit and notify users."""
         if not self.bot or not NotificationSettingsService.are_notifications_globally_enabled():
             return
+        # Held: the rate-limit key is not written, so the first cycle after the quiet window sends it.
+        if self._held_for_quiet_hours('traffic_warning'):
+            return
 
         try:
             from sqlalchemy import select
@@ -2480,7 +2658,7 @@ class MonitoringService:
             # Get active subscriptions with traffic limits (not unlimited)
             result = await db.execute(
                 select(Subscription)
-                .options(selectinload(Subscription.user))
+                .options(selectinload(Subscription.user), selectinload(Subscription.tariff))
                 .where(
                     Subscription.status.in_(['active', 'trial']),
                     Subscription.traffic_limit_gb > 0,
@@ -2488,7 +2666,8 @@ class MonitoringService:
             )
             subscriptions = result.scalars().all()
 
-            sent_count = 0
+            # One warning per user per 24h listing every subscription over its threshold (R2.7).
+            over_threshold: dict[int, tuple[User, list[tuple[Subscription, float, int, float]]]] = {}
             for subscription in subscriptions:
                 user = subscription.user
                 if not user or not user.telegram_id:
@@ -2509,8 +2688,15 @@ class MonitoringService:
                 if current_percent < user_threshold:
                     continue
 
-                # Rate-limit: 1 notification per subscription per 24 hours
-                cache_key_str = f'traffic_warn:{subscription.id}'
+                over_threshold.setdefault(user.id, (user, []))[1].append(
+                    (subscription, traffic_used, traffic_limit, current_percent)
+                )
+
+            sent_count = 0
+            limit = NotificationSettingsService.get_aggregate_list_limit() if over_threshold else 0
+            for user, items in over_threshold.values():
+                # Rate-limit: 1 notification per user per 24 hours
+                cache_key_str = f'traffic_warn_user:{user.id}'
                 try:
                     already_sent = await cache.get(cache_key_str)
                     if already_sent:
@@ -2521,17 +2707,25 @@ class MonitoringService:
                 try:
                     language = getattr(user, 'language', 'ru') or 'ru'
                     texts = get_texts(language)
-                    message = texts.get(
-                        'TRAFFIC_WARNING_ALERT',
-                        '⚠️ <b>Предупреждение о трафике</b>\n\n'
-                        'Использовано: {used:.1f} / {limit} ГБ ({percent:.0f}%)\n\n'
-                        'Ваш лимит трафика почти исчерпан.',
-                    )
-                    message = message.format(
-                        used=traffic_used,
-                        limit=traffic_limit,
-                        percent=current_percent,
-                    )
+                    if len(items) == 1:
+                        _, traffic_used, traffic_limit, current_percent = items[0]
+                        message = texts.get(
+                            'TRAFFIC_WARNING_ALERT',
+                            '⚠️ <b>Предупреждение о трафике</b>\n\n'
+                            'Использовано: {used:.1f} / {limit} ГБ ({percent:.0f}%)\n\n'
+                            'Ваш лимит трафика почти исчерпан.',
+                        )
+                        message = message.format(
+                            used=traffic_used,
+                            limit=traffic_limit,
+                            percent=current_percent,
+                        )
+                    else:
+                        message = build_traffic_digest(
+                            texts,
+                            [(tariff_label(sub), used, sub_limit, percent) for sub, used, sub_limit, percent in items],
+                            limit=limit,
+                        )
                     await self.bot.send_message(
                         user.telegram_id,
                         message,
@@ -2546,7 +2740,7 @@ class MonitoringService:
                     logger.debug(
                         'Failed to send traffic warning',
                         user_id=user.id,
-                        subscription_id=subscription.id,
+                        subscriptions=len(items),
                         error=send_error,
                     )
 
@@ -2588,7 +2782,7 @@ class MonitoringService:
         Guards:
         - Disabled by default; users opt-in via cabinet notification settings
         - Only alerts when subscription expires within LOW_BALANCE_ALERT_EXPIRY_DAYS (default 3)
-        - Quiet hours: skips sending between 22:00 and 09:00 server time
+        - Quiet hours: NOTIFICATION_QUIET_HOURS_* (type ``low_balance``), local time
         - Rate-limited: max 1 alert per 24 hours per user
         """
         if not self.bot or not NotificationSettingsService.are_notifications_globally_enabled():
@@ -2602,9 +2796,8 @@ class MonitoringService:
             from app.database.models import Subscription, User
             from app.utils.notification_prefs import get_balance_low_threshold, is_balance_low_enabled
 
-            # Quiet hours: don't disturb users at night (22:00-09:00 UTC)
-            current_hour = datetime.now(UTC).hour
-            if current_hour >= 22 or current_hour < 9:
+            # Quiet hours: don't disturb users at night; the 24h key is not written, so it is sent later.
+            if self._held_for_quiet_hours('low_balance'):
                 return
 
             # Only alert for subscriptions expiring soon (default 3 days)

@@ -32,6 +32,12 @@ class NotificationSettingsService:
             'valid_hours': 24,
             'trigger_days': 5,
         },
+        # Reminders for users holding many subscriptions (plan 2026-09-12 notifications, task 8).
+        'multi_subscription': {
+            'expired_abandon_after_days': 7,
+            'winback_offer_min_interval_days': 30,
+            'aggregate_list_limit': 5,
+        },
     }
 
     @classmethod
@@ -233,6 +239,29 @@ class NotificationSettingsService:
         except (TypeError, ValueError):
             return False
         return cls._set_field('expired_third_wave', 'trigger_days', days_int)
+
+    @classmethod
+    def _multi_subscription_int(cls, field: str, default: int, minimum: int, maximum: int) -> int:
+        value = cls._get('multi_subscription').get(field, default)
+        try:
+            return max(minimum, min(maximum, int(value)))
+        except (TypeError, ValueError):
+            return default
+
+    @classmethod
+    def get_expired_abandon_after_days(cls) -> int:
+        """Days after expiry past which a subscription gets no expired/follow-up/winback reminder."""
+        return cls._multi_subscription_int('expired_abandon_after_days', 7, 1, 365)
+
+    @classmethod
+    def get_winback_offer_min_interval_days(cls) -> int:
+        """Minimum days between winback discount offers of one user across different subscriptions."""
+        return cls._multi_subscription_int('winback_offer_min_interval_days', 30, 0, 365)
+
+    @classmethod
+    def get_aggregate_list_limit(cls) -> int:
+        """Subscriptions listed by name in one digest message before "+N more"."""
+        return cls._multi_subscription_int('aggregate_list_limit', 5, 1, 20)
 
     @classmethod
     def are_notifications_globally_enabled(cls) -> bool:

@@ -2,6 +2,7 @@ import html
 import os
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -93,6 +94,25 @@ def _positive_decimal_or_none(raw: object) -> Decimal | None:
     if not rate.is_finite() or rate <= 0:
         return None
     return rate
+
+
+@dataclass(frozen=True)
+class QuietHours:
+    """Parsed ``NOTIFICATION_QUIET_HOURS_*``: local-time window and the scheduled notice types it holds."""
+
+    enabled: bool
+    start: time
+    end: time
+    types: frozenset[str]
+
+
+# Scheduled notices that may wait for the end of the quiet window. Each is re-selected by the next
+# monitoring cycle when it is not sent, so holding delays it without losing it. One-shot notices
+# (expired, trial_ending, daily_insufficient, trial_channel_unsubscribed) would be lost if held, so
+# they are always sent at once and are not accepted here.
+QUIET_HOURS_HOLDABLE_TYPES = frozenset(
+    {'expiring', 'expired_followup', 'traffic_warning', 'low_balance', 'daily_charge', 'autopay_failed'}
+)
 
 
 class Settings(BaseSettings):
@@ -544,6 +564,11 @@ class Settings(BaseSettings):
     # получатель пропускается, цикл продолжается.
     MONITORING_NOTIFICATION_SEND_TIMEOUT: float = 20.0
     LOW_BALANCE_ALERT_EXPIRY_DAYS: int = 3  # Only alert when subscription expires within N days
+    # Quiet hours for scheduled user notices, local time (TIMEZONE); the window may cross midnight.
+    NOTIFICATION_QUIET_HOURS_ENABLED: bool = True
+    NOTIFICATION_QUIET_HOURS_START: str = '00:00'
+    NOTIFICATION_QUIET_HOURS_END: str = '06:00'
+    NOTIFICATION_QUIET_HOURS_TYPES: str = 'expiring,expired_followup,traffic_warning,low_balance,daily_charge'
     # Months of inactivity before a user row is soft-deleted (status=DELETED).
     # 12 months is conservative — VPN users are highly seasonal (vacations,
     # business trips, geo-blocking events). Aggressive defaults were
@@ -2317,6 +2342,31 @@ class Settings(BaseSettings):
 
     def get_trial_warning_hours(self) -> int:
         return self.TRIAL_WARNING_HOURS
+
+    @staticmethod
+    def parse_quiet_hours(enabled: bool, start: str, end: str, types: str) -> QuietHours:
+        def _parse_time(value: str, default: time) -> time:
+            try:
+                hours, minutes = (int(part) for part in str(value).strip().split(':'))
+                return time(hours, minutes)
+            except (ValueError, TypeError):
+                return default
+
+        names = {name.strip() for name in str(types or '').split(',')}
+        return QuietHours(
+            enabled=bool(enabled),
+            start=_parse_time(start, time(0, 0)),
+            end=_parse_time(end, time(6, 0)),
+            types=frozenset(names & QUIET_HOURS_HOLDABLE_TYPES),
+        )
+
+    def get_quiet_hours(self) -> QuietHours:
+        return self.parse_quiet_hours(
+            self.NOTIFICATION_QUIET_HOURS_ENABLED,
+            self.NOTIFICATION_QUIET_HOURS_START,
+            self.NOTIFICATION_QUIET_HOURS_END,
+            self.NOTIFICATION_QUIET_HOURS_TYPES,
+        )
 
     def get_trial_user_tag(self) -> str | None:
         return self._normalize_user_tag(self.TRIAL_USER_TAG, 'TRIAL_USER_TAG')

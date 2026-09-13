@@ -6,6 +6,7 @@
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import structlog
 from aiogram import Bot
@@ -27,11 +28,14 @@ from app.database.crud.user import get_user_by_id, subtract_user_balance
 from app.database.database import AsyncSessionLocal
 from app.database.models import PaymentMethod, Subscription, SubscriptionStatus, TransactionType, User
 from app.localization.texts import get_texts
+from app.services.notification_aggregation import build_daily_charge_digest, should_hold_for_quiet_hours
 from app.services.notification_delivery_service import (
     NotificationType,
     notification_delivery_service,
 )
+from app.services.notification_settings_service import NotificationSettingsService
 from app.services.traffic_reset_policy import should_reset_traffic_on_daily_charge
+from app.utils.cache import cache
 from app.utils.price_display import user_can_afford
 
 
@@ -79,10 +83,12 @@ class DailySubscriptionService:
                 try:
                     subscriptions = await get_daily_subscriptions_for_charge(db)
                     stats['checked'] = len(subscriptions)
+                    # user_id -> [(tariff name, charged amount)]: one message per user per run (R2.7).
+                    charge_notices: dict[int, list[tuple[str, int]]] = {}
 
                     for subscription in subscriptions:
                         try:
-                            result = await self._process_single_charge(db, subscription)
+                            result = await self._process_single_charge(db, subscription, charge_notices)
                             if result == 'charged':
                                 stats['charged'] += 1
                             elif result == 'suspended':
@@ -97,6 +103,8 @@ class DailySubscriptionService:
                                 exc_info=True,
                             )
                             stats['errors'] += 1
+
+                    await self._flush_daily_charge_notices(db, charge_notices)
                 except Exception as e:
                     logger.error('Ошибка при обработке подписок', error=e, exc_info=True)
                     await db.rollback()
@@ -122,9 +130,14 @@ class DailySubscriptionService:
         )
         return result.scalar_one()
 
-    async def _process_single_charge(self, db, subscription) -> str:
+    async def _process_single_charge(
+        self, db, subscription, charge_notices: dict[int, list[tuple[str, int]]] | None = None
+    ) -> str:
         """
         Обрабатывает списание для одной подписки.
+
+        With ``charge_notices`` the user's charge message is collected there instead of sent,
+        so ``process_daily_charges`` can send one message per user.
 
         Returns:
             str: "charged", "suspended", "error", "skipped"
@@ -341,7 +354,10 @@ class DailySubscriptionService:
 
             # Уведомляем пользователя
             if self._bot:
-                await self._notify_daily_charge(user, subscription, daily_price)
+                if charge_notices is None:
+                    await self._notify_daily_charge(user, subscription, daily_price)
+                else:
+                    charge_notices.setdefault(user.id, []).append((tariff.name, daily_price))
 
             return 'charged'
 
@@ -387,6 +403,58 @@ class DailySubscriptionService:
             )
         except Exception as e:
             logger.warning('Не удалось отправить уведомление о списании', error=e)
+
+    HELD_CHARGE_NOTICES_KEY = 'daily_charge_held:{user_id}'
+
+    async def _flush_daily_charge_notices(self, db, charge_notices: dict[int, list[tuple[str, int]]]) -> None:
+        """Send the charge messages of one run, one per user (R2.7).
+
+        During quiet hours (R2.8, type ``daily_charge``) the charges are kept in Redis and prepended
+        to the first run after the window; without Redis they are sent rather than lost.
+        """
+        if not self._bot:
+            return
+
+        notices = dict(charge_notices)
+        if should_hold_for_quiet_hours('daily_charge', datetime.now(UTC), settings.get_quiet_hours()):
+            unsaved: dict[int, list[tuple[str, int]]] = {}
+            for user_id, charges in notices.items():
+                key = self.HELD_CHARGE_NOTICES_KEY.format(user_id=user_id)
+                held = await cache.get(key) or []
+                if not await cache.set(key, held + [list(charge) for charge in charges], expire=2 * 86400):
+                    unsaved[user_id] = charges
+            notices = unsaved
+        else:
+            for key in await cache.get_keys(self.HELD_CHARGE_NOTICES_KEY.format(user_id='*')):
+                held = await cache.getdel(key) or []
+                try:
+                    user_id = int(key.rsplit(':', 1)[1])
+                except ValueError:
+                    continue
+                notices[user_id] = [(name, amount) for name, amount in held] + notices.get(user_id, [])
+
+        limit = NotificationSettingsService.get_aggregate_list_limit() if notices else 0
+        for user_id, charges in notices.items():
+            try:
+                user = await get_user_by_id(db, user_id)
+                if not user:
+                    continue
+                if len(charges) == 1:
+                    name, amount = charges[0]
+                    await self._notify_daily_charge(user, SimpleNamespace(tariff=SimpleNamespace(name=name)), amount)
+                    continue
+                texts = get_texts(getattr(user, 'language', 'ru'))
+                await notification_delivery_service.notify_daily_debit(
+                    user=user,
+                    amount_kopeks=sum(amount for _, amount in charges),
+                    new_balance_kopeks=user.balance_kopeks,
+                    bot=self._bot,
+                    telegram_message=build_daily_charge_digest(
+                        texts, charges, balance=user.balance_kopeks, limit=limit
+                    ),
+                )
+            except Exception as error:
+                logger.warning('Не удалось отправить сводку суточных списаний', user_id=user_id, error=error)
 
     async def _notify_insufficient_balance(self, user, subscription, required_amount: int):
         """Уведомляет пользователя о недостатке средств."""
