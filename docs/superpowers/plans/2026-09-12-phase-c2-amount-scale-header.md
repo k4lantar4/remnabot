@@ -1,9 +1,10 @@
 # Toman Phase C-2 — retire the x100 cabinet wire scale behind an `X-Amount-Scale` header
 
 **Status:** active — design approved by the user 2026-09-12 (option "scale header", chosen over
-`*_toman` twin fields and over a one-shot flip). Task 1 done (PR #81, with this plan); Task 2 done (branch
-`refactor/pending-payments-toman-record`; deferred ruble-gateway records keep their provider amount
-and the old contract, see Task 2); next: Task 3.
+`*_toman` twin fields and over a one-shot flip). Task 1 done (PR #81, with this plan); Task 2 done
+(PR #89; deferred ruble-gateway records keep their provider amount and the old contract); Task 3 done
+(frontend#33); Task 4 in frontend#34; next: Task 5. Tasks 3-4 record what actually shipped under
+"Shipped" — later tasks inherit those notes.
 **Repos:** `remnabot` Tasks 1-2 (merged and deployed first), then `frontend` Tasks 3-7, then Task 8
 (`remnabot` PR, then `frontend` PR).
 **Upstream basis:** remnabot `origin/main` `08194b09`, `upstream/main` `9fcebfd7`; frontend
@@ -164,6 +165,14 @@ before, its paths join Task 3.
   amount (no `×100`). Screens: verify live with `run-cabinet` — same Toman numbers before/after.
 - **i18n:** the mismatch error message — key in `en.json` and `fa.json` (natural Persian, e.g. «نسخه‌ی
   سرور با این صفحه هماهنگ نیست؛ صفحه را دوباره بارگذاری کنید»).
+- **Shipped (frontend#33):**
+  - **Paths:** as above plus `/cabinet/admin/c2c-receipts/*`, since remnabot#84 had shipped x100 before Task 1. The readers for that are `utils/adminC2cReceipts.ts` and `AdminC2cReceiptDetail`.
+  - **`AdminLandingEditor`:** it seeds a new landing method's limits from admin payment-methods (now Toman) but saves through admin landings (x100), so the seed converts back with `tomanToCatalogKopeks` until Task 7.
+  - **`SortableSelectedMethodCard`:** not touched. It edits landing data, which belongs to Task 7.
+  - **New helper:** `utils/topUpAmount.ts`.
+  - **Pending top-up storage:** the sessionStorage key was bumped to `topup_pending_payment_v2`, so an entry saved on the old scale is ignored.
+  - **Key:** `common.amountScaleMismatch` in en/fa/ru/zh.
+  - **Deferred ruble gateways:** under the header, `/cabinet/balance/topup` would pass Toman to them raw. They are disabled, and Task 8 must settle this.
 
 ### Task 4 — Purchase, renewal and the subscription card (frontend)
 
@@ -181,6 +190,12 @@ before, its paths join Task 3.
   `subscriptionCardExpiredRenew.test.tsx` move to Toman inputs; `usePromoDiscount` percent math on
   Toman. Visual: `run-cabinet` purchase, renewal and trial screens.
 - **i18n:** none expected.
+- **Shipped (frontend#34):**
+  - **Matcher:** `TOMAN_SCALE_PATHS` entries match **exactly** unless they end in `/*`, and Task 3's prefixes were rewritten that way. `/cabinet/subscription` is exact so that its Task 5 sub-paths stay x100. Every later task lists its paths in this form.
+  - **Paths:** as above plus `/cabinet/subscription/renew` (no request amounts; response amounts are not rendered).
+  - **Helpers:** new `utils/balanceCheck.ts` (`canAfford`, `missingAmount` on Toman) replaces `catalogScale`'s `userCanAfford`/`missingToman` on these screens.
+  - **Unchanged:** `usePromoDiscount`, `dailyPrice.ts`, `pricing.ts` and their tests are scale-neutral. `QuickPurchase` reads admin tariffs through `utils/format.ts` `formatPrice`, so it belongs to Task 6.
+  - **`SwitchTariffSheet`:** only the daily price (from purchase-options) converted.
 
 ### Task 5 — Subscription add-ons, gift and the public landing (frontend)
 
@@ -191,6 +206,10 @@ before, its paths join Task 3.
   local `formatPrice` at :47), `ServerManagementSheet.tsx`, `SwitchTariffSheet.tsx` (+
   `InsufficientBalancePrompt` caller :246), `pages/GiftSubscription.tsx`, the public landing page, the
   wheel history view.
+- **Inherited from Task 4:**
+  - **`SwitchTariffSheet`:** still divides by 100 in its local `formatPrice`, used only for `base_upgrade_cost_kopeks` from the switch preview, and in the default-scale shortfall prompt (`missing_amount_kopeks`). Both convert when `/tariff/switch/preview` is listed.
+  - **Device, traffic and server sheets:** they read `balance_kopeks` (Toman) from the already-converted `['purchase-options', subId]` cache; only their own price paths remain.
+  - **`/cabinet/subscription/pause`:** not a wire path, so it must not be listed. Its 402 shortfall bug is F-099.
 - **Test first:** a unit test per sheet price helper that remains; otherwise visual via
   `run-cabinet`.
 - **i18n:** none expected.
@@ -216,6 +235,9 @@ before, its paths join Task 3.
   on Toman), `AdminLandingStats.tsx` (:183-260); delete `CHART_COMMON.KOPEKS_DIVISOR`
   (`constants/charts.ts:2`) and its dead re-exports in `constants/salesStats.ts:9`,
   `constants/partner.ts:10`.
+- **Inherited from Task 3:**
+  - **`SortableSelectedMethodCard.tsx`:** its `limitInToman`/`limitOnWire` and its test.
+  - **`AdminLandingEditor`:** its new-method seed, where Task 3 added `tomanToCatalogKopeks` on `systemMethod.min/max_amount_kopeks`. It must become plain once `/cabinet/admin/landings/*` is listed.
 - **Test first:** new `AdminWheel` prize save round-trip; visual `run-cabinet`.
 - **i18n:** none expected.
 
