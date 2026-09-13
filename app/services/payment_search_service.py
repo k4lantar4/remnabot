@@ -46,7 +46,7 @@ from app.services.payment_verification_service import (
     PendingPayment,
     _build_record,
     _metadata_is_balance,
-    _parse_cryptobot_amount_kopeks,
+    _parse_cryptobot_amount,
 )
 
 
@@ -296,14 +296,15 @@ async def _search_cryptobot(db: AsyncSession, params: SearchParams) -> list[Pend
     result = await db.execute(stmt)
     records: list[PendingPayment] = []
     for payment in result.scalars().all():
-        amount_kopeks = _parse_cryptobot_amount_kopeks(payment)
+        amount, amount_is_toman = _parse_cryptobot_amount(payment)
         record = _build_record(
             PaymentMethod.CRYPTOBOT,
             payment,
             identifier=payment.invoice_id,
-            amount_kopeks=amount_kopeks,
+            amount_kopeks=amount,
             status=payment.status or '',
             is_paid=bool(payment.is_paid),
+            amount_is_toman=amount_is_toman,
         )
         if record:
             records.append(record)
