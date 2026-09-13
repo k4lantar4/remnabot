@@ -102,6 +102,28 @@ def _apply_addon_discount(
     }
 
 
+def paid_result_fields(
+    amount_toman: int,
+    *,
+    subscription: Subscription | None,
+    tariff_name: str | None = None,
+    amount_key: str = 'amount_paid_kopeks',
+) -> dict[str, Any]:
+    """What a purchase success body says about the charge: the amount on the wire scale under
+    ``amount_key``, the same amount in plain Toman, and which subscription it applied to.
+
+    ``amount_key`` keeps each endpoint's historical field name (``charged_kopeks``, ``charged_amount``).
+    """
+    end_date = getattr(subscription, 'end_date', None)
+    return {
+        amount_key: wire_catalog_kopeks(amount_toman),
+        'amount_paid_toman': amount_toman,
+        'subscription_id': getattr(subscription, 'id', None),
+        'new_end_date': end_date.isoformat() if end_date else None,
+        'tariff_name': tariff_name,
+    }
+
+
 def _subscription_to_response(
     subscription: Subscription,
     servers: list[ServerInfo] | None = None,

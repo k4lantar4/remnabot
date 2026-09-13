@@ -38,7 +38,7 @@ from ...schemas.subscription import (
     TrafficPackageResponse,
     TrafficPurchaseRequest,
 )
-from .helpers import _apply_addon_discount, resolve_subscription
+from .helpers import _apply_addon_discount, paid_result_fields, resolve_subscription
 
 
 logger = structlog.get_logger(__name__)
@@ -461,14 +461,14 @@ async def purchase_traffic(
         'message': 'Traffic purchased successfully',
         'gb_added': request.gb,
         'new_traffic_limit_gb': subscription.traffic_limit_gb,
-        'amount_paid_kopeks': final_price,
+        **paid_result_fields(final_price, subscription=subscription, tariff_name=tariff.name if tariff else None),
         'new_balance_kopeks': user.balance_kopeks,
     }
 
     if traffic_discount_percent > 0:
         response['discount_percent'] = traffic_discount_percent
-        response['discount_kopeks'] = discount_value
-        response['base_price_kopeks'] = prorated_price
+        response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+        response['base_price_kopeks'] = wire_catalog_kopeks(prorated_price)
 
     return response
 
@@ -761,7 +761,7 @@ async def switch_traffic_package(
         'message': f'Traffic changed from {current_traffic}GB to {new_traffic}GB',
         'old_traffic_gb': current_traffic,
         'new_traffic_gb': new_traffic,
-        'charged_kopeks': charged,
+        **paid_result_fields(charged, subscription=subscription, amount_key='charged_kopeks'),
         'balance_kopeks': user.balance_kopeks,
         'balance_label': settings.format_balance(user.balance_kopeks),
     }

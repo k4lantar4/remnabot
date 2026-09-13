@@ -18,7 +18,7 @@ from app.services.subscription_service import SubscriptionService
 from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
-from .helpers import resolve_subscription
+from .helpers import paid_result_fields, resolve_subscription
 
 
 logger = structlog.get_logger(__name__)
@@ -300,6 +300,6 @@ async def update_countries(
         'message': 'Countries updated successfully',
         'added': added_names,
         'removed': removed_names,
-        'amount_paid_kopeks': total_cost,
+        **paid_result_fields(total_cost, subscription=subscription),
         'connected_squads': subscription.connected_squads,
     }

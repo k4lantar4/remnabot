@@ -36,7 +36,7 @@ from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import TariffPurchaseRequest
-from .helpers import _subscription_to_response, resolve_subscription
+from .helpers import _subscription_to_response, paid_result_fields, resolve_subscription
 
 
 logger = structlog.get_logger(__name__)
@@ -499,6 +499,7 @@ async def switch_tariff(
     new_tariff_id = new_tariff.id
     new_tariff_name = new_tariff.name
     switched_user_id = user.id
+    switched_subscription_id = subscription.id
     await db.commit()
 
     # The switch and its charge are committed: from here on a failure must not reach the user
@@ -620,7 +621,9 @@ async def switch_tariff(
             'old_tariff_name': old_tariff_name,
             'new_tariff_id': new_tariff.id,
             'new_tariff_name': new_tariff.name,
-            'charged_kopeks': upgrade_cost,
+            **paid_result_fields(
+                upgrade_cost, subscription=subscription, tariff_name=new_tariff.name, amount_key='charged_kopeks'
+            ),
             'balance_kopeks': user.balance_kopeks,
             'balance_label': settings.format_balance(user.balance_kopeks),
         }
@@ -628,8 +631,8 @@ async def switch_tariff(
         # Add discount info if applicable
         if period_discount_percent > 0 and discount_value > 0:
             response['discount_percent'] = period_discount_percent
-            response['discount_kopeks'] = discount_value
-            response['base_charged_kopeks'] = base_upgrade_cost
+            response['discount_kopeks'] = wire_catalog_kopeks(discount_value)
+            response['base_charged_kopeks'] = wire_catalog_kopeks(base_upgrade_cost)
 
         return response
     except Exception as post_commit_error:
@@ -646,7 +649,11 @@ async def switch_tariff(
             'old_tariff_name': old_tariff_name,
             'new_tariff_id': new_tariff_id,
             'new_tariff_name': new_tariff_name,
-            'charged_kopeks': upgrade_cost,
+            # The session may be unusable after the failed post-commit step: no ORM reads here.
+            **paid_result_fields(
+                upgrade_cost, subscription=None, tariff_name=new_tariff_name, amount_key='charged_kopeks'
+            ),
+            'subscription_id': switched_subscription_id,
             'balance_kopeks': balance_after_switch,
             'balance_label': settings.format_balance(balance_after_switch),
         }

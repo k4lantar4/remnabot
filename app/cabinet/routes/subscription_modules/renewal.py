@@ -31,6 +31,7 @@ from ...schemas.subscription import (
     RenewalOptionResponse,
     RenewalRequest,
 )
+from .helpers import paid_result_fields
 
 
 logger = structlog.get_logger(__name__)
@@ -288,14 +289,15 @@ async def renew_subscription(
 
     response: dict[str, Any] = {
         'message': 'Subscription renewed successfully',
-        'new_end_date': result.subscription.end_date.isoformat(),
-        'amount_paid_kopeks': price_kopeks,
+        **paid_result_fields(
+            price_kopeks, subscription=result.subscription, tariff_name=tariff.name if tariff else None
+        ),
     }
 
     # Add discount info to response
     if promo_offer_discount_value > 0:
         response['promo_discount_percent'] = promo_offer_discount_percent
-        response['promo_discount_amount_kopeks'] = promo_offer_discount_value
-        response['original_price_kopeks'] = original_price_kopeks
+        response['promo_discount_amount_kopeks'] = wire_catalog_kopeks(promo_offer_discount_value)
+        response['original_price_kopeks'] = wire_catalog_kopeks(original_price_kopeks)
 
     return response

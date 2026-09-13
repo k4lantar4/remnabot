@@ -454,7 +454,11 @@ async def test_cabinet_add_countries_refuses_with_the_toman_shortfall_then_debit
 
         assert await _balance(db) == RICH_BALANCE - PRICE_TOMAN
         assert await _payments(db) == [('subscription_payment', PRICE_KOPEKS)]
-    assert response['amount_paid_kopeks'] == PRICE_KOPEKS  # catalog, like every *_kopeks price field
+    from app.utils.wire_scale import wire_catalog_kopeks
+
+    # The ledger holds Toman; the response speaks the cabinet wire scale, like every *_kopeks price field.
+    assert response['amount_paid_kopeks'] == wire_catalog_kopeks(PRICE_KOPEKS)
+    assert response['amount_paid_toman'] == PRICE_KOPEKS
 
 
 # ---------------------------------------------------------------- bot simple subscription (SIMPLE_SUBSCRIPTION_ENABLED)
