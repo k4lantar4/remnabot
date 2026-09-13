@@ -17,6 +17,7 @@ from app.database.crud.promo_group import get_auto_assign_promo_groups
 from app.database.crud.promo_offer_template import get_promo_offer_template_by_id
 from app.database.crud.transaction import get_user_total_spent_kopeks
 from app.database.models import DiscountOffer, User
+from app.services.pricing_engine import PricingEngine
 from app.services.promo_offer_service import promo_offer_service
 
 from ..dependencies import get_cabinet_db, get_current_cabinet_user
@@ -146,13 +147,22 @@ async def get_promo_offers(
 async def get_active_discount(
     user: User = Depends(get_current_cabinet_user),
 ):
-    """Get user's currently active discount."""
+    """Get user's currently active discount.
+
+    An approved wholesale partner is never charged a promo offer (wholesale replaces it), so the
+    offer is reported inactive for them — otherwise the cabinet stacks it onto their prices. The
+    stored offer is left untouched and shows again if partner status is revoked.
+    """
     discount_percent = user.promo_offer_discount_percent or 0
     expires_at = user.promo_offer_discount_expires_at
     source = user.promo_offer_discount_source
 
     now = datetime.now(UTC)
-    is_active = discount_percent > 0 and (expires_at is None or expires_at > now)
+    is_active = (
+        discount_percent > 0
+        and (expires_at is None or expires_at > now)
+        and not PricingEngine.uses_wholesale_pricing(user)
+    )
 
     return ActiveDiscountInfo(
         discount_percent=discount_percent if is_active else 0,
