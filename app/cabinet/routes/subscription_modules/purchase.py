@@ -160,6 +160,11 @@ async def _build_tariff_response(
                 tariff.device_price_kopeks if tariff.device_price_kopeks is not None else settings.PRICE_PER_DEVICE
             )
 
+    # Approved partner: display percent of the wholesale rate (0 for everyone else).
+    wholesale_pct = (
+        round(PricingEngine.get_wholesale_discount_bps(user) / 100) if PricingEngine.uses_wholesale_pricing(user) else 0
+    )
+
     periods = []
     if tariff.period_prices:
         for period_str, price_kopeks in sorted(tariff.period_prices.items(), key=lambda x: int(x[0])):
@@ -178,7 +183,12 @@ async def _build_tariff_response(
             original_price = base_tariff_price + extra_devices_cost
             discount_amount = 0
 
-            if promo_group:
+            if wholesale_pct:
+                # Approved partner: wholesale on the undiscounted subtotal, as checkout charges it
+                # (PricingEngine._calculate_tariff_core) — it replaces group and offer.
+                final_price, discount_amount = PricingEngine.apply_wholesale_discount(original_price, user)
+                discount_percent = wholesale_pct
+            elif promo_group:
                 period_pct = promo_group.get_discount_percent('period', period_days)
                 devices_pct = promo_group.get_discount_percent('devices', period_days)
                 discounted_base = (
@@ -249,7 +259,10 @@ async def _build_tariff_response(
     price_per_day = tariff.price_per_day_kopeks or 0
     original_price_per_day = price_per_day
     custom_days_discount_percent = 0
-    if promo_group and price_per_day > 0:
+    if wholesale_pct and price_per_day > 0:
+        price_per_day, _ = PricingEngine.apply_wholesale_discount(price_per_day, user)
+        custom_days_discount_percent = wholesale_pct
+    elif promo_group and price_per_day > 0:
         custom_days_discount_percent = promo_group.get_discount_percent('period', 30)  # Use 30-day rate as base
         if custom_days_discount_percent > 0:
             price_per_day = pricing_engine.apply_discount(price_per_day, custom_days_discount_percent)
@@ -258,7 +271,10 @@ async def _build_tariff_response(
     device_price = tariff.device_price_kopeks if tariff.device_price_kopeks is not None else 0
     original_device_price = device_price
     device_discount_percent = 0
-    if promo_group and device_price > 0:
+    if wholesale_pct and device_price > 0:
+        device_price, _ = PricingEngine.apply_wholesale_discount(device_price, user)
+        device_discount_percent = wholesale_pct
+    elif promo_group and device_price > 0:
         device_discount_percent = promo_group.get_discount_percent('devices', 30)
         if device_discount_percent > 0:
             device_price = pricing_engine.apply_discount(device_price, device_discount_percent)
