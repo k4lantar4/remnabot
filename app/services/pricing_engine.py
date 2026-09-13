@@ -393,6 +393,9 @@ class PricingEngine:
                 new_period_days=0,
             )
 
+        if self.uses_wholesale_pricing(user):
+            return self._wholesale_switch_result(raw_cost, user, new_period_days=0)
+
         # Resolve discounts via resolve_promo_group (get_primary_promo_group first)
         group_pct = 0
         offer_pct = 0
@@ -439,6 +442,9 @@ class PricingEngine:
                 offer_discount_pct=0,
                 new_period_days=1,
             )
+
+        if self.uses_wholesale_pricing(user):
+            return self._wholesale_switch_result(daily_price, user, new_period_days=1)
 
         group_pct = 0
         offer_pct = 0
@@ -487,6 +493,9 @@ class PricingEngine:
                 new_period_days=min_period_days,
             )
 
+        if self.uses_wholesale_pricing(user):
+            return self._wholesale_switch_result(min_period_price, user, new_period_days=min_period_days)
+
         group_pct = 0
         offer_pct = 0
         if user:
@@ -507,6 +516,22 @@ class PricingEngine:
             group_discount_pct=group_pct,
             offer_discount_pct=offer_pct,
             new_period_days=min_period_days,
+        )
+
+    def _wholesale_switch_result(self, raw_cost: int, user: User | None, *, new_period_days: int) -> TariffSwitchResult:
+        """Switch cost for an approved wholesale partner.
+
+        Wholesale replaces the promo-group discount and the promo offer (the rule of
+        ``_calculate_tariff_core``), so both percents are 0 and the offer is not consumed.
+        """
+        upgrade_cost, _ = self.apply_wholesale_discount(raw_cost, user)
+        return TariffSwitchResult(
+            upgrade_cost=upgrade_cost,
+            is_upgrade=upgrade_cost > 0,
+            raw_cost=raw_cost,
+            group_discount_pct=0,
+            offer_discount_pct=0,
+            new_period_days=new_period_days,
         )
 
     async def _calculate_servers_price(
