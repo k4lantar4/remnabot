@@ -26,14 +26,18 @@ from app.services.subscription_checkout_service import (
     should_offer_checkout_resume,
 )
 from app.services.user_cart_service import user_cart_service
-from app.utils.miniapp_buttons import build_main_menu_button, build_miniapp_or_callback_button
+from app.utils.miniapp_buttons import (
+    build_main_menu_button,
+    build_miniapp_or_callback_button,
+    build_subscription_extend_button,
+)
 from app.utils.payment_logger import payment_logger as logger
 
 
 class PaymentCommonMixin:
     """Mixin с базовой логикой, которую используют остальные платёжные блоки."""
 
-    async def build_topup_success_keyboard(self, user: Any) -> InlineKeyboardMarkup:
+    async def build_topup_success_keyboard(self, user: Any, subscription_id: int | None = None) -> InlineKeyboardMarkup:
         """Формирует клавиатуру по завершении платежа, подстраиваясь под пользователя."""
         # Загружаем нужные тексты с учётом выбранного языка пользователя.
         texts = get_texts(user.language if user else 'ru')
@@ -41,6 +45,8 @@ class PaymentCommonMixin:
         # Определяем статус подписки, чтобы показать подходящую кнопку.
         has_active_subscription = False
         subscription = None
+        # Paid active subscriptions: with exactly one, «extend» renews it directly (B6).
+        active_paid_ids: list[int] = []
         if user:
             try:
                 subs = getattr(user, 'subscriptions', None) or []
@@ -53,12 +59,17 @@ class PaymentCommonMixin:
                     and not getattr(subscription, 'is_trial', False)
                     and getattr(subscription, 'is_active', False)
                 )
+                active_paid_ids = [
+                    s.id
+                    for s in subs
+                    if getattr(s, 'is_active', False) and not getattr(s, 'is_trial', False) and getattr(s, 'id', None)
+                ]
             except MissingGreenlet:
                 # user вне сессии — загружаем подписку отдельным запросом
                 try:
                     async with AsyncSessionLocal() as session:
                         result = await session.execute(
-                            select(Subscription.status, Subscription.is_trial, Subscription.end_date)
+                            select(Subscription.id, Subscription.status, Subscription.is_trial, Subscription.end_date)
                             .where(Subscription.user_id == user.id)
                             .where(Subscription.status.in_(['active', 'trial']))
                             .order_by(Subscription.created_at.desc())
@@ -71,7 +82,7 @@ class PaymentCommonMixin:
                             is_active = row.status == 'active' and end_date is not None and end_date > datetime.now(UTC)
                             if is_active and not row.is_trial:
                                 has_active_subscription = True
-                                break
+                                active_paid_ids.append(row.id)
                 except Exception as db_error:
                     logger.warning(
                         'Не удалось загрузить подписку пользователя из БД',
@@ -86,10 +97,18 @@ class PaymentCommonMixin:
                 )
 
         # Создаем основную кнопку: если есть активная подписка - продлить, иначе купить
-        first_button = build_miniapp_or_callback_button(
-            text=(texts.MENU_EXTEND_SUBSCRIPTION if has_active_subscription else texts.MENU_BUY_SUBSCRIPTION),
-            callback_data=('subscription_extend' if has_active_subscription else 'menu_buy'),
-        )
+        if not has_active_subscription:
+            first_button = build_miniapp_or_callback_button(text=texts.MENU_BUY_SUBSCRIPTION, callback_data='menu_buy')
+        else:
+            target_id = subscription_id or (active_paid_ids[0] if len(active_paid_ids) == 1 else None)
+            if target_id or not settings.is_multi_tariff_enabled():
+                first_button = build_subscription_extend_button(texts.MENU_EXTEND_SUBSCRIPTION, target_id)
+            else:
+                first_button = build_miniapp_or_callback_button(
+                    text=texts.MENU_EXTEND_SUBSCRIPTION,
+                    callback_data='menu_subscription',
+                    cabinet_path='/subscriptions',
+                )
 
         keyboard_rows: list[list[InlineKeyboardButton]] = [
             [first_button],
@@ -403,7 +422,9 @@ async def send_cart_notification_after_topup(
 ) -> bool:
     """Run post-topup side-effects: resume daily / auto-purchase saved cart / auto-extend.
 
-    Возвращает False всегда (имя оставлено ради 19+ существующих вызовов).
+    Returns True when the saved cart was bought (its notice already carries the credited amount,
+    so the caller skips its own top-up notice — ruling Q6); False otherwise, including a resumed
+    daily or auto-extended subscription. The name is kept for its 19+ callers.
     Само сообщение «Баланс пополнен…» больше не шлётся — оно дублировало
     основное «Пополнение успешно!» и ломало MAIN_MENU_MODE=cabinet.
 
@@ -460,8 +481,9 @@ async def send_cart_notification_after_topup(
         # Само сообщение «Баланс пополнен…» с отдельной клавиатурой больше не шлётся:
         # оно дублировало «Пополнение успешно!», а его клавиатура не учитывала
         # MAIN_MENU_MODE=cabinet и уводила из миниаппа в полное меню бота.
+        purchased = False
         try:
-            await auto_purchase_saved_cart_after_topup(db, user, bot=bot)
+            purchased = await auto_purchase_saved_cart_after_topup(db, user, bot=bot, topup_amount=amount_kopeks)
         except Exception as auto_error:
             logger.error(
                 'Ошибка автоматической покупки подписки для пользователя',
@@ -469,7 +491,7 @@ async def send_cart_notification_after_topup(
                 auto_error=auto_error,
                 exc_info=True,
             )
-        return False
+        return bool(purchased)
 
     # Try to auto-extend expired subscription only when there is no saved cart.
     try:

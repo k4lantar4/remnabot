@@ -620,7 +620,10 @@ async def handle_successful_payment(message: types.Message, db: AsyncSession, st
             stars_invoice_chat_id=None,
         )
 
-        if success:
+        if success and getattr(payment_service, 'topup_autopurchased', False) is True:
+            # The saved purchase notice already says what was credited (ruling Q6).
+            logger.info('✅ Stars пополнение завершило сохранённую покупку', user_id=user.id)
+        elif success:
             # Show what was actually credited (the Transaction just written), on its own scale —
             # never a stars x ruble-rate re-computation.
             transaction = await get_transaction_by_external_id(

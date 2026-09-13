@@ -216,15 +216,18 @@ async def credit_manual_topup(
 
         await _notify_admins(db, locked, transaction, old_balance, bot=bot)
 
-        if notify_user:
-            await _notify_user(locked, amount_kopeks, transaction, bot=bot)
-
+        purchased = False
         if apply_topup_bonuses:
             from app.services.payment.common import send_cart_notification_after_topup
 
-            # notify_email=False — письмо для юзеров без Telegram уже ушло из
-            # _notify_user, под общим гейтом notify_user.
-            await send_cart_notification_after_topup(locked, amount_kopeks, db, bot, notify_email=False)
+            # notify_email=False — the email for users without Telegram goes out of _notify_user,
+            # under the notify_user gate.
+            purchased = await send_cart_notification_after_topup(locked, amount_kopeks, db, bot, notify_email=False)
+
+        if notify_user:
+            # A completed saved purchase already told the user in Telegram, with the credited amount
+            # (ruling Q6); bot=None keeps only the email channel.
+            await _notify_user(locked, amount_kopeks, transaction, bot=None if purchased else bot)
     except Exception as error:
         logger.error(
             'Ошибка пост-обработки ручного пополнения (деньги зачислены)',

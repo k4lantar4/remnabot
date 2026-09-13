@@ -203,3 +203,46 @@ async def test_legacy_payload_keeps_usd_rub_path(harness, monkeypatch):
 
 def test_module_is_importable():
     assert 'app.services.payment.cryptobot' in sys.modules
+
+
+async def test_toman_invoice_completing_a_saved_purchase_sends_no_separate_topup_notice(harness, monkeypatch):
+    """Q6: the auto-purchase notice carries the credited amount, so no second message."""
+    from app.services.payment import common
+
+    order: list[str] = []
+
+    async def _cart(*_a, **_k):
+        order.append('cart')
+        return True
+
+    monkeypatch.setattr(common, 'send_cart_notification_after_topup', _cart)
+    harness['payment'] = _payment(build_toman_topup_payload(42, 200_000), amount='2.11')
+
+    assert await harness['service'].process_cryptobot_webhook(_Db(), _webhook()) is True
+
+    assert order == ['cart']
+    assert harness['user_notices'] == []
+
+
+async def test_toman_invoice_topup_notice_follows_the_cart_attempt(harness, monkeypatch):
+    from app.services.payment import common
+
+    order: list[str] = []
+
+    async def _cart(*_a, **_k):
+        order.append('cart')
+        return False
+
+    deliver = harness['service']._deliver_user_topup_notification
+
+    async def _notice(payload):
+        order.append('notice')
+        await deliver(payload)
+
+    monkeypatch.setattr(common, 'send_cart_notification_after_topup', _cart)
+    harness['service']._deliver_user_topup_notification = _notice  # type: ignore[method-assign]
+    harness['payment'] = _payment(build_toman_topup_payload(42, 200_000), amount='2.11')
+
+    assert await harness['service'].process_cryptobot_webhook(_Db(), _webhook()) is True
+
+    assert order == ['cart', 'notice']

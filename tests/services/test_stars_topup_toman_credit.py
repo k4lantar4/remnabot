@@ -161,3 +161,61 @@ async def test_finalize_passes_the_referral_base_in_toman(monkeypatch):
     assert ok is True
     assert user.balance_kopeks == 61_800
     assert captured['amount'] == 51_800
+
+
+@pytest.mark.parametrize('purchased', [True, False])
+async def test_finalize_records_whether_the_topup_completed_a_saved_purchase(monkeypatch, purchased):
+    """Q6: the Stars handler skips its own top-up message when the auto-purchase notice already went out."""
+    from app.services import referral_service
+    from app.services.payment import common
+
+    async def _referral(*_a, **_k):
+        return None
+
+    async def _lock(db, user):
+        return user
+
+    async def _emit(*_a, **_k):
+        return None
+
+    async def _cart(*_a, **_k):
+        return purchased
+
+    import app.database.crud.user as user_crud
+
+    monkeypatch.setattr(referral_service, 'process_referral_topup', _referral)
+    monkeypatch.setattr(user_crud, 'lock_user_for_update', _lock)
+    monkeypatch.setattr(stars_module, 'emit_transaction_side_effects', _emit)
+    monkeypatch.setattr(common, 'send_cart_notification_after_topup', _cart)
+    monkeypatch.setattr(stars_module, 'format_referrer_info', lambda _u: '')
+
+    user = SimpleNamespace(
+        id=42,
+        telegram_id=111,
+        balance_kopeks=10_000,
+        has_made_first_topup=True,
+        referred_by_id=7,
+        updated_at=None,
+        subscription=None,
+        get_primary_promo_group=lambda: None,
+    )
+
+    class _Session:
+        async def commit(self):
+            pass
+
+        async def refresh(self, _obj):
+            pass
+
+    service = PaymentService.__new__(PaymentService)  # type: ignore[call-arg]
+    service.bot = None
+
+    assert await service._finalize_stars_balance_topup(
+        db=_Session(),
+        user=user,
+        transaction=SimpleNamespace(description='d'),
+        amount_kopeks=51_800,
+        stars_amount=28,
+        telegram_payment_charge_id='ch-1',
+    )
+    assert service.topup_autopurchased is purchased

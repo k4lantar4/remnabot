@@ -79,3 +79,36 @@ async def test_success_message_shows_credited_toman(monkeypatch, language):
     assert '51,800' in text
     assert '₽' not in text
     assert '28' in text
+
+
+async def test_no_separate_topup_message_when_the_topup_completed_a_saved_purchase(monkeypatch):
+    """Q6: the auto-purchase notice already carries the credited amount."""
+    message = MagicMock()
+    message.from_user.id = 111
+    message.chat.id = 111
+    message.successful_payment = SimpleNamespace(
+        total_amount=28,
+        invoice_payload=build_toman_topup_payload(42, 51_800, nonce=1),
+        telegram_payment_charge_id='charge-abcdef123',
+    )
+    message.answer = AsyncMock()
+
+    async def _get_user(_db, _tg_id):
+        return _user('fa')
+
+    service = MagicMock()
+    service.process_stars_payment = AsyncMock(return_value=True)
+    service.build_topup_success_keyboard = AsyncMock(return_value=None)
+    service.topup_autopurchased = True
+
+    monkeypatch.setattr(stars_payments, 'get_user_by_telegram_id', _get_user)
+    monkeypatch.setattr(stars_payments, 'PaymentService', lambda *_a, **_k: service)
+    monkeypatch.setattr(stars_payments, 'get_transaction_by_external_id', AsyncMock(return_value=None))
+
+    state = MagicMock()
+    state.get_data = AsyncMock(return_value={})
+    state.update_data = AsyncMock()
+
+    await stars_payments.handle_successful_payment(message, db=object(), state=state)
+
+    message.answer.assert_not_awaited()

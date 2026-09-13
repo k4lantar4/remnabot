@@ -705,11 +705,14 @@ class TelegramStarsMixin:
             except Exception as error:  # pragma: no cover - диагностический лог
                 logger.error('Ошибка отправки уведомления о пополнении Stars', error=error, exc_info=True)
 
-        # Проверяем наличие сохраненной корзины для возврата к оформлению подписки
+        # Read by the Stars handler: a completed saved purchase already sent the one message (ruling Q6).
+        self.topup_autopurchased = False
         try:
             from app.services.payment.common import send_cart_notification_after_topup
 
-            await send_cart_notification_after_topup(user, amount_kopeks, db, getattr(self, 'bot', None))
+            self.topup_autopurchased = bool(
+                await send_cart_notification_after_topup(user, amount_kopeks, db, getattr(self, 'bot', None))
+            )
         except Exception as error:  # pragma: no cover - диагностический лог
             logger.error(
                 'Ошибка при работе с сохраненной корзиной для пользователя', user_id=user.id, error=error, exc_info=True

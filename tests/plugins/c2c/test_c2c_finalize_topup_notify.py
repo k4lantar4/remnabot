@@ -204,3 +204,44 @@ async def test_finalize_skips_topup_notification_when_autopurchase_succeeds():
 
         cart_notify.assert_awaited_once()
         payment_service_cls.return_value._send_payment_success_notification.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_finalize_reads_the_checkout_cart_after_the_autopurchase_attempt():
+    """C6: the «return to checkout» flag describes the cart as it is after the attempt."""
+    user = SimpleNamespace(
+        id=1,
+        telegram_id=123,
+        has_made_first_topup=True,
+        referred_by_id=None,
+        get_primary_promo_group=lambda: None,
+    )
+    transaction = SimpleNamespace(id=10)
+    db = AsyncMock()
+    bot = AsyncMock()
+    service = C2cPaymentService(bot)
+    order: list[str] = []
+
+    async def _cart_hook(*_a, **_k):
+        order.append('cart_hook')
+        return False
+
+    async def _get_cart(_user_id):
+        order.append('get_cart')
+        return {'return_to_cart': True, 'cart_mode': 'tariff_purchase', 'total_price': 50000}
+
+    with (
+        patch('app.services.referral_service.process_referral_topup', new=AsyncMock()),
+        patch('app.services.payment_service.PaymentService') as payment_service_cls,
+        patch('app.services.admin_notification_service.AdminNotificationService'),
+        patch('app.services.payment.common.send_cart_notification_after_topup', new=_cart_hook),
+        patch('app.services.user_cart_service.user_cart_service.get_user_cart', new=_get_cart),
+        patch('app.services.user_cart_service.user_cart_service.refresh_topup_intent', new=AsyncMock()),
+    ):
+        payment_service_cls.return_value._send_payment_success_notification = AsyncMock()
+
+        await service.finalize_approved_topup(db, user, transaction, 100_000, old_balance=0, was_first_topup=False)
+
+    assert order[-1] == 'get_cart' and 'cart_hook' in order
+    kwargs = payment_service_cls.return_value._send_payment_success_notification.await_args.kwargs
+    assert kwargs.get('cart_autopurchase_failed') is True
