@@ -803,6 +803,87 @@ async def test_transient_panel_failure_never_creates_a_duplicate(monkeypatch):
     api.create_user.assert_not_awaited()
 
 
+# ---- F-018: only a proven "user not found" may fall through to create ----
+#
+# The trailing `except Exception` after the update step used to log "создаём
+# нового" and fall through to create_user for ANY error — a 500 from the panel,
+# a failed traffic reset after a successful PATCH, a programming error. With no
+# short_uuid to adopt, that created a second panel account next to the live,
+# paid one.
+
+
+def _multi_sub_with_panel_id():
+    sub = _sub_for_multi()
+    sub.remnawave_id = 8812
+    sub.remnawave_short_uuid = None
+    sub.remnawave_short_id = 'ab12cd'
+    return sub
+
+
+async def _call_multi(service, api, sub):
+    return await service._create_or_update_remnawave_user_multi(
+        api,
+        _user_for_multi(),
+        sub,
+        user_tag=None,
+        hwid_limit=None,
+        ext_squad_uuid=None,
+        reset_traffic=False,
+        reset_reason=None,
+    )
+
+
+async def test_multi_tariff_generic_error_in_update_step_does_not_create(monkeypatch):
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    api = AsyncMock()
+    api.get_user_by_id.return_value = SimpleNamespace(id=8812, expire_at=None)
+    api.update_user.side_effect = RuntimeError('boom')
+
+    with pytest.raises(RuntimeError):
+        await _call_multi(SubscriptionService(), api, _multi_sub_with_panel_id())
+
+    api.create_user.assert_not_awaited()
+
+
+async def test_multi_tariff_panel_500_in_lookup_does_not_create(monkeypatch):
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    api = AsyncMock()
+    api.get_user_by_id.side_effect = RemnaWaveAPIError('Internal error', 500, {})
+
+    with pytest.raises(RemnaWaveAPIError):
+        await _call_multi(SubscriptionService(), api, _multi_sub_with_panel_id())
+
+    api.create_user.assert_not_awaited()
+
+
+async def test_multi_tariff_non_user_404_in_update_does_not_create(monkeypatch):
+    """A 404 about an external squad (A182) is not "the user is gone"."""
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    api = AsyncMock()
+    api.get_user_by_id.return_value = SimpleNamespace(id=8812, expire_at=None)
+    api.update_user.side_effect = RemnaWaveAPIError('External squad not found', 404, {'errorCode': 'A182'})
+
+    with pytest.raises(RemnaWaveAPIError):
+        await _call_multi(SubscriptionService(), api, _multi_sub_with_panel_id())
+
+    api.create_user.assert_not_awaited()
+
+
+async def test_multi_tariff_user_deleted_during_update_still_recreates(monkeypatch):
+    """The legitimate fall-through: the panel says the user no longer exists."""
+    monkeypatch.setattr(Settings, 'is_multi_tariff_enabled', lambda self: True)
+    created = SimpleNamespace(id=9001, subscription_url='https://sub.example/new', happ_crypto_link=None)
+    api = AsyncMock()
+    api.get_user_by_id.return_value = SimpleNamespace(id=8812, expire_at=None)
+    api.update_user.side_effect = RemnaWaveAPIError('User not found', 404, {'errorCode': 'A063'})
+    api.create_user.return_value = created
+
+    result = await _call_multi(SubscriptionService(), api, _multi_sub_with_panel_id())
+
+    assert result is created
+    api.create_user.assert_awaited_once()
+
+
 # ---- validate_and_clean_subscription: сохранить или уничтожить ключ восстановления ----
 #
 # Самое разрушительное решение во всей миграции. `remnawave_short_uuid` —
