@@ -1,7 +1,7 @@
 """F-088: the Telegram admin payments screens print a pending payment's amount in Toman.
 
-``PendingPayment.amount_kopeks`` is on the x100 wire scale; ``settings.format_price`` is Toman 1:1
-since Phase C, so formatting the raw field showed a 50,000 Toman Stars top-up as 5,000,000.
+Stars and Toman CryptoBot records carry plain Toman; the bot has no request and therefore no wire
+scale, so what it prints and exports is that number as-is.
 """
 
 from __future__ import annotations
@@ -25,22 +25,23 @@ class _Texts:
         return default
 
 
-def _pending(method: PaymentMethod, amount_kopeks: int) -> PendingPayment:
+def _pending(method: PaymentMethod, amount_toman: int) -> PendingPayment:
     return PendingPayment(
         method=method,
         local_id=7,
         identifier='tx-7',
-        amount_kopeks=amount_kopeks,
+        amount_kopeks=amount_toman,
         status='pending',
         is_paid=False,
         created_at=NOW,
         user=SimpleNamespace(id=1, telegram_id=42, username='u', full_name='U', email=None),
         payment=None,
+        amount_is_toman=True,
     )
 
 
 def test_list_line_prints_toman_for_a_stars_deposit() -> None:
-    record = _pending(PaymentMethod.TELEGRAM_STARS, 5_000_000)  # 50,000 Toman on the wire
+    record = _pending(PaymentMethod.TELEGRAM_STARS, 50_000)
 
     text = '\n'.join(payments._build_record_lines(record, index=1, texts=_Texts(), language='fa'))
 
@@ -49,7 +50,7 @@ def test_list_line_prints_toman_for_a_stars_deposit() -> None:
 
 
 def test_details_print_toman_for_a_cryptobot_invoice_without_crypto_amount() -> None:
-    record = _pending(PaymentMethod.CRYPTOBOT, 100_000_000)  # 1,000,000 Toman on the wire
+    record = _pending(PaymentMethod.CRYPTOBOT, 1_000_000)
 
     text = payments._build_payment_details_text(record, texts=_Texts(), language='fa')
 
@@ -57,8 +58,8 @@ def test_details_print_toman_for_a_cryptobot_invoice_without_crypto_amount() -> 
     assert settings.format_price(100_000_000) not in text
 
 
-async def test_export_amount_rubles_is_toman(monkeypatch) -> None:
-    record = _pending(PaymentMethod.TELEGRAM_STARS, 5_000_000)
+async def test_export_amounts_are_toman(monkeypatch) -> None:
+    record = _pending(PaymentMethod.TELEGRAM_STARS, 50_000)
     monkeypatch.setattr(payments, 'list_recent_pending_payments', AsyncMock(return_value=[record]))
     monkeypatch.setattr(payments, 'get_texts', lambda _lang: _Texts())
     callback = MagicMock()
@@ -70,5 +71,5 @@ async def test_export_amount_rubles_is_toman(monkeypatch) -> None:
 
     document = callback.message.answer_document.await_args.kwargs['document']
     (row,) = json.loads(document.data.decode('utf-8'))
-    assert row['amount_kopeks'] == 5_000_000  # wire scale, unchanged
+    assert row['amount_kopeks'] == 50_000
     assert row['amount_rubles'] == 50_000

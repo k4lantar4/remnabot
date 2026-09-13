@@ -1,7 +1,9 @@
 # Toman Phase C-2 — retire the x100 cabinet wire scale behind an `X-Amount-Scale` header
 
 **Status:** active — design approved by the user 2026-09-12 (option "scale header", chosen over
-`*_toman` twin fields and over a one-shot flip). Task 1 done (PR #81, with this plan); next: Task 2.
+`*_toman` twin fields and over a one-shot flip). Task 1 done (PR #81, with this plan); Task 2 done (branch
+`refactor/pending-payments-toman-record`; deferred ruble-gateway records keep their provider amount
+and the old contract, see Task 2); next: Task 3.
 **Repos:** `remnabot` Tasks 1-2 (merged and deployed first), then `frontend` Tasks 3-7, then Task 8
 (`remnabot` PR, then `frontend` PR).
 **Upstream basis:** remnabot `origin/main` `08194b09`, `upstream/main` `9fcebfd7`; frontend

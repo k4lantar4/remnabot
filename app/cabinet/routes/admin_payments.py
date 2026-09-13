@@ -27,6 +27,7 @@ from app.services.payment_verification_service import (
     method_display_name,
     run_manual_check,
 )
+from app.utils.wire_scale import wire_catalog_kopeks
 
 from ..dependencies import get_cabinet_db, require_permission
 
@@ -46,7 +47,7 @@ class PendingPaymentResponse(BaseModel):
     method: str
     method_display: str
     identifier: str
-    # ``amount_kopeks`` is on the frozen catalog wire scale (Toman x100, see app/utils/wire_scale.py);
+    # ``amount_kopeks`` is on the request's wire scale (app/utils/wire_scale.py) for Toman records;
     # ``amount_rubles`` is the plain display amount the cabinet prints as-is (AdminPayments.tsx).
     amount_kopeks: int
     amount_rubles: float
@@ -306,7 +307,7 @@ def _record_to_response(record: PendingPayment) -> PendingPaymentResponse:
         method=record.method.value,
         method_display=method_display_name(record.method),
         identifier=record.identifier,
-        amount_kopeks=record.amount_kopeks,
+        amount_kopeks=wire_catalog_kopeks(record.amount_kopeks) if record.amount_is_toman else record.amount_kopeks,
         amount_rubles=record.amount_toman,
         status=record.status or '',
         status_emoji=status_emoji,

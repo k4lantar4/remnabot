@@ -1502,7 +1502,7 @@ def _record_to_response(record: PendingPayment) -> PendingPaymentResponse:
         method=record.method.value,
         method_display=method_display_name(record.method),
         identifier=record.identifier,
-        amount_kopeks=record.amount_kopeks,
+        amount_kopeks=wire_catalog_kopeks(record.amount_kopeks) if record.amount_is_toman else record.amount_kopeks,
         amount_rubles=record.amount_toman,
         status=record.status or '',
         status_emoji=status_emoji,

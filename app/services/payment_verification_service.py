@@ -45,7 +45,7 @@ from app.database.models import (
     YooKassaPayment,
 )
 from app.utils.toman_rates import parse_toman_topup_payload
-from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
+from app.utils.wire_scale import toman_from_wire_catalog
 
 
 logger = structlog.get_logger(__name__)
@@ -68,15 +68,16 @@ class PendingPayment:
     user: User
     payment: Any
     expires_at: datetime | None = None
+    # Stars and Toman CryptoBot records carry plain Toman in ``amount_kopeks``; deferred ruble
+    # gateways keep their provider amount. The wire scale is applied by the cabinet route only,
+    # because this service also serves the Telegram admin bot, which has no request scale.
+    amount_is_toman: bool = False
 
     @property
     def amount_toman(self) -> float:
-        """Display amount of ``amount_kopeks``, which records carry on the x100 wire scale.
-
-        ``amount_kopeks`` stays on that scale because the cabinet (``TopUpResult.tsx``) divides it by
-        100; everything that prints or exports a plain amount (``amount_rubles``, the admin bot) reads
-        this instead.
-        """
+        """Display amount: the stored Toman, or a ruble gateway's provider amount on its old scale."""
+        if self.amount_is_toman:
+            return self.amount_kopeks
         return toman_from_wire_catalog(self.amount_kopeks)
 
     def is_recent(self, max_age: timedelta = PENDING_MAX_AGE) -> bool:
@@ -540,20 +541,19 @@ def _is_cispay_pending(payment: CisPayPayment) -> bool:
     return status == 'pending'
 
 
-def _parse_cryptobot_amount_kopeks(payment: CryptoBotPayment) -> int:
+def _parse_cryptobot_amount(payment: CryptoBotPayment) -> tuple[int, bool]:
+    """``(amount, amount_is_toman)``: Toman top-up invoices name their Toman credit as-is."""
     payload = payment.payload or ''
-    # Toman top-up invoices name the Toman credit; report it on the top-up scale (Toman x100)
-    # that the cabinet and admin screens divide by 100 for display.
     toman_payload = parse_toman_topup_payload(payload)
     if toman_payload is not None:
-        return wire_catalog_kopeks(toman_payload.toman)
+        return toman_payload.toman, True
     match = re.search(r'_(\d+)$', payload)
     if match:
         try:
-            return int(match.group(1))
+            return int(match.group(1)), False
         except ValueError:
-            return 0
-    return 0
+            return 0, False
+    return 0, False
 
 
 def _metadata_is_balance(payment: YooKassaPayment) -> bool:
@@ -571,6 +571,7 @@ def _build_record(
     status: str,
     is_paid: bool,
     expires_at: datetime | None = None,
+    amount_is_toman: bool = False,
 ) -> PendingPayment | None:
     user = getattr(payment, 'user', None)
     if user is None:
@@ -598,6 +599,7 @@ def _build_record(
         user=user,
         payment=payment,
         expires_at=expires_at,
+        amount_is_toman=amount_is_toman,
     )
 
 
@@ -773,14 +775,15 @@ async def _fetch_cryptobot_payments(db: AsyncSession, cutoff: datetime) -> list[
         status = (payment.status or '').lower()
         if not _is_cryptobot_pending(payment) and status != 'paid':
             continue
-        amount_kopeks = _parse_cryptobot_amount_kopeks(payment)
+        amount, amount_is_toman = _parse_cryptobot_amount(payment)
         record = _build_record(
             PaymentMethod.CRYPTOBOT,
             payment,
             identifier=payment.invoice_id,
-            amount_kopeks=amount_kopeks,
+            amount_kopeks=amount,
             status=payment.status or '',
             is_paid=bool(payment.is_paid),
+            amount_is_toman=amount_is_toman,
         )
         if record:
             records.append(record)
@@ -1166,10 +1169,11 @@ async def _fetch_stars_transactions(db: AsyncSession, cutoff: datetime) -> list[
             PaymentMethod.TELEGRAM_STARS,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            # DEPOSIT rows are Toman 1:1; records carry the top-up scale (Toman x100).
-            amount_kopeks=wire_catalog_kopeks(transaction.amount_kopeks),
+            # DEPOSIT rows are Toman 1:1, and so is the record.
+            amount_kopeks=transaction.amount_kopeks,
             status='paid' if transaction.is_completed else 'pending',
             is_paid=bool(transaction.is_completed),
+            amount_is_toman=True,
         )
         if record:
             records.append(record)
@@ -1323,14 +1327,15 @@ async def get_payment_record(
         if not payment:
             return None
         await db.refresh(payment, attribute_names=['user'])
-        amount_kopeks = _parse_cryptobot_amount_kopeks(payment)
+        amount, amount_is_toman = _parse_cryptobot_amount(payment)
         return _build_record(
             method,
             payment,
             identifier=payment.invoice_id,
-            amount_kopeks=amount_kopeks,
+            amount_kopeks=amount,
             status=payment.status or '',
             is_paid=bool(payment.is_paid),
+            amount_is_toman=amount_is_toman,
         )
 
     if method == PaymentMethod.CLOUDPAYMENTS:
@@ -1551,10 +1556,11 @@ async def get_payment_record(
             method,
             transaction,
             identifier=transaction.external_id or str(transaction.id),
-            # DEPOSIT rows are Toman 1:1; records carry the top-up scale (Toman x100).
-            amount_kopeks=wire_catalog_kopeks(transaction.amount_kopeks),
+            # DEPOSIT rows are Toman 1:1, and so is the record.
+            amount_kopeks=transaction.amount_kopeks,
             status='paid' if transaction.is_completed else 'pending',
             is_paid=bool(transaction.is_completed),
+            amount_is_toman=True,
         )
 
     logger.debug('Unsupported payment method requested', method=method)
