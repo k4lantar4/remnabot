@@ -2619,5 +2619,17 @@
   "CABINET_TRAFFIC_REFRESH_FAILED": "Failed to refresh traffic data",
   "TRAFFIC_TOPUP_TARIFFS_MODE_ONLY": "Traffic top-up is only available in tariffs mode",
   "TRAFFIC_TOPUP_NO_TARIFF": "Subscription has no tariff",
-  "MINIAPP_TRAFFIC_TOPUP_LIMIT_EXCEEDED": "Traffic top-up limit exceeded. Maximum allowed: {max} GB, current: {current} GB, available: {available} GB"
+  "MINIAPP_TRAFFIC_TOPUP_LIMIT_EXCEEDED": "Traffic top-up limit exceeded. Maximum allowed: {max} GB, current: {current} GB, available: {available} GB",
+  "NOTIFY_DIGEST_EXPIRING": "⚠️ <b>{count} subscriptions expire within {days_text}</b>\n\n{lines}\n\nRenew them in your account so you don't lose access.",
+  "NOTIFY_DIGEST_EXPIRED": "⛔ <b>{count} subscriptions have expired</b>\n\n{lines}\n\nAccess on these subscriptions is blocked until you renew them.",
+  "NOTIFY_DIGEST_LINE": "• {tariff} — until {end_date} — {price}",
+  "NOTIFY_DIGEST_LINE_NO_PRICE": "• {tariff} — {end_date}",
+  "NOTIFY_DIGEST_MORE": "…and {count} more",
+  "NOTIFY_DIGEST_BTN_SUBSCRIPTIONS": "📱 My subscriptions",
+  "NOTIFY_OTHER_EXPIRED": "\n\nYou have {count} other expired subscriptions too.",
+  "NOTIFY_DIGEST_DAILY_CHARGE": "💳 <b>Daily charge for {count} subscriptions</b>\n\n{lines}\n\nTotal: {total}\nBalance left: {balance}\n\nThe next charge is in 24 hours.",
+  "NOTIFY_DIGEST_DAILY_CHARGE_LINE": "• {tariff}: {amount}",
+  "NOTIFY_DIGEST_TRAFFIC": "⚠️ <b>Traffic almost used up on {count} subscriptions</b>\n\n{lines}",
+  "NOTIFY_DIGEST_TRAFFIC_LINE": "• {tariff}: {used} / {limit} GB ({percent}%)",
+  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>Autopay failed for {count} subscriptions</b>\n\n{lines}\n\nBalance: {balance}\nRequired: {required}\n\nTop up your balance to keep access."
 }

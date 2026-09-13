@@ -1841,7 +1841,8 @@ async def get_target_users(db: AsyncSession, target: str) -> list:
 
     if target == 'expiring':
         expiring_subs = await get_expiring_subscriptions(db, 3)
-        return [sub.user for sub in expiring_subs if sub.user]
+        # One recipient per user, however many of their subscriptions expire (F-045).
+        return list({sub.user.id: sub.user for sub in expiring_subs if sub.user}.values())
 
     if target == 'expired':
         now = datetime.now(UTC)
@@ -1892,7 +1893,7 @@ async def get_target_users(db: AsyncSession, target: str) -> list:
 
     if target == 'expiring_subscribers':
         expiring_subs = await get_expiring_subscriptions(db, 7)
-        return [sub.user for sub in expiring_subs if sub.user]
+        return list({sub.user.id: sub.user for sub in expiring_subs if sub.user}.values())
 
     if target == 'expired_subscribers':
         now = datetime.now(UTC)

@@ -686,6 +686,36 @@ class BotConfigurationService:
     }
 
     SETTING_HINTS: dict[str, dict[str, str]] = {
+        'NOTIFICATION_QUIET_HOURS_ENABLED': {
+            'description': 'Hold scheduled user reminders during the night window and send them when it ends.',
+            'format': 'true / false',
+            'example': 'true',
+            'dependencies': 'NOTIFICATION_QUIET_HOURS_START, NOTIFICATION_QUIET_HOURS_END, NOTIFICATION_QUIET_HOURS_TYPES',
+        },
+        'NOTIFICATION_QUIET_HOURS_START': {
+            'description': 'Start of the quiet window, bot local time (TZ).',
+            'format': 'HH:MM, 24-hour. The window may cross midnight (22:00 to 07:00).',
+            'example': '00:00',
+            'warning': 'A malformed time falls back to 00:00.',
+        },
+        'NOTIFICATION_QUIET_HOURS_END': {
+            'description': 'End of the quiet window; held reminders go out in the first check after it.',
+            'format': 'HH:MM, 24-hour.',
+            'example': '06:00',
+            'warning': 'A malformed time falls back to 06:00. Start equal to end holds nothing.',
+        },
+        'NOTIFICATION_QUIET_HOURS_TYPES': {
+            'description': 'Which scheduled reminders wait for the end of the quiet window.',
+            'format': (
+                'Comma list of: expiring, expired_followup, traffic_warning, low_balance, daily_charge, '
+                'autopay_failed. Empty holds nothing.'
+            ),
+            'example': 'expiring,expired_followup,traffic_warning,low_balance,daily_charge',
+            'warning': (
+                'Expired, trial-ending and daily-insufficient notices are always sent at once; unknown names '
+                'are ignored. Payment confirmations and cabinet actions are never held.'
+            ),
+        },
         'GRACE_ACCESS_MODE': {
             'description': (
                 'Режим grace-доступа: временного ограниченного VPN-доступа для истёкшей или упёршейся '

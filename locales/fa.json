@@ -2619,5 +2619,17 @@
   "CABINET_TRAFFIC_REFRESH_FAILED": "به‌روزرسانی مصرف ترافیک انجام نشد",
   "TRAFFIC_TOPUP_TARIFFS_MODE_ONLY": "خرید ترافیک اضافه در این حالت فروش ممکن نیست",
   "TRAFFIC_TOPUP_NO_TARIFF": "این اشتراک به سرویسی وصل نیست",
-  "MINIAPP_TRAFFIC_TOPUP_LIMIT_EXCEEDED": "از سقف ترافیک بیشتر می‌شود. سقف: {max} گیگ، فعلی: {current} گیگ، قابل خرید: {available} گیگ"
+  "MINIAPP_TRAFFIC_TOPUP_LIMIT_EXCEEDED": "از سقف ترافیک بیشتر می‌شود. سقف: {max} گیگ، فعلی: {current} گیگ، قابل خرید: {available} گیگ",
+  "NOTIFY_DIGEST_EXPIRING": "⚠️ <b>{count} اشتراک شما تا {days_text} دیگر تمام می‌شود</b>\n\n{lines}\n\nبرای اینکه دسترسی‌تان قطع نشود، از حساب کاربری تمدیدشان کنید.",
+  "NOTIFY_DIGEST_EXPIRED": "⛔ <b>{count} اشتراک شما تمام شده است</b>\n\n{lines}\n\nتا وقتی این اشتراک‌ها را تمدید نکنید، دسترسی‌شان قطع می‌ماند.",
+  "NOTIFY_DIGEST_LINE": "• {tariff} — تا {end_date} — {price}",
+  "NOTIFY_DIGEST_LINE_NO_PRICE": "• {tariff} — {end_date}",
+  "NOTIFY_DIGEST_MORE": "…و {count} اشتراک دیگر",
+  "NOTIFY_DIGEST_BTN_SUBSCRIPTIONS": "📱 اشتراک‌های من",
+  "NOTIFY_OTHER_EXPIRED": "\n\n{count} اشتراک دیگر شما هم تمام شده است.",
+  "NOTIFY_DIGEST_DAILY_CHARGE": "💳 <b>کسر هزینه‌ی روزانه‌ی {count} اشتراک</b>\n\n{lines}\n\nجمع: {total}\nموجودی باقی‌مانده: {balance}\n\nکسر بعدی 24 ساعت دیگر انجام می‌شود.",
+  "NOTIFY_DIGEST_DAILY_CHARGE_LINE": "• {tariff}: {amount}",
+  "NOTIFY_DIGEST_TRAFFIC": "⚠️ <b>ترافیک {count} اشتراک شما رو به اتمام است</b>\n\n{lines}",
+  "NOTIFY_DIGEST_TRAFFIC_LINE": "• {tariff}: {used} / {limit} گیگ ({percent}%)",
+  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>تمدید خودکار {count} اشتراک انجام نشد</b>\n\n{lines}\n\nموجودی: {balance}\nمبلغ لازم: {required}\n\nبرای اینکه دسترسی‌تان قطع نشود، حسابتان را شارژ کنید."
 }
