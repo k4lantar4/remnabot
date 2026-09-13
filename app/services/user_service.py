@@ -175,17 +175,18 @@ class UserService:
 
         keyboard_rows = []
         subs = getattr(user, 'subscriptions', None) or []
-        has_extendable = any(sub.status in {'active', 'expired', 'trial'} for sub in subs)
-        if has_extendable:
-            extend_callback = 'menu_subscription' if settings.is_multi_tariff_enabled() else 'subscription_extend'
-            keyboard_rows.append(
-                [
-                    types.InlineKeyboardButton(
-                        text=get_texts(user.language).t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
-                        callback_data=extend_callback,
-                    )
-                ]
-            )
+        extendable = [sub for sub in subs if sub.status in {'active', 'expired', 'trial'}]
+        if extendable:
+            from app.utils.miniapp_buttons import build_miniapp_or_callback_button, build_subscription_extend_button
+
+            extend_text = texts.t('SUBSCRIPTION_EXTEND', '💎 Extend')
+            if len(extendable) == 1 or not settings.is_multi_tariff_enabled():
+                button = build_subscription_extend_button(extend_text, extendable[0].id)
+            else:
+                button = build_miniapp_or_callback_button(
+                    text=extend_text, callback_data='menu_subscription', cabinet_path='/subscriptions'
+                )
+            keyboard_rows.append([button])
 
         reply_markup = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows) if keyboard_rows else None
 

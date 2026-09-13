@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
+from app.config import settings
 from app.database.models import PromoCodeType, SubscriptionStatus
 from app.services.promocode_service import PromoCodeService
 
@@ -83,7 +84,7 @@ async def test_combo_applies_both_days_and_balance(monkeypatch):
     add_balance.assert_awaited_once()
     assert add_balance.await_args.args[2] == 50000  # копейки из промокода
     assert 'продлена на 7' in description
-    assert '500' in description  # 500₽ в тексте эффекта
+    assert settings.format_balance(50000) in description  # the Toman balance line
 
 
 async def test_combo_days_failure_prevents_balance_credit(monkeypatch):

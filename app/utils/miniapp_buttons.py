@@ -1,7 +1,8 @@
 import re
+from typing import Any
 
 from aiogram import types
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.config import settings
 from app.utils.button_styles_cache import CALLBACK_TO_SECTION, get_cached_button_styles
@@ -285,6 +286,44 @@ def build_subscription_extend_button(
         style=style,
         icon_custom_emoji_id=icon_custom_emoji_id,
     )
+
+
+def build_subscription_result_keyboard(texts: Any, subscription_id: int | None = None) -> InlineKeyboardMarkup:
+    """Keyboard under a purchase, renewal or add-on result notice.
+
+    Multi-tariff: the subscription the notice is about (``/subscriptions/{id}``), then the list.
+    Single-tariff: the subscription page, then the bot main menu.
+    """
+    subscription_label = texts.t('MY_SUBSCRIPTION_BUTTON', '📱 My subscription')
+    if not settings.is_multi_tariff_enabled():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [build_miniapp_or_callback_button(text=subscription_label, callback_data='menu_subscription')],
+                [build_main_menu_button(texts.t('BACK_TO_MAIN_MENU_BUTTON', '🏠 Main menu'))],
+            ]
+        )
+
+    rows = []
+    if subscription_id:
+        rows.append(
+            [
+                build_miniapp_or_callback_button(
+                    text=subscription_label,
+                    callback_data='menu_subscription',
+                    cabinet_path=f'/subscriptions/{subscription_id}',
+                )
+            ]
+        )
+    rows.append(
+        [
+            build_miniapp_or_callback_button(
+                text=texts.t('BTN_MY_SUBSCRIPTIONS', '📱 My subscriptions'),
+                callback_data='menu_subscription',
+                cabinet_path='/subscriptions',
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 # Префикс startapp/маршрута для диплинка на конкретный тикет в админ-кабинете.

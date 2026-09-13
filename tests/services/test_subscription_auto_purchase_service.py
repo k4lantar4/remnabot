@@ -322,8 +322,8 @@ async def test_auto_purchase_saved_cart_after_topup_extension(monkeypatch):
     )
     # Продление форматирует новую дату окончания
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
-        lambda dt, fmt: dt.strftime(fmt) if dt else '',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
+        lambda dt, language: dt.strftime('%d.%m.%Y %H:%M') if dt else '',
     )
 
     admin_service_mock = MagicMock()
@@ -500,8 +500,8 @@ def _prepare_extend_race_guard_scenario(monkeypatch, *, recent_transactions: lis
         lambda days, lang: f'{days} дней',
     )
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
-        lambda dt, fmt: dt.strftime(fmt) if dt else '',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
+        lambda dt, language: dt.strftime('%d.%m.%Y %H:%M') if dt else '',
     )
 
     admin_service_mock = MagicMock()
@@ -659,8 +659,8 @@ async def test_auto_purchase_trial_preserved_on_insufficient_balance(monkeypatch
         lambda days, lang: f'{days} дней',
     )
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
-        lambda dt, fmt: dt.strftime(fmt) if dt else '',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
+        lambda dt, language: dt.strftime('%d.%m.%Y %H:%M') if dt else '',
     )
 
     admin_service_mock = MagicMock()
@@ -801,10 +801,10 @@ async def test_auto_purchase_trial_converted_after_successful_extension(monkeypa
         'app.services.subscription_auto_purchase_service.format_period_description',
         lambda days, lang: f'{days} дней',
     )
-    # ИСПРАВЛЕНО: Добавлен мок для format_local_datetime
+    # ИСПРАВЛЕНО: Добавлен мок для format_notice_datetime
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
-        lambda dt, fmt: dt.strftime(fmt) if dt else '',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
+        lambda dt, language: dt.strftime('%d.%m.%Y %H:%M') if dt else '',
     )
 
     admin_service_mock = MagicMock()
@@ -928,8 +928,8 @@ async def test_auto_purchase_trial_preserved_on_extension_failure(monkeypatch):
         lambda days, lang: f'{days} дней',
     )
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
-        lambda dt, fmt: dt.strftime(fmt) if dt else '',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
+        lambda dt, language: dt.strftime('%d.%m.%Y %H:%M') if dt else '',
     )
 
     admin_service_mock = MagicMock()
@@ -1104,7 +1104,7 @@ async def test_auto_purchase_trial_remaining_days_transferred(monkeypatch):
         lambda days, lang: f'{days} дней',
     )
     monkeypatch.setattr(
-        'app.services.subscription_auto_purchase_service.format_local_datetime',
+        'app.services.subscription_auto_purchase_service.format_notice_datetime',
         lambda dt, fmt: dt.strftime(fmt),
     )
 

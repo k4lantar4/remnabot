@@ -457,7 +457,9 @@ class DailySubscriptionService:
 
     async def _notify_insufficient_balance(self, user, subscription, required_amount: int):
         """Уведомляет пользователя о недостатке средств."""
-        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+        from aiogram.types import InlineKeyboardMarkup
+
+        from app.utils.miniapp_buttons import build_miniapp_or_callback_button, build_subscription_result_keyboard
 
         texts = get_texts(getattr(user, 'language', 'ru'))
         # required_amount and the balance are both Toman.
@@ -479,15 +481,12 @@ class DailySubscriptionService:
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    InlineKeyboardButton(
-                        text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'), callback_data='menu_balance'
+                    build_miniapp_or_callback_button(
+                        text=texts.t('BALANCE_TOPUP', '💳 Top up balance'), callback_data='balance_topup'
                     )
                 ],
-                [
-                    InlineKeyboardButton(
-                        text=texts.t('MY_SUBSCRIPTION_BUTTON', '📱 Моя подписка'), callback_data='menu_subscription'
-                    )
-                ],
+                # The subscription button of the shared result keyboard: opens this subscription.
+                build_subscription_result_keyboard(texts, subscription.id).inline_keyboard[0],
             ]
         )
 
@@ -826,16 +825,18 @@ class DailySubscriptionService:
 
     async def _notify_traffic_reset(self, user: User, subscription: Subscription, reset_gb: int):
         """Уведомляет пользователя о сбросе докупленного трафика."""
+        texts = get_texts(getattr(user, 'language', None))
         tariff_label = ''
-        if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-            tariff_label = f'\n📦 Тариф: «{subscription.tariff.name}»'
-        message = (
-            f'ℹ️ <b>Сброс докупленного трафика</b>\n\n'
-            f'Ваш докупленный трафик ({reset_gb} ГБ) был сброшен, '
-            f'так как прошло 30 дней с момента первой докупки.{tariff_label}\n\n'
-            f'Текущий лимит трафика: {subscription.traffic_limit_gb} ГБ\n\n'
-            f'Вы можете докупить трафик снова в любое время.'
-        )
+        if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff', None):
+            tariff_label = texts.t('NOTIFY_TARIFF_LABEL', '\n📦 Tariff: «{name}»').format(name=subscription.tariff.name)
+        message = texts.t(
+            'DAILY_TRAFFIC_RESET_NOTICE',
+            'ℹ️ <b>Extra traffic reset</b>\n\n'
+            'The extra traffic you bought ({reset_gb} GB) was reset because 30 days have passed since the '
+            'first purchase.{tariff_label}\n\n'
+            'Current traffic limit: {limit_gb} GB\n\n'
+            'You can buy extra traffic again at any time.',
+        ).format(reset_gb=reset_gb, tariff_label=tariff_label, limit_gb=subscription.traffic_limit_gb)
 
         context = {
             'reset_gb': reset_gb,

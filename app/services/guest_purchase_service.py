@@ -1124,11 +1124,17 @@ async def _send_telegram_gift_notification(
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         from app.bot_factory import create_bot
+        from app.localization.texts import get_texts
+        from app.utils.formatters import format_days_declension
+
+        language = getattr(user, 'language', None) or settings.DEFAULT_LANGUAGE
+        texts = get_texts(language)
 
         gift_from = ''
         if purchase.contact_value:
-            safe_name = html_mod.escape(purchase.contact_value)
-            gift_from = f'\nОт: {safe_name}'
+            gift_from = texts.t('GIFT_RECEIVED_FROM', '\nFrom: {name}').format(
+                name=html_mod.escape(purchase.contact_value)
+            )
 
         gift_msg = ''
         if purchase.gift_message:
@@ -1136,19 +1142,26 @@ async def _send_telegram_gift_notification(
             gift_msg = f'\n\n"{safe_msg}"'
 
         safe_tariff = html_mod.escape(tariff_name) if tariff_name else ''
-        period_text = f'{purchase.period_days} дн.' if purchase.period_days else ''
+        period_text = format_days_declension(purchase.period_days, language) if purchase.period_days else ''
         tariff_text = f'{safe_tariff} — {period_text}' if safe_tariff else period_text
 
-        text = f'🎁 <b>Вам подарили VPN подписку!</b>\n{tariff_text}{gift_from}{gift_msg}'
+        text = texts.t(
+            'GIFT_RECEIVED_NOTICE', '🎁 <b>You received a VPN subscription as a gift!</b>\n{details}{sender}{note}'
+        ).format(details=tariff_text, sender=gift_from, note=gift_msg)
 
         keyboard = None
         if is_pending_activation:
-            text += '\n\nУ вас уже есть активная подписка. Нажмите кнопку ниже, чтобы активировать подарок (текущая подписка будет заменена).'
+            text += texts.t(
+                'GIFT_RECEIVED_PENDING_HINT',
+                '\n\nYou already have an active subscription. Tap the button below to activate the gift '
+                '(your current subscription will be replaced).',
+            )
+            # The cabinet has no page that activates a gift by id, so this stays a bot callback.
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text='Активировать подарок',
+                            text=texts.t('GIFT_RECEIVED_ACTIVATE_BUTTON', '🎁 Activate gift'),
                             callback_data=f'gift_activate:{purchase.id}',
                         )
                     ]

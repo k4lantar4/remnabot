@@ -319,8 +319,8 @@ async def test_manual_topup_message_shows_toman_amount_and_balance(monkeypatch):
     await manual_topup._notify_user(_user(), 50_000, Transaction(id=701), bot=bot)
 
     text = bot.send_message.await_args.args[1]
-    assert f'Сумма: {settings.format_balance(50_000)}' in text
-    assert f'Текущий баланс: {BALANCE_LABEL}' in text
+    assert settings.format_balance(50_000) in text
+    assert BALANCE_LABEL in text
 
 
 @pytest.mark.asyncio

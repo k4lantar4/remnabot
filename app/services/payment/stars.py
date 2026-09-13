@@ -496,13 +496,16 @@ class TelegramStarsMixin:
         # Отправляем уведомление только Telegram-пользователям (Stars требует Telegram)
         if getattr(self, 'bot', None) and user.telegram_id and settings.is_notifications_enabled():
             try:
-                from aiogram import types
-
                 from app.localization.texts import get_texts
+                from app.utils.miniapp_buttons import build_subscription_result_keyboard
 
-                get_texts(user.language)
+                texts = get_texts(user.language)
                 traffic_limit = getattr(subscription, 'traffic_limit_gb', 0) or 0
-                traffic_label = 'Безлимит' if traffic_limit == 0 else f'{int(traffic_limit)} ГБ'
+                traffic_label = (
+                    texts.t('TRAFFIC_UNLIMITED_SHORT', 'Unlimited')
+                    if traffic_limit == 0
+                    else f'{int(traffic_limit)} GB'
+                )
 
                 tariff_line = ''
                 if settings.is_multi_tariff_enabled() and getattr(subscription, 'tariff_id', None):
@@ -511,35 +514,27 @@ class TelegramStarsMixin:
 
                         _t = await get_tariff_by_id(db, subscription.tariff_id)
                         if _t:
-                            tariff_line = f'\n📦 Тариф: «{_t.name}»'
+                            tariff_line = texts.t('NOTIFY_TARIFF_LABEL', '\n📦 Tariff: «{name}»').format(name=_t.name)
                     except Exception:
                         pass
-                success_message = (
-                    '✅ <b>Подписка успешно активирована!</b>\n\n'
-                    f'📅 Период: {period_display} дней\n'
-                    f'📱 Устройства: {getattr(subscription, "device_limit", 1)}\n'
-                    f'📊 Трафик: {traffic_label}\n'
-                    f'⭐ Оплата: {stars_amount} ⭐ ({settings.format_price(amount_kopeks)})'
-                    f'{tariff_line}\n\n'
-                    "🔗 Для подключения перейдите в раздел 'Моя подписка'"
+                success_message = texts.t(
+                    'STARS_SUBSCRIPTION_ACTIVATED',
+                    '✅ <b>Subscription activated!</b>\n\n'
+                    '📅 Period: {period} days\n'
+                    '📱 Devices: {devices}\n'
+                    '📊 Traffic: {traffic}\n'
+                    '⭐ Paid: {stars} ⭐ ({amount}){tariff_label}\n\n'
+                    '🔗 Open «My subscription» to connect.',
+                ).format(
+                    period=period_display,
+                    devices=getattr(subscription, 'device_limit', 1),
+                    traffic=traffic_label,
+                    stars=stars_amount,
+                    amount=settings.format_price(amount_kopeks),
+                    tariff_label=tariff_line,
                 )
 
-                keyboard = types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            types.InlineKeyboardButton(
-                                text='📱 Моя подписка',
-                                callback_data='menu_subscription',
-                            )
-                        ],
-                        [
-                            types.InlineKeyboardButton(
-                                text='🏠 Главное меню',
-                                callback_data='back_to_menu',
-                            )
-                        ],
-                    ]
-                )
+                keyboard = build_subscription_result_keyboard(texts, getattr(subscription, 'id', None))
 
                 await self.bot.send_message(
                     chat_id=user.telegram_id,
