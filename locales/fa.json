@@ -2655,6 +2655,6 @@
   "REFERRAL_PURCHASE_COMMISSION_NOTICE": "💰 <b>کمیسیون خرید!</b>\n\n<b>{name}</b> که با دعوت شما آمده، {amount} خرید کرد.\n\n🎁 سهم شما ({percent}%): {commission}\n\n💎 این مبلغ به موجودی‌تان اضافه شد.",
   "PROMOCODE_BALANCE_BONUS_LINE": "💰 {amount} به موجودی‌تان اضافه شد",
   "STARS_SUBSCRIPTION_ACTIVATED": "✅ <b>اشتراک فعال شد!</b>\n\n📅 مدت: {period} روز\n📱 تعداد کاربر: {devices}\n📊 ترافیک: {traffic}\n⭐ پرداختی: {stars} ⭐ ({amount}){tariff_label}\n\n🔗 برای اتصال، بخش «اشتراک من» را باز کنید.",
-  "TOPUP_CREDITED_LINE": "✅ Balance topped up by {amount}",
-  "TOPUP_BALANCE_LEFT_LINE": "💰 Balance left: {balance}"
+  "TOPUP_CREDITED_LINE": "✅ موجودی شما {amount} شارژ شد",
+  "TOPUP_BALANCE_LEFT_LINE": "💰 موجودی فعلی: {balance}"
 }
