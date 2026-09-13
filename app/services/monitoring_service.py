@@ -2163,14 +2163,14 @@ class MonitoringService:
         if subscription.autopay_enabled and has_saved_card:
             autopay_status = texts.t('AUTOPAY_STATUS_CARD_ACTIVE', '✅ Enabled — automatic card charge scheduled')
             action_text = texts.t('AUTOPAY_ACTION_CHECK_BALANCE', '💰 Your current balance: {balance}').format(
-                balance=settings.format_price(user.balance_kopeks)
+                balance=settings.format_balance(user.balance_kopeks)
             )
         elif subscription.autopay_enabled and quote is not None and not user_can_afford(user.balance_kopeks, quote):
             # Autopay already ran this cycle and could not renew for lack of balance (C1).
             autopay_status = texts.t(
                 'AUTOPAY_STATUS_PENDING_BALANCE',
                 '⚠️ Enabled, but your balance ({balance}) is less than the renewal price ({price}) — top up so it can renew',
-            ).format(balance=settings.format_price(user.balance_kopeks), price=settings.format_price(quote))
+            ).format(balance=settings.format_balance(user.balance_kopeks), price=settings.format_price(quote))
             action_text = ''
         elif subscription.autopay_enabled:
             # Without a quote we can't promise a renewal.
@@ -2180,7 +2180,7 @@ class MonitoringService:
                 else texts.t('AUTOPAY_STATUS_ENABLED', 'enabled')
             )
             action_text = texts.t('AUTOPAY_ACTION_CHECK_BALANCE', '💰 Your current balance: {balance}').format(
-                balance=settings.format_price(user.balance_kopeks)
+                balance=settings.format_balance(user.balance_kopeks)
             )
         else:
             autopay_status = texts.t('AUTOPAY_STATUS_OFF', "❌ Disabled — don't forget to renew manually!")

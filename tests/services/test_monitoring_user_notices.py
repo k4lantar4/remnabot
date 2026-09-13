@@ -243,7 +243,7 @@ def test_expiring_notice_with_autopay_on_does_not_claim_it_will_renew():
     assert texts.t('AUTOPAY_STATUS_NO_CARD') not in text
     assert (
         texts.t('AUTOPAY_STATUS_PENDING_BALANCE').format(
-            balance=settings.format_price(50_000), price=settings.format_price(90_000)
+            balance=settings.format_balance(50_000), price=settings.format_price(90_000)
         )
         in text
     )
