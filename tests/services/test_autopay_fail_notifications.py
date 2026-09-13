@@ -332,7 +332,7 @@ async def test_email_only_path_uses_cause_specific_reason(monkeypatch):
     monkeypatch.setattr(ms.cache, 'set', AsyncMock(return_value=True))
 
     now = datetime.now(UTC)
-    user = SimpleNamespace(id=1, telegram_id=None, balance_kopeks=0)
+    user = SimpleNamespace(id=1, telegram_id=None, balance_kopeks=0, language='ru')
 
     await svc._maybe_notify_autopay_failure(
         user, 50000, SimpleNamespace(id=7, end_date=now + timedelta(hours=40)), now, cause='charge_error'
@@ -359,7 +359,7 @@ async def test_email_only_final_reminder_reason(monkeypatch):
     monkeypatch.setattr(ms.cache, 'set', AsyncMock(return_value=True))
 
     now = datetime.now(UTC)
-    user = SimpleNamespace(id=1, telegram_id=None, balance_kopeks=0)
+    user = SimpleNamespace(id=1, telegram_id=None, balance_kopeks=0, language='ru')
     sub = SimpleNamespace(id=7, end_date=now + timedelta(hours=40))
 
     await svc._maybe_notify_autopay_failure(user, 50000, sub, now)  # 'first'
