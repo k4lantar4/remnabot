@@ -40,9 +40,10 @@ class _FakePanelSync:
         return SimpleNamespace(id=9001, used_traffic_bytes=0)
 
 
-def _rows(*, balance_toman: int, status: str) -> list:
+def _rows(*, balance_toman: int, status: str, wholesale_bps: int = 0) -> list:
     now = datetime.now(UTC)
     active = status == SubscriptionStatus.ACTIVE.value
+    partner_fields = {'partner_status': 'approved', 'wholesale_discount_bps': wholesale_bps} if wholesale_bps else {}
     return [
         User(
             id=1,
@@ -52,6 +53,7 @@ def _rows(*, balance_toman: int, status: str) -> list:
             status='active',
             balance_kopeks=balance_toman,
             remnawave_id=9001,
+            **partner_fields,
         ),
         Tariff(
             id=1,
@@ -116,6 +118,28 @@ async def test_scheduler_charges_the_toman_amount(monkeypatch):
 
     assert result == 'charged'
     assert user.balance_kopeks == 50_000 - DAILY_PRICE_TOMAN
+
+
+@pytest.mark.asyncio
+async def test_scheduler_charges_an_approved_partner_the_wholesale_amount(monkeypatch):
+    """F-013: a 3000 bps partner pays 7,000 of a 10,000 Toman/day tariff on every charge."""
+    import app.services.subscription_renewal_service as renewal_module
+    import app.services.subscription_service as subscription_service_module
+    from app.services.daily_subscription_service import DailySubscriptionService
+
+    monkeypatch.setattr(subscription_service_module, 'SubscriptionService', lambda: _FakePanelSync())
+    monkeypatch.setattr(renewal_module, 'with_admin_notification_service', AsyncMock(return_value=None))
+    async with memory_session(monkeypatch, TABLES) as db:
+        db.add_all(_rows(balance_toman=50_000, status=SubscriptionStatus.ACTIVE.value, wholesale_bps=3000))
+        await db.commit()
+        service = DailySubscriptionService()
+        service._bot = None
+        subscription = await service._reload_daily_subscription(db, 10)
+        result = await service._process_single_charge(db, subscription)
+        user = await db.get(User, 1)
+
+    assert result == 'charged'
+    assert user.balance_kopeks == 50_000 - 7_000
 
 
 @pytest.mark.asyncio

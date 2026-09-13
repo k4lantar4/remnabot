@@ -132,9 +132,16 @@ class PricingEngine:
         показывают опции покупки и ответ о подписке. Скидку промокода сервер сюда не
         вкладывает: её накладывает кабинет для показа и списание — при покупке, один раз.
         Иначе карточка накладывала промокод второй раз поверх серверной цены (−36 % вместо −20 %).
+
+        Fork: an approved wholesale partner gets the wholesale rate *instead of* the group
+        discount (the same rule as ``_calculate_tariff_core``), with the display percent
+        ``round(bps / 100)`` as in ``calculate_traffic_discount``.
         """
         if daily_price_kopeks <= 0:
             return daily_price_kopeks, 0
+        if PricingEngine.uses_wholesale_pricing(user):
+            final, _ = PricingEngine.apply_wholesale_discount(daily_price_kopeks, user)
+            return final, round(PricingEngine.get_wholesale_discount_bps(user) / 100)
         promo_group = PricingEngine.resolve_promo_group(user)
         group_pct = promo_group.get_discount_percent('period', 1) if promo_group else 0
         if group_pct <= 0:
