@@ -10,7 +10,16 @@ same Toman figure, or a user's top-up silently changes value between the form an
 
 import pytest
 
-from app.utils.wire_scale import toman_from_wire_catalog, wire_catalog_kopeks
+from app.utils.wire_scale import (
+    CATALOG_WIRE,
+    TOMAN_WIRE,
+    current_wire_scale,
+    reset_wire_scale,
+    toman_from_wire_catalog,
+    use_wire_scale,
+    wire_catalog_kopeks,
+    wire_scale_from_header,
+)
 
 
 @pytest.mark.parametrize(
@@ -66,3 +75,47 @@ def test_outbound_rounds_a_fractional_toman_half_up() -> None:
 def test_outbound_rejects_a_value_that_is_not_a_number() -> None:
     with pytest.raises(ValueError, match='Invalid Toman amount'):
         wire_catalog_kopeks('not a number')
+
+
+# ---- X-Amount-Scale (Phase C-2) -------------------------------------------
+
+
+def test_the_scale_defaults_to_the_catalog_wire() -> None:
+    assert current_wire_scale() == CATALOG_WIRE
+
+
+def test_under_the_toman_scale_both_directions_are_the_identity() -> None:
+    token = use_wire_scale(TOMAN_WIRE)
+    try:
+        assert current_wire_scale() == TOMAN_WIRE
+        assert wire_catalog_kopeks(50_000) == 50_000
+        assert toman_from_wire_catalog(50_000) == 50_000
+        assert toman_from_wire_catalog(None) == 0
+    finally:
+        reset_wire_scale(token)
+
+    assert current_wire_scale() == CATALOG_WIRE
+    assert wire_catalog_kopeks(50_000) == 5_000_000
+
+
+def test_the_toman_scale_still_rounds_a_fractional_toman_to_an_integer() -> None:
+    token = use_wire_scale(TOMAN_WIRE)
+    try:
+        assert wire_catalog_kopeks(99.5) == 100
+        assert wire_catalog_kopeks(-99.5) == -100
+    finally:
+        reset_wire_scale(token)
+
+
+@pytest.mark.parametrize(
+    ('header', 'expected'),
+    [
+        ('toman', TOMAN_WIRE),
+        (' TOMAN ', TOMAN_WIRE),
+        (None, CATALOG_WIRE),
+        ('', CATALOG_WIRE),
+        ('kopeks', CATALOG_WIRE),
+    ],
+)
+def test_only_the_toman_header_value_selects_the_toman_scale(header, expected) -> None:
+    assert wire_scale_from_header(header) == expected
