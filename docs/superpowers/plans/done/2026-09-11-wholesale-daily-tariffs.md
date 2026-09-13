@@ -1,7 +1,7 @@
 # Wholesale (partner) discount on daily tariffs
 
-**Status:** active — design **approved by the user 2026-09-11** (including point 3 and the F-029
-extension); in progress on `fix/wholesale-daily-tariffs`.
+**Status:** done — design **approved by the user 2026-09-11** (including point 3 and the F-029
+extension); all 4 tasks implemented on `fix/wholesale-daily-tariffs` (one PR, remnabot only).
 **Repos:** `remnabot` only (no frontend change — see Design, point 3).
 **Upstream basis:** `remnabot` `upstream/main` `bf33d125` (v4.9.1), `upstream/dev` `8ca59d6d`; fork
 `origin/main` `1f795695`. Nothing here derives from upstream: wholesale is ours.
