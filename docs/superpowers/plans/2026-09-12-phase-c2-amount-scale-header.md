@@ -3,7 +3,7 @@
 **Status:** active — design approved by the user 2026-09-12 (option "scale header", chosen over
 `*_toman` twin fields and over a one-shot flip). Task 1 done (PR #81, with this plan); Task 2 done
 (PR #89; deferred ruble-gateway records keep their provider amount and the old contract); Task 3 done
-(frontend#33); Task 4 in frontend#34; next: Task 5. Tasks 3-4 record what actually shipped under
+(frontend#33); Task 4 done (frontend#34); Task 5 in frontend#36; next: Task 6. Tasks 3-5 record what actually shipped under
 "Shipped" — later tasks inherit those notes.
 **Repos:** `remnabot` Tasks 1-2 (merged and deployed first), then `frontend` Tasks 3-7, then Task 8
 (`remnabot` PR, then `frontend` PR).
@@ -213,6 +213,11 @@ before, its paths join Task 3.
 - **Test first:** a unit test per sheet price helper that remains; otherwise visual via
   `run-cabinet`.
 - **i18n:** none expected.
+- **Shipped (frontend#36):**
+  - **Paths:** as above plus `/cabinet/subscription/traffic` and `/tariff/switch` (POST bodies carry wire amounts no screen reads yet). Deliberately unlisted: `/pause`, `/devices` (list), `/cabinet/wheel/config`, `/cabinet/gift/purchase` — no `wire_scale` call behind them.
+  - **Readers:** the four sheets' local formatters and the switch-preview shortfall prompt are Toman; `GiftSubscription` and `QuickPurchase` use `formatBalance`. `PurchaseSuccess`/`GiftClaim` render no wire amount; wheel history's `prize_value_kopeks` is not rendered.
+  - **Helpers:** `catalogScale.ts` `userCanAfford`/`missingToman` removed (no callers left); only `catalogPriceInToman`/`tomanToCatalogKopeks` remain, for the admin screens of Tasks 6-7.
+  - **Visual check:** none of the sheets has a unit-testable helper left, so only the allowlist test pins this task.
 
 ### Task 6 — Admin catalog editors (frontend)
 
@@ -224,6 +229,8 @@ before, its paths join Task 3.
   `components/admin/userDetail/GiftsTab.tsx:123`, `AdminPromoGroups.tsx:150`,
   `AdminPromoGroupCreate.tsx:54/124`, `AdminCouponCreate.tsx:79`, `AdminCouponDetail`, `AdminCoupons`,
   the admin buy-for-user tariff picker.
+- **Inherited from Task 5:** `QuickPurchase` is done — it reads only the public landing config
+  (`/cabinet/landing/*`), not admin tariffs, so Task 4's note sending it here was wrong.
 - **Test first:** `adminTariffFreePeriod.test.tsx` updated; new save round-trip test for
   `AdminTariffCreate` (typed 30000 → request `30000`). Visual: `run-cabinet` as owner.
 - **i18n:** none expected.
@@ -251,7 +258,8 @@ before, its paths join Task 3.
   the miniapp helper.
 - **frontend:** delete `src/utils/catalogScale.ts` (+ test), make `formatPrice` an alias of
   `formatBalance` (or replace its calls), delete `amountScale.ts` and the interceptor hooks, drop the
-  `amount_kopeks / 100` fallback in `WebSocketNotifications.tsx:306`; add
+  `amount_kopeks / 100` fallback in `WebSocketNotifications.tsx:306`; drop `InsufficientBalancePrompt`'s
+  `amountScale` prop and its `catalog` default (every caller passes `toman` since Task 5); add
   `src/utils/noWireDivision.test.ts` — fails on a new `/ 100` or `* 100` next to a money name
   (percent math excluded), the frontend twin of the Phase C AST guard.
 - **Order:** bot PR merged and deployed first (the cabinet still sends the header, now a no-op),
