@@ -404,6 +404,8 @@ class C2cPaymentService:
                 autopurchase_succeeded = await send_cart_notification_after_topup(
                     user, balance_credit_toman, db, self.bot
                 )
+                # Read again: a completed purchase consumed the cart, a failed one left it for checkout.
+                checkout_cart = await user_cart_service.get_user_cart(user.id)
             except Exception as error:
                 logger.error('C2C cart notification error', user_id=user.id, error=error)
 

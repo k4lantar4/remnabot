@@ -364,3 +364,31 @@ async def test_deposit_route_conflicts_on_key_reuse_with_other_amount(monkeypatc
         await users_route.deposit_balance(user_id=1, payload=payload, token=None, db=SimpleNamespace())
 
     assert exc.value.status_code == 409
+
+
+@pytest.mark.parametrize(('purchased', 'telegram_notice'), [(True, False), (False, True)])
+async def test_topup_notice_follows_the_saved_purchase_attempt(
+    monkeypatch: pytest.MonkeyPatch, purchased: bool, telegram_notice: bool
+) -> None:
+    """Q6: a top-up that completes a saved purchase gets one Telegram message (the purchase notice);
+    the email channel of _notify_user still runs (bot=None skips only Telegram)."""
+    async with memory_session(monkeypatch, TABLES) as db:
+        user = await _seed_user(db)
+        calls: list = []
+        bot = object()
+
+        async def _fake_cart(_user, _amount, _db, _bot, *, notify_email=True):
+            calls.append('cart')
+            return purchased
+
+        async def _notify(_user, _amount, _transaction, *, bot):
+            calls.append(('notify', bot))
+
+        import app.services.payment.common as payment_common
+
+        monkeypatch.setattr(payment_common, 'send_cart_notification_after_topup', _fake_cart)
+        monkeypatch.setattr(manual_topup_service, '_notify_user', _notify)
+
+        await credit_manual_topup(db, user, 10000, description='Пополнение', bot=bot)
+
+        assert calls == ['cart', ('notify', bot if telegram_notice else None)]

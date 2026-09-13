@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import math
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -69,6 +70,25 @@ logger = structlog.get_logger(__name__)
 def _format_user_id(user: User) -> str:
     """Format user identifier for logging (supports email-only users)."""
     return str(user.telegram_id) if user.telegram_id else f'email:{user.id}'
+
+
+# Set while a top-up runs the saved cart: the first purchase notice also says what was credited and
+# what is left, so the user gets one message instead of «topped up» + «purchased» (ruling Q6).
+_topup_credit: ContextVar[int | None] = ContextVar('topup_credit', default=None)
+
+
+def _with_topup_lines(texts, user: User, message: str) -> str:
+    amount = _topup_credit.get()
+    if amount is None:
+        return message
+    _topup_credit.set(None)
+    credited = texts.t('TOPUP_CREDITED_LINE', '✅ Balance topped up by {amount}').format(
+        amount=settings.format_balance(amount)
+    )
+    left = texts.t('TOPUP_BALANCE_LEFT_LINE', '💰 Balance left: {balance}').format(
+        balance=settings.format_balance(user.balance_kopeks)
+    )
+    return f'{credited}\n\n{message}\n\n{left}'
 
 
 async def _notify_email_user_auto_purchase(
@@ -779,7 +799,7 @@ async def _auto_extend_subscription(
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=full_message,
+                text=_with_topup_lines(texts, user, full_message),
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -1135,7 +1155,7 @@ async def _auto_purchase_tariff(
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=f'{message}\n\n{hint}',
+                text=_with_topup_lines(texts, user, f'{message}\n\n{hint}'),
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -1481,7 +1501,7 @@ async def _auto_purchase_daily_tariff(
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=message,
+                text=_with_topup_lines(texts, user, message),
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -1836,7 +1856,7 @@ async def _auto_add_devices(
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=message,
+                text=_with_topup_lines(texts, user, message),
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -2175,7 +2195,7 @@ async def _auto_add_traffic(
 
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text=message,
+                text=_with_topup_lines(texts, user, message),
                 reply_markup=keyboard,
                 parse_mode='HTML',
             )
@@ -3392,6 +3412,21 @@ async def auto_purchase_saved_cart_after_topup(
     user: User,
     *,
     bot: Bot | None = None,
+    topup_amount: int | None = None,
+) -> bool:
+    """Buy the saved carts after a top-up; with ``topup_amount`` the first purchase notice carries it."""
+    token = _topup_credit.set(topup_amount)
+    try:
+        return await _auto_purchase_saved_carts(db, user, bot=bot)
+    finally:
+        _topup_credit.reset(token)
+
+
+async def _auto_purchase_saved_carts(
+    db: AsyncSession,
+    user: User,
+    *,
+    bot: Bot | None = None,
 ) -> bool:
     """Attempts to automatically purchase subscriptions from saved carts.
 
@@ -3639,7 +3674,7 @@ async def _process_legacy_generic_cart(
 
                 await bot.send_message(
                     chat_id=user.telegram_id,
-                    text=full_message,
+                    text=_with_topup_lines(texts, user, full_message),
                     reply_markup=keyboard,
                     parse_mode='HTML',
                 )

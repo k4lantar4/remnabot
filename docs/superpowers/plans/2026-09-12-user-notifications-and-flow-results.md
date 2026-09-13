@@ -3,8 +3,9 @@
 **Status:** active — approved 2026-09-12. Done: task 8 (remnabot#90), task 4 (remnabot#92; F3 needed
 no change, F2 fixed in #82), task 1 (remnabot#95), task 2 (remnabot#96; task 8 had already
 added the resolver and quote as `_renewal_period_days` / `_quote_renewal_price`, so task 2 only
-consumes them), task 3a (branch `fix/post-payment-notices`; task 3 split by the user 2026-09-13,
-see task 3). Next in "Execution order": task 3b. All product questions answered (see "Rulings").
+consumes them), task 3a (remnabot#99; task 3 split by the user 2026-09-13,
+see task 3), task 3b (branch `fix/combined-topup-purchase-notice`). Next in "Execution order":
+task 5 (frontend; task 4 is done). All product questions answered (see "Rulings").
 **Repos:** `remnabot` (tasks 1, 2, 3, 4, 6a, 6b, bot half of 7), then `frontend` (tasks 5, 5b,
 frontend half of 7). Task 4 merges before task 5.
 Each task is its own PR, mergeable on its own; follow "Execution order" (hard dependencies: 8 before
@@ -250,6 +251,14 @@ only C2C sends the top-up notice *after* `send_cart_notification_after_topup`; C
 top-up (`manual_topup_service.py` `_notify_user` before the cart call, ~220-227) send it before, so
 Q6 there means reordering those two flows; check where Stars (`_finalize_stars_balance_topup`) sends
 its user notice before coding.
+**3b shipped:** `send_cart_notification_after_topup` returns the saved-cart result and passes
+`topup_amount`; the cart-path purchase notices get `TOPUP_CREDITED_LINE` first and
+`TOPUP_BALANCE_LEFT_LINE` last (a ContextVar set by `auto_purchase_saved_cart_after_topup`, consumed by
+the first notice). CryptoBot and manual top-up now run the cart before their top-up notice and skip it
+on success (manual keeps the email channel). Stars sends its top-up message from the bot handler after
+`process_stars_payment`, so `_finalize_stars_balance_topup` sets `topup_autopurchased` for the handler.
+C2C re-reads the cart after the attempt. Not framed: gift carts, resumed daily and auto-extended
+expired subscriptions (their notices are unchanged and the top-up notice still goes out).
 
 - **Repo + files:** `remnabot` `app/services/subscription_auto_purchase_service.py`,
   `daily_subscription_service.py`, `manual_topup_service.py`, `user_service.py`,

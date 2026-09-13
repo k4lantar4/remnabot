@@ -431,14 +431,13 @@ class CryptoBotPaymentMixin:
                 if admin_notification:
                     await self._deliver_admin_topup_notification(admin_notification)
 
-                if user_notification and bot_instance:
-                    await self._deliver_user_topup_notification(user_notification)
-
-                # Проверяем наличие сохраненной корзины для возврата к оформлению подписки
+                # Saved cart first: when it completes the purchase, that notice already carries the
+                # credited amount and the top-up notice is not sent separately (ruling Q6).
+                purchased = False
                 try:
                     from app.services.payment.common import send_cart_notification_after_topup
 
-                    await send_cart_notification_after_topup(user, amount_kopeks, db, bot_instance)
+                    purchased = await send_cart_notification_after_topup(user, amount_kopeks, db, bot_instance)
                 except Exception as error:
                     logger.error(
                         'Ошибка при работе с сохраненной корзиной для пользователя',
@@ -446,6 +445,9 @@ class CryptoBotPaymentMixin:
                         error=error,
                         exc_info=True,
                     )
+
+                if user_notification and bot_instance and not purchased:
+                    await self._deliver_user_topup_notification(user_notification)
 
             return True
 
