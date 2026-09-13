@@ -8,7 +8,35 @@
 from unittest.mock import MagicMock, patch
 
 from app.localization.texts import _build_dynamic_values
-from app.utils.pricing_utils import calculate_price_per_month, format_period_description
+from app.utils.pricing_utils import (
+    calculate_price_per_month,
+    calculate_prorated_price,
+    floor_paid_charge,
+    format_period_description,
+)
+
+
+class TestMinimumPaidCharge:
+    """A paid amount never rounds below 1 Toman; the old 100 was one ruble in kopeks (F-101)."""
+
+    def test_floor_is_one_toman(self) -> None:
+        assert floor_paid_charge(0) == 1
+        assert floor_paid_charge(50) == 50
+        assert floor_paid_charge(50_000) == 50_000
+
+    def test_prorated_price_keeps_a_small_amount(self) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        end_date = datetime.now(UTC) + timedelta(days=30) - timedelta(seconds=30)
+        assert calculate_prorated_price(50, end_date) == (50, 30)
+        assert calculate_prorated_price(1_000_000, end_date) == (1_000_000, 30)
+
+    def test_prorated_price_floors_at_one_toman_and_free_stays_free(self) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        end_date = datetime.now(UTC) + timedelta(hours=1)
+        assert calculate_prorated_price(20, end_date) == (1, 1)
+        assert calculate_prorated_price(0, end_date) == (0, 1)
 
 
 # DEPRECATED: format_period_option_label tests removed - function replaced with unified price_display system

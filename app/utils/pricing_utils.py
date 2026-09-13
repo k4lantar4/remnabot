@@ -34,6 +34,18 @@ def calculate_price_per_month(price_kopeks: int, period_days: int) -> int:
     return round(price_kopeks * 30 / period_days)
 
 
+MIN_PAID_CHARGE_TOMAN = 1
+
+
+def floor_paid_charge(amount: int) -> int:
+    """Floor a paid amount (Toman) so rounding never makes it free.
+
+    Before Phase C this was ``max(100, amount)`` — 100 kopeks, one ruble. Amounts are Toman 1:1
+    now, so that 100 would overcharge anything cheaper than 100 Toman (F-101).
+    """
+    return max(MIN_PAID_CHARGE_TOMAN, amount)
+
+
 def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_days: int = 1) -> tuple[int, int]:
     """Calculate prorated price based on remaining days.
 
@@ -46,7 +58,7 @@ def calculate_prorated_price(monthly_price: int, end_date: datetime, min_charge_
 
     total_price = monthly_price * days_to_charge // 30
     if monthly_price > 0:
-        total_price = max(100, total_price)  # Минимум 1 рубль
+        total_price = floor_paid_charge(total_price)
 
     logger.debug(
         'Расчет пропорциональной цены',

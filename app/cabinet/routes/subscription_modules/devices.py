@@ -40,6 +40,7 @@ from app.services.subscription_renewal_service import calculate_missing_amount
 from app.services.subscription_service import SubscriptionService
 from app.services.user_cart_service import user_cart_service
 from app.utils.price_display import user_can_afford
+from app.utils.pricing_utils import floor_paid_charge
 from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
@@ -164,7 +165,7 @@ async def purchase_devices_legacy(
     days_left = max(1, math.ceil((end_date - now).total_seconds() / 86400))
     base_total_price = int(device_price * chargeable_devices * days_left / 30)
     if chargeable_devices > 0:
-        base_total_price = max(100, base_total_price)  # Минимум 1 рубль
+        base_total_price = floor_paid_charge(base_total_price)
 
     # Lock user row to prevent TOCTOU on promo-offer state
     from app.database.crud.user import lock_user_for_pricing
@@ -178,7 +179,7 @@ async def purchase_devices_legacy(
 
     # Ensure minimum price after discount (except for 100% discount)
     if devices_discount_percent < 100 and total_price > 0:
-        total_price = max(100, total_price)
+        total_price = floor_paid_charge(total_price)
 
     # Check max devices limit (under row lock — prevents concurrent purchases exceeding limit)
     current_devices = subscription.device_limit or 1
@@ -471,7 +472,7 @@ async def purchase_devices(
         base_price_per_month = device_price * chargeable_devices
         base_price_prorated = int(base_price_per_month * effective_days / total_days)
         if chargeable_devices > 0:
-            base_price_prorated = max(100, base_price_prorated)  # Minimum 1 ruble
+            base_price_prorated = floor_paid_charge(base_price_prorated)
 
         # Lock user BEFORE discount computation to prevent TOCTOU on promo group
         from app.database.crud.user import lock_user_for_pricing
