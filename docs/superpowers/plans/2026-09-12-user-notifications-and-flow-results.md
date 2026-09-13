@@ -1,7 +1,7 @@
 # User notifications and flow result messages — audit and fix plan
 
 **Status:** active — approved 2026-09-12. Done: task 8 (remnabot#90), task 4 (remnabot#92; F3 needed
-no change, F2 fixed in #82). Next in "Execution order": task 1. All product questions answered (see "Rulings").
+no change, F2 fixed in #82), task 1 (branch `fix/monitoring-notices-i18n`). Next in "Execution order": task 2. All product questions answered (see "Rulings").
 **Repos:** `remnabot` (tasks 1, 2, 3, 4, 6a, 6b, bot half of 7), then `frontend` (tasks 5, 5b,
 frontend half of 7). Task 4 merges before task 5.
 Each task is its own PR, mergeable on its own; follow "Execution order" (hard dependencies: 8 before

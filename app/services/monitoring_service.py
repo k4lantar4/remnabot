@@ -82,6 +82,7 @@ from app.services.promo_offer_service import promo_offer_service
 from app.services.subscription_service import SubscriptionService, get_traffic_reset_strategy
 from app.utils.cache import cache
 from app.utils.formatters import format_username_link
+from app.utils.jalali_datetime import format_user_datetime, is_jalali_language
 from app.utils.message_patch import caption_exceeds_telegram_limit
 from app.utils.miniapp_buttons import build_miniapp_or_callback_button, build_subscription_extend_button
 from app.utils.price_display import user_can_afford
@@ -699,12 +700,8 @@ class MonitoringService:
                     user, user.balance_kopeks, charge_amount, subscription=subscription, is_final=is_final
                 )
         elif not user.telegram_id:
-            if is_final:
-                reason_text = 'Последнее напоминание: подписка скоро отключится — недостаточно средств'
-            elif cause == 'charge_error':
-                reason_text = 'Ошибка списания средств'
-            else:
-                reason_text = 'Недостаточно средств на балансе'
+            reason = 'final' if is_final else 'charge_error' if cause == 'charge_error' else 'insufficient'
+            reason_text = self._autopay_failure_reason(get_texts(user.language), reason)
             await notification_delivery_service.notify_autopay_failed(user=user, reason=reason_text)
 
         apply_autopay_fail_notification(state, reason, now_ts)
@@ -1030,7 +1027,8 @@ class MonitoringService:
             return
 
         try:
-            threshold_time = datetime.now(UTC) + timedelta(hours=2)
+            warning_hours = settings.get_trial_warning_hours()
+            threshold_time = datetime.now(UTC) + timedelta(hours=warning_hours)
 
             result = await db.execute(
                 select(Subscription)
@@ -1068,12 +1066,14 @@ class MonitoringService:
                     continue
 
                 if self.bot:
-                    success = await self._send_trial_ending_notification(user, subscription)
+                    success = await self._send_trial_ending_notification(user, subscription, warning_hours)
                     if success:
+                        # The 'trial_2h' kind predates TRIAL_WARNING_HOURS; kept so existing dedup rows still match.
                         await record_notification(db, user.id, subscription.id, 'trial_2h')
                         logger.info(
-                            '🎁 Пользователю отправлено уведомление об окончании тестовой подписки через 2 часа',
+                            '🎁 Пользователю отправлено уведомление об окончании тестовой подписки',
                             telegram_id=user.telegram_id,
+                            hours=warning_hours,
                         )
 
             if trial_expiring:
@@ -1658,15 +1658,13 @@ class MonitoringService:
                                 and self.bot
                                 and NotificationSettingsService.are_notifications_globally_enabled()
                             ):
-                                await self.bot.send_message(
+                                text, keyboard = self._build_legacy_autopay_notice(get_texts(user.language), sub)
+                                await self._send_message_with_logo(
                                     chat_id=user.telegram_id,
-                                    text=(
-                                        '⚠️ <b>Автоплатёж приостановлен</b>\n\n'
-                                        'Ваша подписка была создана до введения тарифов. '
-                                        'Для работы автоплатежа необходимо выбрать тариф.\n\n'
-                                        'Перейдите в раздел «Моя подписка» → «Продлить», чтобы выбрать тариф.'
-                                    ),
+                                    text=text,
                                     parse_mode='HTML',
+                                    reply_markup=keyboard,
+                                    user=user,
                                 )
                             await cache.set(autopay_legacy_key, 1, expire=86400 * 7)
                     except Exception as notify_err:
@@ -1763,8 +1761,7 @@ class MonitoringService:
 
                     # calculate_renewal_price уже включает promo_group + promo_offer скидки.
                     # Не применяем promo_offer повторно — только consume-им при успешной оплате.
-                    # charge_amount is the catalog price (the ledger row and the notifications format it
-                    # with format_price); the Toman balance is checked against and debited its Toman value.
+                    # charge_amount and the balance are both Toman (one scale since Phase C).
                     charge_amount = renewal_cost
                     charge_toman = charge_amount
                     promo_discount_percent = get_user_active_promo_discount_percent(user)
@@ -1996,6 +1993,194 @@ class MonitoringService:
         except Exception as e:
             logger.error('Ошибка обработки автоплатежей', error=e, exc_info=True)
 
+    # User notice builders (plan 2026-09-12 notifications, task 1): text and keyboard without a bot, so
+    # the rendered language and cabinet links are testable.
+
+    @staticmethod
+    def _tariff_label(subscription: Any, tariff_name: str | None = None) -> str:
+        if not settings.is_multi_tariff_enabled():
+            return ''
+        name = tariff_name or getattr(getattr(subscription, 'tariff', None), 'name', None)
+        return f' «{name}»' if name else ''
+
+    @staticmethod
+    def _tariff_line(texts: Any, subscription: Any) -> str:
+        """A trailing "tariff" line for notices whose template has no tariff placeholder."""
+        name = getattr(getattr(subscription, 'tariff', None), 'name', None)
+        if not name or not settings.is_multi_tariff_enabled():
+            return ''
+        return texts.t('NOTIFY_TARIFF_LABEL', '\n📦 Tariff: «{name}»').format(name=name)
+
+    @staticmethod
+    def _notice_datetime(user: Any, dt: datetime | None) -> str:
+        language = getattr(user, 'language', None) or settings.DEFAULT_LANGUAGE
+        fmt = '%Y/%m/%d %H:%M' if is_jalali_language(language) else '%d.%m.%Y %H:%M'
+        return format_user_datetime(dt, language=language, fmt=fmt)
+
+    @staticmethod
+    def _topup_button(texts: Any, key: str = 'BALANCE_TOPUP'):
+        return build_miniapp_or_callback_button(
+            text=texts.t(key, '💳 Top up balance'),
+            callback_data='balance_topup',
+        )
+
+    @staticmethod
+    def _build_expired_notice(
+        texts: Any, subscription: Any, *, tariff_name: str | None = None
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        text = texts.t(
+            'SUBSCRIPTION_EXPIRED_NOTICE',
+            '⛔ <b>Subscription{tariff_label} expired</b>\n\n'
+            'Renew it to get your access back.\n\n'
+            '🔧 Server access stays blocked until you renew.',
+        ).format(tariff_label=MonitoringService._tariff_label(subscription, tariff_name))
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [build_subscription_extend_button(texts.t('SUBSCRIPTION_EXTEND', '💎 Renew'), subscription.id)],
+                [MonitoringService._topup_button(texts)],
+            ]
+        )
+        return text, keyboard
+
+    @staticmethod
+    def _build_trial_ending_notice(texts: Any, subscription: Any, hours: int) -> tuple[str, InlineKeyboardMarkup]:
+        text = texts.t(
+            'TRIAL_ENDING_SOON',
+            '🎁 <b>Your trial{tariff_label} ends soon</b>\n\n'
+            'It expires in {hours} h. Buy a subscription to stay connected.',
+        ).format(hours=hours, tariff_label=MonitoringService._tariff_label(subscription))
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    build_miniapp_or_callback_button(
+                        text=texts.t('MENU_BUY_SUBSCRIPTION', '💎 Buy subscription'), callback_data='menu_buy'
+                    )
+                ],
+                [MonitoringService._topup_button(texts)],
+            ]
+        )
+        return text, keyboard
+
+    @staticmethod
+    def _build_followup_keyboard(texts: Any, subscription: Any, *, offer_id: int | None = None) -> InlineKeyboardMarkup:
+        """Keyboard of the expired-1d and winback notices: claim (winback only), renew, top up, support."""
+        rows = []
+        if offer_id is not None:
+            rows.append(
+                [
+                    build_miniapp_or_callback_button(
+                        text=texts.t('WINBACK_CLAIM_DISCOUNT_BUTTON', '🎁 Claim discount'),
+                        callback_data=f'claim_discount_{offer_id}',
+                    )
+                ]
+            )
+        rows += [
+            [build_subscription_extend_button(texts.t('SUBSCRIPTION_EXTEND', '💎 Renew'), subscription.id)],
+            [MonitoringService._topup_button(texts)],
+            [
+                build_miniapp_or_callback_button(
+                    text=texts.t('SUPPORT_BUTTON', '🆘 Support'), callback_data='menu_support'
+                )
+            ],
+        ]
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    @staticmethod
+    def _build_autopay_failed_notice(
+        texts: Any, subscription: Any, *, balance: int, required: int, is_final: bool
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        if is_final:
+            template = texts.t(
+                'AUTOPAY_FAILED_FINAL',
+                '\n⏰ <b>Final reminder</b>\n\n'
+                'Your subscription is about to expire — autopay failed due to insufficient balance.\n'
+                'Balance: {balance}\nRequired: {required}\n\n'
+                'Top up your balance now to keep access.\n',
+            )
+        else:
+            template = texts.AUTOPAY_FAILED
+        text = template.format(
+            balance=settings.format_balance(balance), required=settings.format_price(required)
+        ) + MonitoringService._tariff_line(texts, subscription)
+        subscription_text = texts.t('AUTOPAY_FAILED_SUBSCRIPTION_BUTTON', '📱 Renew subscription')
+        if subscription is not None:
+            subscription_button = build_subscription_extend_button(subscription_text, subscription.id)
+        else:
+            subscription_button = build_miniapp_or_callback_button(
+                text=subscription_text,
+                callback_data='menu_subscription',
+                cabinet_path='/subscriptions' if settings.is_multi_tariff_enabled() else None,
+            )
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [MonitoringService._topup_button(texts, 'AUTOPAY_FAILED_TOPUP_BUTTON')],
+                [subscription_button],
+            ]
+        )
+        return text, keyboard
+
+    @staticmethod
+    def _build_legacy_autopay_notice(texts: Any, subscription: Any) -> tuple[str, InlineKeyboardMarkup]:
+        text = texts.t(
+            'AUTOPAY_LEGACY_PAUSED',
+            '⚠️ <b>Autopay paused</b>\n\n'
+            'Your subscription was created before tariffs, so autopay needs a tariff first.\n\n'
+            'Open the renewal page and choose a tariff.',
+        )
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [build_subscription_extend_button(texts.t('SUBSCRIPTION_EXTEND', '💎 Renew'), subscription.id)]
+            ]
+        )
+        return text, keyboard
+
+    @staticmethod
+    def _autopay_failure_reason(texts: Any, reason: str) -> str:
+        """Reason line of the autopay-failed notice sent to users without Telegram."""
+        if reason == 'final':
+            return texts.t(
+                'AUTOPAY_FAIL_REASON_FINAL', 'Final reminder: your subscription ends soon — not enough balance'
+            )
+        if reason == 'charge_error':
+            return texts.t('AUTOPAY_FAIL_REASON_CHARGE_ERROR', 'The charge could not be made')
+        return texts.t('AUTOPAY_FAIL_REASON_INSUFFICIENT', 'Not enough balance')
+
+    @staticmethod
+    def _subscriptions_list_button(texts: Any):
+        multi = settings.is_multi_tariff_enabled()
+        return build_miniapp_or_callback_button(
+            text=texts.t(
+                'BTN_MY_SUBSCRIPTIONS' if multi else 'BTN_MY_SUBSCRIPTION',
+                '📱 My subscriptions' if multi else '📱 My subscription',
+            ),
+            callback_data='menu_subscription',
+            cabinet_path='/subscriptions' if multi else None,
+        )
+
+    @staticmethod
+    def _build_traffic_warning(
+        texts: Any, subscription: Any, used: float, limit: int, percent: float
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        text = texts.get(
+            'TRAFFIC_WARNING_ALERT',
+            '⚠️ <b>Traffic warning</b>\n\nUsed: {used:.1f} / {limit} GB ({percent:.0f}%)\n\n'
+            'Your traffic limit is almost reached.',
+        ).format(used=used, limit=limit, percent=percent) + MonitoringService._tariff_line(texts, subscription)
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    build_miniapp_or_callback_button(
+                        text=texts.t('TRAFFIC_WARNING_OPEN_BUTTON', '📊 Open subscription'),
+                        callback_data='menu_subscription',
+                        cabinet_path=(
+                            f'/subscriptions/{subscription.id}' if settings.is_multi_tariff_enabled() else None
+                        ),
+                    )
+                ]
+            ]
+        )
+        return text, keyboard
+
     async def _send_subscription_expired_notification(
         self, user: User, subscription: Subscription, *, tariff_name: str | None = None
     ) -> bool:
@@ -2006,27 +2191,8 @@ class MonitoringService:
                     notification_type=NotificationType.SUBSCRIPTION_EXPIRED,
                     context={'tariff_name': tariff_name or ''},
                 )
-            tariff_label = ''
-            if settings.is_multi_tariff_enabled():
-                if tariff_name:
-                    tariff_label = f' «{tariff_name}»'
-                elif hasattr(subscription, 'tariff') and subscription.tariff:
-                    tariff_label = f' «{subscription.tariff.name}»'
-            message = f"""
-⛔ <b>Подписка{tariff_label} истекла</b>
-
-Ваша подписка истекла. Для восстановления доступа продлите подписку.
-
-🔧 Доступ к серверам заблокирован до продления.
-"""
-
-            from aiogram.types import InlineKeyboardMarkup
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [build_subscription_extend_button('💎 Продлить подписку', subscription.id)],
-                    [build_miniapp_or_callback_button(text='💳 Пополнить баланс', callback_data='balance_topup')],
-                ]
+            message, keyboard = self._build_expired_notice(
+                get_texts(user.language), subscription, tariff_name=tariff_name
             )
 
             await self._send_message_with_logo(
@@ -2034,6 +2200,7 @@ class MonitoringService:
                 text=message,
                 parse_mode='HTML',
                 reply_markup=keyboard,
+                user=user,
             )
             return True
 
@@ -2117,12 +2284,6 @@ class MonitoringService:
                 tariff_label=tariff_label,
             )
 
-            from aiogram.types import InlineKeyboardMarkup
-
-            sub_btn_text = texts.t(
-                'BTN_MY_SUBSCRIPTIONS' if settings.is_multi_tariff_enabled() else 'BTN_MY_SUBSCRIPTION',
-                '📱 Мои подписки' if settings.is_multi_tariff_enabled() else '📱 Моя подписка',
-            )
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -2137,7 +2298,7 @@ class MonitoringService:
                             callback_data='balance_topup',
                         )
                     ],
-                    [build_miniapp_or_callback_button(text=sub_btn_text, callback_data='menu_subscription')],
+                    [self._subscriptions_list_button(texts)],
                 ]
             )
 
@@ -2146,6 +2307,7 @@ class MonitoringService:
                 text=message,
                 parse_mode='HTML',
                 reply_markup=keyboard,
+                user=user,
             )
             return True
 
@@ -2169,7 +2331,7 @@ class MonitoringService:
             )
             return False
 
-    async def _send_trial_ending_notification(self, user: User, subscription: Subscription) -> bool:
+    async def _send_trial_ending_notification(self, user: User, subscription: Subscription, hours: int) -> bool:
         try:
             if not user.telegram_id:
                 return await notification_delivery_service.send_notification(
@@ -2177,30 +2339,7 @@ class MonitoringService:
                     notification_type=NotificationType.WINBACK_TRIAL_ENDING,
                     context={},
                 )
-            get_texts(user.language)
-
-            tariff_label = ''
-            if settings.is_multi_tariff_enabled() and hasattr(subscription, 'tariff') and subscription.tariff:
-                tariff_label = f' «{subscription.tariff.name}»'
-            message = f"""
-🎁 <b>Тестовая подписка{tariff_label} скоро закончится!</b>
-
-Ваша тестовая подписка истекает через 2 часа.
-
-💎 <b>Не хотите остаться без VPN?</b>
-Переходите на полную подписку!
-
-⚡️ Успейте оформить до окончания тестового периода!
-"""
-
-            from aiogram.types import InlineKeyboardMarkup
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💎 Купить подписку', callback_data='menu_buy')],
-                    [build_miniapp_or_callback_button(text='💰 Пополнить баланс', callback_data='balance_topup')],
-                ]
-            )
+            message, keyboard = self._build_trial_ending_notice(get_texts(user.language), subscription, hours)
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
@@ -2345,40 +2484,17 @@ class MonitoringService:
                 ),
             )
             message = template.format(
-                end_date=format_local_datetime(subscription.end_date, '%d.%m.%Y %H:%M'),
+                end_date=self._notice_datetime(user, subscription.end_date),
                 price=settings.format_price(renewal_price_kopeks),
                 tariff_label=tariff_label,
             ) + other_expired_line(texts, other_expired_count)
-
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        build_subscription_extend_button(
-                            texts.t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
-                            subscription.id,
-                        )
-                    ],
-                    [
-                        build_miniapp_or_callback_button(
-                            text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'),
-                            callback_data='balance_topup',
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('SUPPORT_BUTTON', '🆘 Поддержка'), callback_data='menu_support'
-                        )
-                    ],
-                ]
-            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
                 parse_mode='HTML',
-                reply_markup=keyboard,
+                reply_markup=self._build_followup_keyboard(texts, subscription),
+                user=user,
             )
             return True
 
@@ -2452,45 +2568,17 @@ class MonitoringService:
 
             message = template.format(
                 percent=percent,
-                expires_at=format_local_datetime(expires_at, '%d.%m.%Y %H:%M'),
+                expires_at=self._notice_datetime(user, expires_at),
                 trigger_days=trigger_days or '',
                 tariff_label=tariff_label,
             ) + other_expired_line(texts, other_expired_count)
-
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        build_miniapp_or_callback_button(
-                            text='🎁 Получить скидку', callback_data=f'claim_discount_{offer_id}'
-                        )
-                    ],
-                    [
-                        build_subscription_extend_button(
-                            texts.t('SUBSCRIPTION_EXTEND', '💎 Продлить подписку'),
-                            subscription.id,
-                        )
-                    ],
-                    [
-                        build_miniapp_or_callback_button(
-                            text=texts.t('BALANCE_TOPUP', '💳 Пополнить баланс'),
-                            callback_data='balance_topup',
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=texts.t('SUPPORT_BUTTON', '🆘 Поддержка'), callback_data='menu_support'
-                        )
-                    ],
-                ]
-            )
 
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
                 parse_mode='HTML',
-                reply_markup=keyboard,
+                reply_markup=self._build_followup_keyboard(texts, subscription, offer_id=offer_id),
+                user=user,
             )
             return True
 
@@ -2515,21 +2603,14 @@ class MonitoringService:
     ):
         try:
             texts = get_texts(user.language)
-            tariff_label = ''
-            if (
-                settings.is_multi_tariff_enabled()
-                and subscription
-                and hasattr(subscription, 'tariff')
-                and subscription.tariff
-            ):
-                tariff_label = f' «{subscription.tariff.name}»'
-            message = texts.AUTOPAY_SUCCESS.format(days=days, amount=settings.format_price(amount))
-            if tariff_label:
-                message += f'\n📦 Тариф:{tariff_label}'
+            message = texts.AUTOPAY_SUCCESS.format(days=days, amount=settings.format_price(amount)) + self._tariff_line(
+                texts, subscription
+            )
             await self._send_message_with_logo(
                 chat_id=user.telegram_id,
                 text=message,
                 parse_mode='HTML',
+                user=user,
             )
         except (TelegramForbiddenError, TelegramBadRequest) as exc:
             if not await self._handle_unreachable_user(user, exc, 'уведомление об успешном автоплатеже'):
@@ -2555,35 +2636,8 @@ class MonitoringService:
         is_final: bool = False,
     ):
         try:
-            texts = get_texts(user.language)
-            if is_final:
-                template = texts.t(
-                    'AUTOPAY_FAILED_FINAL',
-                    '\n⏰ <b>Последнее напоминание</b>\n\n'
-                    'Подписка скоро отключится — автоплатёж не прошёл из-за нехватки средств.\n'
-                    'Баланс: {balance}\nТребуется: {required}\n\n'
-                    'Пополните баланс сейчас, чтобы не потерять доступ.\n',
-                )
-            else:
-                template = texts.AUTOPAY_FAILED
-            message = template.format(
-                balance=settings.format_balance(balance), required=settings.format_price(required)
-            )
-            if (
-                settings.is_multi_tariff_enabled()
-                and subscription
-                and hasattr(subscription, 'tariff')
-                and subscription.tariff
-            ):
-                message += f'\n📦 Тариф: «{subscription.tariff.name}»'
-
-            from aiogram.types import InlineKeyboardMarkup
-
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [build_miniapp_or_callback_button(text='💳 Пополнить баланс', callback_data='balance_topup')],
-                    [build_miniapp_or_callback_button(text='📱 Моя подписка', callback_data='menu_subscription')],
-                ]
+            message, keyboard = self._build_autopay_failed_notice(
+                get_texts(user.language), subscription, balance=balance, required=required, is_final=is_final
             )
 
             await self._send_message_with_logo(
@@ -2591,6 +2645,7 @@ class MonitoringService:
                 text=message,
                 parse_mode='HTML',
                 reply_markup=keyboard,
+                user=user,
             )
 
         except (TelegramForbiddenError, TelegramBadRequest) as exc:
@@ -2708,28 +2763,20 @@ class MonitoringService:
                     language = getattr(user, 'language', 'ru') or 'ru'
                     texts = get_texts(language)
                     if len(items) == 1:
-                        _, traffic_used, traffic_limit, current_percent = items[0]
-                        message = texts.get(
-                            'TRAFFIC_WARNING_ALERT',
-                            '⚠️ <b>Предупреждение о трафике</b>\n\n'
-                            'Использовано: {used:.1f} / {limit} ГБ ({percent:.0f}%)\n\n'
-                            'Ваш лимит трафика почти исчерпан.',
-                        )
-                        message = message.format(
-                            used=traffic_used,
-                            limit=traffic_limit,
-                            percent=current_percent,
-                        )
+                        message, keyboard = self._build_traffic_warning(texts, *items[0])
                     else:
                         message = build_traffic_digest(
                             texts,
                             [(tariff_label(sub), used, sub_limit, percent) for sub, used, sub_limit, percent in items],
                             limit=limit,
                         )
-                    await self.bot.send_message(
-                        user.telegram_id,
-                        message,
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[[self._subscriptions_list_button(texts)]])
+                    await self._send_message_with_logo(
+                        chat_id=user.telegram_id,
+                        text=message,
                         parse_mode='HTML',
+                        reply_markup=keyboard,
+                        user=user,
                     )
                     try:
                         await cache.set(cache_key_str, '1', expire=86400)
@@ -2841,11 +2888,12 @@ class MonitoringService:
                 try:
                     message, keyboard = self._build_low_balance_alert(user, balance, threshold)
 
-                    await self.bot.send_message(
-                        user.telegram_id,
-                        message,
+                    await self._send_message_with_logo(
+                        chat_id=user.telegram_id,
+                        text=message,
                         parse_mode='HTML',
                         reply_markup=keyboard,
+                        user=user,
                     )
                     # Mark as sent for 24 hours
                     try:
@@ -3389,7 +3437,7 @@ class MonitoringService:
 
             for subscription in autopay_subscriptions:
                 user = await get_user_by_id(db, subscription.user_id)
-                # PRICE_30_DAYS is a catalog price (Toman x 100); the balance is Toman.
+                # PRICE_30_DAYS and the balance are both Toman (one scale since Phase C).
                 if user and user_can_afford(user.balance_kopeks, settings.PRICE_30_DAYS):
                     autopay_processed += 1
 

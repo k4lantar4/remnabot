@@ -1628,7 +1628,7 @@
   "TRIAL_ACTIVATION_ERROR": "❌ Виникла помилка при активації тріалу. Кошти повернуто на баланс.",
   "TRIAL_PAYMENT_CHARGED_NOTE": "💳 З вашого балансу списано {amount}.",
   "TRIAL_CHANNEL_UNSUBSCRIBED": "\n🚫 <b>Доступ призупинено</b>\n\nМи не знайшли вашу підписку на наш канал, тому тестову підписку вимкнено.\n\nПідпишіться на канал і натисніть «{check_button}», щоб повернути доступ.",
-  "TRIAL_ENDING_SOON": "\n🎁 <b>Тестова підписка скоро закінчиться!</b>\n\nВаша тестова підписка закінчується через декілька годин.\n\n💎 <b>Не хочете залишитися без VPN?</b>\nПереходьте на повну підписку!\n\n🔥 <b>Спеціальна пропозиція:</b>\n• 30 днів усього за {price}\n• Безлімітний трафік  \n• Всі сервери доступні\n• Швидкість до 1ГБіт/сек\n\n⚡️ Встигніть оформити до закінчення тестового періоду!\n",
+  "TRIAL_ENDING_SOON": "🎁 <b>Your trial{tariff_label} ends soon</b>\n\nIt expires in {hours} h. Buy a subscription to stay connected.",
   "TRIAL_INACTIVE_1H": "⏳ <b>Минула година, а підключення не виконано</b>\n\nЯкщо виникли складнощі — відкрийте інструкцію та дотримуйтесь кроків. Ми завжди готові допомогти!",
   "TRIAL_INACTIVE_24H": "⏳ <b>Минула доба з початку тесту</b>\n\nМи не бачимо трафіку за вашою підпискою. Загляньте в інструкцію або напишіть у підтримку — допоможемо підключитися!",
   "TRIAL_SERVER_DEFAULT_NAME": "🎯 Тестовий сервер",
@@ -2631,5 +2631,17 @@
   "NOTIFY_DIGEST_DAILY_CHARGE_LINE": "• {tariff}: {amount}",
   "NOTIFY_DIGEST_TRAFFIC": "⚠️ <b>Traffic almost used up on {count} subscriptions</b>\n\n{lines}",
   "NOTIFY_DIGEST_TRAFFIC_LINE": "• {tariff}: {used} / {limit} GB ({percent}%)",
-  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>Autopay failed for {count} subscriptions</b>\n\n{lines}\n\nBalance: {balance}\nRequired: {required}\n\nTop up your balance to keep access."
+  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>Autopay failed for {count} subscriptions</b>\n\n{lines}\n\nBalance: {balance}\nRequired: {required}\n\nTop up your balance to keep access.",
+  "SUBSCRIPTION_EXPIRED_NOTICE": "⛔ <b>Subscription{tariff_label} expired</b>\n\nRenew it to get your access back.\n\n🔧 Server access stays blocked until you renew.",
+  "WINBACK_CLAIM_DISCOUNT_BUTTON": "🎁 Claim discount",
+  "NOTIFY_TARIFF_LABEL": "\n📦 Tariff: «{name}»",
+  "AUTOPAY_FAILED_TOPUP_BUTTON": "💳 Top up balance",
+  "AUTOPAY_FAILED_SUBSCRIPTION_BUTTON": "📱 Renew subscription",
+  "AUTOPAY_FAIL_REASON_FINAL": "Final reminder: your subscription ends soon — not enough balance",
+  "AUTOPAY_FAIL_REASON_CHARGE_ERROR": "The charge could not be made",
+  "AUTOPAY_FAIL_REASON_INSUFFICIENT": "Not enough balance",
+  "AUTOPAY_LEGACY_PAUSED": "⚠️ <b>Autopay paused</b>\n\nYour subscription was created before tariffs, so autopay needs a tariff first.\n\nOpen the renewal page and choose a tariff.",
+  "BTN_MY_SUBSCRIPTIONS": "📱 My subscriptions",
+  "BTN_MY_SUBSCRIPTION": "📱 My subscription",
+  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 Open subscription"
 }

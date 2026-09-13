@@ -1821,7 +1821,7 @@
   "TRIAL_ACTIVATION_ERROR": "❌ Произошла ошибка при активации триала. Средства возвращены на баланс.",
   "TRIAL_PAYMENT_CHARGED_NOTE": "💳 С вашего баланса списано {amount}.",
   "TRIAL_CHANNEL_UNSUBSCRIBED": "\n🚫 <b>Доступ приостановлен</b>\n\nМы не нашли вашу подписку на наш канал, поэтому тестовая подписка отключена.\n\nПодпишитесь на канал и нажмите «{check_button}», чтобы вернуть доступ.",
-  "TRIAL_ENDING_SOON": "\n🎁 <b>Тестовая подписка скоро закончится!</b>\n\nВаша тестовая подписка истекает через несколько часов.\n\n💎 <b>Не хотите остаться без VPN?</b>\nПереходите на полную подписку!\n\n🔥 <b>Специальное предложение:</b>\n• 30 дней всего за {price}\n• Безлимитный трафик  \n• Все серверы доступны\n• Скорость до 1ГБит/сек\n\n⚡️ Успейте оформить до окончания тестового периода!\n",
+  "TRIAL_ENDING_SOON": "🎁 <b>Тестовая подписка{tariff_label} скоро закончится</b>\n\nОна истекает через {hours} ч. Оформите подписку, чтобы остаться на связи.",
   "TRIAL_INACTIVE_1H": "⏳ <b>Прошёл час, а подключение не выполнено</b>\n\nЕсли возникли сложности — откройте инструкцию и следуйте шагам. Мы всегда готовы помочь!",
   "TRIAL_INACTIVE_24H": "⏳ <b>Прошли сутки с начала теста</b>\n\nМы не видим трафика по вашей подписке. Загляните в инструкцию или напишите в поддержку — поможем подключиться!",
   "TRIAL_SERVER_DEFAULT_NAME": "🎯 Тестовый сервер",
@@ -2631,5 +2631,17 @@
   "NOTIFY_DIGEST_DAILY_CHARGE_LINE": "• {tariff}: {amount}",
   "NOTIFY_DIGEST_TRAFFIC": "⚠️ <b>Traffic almost used up on {count} subscriptions</b>\n\n{lines}",
   "NOTIFY_DIGEST_TRAFFIC_LINE": "• {tariff}: {used} / {limit} GB ({percent}%)",
-  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>Autopay failed for {count} subscriptions</b>\n\n{lines}\n\nBalance: {balance}\nRequired: {required}\n\nTop up your balance to keep access."
+  "NOTIFY_DIGEST_AUTOPAY_FAILED": "❌ <b>Autopay failed for {count} subscriptions</b>\n\n{lines}\n\nBalance: {balance}\nRequired: {required}\n\nTop up your balance to keep access.",
+  "SUBSCRIPTION_EXPIRED_NOTICE": "⛔ <b>Подписка{tariff_label} истекла</b>\n\nПродлите подписку, чтобы вернуть доступ.\n\n🔧 Доступ к серверам заблокирован до продления.",
+  "WINBACK_CLAIM_DISCOUNT_BUTTON": "🎁 Получить скидку",
+  "NOTIFY_TARIFF_LABEL": "\n📦 Тариф: «{name}»",
+  "AUTOPAY_FAILED_TOPUP_BUTTON": "💳 Пополнить баланс",
+  "AUTOPAY_FAILED_SUBSCRIPTION_BUTTON": "📱 Продлить подписку",
+  "AUTOPAY_FAIL_REASON_FINAL": "Последнее напоминание: подписка скоро отключится — недостаточно средств",
+  "AUTOPAY_FAIL_REASON_CHARGE_ERROR": "Ошибка списания средств",
+  "AUTOPAY_FAIL_REASON_INSUFFICIENT": "Недостаточно средств на балансе",
+  "AUTOPAY_LEGACY_PAUSED": "⚠️ <b>Автоплатёж приостановлен</b>\n\nВаша подписка была создана до введения тарифов, поэтому для автоплатежа нужно выбрать тариф.\n\nОткройте страницу продления и выберите тариф.",
+  "BTN_MY_SUBSCRIPTIONS": "📱 Мои подписки",
+  "BTN_MY_SUBSCRIPTION": "📱 Моя подписка",
+  "TRAFFIC_WARNING_OPEN_BUTTON": "📊 Открыть подписку"
 }
