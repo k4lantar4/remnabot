@@ -44,7 +44,7 @@ from app.utils.wire_scale import wire_catalog_kopeks
 
 from ...dependencies import get_cabinet_db, get_current_cabinet_user
 from ...schemas.subscription import DevicePurchaseRequest
-from .helpers import _apply_addon_discount, resolve_subscription
+from .helpers import _apply_addon_discount, paid_result_fields, resolve_subscription
 
 
 logger = structlog.get_logger(__name__)
@@ -350,13 +350,13 @@ async def purchase_devices_legacy(
         'message': texts.t('DEVICES_ADDON_ADDED', 'Devices added successfully').format(count=request.devices),
         'devices_added': request.devices,
         'new_device_limit': actual_new,
-        'amount_paid_kopeks': total_price,
+        **paid_result_fields(total_price, subscription=subscription, tariff_name=tariff.name if tariff else None),
     }
 
     if devices_discount_percent > 0:
         response['discount_percent'] = devices_discount_percent
-        response['discount_kopeks'] = discount_result['discount']
-        response['base_price_kopeks'] = base_total_price
+        response['discount_kopeks'] = wire_catalog_kopeks(discount_result['discount'])
+        response['base_price_kopeks'] = wire_catalog_kopeks(base_total_price)
 
     return response
 

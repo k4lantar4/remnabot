@@ -263,7 +263,11 @@ async def test_cabinet_traffic_switch_charges_the_toman_amount(monkeypatch):
         assert charged == 20_000
         assert await _balance(db) == 50_000 - charged
 
-    assert response['charged_kopeks'] == charged
+    from app.utils.wire_scale import wire_catalog_kopeks
+
+    # The response speaks the cabinet wire scale, like every *_kopeks amount it reads.
+    assert response['charged_kopeks'] == wire_catalog_kopeks(charged)
+    assert response['amount_paid_toman'] == charged
 
 
 # ---------------------------------------------------------------- Mini App

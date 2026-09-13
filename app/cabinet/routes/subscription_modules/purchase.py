@@ -63,7 +63,7 @@ from ...schemas.subscription import (
     TrialActivateRequest,
     TrialInfoResponse,
 )
-from .helpers import _subscription_to_response
+from .helpers import _subscription_to_response, paid_result_fields
 
 
 logger = structlog.get_logger(__name__)
@@ -1219,7 +1219,9 @@ async def purchase_tariff(
             'subscription': _subscription_to_response(subscription, user=user),
             'tariff_id': tariff.id,
             'tariff_name': tariff.name,
-            'charged_amount': price_kopeks,
+            **paid_result_fields(
+                price_kopeks, subscription=subscription, tariff_name=tariff.name, amount_key='charged_amount'
+            ),
             'charged_label': settings.format_price(price_kopeks),
             'balance_kopeks': user.balance_kopeks,
             'balance_label': settings.format_balance(user.balance_kopeks),
@@ -1228,9 +1230,9 @@ async def purchase_tariff(
         # Add discount info if discount was applied
         if discount_percent > 0:
             response['discount_percent'] = discount_percent
-            response['original_price_kopeks'] = original_price
+            response['original_price_kopeks'] = wire_catalog_kopeks(original_price)
             response['original_price_label'] = settings.format_price(original_price)
-            response['discount_amount_kopeks'] = original_price - price_before_promo_offer
+            response['discount_amount_kopeks'] = wire_catalog_kopeks(original_price - price_before_promo_offer)
             response['discount_label'] = settings.format_price(original_price - price_before_promo_offer)
             if promo_group:
                 response['promo_group_name'] = promo_group.name
@@ -1238,9 +1240,9 @@ async def purchase_tariff(
         # Add promo offer discount info if it was applied
         if promo_offer_discount_value > 0:
             response['promo_offer_discount_percent'] = promo_offer_discount_percent
-            response['promo_offer_discount_amount_kopeks'] = promo_offer_discount_value
+            response['promo_offer_discount_amount_kopeks'] = wire_catalog_kopeks(promo_offer_discount_value)
             response['promo_offer_discount_label'] = settings.format_price(promo_offer_discount_value)
-            response['price_before_promo_offer_kopeks'] = price_before_promo_offer
+            response['price_before_promo_offer_kopeks'] = wire_catalog_kopeks(price_before_promo_offer)
 
         # Send email notification for email-only users
         if not user.telegram_id and user.email and user.email_verified:
