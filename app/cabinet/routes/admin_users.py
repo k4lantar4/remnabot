@@ -3078,6 +3078,7 @@ async def full_delete_user(
 async def reset_user_trial(
     user_id: int,
     request: ResetTrialRequest = ResetTrialRequest(),
+    subscription_id: int | None = None,
     admin: User = Depends(require_permission('users:subscription')),
     db: AsyncSession = Depends(get_cabinet_db),
 ):
@@ -3087,6 +3088,9 @@ async def reset_user_trial(
     Actions:
     - Delete current subscription if exists
     - User can now activate a new trial
+
+    With ``subscription_id`` only that trial subscription is wiped (404 when it
+    is not the user's, 400 when it is not a trial).
     """
     user = await get_user_by_id(db, user_id)
     if not user:
@@ -3097,8 +3101,17 @@ async def reset_user_trial(
 
     subscription_deleted = False
 
+    selected = None
+    if subscription_id is not None:
+        selected = await _owned_loaded_subscription(db, user, subscription_id)
+        if not selected.is_trial:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Subscription is not a trial',
+            )
+
     # Delete subscriptions if any exist
-    subs = getattr(user, 'subscriptions', None) or []
+    subs = [selected] if selected is not None else (getattr(user, 'subscriptions', None) or [])
     if subs:
         from app.database.crud.subscription import is_active_paid_subscription
 
@@ -3132,7 +3145,13 @@ async def reset_user_trial(
     await db.commit()
 
     reason_text = f' (reason: {request.reason})' if request.reason else ''
-    logger.info('Admin reset trial for user', admin_id=admin.id, user_id=user_id, reason_text=reason_text)
+    logger.info(
+        'Admin reset trial for user',
+        admin_id=admin.id,
+        user_id=user_id,
+        subscription_id=subscription_id,
+        reason_text=reason_text,
+    )
 
     return ResetTrialResponse(
         success=True,
@@ -3146,6 +3165,7 @@ async def reset_user_trial(
 async def reset_user_subscription(
     user_id: int,
     request: ResetSubscriptionRequest = ResetSubscriptionRequest(),
+    subscription_id: int | None = None,
     admin: User = Depends(require_permission('users:subscription')),
     db: AsyncSession = Depends(get_cabinet_db),
 ):
@@ -3156,6 +3176,9 @@ async def reset_user_subscription(
     - Delete subscription from bot database
     - Optionally deactivate in Remnawave panel
     - User will have no active subscription
+
+    With ``subscription_id`` only that subscription is reset (404 when it is
+    not the user's); without it every subscription of the user is.
     """
     user = await get_user_by_id(db, user_id)
     if not user:
@@ -3168,7 +3191,10 @@ async def reset_user_subscription(
     panel_deactivated = False
     panel_error: str | None = None
 
-    subs = getattr(user, 'subscriptions', None) or []
+    if subscription_id is not None:
+        subs = [await _owned_loaded_subscription(db, user, subscription_id)]
+    else:
+        subs = getattr(user, 'subscriptions', None) or []
     if not subs:
         return ResetSubscriptionResponse(
             success=True,
@@ -3247,19 +3273,28 @@ async def reset_user_subscription(
                 panel_error='Ошибка обработки пользователя в Remnawave',
             )
 
-    # Delete all subscriptions from database
+    # Delete the targeted subscriptions (the chosen one, or all of the user's) from database
     from sqlalchemy import delete
 
     for sub in subs:
         await db.execute(delete(SubscriptionServer).where(SubscriptionServer.subscription_id == sub.id))
-    await db.execute(delete(Subscription).where(Subscription.user_id == user_id))
+    if subscription_id is not None:
+        await db.execute(delete(Subscription).where(Subscription.id == subs[0].id))
+    else:
+        await db.execute(delete(Subscription).where(Subscription.user_id == user_id))
     subscription_deleted = True
 
     user.updated_at = datetime.now(UTC)
     await db.commit()
 
     reason_text = f' (reason: {request.reason})' if request.reason else ''
-    logger.info('Admin reset subscription for user', admin_id=admin.id, user_id=user_id, reason_text=reason_text)
+    logger.info(
+        'Admin reset subscription for user',
+        admin_id=admin.id,
+        user_id=user_id,
+        subscription_id=subscription_id,
+        reason_text=reason_text,
+    )
 
     return ResetSubscriptionResponse(
         success=True,
@@ -3270,10 +3305,65 @@ async def reset_user_subscription(
     )
 
 
+async def _owned_loaded_subscription(db: AsyncSession, user: User, subscription_id: int) -> Subscription:
+    """Ownership-checked subscription, preferring the instance eager-loaded on ``user``."""
+    owned = await _get_owned_subscription_or_404(db, subscription_id, user.id)
+    loaded = getattr(user, 'subscriptions', None) or []
+    return next((sub for sub in loaded if sub.id == owned.id), owned)
+
+
+async def _disable_one_subscription(
+    db: AsyncSession,
+    user: User,
+    subscription_id: int,
+    admin: User,
+    request: DisableUserRequest,
+) -> DisableUserResponse:
+    from app.database.crud.subscription import deactivate_subscription
+
+    sub = await _owned_loaded_subscription(db, user, subscription_id)
+
+    panel_deactivated = False
+    panel_error: str | None = None
+    panel_user_id = sub.remnawave_id if settings.is_multi_tariff_enabled() else user.remnawave_id
+    if panel_user_id:
+        try:
+            from app.services.subscription_service import SubscriptionService
+
+            panel_deactivated = bool(await SubscriptionService().disable_remnawave_user(panel_user_id, db=db))
+        except Exception as e:
+            panel_error = 'Ошибка обработки пользователя в Remnawave'
+            logger.warning('Failed to disable Remnawave user for subscription', subscription_id=sub.id, error=e)
+
+    await deactivate_subscription(db, sub, commit=False)
+    if sub.tariff and getattr(sub.tariff, 'is_daily', False):
+        sub.is_daily_paused = True
+    user.updated_at = datetime.now(UTC)
+    await db.commit()
+
+    reason_text = f' (reason: {request.reason})' if request.reason else ''
+    logger.info(
+        'Admin disabled user subscription',
+        admin_id=admin.id,
+        user_id=user.id,
+        subscription_id=sub.id,
+        reason_text=reason_text,
+    )
+    return DisableUserResponse(
+        success=True,
+        message='Subscription disabled successfully',
+        subscription_deactivated=True,
+        panel_deactivated=panel_deactivated,
+        user_blocked=False,
+        panel_error=panel_error,
+    )
+
+
 @router.post('/{user_id}/disable', response_model=DisableUserResponse)
 async def disable_user(
     user_id: int,
     request: DisableUserRequest = DisableUserRequest(),
+    subscription_id: int | None = None,
     admin: User = Depends(require_permission('users:block')),
     db: AsyncSession = Depends(get_cabinet_db),
 ):
@@ -3284,6 +3374,9 @@ async def disable_user(
     - Deactivate subscription in bot database
     - Deactivate in Remnawave panel
     - Block user account
+
+    With ``subscription_id`` only that subscription is deactivated (404 when it
+    is not the user's); the account stays unblocked.
     """
     user = await get_user_by_id(db, user_id)
     if not user:
@@ -3291,6 +3384,12 @@ async def disable_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='User not found',
         )
+
+    if subscription_id is not None:
+        # The owner named one subscription: deactivate exactly that one (paid or
+        # not — the confirmation names it) and leave the account and the user's
+        # other subscriptions alone. No account block, so no env-admin guard.
+        return await _disable_one_subscription(db, user, subscription_id, admin, request)
 
     from app.services.rbac_bootstrap_service import is_protected_from_blocking
 
@@ -3305,9 +3404,9 @@ async def disable_user(
     panel_deactivated = False
     panel_error: str | None = None
 
-    # Deactivate subscriptions in panel (skip if active paid subscription)
     from app.database.crud.subscription import deactivate_subscription, is_active_paid_subscription
 
+    # Deactivate subscriptions in panel (skip if active paid subscription)
     subs = getattr(user, 'subscriptions', None) or []
     has_active_paid = any(is_active_paid_subscription(s) for s in subs)
 
