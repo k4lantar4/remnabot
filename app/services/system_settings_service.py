@@ -693,19 +693,30 @@ class BotConfigurationService:
             'dependencies': 'NOTIFICATION_QUIET_HOURS_START, NOTIFICATION_QUIET_HOURS_END, NOTIFICATION_QUIET_HOURS_TYPES',
         },
         'NOTIFICATION_QUIET_HOURS_START': {
-            'description': 'Start of the quiet window, bot local time (TZ).',
+            'description': (
+                'Start of the quiet window, bot local time (TZ). HH:MM, 24-hour; the window may cross '
+                'midnight (22:00 to 07:00). A malformed time falls back to 00:00.'
+            ),
             'format': 'HH:MM, 24-hour. The window may cross midnight (22:00 to 07:00).',
             'example': '00:00',
             'warning': 'A malformed time falls back to 00:00.',
         },
         'NOTIFICATION_QUIET_HOURS_END': {
-            'description': 'End of the quiet window; held reminders go out in the first check after it.',
+            'description': (
+                'End of the quiet window; held reminders go out in the first check after it. HH:MM, 24-hour. '
+                'A malformed time falls back to 06:00; start equal to end holds nothing.'
+            ),
             'format': 'HH:MM, 24-hour.',
             'example': '06:00',
             'warning': 'A malformed time falls back to 06:00. Start equal to end holds nothing.',
         },
         'NOTIFICATION_QUIET_HOURS_TYPES': {
-            'description': 'Which scheduled reminders wait for the end of the quiet window.',
+            'description': (
+                'Which scheduled reminders wait for the end of the quiet window. Comma list of: expiring, '
+                'expired_followup, traffic_warning, low_balance, daily_charge, autopay_failed. Unknown names '
+                'are ignored; empty holds nothing. Expired, trial-ending and daily-insufficient notices are '
+                'always sent at once.'
+            ),
             'format': (
                 'Comma list of: expiring, expired_followup, traffic_warning, low_balance, daily_charge, '
                 'autopay_failed. Empty holds nothing.'
